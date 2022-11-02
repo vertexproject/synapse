@@ -1077,9 +1077,9 @@ class CortexTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as proxy:
 
+                opts = {'user': core.auth.rootuser.iden}
                 with self.raises(s_exc.AuthDeny):
-                    opts = {'user': core.auth.rootuser.iden}
-                    await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list()
+                    await proxy.callStorm('[ inet:ipv4=1.2.3.4 ]', opts=opts)
 
                 await visi.addRule((True, ('impersonate',)))
 
@@ -1366,16 +1366,16 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = [n.pack() async for n in core.eval('meta:seen:source=$sorc -> *', opts=opts)]
+            nodes = await core.nodes('meta:seen:source=$sorc -> *', opts=opts)
 
             self.len(2, nodes)
-            self.true('inet:dns:a' in [n[0][0] for n in nodes])
+            self.eq('inet:dns:a', nodes[0].ndef[0])
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = [n.pack() async for n in core.eval('meta:seen:source=$sorc :node -> *', opts=opts)]
+            nodes = await core.nodes('meta:seen:source=$sorc :node -> *', opts=opts)
 
             self.len(1, nodes)
-            self.true('inet:dns:a' in [n[0][0] for n in nodes])
+            self.eq('inet:dns:a', nodes[0].ndef[0])
 
     async def test_cortex_lift_regex(self):
 
@@ -1681,9 +1681,10 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             # test some edit syntax
-            async for node in core.eval('[ test:comp=(10, haha) +#foo.bar -#foo.bar ]'):
-                self.nn(node.getTag('foo'))
-                self.none(node.getTag('foo.bar'))
+            nodes = await core.nodes('[ test:comp=(10, haha) +#foo.bar -#foo.bar ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo'))
+            self.none(nodes[0].getTag('foo.bar'))
 
             # Make sure the 'view' key in optional opts parameter works
             nodes = await core.nodes('test:comp', opts={'view': core.view.iden})
@@ -1692,12 +1693,14 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchView):
                 await core.nodes('test:comp', opts={'view': 'xxx'})
 
-            async for node in core.eval('[ test:str="foo bar" :tick=2018]'):
-                self.eq(1514764800000, node.get('tick'))
-                self.eq('foo bar', node.ndef[1])
+            nodes = await core.nodes('[ test:str="foo bar" :tick=2018]')
+            self.len(1, nodes)
+            self.eq(1514764800000, nodes[0].get('tick'))
+            self.eq('foo bar', nodes[0].ndef[1])
 
-            async for node in core.eval('test:str="foo bar" [ -:tick ]'):
-                self.none(node.get('tick'))
+            nodes = await core.nodes('test:str="foo bar" [ -:tick ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('tick'))
 
             msgs = await core.stormlist('test:str [ -:newp ]')
             self.stormIsInErr('No property named newp.', msgs)
@@ -1708,36 +1711,39 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:str +test:newp>newp')
             self.stormIsInErr('No property named test:newp.', msgs)
 
-            async for node in core.eval('[test:guid="*" :tick=2001]'):
-                self.true(s_common.isguid(node.ndef[1]))
-                self.nn(node.get('tick'))
+            nodes = await core.nodes('[test:guid="*" :tick=2001]')
+            self.len(1, nodes)
+            self.true(s_common.isguid(nodes[0].ndef[1]))
+            self.nn(nodes[0].get('tick'))
 
-            nodes = [n.pack() async for n in core.eval('test:str="foo bar" +test:str')]
+            nodes = await core.nodes('test:str="foo bar" +test:str')
             self.len(1, nodes)
 
-            nodes = [n.pack() async for n in core.eval('test:str="foo bar" -test:str:tick')]
+            nodes = await core.nodes('test:str="foo bar" -test:str:tick')
             self.len(1, nodes)
 
             qstr = 'test:str="foo bar" +test:str="foo bar" [ :tick=2015 ] +test:str:tick=2015'
-            nodes = [n.pack() async for n in core.eval(qstr)]
+            nodes = await core.nodes(qstr)
             self.len(1, nodes)
 
             # Seed new nodes via nodedefs
             ndef = ('test:comp', (10, 'haha'))
             opts = {'ndefs': (ndef,)}
             # Seed nodes in the query with ndefs
-            async for node in core.eval('[-#foo]', opts=opts):
-                self.none(node.getTag('foo'))
+            nodes = await core.nodes('[-#foo]', opts=opts)
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo'))
 
             # Seed nodes in the query with idens
             opts = {'idens': (nodes[0][1].get('iden'),)}
-            nodes = await alist(core.eval('', opts=opts))
+            nodes = await core.nodes('', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].pack()[0], ('test:str', 'foo bar'))
 
             # Seed nodes in the query invalid idens
             opts = {'idens': ('deadb33f',)}
-            await self.agenraises(s_exc.NoSuchIden, core.eval('', opts=opts))
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('', opts=opts)
 
             # Test and/or/not
             await core.nodes('[test:comp=(1, test) +#meep.morp +#bleep.blorp +#cond]')
@@ -1760,23 +1766,33 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(q))
             # TODO Add not tests
 
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str@=2018'))
-            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +#test*near=newp'))
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str +test:str:tick*near=newp'))
-            await self.agenraises(s_exc.BadSyntax, core.eval('test:str -> # } limit 10'))
-            await self.agenraises(s_exc.BadSyntax, core.eval('test:str -> # { limit 10'))
-            await self.agenraises(s_exc.BadSyntax, core.eval(' | | '))
-            await self.agenraises(s_exc.BadSyntax, core.eval('[-test:str]'))
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str*near=newp')
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +test:str@=2018')
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +test:str:tick*near=newp')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str +#test*near=newp')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str -> # } limit 10')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str -> # { limit 10')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes(' | | ')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('[-test:str]')
             # Scrape is not a default behavior
-            await self.agenraises(s_exc.BadSyntax, core.eval('pennywise@vertex.link'))
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('pennywise@vertex.link')
 
             self.len(2, await core.nodes(('[ test:str=foo test:str=bar ]')))
 
             opts = {'vars': {'foo': 'bar'}}
 
-            async for node in core.eval('test:str=$foo', opts=opts):
-                self.eq('bar', node.ndef[1])
+            nodes = await core.nodes('test:str=$foo', opts=opts)
+            self.len(1, nodes)
+            self.eq('bar', nodes[0].ndef[1])
 
             # Make sure a tag=valu comparison before the tag is accessed works
             self.len(0, await core.nodes('#newp=2020'))
@@ -4675,19 +4691,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             opts = {'vars': {'fqdns': ('foo.com', 'bar.com')}}
 
-            vals = []
-            async for node in core.eval('for $fqdn in $fqdns { [ inet:fqdn=$fqdn ] }', opts=opts):
-                vals.append(node.ndef[1])
-
-            self.sorteq(('bar.com', 'foo.com'), vals)
+            nodes = await core.nodes('for $fqdn in $fqdns { [ inet:fqdn=$fqdn ] }', opts=opts)
+            self.sorteq(('bar.com', 'foo.com'), [n.ndef[1] for n in nodes])
 
             opts = {'vars': {'dnsa': (('foo.com', '1.2.3.4'), ('bar.com', '5.6.7.8'))}}
 
-            vals = []
-            async for node in core.eval('for ($fqdn, $ipv4) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts):
-                vals.append(node.ndef[1])
-
-            self.eq((('foo.com', 0x01020304), ('bar.com', 0x05060708)), vals)
+            nodes = await core.nodes('for ($fqdn, $ipv4) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts)
+            self.eq((('foo.com', 0x01020304), ('bar.com', 0x05060708)), [n.ndef[1] for n in nodes])
 
             with self.raises(s_exc.StormVarListError):
                 await core.nodes('for ($fqdn,$ipv4,$boom) in $dnsa { [ inet:dns:a=($fqdn,$ipv4) ] }', opts=opts)
@@ -5936,7 +5946,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=11', opts={'view': viewiden})
             self.len(1, nodes)
 
-            await self.agenraises(s_exc.NoSuchView, core.eval('test:int=11', opts={'view': 'NOTAVIEW'}))
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('test:int=11', opts={'view': 'NOTAVIEW'})
 
     async def test_cortex_getLayer(self):
         async with self.getTestCore() as core:
