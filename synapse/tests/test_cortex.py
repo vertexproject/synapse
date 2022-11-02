@@ -2376,8 +2376,8 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (realcore, core):
 
             realcore.model.addUnivProp('hehe', ('int', {}), {})
-            await self.agenlen(1, realcore.eval('[ test:str=woot .hehe=20 ]'))
-            await self.agenlen(1, realcore.eval('[ test:str=pennywise .hehe=8086 ]'))
+            self.len(1, await realcore.nodes('[ test:str=woot .hehe=20 ]'))
+            self.len(1, await realcore.nodes('[ test:str=pennywise .hehe=8086 ]'))
 
             msgs = await core.storm('test:str=woot [-.hehe]').list()
             podes = [m[1] for m in msgs if m[0] == 'node']
@@ -2465,8 +2465,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, core.boss.ps())
 
             async def todo():
-                async for node in core.eval('[ test:str=foo test:str=bar ] | sleep 10'):
-                    evnt.set()
+                async for mesg in core.storm('[ test:str=foo test:str=bar ] | sleep 10'):
+                    if mesg[0] == 'node':
+                        evnt.set()
 
             task = core.schedCoro(todo())
 
@@ -2706,7 +2707,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await prox.addNode('inet:dns:a', ('woot.com', '1.2.3.4'))
 
             opts = {'graph': True}
-            nodes = [n async for n in prox.eval('inet:dns:a', opts=opts)]
+            msgs = await prox.storm('inet:dns:a', opts=opts).list()
+            nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(4, nodes)
 
@@ -2719,7 +2721,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
 
-            nodes = [n async for n in prox.eval('edge:refs', opts=opts)]
+            msgs = await prox.storm('edge:refs', opts=opts).list()
+            nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(3, nodes)
             self.eq(nodes[0][0][0], 'edge:refs')
@@ -2758,7 +2761,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.addFeedData('com.test.record', data)
 
-            vals = [node.ndef[1] async for node in core.eval('test:str')]
+            vals = [node.ndef[1] for node in await core.nodes('test:str')]
 
             vals.sort()
 
@@ -2798,11 +2801,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, proxy.delNodeProp(iden, 'tick'))
 
             await proxy.delNodeTag(node[1].get('iden'), '#foo.bar')
-            self.len(0, await alist(proxy.eval('test:str#foo.bar')))
+            self.eq(0, await proxy.count('test:str#foo.bar'))
 
             opts = {'ndefs': [('inet:user', 'visi')]}
 
-            nodes = await alist(proxy.eval('', opts=opts))
+            msgs = await proxy.storm('', opts=opts).list()
+            nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(1, nodes)
             self.eq('visi', nodes[0][0][1])
@@ -2910,7 +2914,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
             self.stormIsInErr('help does not support per-node invocation', msgs)
 
-            await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
+            await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
             self.len(2, await core.count('inet:user'))
 
@@ -3173,11 +3177,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
             '''
             opts = {'vars': {'foo': 'bar'}}
-            nodes = await alist(core.eval(text, opts=opts))
+            nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
-            for node in nodes:
-                self.eq(node.ndef, ('inet:ipv4', 0x01020304))
-                self.nn(node.getTag('hehe.haha'))
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.nn(nodes[0].getTag('hehe.haha'))
 
     async def test_storm_varlistset(self):
 
@@ -3969,12 +3972,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) [ .seen=(2015,2018) ]'))
 
-            nodes = await core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]')
+            nodes = await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('.seen'), (1420070400000, 1514764800000))
 
-            await self.agenraises(s_exc.NoSuchProp, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp')
 
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
@@ -4075,7 +4079,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
 
             await core1.addFeedData('syn.nodes', podes)
-            await self.agenlen(4, core1.eval('test:int'))
+            self.len(4, await core1.nodes('test:int'))
             self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
             self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
 
@@ -4377,7 +4381,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             ostat = await core.stat()
             self.eq(ostat.get('iden'), coreiden)
             self.isin('layer', ostat)
-            await self.agenlen(1, (core.eval('[test:str=123 :tick=2018]')))
+            self.len(1, await realcore.nodes('[test:str=123 :tick=2018]'))
             nstat = await core.stat()
 
             counts = nstat.get('formcounts')
@@ -4398,10 +4402,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             # check that the sub-query can make changes but doesnt effect main query output
-            node = (await alist(core.eval('[ test:str=foo +#bar ] { [ +#baz ] -#bar }')))[0]
+            nodes = await core.nodes('[ test:str=foo +#bar ] { [ +#baz ] -#bar }')
+            node = nodes[0]
             self.nn(node.getTag('baz'))
 
-            nodes = await alist(core.eval('[ test:str=oof +#bar ] { [ test:int=0xdeadbeef ] }'))
+            await core.nodes('[ test:str=oof +#bar ] { [ test:int=0xdeadbeef ] }')
             self.len(1, await core.nodes('test:int=3735928559'))
 
         # Test using subqueries for filtering
