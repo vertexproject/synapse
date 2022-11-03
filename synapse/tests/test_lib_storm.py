@@ -595,7 +595,7 @@ class StormTest(s_t_utils.SynTest):
                         'name': 'foo.baz',
                         'storm': 'function lol() { [ ou:org=* ] return($node.iden()) }',
                     },
-                ),
+                )
             }
 
             emptypkg = {
