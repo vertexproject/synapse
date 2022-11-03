@@ -46,14 +46,6 @@ class RiskModule(s_module.CoreModule):
                     'interfaces': ('taxonomy',),
                     'doc': 'A taxonomy of availability status values.',
                 }),
-                ('risk:maturity', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
-                    'doc': 'A taxonomy of maturity levels.',
-                }),
-                ('risk:sophistication', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
-                    'doc': 'A taxonomy of sophistication levels.',
-                }),
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
@@ -126,15 +118,13 @@ class RiskModule(s_module.CoreModule):
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'The assessed goals of the threat cluster activity.'}),
 
-                    ('sophistication', ('risk:sophistication', {}), {
+                    ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the threat cluster.'}),
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
-                ('risk:maturity', {}, {}),
-                ('risk:sophistication', {}, {}),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (
@@ -149,13 +139,10 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('risk:tool:software:taxonomy', {}), {
                         'doc': 'An analyst specified taxonomy of software tool types.'}),
 
-                    ('maturity', ('risk:maturity', {}), {
-                        'doc': 'The assessed maturity of the tool.'}),
-
                     ('availability', ('risk:availability', {}), {
                         'doc': 'The assessed availability of the tool.'}),
 
-                    ('sophistication', ('risk:sophistication', {}), {
+                    ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the tool.'}),
 
                     ('reporter', ('ou:org', {}), {
@@ -502,7 +489,7 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.',
                     }),
-                    ('sophistication', ('risk:sophistication', {}), {
+                    ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the attack.',
                     }),
                     ('prev', ('risk:attack', {}), {

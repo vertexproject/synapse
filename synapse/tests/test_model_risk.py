@@ -83,7 +83,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:email'), 'visi@vertex.link')
             self.eq(node.get('used:server'), 'tcp://1.2.3.4')
             self.eq(node.get('used:software'), soft)
-            self.eq(node.get('sophistication'), 'high.')
+            self.eq(node.get('sophistication'), 40)
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
@@ -269,7 +269,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('comment crew',), nodes[0].get('org:names'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
             self.eq('mandiant', nodes[0].get('reporter:name'))
-            self.eq('high.', nodes[0].get('sophistication'))
+            self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('reporter'))
             self.len(1, nodes[0].get('goals'))
@@ -304,7 +304,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
 
-                    :maturity=high
                     :sophistication=high
                     :availability=public
                 ]
@@ -314,8 +313,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('reporter'))
             self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq('high.', nodes[0].get('maturity'))
-            self.eq('high.', nodes[0].get('sophistication'))
+            self.eq(40, nodes[0].get('sophistication'))
             self.eq('public.', nodes[0].get('availability'))
 
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
