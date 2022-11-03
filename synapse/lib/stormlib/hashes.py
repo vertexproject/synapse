@@ -64,7 +64,14 @@ class LibHmac(s_stormtypes.Lib):
     A Storm library for computing RFC2104 HMAC values.
     '''
     _storm_locals = (
-        {'name': 'digest', 'desc': 'Compute the digest value of a message using RFC2140 HMAC.',
+        {'name': 'digest', 'desc': '''
+        Compute the digest value of a message using RFC2140 HMAC.
+
+        Examples:
+            Compute the HMAC-SHA256 digest for a message with a secret key::
+
+                $digest = $lib.crypto.hmac.digest(key=$secretKey.encode(), mesg=$mesg.encode())
+        ''',
          'type': {'type': 'function', '_funcname': '_digest',
                   'args': (
                       {'name': 'key', 'type': 'bytes', 'desc': 'The key to use for the HMAC calculation.'},
