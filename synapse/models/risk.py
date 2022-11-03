@@ -218,7 +218,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The earliest known vendor notification time for the vulnerability.'}),
 
                     ('timeline:vendor:fixed', ('time', {"ismin": True}), {
-                        'doc': 'The earliest known time the vedor issued a fix for the vulnerability.'}),
+                        'doc': 'The earliest known time the vendor issued a fix for the vulnerability.'}),
 
                     ('timeline:exploited', ('time', {"ismin": True}), {
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
@@ -228,7 +228,7 @@ class RiskModule(s_module.CoreModule):
 
                     ('cve:desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The description of the vulnerabilty according to the CVE database.'}),
+                        'doc': 'The description of the vulnerability according to the CVE database.'}),
 
                     ('cve:url', ('inet:url', {}), {
                         'doc': 'A URL linking this vulnerability to the CVE description.'}),
