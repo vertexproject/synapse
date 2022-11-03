@@ -61,15 +61,15 @@ class LibHashes(s_stormtypes.Lib):
 @s_stormtypes.registry.registerLib
 class LibHmac(s_stormtypes.Lib):
     '''
-    A Storm library for computing RFC2140 HMAC values.
+    A Storm library for computing RFC2104 HMAC values.
     '''
     _storm_locals = (
-        {'name': 'sign', 'desc': 'Sign a message with a key using RFC2140 HMAC.',
-         'type': {'type': 'function', '_funcname': '_sign',
+        {'name': 'digest', 'desc': 'Compute the digest value of a message using RFC2140 HMAC.',
+         'type': {'type': 'function', '_funcname': '_digest',
                   'args': (
                       {'name': 'key', 'type': 'bytes', 'desc': 'The key to use for the HMAC calculation.'},
-                      {'name': 'mesg', 'type': 'bytes', 'desc': 'The mesg to sign.'},
-                      {'name': 'digest', 'type': 'str', 'default': 'sha256',
+                      {'name': 'mesg', 'type': 'bytes', 'desc': 'The message use for the HMAC calculation.'},
+                      {'name': 'alg', 'type': 'str', 'default': 'sha256',
                        'desc': 'The digest algorithm to use.'},
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The binary digest of the HMAC value.'}}},
@@ -78,21 +78,23 @@ class LibHmac(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
-            'sign': self._sign,
+            'digest': self._digest,
         }
 
-    async def _sign(self, key, mesg, digest='sha256') -> bytes:
+    async def _digest(self, key, mesg, alg='sha256') -> bytes:
         key = await s_stormtypes.toprim(key)
         if not isinstance(key, bytes):
             raise s_exc.BadArg(mesg='key is not bytes.', name='key')
         mesg = await s_stormtypes.toprim(mesg)
         if not isinstance(mesg, bytes):
             raise s_exc.BadArg(mesg='mesg is not bytes.', name='mesg')
-        digest = await s_stormtypes.tostr(digest)
+        alg = await s_stormtypes.tostr(alg)
         try:
-            valu = hmac.digest(key=key, msg=mesg, digest=digest)
+            valu = hmac.digest(key=key, msg=mesg, digest=alg)
         except ValueError as e:
             if 'unsupported' in str(e):
-                raise s_exc.BadArg(mesg=f'Invalid hmac digest provided: {digest}', digest=digest)
-            raise s_exc.StormRuntimeError(mesg=f'Error computing hmac: {e}')
+                raise s_exc.BadArg(mesg=f'Invalid hmac digest provided: {alg}', alg=alg)
+            # other value errors would raise potentially from inside of openssl, which cpython
+            # raises if they occur but does not cover in the hmac stdlib test suite.
+            raise s_exc.StormRuntimeError(mesg=f'Error computing hmac: {e}')  # pragma: no cover
         return valu

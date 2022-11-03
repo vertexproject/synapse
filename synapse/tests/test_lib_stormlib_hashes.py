@@ -32,7 +32,7 @@ class CryptoHashesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             q = '''$key=$key.encode() $mesg=$mesg.encode()
-            return ( $lib.crypto.hmac.sign(key=$key, mesg=$mesg, digest=$mode) )
+            return ( $lib.crypto.hmac.digest(key=$key, mesg=$mesg, alg=$mode) )
             '''
 
             # RFC 2104 test vector
@@ -81,12 +81,12 @@ class CryptoHashesTest(s_test.SynTest):
 
             # bad key and data
             opts = {'vars': {'mesg': data}}
-            bq = 'return( $lib.crypto.hmac.sign(key=1234, mesg=$mesg.encode()) )'
+            bq = 'return( $lib.crypto.hmac.digest(key=1234, mesg=$mesg.encode()) )'
             with self.raises(s_exc.BadArg):
                 await core.callStorm(bq, opts=opts)
 
             opts = {'vars': {'key': key}}
-            bq = 'return( $lib.crypto.hmac.sign(key=$key.encode(), mesg=1234) )'
+            bq = 'return( $lib.crypto.hmac.digest(key=$key.encode(), mesg=1234) )'
             with self.raises(s_exc.BadArg):
                 await core.callStorm(bq, opts=opts)
 
@@ -97,7 +97,7 @@ class CryptoHashesTest(s_test.SynTest):
             digest = '773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe'
             b64q = '''
             $key=$lib.base64.decode($key) $mesg=$lib.base64.decode($mesg)
-            return ( $lib.crypto.hmac.sign(key=$key, mesg=$mesg, digest=$mode) )
+            return ( $lib.crypto.hmac.digest(key=$key, mesg=$mesg, alg=$mode) )
             '''
             opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
             ret = await core.callStorm(b64q, opts=opts)
@@ -113,10 +113,10 @@ class CryptoHashesTest(s_test.SynTest):
             $const = aws4_request
             $kSecret = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
             $seed = `AWS4{$kSecret}`
-            $kDate = $lib.crypto.hmac.sign(key=$seed.encode(), mesg=$date.encode())
-            $kRegion = $lib.crypto.hmac.sign(key=$kDate, mesg=$region.encode())
-            $kService = $lib.crypto.hmac.sign(key=$kRegion, mesg=$service.encode())
-            $kSigning = $lib.crypto.hmac.sign(key=$kService, mesg=$const.encode())
+            $kDate = $lib.crypto.hmac.digest(key=$seed.encode(), mesg=$date.encode())
+            $kRegion = $lib.crypto.hmac.digest(key=$kDate, mesg=$region.encode())
+            $kService = $lib.crypto.hmac.digest(key=$kRegion, mesg=$service.encode())
+            $kSigning = $lib.crypto.hmac.digest(key=$kService, mesg=$const.encode())
             return ( $kSigning )
             '''
             ret = await core.callStorm(q)
@@ -129,7 +129,7 @@ class CryptoHashesTest(s_test.SynTest):
 20150830T123600Z
 20150830/us-east-1/iam/aws4_request
 f536975d06c0309214f805bb90ccff089219ecd68b2577efef23edd43b7e1a59'''
-            return ( $lib.crypto.hmac.sign($signingKey, $stringToSign.encode()) )
+            return ( $lib.crypto.hmac.digest($signingKey, $stringToSign.encode()) )
             """
             digest = '5d672d79c15b13162d9279b0855cfba6789a8edb4c82c400e06b5924a6f2b5d7'
             ret = await core.callStorm(q)
