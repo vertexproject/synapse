@@ -100,7 +100,7 @@ class LibHmac(s_stormtypes.Lib):
             valu = hmac.digest(key=key, msg=mesg, digest=alg)
         except ValueError as e:
             if 'unsupported' in str(e):
-                raise s_exc.BadArg(mesg=f'Invalid hmac digest provided: {alg}', alg=alg)
+                raise s_exc.BadArg(mesg=f'Invalid hmac algorithm provided: {alg}', alg=alg)
             # other value errors would raise potentially from inside of openssl, which cpython
             # raises if they occur but does not cover in the hmac stdlib test suite.
             raise s_exc.StormRuntimeError(mesg=f'Error computing hmac: {e}')  # pragma: no cover
