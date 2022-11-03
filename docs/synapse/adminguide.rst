@@ -54,11 +54,10 @@ the ``getMirrorStatus()`` API on the ``storm:layer`` object within the Storm run
 Add Extended Model Elements
 ---------------------------
 
-The Synapse data model in a Cortex can be extended with custom forms, properties and tag
-properties by using the model extension Storm Library (:ref:`stormlibs-lib-model-ext`). Extended model
+The Synapse data model in a Cortex can be extended with custom forms and properties 
+by using the model extension Storm Library (:ref:`stormlibs-lib-model-ext`). Extended model
 forms and properties must have names beginning with an underscore (``_``) to avoid potential
-conflicts with built-in model elements. Tag properties are not part of the base Synapse
-data model and are not required to begin with an underscore.
+conflicts with built-in model elements.
 
 When adding a form, ``$lib.model.ext.addForm`` takes the following arguments:
 
@@ -77,7 +76,10 @@ When adding a form, ``$lib.model.ext.addForm`` takes the following arguments:
 To add a new form named ``_foocorp:name``, which contains string values which will be
 normalized to lowercase, with whitespace stripped from the beginning/end::
 
-    $lib.model.ext.addForm(_foocorp:name, str, ({'lower': $lib.true, 'strip': $lib.true}), ({'doc': 'Foocorp name'}))
+    $typeopts = ({'lower': $lib.true, 'strip': $lib.true})
+    $typeinfo = ({'doc': 'Foocorp name.'})
+
+    $lib.model.ext.addForm(_foocorp:name, str, $typeopts, $typeinfo)
 
 If the form is no longer in use and there are no nodes of this form in the Cortex, it can be removed with::
 
@@ -100,18 +102,31 @@ When adding properties, ``$lib.model.ext.addFormProp`` takes the following argum
 To add a property named ``_score`` to the ``_foocorp:name`` form which contains
 int values between 0 and 100::
 
-    $lib.model.ext.addFormProp(_foocorp:name, _score, (int, ({'min': 0, 'max': 100})), ({'doc': 'Score for this name.'}))
+    $typeopts = ({'min': 0, 'max': 100})
+    $propinfo = ({'doc': 'Score for this name.'})
+
+    $lib.model.ext.addFormProp(_foocorp:name, _score, (int, $typeopts), $propinfo)
 
 To add a property named ``_aliases`` to the ``_foocorp:name`` form which contains a unique array
 of ``ou:name`` values::
 
-    $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, ({'type': 'ou:name', 'uniq': $lib.true})), ({'doc': 'Aliases for this name.'}))
+    $typeopts = ({'type': 'ou:name', 'uniq': $lib.true})
+    $propinfo = ({'doc': 'Aliases for this name.'})
+
+    $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinfo)
+
+Properties may also be added to existing forms, for example, to add a property named
+``_classification`` to ``inet:fqdn`` which must contain a string from a predefined set of
+values::
+
+    $typeopts = ({'enums': 'unknown,benign,malicious'})
+    $propinfo = ({'doc': 'Classification for this FQDN.'})
+
+    $lib.model.ext.addFormProp(inet:fqdn, _classification, (str, $typeopts), $propinfo)
+
 
 Similar to ``$lib.model.ext.addFormProp``, ``$lib.model.ext.addUnivProp`` takes the same
 ``propname``, ``typedef``, and ``propinfo`` arguments, but applies to all forms.
-
-``$lib.model.ext.addTagProp`` also accepts the same arguments as ``$lib.model.ext.addUnivProp``,
-but the property name is not required to start with an underscore.
 
 .. _Synapse data model type: autodocs/datamodel_types.html
 .. _the blog post on Synapse Power-Ups: https://vertex.link/blogs/synapse-power-ups/
