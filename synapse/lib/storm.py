@@ -254,7 +254,7 @@ reqValidPkgdef = s_config.getJsValidator({
                         },
                     },
                 },
-                'required': ['name', 'varname', 'desc', 'type'],
+                'required': ['name', 'varname', 'desc', 'type', 'scopes'],
             },
         },
     },
