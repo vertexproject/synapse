@@ -39,6 +39,7 @@ configvars:
     - name: Tag Prefix
       varname: testpkg:tag:prefix
       desc: Tag prefix to use when recording tags.
+      scopes: [ global, self ]
       default: rep.testpkg
       workflowconfig: true
       type: [str, [str, str]]

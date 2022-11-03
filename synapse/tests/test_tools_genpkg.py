@@ -106,6 +106,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][1]['name'], 'Tag Prefix')
             self.eq(pdef['configvars'][1]['varname'], 'testpkg:tag:prefix')
             self.eq(pdef['configvars'][1]['desc'], 'Tag prefix to use when recording tags.')
+            self.eq(pdef['configvars'][1]['scopes'], ['global', 'self'])
             self.eq(pdef['configvars'][1]['default'], 'rep.testpkg')
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
             self.eq(pdef['configvars'][1]['type'], ['str', ['str', 'str']])
