@@ -226,12 +226,18 @@ class RiskModule(s_module.CoreModule):
                     ('timeline:exploited', ('time', {}), {
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
-                    # TODO discuss * -(has)> risk:vuln and/or :tag
-
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
 
-                    # TODO embed CVE props here and deprecate the it:sec:cve form
+                    ('cve:desc', ('it:sec:cve', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the vulnerabilty according to the CVE database.'}),
+
+                    ('cve:url', ('inet:url', {}), {
+                        'doc': 'A URL linking this vulnerability to the CVE description.'}),
+
+                    ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of documentation URLs provided by the CVE database.'}),
 
                     ('nist:nvd:source', ('ou:name', {}), {
                         'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
