@@ -109,7 +109,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][1]['scopes'], ['global', 'self'])
             self.eq(pdef['configvars'][1]['default'], 'rep.testpkg')
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
-            self.eq(pdef['configvars'][1]['type'], ['str', ['str', 'str']])
+            self.eq(pdef['configvars'][1]['type'], ['inet:fqdn', ['str', 'inet:url']])
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
 

@@ -344,7 +344,7 @@ reqValidPkgdef = s_config.getJsValidator({
         'configvartype': {
             'anyOf': [
                 {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
-                {'enum': list(s_datamodel.Model().types)},
+                {'type': 'string'},
             ]
         },
         # deprecated

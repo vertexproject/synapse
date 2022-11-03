@@ -42,7 +42,7 @@ configvars:
       scopes: [ global, self ]
       default: rep.testpkg
       workflowconfig: true
-      type: [str, [str, str]]
+      type: [inet:fqdn, [str, inet:url]]
 
 commands:
     - name: testpkgcmd

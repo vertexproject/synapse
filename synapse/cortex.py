@@ -2219,6 +2219,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'Storm package {name} conflicts with {conflict.get("name")}{conflict.get("version") or ""}.'
             raise s_exc.StormPkgConflicts(mesg=mesg)
 
+    def _reqStormPkgVarType(self, pkgname, vartype):
+        if isinstance(vartype, (tuple, list)):
+            for vtyp in vartype:
+                self._reqStormPkgVarType(pkgname, vtyp)
+        else:
+            if vartype not in self.model.types:
+                mesg = f'Storm package {pkgname} has unknown config var type {vartype}.'
+                raise s_exc.NoSuchType(mesg=mesg, type=vartype)
+
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
         Normalize and validate a storm package (optionally storm code).
@@ -2268,6 +2277,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Validate package def (post normalization)
         s_storm.reqValidPkgdef(pkgdef)
+
+        for configvar in pkgdef.get('configvars', ()):
+            self._reqStormPkgVarType(pkgname, configvar.get('type'))
 
     async def loadStormPkg(self, pkgdef):
         '''
