@@ -42,6 +42,18 @@ class RiskModule(s_module.CoreModule):
                 ('risk:tool:software:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
                 }),
+                ('risk:availability', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of availability status values.',
+                }),
+                ('risk:maturity', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of maturity levels.',
+                }),
+                ('risk:sophistication', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of sophistication levels.',
+                }),
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
@@ -85,60 +97,86 @@ class RiskModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ex': "apt1 (mandiant)",
                         'doc': 'The name of the threat cluster.'}),
+
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
+
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization who published the threat cluster.'}),
+
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization who published the threat cluster.'}),
+
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
+
                     ('org:loc', ('loc', {}), {
                         'doc': 'The assessed location of the organization that the threat cluster is attributed to.'}),
+
                     ('org:name', ('ou:name', {}), {
                         'ex': 'apt1',
                         'doc': 'The name of the organization that the threat cluster is attributed to.'}),
+
                     ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the organization that the threat cluster is attributed to.'}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'The assessed goals of the threat cluster activity.'}),
+
+                    ('sophistication', ('risk:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the threat cluster.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
+                ('risk:maturity', {}, {}),
+                ('risk:sophistication', {}, {}),
+                ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (
+
                     ('tag', ('syn:tag', {}), {
                         'ex': 'rep.mandiant.tabcteng',
-                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.',
-                    }),
+                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': "A description of the tool's use in threat activity.",
-                    }),
+                        'doc': "A description of the tool's use in threat activity."}),
+
                     ('type', ('risk:tool:software:taxonomy', {}), {
-                        'doc': 'An analyst specified taxonomy of software tool types.',
-                    }),
+                        'doc': 'An analyst specified taxonomy of software tool types.'}),
+
+                    ('maturity', ('risk:maturity', {}), {
+                        'doc': 'The assessed maturity of the tool.'}),
+
+                    ('availability', ('risk:availability', {}), {
+                        'doc': 'The assessed availability of the tool.'}),
+
+                    ('sophistication', ('risk:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the tool.'}),
+
                     ('reporter', ('ou:org', {}), {
-                        'doc': 'The organization which reported the tool.',
-                    }),
+                        'doc': 'The organization which reported the tool.'}),
+
                     ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization which reported the tool.',
-                    }),
+                        'doc': 'The name of the organization which reported the tool.'}),
+
                     ('soft', ('it:prod:soft', {}), {
-                        'doc': 'The authoritative software family of the tool.',
-                    }),
+                        'doc': 'The authoritative software family of the tool.'}),
+
                     ('soft:name', ('it:prod:softname', {}), {
-                        'doc': 'The reported primary name of the tool.',
-                    }),
+                        'doc': 'The reported primary name of the tool.'}),
+
                     ('soft:names', ('array', {'type': 'it:prod:softname'}), {
-                        'doc': 'An array of reported alterate names for the tool.',
-                    }),
+                        'doc': 'An array of reported alterate names for the tool.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique'}), {
                         'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
-                    }),
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
                 )),
                 ('risk:mitigation', {}, (
                     ('vuln', ('risk:vuln', {}), {
@@ -153,29 +191,40 @@ class RiskModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
                 )),
-                # TODO discuss...
-                ('risk:exploit', {}, ( # A specific implementation of an exploit for a vulnerability.
-                    # -(uses)> risk:vuln or :vuln?
-                    # media:news -(refs)> risk:exploit
-                    ('name', ('str', {}), {}),
-                    ('desc', ('str', {}), {}),
-                    ('url', ('inet:url', {}), {}),
-                    ('file', ('file:bytes', {}), {}),
-                    ('tag', ('syn:tag', {}), {}),
-                )),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
-                        'doc': 'A user specified name for the vulnerability.',
-                    }),
-                    ('type', ('str', {}), {
-                        'doc': 'A user specified type for the vulnerability.',
-                    }),
-                    ('desc', ('str', {}), {
-                        'doc': 'A description of the vulnerability.',
-                        'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A user specified name for the vulnerability.'}),
 
-                    ('exploit:published', ('time', {}), {}),
+                    ('type', ('str', {}), {
+                        'doc': 'A user specified type for the vulnerability.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the vulnerability.'}),
+
+                    ('mitigated', ('bool', {}), {
+                        'doc': 'Set to true if a mitigation/fix is available for the vulnerability.'}),
+
+                    ('exploited', ('bool', {}), {
+                        'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
+
+                    ('timeline:discovered', ('time', {}), {
+                        'doc': 'The earliest known discovery time for the vulnerability.'}),
+
+                    ('timeline:published', ('time', {}), {
+                        'doc': 'The earliest known time the vulnerability was published.'}),
+
+                    ('timeline:vendor:notified', ('time', {}), {
+                        'doc': 'The earliest known vendor notification time for the vulnerability.'}),
+
+                    ('timeline:vendor:fixed', ('time', {}), {
+                        'doc': 'The earliest known discovery time for the vulnerability'}),
+
+                    ('timeline:mitigated', ('time', {}), {
+                        'doc': 'The earliest known discovery time for the vulnerability'}),
+
+                    ('timeline:exploited', ('time', {}), {
+                        'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
                     # TODO discuss * -(has)> risk:vuln and/or :tag
 
@@ -449,6 +498,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.',
+                    }),
+                    ('sophistication', ('risk:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the attack.',
                     }),
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.',
