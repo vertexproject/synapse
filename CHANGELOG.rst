@@ -4,6 +4,24 @@
 Synapse Changelog
 *****************
 
+v2.113.0 - TBD
+==============
+
+Features and Enhancements
+-------------------------
+- stub
+  (`#2891 <https://github.com/vertexproject/synapse/pull/2891>`_)
+
+Bugfixes
+--------
+- stub
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+
+Improved Documentation
+----------------------
+- stub
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+
 v2.112.0 - 2022-10-18
 =====================
 
