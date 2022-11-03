@@ -41,7 +41,7 @@ class LibGen(s_stormtypes.Lib):
                   'args': (
                       {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A risk:vuln node with the given name.'}}},
+                  'returns': {'type': 'storm:node', 'desc': 'A risk:vuln node with the given CVE.'}}},
     )
     _storm_lib_path = ('gen',)
 

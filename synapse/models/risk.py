@@ -208,19 +208,19 @@ class RiskModule(s_module.CoreModule):
                     ('exploited', ('bool', {}), {
                         'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
 
-                    ('timeline:discovered', ('time', {}), {
+                    ('timeline:discovered', ('time', {"ismin": True}), {
                         'doc': 'The earliest known discovery time for the vulnerability.'}),
 
-                    ('timeline:published', ('time', {}), {
+                    ('timeline:published', ('time', {"ismin": True}), {
                         'doc': 'The earliest known time the vulnerability was published.'}),
 
-                    ('timeline:vendor:notified', ('time', {}), {
+                    ('timeline:vendor:notified', ('time', {"ismin": True}), {
                         'doc': 'The earliest known vendor notification time for the vulnerability.'}),
 
-                    ('timeline:vendor:fixed', ('time', {}), {
-                        'doc': 'The earliest known discovery time for the vulnerability'}),
+                    ('timeline:vendor:fixed', ('time', {"ismin": True}), {
+                        'doc': 'The earliest known time the vedor issued a fix for the vulnerability.'}),
 
-                    ('timeline:exploited', ('time', {}), {
+                    ('timeline:exploited', ('time', {"ismin": True}), {
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
                     ('cve', ('it:sec:cve', {}), {
@@ -242,7 +242,7 @@ class RiskModule(s_module.CoreModule):
                     ('nist:nvd:published', ('time', {}), {
                         'doc': 'The date the vulnerability was first published in the NVD.'}),
 
-                    ('nist:nvd:modified', ('time', {}), {
+                    ('nist:nvd:modified', ('time', {"ismax": True}), {
                         'doc': 'The date the vulnerability was last modified in the NVD.'}),
 
                     ('cisa:kev:name', ('str', {}), {
@@ -261,10 +261,10 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The product name listed in the CISA KEV database.'}),
 
                     ('cisa:kev:added', ('time', {}), {
-                        'doc': 'The the date the vulnerability was added to the CISA KEV database.'}),
+                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
 
                     ('cisa:kev:duedate', ('time', {}), {
-                        'doc': 'The the date the action is due according to the CISA KEV database.'}),
+                        'doc': 'The date the action is due according to the CISA KEV database.'}),
 
                     ('cvss:av', ('str', {'enums': 'N,A,V,L'}), {
                         'doc': 'The CVSS Attack Vector (AV) value.'}),
