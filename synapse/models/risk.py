@@ -220,16 +220,13 @@ class RiskModule(s_module.CoreModule):
                     ('timeline:vendor:fixed', ('time', {}), {
                         'doc': 'The earliest known discovery time for the vulnerability'}),
 
-                    ('timeline:mitigated', ('time', {}), {
-                        'doc': 'The earliest known discovery time for the vulnerability'}),
-
                     ('timeline:exploited', ('time', {}), {
                         'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
 
-                    ('cve:desc', ('it:sec:cve', {}), {
+                    ('cve:desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'The description of the vulnerabilty according to the CVE database.'}),
 

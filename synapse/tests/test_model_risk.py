@@ -57,6 +57,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :used:file="*"
                     :used:server=tcp://1.2.3.4/
                     :used:software={soft}
+                    :sophistication=high
             ]''')
             self.eq(node.ndef, ('risk:attack', attk))
             self.eq(node.get('time'), 1580601600000)
@@ -82,6 +83,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:email'), 'visi@vertex.link')
             self.eq(node.get('used:server'), 'tcp://1.2.3.4')
             self.eq(node.get('used:software'), soft)
+            self.eq(node.get('sophistication'), 'high.')
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
@@ -94,13 +96,61 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=myvuln
                     :type=mytype
                     :desc=mydesc
+
+                    :exploited=$lib.true
+                    :mitigated=$lib.false
+
+                    :timeline:exploited=2020-01-14
+                    :timeline:discovered=2020-01-14
+                    :timeline:vendor:notified=2020-01-14
+                    :timeline:vendor:fixed=2020-01-14
+                    :timeline:published=2020-01-14
+
                     :cve=cve-2013-0000
+                    :cve:desc="Woot Woot"
+                    :cve:references=(http://vertex.link,)
+
+                    :nist:nvd:source=NistSource
+                    :nist:nvd:published=2021-10-11
+                    :nist:nvd:modified=2021-10-11
+
+                    :cisa:kev:name=KevName
+                    :cisa:kev:desc=KevDesc
+                    :cisa:kev:action=KevAction
+                    :cisa:kev:vendor=KevVendor
+                    :cisa:kev:product=KevProduct
+                    :cisa:kev:added=2022-01-02
+                    :cisa:kev:duedate=2022-01-02
             ]''')
             self.eq(node.ndef, ('risk:vuln', vuln))
             self.eq(node.get('name'), 'myvuln')
             self.eq(node.get('type'), 'mytype')
             self.eq(node.get('desc'), 'mydesc')
+
+            self.eq(node.get('exploited'), True)
+            self.eq(node.get('mitigated'), False)
+
+            self.eq(node.get('timeline:exploited'), 1578960000000)
+            self.eq(node.get('timeline:discovered'), 1578960000000)
+            self.eq(node.get('timeline:vendor:notified'), 1578960000000)
+            self.eq(node.get('timeline:vendor:fixed'), 1578960000000)
+            self.eq(node.get('timeline:published'), 1578960000000)
+
             self.eq(node.get('cve'), 'cve-2013-0000')
+            self.eq(node.get('cve:desc'), 'Woot Woot')
+            self.eq(node.get('cve:references'), ('http://vertex.link',))
+
+            self.eq(node.get('nist:nvd:source'), 'nistsource')
+            self.eq(node.get('nist:nvd:published'), 1633910400000)
+            self.eq(node.get('nist:nvd:modified'), 1633910400000)
+
+            self.eq(node.get('cisa:kev:name'), 'KevName')
+            self.eq(node.get('cisa:kev:desc'), 'KevDesc')
+            self.eq(node.get('cisa:kev:action'), 'KevAction')
+            self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
+            self.eq(node.get('cisa:kev:product'), 'kevproduct')
+            self.eq(node.get('cisa:kev:added'), 1641081600000)
+            self.eq(node.get('cisa:kev:duedate'), 1641081600000)
             self.len(1, await core.nodes('risk:attack :target -> ps:contact'))
             self.len(1, await core.nodes('risk:attack :attacker -> ps:contact'))
 
@@ -208,6 +258,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :org:names=(comment crew,)
                     :goals=(*,)
                     :techniques=(*,)
+                    :sophistication=high
                 ]
             ''')
             self.len(1, nodes)
@@ -218,6 +269,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(('comment crew',), nodes[0].get('org:names'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
             self.eq('mandiant', nodes[0].get('reporter:name'))
+            self.eq('high.', nodes[0].get('sophistication'))
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('reporter'))
             self.len(1, nodes[0].get('goals'))
@@ -251,6 +303,10 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=vertex
                     :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
+
+                    :maturity=high
+                    :sophistication=high
+                    :availability=public
                 ]
             ''')
             self.len(1, nodes)
@@ -258,6 +314,9 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('reporter'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('high.', nodes[0].get('maturity'))
+            self.eq('high.', nodes[0].get('sophistication'))
+            self.eq('public.', nodes[0].get('availability'))
 
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
             self.eq(('beacon',), nodes[0].get('soft:names'))
