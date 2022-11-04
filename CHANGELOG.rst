@@ -155,6 +155,23 @@ Features and Enhancements
     When used with ``meta:source`` nodes, the edge indicates the target
     node was observed by the source node.
 
+  ``stole``
+    When used with a ``risk:compromise`` node, the edge indicates the target
+    node was stolen or copied as a result of the compromise.
+
+  ``targets``
+    When used with ``risk:attack``, the edge indicates the target
+    node is targeted by the attack.
+
+    When used with ``risk:attack`` and ``ou:industry`` nodes, the edge
+    indicates the attack targeted the industry
+
+    When used with ``risk:threat``, the edge indicates the target
+    node is targeted by the threat cluster.
+
+    When used with ``risk:threat`` and ``ou:industry`` nodes, the edge
+    indicates the threat cluster targets the industry.
+
   ``uses``
     When used with ``ou:campaign`` and ``ou:technique`` nodes, the edge
     indicates the campaign used a given technique.
@@ -162,36 +179,32 @@ Features and Enhancements
     When used with ``ou:org`` and ``ou:technique`` nodes, the edge
     indicates the organization used a given technique.
 
+    When used with ``risk:threat``, the edge indicates the target
+    node was used to facilitate the attack.
+
     When used with ``risk:attack`` and ``ou:technique`` nodes, the edge
     indicates the attack used a given technique.
-
-    When used with ``risk:threat`` and ``ou:technique`` nodes, the edge
-    indicates the threat cluster uses the technique.
-
-    When used with ``risk:tool:software`` and ``ou:technique`` nodes, the edge
-    indicates the tool uses the technique.
 
     When used with ``risk:attack`` and ``risk:vuln`` nodes, the edge
     indicates the attack used the vulnerability.
 
-    When used with ``risk:threat`` and ``risk:vuln`` nodes, the edge
-    indicates the threat cluster uses the vulnerability.
+    When used with ``risk:tool:software``, the edge indicates the target
+    node is used by the tool.
+
+    When used with ``risk:tool:software`` and ``ou:technique`` nodes, the edge
+    indicates the tool uses the technique.
 
     When used with ``risk:tool:software`` and ``risk:vuln`` nodes, the edge
     indicates the tool used the vulnerability.
 
-    When used with ``risk:attack`` and ``ou:industry`` nodes, the edge
-    indicates the attack targeted the industry.
+    When used with ``risk:threat``, the edge indicates the target
+    node was used by threat cluster.
 
-    When used with ``risk:threat`` and ``ou:industry`` nodes, the edge
-    indicates the threat cluster targets the industry.
+    When used with ``risk:threat`` and ``ou:technique`` nodes, the edge
+    indicates the threat cluster uses the technique.
 
-    When used with ``risk:tool:software``, the edge indicates the target
-    node is used by the tool.
-
-  ``stole``
-    When used with a ``risk:compromise`` node, the edge indicates the target
-    node was stolen or copied as a result of the compromise.
+    When used with ``risk:threat`` and ``risk:vuln`` nodes, the edge
+    indicates the threat cluster uses the vulnerability.
 
 - Add ``$lib.gen.vulnByCve()`` to help generate ``risk:vuln`` nodes for CVEs.
   (`#2903 <https://github.com/vertexproject/synapse/pull/2903>`_)
