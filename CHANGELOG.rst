@@ -36,11 +36,11 @@ Features and Enhancements
     Add a form to record a link contained in the post text.
 
   ``it:mitre:attack:group``
-    Add a ``isnow`` property to record the potential for MITRE groups to be
+    Add an ``isnow`` property to record the potential for MITRE groups to be
     deprecated and renamed.
 
   ``it:mitre:attack:software``
-    Add a ``isnow`` property to record the potential for MITRE software to be
+    Add an ``isnow`` property to record the potential for MITRE software to be
     deprecated and renamed.
 
   ``it:prod:soft:taxonomy``
@@ -63,9 +63,9 @@ Features and Enhancements
     Add a form for recording different media topics.
 
   ``meta:rule``
-    Add a ``url`` property to record a url that doucments as rule.
+    Add a ``url`` property to record a URL that documents as rule.
 
-    Add a ``ext:id`` property to record a external identifier for the rule.
+    Add an ``ext:id`` property to record an external identifier for the rule.
 
   ``meta:sophistication``
     Add a form to record sophistication score with named values: ``very low``,
@@ -73,7 +73,7 @@ Features and Enhancements
 
   ``ou:campaign``
     Add a ``sophistication`` property to record the assessed sophistication of
-    an campaign.
+    a campaign.
 
     Deprecate the ``techniques`` property in favor of using the ``uses`` light
     edge.
@@ -88,12 +88,12 @@ Features and Enhancements
 
   ``ou:technique``
     Add a ``sophistication`` property to record the assessed sophistication of
-    an technique.
+    a technique.
 
   ``risk:alert``
     Add a ``url`` property for a URL that documents the alert.
 
-    Add a ``ext:id`` property to record a external ID for the alert.
+    Add an ``ext:id`` property to record an external ID for the alert.
 
   ``risk:attack``
     Add a ``sophistication`` property to record the assessed sophistication of
@@ -104,13 +104,13 @@ Features and Enhancements
 
   ``risk:threat``
     Add a ``sophistication`` property to record the assessed sophistication of
-    an threat cluster.
+    a threat cluster.
 
     Deprecate the ``techniques`` property in favor of the ``uses`` light edge.
 
   ``risk:tool:software``
-    Add a ``availability`` property to record the assessed availability of the
-    tool
+    Add an ``availability`` property to record the assessed availability of the
+    tool.
 
     Add a ``sophistication`` property to record the assessed sophistication of
     the software.
@@ -123,10 +123,10 @@ Features and Enhancements
     Rename the type ``risk:tool:taxonomy`` to ``risk:tool:software:taxonomy``.
 
   ``risk:vuln``
-    Add a ``mitigated`` property to record if a mitigation or fix is avilable
+    Add a ``mitigated`` property to record if a mitigation or fix is available
     for the vulnerability.
 
-    Add a ``exploited`` property to record if the vulnerability has been
+    Add an ``exploited`` property to record if the vulnerability has been
     exploited in the wild.
 
     Add ``timeline:discovered``, ``timeline:published``,
@@ -146,7 +146,7 @@ Features and Enhancements
     Add ``cisa:kev:name``, ``cisa:kev:desc``, ``cisa:kev:action``,
     ``cisa:kev:vendor``, ``cisa:kev:product``, ``cisa:kev:added``,
     ``cisa:kev:duedate`` properties to record information about the CISA KEV
-    database for the vulnerability.
+    database entry for the vulnerability.
 
 - Annotate the following light edges.
   (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
@@ -199,10 +199,10 @@ Features and Enhancements
   (`#2886 <https://github.com/vertexproject/synapse/pull/2886>`_)
 - Add ``$lib.crypto.hmac.digest()`` to compute RFC2104 digests in Storm.
   (`#2902 <https://github.com/vertexproject/synapse/pull/2902>`_)
-- Update the Storm ``storm:http:resp`` ``.json()`` method to add optional
+- Update the Storm ``storm:http:resp.json()`` method to add optional
   ``encoding`` and ``errors`` arguments, to control how data is deserialized.
   (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
-- Update the Storm ``bytes``  ``decode()`` method to add an optional
+- Update the Storm ``bytes.decode()`` method to add an optional
   ``errors`` argument, to control how errors are handled when decoding data.
   (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
 - Logging of role and user permission changes now includes the authgate iden
