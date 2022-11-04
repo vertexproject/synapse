@@ -195,7 +195,7 @@ Features and Enhancements
   ``encoding`` and ``errors`` arguments, to control how data is deserialized.
   (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
 - Update the Storm ``bytes``  ``decode()`` method to add an optional
- ``errors`` argument, to control how errors are handled when decoding data.
+  ``errors`` argument, to control how errors are handled when decoding data.
   (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
 - Logging of role and user permission changes now includes the authgate iden
   for the changes.
@@ -258,7 +258,7 @@ Features and Enhancements
 -------------------------
 - Update the Storm grammar to allow specifying a tag property with a variable.
   (`#2881 <https://github.com/vertexproject/synapse/pull/2881>`_)
- - Add log messages for user and role management activities in the Cell.
+- Add log messages for user and role management activities in the Cell.
   (`#2877 <https://github.com/vertexproject/synapse/pull/2877>`_)
 - The logging of service provisioning steps on Aha and when services were
   starting up was previously done at the ``DEBUG`` level. These are now done
