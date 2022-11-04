@@ -13,6 +13,7 @@ Features and Enhancements
   ``risk`` models.
   (`#2897 <https://github.com/vertexproject/synapse/pull/2897>`_)
   (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
+  (`#2903 <https://github.com/vertexproject/synapse/pull/2903>`_)
 
   ``inet:email:message:link``
     Add a ``text`` property to record the displayed hypertext link if it was
@@ -42,6 +43,11 @@ Features and Enhancements
     Add a ``type`` property to record the taxonomy of the software.
     Deprecated the ``techniques`` property in favor of the ``uses`` light edge.
 
+  ``it:sec:cve``
+    Deprecated the ``desc``, ``url`` and ``references`` properties in favor of
+    using the ``risk:vuln:cve:desc``, ``risk:vuln:cve:url``, and
+    ``risk:vuln:cve:references`` properties.
+
   ``media:news``
     Add a ``topics`` array property to record a list of relevant topics in the
     article.
@@ -51,13 +57,17 @@ Features and Enhancements
 
   ``meta:rule``
     Add a ``url`` property to record a url that doucments as rule.
+
     Add a ``ext:id`` property to record a external identifier for the rule.
 
-  ``ou:campaign``
-    Deprecate the ``techniques`` property in favor of using the ``uses`` light
-    edge.
+  ``meta:sophistication``
+    Add a form to record sophistication score with named values: ``very low``,
+    ``low``, ``medium``, ``high``, and ``very high``.
 
-  ``ou:org``
+  ``ou:campaign``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    an campaign.
+
     Deprecate the ``techniques`` property in favor of using the ``uses`` light
     edge.
 
@@ -65,19 +75,70 @@ Features and Enhancements
     Deprecate the ``ou:hasgoal`` form in favor of using the ``ou:org:goals``
     property.
 
+  ``ou:org``
+    Deprecate the ``techniques`` property in favor of using the ``uses`` light
+    edge.
+
+  ``ou:technique``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    an technique.
+
   ``risk:alert``
     Add a ``url`` property for a URL that documents the alert.
+
     Add a ``ext:id`` property to record a external ID for the alert.
 
+  ``risk:attack``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    an attack.
+
+  ``risk:availability``
+    Add a taxonomy for availability status values.
+
   ``risk:threat``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    an threat cluster.
+
     Deprecate the ``techniques`` property in favor of the ``uses`` light edge.
 
   ``risk:tool:software``
+    Add a ``availability`` property to record the assessed availability of the
+    tool
+
+    Add a ``sophistication`` property to record the assessed sophistication of
+    the software.
+
     Deprecate the ``techniques`` property in favor of the ``uses`` light edge.
 
   ``risk:tool:software:taxonomy``
     Rename the type ``risk:tool:taxonomy`` to ``risk:tool:software:taxonomy``
     and populate it as a form.
+
+  ``risk:vuln``
+    Add a ``mitigated`` property to record if a mitigation or fix is avilable
+    for the vulnerability.
+
+    Add a ``exploited`` property to record if the vulnerability has been
+    exploited in the wild.
+
+    Add ``timeline:discovered``, ``timeline:published``,
+    ``timeline:vendor:notified``, ``timeline:vendor:fixed``, and
+    ``timeline:exploited`` properties to record the timeline for significant
+    events on a vulnerability.
+
+    Add ``cve:desc``, ``cve:url``, and ``cve:references`` secondary properties
+    to record information about the CVE associated with a vulnerability.
+
+    Add ```nist:nvd:source`` to record the name of the organization which
+    reported the vulnerability in the NVD.
+
+    Add ``nist:nvd:published`` and ``nist:nvd:modified`` to record when the
+    vulnerability was first published, and later modified, in the NVD.
+
+    Add ``cisa:kev:name``, ``cisa:kev:desc``, ``cisa:kev:action``,
+    ``cisa:kev:vendor``, ``cisa:kev:product``, ``cisa:kev:added``,
+    ``cisa:kev:duedate`` properties to record information about the CISA KEV
+    database for the vulnerability.
 
 - Annotate the following light edges.
   (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
@@ -89,24 +150,34 @@ Features and Enhancements
   ``uses``
     When used with ``ou:campaign`` and ``ou:technique`` nodes, the edge
     indicates the campaign used a given technique.
+
     When used with ``ou:org`` and ``ou:technique`` nodes, the edge
     indicates the organization used a given technique.
+
     When used with ``risk:attack`` and ``ou:technique`` nodes, the edge
     indicates the attack used a given technique.
+
     When used with ``risk:threat`` and ``ou:technique`` nodes, the edge
     indicates the threat cluster uses the technique.
+
     When used with ``risk:tool:software`` and ``ou:technique`` nodes, the edge
     indicates the tool uses the technique.
+
     When used with ``risk:attack`` and ``risk:vuln`` nodes, the edge
     indicates the attack used the vulnerability.
+
     When used with ``risk:threat`` and ``risk:vuln`` nodes, the edge
     indicates the threat cluster uses the vulnerability.
+
     When used with ``risk:tool:software`` and ``risk:vuln`` nodes, the edge
     indicates the tool used the vulnerability.
+
     When used with ``risk:attack`` and ``ou:industry`` nodes, the edge
     indicates the attack targeted the industry.
+
     When used with ``risk:threat`` and ``ou:industry`` nodes, the edge
     indicates the threat cluster targets the industry.
+
     When used with ``risk:tool:software``, the edge indicates the target
     node is used by the tool.
 
@@ -114,6 +185,8 @@ Features and Enhancements
     When used with a ``risk:compromise`` node, the edge indicates the target
     node was stolen or copied as a result of the compromise.
 
+- Add ``$lib.gen.vulnByCve()`` to help generate ``risk:vuln`` nodes for CVEs.
+  (`#2903 <https://github.com/vertexproject/synapse/pull/2903>`_)
 - Add a unary negation operator to Storm expression syntax.
   (`#2886 <https://github.com/vertexproject/synapse/pull/2886>`_)
 - Add ``$lib.crypto.hmac.digest()`` to compute RFC2104 digests in Storm.
