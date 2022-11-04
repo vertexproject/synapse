@@ -7,6 +7,13 @@ Synapse Changelog
 v2.113.0 - 2022-11-04
 =====================
 
+Automatic Migrations
+--------------------
+- The ``risk:tool:software:type`` property is migrated to the
+  ``risk:tool:software:taxonomy`` type.
+  (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Features and Enhancements
 -------------------------
 - Updates to the ``inet``, ``infotech``, ``media``, ``meta``, ``org``, and
@@ -108,11 +115,12 @@ Features and Enhancements
     Add a ``sophistication`` property to record the assessed sophistication of
     the software.
 
+    Migrate the ``type`` property to ``risk:tool:software:taxonomy``.
+
     Deprecate the ``techniques`` property in favor of the ``uses`` light edge.
 
   ``risk:tool:software:taxonomy``
-    Rename the type ``risk:tool:taxonomy`` to ``risk:tool:software:taxonomy``
-    and populate it as a form.
+    Rename the type ``risk:tool:taxonomy`` to ``risk:tool:software:taxonomy``.
 
   ``risk:vuln``
     Add a ``mitigated`` property to record if a mitigation or fix is avilable
