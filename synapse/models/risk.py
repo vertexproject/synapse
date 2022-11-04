@@ -42,6 +42,10 @@ class RiskModule(s_module.CoreModule):
                 ('risk:tool:software:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
                 }),
+                ('risk:availability', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of availability status values.',
+                }),
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
@@ -85,60 +89,81 @@ class RiskModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ex': "apt1 (mandiant)",
                         'doc': 'The name of the threat cluster.'}),
+
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
+
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization who published the threat cluster.'}),
+
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization who published the threat cluster.'}),
+
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
+
                     ('org:loc', ('loc', {}), {
                         'doc': 'The assessed location of the organization that the threat cluster is attributed to.'}),
+
                     ('org:name', ('ou:name', {}), {
                         'ex': 'apt1',
                         'doc': 'The name of the organization that the threat cluster is attributed to.'}),
+
                     ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the organization that the threat cluster is attributed to.'}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'The assessed goals of the threat cluster activity.'}),
+
+                    ('sophistication', ('meta:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the threat cluster.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
+                ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (
+
                     ('tag', ('syn:tag', {}), {
                         'ex': 'rep.mandiant.tabcteng',
-                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.',
-                    }),
+                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': "A description of the tool's use in threat activity.",
-                    }),
+                        'doc': "A description of the tool's use in threat activity."}),
+
                     ('type', ('risk:tool:software:taxonomy', {}), {
-                        'doc': 'An analyst specified taxonomy of software tool types.',
-                    }),
+                        'doc': 'An analyst specified taxonomy of software tool types.'}),
+
+                    ('availability', ('risk:availability', {}), {
+                        'doc': 'The assessed availability of the tool.'}),
+
+                    ('sophistication', ('meta:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the tool.'}),
+
                     ('reporter', ('ou:org', {}), {
-                        'doc': 'The organization which reported the tool.',
-                    }),
+                        'doc': 'The organization which reported the tool.'}),
+
                     ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization which reported the tool.',
-                    }),
+                        'doc': 'The name of the organization which reported the tool.'}),
+
                     ('soft', ('it:prod:soft', {}), {
-                        'doc': 'The authoritative software family of the tool.',
-                    }),
+                        'doc': 'The authoritative software family of the tool.'}),
+
                     ('soft:name', ('it:prod:softname', {}), {
-                        'doc': 'The reported primary name of the tool.',
-                    }),
+                        'doc': 'The reported primary name of the tool.'}),
+
                     ('soft:names', ('array', {'type': 'it:prod:softname'}), {
-                        'doc': 'An array of reported alterate names for the tool.',
-                    }),
+                        'doc': 'An array of reported alterate names for the tool.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique'}), {
                         'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
-                    }),
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
                 )),
                 ('risk:mitigation', {}, (
                     ('vuln', ('risk:vuln', {}), {
@@ -155,105 +180,165 @@ class RiskModule(s_module.CoreModule):
                 )),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
-                        'doc': 'A user specified name for the vulnerability.',
-                    }),
+                        'doc': 'A user specified name for the vulnerability.'}),
+
                     ('type', ('str', {}), {
-                        'doc': 'A user specified type for the vulnerability.',
-                    }),
+                        'doc': 'A user specified type for the vulnerability.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the vulnerability.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the vulnerability.'}),
+
+                    ('mitigated', ('bool', {}), {
+                        'doc': 'Set to true if a mitigation/fix is available for the vulnerability.'}),
+
+                    ('exploited', ('bool', {}), {
+                        'doc': 'Set to true if the vulnerability has been exploited in the wild.'}),
+
+                    ('timeline:discovered', ('time', {"ismin": True}), {
+                        'doc': 'The earliest known discovery time for the vulnerability.'}),
+
+                    ('timeline:published', ('time', {"ismin": True}), {
+                        'doc': 'The earliest known time the vulnerability was published.'}),
+
+                    ('timeline:vendor:notified', ('time', {"ismin": True}), {
+                        'doc': 'The earliest known vendor notification time for the vulnerability.'}),
+
+                    ('timeline:vendor:fixed', ('time', {"ismin": True}), {
+                        'doc': 'The earliest known time the vendor issued a fix for the vulnerability.'}),
+
+                    ('timeline:exploited', ('time', {"ismin": True}), {
+                        'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
+
                     ('cve', ('it:sec:cve', {}), {
-                        'doc': 'The CVE ID of the vulnerability.',
-                    }),
+                        'doc': 'The CVE ID of the vulnerability.'}),
+
+                    ('cve:desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the vulnerability according to the CVE database.'}),
+
+                    ('cve:url', ('inet:url', {}), {
+                        'doc': 'A URL linking this vulnerability to the CVE description.'}),
+
+                    ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of documentation URLs provided by the CVE database.'}),
+
+                    ('nist:nvd:source', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
+
+                    ('nist:nvd:published', ('time', {}), {
+                        'doc': 'The date the vulnerability was first published in the NVD.'}),
+
+                    ('nist:nvd:modified', ('time', {"ismax": True}), {
+                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
+
+                    ('cisa:kev:name', ('str', {}), {
+                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:desc', ('str', {}), {
+                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:action', ('str', {}), {
+                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:vendor', ('ou:name', {}), {
+                        'doc': 'The vendor name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:product', ('it:prod:softname', {}), {
+                        'doc': 'The product name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:added', ('time', {}), {
+                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
+
+                    ('cisa:kev:duedate', ('time', {}), {
+                        'doc': 'The date the action is due according to the CISA KEV database.'}),
+
                     ('cvss:av', ('str', {'enums': 'N,A,V,L'}), {
-                        'doc': 'The CVSS Attack Vector (AV) value.',
-                    }),
+                        'doc': 'The CVSS Attack Vector (AV) value.'}),
+
                     ('cvss:ac', ('str', {'enums': 'L,H'}), {
-                        'doc': 'The CVSS Attack Complexity (AC) value.',
                         'disp': {'enums': (('Low', 'L'), ('High', 'H'))},
-                    }),
+                        'doc': 'The CVSS Attack Complexity (AC) value.'}),
+
                     ('cvss:pr', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Privileges Required (PR) value.',
                         'disp': {'enums': (
                             {'title': 'None', 'value': 'N', 'doc': 'FIXME privs stuff'},
                             {'title': 'Low', 'value': 'L', 'doc': 'FIXME privs stuff'},
                             {'title': 'High', 'value': 'H', 'doc': 'FIXME privs stuff'},
                         )},
-                    }),
+                        'doc': 'The CVSS Privileges Required (PR) value.'}),
+
                     ('cvss:ui', ('str', {'enums': 'N,R'}), {
-                        'doc': 'The CVSS User Interaction (UI) value.',
-                    }),
+                        'doc': 'The CVSS User Interaction (UI) value.'}),
+
                     ('cvss:s', ('str', {'enums': 'U,C'}), {
-                        'doc': 'The CVSS Scope (S) value.',
-                    }),
+                        'doc': 'The CVSS Scope (S) value.'}),
+
                     ('cvss:c', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Confidentiality Impact (C) value.',
-                    }),
+                        'doc': 'The CVSS Confidentiality Impact (C) value.'}),
+
                     ('cvss:i', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Integrity Impact (I) value.',
-                    }),
+                        'doc': 'The CVSS Integrity Impact (I) value.'}),
+
                     ('cvss:a', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Availability Impact (A) value.',
-                    }),
+                        'doc': 'The CVSS Availability Impact (A) value.'}),
+
                     ('cvss:e', ('str', {'enums': 'X,U,P,F,H'}), {
-                        'doc': 'The CVSS Exploit Code Maturity (E) value.',
-                    }),
+                        'doc': 'The CVSS Exploit Code Maturity (E) value.'}),
+
                     ('cvss:rl', ('str', {'enums': 'X,O,T,W,U'}), {
-                        'doc': 'The CVSS Remediation Level (RL) value.',
-                    }),
+                        'doc': 'The CVSS Remediation Level (RL) value.'}),
+
                     ('cvss:rc', ('str', {'enums': 'X,U,R,C'}), {
-                        'doc': 'The CVSS Report Confidence (AV) value.',
-                    }),
+                        'doc': 'The CVSS Report Confidence (AV) value.'}),
+
                     ('cvss:mav', ('str', {'enums': 'X,N,A,L,P'}), {
-                        'doc': 'The CVSS Environmental Attack Vector (MAV) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Attack Vector (MAV) value.'}),
+
                     ('cvss:mac', ('str', {'enums': 'X,L,H'}), {
-                        'doc': 'The CVSS Environmental Attack Complexity (MAC) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Attack Complexity (MAC) value.'}),
+
                     ('cvss:mpr', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Privileges Required (MPR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Privileges Required (MPR) value.'}),
+
                     ('cvss:mui', ('str', {'enums': 'X,N,R'}), {
-                        'doc': 'The CVSS Environmental User Interaction (MUI) value.',
-                    }),
+                        'doc': 'The CVSS Environmental User Interaction (MUI) value.'}),
+
                     ('cvss:ms', ('str', {'enums': 'X,U,C'}), {
-                        'doc': 'The CVSS Environmental Scope (MS) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Scope (MS) value.'}),
+
                     ('cvss:mc', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Confidentiality Impact (MC) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Confidentiality Impact (MC) value.'}),
+
                     ('cvss:mi', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Integrity Impact (MI) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Integrity Impact (MI) value.'}),
+
                     ('cvss:ma', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Accessibility Impact (MA) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Accessibility Impact (MA) value.'}),
+
                     ('cvss:cr', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Confidentiality Requirement (CR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Confidentiality Requirement (CR) value.'}),
+
                     ('cvss:ir', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Integrity Requirement (IR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Integrity Requirement (IR) value.'}),
+
                     ('cvss:ar', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Availability Requirement (AR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Availability Requirement (AR) value.'}),
+
                     ('cvss:score', ('float', {}), {
-                        'doc': 'The Overall CVSS Score value.',
-                    }),
+                        'doc': 'The Overall CVSS Score value.'}),
+
                     ('cvss:score:base', ('float', {}), {
-                        'doc': 'The CVSS Base Score value.',
-                    }),
+                        'doc': 'The CVSS Base Score value.'}),
+
                     ('cvss:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS Temporal Score value.',
-                    }),
+                        'doc': 'The CVSS Temporal Score value.'}),
+
                     ('cvss:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS Environmental Score value.',
-                    }),
+                        'doc': 'The CVSS Environmental Score value.'}),
+
                     ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of MITRE CWE values that apply to the vulnerability.',
-                    }),
+                        'doc': 'An array of MITRE CWE values that apply to the vulnerability.'}),
                 )),
 
                 ('risk:hasvuln', {}, (
@@ -403,6 +488,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.',
+                    }),
+                    ('sophistication', ('meta:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the attack.',
                     }),
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.',
