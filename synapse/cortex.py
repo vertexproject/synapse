@@ -5070,6 +5070,32 @@ class Cortex(s_cell.Cell):  # type: ignore
         norm, info = tobj.norm(valu)
         return norm, info
 
+    # async def addOAuthV2Client(self, cdef):
+    #     '''todo'''
+    #     iden = cdef.get('iden')
+    #     if self.oauthv2.get(iden) is not None:
+    #         raise s_exc.DupIden(mesg=f'Duplicate OAuth V2 client iden ({iden})')
+    #
+    #     # todo: validate cdef
+    #
+    #     return await self._push('oauth:v2:client:add', cdef)
+    #
+    # @s_nexus.Pusher.onPush('oauth:v2:client:add')
+    # async def _onAddOAuthV2Client(self, cdef):
+    #     iden = cdef['iden']
+    #
+    #     if self.oauthv2.get(iden) is not None:
+    #         return cdef
+    #
+    #     self.oauthv2.set(iden, cdef)
+    #     return cdef
+    #
+    # async def getOAuthV2Client(self, iden):
+    #     cdef = self.oauthv2.get(iden)
+    #     if cdef is None:
+    #         raise s_exc.BadArg(mesg=f'Provided iden does not match any OAuth V2 clients ({iden})')
+    #     return cdef
+
     @staticmethod
     def _convert_reqdict(reqdict):
         return {s_agenda.TimeUnit.fromString(k): v for (k, v) in reqdict.items()}
