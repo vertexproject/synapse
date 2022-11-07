@@ -89,10 +89,6 @@ class BadConfValu(SynErr):
     '''
     pass
 
-class NeedAuthCode(SynErr):
-    '''OAuth V2 client needs an authorization code'''
-    pass
-
 class NeedConfValu(SynErr): pass
 
 class BadCoreStore(SynErr):

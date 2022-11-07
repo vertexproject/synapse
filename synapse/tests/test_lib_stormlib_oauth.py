@@ -6,12 +6,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.tests.utils as s_test
 import synapse.tools.backup as s_backup
 
-class HttpOAuth2Authorize(s_httpapi.Handler):
-    async def post(self):
-        print('foo')
-
 class HttpOAuth2Token(s_httpapi.Handler):
-    async def get(self): ...
 
     async def post(self):
 
@@ -196,153 +191,134 @@ class OAuthTest(s_test.SynTest):
             core00dirn = s_common.gendir(dirn, 'core00')
             core01dirn = s_common.gendir(dirn, 'core01')
 
-            async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
+            coreconf = {
+                'nexslog:en': True,
+            }
+
+            async with self.getTestCore(dirn=core00dirn, conf=coreconf) as core00:
                 pass
 
             s_backup.backup(core00dirn, core01dirn)
 
-            async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
+            async with self.getTestCore(dirn=core00dirn, conf=coreconf) as core00:
 
                 conf = {'mirror': core00.getLocalUrl()}
                 async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
-
-                    core01 = core00  # fixme: not ready for mirror stuff yet
 
                     root = await core00.auth.getUserByName('root')
                     await root.setPasswd('secret')
 
                     core00.addHttpApi('/api/oauth/token', HttpOAuth2Token, {'cell': core00})
-                    # core00.addHttpApi('/api/oauth/authorize', HttpOAuth2Authorize, {'cell': core00})
 
                     addr, port = await core00.addHttpsPort(0)
                     baseurl = f'https://127.0.0.1:{port}'
 
-                    iden = s_common.guid('oauth2')
-
-                    cdef = {
-                        'iden': iden,
+                    providerconf00 = {
+                        'iden': s_common.guid('providerconf00'),
+                        'name': 'providerconf00',
                         'client_id': 'root',
                         'client_secret': 'secret',
-                        'scope': 'profile',
+                        'scope': 'allthethings',
                         'auth_uri': baseurl + '/api/oauth/authorize',
                         'token_uri': baseurl + '/api/oauth/token',
                         'redirect_uri': 'https://opticnetloc/oauth2',
+                        'extensions': {'pkce': True},
+                        'extra_auth_params': {'include_granted_scopes': 'true'}
                     }
 
-                    expcdef = {
-                        **cdef,
-                        'response_type': 'code',
-                        'state': {
-                            'auth_code': None,
-                            'expires_in': None,
-                            'expires_at': None,
-                            'access_token': None,
-                            'refresh_token': None,
-                            'code_verifier': None,
-                        },
-                        'extensions': {
-                            'pkce': True,
-                        },
-                        'extra_auth_params': {},
+                    opts = {
+                        'vars': {
+                            'providerconf': providerconf00,
+                            'authcode': 'itsagoodone',
+                            'code_verifier': 'legit',
+                        }
                     }
 
-                    opts = {'vars': {**cdef, 'auth_code': 'itsagoodone'}}
+                    # add a provider with a bad conf
+                    name = providerconf00.pop('name')
+                    mesgs = await core01.stormlist('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
+                    self.stormIsInErr('data must contain', mesgs)
+                    providerconf00['name'] = name
 
-                    # add a new client
-                    ret = await core01.callStorm('''
-                        $client = $lib.inet.http.oauth.v2.add($iden, $client_id, $client_secret, $scope,
-                                                                $auth_uri, $token_uri, $redirect_uri)
-                        return($client.pack())
-                    ''', opts=opts)
-                    self.eq(expcdef, ret)
+                    # add a new provider
+                    await core01.nodes('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
 
                     # cannot add duplicate iden
-                    mesgs = await core01.stormlist('''
-                        $client = $lib.inet.http.oauth.v2.add($iden, $client_id, $client_secret, $scope,
-                                                                $auth_uri, $token_uri, $redirect_uri)
-                    ''', opts=opts)
+                    mesgs = await core01.stormlist('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
                     self.stormIsInErr('Duplicate OAuth V2 client iden', mesgs)
 
-                    # list clients
+                    # list providers
                     ret = await core01.callStorm('''
-                        $idens = ([])
-                        for $client in $lib.inet.http.oauth.v2.list() {
-                            $idens.append($client.pack().iden)
+                        $confs = ([])
+                        for ($iden, $conf) in $lib.inet.http.oauth.v2.listProviders() {
+                            $confs.append(($iden, $conf))
                         }
-                        return($idens)
+                        return($confs)
                     ''')
-                    self.eq([iden], ret)
+                    self.eq([(providerconf00['iden'], providerconf00)], ret)
 
-                    # get a client that doesn't exist
-                    self.none(await core01.callStorm('$lib.inet.http.oauth.v2.get($lib.guid())'))
+                    # get a provider that doesn't exist
+                    self.none(await core01.callStorm('$lib.inet.http.oauth.v2.getProvider($lib.guid())'))
 
-                    # get the client by iden
-                    ret = await core01.callStorm('return($lib.inet.http.oauth.v2.get($iden).pack())', opts=opts)
-                    self.eq(expcdef, ret)
-
-                    # eq works on client type
+                    # get the provider by iden
                     ret = await core01.callStorm('''
-                        $ret = ([])
-                        $client00 = $lib.inet.http.oauth.v2.get($iden)
-                        $client01 = $lib.inet.http.oauth.v2.get($iden)
-                        $ret.append(($client00 = $client00))
-                        $ret.append(($client00 = $client01))
-                        $ret.append(($client00 = $lib.null))
-                        return($ret)
+                        return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))
                     ''', opts=opts)
-                    self.eq([True, True, False], ret)
+                    self.eq(providerconf00, ret)
 
-                    # try getAccessToken; raises for auth code
+                    # try getAccessToken on non-configured provider
+                    mesgs = await core01.stormlist('$lib.inet.http.oauth.v2.getUserAccessToken($lib.guid())')
+                    self.stormIsInErr('OAuth V2 provider has not been configured', mesgs)
+
+                    # try getAccessToken when the client hasn't been setup
                     ret = await core01.callStorm('''
-                        try {
-                            $client = $lib.inet.http.oauth.v2.get($iden)
-                            return($client.getToken())
-                        } catch NeedAuthCode as err {
-                            return($err.info.iden)
-                        }
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts=opts)
-                    self.eq(iden, ret)
+                    self.none(ret)
 
-                    # use storm api to set the auth code
-                    ret = await core01.callStorm('''
-                        $client = $lib.inet.http.oauth.v2.get($iden)
-                        $client.setAuthCode($auth_code, code_verifier="legit")
-                        return($client.pack())
+                    # try setting the auth code when the provider isn't setup
+                    mesgs = await core01.stormlist('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($lib.guid(), $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
                     ''', opts=opts)
-                    expcdef['state']['auth_code'] = 'itsagoodone'
-                    expcdef['state']['code_verifier'] = 'legit'
-                    self.eq(expcdef, ret)
+                    self.stormIsInErr('OAuth V2 provider has not been configured', mesgs)
 
-                    # access token refreshes in the background
-                    # and refresh_token also gets updated
+                    # try setting the auth code for a user that doesnt exist
+                    # todo
+
+                    # set the user auth code - SSL is always enabled
+                    mesgs = await core01.stormlist('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+                    self.stormIsInErr('certificate verify failed', mesgs)
+
+                    core00.oauth.ssl = False
+                    core01.oauth.ssl = False
+
+                    # set the user auth code
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+
+                    # access token refreshes in the background and refresh_token also gets updated
                     # todo
 
                     # background refresh is only happening on the leader
                     # todo
 
-                    # if refresh window is missed during downtime
-                    # token is refreshed on boot
+                    # if refresh window is missed during downtime token is refreshed on boot
                     # todo
 
                     # get the token
                     ret = await core01.callStorm('''
-                        try {
-                            $client = $lib.inet.http.oauth.v2.get($iden)
-                            return($client.getToken())
-                        } catch NeedAuthCode as err {
-                            return($err.info.iden)
-                        }
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts=opts)
                     self.eq('accesstoken00', ret)
 
                     # can manually force token refresh
-                    ret = await core01.callStorm('''
-                        $client = $lib.inet.http.oauth.v2.get($iden)
-                        $ret00 = $client.refreshToken()
-                        $ret01 = $client.getToken()
-                        return(($ret00, $ret01))
-                    ''', opts=opts)
-                    self.eq(((True, None), 'accesstoken01'), ret)
+                    # todo: ??
 
                     # can get some refresh metadata from the client
                     # todo
@@ -350,27 +326,39 @@ class OAuthTest(s_test.SynTest):
                     # refresh / token fetch fails; new auth code needed
                     # todo
 
-                    # can clear state from the client
+                    # try to delete provider that doesn't exist
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.delProvider($lib.guid()))
+                    ''', opts=opts)
+                    self.none(ret)
+
+                    # delete the provider
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.delProvider($providerconf.iden))
+                    ''', opts=opts)
+                    self.eq(providerconf00, ret)
+
+                    # deleted provider clients no longer exist
+                    self.len(0, core01.oauth.clients.items())
+                    # todo: not refreshing anymore either
+
+                    # clients that dont get a refresh_token in response are skipped
                     # todo
 
-                    # try to delete client that doesn't exist
+                    # delete client
                     # todo
 
-                    # delete the client
-                    await core01.nodes('$lib.inet.http.oauth.v2.del($iden)', opts=opts)
-                    self.none(await core01.callStorm('$lib.inet.http.oauth.v2.get($iden)', opts=opts))
-
-                    # deleted client is no longer refreshed in the background
+                    # background refresh fails
                     # todo
 
-                    # client without offline scope does not get refresh_token and should be skipped
+                    # manual refresh fails
                     # todo
 
-                    # bad client causes background refresh to fail
-                    # todo: retry every 12hrs anyway?
-
-                    # bad client causes manual refresh to fail
+                    # if a user gets locked the refresh should be disabled
                     # todo
 
                     # permissions
+                    # todo
+
+                    # promote mirror
                     # todo

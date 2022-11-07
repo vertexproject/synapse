@@ -24,6 +24,7 @@ import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.oauth as s_oauth
 import synapse.lib.queue as s_queue
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
@@ -1182,6 +1183,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addHealthFunc(self._cortexHealth)
 
+        self.oauth = await s_oauth.OAuthManager.anit(self, nexsroot=self.nexsroot)
+        self.onfini(self.oauth)
+
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
         self.agenda = await s_agenda.Agenda.anit(self)
@@ -1317,6 +1321,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def initServiceActive(self):
+        await self.oauth.initActive()
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
@@ -1329,6 +1334,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
+        await self.oauth.initPassive()
         for view in self.views.values():
             await view.finiTrigTask()
 
@@ -5069,32 +5075,6 @@ class Cortex(s_cell.Cell):  # type: ignore
                                    name=name)
         norm, info = tobj.norm(valu)
         return norm, info
-
-    # async def addOAuthV2Client(self, cdef):
-    #     '''todo'''
-    #     iden = cdef.get('iden')
-    #     if self.oauthv2.get(iden) is not None:
-    #         raise s_exc.DupIden(mesg=f'Duplicate OAuth V2 client iden ({iden})')
-    #
-    #     # todo: validate cdef
-    #
-    #     return await self._push('oauth:v2:client:add', cdef)
-    #
-    # @s_nexus.Pusher.onPush('oauth:v2:client:add')
-    # async def _onAddOAuthV2Client(self, cdef):
-    #     iden = cdef['iden']
-    #
-    #     if self.oauthv2.get(iden) is not None:
-    #         return cdef
-    #
-    #     self.oauthv2.set(iden, cdef)
-    #     return cdef
-    #
-    # async def getOAuthV2Client(self, iden):
-    #     cdef = self.oauthv2.get(iden)
-    #     if cdef is None:
-    #         raise s_exc.BadArg(mesg=f'Provided iden does not match any OAuth V2 clients ({iden})')
-    #     return cdef
 
     @staticmethod
     def _convert_reqdict(reqdict):
