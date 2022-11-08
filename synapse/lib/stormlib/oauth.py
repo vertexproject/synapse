@@ -190,6 +190,17 @@ class OAuthV2Lib(s_stormtypes.Lib):
                 'returns': {'type': 'str', 'desc': 'The token value or None if an auth code is required.'},
             },
         },
+        {
+            'name': 'clearUserAccessToken',
+            'desc': 'Cleared the stored refresh data for the current users provider access token.',
+            'type': {
+                'type': 'function', '_funcname': '_clearUserAccessToken',
+                'args': (
+                    {'name': 'iden', 'type': 'str', 'desc': 'The provider iden.'},
+                ),
+                'returns': {'type': 'dict', 'desc': 'The existing token state date or None if it did not exist.'},
+            },
+        }
     )
 
     def getObjLocals(self):
@@ -200,6 +211,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
             'listProviders': self._listProviders,
             'setUserAuthCode': self._setUserAuthCode,
             'getUserAccessToken': self._getUserAccessToken,
+            'clearUserAccessToken': self._clearUserAccessToken,
         }
 
     async def _addProvider(self, conf):
@@ -238,3 +250,6 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
     async def _getUserAccessToken(self, iden):
         return await self.runt.snap.core.oauth.getClientAccessToken(iden, self.runt.user.iden)
+
+    async def _clearUserAccessToken(self, iden):
+        return await self.runt.snap.core.oauth.clearClientAccessToken(iden, self.runt.user.iden)

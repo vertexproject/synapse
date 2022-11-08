@@ -1,7 +1,9 @@
 import yarl
+import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.coro as s_coro
 import synapse.lib.httpapi as s_httpapi
 import synapse.tests.utils as s_test
 import synapse.tools.backup as s_backup
@@ -17,20 +19,49 @@ class HttpOAuth2Token(s_httpapi.Handler):
         self.set_header('Content-Type', 'application/json')
 
         if grant_type == 'authorization_code':
+
             if body.get('code_verifier') != ['legit']:
                 self.set_status(400)
                 return self.write({
                     'error': 'invalid_request',
                     'error_description': 'incorrect code_verifier'
                 })
+
             code = body['code'][0]
+
+            # todo: could shorten the 8s expires_in to make the tests run faster
+
             if code == 'itsagoodone':
                 return self.write({
                     'access_token': 'accesstoken00',
                     'token_type': 'example',
-                    'expires_in': 3600,
+                    'expires_in': 8,
                     'refresh_token': 'refreshtoken00',
                 })
+
+            if code == 'badrefresh':
+                return self.write({
+                    'access_token': 'accesstoken10',
+                    'token_type': 'example',
+                    'expires_in': 8,
+                    'refresh_token': 'badrefresh',
+                })
+
+            if code == 'norefresh':
+                return self.write({
+                    'access_token': 'accesstoken20',
+                    'token_type': 'example',
+                    'expires_in': 1,
+                })
+
+            if code == 'itsafastone':
+                return self.write({
+                    'access_token': 'accesstoken30',
+                    'token_type': 'example',
+                    'expires_in': 3,
+                    'refresh_token': 'refreshtoken10',
+                })
+
             self.set_status(400)
             return self.write({
                 'error': 'invalid_request',
@@ -38,14 +69,16 @@ class HttpOAuth2Token(s_httpapi.Handler):
             })
 
         if grant_type == 'refresh_token':
+
             tok = body['refresh_token'][0]
             if tok.startswith('refreshtoken'):
                 return self.write({
                     'access_token': 'accesstoken01',
                     'token_type': 'example',
-                    'expires_in': 3600,
+                    'expires_in': 8,
                     'refresh_token': 'refreshtoken01',
                 })
+
             self.set_status(400)
             return self.write({
                 'error': 'invalid_request',
@@ -208,6 +241,9 @@ class OAuthTest(s_test.SynTest):
                     root = await core00.auth.getUserByName('root')
                     await root.setPasswd('secret')
 
+                    user = await core00.auth.addUser('user')
+                    await user.setPasswd('secret')
+
                     core00.addHttpApi('/api/oauth/token', HttpOAuth2Token, {'cell': core00})
 
                     addr, port = await core00.addHttpsPort(0)
@@ -216,6 +252,7 @@ class OAuthTest(s_test.SynTest):
                     providerconf00 = {
                         'iden': s_common.guid('providerconf00'),
                         'name': 'providerconf00',
+                        'flow_type': 'authorization_code',
                         'client_id': 'root',
                         'client_secret': 'secret',
                         'scope': 'allthethings',
@@ -225,12 +262,14 @@ class OAuthTest(s_test.SynTest):
                         'extensions': {'pkce': True},
                         'extra_auth_params': {'include_granted_scopes': 'true'}
                     }
+                    expconf00 = {k: v for k, v in providerconf00.items() if k != 'client_secret'}
 
                     opts = {
                         'vars': {
                             'providerconf': providerconf00,
                             'authcode': 'itsagoodone',
                             'code_verifier': 'legit',
+                            'lowuser': user.iden,
                         }
                     }
 
@@ -255,7 +294,7 @@ class OAuthTest(s_test.SynTest):
                         }
                         return($confs)
                     ''')
-                    self.eq([(providerconf00['iden'], providerconf00)], ret)
+                    self.eq([(expconf00['iden'], expconf00)], ret)
 
                     # get a provider that doesn't exist
                     self.none(await core01.callStorm('$lib.inet.http.oauth.v2.getProvider($lib.guid())'))
@@ -264,7 +303,7 @@ class OAuthTest(s_test.SynTest):
                     ret = await core01.callStorm('''
                         return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))
                     ''', opts=opts)
-                    self.eq(providerconf00, ret)
+                    self.eq(expconf00, ret)
 
                     # try getAccessToken on non-configured provider
                     mesgs = await core01.stormlist('$lib.inet.http.oauth.v2.getUserAccessToken($lib.guid())')
@@ -283,9 +322,6 @@ class OAuthTest(s_test.SynTest):
                     ''', opts=opts)
                     self.stormIsInErr('OAuth V2 provider has not been configured', mesgs)
 
-                    # try setting the auth code for a user that doesnt exist
-                    # todo
-
                     # set the user auth code - SSL is always enabled
                     mesgs = await core01.stormlist('''
                         $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
@@ -297,33 +333,142 @@ class OAuthTest(s_test.SynTest):
                     core01.oauth.ssl = False
 
                     # set the user auth code
+                    core00.oauth._schedule_item_ran.clear()
                     await core01.nodes('''
                         $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
                                                                     $authcode, code_verifier=$code_verifier)
                     ''', opts=opts)
 
-                    # access token refreshes in the background and refresh_token also gets updated
-                    # todo
-
-                    # background refresh is only happening on the leader
-                    # todo
-
-                    # if refresh window is missed during downtime token is refreshed on boot
-                    # todo
-
-                    # get the token
+                    # the token is available immediately
                     ret = await core01.callStorm('''
                         return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts=opts)
                     self.eq('accesstoken00', ret)
 
-                    # can manually force token refresh
-                    # todo: ??
+                    # access token refreshes in the background and refresh_token also gets updated
+                    self.true(await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=15))
+                    await core01.sync()
+                    clientconf = core01.oauth.clients.get(providerconf00['iden'] + core00.auth.rootuser.iden)
+                    self.eq('accesstoken01', clientconf['access_token'])
+                    self.eq('refreshtoken01', clientconf['refresh_token'])
+                    self.eq(core00.oauth.schedule_run[0], clientconf['refresh_at'])
 
-                    # can get some refresh metadata from the client
+                    # background refresh is only happening on the leader
+                    self.none(core01.oauth.schedule_task)
+
+                    # can clear the access token so new auth code will be needed
+                    core00.oauth._schedule_item_ran.clear()
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.clearUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.eq('accesstoken01', ret['access_token'])
+                    self.eq('refreshtoken01', ret['refresh_token'])
+
+                    await core01.sync()
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.none(ret)
+
+                    # without the token data the refresh item gets popped out of the loop
+                    self.true(await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=5))
+                    self.len(0, core00.oauth.schedule_heap)
+
+                    # background refresh fails; will require new auth code
+                    opts['vars']['authcode'] = 'badrefresh'
+                    core00.oauth._schedule_item_ran.clear()
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.eq('accesstoken10', ret)
+
+                    self.true(await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=5))
+                    self.len(0, core00.oauth.schedule_heap)
+
+                    await core01.sync()
+                    mesgs = await core01.stormlist('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.stormIsInErr('bad refresh token', mesgs)
+
+                    # clients that dont get a refresh_token in response are not added to background refresh
+                    # but you can still get the token until it expires
+                    core00.oauth._schedule_item_ran.clear()
+
+                    opts['vars']['authcode'] = 'norefresh'
+                    core00.oauth._schedule_item_ran.clear()
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.eq('accesstoken20', ret)
+
+                    self.false(await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=1))
+                    self.len(0, core00.oauth.schedule_heap)
+
+                    await core01.sync()
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.none(ret)
+
+                    # token fetch when setting the auth code failure
+                    opts['vars']['authcode'] = 'newp'
+                    mesgs = await core01.stormlist('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+                    self.stormIsInErr('invalid_request: unknown code', mesgs)
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.none(ret)
+
+                    # can interrupt a refresh wait if a new one gets scheduled that is sooner
+                    core00.oauth._schedule_item_ran.clear()
+
+                    opts['vars']['authcode'] = 'itsagoodone'
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+
+                    opts['vars']['authcode'] = 'itsafastone'
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lowuser,
+                                                                    $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+
+                    self.true(await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=2))
+                    await core01.sync()
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.eq('accesstoken00', ret)
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts={**opts, 'user': user.iden})
+                    self.eq('accesstoken01', ret)
+
+                    # same client iden cannot be added to the loop
                     # todo
 
-                    # refresh / token fetch fails; new auth code needed
+                    # if a user gets locked the refresh is disabled
+                    # todo
+
+                    # user does not exist at runtime
                     # todo
 
                     # try to delete provider that doesn't exist
@@ -342,23 +487,11 @@ class OAuthTest(s_test.SynTest):
                     self.len(0, core01.oauth.clients.items())
                     # todo: not refreshing anymore either
 
-                    # clients that dont get a refresh_token in response are skipped
-                    # todo
-
-                    # delete client
-                    # todo
-
-                    # background refresh fails
-                    # todo
-
-                    # manual refresh fails
-                    # todo
-
-                    # if a user gets locked the refresh should be disabled
-                    # todo
-
                     # permissions
                     # todo
 
                     # promote mirror
+                    # todo
+
+                    # if refresh window is missed during downtime token is refreshed on boot
                     # todo
