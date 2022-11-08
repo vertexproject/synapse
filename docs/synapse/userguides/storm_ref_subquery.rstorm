@@ -13,6 +13,8 @@ This section discusses the following topics:
 - `Subquery Filter`_
 - `Setting Properties with Subqueries`_
 
+.. _storm-subquery:
+
 Subquery
 --------
 
@@ -97,6 +99,8 @@ For example, the following query will return zero nodes, even though the ``yield
 
 - Subqueries can be nested; you can place subqueries inside of subqueries.
 - When the ``yield`` option is used, Storm will return the nodes from the subquery first, followed by the nodes from the original working set.
+
+.. _storm-subquery-filter:
 
 Subquery Filter
 ---------------

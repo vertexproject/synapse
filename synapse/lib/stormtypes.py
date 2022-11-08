@@ -3939,6 +3939,7 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
+                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4075,9 +4076,11 @@ class Bytes(Prim):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
-    async def _methDecode(self, encoding='utf8'):
+    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+        encoding = await tostr(encoding)
+        errors = await tostr(errors)
         try:
-            return self.valu.decode(encoding, 'surrogatepass')
+            return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 

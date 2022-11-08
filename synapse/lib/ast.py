@@ -2928,7 +2928,11 @@ _ExprFuncMap = {
 async def expr_not(x):
     return not await tobool(x)
 
+async def expr_neg(x):
+    return await tonumber(x) * -1
+
 _UnaryExprFuncMap = {
+    '-': expr_neg,
     'not': expr_not,
 }
 

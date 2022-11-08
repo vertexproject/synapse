@@ -563,6 +563,13 @@ Identifier
 
 See :ref:`gloss-iden`.
 
+.. _gloss-ingest-tool:
+
+Ingest Tool
+-----------
+
+See :ref:`gloss-tool-ingest`.
+
 .. _gloss-inst-know:
 
 Instance Knowledge
@@ -1118,6 +1125,15 @@ Telepath
 
 Telepath is a lightweight remote procedure call (RPC) protocol used in Synapse. See :ref:`arch-telepath` in the
 :ref:`dev_architecture` guide for additional detail.
+
+
+.. _gloss-tool-ingest:
+
+Tool, Ingest
+------------
+
+In :ref:`gloss-optic`, the primary tool used to load structured data in CSV, JSON, or JSONL format into
+Synapse using Storm. The Ingest Tool can also be used to prototype and test more formal ingest code.
 
 .. _gloss-tool-research:
 

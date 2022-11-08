@@ -36,6 +36,12 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'An it:prod:soft node with the given name.'}}},
+        {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'A risk:vuln node with the given CVE.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -71,6 +77,12 @@ class LibGen(s_stormtypes.Lib):
             -> it:prod:soft
             return($node)
             [ it:prod:soft=* :name=$name ]
+            return($node)
+        }
+        function vulnByCve(cve) {
+            risk:vuln:cve=$cve
+            return($node)
+            [ risk:vuln=* :cve=$cve ]
             return($node)
         }
     '''

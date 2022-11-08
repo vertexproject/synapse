@@ -4,6 +4,14 @@ import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
 
+sophenums = (
+    (10, 'very low'),
+    (20, 'low'),
+    (30, 'medium'),
+    (40, 'high'),
+    (50, 'very high'),
+)
+
 class BaseModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -65,10 +73,15 @@ class BaseModule(s_module.CoreModule):
 
                 ('graph:timeedge', ('timeedge', {}), {
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
+
+                ('meta:sophistication', ('int', {'enums': sophenums}), {
+                    'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
             ),
             'edges': (
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
+                (('meta:source', 'seen', None), {
+                    'doc': 'The meta:source observed the target node.'}),
                 (('meta:note', 'about', None), {
                     'doc': 'The meta:note is about the target node.'
                 }),
@@ -168,6 +181,10 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'The time the rule was initially created.'}),
                     ('updated', ('time', {}), {
                         'doc': 'The time the rule was most recently modified.'}),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the rule.'}),
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external identifier for the rule.'}),
                 )),
 
                 ('graph:cluster', {}, (

@@ -423,9 +423,13 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tufo of the error type and information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
-            'type': {'type': 'function', '_funcname': '_httpRespJson',
-                     'returns': {'type': 'prim'}
-                     }
+         'type': {'type': 'function', '_funcname': '_httpRespJson',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'surrogatepass', },
+                   ),
+                   'returns': {'type': 'prim'}
+                 }
         },
         {'name': 'msgpack', 'desc': 'Yield the msgpack deserialized objects.',
             'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
@@ -448,9 +452,21 @@ class HttpResp(s_stormtypes.Prim):
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def _httpRespJson(self):
+    async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
         try:
-            return json.loads(self.valu.get('body'))
+            valu = self.valu.get('body')
+            errors = await s_stormtypes.tostr(errors)
+
+            if encoding is None:
+                encoding = json.detect_encoding(valu)
+            else:
+                encoding = await s_stormtypes.tostr(encoding)
+
+            return json.loads(valu.decode(encoding, errors))
+
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=valu[:1024]) from None
+
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode HTTP response as json: {e.args[0]}'
             raise s_exc.BadJsonText(mesg=mesg)
