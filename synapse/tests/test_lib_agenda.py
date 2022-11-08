@@ -739,3 +739,7 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $derp)) }', opts=opts)
 
             self.eq(cdef['creator'], derp.iden)
+
+            async with core.getLocalProxy(user='derp') as proxy:
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
