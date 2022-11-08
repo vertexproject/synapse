@@ -323,7 +323,15 @@ class CoreApi(s_cell.CellApi):
         '''
         iden = str(iden)
         name = str(name)
-        self.user.confirm(('cron', 'set', name), gateiden=iden)
+
+        if name == 'creator':
+            # this permission must be granted cortex wide
+            # to prevent abuse...
+            self.user.confirm(('cron', 'set', 'creator'))
+
+        else:
+            self.user.confirm(('cron', 'set', name), gateiden=iden)
+
         return await self.cell.editCronJob(iden, name, valu)
 
     async def setStormCmd(self, cdef):
@@ -5255,6 +5263,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         appt = await self.agenda.get(iden)
         # TODO make this generic and check cdef
+
+        if name == 'creator':
+            self.auth.reqUser(valu)
+            appt.creator = valu
+            await appt._save()
+
+            cdef = appt.pack()
+            await self.feedBeholder('cron:edit:creator', {'iden': iden, 'creator': cdef.get('creator')}, gates=[iden])
+            return cdef
 
         if name == 'name':
             await appt.setName(str(valu))
