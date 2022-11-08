@@ -373,6 +373,10 @@ class CryptoModule(s_module.CoreModule):
                     ('algorithm', ('crypto:algorithm', {}), {
                         'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
+                    ('mode', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The algorithm specific mode in use.'}),
+                    ('iv', ('hex', {}), {
+                        'doc': 'The hex encoded initialization vector.'}),
                     ('public', ('hex', {}), {
                         'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
                     ('public:md5', ('hash:md5', {}), {
