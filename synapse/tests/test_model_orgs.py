@@ -21,6 +21,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :desc=Hehe
                     :tag=woot.woot
                     :mitre:attack:technique=T0001
+                    :sophistication=high
                 ]
             ''')
             self.len(1, nodes)
@@ -29,6 +30,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
+            self.eq(40, nodes[0].get('sophistication'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
@@ -68,6 +70,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'desc': 'MyDesc',
                     'success': 1,
                     'techniques': teqs,
+                    'sophistication': 'high',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('org'), org0)
@@ -78,6 +81,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('success'), 1)
+                self.eq(node.get('sophistication'), 40)
                 self.eq(node.get('camptype'), 'get.pizza.')
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
 
