@@ -62,6 +62,14 @@ class HttpOAuth2Token(s_httpapi.Handler):
                     'refresh_token': 'refreshtoken10',
                 })
 
+            if code == 'itsaslowone':
+                return self.write({
+                    'access_token': 'accesstoken40',
+                    'token_type': 'example',
+                    'expires_in': 10,
+                    'refresh_token': 'refreshtoken20',
+                })
+
             self.set_status(400)
             return self.write({
                 'error': 'invalid_request',
@@ -351,7 +359,7 @@ class OAuthTest(s_test.SynTest):
                     clientconf = core01.oauth.clients.get(providerconf00['iden'] + core00.auth.rootuser.iden)
                     self.eq('accesstoken01', clientconf['access_token'])
                     self.eq('refreshtoken01', clientconf['refresh_token'])
-                    self.eq(core00.oauth.schedule_run[0], clientconf['refresh_at'])
+                    self.eq(core00.oauth.schedule_heap[0][0], clientconf['refresh_at'])
 
                     # background refresh is only happening on the leader
                     self.none(core01.oauth.schedule_task)
@@ -437,7 +445,7 @@ class OAuthTest(s_test.SynTest):
                     # can interrupt a refresh wait if a new one gets scheduled that is sooner
                     core00.oauth._schedule_item_ran.clear()
 
-                    opts['vars']['authcode'] = 'itsagoodone'
+                    opts['vars']['authcode'] = 'itsaslowone'
                     await core01.nodes('''
                         $lib.inet.http.oauth.v2.setUserAuthCode($providerconf.iden, $lib.user.iden,
                                                                     $authcode, code_verifier=$code_verifier)
@@ -455,15 +463,12 @@ class OAuthTest(s_test.SynTest):
                     ret = await core01.callStorm('''
                         return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts=opts)
-                    self.eq('accesstoken00', ret)
+                    self.eq('accesstoken40', ret)
 
                     ret = await core01.callStorm('''
                         return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts={**opts, 'user': user.iden})
                     self.eq('accesstoken01', ret)
-
-                    # same client iden cannot be added to the loop
-                    # todo
 
                     # if a user gets locked the refresh is disabled
                     # todo
@@ -485,7 +490,10 @@ class OAuthTest(s_test.SynTest):
 
                     # deleted provider clients no longer exist
                     self.len(0, core01.oauth.clients.items())
-                    # todo: not refreshing anymore either
+                    for i in range(len(core00.oauth.schedule_heap)):
+                        core00.oauth._schedule_item_ran.clear()
+                        await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=2)
+                    self.len(0, core00.oauth.schedule_heap)
 
                     # permissions
                     # todo

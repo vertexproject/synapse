@@ -68,7 +68,7 @@ class OAuthManager(s_nexus.Pusher):
 
         self.timeout = aiohttp.ClientTimeout(total=10)
 
-        self.schedule_run = None
+        self.schedule_map = {}
         self.schedule_heap = []
         self.schedule_task = None
         self.schedule_wake = asyncio.Event()
@@ -87,7 +87,7 @@ class OAuthManager(s_nexus.Pusher):
             self.schedule_task.cancel()
             self.schedule_task = None
 
-        self.schedule_run = None
+        self.schedule_map.clear()
         self.schedule_heap.clear()
         self.schedule_wake.clear()
 
@@ -100,7 +100,7 @@ class OAuthManager(s_nexus.Pusher):
         for provideriden, useriden, clientconf in self.listClients():
             self._scheduleRefreshItem(provideriden, useriden, clientconf)
 
-        self.schedule_task = self.schedCoro(self._refreshLoop())  # todo: make this an active coro?
+        self.schedule_task = self.schedCoro(self._refreshLoop())
 
     def _scheduleRefreshItem(self, provideriden, useriden, clientconf):
         # todo: could stuff other things into clientconf like enabled
@@ -111,18 +111,23 @@ class OAuthManager(s_nexus.Pusher):
         if refresh_at is None or clientconf.get('refresh_token') is None:
             return
 
-        if self.schedule_run is not None and refresh_at < self.schedule_run[0]:
-            # this item should supersede the current item so reload the schedule
-            self._loadSchedule()
+        newitem = (refresh_at, provideriden, useriden)
+
+        old_refresh_at = self.schedule_map.get(newitem[1:])
+        if old_refresh_at == refresh_at:
             return
 
-        # todo: this should prevent duplicating clients not just by refresh_at
-        item = (refresh_at, provideriden, useriden)
-        if item in self.schedule_heap:
-            return
+        if old_refresh_at is not None:
+            # there's an old item for this client in the refresh queue to remove
+            self.schedule_heap.remove((old_refresh_at, *newitem[1:]))
+            heapq.heapify(self.schedule_heap)
 
-        heapq.heappush(self.schedule_heap, item)
-        self.schedule_wake.set()
+        self.schedule_map[newitem[1:]] = refresh_at
+        heapq.heappush(self.schedule_heap, newitem)
+
+        if self.schedule_heap[0] == newitem:
+            # the new item is at the front of the line so wake up the loop if its waiting
+            self.schedule_wake.set()
 
     async def _refreshLoop(self):
 
@@ -130,14 +135,20 @@ class OAuthManager(s_nexus.Pusher):
 
             while self.schedule_heap:
 
-                self.schedule_run = heapq.heappop(self.schedule_heap)
-                refresh_at, provideriden, useriden = self.schedule_run
-
+                refresh_at = self.schedule_heap[0][0]
                 refresh_in = int(max(0, refresh_at - s_common.now()) / 1000)
-                logger.debug(f'Waiting to refresh OAuth V2 token in {refresh_in}s for: {self.schedule_run}')
+                logger.debug(f'Waiting to refresh OAuth V2 token in {refresh_in}s for: {self.schedule_heap[0][1:]}')
 
-                if await self.waitfini(refresh_in):
+                if await s_coro.event_wait(self.schedule_wake, timeout=refresh_in):
+                    logger.debug('Received wake event for OAuth token refresh')
+                    self.schedule_wake.clear()
+                    continue
+
+                if self.isfini:
                     break
+
+                _, provideriden, useriden = heapq.heappop(self.schedule_heap)
+                self.schedule_map.pop((provideriden, useriden), None)
 
                 providerconf = self._getProvider(provideriden)
                 if providerconf is None:
