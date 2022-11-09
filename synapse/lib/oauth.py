@@ -20,7 +20,8 @@ reqValidProvider = s_config.getJsValidator({
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
-        'flow_type': {'type': 'string', 'enum': ['authorization_code']},
+        'flow_type': {'type': 'string', 'default': 'authorization_code', 'enum': ['authorization_code']},
+        'auth_scheme': {'type': 'string', 'default': 'basic', 'enum': ['basic']},
         'client_id': {'type': 'string'},
         'client_secret': {'type': 'string'},
         'scope': {'type': 'string'},
@@ -40,8 +41,17 @@ reqValidProvider = s_config.getJsValidator({
         },
     },
     'additionalProperties': False,
-    'required': ['iden', 'name', 'flow_type', 'client_id', 'client_secret',
-                 'scope', 'auth_uri', 'token_uri', 'redirect_uri'],
+    'required': ['iden', 'name', 'client_id', 'client_secret', 'scope', 'auth_uri', 'token_uri', 'redirect_uri'],
+})
+
+reqValidTokenResponse = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'access_token': {'type': 'string'},
+        'expires_in': {'type': 'number', 'exclusiveMinimum': 0},
+    },
+    'additionalProperties': True,
+    'required': ['access_token', 'expires_in'],
 })
 
 class OAuthManager(s_nexus.Pusher):
@@ -58,7 +68,6 @@ class OAuthManager(s_nexus.Pusher):
         self.clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))
         self.providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers'))
 
-        # todo: do we want a conf option to disable this?
         self.refresh_window = 0.5
 
         self.ssl = None
@@ -74,8 +83,8 @@ class OAuthManager(s_nexus.Pusher):
         self.schedule_wake = asyncio.Event()
 
         # For testing
-        self._schedule_item_ran = asyncio.Event()
         self._schedule_empty = asyncio.Event()
+        self._schedule_item_ran = asyncio.Event()
 
     async def initActive(self):
         self._loadSchedule()
@@ -182,9 +191,10 @@ class OAuthManager(s_nexus.Pusher):
             self.schedule_wake.clear()
 
     def _normTokenData(self, issued_at, data):
-        expires_in = data.get('expires_in')
+        reqValidTokenResponse(data)
+        expires_in = data['expires_in']
         return {
-            'access_token': data.get('access_token'),
+            'access_token': data['access_token'],
             'expires_in': expires_in,
             'expires_at': issued_at + expires_in * 1000,
             'refresh_at': issued_at + (expires_in * self.refresh_window) * 1000,
@@ -200,7 +210,6 @@ class OAuthManager(s_nexus.Pusher):
         if code_verifier is not None:
             formdata.add_field('code_verifier', code_verifier)
 
-        # todo: support a different type of auth-type?
         auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
         return await self._fetchToken(providerconf['token_uri'], auth, formdata)
 
@@ -210,36 +219,53 @@ class OAuthManager(s_nexus.Pusher):
         formdata.add_field('refresh_token', clientconf['refresh_token'])
 
         auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
-        return await self._fetchToken(providerconf['token_uri'], auth, formdata)
+        return await self._fetchToken(providerconf['token_uri'], auth, formdata, retries=3)
 
-    async def _fetchToken(self, url, auth, formdata):
+    async def _fetchToken(self, url, auth, formdata, retries=1):
 
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Accept': 'application/json',
         }
 
+        attempts = 0
         issued_at = s_common.now()
 
         async with aiohttp.ClientSession(timeout=self.timeout) as sess:
 
-            try:
-                async with sess.post(url, auth=auth, headers=headers, data=formdata, ssl=self.ssl) as resp:
+            while True:
+                attempts += 1
 
-                    data = await resp.json()
+                try:
+                    async with sess.post(url, auth=auth, headers=headers, data=formdata, ssl=self.ssl) as resp:
 
-                    if resp.status == 200:
-                        return True, self._normTokenData(issued_at, data)
+                        if resp.status == 200:
+                            data = await resp.json()
+                            return True, self._normTokenData(issued_at, data)
 
-                    errmesg = data.get('error', 'unknown error')
-                    if 'error_description' in data:
-                        errmesg += f': {data["error_description"]}'
+                        if resp.status < 500:
+                            data = await resp.json()
 
-                    return False, {'error': errmesg}
+                            errmesg = data.get('error', 'unknown error')
+                            if 'error_description' in data:
+                                errmesg += f': {data["error_description"]}'
 
-            except Exception as e:
-                logger.exception('Error fetching token data')
-                return False, {'error': str(e)}
+                            return False, {'error': errmesg}
+
+                        retn = False, {'error': f'Token API returned HTTP code {resp.status}'}
+
+                except asyncio.TimeoutError:
+                    retn = False, {'error': f'Token API request timed out'}
+
+                except Exception as e:
+                    logger.exception(f'Error fetching token data from {url}')
+                    return False, {'error': str(e)}
+
+                if attempts <= retries:
+                    await asyncio.sleep(2 ** (attempts - 1))
+                    continue
+
+                return retn
 
     async def addProvider(self, conf):
         conf = reqValidProvider(conf)
@@ -279,7 +305,12 @@ class OAuthManager(s_nexus.Pusher):
         for clientiden in list(self.clients.keys()):
             if clientiden.startswith(iden):
                 self.clients.pop(clientiden)
-        return self.providers.pop(iden)
+
+        conf = self.providers.pop(iden)
+        if conf is not None:
+            conf.pop('client_secret')
+
+        return conf
 
     async def getClient(self, provideriden, useriden):
         conf = self.clients.get(provideriden + useriden)
@@ -319,7 +350,6 @@ class OAuthManager(s_nexus.Pusher):
         return self.clients.pop(provideriden + useriden)
 
     async def setClientAuthCode(self, provideriden, useriden, authcode, code_verifier=None):
-
         providerconf = self._getProvider(provideriden)
         if providerconf is None:
             raise s_exc.BadArg(mesg=f'OAuth V2 provider has not been configured ({provideriden})', iden=provideriden)
@@ -335,7 +365,6 @@ class OAuthManager(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('oauth:client:data:set')
     async def _setClientTokenData(self, provideriden, useriden, data):
-        # todo: consider some enveloping for future clientconf
         iden = provideriden + useriden
         self.clients.set(iden, data)
         self._scheduleRefreshItem(provideriden, useriden, data)

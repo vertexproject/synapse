@@ -29,13 +29,11 @@ class HttpOAuth2Token(s_httpapi.Handler):
 
             code = body['code'][0]
 
-            # todo: could shorten the 8s expires_in to make the tests run faster
-
             if code == 'itsagoodone':
                 return self.write({
                     'access_token': 'accesstoken00',
                     'token_type': 'example',
-                    'expires_in': 8,
+                    'expires_in': 3,
                     'refresh_token': 'refreshtoken00',
                 })
 
@@ -43,7 +41,7 @@ class HttpOAuth2Token(s_httpapi.Handler):
                 return self.write({
                     'access_token': 'accesstoken10',
                     'token_type': 'example',
-                    'expires_in': 8,
+                    'expires_in': 3,
                     'refresh_token': 'badrefresh',
                 })
 
@@ -66,9 +64,16 @@ class HttpOAuth2Token(s_httpapi.Handler):
                 return self.write({
                     'access_token': 'accesstoken40',
                     'token_type': 'example',
-                    'expires_in': 10,
+                    'expires_in': 6,
                     'refresh_token': 'refreshtoken20',
                 })
+
+            if code == 'baddata':
+                return self.write({'foo': 'bar'})
+
+            if code == 'servererror':
+                self.set_status(500)
+                return
 
             self.set_status(400)
             return self.write({
@@ -83,7 +88,7 @@ class HttpOAuth2Token(s_httpapi.Handler):
                 return self.write({
                     'access_token': 'accesstoken01',
                     'token_type': 'example',
-                    'expires_in': 8,
+                    'expires_in': 3,
                     'refresh_token': 'refreshtoken01',
                 })
 
@@ -260,7 +265,6 @@ class OAuthTest(s_test.SynTest):
                     providerconf00 = {
                         'iden': s_common.guid('providerconf00'),
                         'name': 'providerconf00',
-                        'flow_type': 'authorization_code',
                         'client_id': 'root',
                         'client_secret': 'secret',
                         'scope': 'allthethings',
@@ -270,7 +274,15 @@ class OAuthTest(s_test.SynTest):
                         'extensions': {'pkce': True},
                         'extra_auth_params': {'include_granted_scopes': 'true'}
                     }
-                    expconf00 = {k: v for k, v in providerconf00.items() if k != 'client_secret'}
+
+                    expconf00 = {
+                        **providerconf00,
+                        # default values currently not configurable by the user
+                        'flow_type': 'authorization_code',
+                        'auth_scheme': 'basic',
+                    }
+                    # client secret is never returned
+                    expconf00.pop('client_secret')
 
                     opts = {
                         'vars': {
@@ -441,6 +453,32 @@ class OAuthTest(s_test.SynTest):
                     ''', opts=opts)
                     self.none(ret)
 
+                    # a retryable error that still fails
+                    opts['vars']['authcode'] = 'servererror'
+                    mesgs = await core01.stormlist('''
+                        $iden = $providerconf.iden
+                        $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+                    self.stormIsInErr('returned HTTP code 500', mesgs)
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.none(ret)
+
+                    # token data fails validation
+                    opts['vars']['authcode'] = 'baddata'
+                    mesgs = await core01.stormlist('''
+                        $iden = $providerconf.iden
+                        $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+                    self.stormIsInErr('data must contain', mesgs)
+
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=opts)
+                    self.none(ret)
+
                     # can interrupt a refresh wait if a new one gets scheduled that is sooner
                     core00.oauth._schedule_item_ran.clear()
 
@@ -472,7 +510,6 @@ class OAuthTest(s_test.SynTest):
                     # verify active<->passive handoff
                     numsched = len(core00.oauth.schedule_map)
                     await core00.handoff(core01.getLocalUrl())
-                    await asyncio.sleep(8)
                     await core00.sync()
                     self.true(core01.isactive)
                     self.false(core00.isactive)
@@ -494,7 +531,7 @@ class OAuthTest(s_test.SynTest):
                     ret = await core00.callStorm('''
                         return($lib.inet.http.oauth.v2.delProvider($providerconf.iden))
                     ''', opts=opts)
-                    self.eq(providerconf00, ret)
+                    self.eq(expconf00, ret)
 
                     # deleted provider clients no longer exist
                     # and refresh items are lazily deleted
