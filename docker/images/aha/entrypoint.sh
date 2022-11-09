@@ -22,18 +22,17 @@ then
     fi
 fi
 
-# if [ -f $CONCURRENT_SCRIPT ]
-# then
-#     if [ -x $CONCURRENT_SCRIPT ]
-#     then
-#         echo "Executing $CONCURRENT_SCRIPT"
-#         # FIXME Can we redirect stdout / stderr here?
-# #         nohup exec $CONCURRENT_SCRIPT
-#     else
-#         echo "$CONCURRENT_SCRIPT exists but is not marked executable."
-#         exit 1
-#     fi
-# fi
+if [ -f $CONCURRENT_SCRIPT ]
+then
+    if [ -x $CONCURRENT_SCRIPT ]
+    then
+        echo "Executing $CONCURRENT_SCRIPT"
+            ./$CONCURRENT_SCRIPT &
+    else
+        echo "$CONCURRENT_SCRIPT exists but is not marked executable."
+        exit 1
+    fi
+fi
 
 # Execute our service
 exec python -O -m synapse.servers.aha /vertex/storage

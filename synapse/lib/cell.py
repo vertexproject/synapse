@@ -3063,7 +3063,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Cell: This returns an instance of the Cell.
         '''
-
+        os.system('id')
         conf = cls.initCellConf()
         pars = cls.getArgParser(conf=conf)
 
