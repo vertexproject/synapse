@@ -58,7 +58,7 @@ class OAuthManager(s_nexus.Pusher):
         self.clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))
         self.providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers'))
 
-        # self.enabled = True  # todo
+        # todo: do we want a conf option to disable this?
         self.refresh_window = 0.5
 
         self.ssl = None
@@ -75,6 +75,7 @@ class OAuthManager(s_nexus.Pusher):
 
         # For testing
         self._schedule_item_ran = asyncio.Event()
+        self._schedule_empty = asyncio.Event()
 
     async def initActive(self):
         self._loadSchedule()
@@ -103,7 +104,6 @@ class OAuthManager(s_nexus.Pusher):
         self.schedule_task = self.schedCoro(self._refreshLoop())
 
     def _scheduleRefreshItem(self, provideriden, useriden, clientconf):
-        # todo: could stuff other things into clientconf like enabled
         if not self.cell.isactive:
             return
 
@@ -152,15 +152,17 @@ class OAuthManager(s_nexus.Pusher):
 
                 providerconf = self._getProvider(provideriden)
                 if providerconf is None:
-                    logger.warning(f'OAuth V2 provider does not exist ({provideriden})')
+                    logger.debug(f'OAuth V2 provider does not exist ({provideriden})')
                     continue
 
                 user = self.cell.auth.user(useriden)
                 if user is None:
                     await self._setClientTokenData(provideriden, useriden, {'error': 'User does not exist'})
+                    self._schedule_item_ran.set()
                     continue
                 if user.isLocked():
                     await self._setClientTokenData(provideriden, useriden, {'error': 'User is locked'})
+                    self._schedule_item_ran.set()
                     continue
 
                 clientconf = self.clients.get(provideriden + useriden)
@@ -173,9 +175,9 @@ class OAuthManager(s_nexus.Pusher):
                     logger.warning(f'Failed to refresh token for provider,user ({provideriden},{useriden}): {data}')
 
                 await self._setClientTokenData(provideriden, useriden, data)
-
                 self._schedule_item_ran.set()
 
+            self._schedule_empty.set()
             await s_coro.event_wait(self.schedule_wake)
             self.schedule_wake.clear()
 
@@ -333,6 +335,7 @@ class OAuthManager(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPushAuto('oauth:client:data:set')
     async def _setClientTokenData(self, provideriden, useriden, data):
+        # todo: consider some enveloping for future clientconf
         iden = provideriden + useriden
         self.clients.set(iden, data)
         self._scheduleRefreshItem(provideriden, useriden, data)

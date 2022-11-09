@@ -167,12 +167,11 @@ class OAuthV2Lib(s_stormtypes.Lib):
         },
         {
             'name': 'setUserAuthCode',
-            'desc': 'Set the auth code for a given user',
+            'desc': 'Set the auth code for the current user.',
             'type': {
                 'type': 'function', '_funcname': '_setUserAuthCode',
                 'args': (
                     {'name': 'iden', 'type': 'str', 'desc': 'The provider iden.'},
-                    {'name': 'useriden', 'type': 'str', 'desc': 'The user iden.'},
                     {'name': 'authcode', 'type': 'str', 'desc': 'The auth code for the user.'},
                     {'name': 'code_verifier', 'type': 'str', 'default': None, 'desc': 'Optional PKCE code verifier.'},
                 ),
@@ -192,7 +191,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
         },
         {
             'name': 'clearUserAccessToken',
-            'desc': 'Cleared the stored refresh data for the current users provider access token.',
+            'desc': 'Clear the stored refresh data for the current users provider access token.',
             'type': {
                 'type': 'function', '_funcname': '_clearUserAccessToken',
                 'args': (
@@ -216,36 +215,33 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
     async def _addProvider(self, conf):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg='addProvider() requires admin privs.')
         conf = await s_stormtypes.toprim(conf)
         await self.runt.snap.core.oauth.addProvider(conf)
 
     async def _delProvider(self, iden):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg='delProvider() requires admin privs.')
         iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.core.oauth.delProvider(iden)
 
     async def _getProvider(self, iden):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg='getProvider() requires admin privs.')
         iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.core.oauth.getProvider(iden)
 
     async def _listProviders(self):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg='listProviders() requires admin privs.')
         return await self.runt.snap.core.oauth.listProviders()
 
-    async def _setUserAuthCode(self, iden, useriden, authcode, code_verifier=None):
-        if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
-
+    async def _setUserAuthCode(self, iden, authcode, code_verifier=None):
         iden = await s_stormtypes.tostr(iden)
-        useriden = await s_stormtypes.tostr(useriden)
         authcode = await s_stormtypes.tostr(authcode)
         code_verifier = await s_stormtypes.tostr(code_verifier, True)
 
+        useriden = self.runt.user.iden
         await self.runt.snap.core.oauth.setClientAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
 
     async def _getUserAccessToken(self, iden):

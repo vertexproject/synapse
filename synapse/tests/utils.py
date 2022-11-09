@@ -1159,7 +1159,7 @@ class SynTest(unittest.TestCase):
 
         mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
-        with self.withNexusReplay(False):
+        with self.withNexusReplay():
 
             if dirn is not None:
 
