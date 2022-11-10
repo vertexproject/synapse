@@ -1065,7 +1065,3 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             for _ in range(25):
                 async for row in axon.csvrows(sha256):
                     break
-
-            for _ in range(25):
-                async for row in axon.readlines(s_common.ehex(sha256)):
-                    break
