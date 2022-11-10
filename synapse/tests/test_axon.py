@@ -16,6 +16,7 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.coro as s_coro
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -325,6 +326,29 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
         enames = {'John', 'Jack', 'John "Da Man"', 'Stephen, aka the dude', '',
                   'Joan "the bone", Anne', 'Bob'}
         self.eq(names, enames)
+
+        evt = asyncio.Event()
+        async def fakelink(self, sha256, link):
+            try:
+                async for byts in self.get(sha256):
+                    await link.send(byts)
+                    await asyncio.sleep(0)
+            finally:
+                link.txfini()
+                evt.set()
+
+        newdata = '\n'.join([data for i in range(500)])
+        size, sha256 = await axon.put(newdata.encode())
+
+        with mock.patch('synapse.axon.Axon._sha256ToLink', fakelink):
+            async for row in axon.csvrows(sha256):
+                break
+            self.true(await s_coro.event_wait(evt, 5))
+
+            evt.clear()
+            async for row in axon.readlines(s_common.ehex(sha256)):
+                break
+            self.true(await s_coro.event_wait(evt, 5))
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
@@ -1046,22 +1070,3 @@ bar baz",vv
 
             (size, sha256) = await axon01.put(b'vertex')
             self.eq(await axon00.size(sha256), await axon01.size(sha256))
-
-    async def test_axon_taskcancel(self):
-
-        async with self.getTestAxon() as axon:
-
-            data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
-Jack,McGinnis,220 hobo Av.,Phila, PA,09119
-"John ""Da Man""",Repici,120 Jefferson St.,Riverside, NJ,08075
-Stephen,Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
-,Blankman,,SomeTown, SD, 00298
-"Joan ""the bone"", Anne",Jet,"9th, at Terrace plc",Desert City,CO,00123
-Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
-            n = 568
-            newdata = '\n'.join([data for i in range(n)])
-            size, sha256 = await axon.put(newdata.encode())
-
-            for _ in range(25):
-                async for row in axon.csvrows(sha256):
-                    break
