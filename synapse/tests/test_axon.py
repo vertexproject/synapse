@@ -335,7 +335,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
                     await asyncio.sleep(0)
             finally:
                 link.txfini()
-                evt.set()
+                link.onfini(evt.set)
 
         newdata = '\n'.join([data for i in range(500)])
         size, sha256 = await axon.put(newdata.encode())
