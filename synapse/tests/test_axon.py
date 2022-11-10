@@ -328,14 +328,10 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
         self.eq(names, enames)
 
         evt = asyncio.Event()
+        origlink = s_axon.Axon._sha256ToLink
         async def fakelink(self, sha256, link):
-            try:
-                async for byts in self.get(sha256):
-                    await link.send(byts)
-                    await asyncio.sleep(0)
-            finally:
-                link.txfini()
-                link.onfini(evt.set)
+            link.onfini(evt.set)
+            await origlink(self, sha256, link)
 
         newdata = '\n'.join([data for i in range(500)])
         size, sha256 = await axon.put(newdata.encode())
