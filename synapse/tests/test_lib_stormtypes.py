@@ -5765,18 +5765,6 @@ words\tword\twrd'''
                 'size:bytes': 651,
             }, await core.callStorm('return($lib.axon.metrics())'))
 
-            n = 568
-            newdata = '\n'.join([data for i in range(n)])
-            size, sha256 = await core.axon.put(newdata.encode())
-            sha256 = s_common.ehex(sha256)
-
-            q = '''
-            for $x in $lib.range(25) {
-                for $row in $lib.axon.csvrows($sha256) { break }
-            }
-            '''
-            await core.nodes(q, opts={'vars': {'sha256': sha256}})
-
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:
