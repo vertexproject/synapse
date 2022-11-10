@@ -64,6 +64,7 @@ import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
+import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
@@ -1195,6 +1196,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
         await self._initStormDmons()
+        await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
 
@@ -1378,6 +1380,73 @@ class Cortex(s_cell.Cell):  # type: ignore
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def reqValidStormGraph(self, gdef):
+        for filt in gdef.get('filters', ()):
+            await self.getStormQuery(filt)
+
+        for pivo in gdef.get('filters', ()):
+            await self.getStormQuery(pivo)
+
+        for form, rule in gdef.get('forms', {}):
+            if self.model.form(form) is None:
+                raise s_exc.NoSuchForm(name=form)
+
+            for filt in rule.get('filters', ()):
+                await self.getStormQuery(filt)
+
+            for pivo in rule.get('filters', ()):
+                await self.getStormQuery(pivo)
+
+    async def addStormGraph(self, gdef):
+        gdef['iden'] = s_common.guid()
+        await self._push('storm:graph:add', gdef)
+
+    @s_nexus.Pusher.onPush('storm:graph:add')
+    async def _addStormGraph(self, gdef):
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        await self.reqValidStormGraph(gdef)
+
+        iden = gdef['iden']
+        if self.graphs.get(iden) is not None:
+            return
+
+        self.graphs.set(iden, gdef)
+        await self.feedBeholder('storm:graph:add', {'gdef': gdef})
+
+    async def delStormGraph(self, iden):
+        if self.graphs.get(iden) is None:
+            mesg = f'No graph projection with iden {iden} exists!'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        await self._push('storm:graph:del', iden)
+
+    @s_nexus.Pusher.onPush('storm:graph:del')
+    async def _delStormGraph(self, iden):
+        gdef = self.graphs.get(iden)
+        if gdef is None:
+            return
+
+        self.graphs.pop(iden)
+        await self.feedBeholder('storm:graph:del', {'iden': iden})
+
+    async def getStormGraph(self, iden):
+        gdef = self.graphs.get(iden)
+        if gdef is None:
+            mesg = f'No graph projection exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+        return gdef
+
+    async def getStormGraph(self, iden):
+        gdef = self.graphs.get(iden)
+        if gdef is None:
+            mesg = f'No graph projection exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+        return gdef
+
+    async def getStormGraphs(self):
+        return [g[1] for g in self.graphs.items()]
 
     async def addCoreQueue(self, name, info):
 
@@ -1696,6 +1765,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
+
+    async def _initStormGraphs(self):
+        path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
+
+        slab = await s_lmdbslab.Slab.anit(path)
+        self.onfini(slab.fini)
+
+        self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2274,6 +2351,14 @@ class Cortex(s_cell.Cell):  # type: ignore
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
 
+        for gdef in pkgdef.get('graphs', ()):
+            gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
+            gdef['scope'] = 'power-up'
+            gdef['creator'] = pkgname
+
+            if validstorm:
+                await self.reqValidStormGraph(gdef)
+
         # Validate package def (post normalization)
         s_storm.reqValidPkgdef(pkgdef)
 
@@ -2313,6 +2398,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in cmds:
             await self._setStormCmd(cdef)
 
+        for gdef in pkgdef.get('graphs', ()):
+            self._addStormGraph(gdef)
+
         onload = pkgdef.get('onload')
         if onload is not None and self.isactive:
             async def _onload():
@@ -2341,6 +2429,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self._popStormCmd(name)
 
         pkgname = pkgdef.get('name')
+
+        for gdef in pkgdef.get('graphs', ()):
+            iden = s_common.guid((pkgname, gdef.get('name')))
+            self._delStormGraph(iden)
+
         self.stormpkgs.pop(pkgname, None)
 
     def getStormSvc(self, name):

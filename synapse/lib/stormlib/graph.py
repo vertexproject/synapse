@@ -1,0 +1,163 @@
+import synapse.lib.config as s_config
+import synapse.lib.stormtypes as s_stormtypes
+
+gdefSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'scope': {'type': 'string'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'refs': {'type': 'boolean'},
+        'edges': {'type': 'boolean'},
+        'degrees': {'type': 'integer'},
+        'filterinput': {'type': 'boolean'},
+        'yieldfiltered': {'type': 'boolean'},
+        'filters': {
+            'type': ['array', 'null'],
+            'items': {'type': 'string'}
+        },
+        'pivots': {
+            'type': ['array', 'null'],
+            'items': {'type': 'string'}
+        },
+        'forms': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'properties': {
+                        'filters': {
+                            'type': ['array', 'null'],
+                            'items': {'type': 'string'}
+                        },
+                        'pivots': {
+                            'type': ['array', 'null'],
+                            'items': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'scope', 'creator']
+}
+
+reqValidGdef = s_config.getJsValidator(gdefSchema)
+
+@s_stormtypes.registry.registerLib
+class GraphLib(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with graph projections in the Cortex.
+    '''
+    _storm_lib_path = ('graph',)
+    _storm_locals = (
+        {'name': 'add', 'desc': 'Add a graph projection to the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methGraphAdd',
+                  'args': (
+                      {'name': 'gdef', 'type': 'dict', 'desc': 'A graph projection definition.', },
+                      {'name': 'public', 'type': 'bool', 'default': False,
+                       'desc': 'Add the graph projection to the global namespace.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'del', 'desc': 'Delete a graph projection from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methGraphDel',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the graph projection to delete.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get a graph projection definition from the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methGraphGet',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'default': None,
+                       'desc': 'The iden of the graph projection to get. If not specified, returns the current graph projection.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The graph projection definition.', }}},
+        {'name': 'list', 'desc': 'List the graph projections available in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_methGraphList',
+                  'returns': {'type': 'list', 'desc': 'A list of graph projection definitions.', }}},
+        {'name': 'activate', 'desc': 'Set the graph projection to use for the current top level Storm Runtime.',
+         'type': {'type': 'function', '_funcname': '_methGraphActivate',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'default': None,
+                       'desc': 'The iden of the graph projection to use.', },
+                  ),
+                  'returns': {'type': 'null'}}},
+    )
+
+    def getObjLocals(self):
+        return {
+            'add': self._methGraphAdd,
+            'del': self._methGraphDel,
+            'get': self._methGraphGet,
+            'list': self._methGraphList,
+            'activate': self._methGraphActivate,
+        }
+
+    async def _methGraphAdd(self, gdef, public=False):
+        gdef = await s_stormtypes.toprim(gdef)
+        public = await s_stormtypes.tobool(public)
+        if public:
+            self.runt.confirm(('graph', 'add'), None)
+            gdef['scope'] = 'global'
+        else:
+            gdef['scope'] = 'user'
+
+        gdef['creator'] = self.runt.user.iden
+
+        await self.runt.snap.core.addStormGraph(gdef)
+
+    async def _methGraphGet(self, iden=None):
+        iden = await tostr(iden, noneok=True)
+        if iden is None:
+            gdef = self.runt.getGraph()
+        else:
+            gdef = await self.runt.snap.core.getStormGraph(iden)
+            if gdef['scope'] == 'user':
+                if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
+                    mesg = f'No graph projection exists with iden {iden}.'
+                    raise s_exc.NoSuchIden(mesg=mesg)
+
+        if gdef is None:
+            return None
+
+        return s_stormtype.Dict(gdef)
+
+    async def _methGraphDel(self, iden):
+        iden = await tostr(iden)
+        gdef = await self.runt.snap.core.getStormGraph(iden)
+
+        scope = gdef['scope']
+        if scope == 'global':
+            self.runt.confirm(('graph', 'del'), None)
+
+        elif scope == 'user':
+            if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
+                mesg = f'No graph projection exists with iden {iden}.'
+                raise s_exc.NoSuchIden(mesg=mesg)
+
+        elif scope == 'power-up' and not self.runt.isAdmin():
+            mesg = 'Deleting power-up graph projections requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        await self.runt.snap.core.delStormGraph(iden)
+
+    async def _methGraphList(self):
+        projs = await self.runt.snap.core.getStormGraphs()
+        if not self.runt.isAdmin():
+            user = self.runt.user.iden
+            projs = [p for p in projs if p['scope'] != 'user' or p['creator'] == user]
+
+        return list(sorted(projs, key=lambda x: x.get('name')))
+
+    async def _methGraphActivate(self, iden):
+        iden = await tostr(iden)
+        gdef = await self.runt.snap.core.getStormGraph(iden)
+
+        if gdef['scope'] == 'user':
+            if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
+                mesg = f'No graph projection exists with iden {iden}.'
+                raise s_exc.NoSuchIden(mesg=mesg)
+
+        self.runt.setGraph(gdef)
