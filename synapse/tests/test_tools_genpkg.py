@@ -153,6 +153,12 @@ class GenPkgTest(s_test.SynTest):
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
 
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                opts = {'user': visi.iden}
+                q = '$lib.graph.del($lib.graph.list().0.iden)'
+                await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
+
             await core.stormlist('pkg.del testpkg')
 
             gdefs = await core.callStorm('return($lib.graph.list())')

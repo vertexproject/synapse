@@ -3537,6 +3537,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 opts['user'] = visi.iden
                 await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.get($iden)', opts=opts))
                 await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden)', opts=opts))
+                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.activate($iden)', opts=opts))
                 self.len(0, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
@@ -3547,6 +3548,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
 
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}), public=$lib.true)'
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
