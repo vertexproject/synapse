@@ -120,9 +120,6 @@ class GraphLib(s_stormtypes.Lib):
                     mesg = 'Graph projection belongs to a different user.'
                     raise s_exc.AuthDeny(mesg=mesg)
 
-        if gdef is None:
-            return None
-
         return gdef
 
     async def _methGraphDel(self, iden):
