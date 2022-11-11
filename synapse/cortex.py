@@ -2112,7 +2112,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return copy.deepcopy(self.stormpkgs.get(name))
 
     async def getStormPkgs(self):
-        return list(self.pkghive.values())
+        return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
         return self.stormmods
