@@ -1419,7 +1419,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.graphs.set(iden, gdef)
         await self.feedBeholder('storm:graph:add', {'gdef': gdef})
-        return gdef
+        return copy.deepcopy(gdef)
 
     async def delStormGraph(self, iden):
         if self.graphs.get(iden) is None:
@@ -1442,10 +1442,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         if gdef is None:
             mesg = f'No graph projection exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
-        return gdef
+        return copy.deepcopy(gdef)
 
     async def getStormGraphs(self):
-        return [g[1] for g in self.graphs.items()]
+        return [copy.deepcopy(g[1]) for g in self.graphs.items()]
 
     async def addCoreQueue(self, name, info):
 
