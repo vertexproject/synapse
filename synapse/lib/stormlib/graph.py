@@ -7,7 +7,7 @@ gdefSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'scope': {'type': 'string'},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string'},
         'refs': {'type': 'boolean'},
         'edges': {'type': 'boolean'},
         'degrees': {'type': 'integer'},
@@ -106,10 +106,10 @@ class GraphLib(s_stormtypes.Lib):
 
         gdef['creator'] = self.runt.user.iden
 
-        await self.runt.snap.core.addStormGraph(gdef)
+        return await self.runt.snap.core.addStormGraph(gdef)
 
     async def _methGraphGet(self, iden=None):
-        iden = await tostr(iden, noneok=True)
+        iden = await s_stormtypes.tostr(iden, noneok=True)
         if iden is None:
             gdef = self.runt.getGraph()
         else:
@@ -122,10 +122,10 @@ class GraphLib(s_stormtypes.Lib):
         if gdef is None:
             return None
 
-        return s_stormtype.Dict(gdef)
+        return s_stormtypes.Dict(gdef)
 
     async def _methGraphDel(self, iden):
-        iden = await tostr(iden)
+        iden = await s_stormtypes.tostr(iden)
         gdef = await self.runt.snap.core.getStormGraph(iden)
 
         scope = gdef['scope']
@@ -152,7 +152,7 @@ class GraphLib(s_stormtypes.Lib):
         return list(sorted(projs, key=lambda x: x.get('name')))
 
     async def _methGraphActivate(self, iden):
-        iden = await tostr(iden)
+        iden = await s_stormtypes.tostr(iden)
         gdef = await self.runt.snap.core.getStormGraph(iden)
 
         if gdef['scope'] == 'user':

@@ -2000,7 +2000,7 @@ class Runtime(s_base.Base):
                     if rules is True:
                         rules = {'degrees': None, 'refs': True}
                     elif isinstance(rules, str):
-                        await self.snap.core.getGraph(rules)
+                        rules = await self.snap.core.getStormGraph(rules)
 
                     subgraph = s_ast.SubGraph(rules)
                     nodegenr = subgraph.run(self, nodegenr)

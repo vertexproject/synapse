@@ -1388,8 +1388,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         for pivo in gdef.get('filters', ()):
             await self.getStormQuery(pivo)
 
-        for form, rule in gdef.get('forms', {}):
-            if self.model.form(form) is None:
+        for form, rule in gdef.get('forms', {}).items():
+            if form is not '*' and self.model.form(form) is None:
                 raise s_exc.NoSuchForm(name=form)
 
             for filt in rule.get('filters', ()):
@@ -1400,7 +1400,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def addStormGraph(self, gdef):
         gdef['iden'] = s_common.guid()
-        await self._push('storm:graph:add', gdef)
+        return await self._push('storm:graph:add', gdef)
 
     @s_nexus.Pusher.onPush('storm:graph:add')
     async def _addStormGraph(self, gdef):
@@ -1414,13 +1414,14 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.graphs.set(iden, gdef)
         await self.feedBeholder('storm:graph:add', {'gdef': gdef})
+        return gdef
 
     async def delStormGraph(self, iden):
         if self.graphs.get(iden) is None:
             mesg = f'No graph projection with iden {iden} exists!'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        await self._push('storm:graph:del', iden)
+        return await self._push('storm:graph:del', iden)
 
     @s_nexus.Pusher.onPush('storm:graph:del')
     async def _delStormGraph(self, iden):
@@ -2399,7 +2400,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self._setStormCmd(cdef)
 
         for gdef in pkgdef.get('graphs', ()):
-            self._addStormGraph(gdef)
+            await self._addStormGraph(gdef)
 
         onload = pkgdef.get('onload')
         if onload is not None and self.isactive:
@@ -2431,8 +2432,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         pkgname = pkgdef.get('name')
 
         for gdef in pkgdef.get('graphs', ()):
-            iden = s_common.guid((pkgname, gdef.get('name')))
-            self._delStormGraph(iden)
+            await self._delStormGraph(gdef['iden'])
 
         self.stormpkgs.pop(pkgname, None)
 

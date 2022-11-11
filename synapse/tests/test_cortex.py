@@ -3347,9 +3347,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
             }
 
+            def checkGraph(seeds, alldefs):
+                # our TLDs should be omits
+                self.len(2, seeds)
+                self.len(4, alldefs)
+
+                self.isin(('inet:fqdn', 'woot.com'), seeds)
+                self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+                self.nn(alldefs.get(('syn:tag', 'yepr')))
+                self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
+
+                self.none(alldefs.get(('inet:asn', 20)))
+                self.none(alldefs.get(('syn:tag', 'nope')))
+                self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+
             seeds = []
             alldefs = {}
-
             async with await core.snap() as snap:
                 async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
 
@@ -3358,19 +3372,50 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     alldefs[node.ndef] = path.metadata.get('edges')
 
-            # our TLDs should be omits
-            self.len(2, seeds)
-            self.len(4, alldefs)
+            checkGraph(seeds, alldefs)
 
-            self.isin(('inet:fqdn', 'woot.com'), seeds)
-            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+            rules['name'] = 'foo'
+            iden = await core.callStorm('return($lib.graph.add($rules).iden)', opts={'vars': {'rules': rules}})
 
-            self.nn(alldefs.get(('syn:tag', 'yepr')))
-            self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
+            gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
+            self.eq(gdef['name'], 'foo')
+            self.eq(gdef['creator'], core.auth.rootuser.iden)
 
-            self.none(alldefs.get(('inet:asn', 20)))
-            self.none(alldefs.get(('syn:tag', 'nope')))
-            self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(1, gdefs)
+            self.eq(gdefs[0]['name'], 'foo')
+            self.eq(gdefs[0]['creator'], core.auth.rootuser.iden)
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+
+                async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            checkGraph(seeds, alldefs)
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            checkGraph(seeds, alldefs)
+
+            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(0, gdefs)
 
             # now do the same options via the command...
             text = '''
@@ -3397,19 +3442,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     alldefs[node.ndef] = path.metadata.get('edges')
 
-            # our TLDs should be omits
-            self.len(2, seeds)
-            self.len(4, alldefs)
-
-            self.isin(('inet:fqdn', 'woot.com'), seeds)
-            self.isin(('inet:fqdn', 'vertex.link'), seeds)
-
-            self.nn(alldefs.get(('syn:tag', 'yepr')))
-            self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
-
-            self.none(alldefs.get(('inet:asn', 20)))
-            self.none(alldefs.get(('syn:tag', 'nope')))
-            self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+            checkGraph(seeds, alldefs)
 
             # filterinput=false behavior
             rules['filterinput'] = False

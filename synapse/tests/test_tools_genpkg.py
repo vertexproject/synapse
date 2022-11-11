@@ -78,6 +78,11 @@ class GenPkgTest(s_test.SynTest):
             msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
             self.stormIsInPrint('Imported Module testmod', msgs)
 
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(1, gdefs)
+            self.eq(gdefs[0]['name'], 'testgraph')
+            self.eq(gdefs[0]['creator'], 'testpkg')
+
             pdef = s_common.yamlload(savepath)
             s_common.yamlsave(pdef, yamlpath)
 
@@ -147,6 +152,11 @@ class GenPkgTest(s_test.SynTest):
             argv = ('--push', url, '--no-build', newppath)
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
+
+            await core.stormlist('pkg.del testpkg')
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(0, gdefs)
 
     def test_tools_tryloadpkg(self):
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
