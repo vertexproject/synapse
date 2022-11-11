@@ -1389,7 +1389,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.getStormQuery(pivo)
 
         for form, rule in gdef.get('forms', {}).items():
-            if form is not '*' and self.model.form(form) is None:
+            if form != '*' and self.model.form(form) is None:
                 raise s_exc.NoSuchForm(name=form)
 
             for filt in rule.get('filters', ()):
@@ -1400,6 +1400,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def addStormGraph(self, gdef):
         gdef['iden'] = s_common.guid()
+
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        await self.reqValidStormGraph(gdef)
+
         return await self._push('storm:graph:add', gdef)
 
     @s_nexus.Pusher.onPush('storm:graph:add')
@@ -1431,13 +1436,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.graphs.pop(iden)
         await self.feedBeholder('storm:graph:del', {'iden': iden})
-
-    async def getStormGraph(self, iden):
-        gdef = self.graphs.get(iden)
-        if gdef is None:
-            mesg = f'No graph projection exists with iden {iden}.'
-            raise s_exc.NoSuchIden(mesg=mesg)
-        return gdef
 
     async def getStormGraph(self, iden):
         gdef = self.graphs.get(iden)

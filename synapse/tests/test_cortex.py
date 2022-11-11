@@ -3412,11 +3412,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             checkGraph(seeds, alldefs)
 
-            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
-
-            gdefs = await core.callStorm('return($lib.graph.list())')
-            self.len(0, gdefs)
-
             # now do the same options via the command...
             text = '''
                 inet:fqdn | graph
@@ -3525,6 +3520,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Runtsafety test
             q = '[ test:int=1 ]  | graph --degrees $node.value()'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            opts = {'vars': {'iden': iden}}
+            q = '''
+            function acti() {
+                $lib.graph.activate($iden)
+                return($lib.graph.get())
+            }
+            return($acti().iden)'''
+
+            self.eq(iden, await core.callStorm(q, opts=opts))
+            self.none(await core.callStorm('return($lib.graph.get())'))
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                opts['user'] = visi.iden
+                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.get($iden)', opts=opts))
+                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden)', opts=opts))
+                self.len(0, await core.callStorm('return($lib.graph.list())', opts=opts))
+
+            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(0, gdefs)
+
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
+
+            q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}), public=$lib.true)'
+            await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:

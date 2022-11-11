@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
