@@ -80,7 +80,7 @@ class GraphLib(s_stormtypes.Lib):
         {'name': 'activate', 'desc': 'Set the graph projection to use for the current top level Storm Runtime.',
          'type': {'type': 'function', '_funcname': '_methGraphActivate',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'default': None,
+                      {'name': 'iden', 'type': 'str',
                        'desc': 'The iden of the graph projection to use.', },
                   ),
                   'returns': {'type': 'null'}}},
@@ -122,7 +122,7 @@ class GraphLib(s_stormtypes.Lib):
         if gdef is None:
             return None
 
-        return s_stormtypes.Dict(gdef)
+        return gdef
 
     async def _methGraphDel(self, iden):
         iden = await s_stormtypes.tostr(iden)
