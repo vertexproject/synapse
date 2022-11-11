@@ -116,8 +116,8 @@ class GraphLib(s_stormtypes.Lib):
             gdef = await self.runt.snap.core.getStormGraph(iden)
             if gdef['scope'] == 'user':
                 if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
-                    mesg = f'No graph projection exists with iden {iden}.'
-                    raise s_exc.NoSuchIden(mesg=mesg)
+                    mesg = 'Graph projection belongs to a different user.'
+                    raise s_exc.AuthDeny(mesg=mesg)
 
         if gdef is None:
             return None
@@ -134,8 +134,8 @@ class GraphLib(s_stormtypes.Lib):
 
         elif scope == 'user':
             if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
-                mesg = f'No graph projection exists with iden {iden}.'
-                raise s_exc.NoSuchIden(mesg=mesg)
+                mesg = 'Graph projection belongs to a different user.'
+                raise s_exc.AuthDeny(mesg=mesg)
 
         elif scope == 'power-up' and not self.runt.isAdmin():
             mesg = 'Deleting power-up graph projections requires admin privileges.'
@@ -157,7 +157,7 @@ class GraphLib(s_stormtypes.Lib):
 
         if gdef['scope'] == 'user':
             if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
-                mesg = f'No graph projection exists with iden {iden}.'
-                raise s_exc.NoSuchIden(mesg=mesg)
+                mesg = 'Graph projection belongs to a different user.'
+                raise s_exc.AuthDeny(mesg=mesg)
 
         self.runt.setGraph(gdef)
