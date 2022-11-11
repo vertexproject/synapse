@@ -2185,10 +2185,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
 
     async def getStormPkg(self, name):
-        return self.stormpkgs.get(name)
+        return copy.deepcopy(self.stormpkgs.get(name))
 
     async def getStormPkgs(self):
-        return list(self.pkghive.values())
+        return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
         return self.stormmods
@@ -2405,9 +2405,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             async def _onload():
                 try:
                     async for mesg in self.storm(onload):
-                        if mesg[0] in ('print', 'warn'):
-                            logger.warning(f'onload output: {mesg}')
-                            await asyncio.sleep(0)
+                        if mesg[0] == 'print':
+                            logger.info(f'{name} onload output: {mesg[1].get("mesg")}')
+                        if mesg[0] == 'warn':
+                            logger.warning(f'{name} onload output: {mesg[1].get("mesg")}')
+                        if mesg[0] == 'err':
+                            logger.error(f'{name} onload output: {mesg[1]}')
+                        await asyncio.sleep(0)
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
                 except Exception:  # pragma: no cover
