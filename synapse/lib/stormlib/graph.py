@@ -7,7 +7,7 @@ gdefSchema = {
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
-        'scope': {'type': 'string'},
+        'scope': {'type': 'string', 'enum': ['user', 'global', 'power-up']},
         'creator': {'type': 'string'},
         'refs': {'type': 'boolean'},
         'edges': {'type': 'boolean'},
