@@ -982,7 +982,13 @@ stormcmds = (
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
-                    $async = $lib.model.type(bool).repr($trigger.async).ljust(6)
+                    $async = $trigger.async
+                    ($ok, $async) = $lib.trycast(bool, $async)
+                    if $ok {
+                        $async = $lib.model.type(bool).repr($async).ljust(6)
+                    } else {
+                        $async = $lib.model.type(bool).repr($lib.false).ljust(6)
+                    }
                     $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
                     $cond = $trigger.cond.ljust(9)
 
