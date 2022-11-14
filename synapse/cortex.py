@@ -157,7 +157,7 @@ class CoreApi(s_cell.CellApi):
 
     def stat(self):
         self.user.confirm(('status',))
-        s_common.deprecated('stat')
+        s_common.deprecated('CoreApi.stat')
         return self.cell.stat()
 
     async def getModelDict(self):
@@ -226,6 +226,8 @@ class CoreApi(s_cell.CellApi):
 
     async def addCronJob(self, cdef):
         '''
+        This API is deprecated.
+
         Add a cron job to the cortex
 
         A cron job is a persistently-stored item that causes storm queries to be run in the future.  The specification
@@ -254,59 +256,69 @@ class CoreApi(s_cell.CellApi):
         '''
         cdef['creator'] = self.user.iden
 
-        s_common.deprecated('addCronJob')
+        s_common.deprecated('CoreApi.addCronJob')
         self.user.confirm(('cron', 'add'), gateiden='cortex')
         return await self.cell.addCronJob(cdef)
 
     async def delCronJob(self, iden):
         '''
+        This API is deprecated.
+
         Delete a cron job
 
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        s_common.deprecated('delCronJob')
+        s_common.deprecated('CoreApi.delCronJob')
         self.user.confirm(('cron', 'del'), gateiden=iden)
         await self.cell.delCronJob(iden)
 
     async def updateCronJob(self, iden, query):
         '''
+        This API is deprecated.
+
         Change an existing cron job's query
 
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('updateCronJob')
+        s_common.deprecated('CoreApi.updateCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.updateCronJob(iden, query)
 
     async def enableCronJob(self, iden):
         '''
+        This API is deprecated.
+
         Enable a cron job
 
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('enableCronJob')
+        s_common.deprecated('CoreApi.enableCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
     async def disableCronJob(self, iden):
         '''
+        This API is deprecated.
+
         Enable a cron job
 
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('disableCronJob')
+        s_common.deprecated('CoreApi.disableCronJob')
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.disableCronJob(iden)
 
     async def listCronJobs(self):
         '''
+        This API is deprecated.
+
         Get information about all the cron jobs accessible to the current user
         '''
-        s_common.deprecated('listCronJobs')
+        s_common.deprecated('CoreApi.listCronJobs')
 
         crons = []
         for cron in await self.cell.listCronJobs():
@@ -356,6 +368,8 @@ class CoreApi(s_cell.CellApi):
 
     async def addNodeTag(self, iden, tag, valu=(None, None)):
         '''
+        This API is deprecated.
+
         Add a tag to a node specified by iden.
 
         Args:
@@ -363,7 +377,7 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
-        s_common.deprecated('addNodeTag')
+        s_common.deprecated('CoreApi.addNodeTag')
         await self._reqDefLayerAllowed(('node', 'tag', 'add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
@@ -375,7 +389,7 @@ class CoreApi(s_cell.CellApi):
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
-        s_common.deprecated('delNodeTag')
+        s_common.deprecated('CoreApi.delNodeTag')
         await self._reqDefLayerAllowed(('node', 'tag', 'del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
@@ -383,7 +397,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Set a property on a single node. Deprecated in 2.0.0.
         '''
-        s_common.deprecated('setNodeProp')
+        s_common.deprecated('CoreApi.setNodeProp')
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -404,7 +418,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Delete a property from a single node. Deprecated in 2.0.0.
         '''
-        s_common.deprecated('delNodeProp')
+        s_common.deprecated('CoreApi.delNodeProp')
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -426,7 +440,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Deprecated in 2.0.0.
         '''
-        s_common.deprecated('addNode')
+        s_common.deprecated('CoreApi.addNode')
         async with await self.cell.snap(user=self.user) as snap:
             self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
             with s_provenance.claim('coreapi', meth='node:add', user=snap.user.iden):
@@ -446,7 +460,7 @@ class CoreApi(s_cell.CellApi):
 
         Deprecated in 2.0.0
         '''
-        s_common.deprecated('addNodes')
+        s_common.deprecated('CoreApi.addNodes')
 
         # First check that that user may add each form
         done = {}
@@ -528,7 +542,7 @@ class CoreApi(s_cell.CellApi):
 
         NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
         '''
-        s_common.deprecated('eval')
+        s_common.deprecated('CoreApi.eval')
         opts = self._reqValidStormOpts(opts)
         view = self.cell._viewFromOpts(opts)
         async for pode in view.iterStormPodes(text, opts=opts):
@@ -564,6 +578,8 @@ class CoreApi(s_cell.CellApi):
 
     async def watch(self, wdef):
         '''
+        This API is deprecated.
+
         Hook cortex/view/layer watch points based on a specified watch definition.
 
         Example:
@@ -573,7 +589,7 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
-        s_common.deprecated('watch')
+        s_common.deprecated('CoreApi.watch')
         iden = wdef.get('view', self.cell.view.iden)
         self.user.confirm(('watch',), gateiden=iden)
 
@@ -600,9 +616,11 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def splices(self, offs=None, size=None, layriden=None):
         '''
+        This API is deprecated.
+
         Return the list of splices at the given offset.
         '''
-        s_common.deprecated('splices')
+        s_common.deprecated('CoreApi.splices')
         layr = self.cell.getLayer(layriden)
         count = 0
         async for mesg in layr.splices(offs=offs, size=size):
@@ -614,9 +632,11 @@ class CoreApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def splicesBack(self, offs=None, size=None):
         '''
+        This API is deprecated.
+
         Return the list of splices backwards from the given offset.
         '''
-        s_common.deprecated('splicesBack')
+        s_common.deprecated('CoreApi.splicesBack')
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
@@ -626,11 +646,13 @@ class CoreApi(s_cell.CellApi):
 
     async def spliceHistory(self):
         '''
+        This API is deprecated.
+
         Yield splices backwards from the end of the splice log.
 
         Will only return the user's own splices unless they are an admin.
         '''
-        s_common.deprecated('spliceHistory')
+        s_common.deprecated('CoreApi.spliceHistory')
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
@@ -2233,6 +2255,15 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = f'Storm package {name} conflicts with {conflict.get("name")}{conflict.get("version") or ""}.'
             raise s_exc.StormPkgConflicts(mesg=mesg)
 
+    def _reqStormPkgVarType(self, pkgname, vartype):
+        if isinstance(vartype, (tuple, list)):
+            for vtyp in vartype:
+                self._reqStormPkgVarType(pkgname, vtyp)
+        else:
+            if vartype not in self.model.types:
+                mesg = f'Storm package {pkgname} has unknown config var type {vartype}.'
+                raise s_exc.NoSuchType(mesg=mesg, type=vartype)
+
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
         Normalize and validate a storm package (optionally storm code).
@@ -2282,6 +2313,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Validate package def (post normalization)
         s_storm.reqValidPkgdef(pkgdef)
+
+        for configvar in pkgdef.get('configvars', ()):
+            self._reqStormPkgVarType(pkgname, configvar.get('type'))
 
     async def loadStormPkg(self, pkgdef):
         '''
@@ -4436,7 +4470,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             pass
 
     async def _addSynSplice(self, snap, items):
-        s_common.deprecated('addFeedData(syn.splice, ...)')
+        s_common.deprecated('Cortex.addFeedData(syn.splice, ...)')
 
         for item in items:
             func = self.splicers.get(item[0])
@@ -4541,7 +4575,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await node.delTagProp(tag, prop)
 
     async def _addSynNodeEdits(self, snap, items):
-        s_common.deprecated('addFeedData(syn.nodeedits, ...)')
+        s_common.deprecated('Cortex.addFeedData(syn.nodeedits, ...)')
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.saveNodeEdits(item, None)
@@ -4740,7 +4774,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
         '''
-        s_common.deprecated('eval')
+        s_common.deprecated('Cortex.eval')
         opts = self._initStormOpts(opts)
         view = self._viewFromOpts(opts)
         async for node in view.eval(text, opts=opts):
@@ -4831,6 +4865,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return await snap.getNodeByBuid(buid)
 
     def getCoreInfo(self):
+        '''This API is deprecated.'''
         s_common.deprecated('Cortex.getCoreInfo')
         return {
             'version': synapse.version,
