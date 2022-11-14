@@ -308,7 +308,7 @@ class AuthTest(s_test.SynTest):
                 view2_iden = vdef2.get('iden')
                 view2 = core.getView(view2_iden)
 
-                await alist(core.eval('[test:int=10] [test:int=11]'))
+                await core.nodes('[test:int=10] [test:int=11]')
                 viewiden = view2.iden
                 layriden = view2.layers[0].iden
                 rule = (True, ('view', 'read',))
