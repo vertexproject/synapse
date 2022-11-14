@@ -126,7 +126,33 @@ class OAuthV2Lib(s_stormtypes.Lib):
     _storm_locals = (
         {
             'name': 'addProvider',
-            'desc': 'Add a new provider configuration.',
+            'desc': '''
+                Add a new provider configuration.
+
+                Example:
+                    Add a new provider which uses the authorization code flow::
+
+                        $iden = $lib.guid(example, provider, oauth)
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "client_id": "yourclientid",
+                            "client_secret": "yourclientsecret",
+                            "scope": "first_scope second_scope",
+                            "auth_uri": "https://provider.com/auth",
+                            "token_uri": "https://provider.com/token",
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
+
+                        // Optionally enable PKCE
+                        $conf.extensions = ({"pkce": $lib.true})
+
+                        // Optionally provide additional key-val parameters
+                        // to include when calling the auth URI
+                        $conf.extra_auth_params = ({"customparam": "foo"})
+
+                        $lib.inet.http.oauth.v2.addProvider($conf)
+            ''',
             'type': {
                 'type': 'function', '_funcname': '_addProvider',
                 'args': (
