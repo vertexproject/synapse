@@ -7081,14 +7081,19 @@ class Trigger(Prim):
         name = await tostr(name)
         if name in ('async', 'enabled', ):
             valu = await tobool(valu)
-        if name in ('doc', 'name', 'storm', ):
+        if name in ('user', 'doc', 'name', 'storm', ):
             valu = await tostr(valu)
 
-        gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTriggerInfo', (trigiden, name, valu), {})
-        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        if name == 'user':
+            self.runt.user.confirm(('trigger', 'set', 'user'))
+        else:
+            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
+
+        await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
 
         self.valu[name] = valu
+
+        return self
 
     async def move(self, viewiden):
         trigiden = self.valu.get('iden')
@@ -8725,9 +8730,15 @@ class CronJob(Prim):
         valu = await toprim(valu)
         iden = self.valu.get('iden')
 
-        gatekeys = ((self.runt.user.iden, ('cron', 'set', name), iden),)
-        todo = s_common.todo('editCronJob', iden, name, valu)
-        self.valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if name == 'creator':
+            # this permission must be granted cortex wide
+            # to prevent abuse...
+            self.runt.user.confirm(('cron', 'set', 'creator'))
+        else:
+            self.runt.user.confirm(('cron', 'set', name), gateiden=iden)
+
+        self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
+
         return self
 
     async def _methCronJobPack(self):

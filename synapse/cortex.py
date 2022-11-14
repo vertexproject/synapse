@@ -335,7 +335,15 @@ class CoreApi(s_cell.CellApi):
         '''
         iden = str(iden)
         name = str(name)
-        self.user.confirm(('cron', 'set', name), gateiden=iden)
+
+        if name == 'creator':
+            # this permission must be granted cortex wide
+            # to prevent abuse...
+            self.user.confirm(('cron', 'set', 'creator'))
+
+        else:
+            self.user.confirm(('cron', 'set', name), gateiden=iden)
+
         return await self.cell.editCronJob(iden, name, valu)
 
     async def setStormCmd(self, cdef):
@@ -2123,10 +2131,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
 
     async def getStormPkg(self, name):
-        return self.stormpkgs.get(name)
+        return copy.deepcopy(self.stormpkgs.get(name))
 
     async def getStormPkgs(self):
-        return list(self.pkghive.values())
+        return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
         return self.stormmods
@@ -2332,9 +2340,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             async def _onload():
                 try:
                     async for mesg in self.storm(onload):
-                        if mesg[0] in ('print', 'warn'):
-                            logger.warning(f'onload output: {mesg}')
-                            await asyncio.sleep(0)
+                        if mesg[0] == 'print':
+                            logger.info(f'{name} onload output: {mesg[1].get("mesg")}')
+                        if mesg[0] == 'warn':
+                            logger.warning(f'{name} onload output: {mesg[1].get("mesg")}')
+                        if mesg[0] == 'err':
+                            logger.error(f'{name} onload output: {mesg[1]}')
+                        await asyncio.sleep(0)
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
                 except Exception:  # pragma: no cover
@@ -5278,6 +5290,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         appt = await self.agenda.get(iden)
         # TODO make this generic and check cdef
+
+        if name == 'creator':
+            self.auth.reqUser(valu)
+            appt.creator = valu
+            await appt._save()
+
+            cdef = appt.pack()
+            await self.feedBeholder('cron:edit:creator', {'iden': iden, 'creator': cdef.get('creator')}, gates=[iden])
+            return cdef
 
         if name == 'name':
             await appt.setName(str(valu))

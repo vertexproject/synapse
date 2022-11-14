@@ -526,3 +526,29 @@ class TrigTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'syn:trigger={iden}')
             self.eq(nodes[0].get('doc'), 'hehe haha')
             self.eq(nodes[0].get('name'), 'visitrig')
+
+    async def test_trigger_set_user(self):
+
+        async with self.getTestCore() as core:
+
+            derp = await core.auth.addUser('derp')
+
+            tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
+            opts = {'vars': {'tdef': tdef}}
+
+            trig = await core.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
+            self.eq(trig.get('user'), core.auth.rootuser.iden)
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('foo'))
+
+            opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
+            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts)
+
+            nodes = await core.nodes('[ inet:ipv4=8.8.8.8 ]')
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('foo'))
+
+            trig = await core.callStorm('return ($lib.trigger.get($iden))', opts=opts)
+            self.eq(trig.get('user'), derp.iden)
