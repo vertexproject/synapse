@@ -191,13 +191,13 @@ class OAuthV2Lib(s_stormtypes.Lib):
         },
         {
             'name': 'clearUserAccessToken',
-            'desc': 'Clear the stored refresh data for the current users provider access token.',
+            'desc': 'Clear the stored refresh data for the current user\'s provider access token.',
             'type': {
                 'type': 'function', '_funcname': '_clearUserAccessToken',
                 'args': (
                     {'name': 'iden', 'type': 'str', 'desc': 'The provider iden.'},
                 ),
-                'returns': {'type': 'dict', 'desc': 'The existing token state date or None if it did not exist.'},
+                'returns': {'type': 'dict', 'desc': 'The existing token state data or None if it did not exist.'},
             },
         }
     )
