@@ -27,7 +27,7 @@ then
     if [ -x $CONCURRENT_SCRIPT ]
     then
         echo "Executing $CONCURRENT_SCRIPT"
-            ./$CONCURRENT_SCRIPT &
+        ./$CONCURRENT_SCRIPT &
     else
         echo "$CONCURRENT_SCRIPT exists but is not marked executable."
         exit 1
