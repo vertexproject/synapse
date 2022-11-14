@@ -6926,7 +6926,7 @@ class LibTrigger(Lib):
         # query is kept to keep this API backwards compatible.
         query = tdef.pop('query', None)
         if query is not None:  # pragma: no cover
-            s_common.deprecated('$lib.trigger.add() with query', curv='2.95.0')
+            s_common.deprecated('$lib.trigger.add() with "query" argument instead of "storm"', curv='2.95.0')
             await self.runt.warn('$lib.trigger.add() called with query argument, this is deprecated. Use storm instead.')
             tdef['storm'] = query
 
