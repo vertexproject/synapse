@@ -3812,7 +3812,7 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        s_common.deprecated(f'storm command: sudo')
+        s_common.deprecated('storm command: sudo')
 
         mesg = 'Sudo is deprecated and does nothing in ' \
                '2.x.x and will be removed in 3.0.0.'

@@ -562,7 +562,7 @@ The Telepath URLs can be provided to the Storm API as follows::
 Viewing Deprecation Warnings
 ----------------------------
 
-When functionality in Synapse is deprecated, it is marked with with the standard Python warnings_ mechanism to note
+When functionality in Synapse is deprecated, it is marked with the standard Python warnings_ mechanism to note
 that it is deprecated. Deprecated functionality is also noted in service changelogs as well. To view these warnings
 in your environment, you can set the ``PYTHONWARNINGS`` environment variable to display them.
 The following shows this being enabled for a Cortex deployment::
