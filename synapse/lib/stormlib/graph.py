@@ -36,7 +36,8 @@ gdefSchema = {
                             'type': ['array', 'null'],
                             'items': {'type': 'string'}
                         }
-                    }
+                    },
+                    'additionalProperties': False,
                 }
             }
         }
