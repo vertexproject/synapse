@@ -3204,7 +3204,8 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint(layr, mesgs)
 
                 # Add requires 'add' permission
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval('$lib.layer.add()'))
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm('$lib.layer.add()')
 
                 await prox.addUserRule(visi['iden'], (True, ('layer', 'add')))
 
@@ -3216,7 +3217,8 @@ class StormTypesTest(s_test.SynTest):
                 self.isin(visilayr, core.layers)
 
                 # Del requires 'del' permission
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.layer.del({visilayr})'))
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'$lib.layer.del({visilayr})')
 
                 await prox.addUserRule(visi['iden'], (True, ('layer', 'del')))
 
@@ -3507,12 +3509,14 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy(user='visi') as asvisi:
 
-                await asvisi.eval('$lib.view.list()').list()
-                await asvisi.eval('$lib.view.get()').list()
+                await asvisi.storm('$lib.view.list()').list()
+                await asvisi.storm('$lib.view.get()').list()
 
                 # Add and Fork require 'add' permission
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.add(({newlayer.iden},))'))
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.get({mainiden}).fork()'))
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'$lib.view.add(({newlayer.iden},))')
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'$lib.view.get({mainiden}).fork()')
 
                 await prox.addUserRule(visi['iden'], (True, ('view', 'add')))
                 await prox.addUserRule(visi['iden'], (True, ('layer', 'read')), gateiden=newlayer.iden)
@@ -3562,8 +3566,8 @@ class StormTypesTest(s_test.SynTest):
                 # Will need perms for all the ops required to merge
 
                 q = f'$lib.view.get({forkediden}).merge()'
-                mesgs = await asvisi.storm(q).list()
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(q)
 
                 await prox.addUserRule(visi['iden'], (True, ('node', 'add',)))
                 await prox.addUserRule(visi['iden'], (True, ('node', 'del',)))
@@ -3603,7 +3607,8 @@ class StormTypesTest(s_test.SynTest):
                         rootfork = mesg[1]['mesg'].split(' ')[-1]
                 self.isin(rootfork, core.views)
 
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(f'$lib.view.del({rootadd})'))
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'$lib.view.del({rootadd})')
 
                 await prox.addUserRule(visi['iden'], (True, ('view', 'del')))
 
@@ -4157,7 +4162,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure it ran
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
-                await self.agenlen(1, prox.eval('graph:node:type=m1'))
+                self.eq(1, await prox.count('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right
                 splices = await alist(prox.splices(nextoffs, 1000))
@@ -4184,9 +4189,9 @@ class StormTypesTest(s_test.SynTest):
                 # Make sure the old one didn't run and the new query ran
                 unixtime += 60
                 await asyncio.sleep(0)
-                await self.agenlen(1, prox.eval('graph:node:type=m1'))
+                self.eq(1, await prox.count('graph:node:type=m1'))
                 await asyncio.sleep(0)
-                await self.agenlen(1, prox.eval('graph:node:type=m2'))
+                self.eq(1, await prox.count('graph:node:type=m2'))
 
                 # Delete the job
                 q = f"cron.del {guid}"
@@ -4199,8 +4204,8 @@ class StormTypesTest(s_test.SynTest):
 
                 # Make sure deleted job didn't run
                 unixtime += 60
-                await self.agenlen(1, prox.eval('graph:node:type=m1'))
-                await self.agenlen(1, prox.eval('graph:node:type=m2'))
+                self.eq(1, await prox.count('graph:node:type=m1'))
+                self.eq(1, await prox.count('graph:node:type=m2'))
 
                 # Test fixed minute, i.e. every hour at 17 past
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
@@ -4619,11 +4624,11 @@ class StormTypesTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts={'user': visi.iden, 'view': core.view.iden}))
 
             async with core.getLocalProxy(user='visi') as prox:
-                self.len(1, await prox.eval('inet:ipv4=1.2.3.4').list())
-                self.len(0, await prox.eval('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}).list())
+                self.eq(1, await prox.count('inet:ipv4=1.2.3.4'))
+                self.eq(0, await prox.count('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}))
 
             async with core.getLocalProxy(user='root') as prox:
-                self.len(0, await prox.eval('inet:ipv4=1.2.3.4').list())
+                self.eq(0, await prox.count('inet:ipv4=1.2.3.4'))
 
     async def test_storm_lib_lift(self):
 
