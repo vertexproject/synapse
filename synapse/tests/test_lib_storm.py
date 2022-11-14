@@ -607,6 +607,22 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'strvers',
                 'version': (0, 0, 1),
                 'modules': ({'name': 'strvers', 'storm': ''},),
+                'configvars': (
+                    {
+                        'name': 'foo',
+                        'varname': 'foo',
+                        'desc': 'foo desc',
+                        'scopes': ['self'],
+                        'type': 'inet:fqdn',
+                    },
+                    {
+                        'name': 'bar',
+                        'varname': 'bar',
+                        'desc': 'bar desc',
+                        'scopes': ['global'],
+                        'type': ['inet:fqdn', ['str', 'inet:url']],
+                    },
+                )
             }
             await core.loadStormPkg(emptypkg)
             await core.addStormPkg(strverpkg)

@@ -92,6 +92,25 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 
+            self.eq(pdef['perms'][0]['perm'], ['power-ups', 'testpkg', 'user'])
+            self.eq(pdef['perms'][0]['gate'], 'cortex')
+            self.eq(pdef['perms'][0]['desc'], 'Controls user access to testpkg.')
+            self.eq(pdef['perms'][0]['workflowconfig'], True)
+
+            self.eq(pdef['configvars'][0]['name'], 'API key')
+            self.eq(pdef['configvars'][0]['varname'], 'testpkg:apikey')
+            self.eq(pdef['configvars'][0]['desc'], 'API key to use for querying the testpkg API.')
+            self.eq(pdef['configvars'][0]['scopes'], ['global', 'self'])
+            self.eq(pdef['configvars'][0]['workflowconfig'], True)
+            self.eq(pdef['configvars'][0]['type'], 'hugenum')
+            self.eq(pdef['configvars'][1]['name'], 'Tag Prefix')
+            self.eq(pdef['configvars'][1]['varname'], 'testpkg:tag:prefix')
+            self.eq(pdef['configvars'][1]['desc'], 'Tag prefix to use when recording tags.')
+            self.eq(pdef['configvars'][1]['scopes'], ['global', 'self'])
+            self.eq(pdef['configvars'][1]['default'], 'rep.testpkg')
+            self.eq(pdef['configvars'][1]['workflowconfig'], True)
+            self.eq(pdef['configvars'][1]['type'], ['inet:fqdn', ['str', 'inet:url']])
+
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
 
             self.eq(pdef['docs'][0]['title'], 'Foo Bar')
