@@ -4,6 +4,47 @@
 Synapse Changelog
 *****************
 
+v2.114.0 - 2022-11-24
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto`` model.
+  (`#2909 <https://github.com/vertexproject/synapse/pull/2909>`_)
+
+  ``crypto:key``
+    Add ``iv`` and ``mode`` properties to record initialization vectors
+    and cipher modes used with a key.
+
+- Allow the creator for Cron jobs and the user for Triggers to be set. This
+  can be used to effectively change the ownership of these automation
+  elements.
+  (`#2908 <https://github.com/vertexproject/synapse/pull/2908>`_)
+- When Storm package ``onload`` queries produce print, warning, or error
+  messages, those now have the package name included in the message that
+  is logged.
+  (`#2911 <https://github.com/vertexproject/synapse/pull/2911>`_)
+
+Bugfixes
+--------
+- The ``delCertPath()`` APIs in ``synapse.lib.easycert`` no longer attempt
+  to create a file path on disk when removing the reference count to a
+  certificate path.
+  (`#2907 <https://github.com/vertexproject/synapse/pull/2907>`_)
+- Fix error handling when Axon is streaming files with the ``readlines()`` and
+  ``csvrows()`` APIs.
+  (`#2911 <https://github.com/vertexproject/synapse/pull/2911>`_)
+- The Storm ``trigger.list`` command failed to print triggers which were
+  created in a Cortex prior to ``v2.71.0``. These triggers now display.
+  (`#2915 <https://github.com/vertexproject/synapse/pull/2915>`_)
+
+Improved Documentation
+----------------------
+- Add a Devops task to enable the Python warnings filter to log the use of
+  deprecated Synapse APIs. Python APIs which have been deprecated have had
+  their docstrings updated to reflect their deprecation status.
+  (`#2905 <https://github.com/vertexproject/synapse/pull/2905>`_)
+
 v2.113.0 - 2022-11-04
 =====================
 
