@@ -35,7 +35,8 @@ Bugfixes
   ``csvrows()`` APIs.
   (`#2911 <https://github.com/vertexproject/synapse/pull/2911>`_)
 - The Storm ``trigger.list`` command failed to print triggers which were
-  created in a Cortex prior to ``v2.71.0``. These triggers now display.
+  created in a Cortex prior to ``v2.71.0``. These triggers no longer generate
+  an exception when listed.
   (`#2915 <https://github.com/vertexproject/synapse/pull/2915>`_)
 
 Improved Documentation
