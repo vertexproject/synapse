@@ -23,7 +23,7 @@ Features and Enhancements
 - When Storm package ``onload`` queries produce print, warning, or error
   messages, those now have the package name included in the message that
   is logged.
-  (`#2911 <https://github.com/vertexproject/synapse/pull/2911>`_)
+  (`#2913 <https://github.com/vertexproject/synapse/pull/2913>`_)
 - Update the Storm package schema to allow declaring configuration variables.
   (`#2880 <https://github.com/vertexproject/synapse/pull/2880>`_)
 
