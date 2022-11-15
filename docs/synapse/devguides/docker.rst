@@ -33,21 +33,6 @@ The images provided include the following:
         This container launches the Synapse stemcell server.
 
 
-Entrypoint Hooks
-----------------
-
-Synapse service containers provide two ways that users can modify the container startup process, in order to execute
-their own scripts or commands.
-
-A preboot hook can be set by mapping in a file at ``/vertex/preboot/run`` as a executable file. If this file is present,
-the file will be executed prior to booting the service.
-
-
-
-A concurrent hook can be set by mapping in a file at ``/vertex/concurrent/run`` as a executable file. If this file is
-present, the file will be executed as a backgrounded task. This is done prior to starting up the Synapse service.
-
-
 Building All Images
 -------------------
 

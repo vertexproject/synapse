@@ -557,6 +557,25 @@ The Telepath URLs can be provided to the Storm API as follows::
     $lib.cell.trimNexsLog(consumers=$mirrors)
 
 
+Entrypoint Hooks
+----------------
+
+Synapse service containers provide two ways that users can modify the container startup process, in order to execute
+their own scripts or commands.
+
+A preboot hook can be set by mapping in a file at ``/vertex/preboot/run`` as a executable file. If this file is present,
+the file will be executed prior to booting the service. One example use case of this
+
+A concurrent hook can be set by mapping in a file at ``/vertex/concurrent/run`` as a executable file. If this file is
+present, the file will be executed as a backgrounded task. This is done prior to starting up the Synapse service.
+
+.. note::
+
+    If a volume is mapped into ``/vertex/preboot/`` or ``/vertex/concurrent/``, it will not be included in any backups
+    made by a Synapse service using the backup APIs. Making backups of any data persisted in these locations is
+    the responsibility of individual configuring these settings.
+
+
 Synapse Services
 ================
 
