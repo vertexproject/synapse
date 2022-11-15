@@ -93,8 +93,8 @@ so your "time to first node" is typically milliseconds, regardless of the size o
  
 **Horizontally and Vertically Scalable**
 
-A single Synapse Cortex can easily scale vertically to hold tens of billions of nodes and supports
-high-availability topologies such as mirroring.
+A single Synapse Cortex can easily scale vertically to hold tens of billions of nodes. In addition,
+Synapse supports high-availability topologies such as mirroring.
 
  
 What's Next?

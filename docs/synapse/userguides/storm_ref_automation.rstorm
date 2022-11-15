@@ -95,14 +95,14 @@ There are varying approaches for "how" to write and implement automation. For ex
 - Automation can be written as many small, individual elements. Each element can perform a relatively
   simple task, but the elements can work together like building blocks to orchestrate larger-scale
   operations. This approach keeps tasks "bite sized" and the Storm executed by a given piece of automation
-  generally simpler. However it may result in a larger number of automation elements to maintain and
+  generally simpler. However it may result in a larger number of automation elements to maintain, and may
   make it more challenging to understand the potential interactions of so many different elements.
   
   Alternatively, automation can be implemented using fewer elements that perform larger, more unified
   tasks (or that consolidate numerous smaller tasks). This approach results in fewer automation elements
   overall, but typically requires you to write and maintain more advanced Storm (e.g., to create a small
   number of macros with switch or if/else statements to each manage a variety of tasks). However, the
-  Storm is consolidated in fewer locations, which may make managing and troubleshooting easier.
+  Storm is consolidated in a few locations, which may make managing and troubleshooting easier.
 
 Each approach has its pros and cons; there is no single "right" way, and what works best in your environment
 or for a particular task will depend on your needs (and possibly some trial and error).
@@ -113,7 +113,7 @@ Governance / Management
 Consider any oversight or approval processes that you may need in order to implement and manage automation
 effectively in your environment. A number of automation use cases may require coordination or deconfliction:
 
-- Where multiple users have the ability to create automation tasks, it is possible for them to create
+- Where multiple users have the ability to create automated tasks, it is possible for them to create
   duplicative or even conflicting automation. Consider who should be repsonsible for deconflicting
   automation to mitigate against these effects.
 
@@ -235,7 +235,7 @@ based on efficiency or importance). Example use cases for triggers include:
 Usage Notes
 ~~~~~~~~~~~
 
-- Users must be grated permissions in order to be able to work with triggers (i.e., to execute the
+- Users must be granted permissions in order to be able to work with triggers (i.e., to execute the
   associated ``trigger.*`` Storm commands).
 
 - Triggers execute **with the permissions of the user who created the trigger**. If a trigger calls a
@@ -450,7 +450,7 @@ Because cron jobs are scheduled, they are most appropriate for automating routin
 tasks; or resource-intensive tasks that should run during off-hours.
 
 - **Data ingest.** Cron jobs can be used to ingest / synchronize data that you want to load into Synapse on a
-  regular basis. For example, you can create a cron job to retrieve and load a list of TOR exit every hour.
+  regular basis. For example, you can create a cron job to retrieve and load a list of TOR exit nodes every hour.
 
 - **Housekeeping.** You created a trigger to automatically look up and apply geolocation and autonomous system
   (AS) properties to IPv4 nodes when they are created in Synapse. However, you already have a large number of
