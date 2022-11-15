@@ -6199,6 +6199,26 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(cm.exception.errinfo.get('mesg'),
                         "data must contain only specified items")
 
+                pkg = copy.deepcopy(base_pkg)
+                pkg['configvars'] = (
+                    {'name': 'foo', 'varname': 'foo', 'desc': 'foo', 'scopes': ['self'],
+                     'type': 'newp'},
+                )
+                with self.raises(s_exc.NoSuchType) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "Storm package boom has unknown config var type newp.")
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg['configvars'] = (
+                    {'name': 'foo', 'varname': 'foo', 'desc': 'foo', 'scopes': ['self'],
+                     'type': ['inet:fqdn', ['str', 'newp']]},
+                )
+                with self.raises(s_exc.NoSuchType) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "Storm package boom has unknown config var type newp.")
+
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:

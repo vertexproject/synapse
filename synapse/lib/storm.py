@@ -230,8 +230,31 @@ reqValidPkgdef = s_config.getJsValidator({
                     'perm': {'type': 'array', 'items': {'type': 'string'}},
                     'desc': {'type': 'string'},
                     'gate': {'type': 'string'},
+                    'workflowconfig': {'type': 'boolean'},
                 },
                 'required': ['perm', 'desc', 'gate'],
+            },
+        },
+        'configvars': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                    'varname': {'type': 'string'},
+                    'desc': {'type': 'string'},
+                    'default': {},
+                    'workflowconfig': {'type': 'boolean'},
+                    'type': {'$ref': '#/definitions/configvartype'},
+                    'scopes': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'string',
+                            'enum': ['global', 'self']
+                        },
+                    },
+                },
+                'required': ['name', 'varname', 'desc', 'type', 'scopes'],
             },
         },
     },
@@ -317,6 +340,12 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['form'],
+        },
+        'configvartype': {
+            'anyOf': [
+                {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
+                {'type': 'string'},
+            ]
         },
         # deprecated
         'cmdformhints': {
