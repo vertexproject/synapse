@@ -909,7 +909,7 @@ def config(conf, confdefs):
 
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
-    warnings.warn(mesg, DeprecationWarning, source='synapse')
+    warnings.warn(mesg, DeprecationWarning)
 
 def reqjsonsafe(item):
     '''

@@ -95,8 +95,8 @@ class ViewTest(s_t_utils.SynTest):
             await core.auth.addUser('visi')
             await core.addTagProp('score', ('int', {}), {})
 
-            self.len(1, await alist(core.eval('test:int=8 +#faz')))
-            self.len(2, await alist(core.eval('test:int=9 test:int=10')))
+            self.eq(1, await core.count('test:int=8 +#faz'))
+            self.eq(2, await core.count('test:int=9 test:int=10'))
             self.eq(3, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
@@ -200,7 +200,7 @@ class ViewTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='visi') as prox:
                 with self.raises(s_exc.AuthDeny):
-                    await prox.eval('test:int=12', opts={'view': view2.iden}).list()
+                    await prox.count('test:int=12', opts={'view': view2.iden})
 
             # The parent count is correct
             self.eq(4, (await core.view.getFormCounts()).get('test:int'))
@@ -328,7 +328,7 @@ class ViewTest(s_t_utils.SynTest):
                 'storm': '[ test:str=mainhit ]'
             })
 
-            nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
+            nodes = await core.nodes('[ test:int=11 ]', opts={'view': view2.iden})
             self.len(1, nodes)
 
             self.len(0, await core.view.nodes('test:str=mainhit'))

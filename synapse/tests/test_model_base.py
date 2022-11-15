@@ -154,20 +154,20 @@ class BaseTest(s_t_utils.SynTest):
 
             opts = {'vars': {'pers': pers}}
 
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> *', opts=opts))
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> geo:place', opts=opts))
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:has -> *', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:has -> geo:place', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
 
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
             q = 'ps:person=$pers -> edge:wentto +:time@=(2014,2017) -> geo:place'
-            await self.agenlen(1, core.eval(q, opts=opts))
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
+            self.eq(1, await core.count(q, opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
 
             opts = {'vars': {'place': plac}}
 
-            await self.agenlen(1, core.eval('geo:place=$place <- edge:has <- *', opts=opts))
-            await self.agenlen(1, core.eval('geo:place=$place <- edge:has <- ps:person', opts=opts))
-            await self.agenlen(0, core.eval('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
+            self.eq(1, await core.count('geo:place=$place <- edge:has <- *', opts=opts))
+            self.eq(1, await core.count('geo:place=$place <- edge:has <- ps:person', opts=opts))
+            self.eq(0, await core.count('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
 
             # Make a restricted edge and validate that you can only form certain relationships
             copts = {'n1:forms': ('ps:person',), 'n2:forms': ('geo:place',)}
@@ -181,11 +181,11 @@ class BaseTest(s_t_utils.SynTest):
             node = await core.getNodeByNdef(n2def)
             await node.delete()
             opts = {'vars': {'pers': pers}}
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
 
             # Make sure we don't return None nodes on a PropPivotOut
             opts = {'vars': {'pers': pers}}
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
 
     async def test_model_base_source(self):
 

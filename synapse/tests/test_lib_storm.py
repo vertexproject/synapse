@@ -607,6 +607,22 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'strvers',
                 'version': (0, 0, 1),
                 'modules': ({'name': 'strvers', 'storm': ''},),
+                'configvars': (
+                    {
+                        'name': 'foo',
+                        'varname': 'foo',
+                        'desc': 'foo desc',
+                        'scopes': ['self'],
+                        'type': 'inet:fqdn',
+                    },
+                    {
+                        'name': 'bar',
+                        'varname': 'bar',
+                        'desc': 'bar desc',
+                        'scopes': ['global'],
+                        'type': ['inet:fqdn', ['str', 'inet:url']],
+                    },
+                )
             }
             await core.loadStormPkg(emptypkg)
             await core.addStormPkg(strverpkg)
@@ -1788,7 +1804,7 @@ class StormTest(s_t_utils.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) return($path.vars.newp)'
+            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
@@ -1816,15 +1832,18 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/notok')
             self.stormIsInWarn('pkg.load got JSON error: FooBar', msgs)
 
-            with self.getAsyncLoggerStream('synapse.cortex',
-                                      "{'mesg': 'teststring'}") as stream:
+            with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
-                self.true(await stream.wait(6))
 
+            stream.seek(0)
+            buf = stream.read()
+            self.isin("testload onload output: teststring", buf)
+            self.isin("testload onload output: testwarn", buf)
+            self.isin("No var with name: newp", buf)
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 
     async def test_storm_tree(self):

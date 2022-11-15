@@ -794,16 +794,19 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:sec:cve', {}, (
+
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the CVE vulnerability.',
-                        'disp': {'hint': 'text'},
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:vuln:cve:desc.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL linking this CVE to a full description.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:vuln:cve:url.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of URLs that document the CVE ID.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
+
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {

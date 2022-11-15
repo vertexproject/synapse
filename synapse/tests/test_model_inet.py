@@ -97,53 +97,53 @@ class InetModelTest(s_t_utils.SynTest):
                 await snap.addNode('inet:ipv4', '1.2.3.3')
                 await snap.addNode('inet:ipv4', '1.2.3.4')
 
-            await self.agenlen(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
-            await self.agenlen(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
-            await self.agenlen(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
-            await self.agenlen(3, core.eval('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
+            self.len(3, await core.nodes('inet:ipv4=1.2.3.1-1.2.3.3'))
+            self.len(3, await core.nodes('[inet:ipv4=1.2.3.1-1.2.3.3]'))
+            self.len(3, await core.nodes('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
+            self.len(3, await core.nodes('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
 
     async def test_ipv4_filt_cidr(self):
 
         async with self.getTestCore() as core:
 
-            await self.agenlen(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
-            await self.agenlen(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
-            await self.agenlen(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+            self.len(5, await core.nodes('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
+            self.len(4, await core.nodes('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
+            self.len(1, await core.nodes('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
 
-            await self.agenlen(256, core.eval('[ inet:ipv4=192.168.1.0/24]'))
-            await self.agenlen(256, core.eval('[ inet:ipv4=192.168.2.0/24]'))
-            await self.agenlen(256, core.eval('inet:ipv4=192.168.1.0/24'))
+            self.len(256, await core.nodes('[ inet:ipv4=192.168.1.0/24]'))
+            self.len(256, await core.nodes('[ inet:ipv4=192.168.2.0/24]'))
+            self.len(256, await core.nodes('inet:ipv4=192.168.1.0/24'))
 
             # Seed some nodes for bounds checking
             pnodes = [(('inet:ipv4', f'10.2.1.{d}'), {}) for d in range(1, 33)]
             nodes = await alist(core.addNodes(pnodes))
 
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.4/32'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.4/32')
             self.len(1, nodes)
-            await self.agenlen(1, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
+            self.len(1, await core.nodes('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
 
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.4/31'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.4/31')
             self.len(2, nodes)
-            await self.agenlen(2, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
+            self.len(2, await core.nodes('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
 
             # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/30'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.1/30')
             self.len(3, nodes)
 
             # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.2/30'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.2/30')
             self.len(3, nodes)
 
             # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/29'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.1/29')
             self.len(7, nodes)
 
             # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.8/29'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.8/29')
             self.len(8, nodes)
 
             # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/28'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.1/28')
             self.len(15, nodes)
 
     async def test_addr(self):

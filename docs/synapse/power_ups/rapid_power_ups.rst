@@ -50,6 +50,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-Utils <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-utils/index.html>`_
 - `Synapse-Virustotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html>`_
 - `Synapse-VMRay <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vmray/index.html>`_
+- `Synapse-Vulncheck <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vulncheck/index.html>`_
 - `Synapse-VXIntel <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vxintel/index.html>`_
 - `Synapse-Wappalyzer <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-wappalyzer/index.html>`_
 - `Synapse-Whoxy <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-whoxy/index.html>`_

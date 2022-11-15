@@ -417,6 +417,9 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated. Use the :camptype taxonomy.',
                     }),
+                    ('sophistication', ('meta:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the campaign.',
+                    }),
                     ('camptype', ('ou:camptype', {}), {
                         'doc': 'The campaign type taxonomy.',
                         'disp': {'hint': 'taxonomy'},
@@ -486,6 +489,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The normalized name of the technique.'}),
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
+                    ('sophistication', ('meta:sophistication', {}), {
+                        'doc': 'The assessed sophistication of the technique.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the technique.'}),

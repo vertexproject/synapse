@@ -86,8 +86,8 @@ Both of the Python examples use session managers which manage the session cookie
 
         url = 'https://localhost:4443/api/v1/login'
         info = {'user': 'visi', 'passwd': 'secret'}
-        resp = sess.post(url, json=data)
-        item = resp.json
+        resp = sess.post(url, json=info)
+        item = resp.json()
 
         if item.get('status') != 'ok':
             code = item.get('code')

@@ -122,7 +122,7 @@ class CertDir:
             self.certdirs.append(fullpath)
 
     def delCertPath(self, *path):
-        fullpath = s_common.gendir(*path)
+        fullpath = s_common.genpath(*path)
         self.pathrefs[fullpath] -= 1
         if self.pathrefs[fullpath] <= 0:
             self.certdirs.remove(fullpath)

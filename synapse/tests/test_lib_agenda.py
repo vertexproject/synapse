@@ -722,3 +722,24 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('test:int=97', opts={'view': newview})
             self.len(0, nodes)
+
+    async def test_agenda_custom_view(self):
+
+        async with self.getTestCore() as core:
+
+            derp = await core.auth.addUser('derp')
+
+            msgs = await core.stormlist('cron.add --hourly 32 { $lib.print(woot) }')
+            self.stormHasNoWarnErr(msgs)
+
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
+            self.eq(cdef['creator'], core.auth.rootuser.iden)
+
+            opts = {'vars': {'derp': derp.iden}}
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $derp)) }', opts=opts)
+
+            self.eq(cdef['creator'], derp.iden)
+
+            async with core.getLocalProxy(user='derp') as proxy:
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)

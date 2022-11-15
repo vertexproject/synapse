@@ -232,7 +232,9 @@ class GeoTest(s_t_utils.SynTest):
             # geo:place
 
             # test inline tuple/float with negative syntax...
-            node = (await alist(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) :type=woot.woot]')))[0]
+            nodes = await core.nodes('[ geo:place="*" :latlong=(-30.0,20.22) :type=woot.woot]')
+            self.len(1, nodes)
+            node = nodes[0]
             self.eq(node.get('type'), 'woot.woot.')
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
@@ -370,38 +372,34 @@ class GeoTest(s_t_utils.SynTest):
             # Storm variable use to filter nodes based on a given location.
             q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, ' \
                 f'$radius)'
-            nodes = await alist(core.eval(q))
-            self.len(1, nodes)
+            self.len(1, await core.nodes(q))
 
             q = f'geo:place={guid0} $latlong=:latlong $radius=:radius | spin | geo:place +:latlong*near=($latlong, 5km)'
-            nodes = await alist(core.eval(q))
-            self.len(2, nodes)
+            self.len(2, await core.nodes(q))
 
             # Lifting nodes by *near=((latlong), radius)
-            nodes = await alist(core.eval('geo:place:latlong*near=((34.1, -118.3), 10km)'))
-            self.len(2, nodes)
+            q = 'geo:place:latlong*near=((34.1, -118.3), 10km)'
+            self.len(2, await core.nodes(q))
 
-            nodes = await alist(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 50m)'))
-            self.len(1, nodes)
+            q = 'geo:place:latlong*near=(("34.118560", "-118.300370"), 50m)'
+            self.len(1, await core.nodes(q))
 
-            nodes = await alist(core.eval('geo:place:latlong*near=((0, 0), 50m)'))
-            self.len(0, nodes)
+            q = 'geo:place:latlong*near=((0, 0), 50m)'
+            self.len(0, await core.nodes(q))
 
             # Use a radius to lift nodes which will be inside the bounding box,
             # but outside the cmpr implemented using haversine filtering.
-            nodes = await alist(core.eval('geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'))
-            self.len(1, nodes)
+            q = 'geo:place:latlong*near=(("34.118560", "-118.300370"), 2600m)'
+            self.len(1, await core.nodes(q))
 
             # Storm variable use to lift nodes based on a given location.
             q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
                 f'tel:mob:telem:latlong*near=($latlong, 3km) +tel:mob:telem'
-            nodes = await alist(core.eval(q))
-            self.len(2, nodes)
+            self.len(2, await core.nodes(q))
 
             q = f'geo:place={guid1} $latlong=:latlong $radius=:radius ' \
                 f'tel:mob:telem:latlong*near=($latlong, $radius) +tel:mob:telem'
-            nodes = await alist(core.eval(q))
-            self.len(1, nodes)
+            self.len(1, await core.nodes(q))
 
         async with self.getTestCore() as core:
 

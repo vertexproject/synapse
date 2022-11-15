@@ -47,6 +47,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ :seed={
                     [ crypto:key=*
                         :algorithm=aes256
+                        :mode=CBC
+                        :iv=41414141
                         :private=00000000
                         :private:md5=$md5
                         :private:sha1=$sha1
@@ -61,7 +63,15 @@ class CryptoModelTest(s_t_utils.SynTest):
             ''', opts={'vars': {'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 
             self.len(1, await core.nodes('crypto:algorithm=aes256'))
-            self.len(1, await core.nodes('crypto:key:algorithm=aes256 +:private=00000000 +:public=ffffffff +:seed:algorithm=pbkdf2 +:seed:passwd=s3cret'))
+            self.len(1, await core.nodes('''
+                    crypto:key:algorithm=aes256
+                        +:private=00000000
+                        +:public=ffffffff
+                        +:seed:algorithm=pbkdf2
+                        +:seed:passwd=s3cret
+                        +:mode=cbc
+                        +:iv=41414141
+            '''))
             self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
 
             self.len(2, await core.nodes('crypto:key -> hash:md5'))

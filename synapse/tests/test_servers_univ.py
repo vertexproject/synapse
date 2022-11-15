@@ -27,8 +27,7 @@ class UnivServerTest(s_t_utils.SynTest):
                 async with await s_s_univ.main(argv) as core:
 
                     async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                        podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
-                        self.len(1, podes)
+                        self.eq(1, await proxy.count(f'[ou:org={guid}]'))
                         self.eq('cortex', await proxy.getCellType())
 
                     self.true(core.dmon.shared.get('univtest') is core)
@@ -42,8 +41,7 @@ class UnivServerTest(s_t_utils.SynTest):
                 ]
                 async with await s_cortex.Cortex.initFromArgv(argv) as core:
                     async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                        podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
-                        self.len(1, podes)
+                        self.eq(1, await proxy.count(f'ou:org={guid}'))
 
                 argv = [
                     'synapse.lib.cell.Cell',

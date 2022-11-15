@@ -157,19 +157,19 @@ class DnsModelTest(s_t_utils.SynTest):
             # allows for nearly anything to be asked about. This can lead to
             # pivots with non-normable data.
             q = '[inet:dns:query=(tcp://1.2.3.4, "", 1)]'
-            await self.agenlen(1, core.eval(q))
+            self.len(1, await core.nodes(q))
             q = '[inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1)]'
-            await self.agenlen(1, core.eval(q))
+            self.len(1, await core.nodes(q))
             q = 'inet:dns:query=(tcp://1.2.3.4, "", 1) :name -> inet:fqdn'
             with self.getLoggerStream('synapse.lib.ast',
                                       'Cannot generate fqdn index bytes for a empty string') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             q = 'inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1) :name -> inet:fqdn'
             with self.getLoggerStream('synapse.lib.ast',
                                       'Wild card may only appear at the beginning') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
     async def test_forms_dns_simple(self):

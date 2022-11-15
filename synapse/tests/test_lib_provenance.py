@@ -26,10 +26,10 @@ class ProvenanceTest(s_t_utils.SynTest):
                 'form': 'test:str',
                 'storm': '[ test:int=1 ]',
             })
-            await s_common.aspin(core.eval('[ test:str=foo ]'))
-            await self.agenlen(1, core.eval('test:int'))
+            self.eq(1, await core.count('[ test:str=foo ]'))
+            self.eq(1, await core.count('test:int'))
 
-            await self.agenlen(0, core.eval('test:int | delnode'))
+            self.eq(0, await core.count('test:int | delnode'))
 
             splices = await alist(core.splices(None, 1000))
 
@@ -128,7 +128,7 @@ class ProvenanceTest(s_t_utils.SynTest):
         Test that things still work with provenance disabled
         '''
         async with self.getTestCoreAndProxy(conf={}) as (core, prox):
-            await s_common.aspin(prox.eval('[ test:str=foo ]'))
+            await prox.storm('[ test:str=foo ]').list()
 
             await alist(prox.provStacks(0, 1000))
 
