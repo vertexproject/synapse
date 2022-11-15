@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.114.0 - 2022-11-24
+v2.114.0 - 2022-11-15
 =====================
 
 Features and Enhancements
@@ -24,6 +24,8 @@ Features and Enhancements
   messages, those now have the package name included in the message that
   is logged.
   (`#2911 <https://github.com/vertexproject/synapse/pull/2911>`_)
+- Update the Storm package schema to allow declaring configuration variables.
+  (`#2880 <https://github.com/vertexproject/synapse/pull/2880>`_)
 
 Bugfixes
 --------
@@ -38,6 +40,9 @@ Bugfixes
   created in a Cortex prior to ``v2.71.0``. These triggers no longer generate
   an exception when listed.
   (`#2915 <https://github.com/vertexproject/synapse/pull/2915>`_)
+- Fix an error in the HTTP API example documentation for the ``requests``
+  example.
+  (`#2918 <https://github.com/vertexproject/synapse/pull/2918>`_)
 
 Improved Documentation
 ----------------------
