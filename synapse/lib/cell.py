@@ -465,7 +465,8 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getAuthInfo(self, name):
-        s_common.deprecated('getAuthInfo')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.getAuthInfo')
         user = await self.cell.auth.getUserByName(name)
         if user is not None:
             info = user.pack()
@@ -480,7 +481,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def addAuthRule(self, name, rule, indx=None, gateiden=None):
-        s_common.deprecated('addAuthRule')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.addAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -488,7 +490,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def delAuthRule(self, name, rule, gateiden=None):
-        s_common.deprecated('delAuthRule')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.delAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -496,7 +499,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def setAuthAdmin(self, name, isadmin):
-        s_common.deprecated('setAuthAdmin')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.setAuthAdmin')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
