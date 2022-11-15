@@ -158,7 +158,7 @@ Triggers and cron are similar in terms of how they are implemented and managed.
   
 - **Execution.** Both triggers and cron jobs execute with the permissions **of the user who creates them.**
   A trigger or cron job can only perform actions that their creator has permissions to perform.
-
+  
 - **Introspection.** Triggers and cron jobs are created as run-time nodes ("runt nodes") in Synapse
   (``syn:trigger`` and ``syn:cron`` nodes, respectively).
 
@@ -318,6 +318,14 @@ Usage Notes
 - ``syn:trigger`` nodes can be lifted, filtered, and pivoted across just like other nodes. However, they
   cannot be created or modified (e.g., using Storm's data modification / edit syntax) except in the
   limited ways described above.
+
+- The creator (owner) of a trigger can be modified (with appropriate permissions) using the Storm 
+  :ref:`stormlibs-lib-trigger` library and :ref:`stormprims-storm-trigger-f527` primitive. For example:
+  
+  ::
+  
+    $trigger=$lib.trigger.get(<trigger_iden>) $trigger.set(user, <new_user_iden>)
+
 
 Variables
 ~~~~~~~~~
@@ -495,6 +503,14 @@ Usage Notes
 - ``syn:cron`` nodes can be lifted, filtered, and pivoted across just like other nodes. However, they
   cannot be created or modified (e.g., using Storm's data modification / edit syntax) except in the
   limited ways described above.
+
+- The creator (owner) of a cron job can be modified (with appropriate permissions) using the Storm
+  :ref:`stormlibs-lib-cron` library and :ref:`stormprims-storm-cronjob-f527` primitive. For example:
+  
+  ::
+  
+    $cron=$lib.cron.get(<cron_iden>) $cron.set(user, <new_user_iden>)
+
 
 Variables
 ~~~~~~~~~
