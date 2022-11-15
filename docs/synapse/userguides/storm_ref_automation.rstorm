@@ -159,12 +159,12 @@ Triggers and cron are similar in terms of how they are implemented and managed.
 - **Execution.** Both triggers and cron jobs execute with the permissions **of the user who creates them.**
   A trigger or cron job can only perform actions that their creator has permissions to perform.
   
-- **Introspection.** Triggers and cron jobs are created as run-time nodes ("runt nodes") in Synapse
+- **Introspection.** Triggers and cron jobs are created as runtime nodes ("runt nodes") in Synapse
   (``syn:trigger`` and ``syn:cron`` nodes, respectively).
 
 - **Scope.** Both triggers and cron jobs are **view-specific.** Synapse allows the optional segregation of
   data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to provide a unified
-  :ref:`gloss-view` of data to users. Triggers and cron jobs reside in and execute in a particular view.
+  :ref:`gloss-view` of data to users. Triggers and cron jobs execute in a particular view.
   
   .. NOTE::
     
@@ -304,9 +304,9 @@ Usage Notes
 
 - In some cases proper trigger execution may depend on the timing and order of events with respect to
   creating nodes, setting properties, and so on. For example, you may write a trigger based on a
-  ``node:add`` action that fails to perform as expected because you actualy need the trigger to fire
+  ``node:add`` action that fails to perform as expected because you actually need the trigger to fire
   on a ``prop:set`` operation. The detailed technical aspects of Synapse write operations are beyond the
-  scope of his discussion; as always it is good practice to test triggers (or other automation) before 
+  scope of this discussion; as always it is good practice to test triggers (or other automation) before 
   putting them into production.
 
 - Creating a trigger will create an associated ``syn:trigger`` runtime node (runt node). While runt
@@ -324,7 +324,7 @@ Usage Notes
   
   ::
   
-    $trigger=$lib.trigger.get(<trigger_iden>) $trigger.set(user, <new_user_iden>)
+    $trigger=$lib.trigger.get(<trigger_iden>) $trigger.set(user, <new_creator_iden>)
 
 
 Variables
@@ -370,9 +370,9 @@ In :ref:`gloss-optic`, triggers can also be managed through either the :ref:`glo
 .. NOTE::
   
   Once a trigger is created, you can modify many of its properties (such as its name and description, or
-  the Storm associated with the trigger. However, you cannot modify the trigger conditions (e.g., the type of
+  the Storm associated with the trigger). However, you cannot modify the trigger conditions (e.g., the type of
   event that fires the trigger, or the form a trigger operates on). To change those conditions, you must
-  delete (or disable) and re-create the trigger.
+  delete and re-create the trigger.
 
 
 Examples
@@ -425,9 +425,9 @@ Newly created trigger as a ``syn:trigger`` node:
 
 - Add a trigger that fires when the tag ``osint`` (indicating that the node was listed as a malicious indicator
   in public reporting) is applied to any node. The trigger should call (execute) a macro called ``enrich``.
-  The macro contains a Storm query that uses a switch case to call the appropriate extended Storm commands based
-  on the tagged node’s form (e.g., perform different enrichment / call different third-party services based on
-  whether the node is an FQDN, an IPv4, an email address, a URL, etc.).
+  The macro contains a Storm query that uses a switch case to call the appropriate Storm commands based on the
+  tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether
+  the node is an FQDN, an IPv4, an email address, a URL, etc.).
   
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
@@ -476,20 +476,21 @@ Usage Notes
 - Users must be granted permissions in order to be able to work with cron jobs (i.e., to execute the
   associated ``cron.*`` Storm commands).
 
-- Cron jobs execute **with the permissions of the user who created the job**. If a cron jobs calls a
+- Cron jobs execute **with the permissions of the user who created the job**. If a cron job calls a
   macro, the macro will execute with the permissions of the cron job (macros execute with the
   permissions of the calling user).
 
-- Cron jobs are **view-specific** - they reside (and execute within) a particular :ref:`gloss-view`.
-  This has implications for environments that use multiple views or that regularly :ref:`gloss-fork`
-  and later merge or delete views. For example:
+- Cron jobs are **view-specific.** Cron jobs reside in the Cortex but **execute** within a particular
+  :ref:`gloss-view`. This has implications for environments that use multiple views or that regularly
+  :ref:`gloss-fork` and later merge or delete views. For example:
   
-  - Cron jobs that are created in a **forked view** are "orphaned" when you merge or delete the fork.
-    The jobs will remain in Synapse, but will not execute because they are not assigned to a view.
-    You must assign the jobs to a new view for them to run (or delete them if no longer needed).
+  - Cron jobs that execute in a **forked view** are "orphaned" when you merge or delete the fork.
+    The jobs will remain in Synapse (because they reside in the Cortex), but will not execute because
+    they are not assigned to a view. You must assign the jobs to a new view for them to run (or delete
+    them if no longer needed).
 
-- When viewing cron jobs (i.e., with the :ref:`storm-cron-list` command), Synapse returns **all** cron
-  jobs in Synapse, regardless of the view the job resides in.
+- When viewing cron jobs (i.e., with the :ref:`storm-cron-list` command), Synapse returns
+  **all cron jobs in the Cortex,** regardless of the view the job executes in.
 
 - Cron jobs are exclusive - if for some reason a job has not finished executing before its next scheduled
   start, the original job will run to completion and the "new" job will be skipped.
@@ -509,7 +510,7 @@ Usage Notes
   
   ::
   
-    $cron=$lib.cron.get(<cron_iden>) $cron.set(user, <new_user_iden>)
+    $cron=$lib.cron.get(<cron_iden>) $cron.set(user, <new_creator_iden>)
 
 
 Variables
@@ -536,7 +537,7 @@ In :ref:`gloss-optic`, cron jobs can also be managed through the :ref:`gloss-adm
   
   Once a cron job is created, you can modify many of its properties (such as its name and description, or
   the Storm associated with the job). However, you cannot modify other aspects of the job, such as its
-  schedule. To change those conditions, you must delete (or disable) and re-create the cron job.
+  schedule. To change those conditions, you must delete and re-create the cron job.
 
 
 Examples
@@ -585,7 +586,7 @@ Newly created cron job as a ``syn:cron`` node:
 .. storm-cli:: cron.add --day 15 { inet:ipv4 -:loc | ipgeoloc }
 
 
-- Add a cron job to run very Tuesday, Thursday, and Saturday at 2:00 AM UTC to lift all MD5, SHA1, and SHA256
+- Add a cron job to run every Tuesday, Thursday, and Saturday at 2:00 AM UTC to lift all MD5, SHA1, and SHA256
   hashes tagged "malicious" that do not have corresponding file (``file:bytes``) nodes and submit them to a
   Storm command that queries a third-party malware service and attempts to download those files. (**Note:**
   Synapse does not include a malware service in its open source distribution; this cron job assumes such a
@@ -721,8 +722,8 @@ A :ref:`gloss-dmon` is a long-running or recurring query or process that runs co
 Variables
 +++++++++
 
-Dmons will have the storm variable Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a
-dictionary which contains the following keys:
+Dmons will have the storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which
+contains the following keys:
 
   ``$auto.iden``
     The identifier of the Dmon.
