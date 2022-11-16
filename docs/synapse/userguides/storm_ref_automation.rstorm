@@ -164,7 +164,7 @@ Triggers and cron are similar in terms of how they are implemented and managed.
 
 - **Scope.** Both triggers and cron jobs run **within a specific view.** Synapse allows the optional
   segregation of data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to
-  provide a unified :ref:`gloss-view` of data to users. You must specifiy the particular view in which
+  provide a unified :ref:`gloss-view` of data to users. You must specify the particular view in which
   each trigger or cron job runs.
   
   .. NOTE::
