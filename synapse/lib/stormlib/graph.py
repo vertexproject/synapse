@@ -55,7 +55,30 @@ class GraphLib(s_stormtypes.Lib):
     '''
     _storm_lib_path = ('graph',)
     _storm_locals = (
-        {'name': 'add', 'desc': 'Add a graph projection to the Cortex.',
+        {'name': 'add',
+         'desc': '''
+            Add a graph projection to the Cortex.
+
+            Example:
+                Add a new provider which uses the authorization code flow::
+
+                    $rules = ({
+                        "name": "My test projection",
+                        "degrees": 2,
+                        "pivots": ["<- meta:seen <- meta:source"],
+                        "filters": ["-#nope"],
+                        "forms": {
+                            "inet:fqdn": {
+                                "pivots": ["<- *", "-> *"],
+                                "filters": ["-inet:fqdn:issuffix=1"]
+                            },
+                            "*": {
+                                "pivots": ["-> #"],
+                            }
+                        }
+                    })
+                    $lib.graph.add($rules)
+         ''',
          'type': {'type': 'function', '_funcname': '_methGraphAdd',
                   'args': (
                       {'name': 'gdef', 'type': 'dict', 'desc': 'A graph projection definition.', },
