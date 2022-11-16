@@ -162,9 +162,10 @@ Triggers and cron are similar in terms of how they are implemented and managed.
 - **Introspection.** Triggers and cron jobs are created as runtime nodes ("runt nodes") in Synapse
   (``syn:trigger`` and ``syn:cron`` nodes, respectively).
 
-- **Scope.** Both triggers and cron jobs are **view-specific.** Synapse allows the optional segregation of
-  data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to provide a unified
-  :ref:`gloss-view` of data to users. Triggers and cron jobs execute in a particular view.
+- **Scope.** Both triggers and cron jobs run **within a specific view.** Synapse allows the optional
+  segregation of data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to
+  provide a unified :ref:`gloss-view` of data to users. You must specifiy the particular view in which
+  each trigger or cron job runs.
   
   .. NOTE::
     
@@ -287,7 +288,7 @@ Usage Notes
     tags will finish quickly. This allows you to continue working while the associated enrichment
     completes in the background.
 
-- Triggers are **view-specific** - they reside (and execute within) a particular :ref:`gloss-view`.
+- Triggers are **view-specific** - they both reside and execute within a particular :ref:`gloss-view`.
   This has implications for environments that use multiple views or that regularly :ref:`gloss-fork`
   and later merge or delete views. For example:
   
@@ -324,7 +325,7 @@ Usage Notes
   
   ::
   
-    $trigger=$lib.trigger.get(<trigger_iden>) $trigger.set(user, <new_creator_iden>)
+    $trigger=$lib.trigger.get(<trigger_iden>) $trigger.set(user, <new_user_iden>)
 
 
 Variables
@@ -480,9 +481,9 @@ Usage Notes
   macro, the macro will execute with the permissions of the cron job (macros execute with the
   permissions of the calling user).
 
-- Cron jobs are **view-specific.** Cron jobs reside in the Cortex but **execute** within a particular
-  :ref:`gloss-view`. This has implications for environments that use multiple views or that regularly
-  :ref:`gloss-fork` and later merge or delete views. For example:
+- Cron jobs **reside** in the Cortex but **execute** within a particular :ref:`gloss-view`. This has
+  implications for environments that use multiple views or that regularly :ref:`gloss-fork` and later
+  merge or delete views. For example:
   
   - Cron jobs that execute in a **forked view** are "orphaned" when you merge or delete the fork.
     The jobs will remain in Synapse (because they reside in the Cortex), but will not execute because
@@ -510,7 +511,7 @@ Usage Notes
   
   ::
   
-    $cron=$lib.cron.get(<cron_iden>) $cron.set(user, <new_creator_iden>)
+    $cron=$lib.cron.get(<cron_iden>) $cron.set(creator, <new_creator_iden>)
 
 
 Variables
