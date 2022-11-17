@@ -4,6 +4,7 @@ import time
 import signal
 import asyncio
 import tarfile
+import collections
 import multiprocessing
 
 from unittest import mock
@@ -1704,3 +1705,26 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
                 self.false(await root.tryPasswd('root'))
                 self.true(await root.tryPasswd('supersecretpassword'))
+
+    async def test_cell_minspace(self):
+
+        with self.raises(s_exc.IsReadOnly):
+            conf = {'cell:minspace': 100}
+            async with self.getTestCore(conf=conf) as core:
+                pass
+
+        _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+        def full_disk(dirn):
+            return _ntuple_diskusage(100, 96, 4)
+
+        with mock.patch.object(s_cell.Cell, 'MIN_SPACE_CHECK_FREQ', 0.1):
+            async with self.getTestCore() as core:
+                nodes = await core.nodes('[inet:fqdn=vertex.link]')
+                self.len(1, nodes)
+
+                with mock.patch('shutil.disk_usage', full_disk):
+                    await asyncio.sleep(1)
+
+                    msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+                    self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)

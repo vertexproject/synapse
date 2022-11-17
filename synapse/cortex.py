@@ -1365,6 +1365,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for layer in self.layers.values():
             await layer.initLayerPassive()
 
+    async def _setReadOnly(self):
+        self.provstor.enabled = False
+
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
 

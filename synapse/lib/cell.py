@@ -774,6 +774,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
             'hideconf': True,
         },
+        'cell:minspace': {
+            'default': 5,
+            'description': 'Minimum free space percentage before switch the cell to read-only.',
+            'type': 'integer',
+        },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
             'type': ['string', 'null'],
@@ -946,6 +951,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
+    MIN_SPACE_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -1156,6 +1162,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    async def _runMinSpaceLoop(self, mpct):
+
+        minv = mpct / 100
+
+        while not self.isfini:
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= minv:
+
+                await self._setReadOnly()
+
+                nexsroot = self.getCellNexsRoot()
+                nexsroot.readonly = True
+
+                free = disk.free / disk.total * 100
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+
+            await asyncio.sleep(self.MIN_SPACE_CHECK_FREQ)
+
+    async def _setReadOnly(self):
+        # implement any behavior necessary to make the cell read-only
+        pass
+
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
         if name is not None:
@@ -1214,6 +1243,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.recover()
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
+
+            self.schedCoro(self._runMinSpaceLoop(self.conf.get('cell:minspace')))
 
     async def initServiceNetwork(self):
 
