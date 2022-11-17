@@ -12,72 +12,136 @@ Storm Reference - Automation
 Background
 ----------
 
-Synapse is designed to facilitate large-scale analysis over disparate data sources with speed and efficiency. Many of the features that support this analysis are built into Synapse’s architecture, from performance-optimized indexing and storage to an extensible data model that allows you to reason over data in a structured manner.
+Synapse is designed to support large-scale analysis over disparate data sources with speed and efficiency.
+Many features that support this analysis are built into Synapse’s architecture, from performance-optimized
+indexing and storage to an extensible data model that allows you to reason over data in a structured
+manner.
 
-Synapse also supports large-scale analysis through the use of **automation.** Synapse’s automation features are available through the Storm runtime and include:
+Synapse also supports large-scale analysis through the use of **automation.** Synapse’s automation features
+include:
 
 - `Triggers and Cron`_
 - `Macros`_
 - `Dmons`_
 
-All forms of automation in Synapse utilize the Storm query language. That is, regardless of the type of automation used, the result is the execution of a predefined Storm query. This means that **anything that can be written in Storm can be automated,** from the simple and straightforward to the highly complex. Actions performed via automation are limited only by imagination and Storm proficiency. Some automation is fairly simple ("if X occurs, do Y" or "once a week, update Z"). However, automation can take advantage of all available Storm features, including subqueries, variables, libraries, control flow logic, and so on.
+Automation in Synapse provides significant advantages. It relieves analysts from performing tedious work,
+freeing them to focus on more detailed analysis and complex tasks. It also allows you to scale analytical
+operations by limiting the amount of work that must be performed manually.
+
+Automation in Synapse uses the Storm query language. This means that
+**anything that can be written in Storm can be automated,** from the simple to the more advanced. Actions
+performed via automation are limited only by imagination and Storm proficiency. Some automation is fairly
+basic ("if X occurs, do Y" or "once a week, update Z"). However, automation can take advantage of all
+available Storm features, including subqueries, variables, libraries, control flow logic, and so on.
 
 .. _auto-consid:
 
 Considerations
 --------------
 
-This section is not meant to be a detailed guide on implementing automation. However, a few areas are included here for consideration when utilizing automation in your environment.
+This section is **not** meant as a detailed guide on implementing automation. A few items are listed
+here for consideration when planning the use of automation in your environment.
 
-**Permissions.**
+Permissions
++++++++++++
 
-The ability to create, modify, or delete the various types of automation depends on a user having the appropriate permissions to do so. If you assign permissions for these tasks in your environment, keep the following in mind:
+Permissions impact the use of automation in Synapse in various ways. In some cases, you must explicitly
+grant permission for users to create and manage automation. In other cases, the permissions that a given
+automated task runs under may vary based on the type of automation used. See the relevant sections below
+for additional detail.
 
-- Triggers, cron jobs, and dmons execute in the context of (with the permissions of) **the user who creates them.**
+Scope
++++++
 
-- Macros execute in the context of **the user who calls them** for execution, regardless of who created them.
+Automation components vary with respect to where they reside and execute within Synapse; some elements
+are global (within a Cortex) while some reside and execute within a specific :ref:`gloss-view`, which
+may impact organizations that use multiple views and / or use Synapse's ability to :ref:`gloss-fork`
+a view and later merge or delete it. See the relevant sections below for additional detail.
 
-The Storm query executed by a given automation task cannot perform tasks that it does not have appropriate permissions to perform. This leads to some straightforward (and some less straightforward) situations. For example:
+Testing
++++++++
 
-- A user with higher privileges can write a macro that can be called and executed by a user with lower privileges. However, if the lower-privileged user does not have permissions to perform actions encoded in the macro, execution by the lower-privileged user will fail (i.e., with an ``AuthDeny`` error).
+Automation should **always** be tested before being placed into production. Storm used in automation
+can be syntactically correct (uses proper Storm), but contain logical errors (fail to do what you
+want it to do). Similarly, new automation may interact with existing automation in unexpected ways.
+Test your automation in a development environment (either a separate development instance, or a separate
+:ref:`gloss-fork` of your production view) before implementing it in production.
 
-- A user with higher privileges can write a trigger that calls a macro. Because the macro was called by the trigger, the macro executes with the permissions of the user who wrote the trigger. As triggers are event-driven (see below), this means it is possible for a lower-privileged user to cause an event that fires the higher-privileged trigger that calls the higher-privileged macro. Both will execute as written even though the execution was "caused" by a lower-privileged user.
+Use Cases
++++++++++
 
-**Use Cases.**
+Organizations can implement automation as they see fit. Some automation may be enterprise-wide, used
+to support an organization’s overall mission or analysis efforts. Other automation may be put in
+place by individual analysts to support their own research efforts, either on an ongoing or temporary
+basis.
 
-Organizations can implement automation in any way they see fit, and at any scale. Some automation may be enterprise-wide, where it is used to support an organization’s overall mission or analysis efforts. Other automation may be put in place by individual analysts to support their own research efforts, either on an ongoing or temporary basis. For example:
-
-- an analyst may write a cron job to execute a long-running data collection and analysis task during off-peak hours, or may create a macro as a "shortcut" to make it easier to store and execute a particular Storm query on demand.
-
-- an organization may implement a set of automation to track malicious indicators within Synapse and orchestrate the integration of those indicators with security devices or SIEM systems.
-
-**Architecture.**
+Design
+++++++
 
 There are varying approaches for "how" to write and implement automation. For example:
 
-- The various types of automation can be kept entirely separate and independent from one another, each executing their own Storm code and performing different tasks. Alternatively, automation can be somewhat centralized (say in macros), where other types of automation execute minimal Storm queries whose purpose is to call the more extensive Storm stored in macros.
+- Individual triggers and cron jobs can be kept entirely separate from one another, each executing
+  their own dedicated Storm code. This approach helps keep automation "self-contained" and means the
+  Storm executed by a given trigger or cron job is directly introspectable via Storm itself (as a
+  property of ``syn:trigger`` or ``syn:cron`` nodes). However, it may provide less flexibility in
+  executing the associated Storm compared with the use of macros.
+  
+  Alternatively, tasks such as triggers and cron jobs can be written to execute minimal Storm queries
+  whose purpose is to call more extensive Storm stored centrally in macros. This approach consolidates
+  much of the associated Storm, which may make it easier to manage and maintain. Storm placed in macros
+  also provides flexibility as the macro can be called by a trigger, a cron job, or a user as part of
+  a Storm query.
 
-- Automation can be written as many small, individual elements that each perform a relatively simple task, but which are designed to work together like building blocks to orchestrate larger-scale operations. In contrast, automation can be implemented using fewer elements that perform larger, more unified tasks using more complex Storm to carry out multiple operations.
+- Automation can be written as many small, individual elements. Each element can perform a relatively
+  simple task, but the elements can work together like building blocks to orchestrate larger-scale
+  operations. This approach keeps tasks "bite sized" and the Storm executed by a given piece of automation
+  generally simpler. However it may result in a larger number of automation elements to maintain, and may
+  make it more challenging to understand the potential interactions of so many different elements.
+  
+  Alternatively, automation can be implemented using fewer elements that perform larger, more unified
+  tasks (or that consolidate numerous smaller tasks). This approach results in fewer automation elements
+  overall, but typically requires you to write and maintain more advanced Storm (e.g., to create a small
+  number of macros with switch or if/else statements to each manage a variety of tasks). However, the
+  Storm is consolidated in a few locations, which may make managing and troubleshooting easier.
 
-Each approach has its pros and cons; there is no single "right" way, and what works best in your environment or for a particular task will depend on your needs (and possibly some trial and error).
+Each approach has its pros and cons; there is no single "right" way, and what works best in your environment
+or for a particular task will depend on your needs (and possibly some trial and error).
 
-**Governance / Management.**
+Governance / Management
++++++++++++++++++++++++
 
-Where multiple users have the ability to create automation tasks, it is possible for them to create duplicative or even conflicting automation. This is less likely to occur (or less likely to be potentially harmful) when users create automation to support their personal workflow, but can present problems when multiple users have permissions to both create automation and perform actions within Synapse that have "global" effects. For example:
+Consider any oversight or approval processes that you may need in order to implement and manage automation
+effectively in your environment. A number of automation use cases may require coordination or deconfliction:
 
-- Tags typically represent assessments about data. This can include things like whether an IP address is a sinkhole or whether an indicator is associated with a particular threat group. Organizations may wish to consider under what circumstances these assessments should be applied via automation. (For organizations not comfortable with fully automating certain analytical decisions, automation can be used to tag something "for review" to ensure a human in the loop.)
+- Where multiple users have the ability to create automated tasks, it is possible for them to create
+  duplicative or even conflicting automation. Consider who should be repsonsible for deconflicting
+  automation to mitigate against these effects.
 
-- Automation is particularly useful for "enriching" indicators (such as domains or file hashes) by ingesting data into Synapse from various third-party sources. In some cases third-party access may be subject to query limits or may incur per-query (or per-result) usage costs. Organizations may wish to consider how to balance the convenience of automation with potential operational or financial impacts.
+- Automation is often used to enrich indicators (i.e., query various third-party APIs to pull in more
+  data related to a node). Some third-party APIs may impose query limits, may be subject to a license
+  or subscription fee, or both. Consider how to balance effective use of automation without overusing
+  or exceeding any applicable quotas.
 
-Organizations should plan whether or how to coordinate and deconflict automation where appropriate.
+- Some automation may be used to apply tags to nodes or "push" tags from one node to related nodes -
+  effectively automating the process of making an analytical assertion. Consider carefully under what
+  circumstances this should be automated, and who should review or approve the analysis logic used to
+  make the assertion.
 
-**Review and Testing.**
+Existing Synapse features will help mitigate some of these potential issues. For example, if you
+inadvertently create looping or recursive automation, it will eventually reach Synapse's recursion
+limit and error / halt (with the only bad effect being that the automation may only partially complete).
+In addition, Vertex-provided Synapse Power-Ups (see :ref:`gloss-power-up`) are written to optimize
+third-party API use where possible (e.g., by caching responses or by checking whether Synapse already
+has a copy of a file before attempting to download it from an external source). However, it is a good
+idea to decide on any internal controls that are necessary to ensure automation works well in your
+organization.
 
-Automation in Synapse provides significant advantages. It relieves analysts from performing tedious work, freeing them to focus on more detailed analysis and complex tasks. It also allows you to scale your analytical operations by limiting the amount of work that must be performed manually. However, badly written automation or automation that contains logical errors also allows you to "make errors at machine speed". We strongly encourage testing automation in a development environment before implementing it on a production system.
+Nodes In and Nodes Out
+++++++++++++++++++++++
 
-**Nodes In and Nodes Out.**
-
-In some cases automation can be used to "chain" operations (e.g., both triggers and cron can call macros) or may be executed inline with other Storm operations (a macro can be called in the middle of a Storm query where the query expects to perform further operations on the nodes returned by the macro). In these cases, both the automation itself and any Storm executed after the automation may fail if the inbound nodes are not what is expected by the query.
+In cases where automation operates on nodes (the most common scenario), either the automation itself
+or any Storm executed after the automation may fail if the inbound nodes (that is, the current nodes in
+the Storm pipeline) are not what is expected by the query.
 
 Users should keep the :ref:`storm-op-concepts` in mind when writing automation.
 
@@ -87,17 +151,32 @@ Users should keep the :ref:`storm-op-concepts` in mind when writing automation.
 Triggers and Cron
 -----------------
 
-Triggers and cron are similar in terms of permissions and management. Both triggers and cron:
+Triggers and cron are similar in terms of how they are implemented and managed.
 
-- **Support permissions.** Synapse uses permissions to determine who can create, modify, and delete triggers and cron jobs. Triggers and cron jobs execute **with the permissions of the user who creates them.** (This is fairly intuitive for cron, but may be less so in the case of triggers.) Conversely, a trigger or cron job can only perform actions that their creator has permissions to perform.
+- **Permissions.** Synapse uses permissions to determine who can create, modify, and delete triggers
+  and cron jobs. These permissions must be explicitly granted to users and/or roles.
+  
+- **Execution.** Both triggers and cron jobs execute with the permissions **of the user who creates them.**
+  A trigger or cron job can only perform actions that their creator has permissions to perform.
+  
+- **Introspection.** Triggers and cron jobs are created as runtime nodes ("runt nodes") in Synapse
+  (``syn:trigger`` and ``syn:cron`` nodes, respectively).
 
-- **Are introspectable.** Triggers and cron jobs are created as run-time nodes ("runt nodes") and can be lifted, filtered, and pivoted across just like other elements of the Synapse data model (see the :ref:`storm-ref-model-introspect` guide for details).
-
-- **Are view-specific.** Synapse allows the optional segregation of data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to provide a unified :ref:`gloss-view` of data to users. Triggers and cron jobs are specific to a view. This means that they are carried over (for example) if a user forks (:ref:`gloss-fork`) a view. See the :ref:`storm-layer` and :ref:`storm-view` commands in the :ref:`storm-ref-cmd` guide for additional detail on working with views and layers.
-
-.. NOTE::
-  A simple Synapse implementation consists of a single Cortex with a single layer and a single view.
-
+- **Scope.** Both triggers and cron jobs run **within a specific view.** Synapse allows the optional
+  segregation of data in a Cortex into multiple layers (:ref:`gloss-layer`) that can be "stacked" to
+  provide a unified :ref:`gloss-view` of data to users. You must specify the particular view in which
+  each trigger or cron job runs.
+  
+  .. NOTE::
+    
+    This view-specific behavior is transparent when using a simple Synapse implementation consisting of a
+    single Cortex with a single layer and a single view (Synapse's default configuration).
+    
+    In environments with multiple views, and in particular where users may frequently :ref:`gloss-fork`
+    a view) you should take this view-specific behavior into account. Key considerations include
+    determining where (in which view) triggers and cron jobs should reside, and understanding what
+    happens when you merge or delete a view that contains triggers or cron jobs (discussed in more detail
+    in the appropriate sections below).
 
 
 .. _auto-triggers:
@@ -105,50 +184,164 @@ Triggers and cron are similar in terms of permissions and management. Both trigg
 Triggers
 ++++++++
 
-Triggers are **event-driven.** As their name implies, they trigger ("fire") their associated Storm query on demand when specific events occur in a Cortex. As noted above, a trigger executes with the permissions of the user who created it; the trigger can only perform actions that the user is allowed to perform.
+Triggers are **event-driven** automation. As their name implies, they trigger ("fire") their associated
+Storm when specific events occur in Synapse's data store.
 
 Triggers can fire on the following events:
 
 - Adding a node (``node:add``)
 - Deleting a node (``node:del``)
-- Setting a property (``prop:set``)
+- Setting (or modifying) a property (``prop:set``)
 - Adding a tag to a node (``tag:add``)
 - Deleting a tag from a node (``tag:del``)
 
-Each event requires an object (a form, property, or tag) to act upon - that is, if you write a trigger to fire on a ``node:add`` event, you must specify the type of node (form) associated with the event. Similarly, if a trigger should fire on a ``tag:del`` event, you must specify the tag whose removal fires the trigger.
+Each event requires an object (a form, property, or tag) to act upon - that is, if you write a trigger to
+fire on a ``node:add`` event, you must specify the type of node (form) associated with the event. Similarly,
+if a trigger should fire on a ``tag:del`` event, you must specify the tag whose removal fires the trigger.
 
-``tag:add`` and ``tag:del`` events can take an optional form, allowing you to specify that a trigger should fire when a given tag is added (or removed) from a specific form as opposed to any / all forms.
+``tag:add`` and ``tag:del`` events can take an optional form; this allows you to specify that a trigger
+should fire when a given tag is added (or removed) from a specific form as opposed to any / all forms.
 
-Triggers execute **immediately** when their associated event occurs in a Cortex. This allows automation to occur in "real time" as opposed to waiting for a scheduled cron job to execute (or for an analyst to manually perform some task). As such, triggers are most appropriate for automating tasks that should occur right away (e.g., based on efficiency or importance). For example, triggers can be used to perform simple but tedious tasks, freeing analysts from having to perform such tasks manually; or they can be used to collect additional data (e.g., from third-party services) about nodes of interest ("enrich" those nodes).
-
-.. WARNING::
-  Triggers execute **inline** with the process (typically a Storm query) that causes them to fire. That is, if a process (or an analyst) creates a node as part of a longer Storm query and creation of that node causes a trigger to fire, the trigger’s Storm will execute immediately and in full before returning "back" to the main query to complete any additional Storm operations. This includes execution of any additional code that may be called by the trigger itself, such as a macro. Conceptually, it is as though all of the trigger’s Storm code and any additional Storm that it calls were inserted into the middle of the original Storm query that fired the trigger.
+.. NOTE::
   
-  This inline execution can impact your query's performance, depending on the Storm executed by the trigger and the number of nodes causing the trigger to fire. The`` --async`` option can be used when creating a trigger to specify that the trigger should run in the background vs. inline. This will cause the trigger event to be stored in a persistent queue, which will then be consumed automatically by the Cortex.
+  The node(s) that cause a trigger to fire are considered **inbound** to the Storm executed by the
+  trigger.
 
-  For example, let’s say you are using CSVTool (see :ref:`syn-tools-csvtool`) to load 3,000 indicators and tag them as "malicious". Your Cortex includes a trigger that fires when a "malicious" tag is applied to any node, calling a Storm query that contacts five third-party services to enrich those indicators, resulting in the creation of dozens of additional nodes for each indicator enriched. This tag-and-enrich process is executed inline for each of the 3,000 nodes created by the CSVTool ingest. If the trigger was created as an async trigger, the CSVTool may complete before the enrichment is done, but the enrichment will eventually complete in the background.
+Example Use Cases
+~~~~~~~~~~~~~~~~~
 
-Conversely, triggers **only** execute when the specified event occurs. The events used to fire triggers typically will only ever occur once - the node ``inet:fqdn=woot.com`` will only ever be added to a Cortex once; applying the tag ``#my.tag`` to a ``hash:md5`` node will only occur one time (barring deleting and later re-adding the node or tag). The only exception is the ``prop:set`` event, which will fire when the specified property is first set (often on node creation) as well as any time the property is modified (i.e., "set" again).
+Triggers execute **immediately** when their associated event occurs; the automation occurs in real time
+as opposed to waiting for a scheduled cron job to execute (or for an analyst to manually perform some
+task). As such, triggers are most appropriate for automating tasks that should occur right away (e.g.,
+based on efficiency or importance). Example use cases for triggers include:
 
-The "one-time" nature of triggers may result in a small number of edge cases where the trigger does not perform the desired action. For example:
+- **Performing enrichment.** Tags are often used to indicate that a node is "interesting" in some way; if
+  a node is "interesting" we commonly want to know more about it. When an "interesting" tag is applied
+  (``tag:add``), a trigger can execute Storm commands that immediately collect additional data about the
+  node from various Storm services or Power-Ups.
 
-- Triggers do not operate retroactively; they will not fire for nodes that already exist in a Cortex at the time the trigger is added. That is, if you write a new trigger to fire any time the tag ``#my.tag`` is applied to a ``hash:md5`` node, the trigger will have no effect on existing ``hash:md5`` nodes that already have the tag.
-- If a trigger depends on a resource (process, service, etc.) that is not available when it fires, the trigger will simply fail; it will not "try again".
+- **Applying assessments.** You may be able to encode the logic you use to apply a tag into Storm. As a
+  simple example, you have identified an IPv4 address as a sinkhole. When a DNS A node (``inet:dns:a``)
+  is created where the associated IPv4 (``:ipv4`` property) is the IP of the sinkhole (``prop:set``), a
+  trigger can automatically tag the associated FQDN as sinkholed. If you want an analyst to confirm
+  the assessment (vs. applying it in a fully automated fashion), you can apply a "review" tag instead.
 
-Finally, users should be aware that in some cases proper trigger execution may depend on the timing and order of events with respect to creating nodes, setting properties, creating nodes from secondary properties ("derivative nodes"), etc. The detailed technical aspects of Synapse write operations are beyond the scope of this discussion, but as always it is good practice to test triggers (or other automation) before putting them into practice to ensure they perform as intended.
+- **"Pushing" tags.** Analysts may identify cases where, when they tag a particular node, they
+  consistently also want to tag a set of "related" nodes. For example, if they tag a ``file:bytes``
+  node (as malicious, or as associated with a particular threat group) they may always want to tag
+  the associated hashes (``hash:md5``, etc.) as well. Or, if a ``file:bytes`` node queries a "known
+  bad" FQDN (via an ``inet:dns:request`` node), apply the tag from the FQDN to both the DNS request
+  and the file.
+  
+Usage Notes
+~~~~~~~~~~~
 
-**Variables:**
+- Users must be granted permissions in order to be able to work with triggers (i.e., to execute the
+  associated ``trigger.*`` Storm commands).
 
-Triggers automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+- Triggers execute **with the permissions of the user who created the trigger**. If a trigger calls a
+  macro, the macro will execute with the permissions of the trigger (macros execute with the
+  permissions of the calling user).
+
+  .. NOTE::
+    
+    Once a trigger is created, it will execute automatically when the specified event occurs. This means
+    that while the trigger runs with the permissions of its creator, it is possible for lower-privileged
+    users change Synapse's data (e.g., by creating a node or applying a tag) in a way that causes the
+    trigger to fire and execute as the higher-privileged user.
+    
+    This is by design; triggers should be used for automation tasks that you **always** want to occur,
+    regardless of the user (or process) that generates the condition that fires the trigger.
+
+- Triggers fire immediately when their associated event occurs. However, they **only** execute when
+  that event occurs. This means:
+  
+    - Triggers do not operate retroactively on existing data. If you write a new trigger to fire when
+      the tag ``my.tag`` is applied to a ``hash:md5`` node, the trigger will have no effect on existing
+      ``hash:md5`` nodes that already have the tag.
+    
+    - If a trigger depends on a resource (process, service, etc.) that is not available when it fires,
+      the trigger will simply fail; it will not "try again".
+
+- By default, triggers execute **inline**. When a process (typically a Storm query) causes a trigger to
+  fire, the Storm associated with the trigger will run **immediately and in full**. Conceptually, it is
+  as though all of the trigger’s Storm code and any additional Storm that it calls (such as a macro) are
+  inserted into the middle of the original Storm query that fired the trigger, and executed as part of
+  that query.
+  
+  .. WARNING::
+    
+    This inline execution can impact your query's performance, depending on the Storm executed by the
+    trigger and the number of nodes causing the trigger to fire. The ``--async`` option can be used when
+    creating a trigger to specify that the trigger should run in the background as opposed to inline.
+    This will cause the trigger event to be stored in a persistent queue, which will then be consumed
+    automatically by the Cortex.
+    
+    As an example, you are reviewing a whitepaper on a new threat group that includes 800 indicators
+    of compromise reportedly associated with the group. You tag all of the indicators, which fires a
+    trigger to "enrich" those indicators from multiple third-party APIs and results in the creation of
+    dozens of new nodes for each indicator enriched. This tag-and-enrich process is executed inline for
+    **each** of the 800 indicators, which can slow or appear to "block" the original query you ran in
+    order to apply the tags.
+    
+    If the trigger is created as an ``async`` trigger to run in the background, the query to apply the
+    tags will finish quickly. This allows you to continue working while the associated enrichment
+    completes in the background.
+
+- Triggers are **view-specific** - they both reside and execute within a particular :ref:`gloss-view`.
+  This has implications for environments that use multiple views or that regularly :ref:`gloss-fork`
+  and later merge or delete views. For example:
+  
+  - Triggers that reside in a **base view** will not fire on changes made to a view that is forked from
+    the base. The trigger will fire when any relevant changes from the fork are merged (written) to the
+    base view.
+  
+  - Triggers that are created in a **forked view** are **deleted** by default when you merge or delete
+    the fork. If you want to retain any triggers created in the fork, you must explicitly move them into
+    the base view prior to merging or deleting the fork.
+
+- When viewing triggers (i.e., with the :ref:`storm-trigger-list` command), Synapse returns **only
+  those triggers in your current view**.
+
+- In some cases proper trigger execution may depend on the timing and order of events with respect to
+  creating nodes, setting properties, and so on. For example, you may write a trigger based on a
+  ``node:add`` action that fails to perform as expected because you actually need the trigger to fire
+  on a ``prop:set`` operation. The detailed technical aspects of Synapse write operations are beyond the
+  scope of this discussion; as always it is good practice to test triggers (or other automation) before 
+  putting them into production.
+
+- Creating a trigger will create an associated ``syn:trigger`` runtime node (runt node). While runt
+  nodes (:ref:`gloss-runt-node`) are typically read-only, ``syn:trigger`` nodes include ``:name`` and
+  ``:doc`` secondary properties that can be set and modified via Storm (or configured via :ref:`gloss-optic`).
+  This allows you to manage triggers by giving them meaningful names and descriptions. Changes to these
+  properties will persist even after a Cortex restart.
+
+- ``syn:trigger`` nodes can be lifted, filtered, and pivoted across just like other nodes. However, they
+  cannot be created or modified (e.g., using Storm's data modification / edit syntax) except in the
+  limited ways described above.
+
+- The creator (owner) of a trigger can be modified (with appropriate permissions) using the Storm 
+  :ref:`stormlibs-lib-trigger` library and :ref:`stormprims-storm-trigger-f527` primitive. For example:
+  
+  ::
+  
+    $trigger=$lib.trigger.get(<trigger_iden>) $trigger.set(user, <new_user_iden>)
+
+
+Variables
+~~~~~~~~~
+
+Triggers automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable
+is a dictionary which contains the following keys:
 
   ``$auto.iden``
     The identifier of the Trigger.
 
   ``$auto.type``
-    The type of automation. For a Trigger this value will be ``trigger``.
+    The type of automation. For a trigger this value will be ``trigger``.
 
   ``$auto.opts``
-    Dictionary containing trigger specific runtime information. This includes the following keys:
+    Dictionary containing trigger-specific runtime information. This includes the following keys:
 
         ``$auto.opts.form``
             The form of the triggering node.
@@ -157,7 +350,8 @@ Triggers automatically have the Storm variable ``$auto`` populated when they run
             The full name of the property that was set on the node. Only present on ``prop:set`` triggers.
 
         ``$auto.opts.propname``
-            The relative name of the property that was set on the node. Does not include a leading ``:``. Only present on ``prop:set`` triggers.
+            The relative name of the property that was set on the node. Does not include a leading ``:``.
+            Only present on ``prop:set`` triggers.
 
         ``$auto.opts.tag``
             The tag which caused the trigger to fire. Only present on ``tag:add`` and ``tag:del`` triggers.
@@ -165,76 +359,82 @@ Triggers automatically have the Storm variable ``$auto`` populated when they run
         ``$auto.opts.valu``
             The value of the triggering node.
 
+Syntax
+~~~~~~
 
-**Syntax:**
+Triggers are created, modified, viewed, enabled, disabled, and deleted using the Storm ``trigger.*`` commands.
+See the :ref:`storm-trigger` command in the :ref:`storm-ref-cmd` document for details.
 
-Triggers are created, modified, viewed, enabled, disabled, and deleted using the Storm ``trigger.*``  commands. See the :ref:`storm-trigger` command in the :ref:`storm-ref-cmd` document for details.
+In :ref:`gloss-optic`, triggers can also be managed through either the :ref:`gloss-admin-tool` or the
+:ref:`gloss-workspaces-tool`.
 
 .. NOTE::
-  Triggers can be modified after they are created, but modification is limited to updating the Storm query executed by the trigger. If other aspects of a trigger need to be changed (such as the event that fires the trigger, or the form a trigger operates on), the trigger must be deleted and re-created.
-
-**Examples:**
-
-In the examples below, the command to create (add) the specified trigger is shown.
-
-For illustrative purposes, in the **first** example the newly created trigger is displayed by using the ``trigger.list`` command and then by lifting the associated ``syn:trigger`` runtime ("runt") node.
+  
+  Once a trigger is created, you can modify many of its properties (such as its name and description, or
+  the Storm associated with the trigger). However, you cannot modify the trigger conditions (e.g., the type of
+  event that fires the trigger, or the form a trigger operates on). To change those conditions, you must
+  delete and re-create the trigger.
 
 
-- Add a trigger that fires when an ``inet:whois:email`` node is created. If the email address is associated with a privacy-protected registration service (e.g., the email address is tagged ``#whois.private``), then also tag the ``inet:whois:email`` node.
+Examples
+~~~~~~~~
+
+In the examples below, we show the command to create (add) the specified trigger.
+
+For illustrative purposes, in the **first** example the newly created trigger is displayed using the
+``trigger.list`` command and then by lifting the associated ``syn:trigger`` runtime ("runt") node.
+
+- Add a trigger that fires when an ``inet:whois:email`` node is created. If the email address is associated
+  with a privacy-protected registration service (e.g., the email address is tagged ``whois.private``),
+  then also tag the ``inet:whois:email`` node.
 
 
-.. storm-cli:: trigger.add --name "tag privacy protected inet:whois:email" node:add --form inet:whois:email --query { +{ -> inet:email +#whois.private } [ +#whois.private ] } 
+.. storm-cli:: trigger.add --name "tag privacy protected inet:whois:email" node:add --form inet:whois:email --query { +{ -> inet:email +#whois.private } [ +#whois.private ] }
 
-
-*Newly created trigger via trigger.list*
-
-
+Newly created trigger via ``trigger.list``:
+  
 .. storm-cli:: trigger.list
-
 
 The output of ``trigger.list`` contains the following columns:
 
 - The username used to create the trigger.
 - The trigger's identifier (iden).
 - Whether the trigger is currently enabled or disabled.
+- Whether the trigger will run asynchronously / in the background.
 - The condition that causes the trigger to fire.
 - The object that the condition operates on, if any.
 - The tag or tag expression used by the condition (for ``tag:add`` or ``tag:del`` conditions only).
 - The query to be executed when the trigger fires.
 
-*Newly created trigger as a syn:trigger node*
-
-
+Newly created trigger as a ``syn:trigger`` node:
+  
 .. storm-cli:: syn:trigger
 
 
-While runt nodes (:ref:`gloss-node-runt`) are typically read-only, ``syn:trigger`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm. This allows management of triggers by providing them with meaningful names and descriptions of their purpose. Changes to these properties will persist even after a Cortex restart.
-
-- Add a trigger that fires when the ``:exe`` property of an ``inet:dns:request`` node is set. Check to see whether the queried FQDN is malicious; if so, tag the associated ``file:bytes`` node for analyst review.
-
-
+- Add a trigger that fires when the ``:exe`` property of an ``inet:dns:request`` node is set. Check to see
+  whether the queried FQDN is malicious; if so, tag the associated ``file:bytes`` node for analyst review.
+  
 .. storm-cli:: trigger.add --name "tag file:bytes for review" prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#malicious } :exe -> file:bytes [ +#review ] }
 
 
-- Add a trigger that fires when the tag ``#ttp.phish.attach`` (indicating that a file was an attachment to a phishing email) is applied to a ``file:bytes`` node. Use the trigger to **also** apply the tag ``#attck.t1566.001`` (indicating MITRE ATT&CK technique “spear phishing attachment”).
+- Add a trigger that fires when the tag ``cno.ttp.phish.payload`` is applied to a ``file:bytes`` node (indicating
+  that a file was an attachment to a phishing email). Use the trigger to **also** apply the tag ``attack.t1566.001``
+  (representing the MITRE ATT&CK technique "Spearphishing Attachment").
+
+.. storm-cli:: trigger.add --name "tag phish attachment with #attack.t1566.001" tag:add --form file:bytes --tag cno.ttp.phish.payload --query { [ +#attack.t1566.001 ] }
 
 
-.. storm-cli:: trigger.add --name "tag phish attachment with #attck.t1566.001" tag:add --form file:bytes --tag ttp.phish.attach --query { [ +#attck.t1566.001 ] }
-
-
-- Add a trigger that fires when the tag ``#osint`` (indicating that the node was listed as a malicious indicator in public reporting) is applied to an FQDN. The trigger should call extended Storm commands to submit the FQDN to third-party services (such as a domain whois service, a passive DNS service, or a malware execution / sandbox service) to enrich the FQDN. (**Note:** Synapse does not include these services in its public distribution; this trigger assumes such services have been implemented).
-
-
-.. storm-cli:: trigger.add --name "enrich osint fqdn" tag:add --form inet:fqdn --tag osint --query { | whois | pdns | malware }
-
-
-- Add a trigger that fires when the tag ``#osint`` (indicating that the node was listed as a malicious indicator in public reporting) is applied to **any** node. The trigger should call (execute) a macro called ``enrich``. The macro contains a Storm query that uses a switch case to call the appropriate extended Storm commands based on the tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether the node is an FQDN, an IPv4, an email address, a URL, etc.).
-
-
+- Add a trigger that fires when the tag ``osint`` (indicating that the node was listed as a malicious indicator
+  in public reporting) is applied to any node. The trigger should call (execute) a macro called ``enrich``.
+  The macro contains a Storm query that uses a switch case to call the appropriate Storm commands based on the
+  tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether
+  the node is an FQDN, an IPv4, an email address, a URL, etc.).
+  
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: macro.set enrich ${ switch $node.form() {/* You can put comments in macros!!! */ "inet:fqdn": { | whois | pdns | malware } "inet:ipv4": { | pdns } "inet:email": { | revwhois } *: { } } }
+  
 .. storm-cli:: trigger.add --name "enrich osint" tag:add --tag osint --query { | macro.exec enrich }
 
 
@@ -243,45 +443,119 @@ While runt nodes (:ref:`gloss-node-runt`) are typically read-only, ``syn:trigger
 Cron
 ++++
 
-Cron jobs in Synapse are similar to the well-known cron utility. Where triggers are event-driven, cron jobs are **time / schedule based.** Cron jobs can be written to execute once or on a recurring schedule. When creating a cron job, you must specify the schedule for the job and the Storm query to be executed. As noted above, a cron job executes with the permissions of the user who created it; the job can only perform actions that the user is allowed to perform.
-
-As such, cron is most appropriate for automating things such as non-urgent tasks, tasks that only need to run intermittently, or resource-intensive tasks that should run during off-hours.
-
+Cron jobs in Synapse are similar to the well-known cron utility. Where triggers are event-driven, cron jobs are
+**time / schedule based.** Cron jobs can be written to execute once or on a recurring schedule. When creating a
+cron job, you must specify the job's schedule and the Storm to be executed.
+  
 .. NOTE::
-  When scheduling jobs, cron interprets all times as UTC.
+  
+  When scheduling cron jobs, Synapse interprets all times as UTC.
 
-**Variables:**
 
-Cron jobs automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+Example Use Cases
+~~~~~~~~~~~~~~~~~
+
+Because cron jobs are scheduled, they are most appropriate for automating routine, non-urgent tasks; maintenance
+tasks; or resource-intensive tasks that should run during off-hours.
+
+- **Data ingest.** Cron jobs can be used to ingest / synchronize data that you want to load into Synapse on a
+  regular basis. For example, you can create a cron job to retrieve and load a list of TOR exit nodes every hour.
+
+- **Housekeeping.** You created a trigger to automatically look up and apply geolocation and autonomous system
+  (AS) properties to IPv4 nodes when they are created in Synapse. However, you already have a large number of
+  IPv4 nodes that existed before the trigger was added. You can create a one-time cron job to retrieve and
+  "backfill" this information for IPv4s that already exist.
+
+- **Process intensive jobs.** Data enrichment may be resource intensive where it generates a significant number
+  of write operations. If you reguarly perform routine (non-urgent) enrichment, it can be scheduled to run
+  when it will have less impact on users.
+  
+
+Usage Notes
+~~~~~~~~~~~
+
+- Users must be granted permissions in order to be able to work with cron jobs (i.e., to execute the
+  associated ``cron.*`` Storm commands).
+
+- Cron jobs execute **with the permissions of the user who created the job**. If a cron job calls a
+  macro, the macro will execute with the permissions of the cron job (macros execute with the
+  permissions of the calling user).
+
+- Cron jobs **reside** in the Cortex but **execute** within a particular :ref:`gloss-view`. This has
+  implications for environments that use multiple views or that regularly :ref:`gloss-fork` and later
+  merge or delete views. For example:
+  
+  - Cron jobs that execute in a **forked view** are "orphaned" when you merge or delete the fork.
+    The jobs will remain in Synapse (because they reside in the Cortex), but will not execute because
+    they are not assigned to a view. You must assign the jobs to a new view for them to run (or delete
+    them if no longer needed).
+
+- When viewing cron jobs (i.e., with the :ref:`storm-cron-list` command), Synapse returns
+  **all cron jobs in the Cortex,** regardless of the view the job executes in.
+
+- Cron jobs are exclusive - if for some reason a job has not finished executing before its next scheduled
+  start, the original job will run to completion and the "new" job will be skipped.
+
+- Creating a cron job will create an associated ``syn:cron`` runtime node (runt node). While runt nodes
+  (:ref:`gloss-runt-node`) are typically read-only, ``syn:cron`` nodes include ``:name`` and ``:doc``
+  secondary properties that can be set and modified via Storm (or configured via :ref:`gloss-optic`).
+  This allows you to manage cron jobs by giving them meaningful names and descriptions. Changes to these
+  properties will persist even after a Cortex restart.
+
+- ``syn:cron`` nodes can be lifted, filtered, and pivoted across just like other nodes. However, they
+  cannot be created or modified (e.g., using Storm's data modification / edit syntax) except in the
+  limited ways described above.
+
+- The creator (owner) of a cron job can be modified (with appropriate permissions) using the Storm
+  :ref:`stormlibs-lib-cron` library and :ref:`stormprims-storm-cronjob-f527` primitive. For example:
+  
+  ::
+  
+    $cron=$lib.cron.get(<cron_iden>) $cron.set(creator, <new_creator_iden>)
+
+
+Variables
+~~~~~~~~~
+
+Cron jobs automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable
+is a dictionary which contains the following keys:
 
   ``$auto.iden``
-    The identifier of the Cron job.
+    The identifier of the cron job.
 
   ``$auto.type``
-    The type of automation. For a Cron job this value will be ``cron``.
+    The type of automation. For a cron job this value will be ``cron``.
 
+Syntax
+~~~~~~
 
-**Syntax:**
+Cron jobs are created, modified, viewed, enabled, disabled, and deleted using the Storm ``cron.*``  commands.
+See the :ref:`storm-cron` command in the :ref:`storm-ref-cmd` document for details.
 
-Cron jobs are created, modified, viewed, enabled, disabled, and deleted using the Storm ``cron.*``  commands. See the :ref:`storm-cron` command in the :ref:`storm-ref-cmd` document for details.
+In :ref:`gloss-optic`, cron jobs can also be managed through the :ref:`gloss-admin-tool`.
 
 .. NOTE::
-  Cron jobs can be modified after they are created, but modification is limited to updating the Storm query executed by the job. If other aspects of a job need to be changed (such as its schedule for execution), the job must be deleted and re-created.
+  
+  Once a cron job is created, you can modify many of its properties (such as its name and description, or
+  the Storm associated with the job). However, you cannot modify other aspects of the job, such as its
+  schedule. To change those conditions, you must delete and re-create the cron job.
 
-**Examples:**
 
-In the examples below, the command to create (add) the specified cron job is shown.
+Examples
+~~~~~~~~
 
-For illustrative purposes, in the **first** example the newly created cron job is then displayed by using the ``cron.list`` command and by lifting the associated ``syn:cron`` runtime ("runt") node.
+In the examples below, we show the command to create (add) the specified cron job.
 
-- Add a one-time / non-recurring cron job to run at 7:00 PM to create the RFC1918 IPv4 addresses in the 172.16.0.0/16 range.
+For illustrative purposes, in the **first** example the newly created cron job is then displayed using
+the ``cron.list`` command and by lifting the associated ``syn:cron`` runtime ("runt") node.
 
+- Add a one-time / non-recurring cron job to run at 7:00 PM to create the RFC1918 IPv4 addresses in the
+  172.16.0.0/16 range.
 
 .. storm-cli:: cron.at --hour 19 { [ inet:ipv4=172.16.0.0/16 ] }
 
 
-*Newly created cron job via cron.list*
-
+Newly created cron job via ``cron.list``:
 
 .. storm-cli:: cron.list
 
@@ -290,32 +564,37 @@ The output of ``cron.list`` contains the following columns:
 
 - The username used to create the job.
 - The first eight characters of the job's identifier (iden).
+- The view the cron job resides in. **Note** that for "orphaned" cron jobs, this will be the job's **last**
+  view (before it was orphaned).
 - Whether the job is currently enabled or disabled.
 - Whether the job is scheduled to repeat.
 - Whether the job is currently executing.
 - Whether the last job execution encountered an error.
 - The number of times the job has started.
-- The date and time of the job's last start and last end.
+- The date and time of the job's last start (or start attempt) and last end.
 - The query executed by the cron job.
 
-*Newly created cron job as a syn:cron node*
-
+Newly created cron job as a ``syn:cron`` node:
 
 .. storm-cli:: syn:cron
 
 
-While runt nodes (:ref:`gloss-node-runt`) are typically read-only, ``syn:cron`` nodes include ``:name`` and ``:doc`` secondary properties that can be set and modified via Storm. This allows management of cron jobs by providing them with meaningful names and descriptions of their purpose. Changes to these properties will persist even after a Cortex restart.
+- Add a cron job to run on the 15th of every month that lifts all IPv4 address nodes with missing geolocation
+  data (i.e., no ``:loc`` property) and submits them to a Storm command that calls an IP geolocation service.
+  (**Note:** Synapse does not include a geolocation service in its open source distribution; this cron job assumes
+  such a service has been implemented).
 
-- Add a cron job to run every Tuesday, Thursday, and Saturday at 2:00 AM that lifts 1,000 IPv4 address nodes with missing geolocation data (i.e., no ``:loc`` property) and submits them to an extended Storm command that calls an IP geolocation service. (**Note:** Synapse does not include a geolocation service in its public distribution; this cron job assumes such a service has been implemented).
+.. storm-cli:: cron.add --day 15 { inet:ipv4 -:loc | ipgeoloc }
 
 
-.. storm-cli:: cron.add --day Tue,Thu,Sat --hour 2 { inet:ipv4 -:loc | limit 1000 | ipgeoloc }
-
-
-- Add a cron job to run on the 15th of every month to lift all MD5, SHA1, and SHA256 hashes tagged "malicious" that do not have corresponding file (``file:bytes``) nodes and submit them to an extended Storm command that queries a third-party malware service for those files. (**Note:** Synapse does not include a malware service in its public distribution; this cron job assumes such a service has been implemented).
+- Add a cron job to run every Tuesday, Thursday, and Saturday at 2:00 AM UTC to lift all MD5, SHA1, and SHA256
+  hashes tagged "malicious" that do not have corresponding file (``file:bytes``) nodes and submit them to a
+  Storm command that queries a third-party malware service and attempts to download those files. (**Note:**
+  Synapse does not include a malware service in its open source distribution; this cron job assumes such a
+  service has been implemented).
 
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malwaresvc, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-cli:: cron.add --day 15 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
+.. storm-cli:: cron.add --day Tue,Thu,Sat --hour 2 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
 
 
 .. _auto-macros:
@@ -323,43 +602,109 @@ While runt nodes (:ref:`gloss-node-runt`) are typically read-only, ``syn:cron`` 
 Macros
 ------
 
-Similar to :ref:`auto-triggers-cron`, a macro is a stored Storm query / set of Storm code. However, macros differ from triggers and cron in some important ways:
+A macro is simply a stored Storm query / set of Storm code that can be executed on demand.
 
-- **Cortex-specific.** Where triggers and cron jobs are specific to a :ref:`gloss-view`, macros are specific to a given Cortex.
+Strictly speaking, macros are not automation - they do not execute on their own. However, macros are often
+used with (called by) triggers or cron jobs.
 
-- **Execution.** Where triggers and cron execute based on specific criteria (events for triggers and scheduled times for cron), macros do not "execute" by default. Instead, macros are executed with the Storm :ref:`storm-macro-exec` command.
+Macros differ from triggers and cron in some important ways:
 
-- **Permissions.** Where triggers and cron execute with the permissions of the user who created them, macros execute with the permissions of **the user who calls the macro.** This means that if a macro is called by a trigger or cron job, it executes as the creator of that trigger or cron job. A macro can only perform actions that the calling user can perform.
+- **Permissions.** No special permissions are required to work with macros. Any user can create or call
+  a macro.
 
-The Storm query contained in a macro can be as simple or complex as you like. Users can write "personal" macros to store complex or frequently-used queries that can be executed easily by calling the macro name instead of manually typing a lengthy query. Organizations can use them to store longer or more complex Storm queries that may be more difficult to view and manage as triggers or cron jobs within the Storm cmdr CLI.
+- **Execution.** Macros execute with the permissions **of the calling user.** A macro can only perform
+  actions that the calling user has permissions to perform. If a user runs a macro that whose actions
+  exceed the user's permissions, the macro will fail with an ``AuthDeny`` error.
 
-Because macros are executed via a Storm command, they can be executed any way Storm can be executed. In short, they can be called manually on demand from the cmdr CLI, or they can be called as part of the Storm query executed by a trigger, cron job, or other automation. This provides a great deal of flexibility, particularly for organization-wide automation. By using a macro, you can write a single Storm query to carry out a task that can then be called in a variety of ways.
+- **Introspection.** Synapse does not create runtime nodes ("runt nodes") for macros.
+  
+- **Scope.** Where triggers and cron jobs are specific to a :ref:`gloss-view`, macros are specific to a
+  given Cortex. Macros can be viewed, modified, and executed from any view.
 
-.. NOTE::
-  Macros can contain any valid Storm. You can write a macro to be fully "self-contained" so that it both lifts a specified set of nodes and operates on those nodes. Alternately, you can write a macro with the expectation that it will be called as part of a larger Storm query and will operate on a particular set of "inbound" nodes that will be piped to the ``macro.exec`` command.
 
-**Syntax:**
+Example Use Cases
++++++++++++++++++
 
-Macros are created, modified, viewed, and deleted using the Storm ``macro.*``  commands. See the :ref:`storm-macro` command in the :ref:`storm-ref-cmd` document for details.
+Macros are a convenient way to save and run frequently used Storm without having to create or type that
+Storm each time. The Storm can be as simple or advanced as you like.
 
-.. NOTE::
-  Macros consist entirely of Storm, so can be edited / modified freely with appropriate permissions.
+- **Organizational use.** Macros can be developed for use across entire teams or organizations to support
+  common tasks or workflows such as enrichment or threat hunting. Using a macro makes it easier to perform
+  the task (by calling it with a single Storm command) and also ensures that the task is performed
+  consistently (i.e., in the same way each time) by each user.
 
-**Examples:**
+- **Personal use.** Users can create macros to store frequently-used or lengthy Storm queries specific to
+  their personal workflow that can be executed easily on demand.
 
-- Add a macro named ``sinkhole.check`` that lifts all IPv4 addresses tagged as sinkholes (``#infra.sinkhole``) and submits those nodes to an extended Storm command that calls a third-party passive DNS service. (**Note:** Synapse does not include a passive DNS service in its public distribution; the macro assumes such a service has been implemented).
+- **Automation.** For triggers or cron jobs that execute longer Storm queries, saving the Storm in a macro
+  may make it easier to set, view, edit, and manage vs. storing the Storm directly as part of the trigger
+  or cron job.
+
+- **Flexibility.** Because macros are composed in Storm and executed via a Storm command, they can be
+  executed any way Storm can be executed (e.g., on demand or called as part of a trigger or cron job). Macros
+  are ideal for Storm that performs a task or set of tasks that you may want to execute in a variety of
+  ways.
+
+
+Usage Notes
++++++++++++
+
+- Macros are specific to an individual Synapse Cortex; they are not limited to an individual
+  :ref:`gloss-view`. Any macros that exist in a Cortex are visible to all users of that Cortex.
+
+- Any user can create or run a macro. You do not need to explicitly grant any permissions.
+
+- Macros are differentiated by name, and cannot be renamed once created.
+
+- The user who creates a macro is the owner / admin of the macro. Other users can read and execute
+  the macro (within the limitations of their permissions), but cannot modify or delete it.
+
+- Macros execute with the permissions **of the calling user.**
+
+  - While any user can execute any macro, if the macro takes some action that the calling user does not
+    have permission to perform, the macro will fail with an ``AuthDeny`` error.
+  
+  - If a macro is called by a trigger or cron job, the macro will execute with the permissions of 
+    **the author of the trigger or cron job.**
+
+- Macros commonly take nodes as input. Similarly, a macro may output nodes based on the Storm it executes.
+  For both of these conditions, Storm's "pipeline" behavior applies. A macro will error if it receives
+  nodes that cannot be processed by the associated Storm code; similarly, if you execute additional
+  Storm after the macro runs, that Storm must be appropriate for any nodes that exit the macro.
+
+
+Syntax
+++++++
+
+Macros are created, modified, viewed, and deleted using the Storm ``macro.*``  commands. See the
+:ref:`storm-macro` command in the :ref:`storm-ref-cmd` document for details.
+
+In :ref:`gloss-optic`, macros can also be managed through the :ref:`gloss-storm-editor`.
+
+
+Examples
+++++++++
+
+- Add a macro named ``sinkhole.check`` that lifts all IPv4 addresses tagged as sinkholes
+  (``#cno.infra.dns.sinkhole``) and submits those nodes to a Storm command that calls a third-party
+  passive DNS service to retrieve any FQDNs currently resolving to the sinkhole IP. (**Note:** Synapse
+  does not include a passive DNS service in its open source distribution; the macro assumes such a
+  service has been implemented.)
 
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-cli:: macro.set sinkhole.check ${ inet:ipv4#infra.sinkhole | pdns }
+.. storm-cli:: macro.set sinkhole.check ${ inet:ipv4#cno.infra.dns.sinkhole | pdns }
 
 
-- Add a macro named ``check.c2`` that takes an inbound set of ``file:bytes`` nodes and returns any FQDNs that the files query and any IPv4 addresses the files connect to. Use a filter in the macro to ensure that the macro code only attempts to process inbound ``file:bytes`` nodes.
-
+- Add a macro named ``check.c2`` that takes an inbound set of ``file:bytes`` nodes and returns any FQDNs
+  that the files query and any IPv4 addresses the files connect to. Use a filter in the macro to ensure that
+  the macro code only attempts to process inbound ``file:bytes`` nodes.
 
 .. storm-cli:: macro.set check.c2 ${ +file:bytes | tee { -> inet:dns:request :query:name -> inet:fqdn | uniq } { -> inet:flow:src:exe :dst:ipv4 -> inet:ipv4 | uniq } }
 
-
-Add a macro named ``enrich`` that takes **any** node as input and uses a ``switch`` statement to call extended Storm commands for third-party services able to enrich a given form (line breaks and indentations used for readability). (**Note:** Synapse does not include third-party services / connectors in its public distribution; the macro assumes such services have been implemented.)
+- Add a macro named ``enrich`` that takes any node as input and uses a ``switch`` statement to call Storm
+  commands for third-party services able to enrich a given form (line breaks and indentations used for readability).
+  (**Note:** Synapse does not include third-party services / connectors in its open source distribution;
+  the macro assumes such services have been implemented.)
 
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
@@ -368,9 +713,6 @@ Add a macro named ``enrich`` that takes **any** node as input and uses a ``switc
 .. storm-cli:: MULTILINE=ENRICH
 
 
-.. NOTE::
-  The macro above uses variables, methods, and a switch case for control flow.
-
 .. _auto-dmon:
 
 Dmons
@@ -378,9 +720,11 @@ Dmons
 
 A :ref:`gloss-dmon` is a long-running or recurring query or process that runs continuously in the background, similar to a traditional Linux or Unix daemon.
 
-**Variables:**
+Variables
++++++++++
 
-Dmons will have the storm variable Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+Dmons will have the storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which
+contains the following keys:
 
   ``$auto.iden``
     The identifier of the Dmon.
@@ -392,6 +736,8 @@ Dmons will have the storm variable Storm variable ``$auto`` populated when they 
   If the variable ``$auto`` was captured during the creation of the Dmon, the variable will **not** be mapped in.
 
 
-**Syntax:**
+Syntax
+++++++
 
-Users can interact with dmons using the Storm ``dmon.*``  commands (see the :ref:`storm-dmon` command in the :ref:`storm-ref-cmd` document for details) and the :ref:`stormlibs-lib-dmon` Storm libraries.
+Users can interact with dmons using the Storm ``dmon.*``  commands (see the :ref:`storm-dmon` command in the
+:ref:`storm-ref-cmd` document for details) and the :ref:`stormlibs-lib-dmon` Storm libraries.
