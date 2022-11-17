@@ -776,7 +776,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'cell:minspace': {
             'default': 5,
-            'description': 'Minimum free space percentage before switch the cell to read-only.',
+            'description': 'Minimum free space percentage before setting the cell read-only.',
             'type': 'integer',
         },
         'mirror': {
