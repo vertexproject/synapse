@@ -979,13 +979,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
 
-        self.minspace = self.conf.get('cell:minspace') / 100
-
-        disk = shutil.disk_usage(self.dirn)
-        if (disk.free / disk.total) <= self.minspace:
-            free = disk.free / disk.total * 100
-            mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
-            raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+        self.minspace = self.conf.get('cell:minspace')
+        if self.minspace is not None:
+            self.minspace = self.minspace / 100
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= self.minspace:
+                free = disk.free / disk.total * 100
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
         await self._initCellBoot()
 
@@ -1250,7 +1251,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
 
-            self.schedCoro(self._runMinSpaceLoop())
+            if self.minspace is not None:
+                self.schedCoro(self._runMinSpaceLoop())
 
     async def initServiceNetwork(self):
 
