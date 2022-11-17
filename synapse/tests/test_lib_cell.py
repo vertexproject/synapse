@@ -23,6 +23,8 @@ import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
@@ -1708,7 +1710,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_minspace(self):
 
-        with self.raises(s_exc.IsReadOnly):
+        with self.raises(s_exc.LowSpace):
             conf = {'cell:minspace': 100}
             async with self.getTestCore(conf=conf) as core:
                 pass
@@ -1719,12 +1721,58 @@ class CellTest(s_t_utils.SynTest):
             return _ntuple_diskusage(100, 96, 4)
 
         with mock.patch.object(s_cell.Cell, 'MIN_SPACE_CHECK_FREQ', 0.1):
+
             async with self.getTestCore() as core:
                 nodes = await core.nodes('[inet:fqdn=vertex.link]')
                 self.len(1, nodes)
+
+                self.true(core.provstor.enabled)
 
                 with mock.patch('shutil.disk_usage', full_disk):
                     await asyncio.sleep(1)
 
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
                     self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+
+                    self.false(core.provstor.enabled)
+
+            with self.getTestDir() as dirn:
+
+                path00 = s_common.gendir(dirn, 'core00')
+                path01 = s_common.gendir(dirn, 'core01')
+
+                conf = {'cell:minspace': 0}
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+
+                    core01conf = {'mirror': core00.getLocalUrl()}
+
+                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                        await core01.sync()
+
+                        with mock.patch('shutil.disk_usage', full_disk):
+                            await asyncio.sleep(1)
+
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
+
+                            offs = await core00.getNexsIndx()
+                            self.false(await core01.waitNexsOffs(offs, 1))
+
+                            self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+
+                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                        await core01.sync()
+
+                        self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                        self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))

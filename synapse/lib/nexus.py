@@ -469,8 +469,7 @@ class NexsRoot(s_base.Base):
 
                     if self.readonly:
                         logger.error('Unable to consume Nexus events when readonly is set')
-                        await proxy.fini()
-                        await self.fini()
+                        await self.client.fini()
                         return
 
                     if proxy.isfini:  # pragma: no cover
