@@ -982,10 +982,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.minspace = self.conf.get('cell:minspace')
         if self.minspace is not None:
             self.minspace = self.minspace / 100
-            disk = shutil.disk_usage(self.dirn)
-            free = disk.free / disk.total * 100
 
-            if free <= self.minspace:
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= self.minspace:
+                free = disk.free / disk.total * 100
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
