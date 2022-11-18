@@ -1184,23 +1184,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if (disk.free / disk.total) <= self.minspace:
 
                 await self._setReadOnly(True)
-
                 nexsroot.readonly = True
 
-                free = disk.free / disk.total * 100
-                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%), ' \
-                        'setting Cell to read-only.'
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
                 logger.warning(mesg)
 
             elif nexsroot.readonly:
 
                 await self._setReadOnly(False)
-
                 nexsroot.readonly = False
                 await self.nexsroot.startup()
 
-                mesg = f'Free space on {self.dirn} above minimum threshold (currently {free:.2f}%), ' \
-                        're-enabling writes.'
+                mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
                 logger.warning(mesg)
 
             await asyncio.sleep(self.MIN_SPACE_CHECK_FREQ)
