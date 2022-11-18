@@ -2892,7 +2892,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'name': 'testcmd',
                     'descr': 'test command',
                     'storm': '[ inet:ipv4=1.2.3.4 ]',
-                },)
+                },),
+                'graphs': [{'name': 'boomgraph'}]
             }
             self.none(await core.addStormPkg(otherpkg))
 
@@ -2926,6 +2927,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await alist(core.storm('inet:user | limit --woot'))
             self.printed(msgs, 'Usage: limit [options] <count>')
             self.len(0, [m for m in msgs if m[0] == 'node'])
+
+            visi = await realcore.auth.addUser('visi')
+            async with realcore.getLocalProxy(user='visi') as asvisi:
+                opts = {'user': visi.iden}
+                q = '$lib.graph.del($lib.graph.list().0.iden)'
+                await self.asyncraises(s_exc.AuthDeny, realcore.nodes(q, opts=opts))
+
+            await realcore.stormlist('pkg.del foosball')
+
+            gdefs = await realcore.callStorm('return($lib.graph.list())')
+            self.len(0, gdefs)
 
             oldverpkg = {
                 'name': 'versionfail',

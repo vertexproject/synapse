@@ -201,7 +201,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     for gdef in pkgdef.get('graphs', ()):
         gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
         gdef['scope'] = 'power-up'
-        gdef['creator'] = pkgname
+        gdef['creatorname'] = pkgname
 
     wflowdir = s_common.genpath(protodir, 'workflows')
     if os.path.isdir(wflowdir):

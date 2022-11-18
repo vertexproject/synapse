@@ -6,14 +6,15 @@ gdefSchema = {
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
+        'name': {'type': 'string', 'minLength': 1},
         'scope': {'type': 'string', 'enum': ['user', 'global', 'power-up']},
-        'creator': {'type': 'string'},
-        'refs': {'type': 'boolean'},
-        'edges': {'type': 'boolean'},
-        'degrees': {'type': 'integer'},
-        'filterinput': {'type': 'boolean'},
-        'yieldfiltered': {'type': 'boolean'},
+        'creatoriden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creatorname': {'type': 'string', 'minLength': 1},
+        'refs': {'type': 'boolean', 'default': False},
+        'edges': {'type': 'boolean', 'default': True},
+        'degrees': {'type': ['integer', 'null'], 'minimum': 0},
+        'filterinput': {'type': 'boolean', 'default': True},
+        'yieldfiltered': {'type': 'boolean', 'default': False},
         'filters': {
             'type': ['array', 'null'],
             'items': {'type': 'string'}
@@ -43,7 +44,14 @@ gdefSchema = {
         }
     },
     'additionalProperties': False,
-    'required': ['iden', 'name', 'scope', 'creator']
+    'required': ['iden', 'name', 'scope'],
+    'allOf': [
+        {
+            'if': {'properties': {'scope': {'const': 'power-up'}}},
+            'then': {'required': ['creatorname']},
+            'else': {'required': ['creatoriden']},
+        }
+    ]
 }
 
 reqValidGdef = s_config.getJsValidator(gdefSchema)
@@ -102,7 +110,7 @@ class GraphLib(s_stormtypes.Lib):
         {'name': 'list', 'desc': 'List the graph projections available in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methGraphList',
                   'returns': {'type': 'list', 'desc': 'A list of graph projection definitions.', }}},
-        {'name': 'activate', 'desc': 'Set the graph projection to use for the current top level Storm Runtime.',
+        {'name': 'activate', 'desc': 'Set the graph projection to use for the top level Storm Runtime.',
          'type': {'type': 'function', '_funcname': '_methGraphActivate',
                   'args': (
                       {'name': 'iden', 'type': 'str',
@@ -129,35 +137,30 @@ class GraphLib(s_stormtypes.Lib):
         else:
             gdef['scope'] = 'user'
 
-        gdef['creator'] = self.runt.user.iden
+        gdef['creatoriden'] = self.runt.user.iden
 
         return await self.runt.snap.core.addStormGraph(gdef)
 
     async def _methGraphGet(self, iden=None):
         iden = await s_stormtypes.tostr(iden, noneok=True)
         if iden is None:
-            gdef = self.runt.getGraph()
+            return self.runt.getGraph()
+        elif self.runt.isAdmin():
+            return await self.runt.snap.core.getStormGraph(iden)
         else:
-            gdef = await self.runt.snap.core.getStormGraph(iden)
-            if gdef['scope'] == 'user':
-                if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
-                    mesg = 'Graph projection belongs to a different user.'
-                    raise s_exc.AuthDeny(mesg=mesg)
-
-        return gdef
+            return await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
 
     async def _methGraphDel(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        gdef = await self.runt.snap.core.getStormGraph(iden)
+        if self.runt.isAdmin():
+            gdef = await self.runt.snap.core.getStormGraph(iden)
+        else:
+            gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
 
         scope = gdef['scope']
         if scope == 'global':
-            self.runt.confirm(('graph', 'del'), None)
-
-        elif scope == 'user':
-            if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
-                mesg = 'Graph projection belongs to a different user.'
-                raise s_exc.AuthDeny(mesg=mesg)
+            if gdef['creatoriden'] != self.runt.user.iden:
+                self.runt.confirm(('graph', 'del'), None)
 
         elif scope == 'power-up' and not self.runt.isAdmin():
             mesg = 'Deleting power-up graph projections requires admin privileges.'
@@ -166,20 +169,22 @@ class GraphLib(s_stormtypes.Lib):
         await self.runt.snap.core.delStormGraph(iden)
 
     async def _methGraphList(self):
-        projs = await self.runt.snap.core.getStormGraphs()
-        if not self.runt.isAdmin():
-            user = self.runt.user.iden
-            projs = [p for p in projs if p['scope'] != 'user' or p['creator'] == user]
+        if self.runt.isAdmin():
+            genr = self.runt.snap.core.getStormGraphs()
+        else:
+            genr = self.runt.snap.core.getStormGraphs(useriden=self.runt.user.iden)
+
+        projs = []
+        async for proj in genr:
+            projs.append(proj)
 
         return list(sorted(projs, key=lambda x: x.get('name')))
 
     async def _methGraphActivate(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        gdef = await self.runt.snap.core.getStormGraph(iden)
-
-        if gdef['scope'] == 'user':
-            if not (gdef['creator'] == self.runt.user.iden or self.runt.isAdmin()):
-                mesg = 'Graph projection belongs to a different user.'
-                raise s_exc.AuthDeny(mesg=mesg)
+        if self.runt.isAdmin():
+            gdef = await self.runt.snap.core.getStormGraph(iden)
+        else:
+            gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
 
         self.runt.setGraph(gdef)

@@ -81,7 +81,7 @@ class GenPkgTest(s_test.SynTest):
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(1, gdefs)
             self.eq(gdefs[0]['name'], 'testgraph')
-            self.eq(gdefs[0]['creator'], 'testpkg')
+            self.eq(gdefs[0]['creatorname'], 'testpkg')
 
             pdef = s_common.yamlload(savepath)
             s_common.yamlsave(pdef, yamlpath)
@@ -152,17 +152,6 @@ class GenPkgTest(s_test.SynTest):
             argv = ('--push', url, '--no-build', newppath)
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
-
-            visi = await core.auth.addUser('visi')
-            async with core.getLocalProxy(user='visi') as asvisi:
-                opts = {'user': visi.iden}
-                q = '$lib.graph.del($lib.graph.list().0.iden)'
-                await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
-
-            await core.stormlist('pkg.del testpkg')
-
-            gdefs = await core.callStorm('return($lib.graph.list())')
-            self.len(0, gdefs)
 
     def test_tools_tryloadpkg(self):
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')

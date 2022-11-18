@@ -1418,11 +1418,16 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         self.graphs.set(iden, gdef)
+        if gdef['scope'] == 'global':
+            self.globalgraphs[iden] = gdef
+        else:
+            self.usergraphs[gdef['creatoriden']][iden] = gdef
+
         await self.feedBeholder('storm:graph:add', {'gdef': gdef})
         return copy.deepcopy(gdef)
 
     async def delStormGraph(self, iden):
-        if self.graphs.get(iden) is None:
+        if await self.getStormGraph(iden) is None:
             mesg = f'No graph projection with iden {iden} exists!'
             raise s_exc.NoSuchIden(mesg=mesg)
 
@@ -1430,22 +1435,51 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:graph:del')
     async def _delStormGraph(self, iden):
-        gdef = self.graphs.get(iden)
+        gdef = await self.getStormGraph(iden)
         if gdef is None:
             return
 
-        self.graphs.pop(iden)
+        if gdef['scope'] == 'power-up':
+            self.pkggraphs.pop(iden, None)
+        else:
+            self.graphs.pop(iden)
+            if gdef['scope'] == 'global':
+                self.globalgraphs.pop(iden, None)
+            else:
+                self.usergraphs[gdef['creatoriden']].pop(iden, None)
+
         await self.feedBeholder('storm:graph:del', {'iden': iden})
 
-    async def getStormGraph(self, iden):
-        gdef = self.graphs.get(iden)
+    async def getStormGraph(self, iden, useriden=None):
+        if useriden is None:
+            gdef = self.graphs.get(iden)
+        else:
+            gdef = self.usergraphs[useriden].get(iden)
+            if gdef is None:
+                gdef = self.globalgraphs.get(iden)
+
+        if gdef is None:
+            gdef = self.pkggraphs.get(iden)
+
         if gdef is None:
             mesg = f'No graph projection exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
+
         return copy.deepcopy(gdef)
 
-    async def getStormGraphs(self):
-        return [copy.deepcopy(g[1]) for g in self.graphs.items()]
+    async def getStormGraphs(self, useriden=None):
+        if useriden is None:
+            for _, gdef in self.graphs.items():
+                yield gdef
+        else:
+            for gdef in self.usergraphs[useriden].values():
+                yield gdef
+
+            for gdef in self.globalgraphs.values():
+                yield gdef
+
+        for gdef in self.pkggraphs.values():
+            yield gdef
 
     async def addCoreQueue(self, name, info):
 
@@ -1772,6 +1806,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
+
+        self.pkggraphs = {}
+        self.usergraphs = collections.defaultdict(dict)
+        self.globalgraphs = {}
+
+        for iden, gdef in self.graphs.items():
+            if gdef['scope'] == 'global':
+                self.globalgraphs[iden] = gdef
+            else:
+                self.usergraphs[gdef['creator']] = gdef
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2353,7 +2397,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
             gdef['scope'] = 'power-up'
-            gdef['creator'] = pkgname
+            gdef['creatorname'] = pkgname
 
             if validstorm:
                 await self.reqValidStormGraph(gdef)
@@ -2396,9 +2440,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
-
+        print(pkgdef)
         for gdef in pkgdef.get('graphs', ()):
-            await self._addStormGraph(gdef)
+            print(gdef)
+            await self.reqValidStormGraph(gdef)
+            self.pkggraphs[gdef['iden']] = gdef
 
         onload = pkgdef.get('onload')
         if onload is not None and self.isactive:
@@ -2434,7 +2480,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         pkgname = pkgdef.get('name')
 
         for gdef in pkgdef.get('graphs', ()):
-            await self._delStormGraph(gdef['iden'])
+            self.pkggraphs.pop(gdef['iden'], None)
 
         self.stormpkgs.pop(pkgname, None)
 
