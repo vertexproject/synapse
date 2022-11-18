@@ -1720,21 +1720,32 @@ class CellTest(s_t_utils.SynTest):
         def full_disk(dirn):
             return _ntuple_diskusage(100, 96, 4)
 
-        with mock.patch.object(s_cell.Cell, 'MIN_SPACE_CHECK_FREQ', 0.1):
+        revt = asyncio.Event()
+        orig = s_cortex.Cortex._setReadOnly
+        async def wrapReadOnly(self, valu):
+            await orig(self, valu)
+            revt.set()
+
+        with (mock.patch.object(s_cell.Cell, 'MIN_SPACE_CHECK_FREQ', 0.1),
+              mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly)):
 
             async with self.getTestCore() as core:
-                nodes = await core.nodes('[inet:fqdn=vertex.link]')
-                self.len(1, nodes)
-
                 self.true(core.provstor.enabled)
+                self.len(1, await core.nodes('[inet:fqdn=vertex.link]'))
 
                 with mock.patch('shutil.disk_usage', full_disk):
-                    await asyncio.sleep(1)
+                    self.true(await asyncio.wait_for(revt.wait(), 1))
 
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
                     self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
 
                     self.false(core.provstor.enabled)
+                    revt.clear()
+
+                self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                self.true(core.provstor.enabled)
+                self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
 
             with self.getTestDir() as dirn:
 
@@ -1755,8 +1766,9 @@ class CellTest(s_t_utils.SynTest):
 
                         await core01.sync()
 
+                        revt.clear()
                         with mock.patch('shutil.disk_usage', full_disk):
-                            await asyncio.sleep(1)
+                            self.true(await asyncio.wait_for(revt.wait(), 1))
 
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
                             self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
@@ -1769,9 +1781,9 @@ class CellTest(s_t_utils.SynTest):
 
                             self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
                             self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+                            revt.clear()
 
-                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-
+                        self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
                         self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
