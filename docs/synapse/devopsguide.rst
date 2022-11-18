@@ -626,17 +626,17 @@ That custom user can then be used to run the Cortex::
 
     version: "3.3"
     services:
-  00.cortex:
-    user: "8888"
-    image: customcortex:v2.x.x
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-    - ./storage:/vertex/storage
-    environment:
-    - SYN_CORTEX_AXON=aha://axon...
-    - SYN_CORTEX_JSONSTOR=aha://jsonstor...
-    - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+      00.cortex:
+        user: "8888"
+        image: customcortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+        - ./storage:/vertex/storage
+        environment:
+        - SYN_CORTEX_AXON=aha://axon...
+        - SYN_CORTEX_JSONSTOR=aha://jsonstor...
+        - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 The following bash script can be used to help automate this process, by adding the user to a image and appending
 the custom username to the image tag:
