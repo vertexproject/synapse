@@ -290,8 +290,8 @@ class TeleTest(s_t_utils.SynTest):
             q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
 
             # This puts a link into the link pool
-            podes = list(proxy.eval(q))
-            self.len(10, podes)
+            msgs = list(proxy.storm(q, opts={'show': ('node',)}))
+            self.len(12, msgs)
 
             evt = threading.Event()
 
@@ -304,11 +304,11 @@ class TeleTest(s_t_utils.SynTest):
 
             # Break from the generator right away, causing a
             # GeneratorExit in the GenrHelp object __iter__ method.
-            pode = None
-            for pode in proxy.eval(q):
+            mesg = None
+            for mesg in proxy.storm(q):
                 break
             # Ensure the query did yield an object
-            self.nn(pode)
+            self.nn(mesg)
 
             # Ensure the link we have a reference too was torn down
             self.true(evt.wait(4))

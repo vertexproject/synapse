@@ -4,6 +4,321 @@
 Synapse Changelog
 *****************
 
+v2.114.0 - 2022-11-15
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto`` model.
+  (`#2909 <https://github.com/vertexproject/synapse/pull/2909>`_)
+
+  ``crypto:key``
+    Add ``iv`` and ``mode`` properties to record initialization vectors
+    and cipher modes used with a key.
+
+- Allow the creator for Cron jobs and the user for Triggers to be set. This
+  can be used to effectively change the ownership of these automation
+  elements.
+  (`#2908 <https://github.com/vertexproject/synapse/pull/2908>`_)
+- When Storm package ``onload`` queries produce print, warning, or error
+  messages, those now have the package name included in the message that
+  is logged.
+  (`#2913 <https://github.com/vertexproject/synapse/pull/2913>`_)
+- Update the Storm package schema to allow declaring configuration variables.
+  (`#2880 <https://github.com/vertexproject/synapse/pull/2880>`_)
+
+Bugfixes
+--------
+- The ``delCertPath()`` APIs in ``synapse.lib.easycert`` no longer attempt
+  to create a file path on disk when removing the reference count to a
+  certificate path.
+  (`#2907 <https://github.com/vertexproject/synapse/pull/2907>`_)
+- Fix error handling when Axon is streaming files with the ``readlines()`` and
+  ``csvrows()`` APIs.
+  (`#2911 <https://github.com/vertexproject/synapse/pull/2911>`_)
+- The Storm ``trigger.list`` command failed to print triggers which were
+  created in a Cortex prior to ``v2.71.0``. These triggers no longer generate
+  an exception when listed.
+  (`#2915 <https://github.com/vertexproject/synapse/pull/2915>`_)
+- Fix an error in the HTTP API example documentation for the ``requests``
+  example.
+  (`#2918 <https://github.com/vertexproject/synapse/pull/2918>`_)
+
+Improved Documentation
+----------------------
+- Add a Devops task to enable the Python warnings filter to log the use of
+  deprecated Synapse APIs. Python APIs which have been deprecated have had
+  their docstrings updated to reflect their deprecation status.
+  (`#2905 <https://github.com/vertexproject/synapse/pull/2905>`_)
+
+v2.113.0 - 2022-11-04
+=====================
+
+Automatic Migrations
+--------------------
+- The ``risk:tool:software:type`` property is migrated to the
+  ``risk:tool:software:taxonomy`` type.
+  (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``inet``, ``infotech``, ``media``, ``meta``, ``org``, and
+  ``risk`` models.
+  (`#2897 <https://github.com/vertexproject/synapse/pull/2897>`_)
+  (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
+  (`#2903 <https://github.com/vertexproject/synapse/pull/2903>`_)
+
+  ``inet:email:message:link``
+    Add a ``text`` property to record the displayed hypertext link if it was
+    not a raw URL.
+
+  ``inet:web:acct``
+    Add a ``banner`` property representing the banner image for the account.
+
+  ``inet:web:mesg``
+    Add a ``deleted`` property to mark if a message was deleted.
+
+  ``inet:web:post:link``
+    Add a form to record a link contained in the post text.
+
+  ``it:mitre:attack:group``
+    Add an ``isnow`` property to record the potential for MITRE groups to be
+    deprecated and renamed.
+
+  ``it:mitre:attack:software``
+    Add an ``isnow`` property to record the potential for MITRE software to be
+    deprecated and renamed.
+
+  ``it:prod:soft:taxonomy``
+    Add a form to record an analyst defined taxonomy of software.
+
+  ``it:prod:soft``
+    Add a ``type`` property to record the taxonomy of the software.
+    Deprecated the ``techniques`` property in favor of the ``uses`` light edge.
+
+  ``it:sec:cve``
+    Deprecated the ``desc``, ``url`` and ``references`` properties in favor of
+    using the ``risk:vuln:cve:desc``, ``risk:vuln:cve:url``, and
+    ``risk:vuln:cve:references`` properties.
+
+  ``media:news``
+    Add a ``topics`` array property to record a list of relevant topics in the
+    article.
+
+  ``media:topic``
+    Add a form for recording different media topics.
+
+  ``meta:rule``
+    Add a ``url`` property to record a URL that documents as rule.
+
+    Add an ``ext:id`` property to record an external identifier for the rule.
+
+  ``meta:sophistication``
+    Add a form to record sophistication score with named values: ``very low``,
+    ``low``, ``medium``, ``high``, and ``very high``.
+
+  ``ou:campaign``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    a campaign.
+
+    Deprecate the ``techniques`` property in favor of using the ``uses`` light
+    edge.
+
+  ``ou:hasgoal``
+    Deprecate the ``ou:hasgoal`` form in favor of using the ``ou:org:goals``
+    property.
+
+  ``ou:org``
+    Deprecate the ``techniques`` property in favor of using the ``uses`` light
+    edge.
+
+  ``ou:technique``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    a technique.
+
+  ``risk:alert``
+    Add a ``url`` property for a URL that documents the alert.
+
+    Add an ``ext:id`` property to record an external ID for the alert.
+
+  ``risk:attack``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    an attack.
+
+  ``risk:availability``
+    Add a taxonomy for availability status values.
+
+  ``risk:threat``
+    Add a ``sophistication`` property to record the assessed sophistication of
+    a threat cluster.
+
+    Deprecate the ``techniques`` property in favor of the ``uses`` light edge.
+
+  ``risk:tool:software``
+    Add an ``availability`` property to record the assessed availability of the
+    tool.
+
+    Add a ``sophistication`` property to record the assessed sophistication of
+    the software.
+
+    Migrate the ``type`` property to ``risk:tool:software:taxonomy``.
+
+    Deprecate the ``techniques`` property in favor of the ``uses`` light edge.
+
+  ``risk:tool:software:taxonomy``
+    Rename the type ``risk:tool:taxonomy`` to ``risk:tool:software:taxonomy``.
+
+  ``risk:vuln``
+    Add a ``mitigated`` property to record if a mitigation or fix is available
+    for the vulnerability.
+
+    Add an ``exploited`` property to record if the vulnerability has been
+    exploited in the wild.
+
+    Add ``timeline:discovered``, ``timeline:published``,
+    ``timeline:vendor:notified``, ``timeline:vendor:fixed``, and
+    ``timeline:exploited`` properties to record the timeline for significant
+    events on a vulnerability.
+
+    Add ``cve:desc``, ``cve:url``, and ``cve:references`` secondary properties
+    to record information about the CVE associated with a vulnerability.
+
+    Add ```nist:nvd:source`` to record the name of the organization which
+    reported the vulnerability in the NVD.
+
+    Add ``nist:nvd:published`` and ``nist:nvd:modified`` to record when the
+    vulnerability was first published, and later modified, in the NVD.
+
+    Add ``cisa:kev:name``, ``cisa:kev:desc``, ``cisa:kev:action``,
+    ``cisa:kev:vendor``, ``cisa:kev:product``, ``cisa:kev:added``,
+    ``cisa:kev:duedate`` properties to record information about the CISA KEV
+    database entry for the vulnerability.
+
+- Annotate the following light edges.
+  (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
+
+  ``seen``
+    When used with ``meta:source`` nodes, the edge indicates the target
+    node was observed by the source node.
+
+  ``stole``
+    When used with a ``risk:compromise`` node, the edge indicates the target
+    node was stolen or copied as a result of the compromise.
+
+  ``targets``
+    When used with ``risk:attack``, the edge indicates the target
+    node is targeted by the attack.
+
+    When used with ``risk:attack`` and ``ou:industry`` nodes, the edge
+    indicates the attack targeted the industry
+
+    When used with ``risk:threat``, the edge indicates the target
+    node is targeted by the threat cluster.
+
+    When used with ``risk:threat`` and ``ou:industry`` nodes, the edge
+    indicates the threat cluster targets the industry.
+
+  ``uses``
+    When used with ``ou:campaign`` and ``ou:technique`` nodes, the edge
+    indicates the campaign used a given technique.
+
+    When used with ``ou:org`` and ``ou:technique`` nodes, the edge
+    indicates the organization used a given technique.
+
+    When used with ``risk:threat``, the edge indicates the target
+    node was used to facilitate the attack.
+
+    When used with ``risk:attack`` and ``ou:technique`` nodes, the edge
+    indicates the attack used a given technique.
+
+    When used with ``risk:attack`` and ``risk:vuln`` nodes, the edge
+    indicates the attack used the vulnerability.
+
+    When used with ``risk:tool:software``, the edge indicates the target
+    node is used by the tool.
+
+    When used with ``risk:tool:software`` and ``ou:technique`` nodes, the edge
+    indicates the tool uses the technique.
+
+    When used with ``risk:tool:software`` and ``risk:vuln`` nodes, the edge
+    indicates the tool used the vulnerability.
+
+    When used with ``risk:threat``, the edge indicates the target
+    node was used by threat cluster.
+
+    When used with ``risk:threat`` and ``ou:technique`` nodes, the edge
+    indicates the threat cluster uses the technique.
+
+    When used with ``risk:threat`` and ``risk:vuln`` nodes, the edge
+    indicates the threat cluster uses the vulnerability.
+
+- Add ``$lib.gen.vulnByCve()`` to help generate ``risk:vuln`` nodes for CVEs.
+  (`#2903 <https://github.com/vertexproject/synapse/pull/2903>`_)
+- Add a unary negation operator to Storm expression syntax.
+  (`#2886 <https://github.com/vertexproject/synapse/pull/2886>`_)
+- Add ``$lib.crypto.hmac.digest()`` to compute RFC2104 digests in Storm.
+  (`#2902 <https://github.com/vertexproject/synapse/pull/2902>`_)
+- Update the Storm ``storm:http:resp.json()`` method to add optional
+  ``encoding`` and ``errors`` arguments, to control how data is deserialized.
+  (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
+- Update the Storm ``bytes.decode()`` method to add an optional
+  ``errors`` argument, to control how errors are handled when decoding data.
+  (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
+- Logging of role and user permission changes now includes the authgate iden
+  for the changes.
+  (`#2891 <https://github.com/vertexproject/synapse/pull/2891>`_)
+
+Bugfixes
+--------
+- Catch ``RecursionError`` exceptions that can occur in very deep Storm
+  pipelines.
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm reference guide to explain backtick format strings.
+  (`#2899 <https://github.com/vertexproject/synapse/pull/2899>`_)
+- Update ``guid`` section on Storm type-specific behavior doc with
+  some additional guid generation examples.
+  (`#2901 <https://github.com/vertexproject/synapse/pull/2901>`_)
+- Update Storm control flow documentation to include ``init``, ``fini``, and
+  ``try`` / ``catch`` examples.
+  (`#2901 <https://github.com/vertexproject/synapse/pull/2901>`_)
+- Add examples for creating extended model forms and properties to the
+  Synapse admin guide.
+  (`#2904 <https://github.com/vertexproject/synapse/pull/2904>`_)
+
+v2.112.0 - 2022-10-18
+=====================
+
+Features and Enhancements
+-------------------------
+- Add ``--email`` as an argument to ``synapse.tools.moduser`` to allow setting
+  a user's email address.
+  (`#2891 <https://github.com/vertexproject/synapse/pull/2891>`_)
+- Add support for ``hxxp[s]:`` prefixes in scrape functions.
+  (`#2887 <https://github.com/vertexproject/synapse/pull/2887>`_)
+- Make the SYNDEV_NEXUS_REPLAY resolution use ``s_common.envbool()`` in the
+  ``SynTest.withNexusReplay()`` helper. Add ``withNexusReplay()`` calls to
+  all test helpers which make Cells which previously did not have it
+  available.
+  (`#2889 <https://github.com/vertexproject/synapse/pull/2889>`_)
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+- Add implementations of ``getPermDef()`` and ``getPermDefs()`` to the base
+  Cell class.
+  (`#2888 <https://github.com/vertexproject/synapse/pull/2888>`_)
+
+Bugfixes
+--------
+- Fix an idempotency issue in the JsonStor multiqueue implementation.
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+
+Improved Documentation
+----------------------
+- Add Synapse-GCS (Google Cloud Storage) Advanced Power-Up to the Power-Ups
+  list.
+
 v2.111.0 - 2022-10-12
 =====================
 
@@ -11,7 +326,7 @@ Features and Enhancements
 -------------------------
 - Update the Storm grammar to allow specifying a tag property with a variable.
   (`#2881 <https://github.com/vertexproject/synapse/pull/2881>`_)
- - Add log messages for user and role management activities in the Cell.
+- Add log messages for user and role management activities in the Cell.
   (`#2877 <https://github.com/vertexproject/synapse/pull/2877>`_)
 - The logging of service provisioning steps on Aha and when services were
   starting up was previously done at the ``DEBUG`` level. These are now done

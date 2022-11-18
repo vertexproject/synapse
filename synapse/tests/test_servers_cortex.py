@@ -19,8 +19,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
                     async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                         # Make a node with the cortex
-                        podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
-                        self.len(1, podes)
+                        self.eq(1, await proxy.count(f'[ou:org={guid}]'))
 
                     self.true(core.dmon.shared.get('*') is core)
                     self.true(core.dmon.shared.get('cortex') is core)
@@ -29,7 +28,6 @@ class CortexServerTest(s_t_utils.SynTest):
                 # And data persists...
                 async with await s_cortex.Cortex.initFromArgv(argv) as core:
                     async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
-                        podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
-                        self.len(1, podes)
+                        self.eq(1, await proxy.count(f'ou:org={guid}'))
 
                 self.eq(2, mock.call_count)

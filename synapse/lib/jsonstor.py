@@ -505,9 +505,13 @@ class JsonStorCell(s_cell.Cell):
         await self.multique.rem(name)
         return True
 
-    @s_nexus.Pusher.onPushAuto('q:puts')
-    async def putsQueue(self, name, items, reqid=None):
-        return await self.multique.puts(name, items, reqid=reqid)
+    async def putsQueue(self, name, items):
+        return await self._push('q:puts', name, items)
+
+    @s_nexus.Pusher.onPush('q:puts', passitem=True)
+    async def _putsQueue(self, name, items, nexsitem):
+        nexsoff, nexsmesg = nexsitem
+        return await self.multique.puts(name, items, reqid=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('q:cull')
     async def cullQueue(self, name, offs):

@@ -224,6 +224,18 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
+    async def getPermDef(self, perm):
+        '''
+        Return a perm definition if it is present in getPermDefs() output, otherwise None.
+        '''
+        return await self.cell.getPermDef(perm)
+
+    async def getPermDefs(self):
+        '''
+        Return a non-comprehensive list of perm definitions.
+        '''
+        return await self.cell.getPermDefs()
+
     @adminapi()
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
@@ -453,7 +465,8 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getAuthInfo(self, name):
-        s_common.deprecated('getAuthInfo')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.getAuthInfo')
         user = await self.cell.auth.getUserByName(name)
         if user is not None:
             info = user.pack()
@@ -468,7 +481,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def addAuthRule(self, name, rule, indx=None, gateiden=None):
-        s_common.deprecated('addAuthRule')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.addAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -476,7 +490,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def delAuthRule(self, name, rule, gateiden=None):
-        s_common.deprecated('delAuthRule')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.delAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -484,7 +499,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def setAuthAdmin(self, name, isadmin):
-        s_common.deprecated('setAuthAdmin')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.setAuthAdmin')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -1981,46 +1997,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
-        logger.info(f'Added rule={rule} on user {user.name}',
+        logger.info(f'Added rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
         role = await self.auth.reqRole(iden)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
-        logger.info(f'Added rule={rule} on role {role.name}',
+        logger.info(f'Added rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
-        logger.info(f'Removing rule={rule} on user {user.name}',
+        logger.info(f'Removing rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
-        logger.info(f'Removing rule={rule} on role {role.name}',
+        logger.info(f'Removing rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setRules(rules, gateiden=gateiden)
-        logger.info(f'Set user rules = {rules} on user {user.name}',
+        logger.info(f'Set user rules = {rules} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rules=rules))
+                                                 rules=rules, gateiden=gateiden))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
-        logger.info(f'Set role rules = {rules} on role {role.name}',
+        logger.info(f'Set role rules = {rules} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rules=rules))
+                                                 rules=rules, gateiden=gateiden))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
@@ -2032,8 +2048,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
-        logger.info(f'Set admin={admin} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+        logger.info(f'Set admin={admin} for {user.name} for gateiden={gateiden}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 gateiden=gateiden))
 
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
@@ -2159,6 +2176,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+    async def getPermDef(self, perm): # pragma: no cover
+        return
+
+    async def getPermDefs(self): # pragma: no cover
+        return []
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''

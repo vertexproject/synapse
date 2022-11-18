@@ -11,6 +11,15 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 Queries = [
+    '$foo=(-$foo)',
+    '$foo=(-#foo)',
+    '$foo=(-.foo)',
+    '$foo=(-:foo)',
+    '$foo=(-($foo-1))',
+    '$foo=(--$foo)',
+    '$foo=(5---$foo)',
+    '$foo=(5+-$foo)',
+    '$foo=(5+--$foo)',
     '$foo=(#$tag:$tagprop)',
     '#$tag:$tagprop',
     '#$tag:$tagprop=$valu',
@@ -629,6 +638,15 @@ Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: -, VarValue: [Const: foo]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: -, TagValue: [TagName: [Const: foo]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: -, UnivPropValue: [Const: .foo]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: -, RelPropValue: [Const: foo]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: -, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: -, Const: 1]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: -, UnaryExprNode: [Const: -, VarValue: [Const: foo]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: -, UnaryExprNode: [Const: -, UnaryExprNode: [Const: -, VarValue: [Const: foo]]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: +, UnaryExprNode: [Const: -, VarValue: [Const: foo]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: +, UnaryExprNode: [Const: -, UnaryExprNode: [Const: -, VarValue: [Const: foo]]]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [TagPropValue: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]]]]]]',
     'Query: [LiftTagProp: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]]]]',
     'Query: [LiftTagProp: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]], Const: =, VarValue: [Const: valu]]]',

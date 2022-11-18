@@ -870,7 +870,9 @@ class Agenda(s_base.Base):
             success = False
             try:
                 opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
-                async for node in self.core.eval(appt.query, opts=opts):
+                opts = self.core._initStormOpts(opts)
+                view = self.core._viewFromOpts(opts)
+                async for node in view.eval(appt.query, opts=opts):
                     count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'

@@ -3947,6 +3947,7 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
+                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4083,9 +4084,11 @@ class Bytes(Prim):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
-    async def _methDecode(self, encoding='utf8'):
+    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+        encoding = await tostr(encoding)
+        errors = await tostr(errors)
         try:
-            return self.valu.decode(encoding, 'surrogatepass')
+            return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
@@ -6923,7 +6926,7 @@ class LibTrigger(Lib):
         # query is kept to keep this API backwards compatible.
         query = tdef.pop('query', None)
         if query is not None:  # pragma: no cover
-            s_common.deprecated('$lib.trigger.add() with query', curv='2.95.0')
+            s_common.deprecated('$lib.trigger.add() with "query" argument instead of "storm"', curv='2.95.0')
             await self.runt.warn('$lib.trigger.add() called with query argument, this is deprecated. Use storm instead.')
             tdef['storm'] = query
 
@@ -7078,14 +7081,19 @@ class Trigger(Prim):
         name = await tostr(name)
         if name in ('async', 'enabled', ):
             valu = await tobool(valu)
-        if name in ('doc', 'name', 'storm', ):
+        if name in ('user', 'doc', 'name', 'storm', ):
             valu = await tostr(valu)
 
-        gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTriggerInfo', (trigiden, name, valu), {})
-        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        if name == 'user':
+            self.runt.user.confirm(('trigger', 'set', 'user'))
+        else:
+            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
+
+        await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
 
         self.valu[name] = valu
+
+        return self
 
     async def move(self, viewiden):
         trigiden = self.valu.get('iden')
@@ -8722,9 +8730,15 @@ class CronJob(Prim):
         valu = await toprim(valu)
         iden = self.valu.get('iden')
 
-        gatekeys = ((self.runt.user.iden, ('cron', 'set', name), iden),)
-        todo = s_common.todo('editCronJob', iden, name, valu)
-        self.valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if name == 'creator':
+            # this permission must be granted cortex wide
+            # to prevent abuse...
+            self.runt.user.confirm(('cron', 'set', 'creator'))
+        else:
+            self.runt.user.confirm(('cron', 'set', name), gateiden=iden)
+
+        self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
+
         return self
 
     async def _methCronJobPack(self):

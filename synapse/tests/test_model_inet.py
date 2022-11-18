@@ -97,53 +97,53 @@ class InetModelTest(s_t_utils.SynTest):
                 await snap.addNode('inet:ipv4', '1.2.3.3')
                 await snap.addNode('inet:ipv4', '1.2.3.4')
 
-            await self.agenlen(3, core.eval('inet:ipv4=1.2.3.1-1.2.3.3'))
-            await self.agenlen(3, core.eval('[inet:ipv4=1.2.3.1-1.2.3.3]'))
-            await self.agenlen(3, core.eval('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
-            await self.agenlen(3, core.eval('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
+            self.len(3, await core.nodes('inet:ipv4=1.2.3.1-1.2.3.3'))
+            self.len(3, await core.nodes('[inet:ipv4=1.2.3.1-1.2.3.3]'))
+            self.len(3, await core.nodes('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
+            self.len(3, await core.nodes('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
 
     async def test_ipv4_filt_cidr(self):
 
         async with self.getTestCore() as core:
 
-            await self.agenlen(5, core.eval('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
-            await self.agenlen(4, core.eval('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
-            await self.agenlen(1, core.eval('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+            self.len(5, await core.nodes('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
+            self.len(4, await core.nodes('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
+            self.len(1, await core.nodes('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
 
-            await self.agenlen(256, core.eval('[ inet:ipv4=192.168.1.0/24]'))
-            await self.agenlen(256, core.eval('[ inet:ipv4=192.168.2.0/24]'))
-            await self.agenlen(256, core.eval('inet:ipv4=192.168.1.0/24'))
+            self.len(256, await core.nodes('[ inet:ipv4=192.168.1.0/24]'))
+            self.len(256, await core.nodes('[ inet:ipv4=192.168.2.0/24]'))
+            self.len(256, await core.nodes('inet:ipv4=192.168.1.0/24'))
 
             # Seed some nodes for bounds checking
             pnodes = [(('inet:ipv4', f'10.2.1.{d}'), {}) for d in range(1, 33)]
             nodes = await alist(core.addNodes(pnodes))
 
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.4/32'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.4/32')
             self.len(1, nodes)
-            await self.agenlen(1, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
+            self.len(1, await core.nodes('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
 
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.4/31'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.4/31')
             self.len(2, nodes)
-            await self.agenlen(2, core.eval('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
+            self.len(2, await core.nodes('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
 
             # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/30'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.1/30')
             self.len(3, nodes)
 
             # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.2/30'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.2/30')
             self.len(3, nodes)
 
             # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/29'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.1/29')
             self.len(7, nodes)
 
             # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.8/29'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.8/29')
             self.len(8, nodes)
 
             # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
-            nodes = await alist(core.eval('inet:ipv4=10.2.1.1/28'))
+            nodes = await core.nodes('inet:ipv4=10.2.1.1/28')
             self.len(15, nodes)
 
     async def test_addr(self):
@@ -1816,6 +1816,7 @@ class InetModelTest(s_t_utils.SynTest):
             valu = ('blogs.Vertex.link', 'Brutus')
             input_props = {
                 'avatar': 'sha256:' + 64 * 'a',
+                'banner': 'sha256:' + 64 * 'b',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
                 'linked:accts': (('twitter.com', 'brutus'), ('linkedin.com', 'brutester'), ('linkedin.com', 'brutester')),
@@ -2102,6 +2103,7 @@ class InetModelTest(s_t_utils.SynTest):
             'url': 'https://vertex.link/messages/0',
             'client': 'tcp://1.2.3.4',
             'text': 'a cool Message',
+            'deleted': True,
             'file': 'sha256:' + 64 * 'F'
         }
         expected_props = {
@@ -2111,6 +2113,7 @@ class InetModelTest(s_t_utils.SynTest):
             'url': 'https://vertex.link/messages/0',
             'client': 'tcp://1.2.3.4',
             'client:ipv4': 0x01020304,
+            'deleted': True,
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'f'
         }
@@ -2202,6 +2205,12 @@ class InetModelTest(s_t_utils.SynTest):
                 self.len(2, await core.nodes('inet:web:post -> inet:web:hashtag'))
 
                 await self.checkNodes(core, expected_nodes)
+
+                nodes = await core.nodes('[ inet:web:post:link=* :post={inet:web:post | limit 1} :url=https://vtx.lk :text=Vertex ]')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('post'))
+                self.eq('https://vtx.lk', nodes[0].get('url'))
+                self.eq('Vertex', nodes[0].get('text'))
 
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
@@ -2555,15 +2564,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :subject="hi there"
                 :date=2015
                 :body="there are mad sploitz here!"
-                :headers=((foo, bar),)
+                :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :bytes="*"
             ]
 
-            {[ inet:email:message:link=($node, https://www.vertex.link) ]}
-
-            {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
-
-            {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+            {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
+            {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2574,8 +2580,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:subject="hi there"'))
             self.len(1, await core.nodes('inet:email:message:replyto=root@root.com'))
 
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> edge:has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
-            self.len(1, await core.nodes('inet:email:message:headers*[=(foo,bar)]'))

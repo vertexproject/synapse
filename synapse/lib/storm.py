@@ -230,8 +230,31 @@ reqValidPkgdef = s_config.getJsValidator({
                     'perm': {'type': 'array', 'items': {'type': 'string'}},
                     'desc': {'type': 'string'},
                     'gate': {'type': 'string'},
+                    'workflowconfig': {'type': 'boolean'},
                 },
                 'required': ['perm', 'desc', 'gate'],
+            },
+        },
+        'configvars': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                    'varname': {'type': 'string'},
+                    'desc': {'type': 'string'},
+                    'default': {},
+                    'workflowconfig': {'type': 'boolean'},
+                    'type': {'$ref': '#/definitions/configvartype'},
+                    'scopes': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'string',
+                            'enum': ['global', 'self']
+                        },
+                    },
+                },
+                'required': ['name', 'varname', 'desc', 'type', 'scopes'],
             },
         },
     },
@@ -317,6 +340,12 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['form'],
+        },
+        'configvartype': {
+            'anyOf': [
+                {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
+                {'type': 'string'},
+            ]
         },
         # deprecated
         'cmdformhints': {
@@ -982,7 +1011,12 @@ stormcmds = (
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
-                    $async = $lib.model.type(bool).repr($trigger.async).ljust(6)
+                    ($ok, $async) = $lib.trycast(bool, $trigger.async)
+                    if $ok {
+                        $async = $lib.model.type(bool).repr($async).ljust(6)
+                    } else {
+                        $async = $lib.model.type(bool).repr($lib.false).ljust(6)
+                    }
                     $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
                     $cond = $trigger.cond.ljust(9)
 
@@ -1969,10 +2003,14 @@ class Runtime(s_base.Base):
                 self.runtvars[name] = isrunt
 
     async def execute(self, genr=None):
-        with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
-            async for item in self.query.iterNodePaths(self, genr=genr):
-                self.tick()
-                yield item
+        try:
+            with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
+                async for item in self.query.iterNodePaths(self, genr=genr):
+                    self.tick()
+                    yield item
+        except RecursionError:
+            mesg = 'Maximum Storm pipeline depth exceeded.'
+            raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
 
     async def _snapFromOpts(self, opts):
 
@@ -3808,7 +3846,7 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        s_common.deprecated('stormcmd:sudo')
+        s_common.deprecated('storm command: sudo')
 
         mesg = 'Sudo is deprecated and does nothing in ' \
                '2.x.x and will be removed in 3.0.0.'
@@ -4682,7 +4720,7 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprecated('splice.list')
+        s_common.deprecated('storm command: splice.list')
 
         mesg = 'splice.list is deprecated and will be removed!'
         await runt.snap.warn(mesg)
@@ -4919,7 +4957,7 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprecated('splice.undo')
+        s_common.deprecated('storm command: splice.undo')
 
         mesg = 'splice.undo is deprecated and will be removed!'
         await runt.snap.warn(mesg)

@@ -13,14 +13,14 @@ class ModelRevTest(s_tests.SynTest):
 
         with self.getTestDir(mirror='testcore') as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 layr = core.getLayer()
                 self.true(layr.fresh)
                 self.eq(s_modelrev.maxvers, await layr.getModelVers())
 
             # no longer "fresh", but lets mark a layer as read only
             # and test the bail condition for layers which we cant update
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 layr = core.getLayer()
                 layr.canrev = False
@@ -33,7 +33,7 @@ class ModelRevTest(s_tests.SynTest):
                     await mrev.revCoreLayers()
 
             # no longer "fresh"
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 layr = core.getLayer()
                 self.false(layr.fresh)
@@ -136,13 +136,13 @@ class ModelRevTest(s_tests.SynTest):
 
                 conf00 = {'nexslog:en': True}
 
-                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+                async with self.getTestCore(dirn=regrdir00, conf=conf00) as core00:
 
                     self.true(await core00.getLayer().getModelVers() >= (0, 2, 7))
 
                     conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
 
-                async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+                async with self.getTestCore(dirn=regrdir01, conf=conf01) as core01:
 
                     self.eq(await core01.getLayer().getModelVers(), (0, 2, 6))
 
@@ -154,8 +154,8 @@ class ModelRevTest(s_tests.SynTest):
                     self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
                     self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
 
-                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
-                    async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+                async with self.getTestCore(dirn=regrdir00, conf=conf00) as core00:
+                    async with self.getTestCore(dirn=regrdir01, conf=conf01) as core01:
 
                         await core01.sync()
 
@@ -312,3 +312,8 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('pol:country -> geo:name'))
             self.len(1, await core.nodes('risk:alert:taxonomy=hehe'))
             self.len(1, await core.nodes('risk:alert -> risk:alert:taxonomy'))
+
+    async def test_modelrev_0_2_13(self):
+        async with self.getRegrCore('model-0.2.13') as core:
+            self.len(1, await core.nodes('risk:tool:software:taxonomy=testtype'))
+            self.len(1, await core.nodes('risk:tool:software -> risk:tool:software:taxonomy'))
