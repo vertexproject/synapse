@@ -3391,12 +3391,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
             self.eq(gdef['name'], 'foo')
-            self.eq(gdef['creator'], core.auth.rootuser.iden)
+            self.eq(gdef['creatoriden'], core.auth.rootuser.iden)
 
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(1, gdefs)
             self.eq(gdefs[0]['name'], 'foo')
-            self.eq(gdefs[0]['creator'], core.auth.rootuser.iden)
+            self.eq(gdefs[0]['creatoriden'], core.auth.rootuser.iden)
 
             seeds = []
             alldefs = {}
@@ -3547,9 +3547,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as asvisi:
                 opts['user'] = visi.iden
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.get($iden)', opts=opts))
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden)', opts=opts))
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.activate($iden)', opts=opts))
+                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get($iden)', opts=opts))
+                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del($iden)', opts=opts))
+                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate($iden)', opts=opts))
                 self.len(0, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
