@@ -1484,8 +1484,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             gdef = self.pkggraphs.get(iden)
 
         if gdef is None:
-            mesg = f'No graph projection exists with iden {iden}.'
-            raise s_exc.NoSuchIden(mesg=mesg)
+            return None
 
         return copy.deepcopy(gdef)
 
@@ -1837,7 +1836,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if gdef['scope'] == 'global':
                 self.globalgraphs[iden] = gdef
             else:
-                self.usergraphs[gdef['creator']] = gdef
+                self.usergraphs[gdef['creatoriden']] = gdef
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)

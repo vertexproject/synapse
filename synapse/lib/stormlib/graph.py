@@ -146,9 +146,14 @@ class GraphLib(s_stormtypes.Lib):
         if iden is None:
             return self.runt.getGraph()
         elif self.runt.isAdmin():
-            return await self.runt.snap.core.getStormGraph(iden)
+            gdef = await self.runt.snap.core.getStormGraph(iden)
         else:
-            return await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
+            gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
+
+        if gdef is None:
+            mesg = f'No graph projection exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+        return gdef
 
     async def _methGraphDel(self, iden):
         iden = await s_stormtypes.tostr(iden)
@@ -156,6 +161,10 @@ class GraphLib(s_stormtypes.Lib):
             gdef = await self.runt.snap.core.getStormGraph(iden)
         else:
             gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
+
+        if gdef is None:
+            mesg = f'No graph projection exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
 
         scope = gdef['scope']
         if scope == 'global':
@@ -186,5 +195,9 @@ class GraphLib(s_stormtypes.Lib):
             gdef = await self.runt.snap.core.getStormGraph(iden)
         else:
             gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
+
+        if gdef is None:
+            mesg = f'No graph projection exists with iden {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
 
         self.runt.setGraph(gdef)
