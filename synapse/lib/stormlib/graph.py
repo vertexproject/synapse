@@ -68,8 +68,6 @@ class GraphLib(s_stormtypes.Lib):
             Add a graph projection to the Cortex.
 
             Example:
-                Add a new provider which uses the authorization code flow::
-
                     $rules = ({
                         "name": "My test projection",
                         "degrees": 2,
