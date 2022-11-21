@@ -3590,6 +3590,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}), public=$lib.true)'
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                await core.addStormPkg(otherpkg)
+                await core.nodes('$lib.graph.add(({"name": "foo"}))')
+                await core.nodes('$lib.graph.add(({"name": "foo"}), public=$lib.true)')
+                self.len(3, await core.callStorm('return($lib.graph.list())'))
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(3, await core.callStorm('return($lib.graph.list())'))
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'
