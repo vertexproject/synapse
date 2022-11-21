@@ -2912,7 +2912,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'name': 'testcmd',
                     'descr': 'test command',
                     'storm': '[ inet:ipv4=1.2.3.4 ]',
-                },),
+                },)
             }
             self.none(await core.addStormPkg(otherpkg))
 
@@ -3334,265 +3334,261 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_storm_subgraph(self):
 
-        with self.getTestDir() as dirn:
+        async with self.getTestCore() as core:
 
-            async with self.getTestCore(dirn=dirn) as core:
+            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+            await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) +#yepr ]')
+            await core.nodes('[ inet:dns:a=(vertex.link, 5.5.5.5) +#nope ]')
 
-                await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
-                await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) +#yepr ]')
-                await core.nodes('[ inet:dns:a=(vertex.link, 5.5.5.5) +#nope ]')
+            rules = {
 
-                rules = {
+                'degrees': 2,
 
-                    'degrees': 2,
+                'pivots': ['<- meta:seen <- meta:source'],
 
-                    'pivots': ['<- meta:seen <- meta:source'],
+                'filters': ['-#nope'],
 
-                    'filters': ['-#nope'],
+                'forms': {
 
-                    'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<- *', '-> *'],
+                        'filters': ['-inet:fqdn:issuffix=1'],
+                    },
 
-                        'inet:fqdn': {
-                            'pivots': ['<- *', '-> *'],
-                            'filters': ['-inet:fqdn:issuffix=1'],
-                        },
+                    'syn:tag': {
+                        'pivots': ['-> *'],
+                    },
 
-                        'syn:tag': {
-                            'pivots': ['-> *'],
-                        },
+                    '*': {
+                        'pivots': ['-> #'],
+                    },
 
-                        '*': {
-                            'pivots': ['-> #'],
-                        },
-
-                    }
                 }
+            }
 
-                def checkGraph(seeds, alldefs):
-                    # our TLDs should be omits
-                    self.len(2, seeds)
-                    self.len(4, alldefs)
+            def checkGraph(seeds, alldefs):
+                # our TLDs should be omits
+                self.len(2, seeds)
+                self.len(4, alldefs)
 
-                    self.isin(('inet:fqdn', 'woot.com'), seeds)
-                    self.isin(('inet:fqdn', 'vertex.link'), seeds)
-
-                    self.nn(alldefs.get(('syn:tag', 'yepr')))
-                    self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
-
-                    self.none(alldefs.get(('inet:asn', 20)))
-                    self.none(alldefs.get(('syn:tag', 'nope')))
-                    self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
-
-                seeds = []
-                alldefs = {}
-
-                async with await core.snap() as snap:
-                    async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
-
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
-
-                        alldefs[node.ndef] = path.metadata.get('edges')
-
-                checkGraph(seeds, alldefs)
-
-                rules['name'] = 'foo'
-                iden = await core.callStorm('return($lib.graph.add($rules).iden)', opts={'vars': {'rules': rules}})
-
-                q = 'return($lib.graph.add($rules, public=$lib.true).iden)'
-                iden2 = await core.callStorm(q, opts={'vars': {'rules': rules}})
-
-                gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
-                self.eq(gdef['name'], 'foo')
-                self.eq(gdef['creatoriden'], core.auth.rootuser.iden)
-
-                gdefs = await core.callStorm('return($lib.graph.list())')
-                self.len(2, gdefs)
-                self.eq(gdefs[0]['name'], 'foo')
-                self.eq(gdefs[0]['creatoriden'], core.auth.rootuser.iden)
-
-                seeds = []
-                alldefs = {}
-                async with await core.snap() as snap:
-
-                    async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
-
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
-
-                        alldefs[node.ndef] = path.metadata.get('edges')
-
-                checkGraph(seeds, alldefs)
-
-                seeds = []
-                alldefs = {}
-                async with await core.snap() as snap:
-
-                    async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
-
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
-
-                        alldefs[node.ndef] = path.metadata.get('edges')
-
-                checkGraph(seeds, alldefs)
-
-                # now do the same options via the command...
-                text = '''
-                    inet:fqdn | graph
-                                    --degrees 2
-                                    --filter { -#nope }
-                                    --pivot { <- meta:seen <- meta:source }
-                                    --form-pivot inet:fqdn {<- * | limit 20}
-                                    --form-pivot inet:fqdn {-> * | limit 20}
-                                    --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
-                                    --form-pivot syn:tag {-> *}
-                                    --form-pivot * {-> #}
-                '''
-
-                seeds = []
-                alldefs = {}
-
-                async with await core.snap() as snap:
-
-                    async for node, path in snap.storm(text):
-
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
-
-                        alldefs[node.ndef] = path.metadata.get('edges')
-
-                checkGraph(seeds, alldefs)
-
-                # filterinput=false behavior
-                rules['filterinput'] = False
-                seeds = []
-                alldefs = {}
-                async with await core.snap() as snap:
-                    async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
-
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
-
-                        alldefs[node.ndef] = path.metadata.get('edges')
-
-                # our TLDs are no longer omits
-                self.len(4, seeds)
-                self.len(6, alldefs)
-                self.isin(('inet:fqdn', 'com'), seeds)
-                self.isin(('inet:fqdn', 'link'), seeds)
                 self.isin(('inet:fqdn', 'woot.com'), seeds)
                 self.isin(('inet:fqdn', 'vertex.link'), seeds)
 
-                # yieldfiltered = True
-                rules.pop('filterinput', None)
-                rules['yieldfiltered'] = True
+                self.nn(alldefs.get(('syn:tag', 'yepr')))
+                self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
 
-                seeds = []
-                alldefs = {}
-                async with await core.snap() as snap:
-                    async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+                self.none(alldefs.get(('inet:asn', 20)))
+                self.none(alldefs.get(('syn:tag', 'nope')))
+                self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
 
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
+            seeds = []
+            alldefs = {}
 
-                        alldefs[node.ndef] = path.metadata.get('edges')
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
 
-                # The tlds are omitted, but since we are yieldfiltered=True,
-                # we still get the seeds. We also get an inet:dns:a node we
-                # previously omitted.
-                self.len(4, seeds)
-                self.len(7, alldefs)
-                self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
 
-                # refs
-                rules = {
-                    'degrees': 2,
-                    'refs': True,
-                }
+                    alldefs[node.ndef] = path.metadata.get('edges')
 
-                seeds = []
-                alldefs = {}
-                async with await core.snap() as snap:
-                    async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
-                                                       opts={'graph': rules}):
-                        if path.metadata.get('graph:seed'):
-                            seeds.append(node.ndef)
+            checkGraph(seeds, alldefs)
 
-                        alldefs[node.ndef] = path.metadata.get('edges')
+            rules['name'] = 'foo'
+            iden = await core.callStorm('return($lib.graph.add($rules).iden)', opts={'vars': {'rules': rules}})
 
-                self.len(1, seeds)
-                self.len(5, alldefs)
-                # We did make it automatically away 2 degrees with just model refs
-                self.eq({('inet:dns:a', ('woot.com', 16909060)),
-                         ('inet:fqdn', 'woot.com'),
-                         ('inet:ipv4', 16909060),
-                         ('inet:fqdn', 'com'),
-                         ('inet:asn', 20)}, set(alldefs.keys()))
+            q = 'return($lib.graph.add($rules, public=$lib.true).iden)'
+            iden2 = await core.callStorm(q, opts={'vars': {'rules': rules}})
 
-                # Construct a test that encounters nodes which are already
-                # in the to-do queue. This is mainly a coverage test.
-                q = '[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 :asn=1138 +#deathstar]'
-                await core.nodes(q)
+            gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
+            self.eq(gdef['name'], 'foo')
+            self.eq(gdef['creatoriden'], core.auth.rootuser.iden)
 
-                q = '#deathstar | graph --degrees 2 --refs'
-                ndefs = set()
-                async with await core.snap() as snap:
-                    async for node, path in snap.storm(q):
-                        ndefs.add(node.ndef)
-                self.isin(('inet:asn', 1138), ndefs)
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(2, gdefs)
+            self.eq(gdefs[0]['name'], 'foo')
+            self.eq(gdefs[0]['creatoriden'], core.auth.rootuser.iden)
 
-                # Runtsafety test
-                q = '[ test:int=1 ]  | graph --degrees $node.value()'
-                await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
 
-                opts = {'vars': {'iden': iden, 'iden2': iden2}}
-                q = '''
-                function acti() {
-                    $lib.graph.activate($iden)
-                    return($lib.graph.get())
-                }
-                return($acti().iden)'''
+                async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
 
-                self.eq(iden, await core.callStorm(q, opts=opts))
-                self.none(await core.callStorm('return($lib.graph.get())'))
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
 
-                otherpkg = {
-                    'name': 'graph.powerup',
-                    'version': '0.0.1',
-                    'graphs': [{'name': 'testgraph'}]
-                }
-                await core.addStormPkg(otherpkg)
+                    alldefs[node.ndef] = path.metadata.get('edges')
 
-                visi = await core.auth.addUser('visi')
-                async with core.getLocalProxy(user='visi') as asvisi:
-                    opts['user'] = visi.iden
-                    await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get($iden)', opts=opts))
-                    await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del($iden)', opts=opts))
-                    await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate($iden)', opts=opts))
-                    await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=opts))
+            checkGraph(seeds, alldefs)
 
-                    q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
-                    await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
 
-                    self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
 
-            async with self.getTestCore(dirn=dirn) as core:
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
 
-                await core.callStorm('pkg.del graph.powerup')
-                await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
-                await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden2}})
+                    alldefs[node.ndef] = path.metadata.get('edges')
 
-                gdefs = await core.callStorm('return($lib.graph.list())')
-                self.len(0, gdefs)
+            checkGraph(seeds, alldefs)
 
-                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
-                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
-                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
-                await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
+            # now do the same options via the command...
+            text = '''
+                inet:fqdn | graph
+                                --degrees 2
+                                --filter { -#nope }
+                                --pivot { <- meta:seen <- meta:source }
+                                --form-pivot inet:fqdn {<- * | limit 20}
+                                --form-pivot inet:fqdn {-> * | limit 20}
+                                --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
+                                --form-pivot syn:tag {-> *}
+                                --form-pivot * {-> #}
+            '''
 
-                q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}), public=$lib.true)'
-                await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+            seeds = []
+            alldefs = {}
+
+            async with await core.snap() as snap:
+
+                async for node, path in snap.storm(text):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            checkGraph(seeds, alldefs)
+
+            # filterinput=false behavior
+            rules['filterinput'] = False
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            # our TLDs are no longer omits
+            self.len(4, seeds)
+            self.len(6, alldefs)
+            self.isin(('inet:fqdn', 'com'), seeds)
+            self.isin(('inet:fqdn', 'link'), seeds)
+            self.isin(('inet:fqdn', 'woot.com'), seeds)
+            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+            # yieldfiltered = True
+            rules.pop('filterinput', None)
+            rules['yieldfiltered'] = True
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': rules}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            # The tlds are omitted, but since we are yieldfiltered=True,
+            # we still get the seeds. We also get an inet:dns:a node we
+            # previously omitted.
+            self.len(4, seeds)
+            self.len(7, alldefs)
+            self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
+
+            # refs
+            rules = {
+                'degrees': 2,
+                'refs': True,
+            }
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+                async for node, path in snap.storm('inet:dns:a:fqdn=woot.com',
+                                                   opts={'graph': rules}):
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            self.len(1, seeds)
+            self.len(5, alldefs)
+            # We did make it automatically away 2 degrees with just model refs
+            self.eq({('inet:dns:a', ('woot.com', 16909060)),
+                     ('inet:fqdn', 'woot.com'),
+                     ('inet:ipv4', 16909060),
+                     ('inet:fqdn', 'com'),
+                     ('inet:asn', 20)}, set(alldefs.keys()))
+
+            # Construct a test that encounters nodes which are already
+            # in the to-do queue. This is mainly a coverage test.
+            q = '[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 :asn=1138 +#deathstar]'
+            await core.nodes(q)
+
+            q = '#deathstar | graph --degrees 2 --refs'
+            ndefs = set()
+            async with await core.snap() as snap:
+                async for node, path in snap.storm(q):
+                    ndefs.add(node.ndef)
+            self.isin(('inet:asn', 1138), ndefs)
+
+            # Runtsafety test
+            q = '[ test:int=1 ]  | graph --degrees $node.value()'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            opts = {'vars': {'iden': iden, 'iden2': iden2}}
+            q = '''
+            function acti() {
+                $lib.graph.activate($iden)
+                return($lib.graph.get())
+            }
+            return($acti().iden)'''
+
+            self.eq(iden, await core.callStorm(q, opts=opts))
+            self.none(await core.callStorm('return($lib.graph.get())'))
+
+            otherpkg = {
+                'name': 'graph.powerup',
+                'version': '0.0.1',
+                'graphs': [{'name': 'testgraph'}]
+            }
+            await core.addStormPkg(otherpkg)
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                opts['user'] = visi.iden
+                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get($iden)', opts=opts))
+                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del($iden)', opts=opts))
+                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate($iden)', opts=opts))
+                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=opts))
+
+                q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
+                await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
+
+                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+
+            await core.callStorm('pkg.del graph.powerup')
+            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
+            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden2}})
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(0, gdefs)
+
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
+
+            q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}), public=$lib.true)'
+            await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
