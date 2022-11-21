@@ -2474,9 +2474,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
-        print(pkgdef)
+
         for gdef in pkgdef.get('graphs', ()):
-            print(gdef)
             await self.reqValidStormGraph(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
