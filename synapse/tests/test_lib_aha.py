@@ -582,12 +582,18 @@ class AhaTest(s_test.SynTest):
                     with self.getTestDir() as syndir:
                         with mock.patch('synapse.common.syndir', syndir):
 
+                            capath = s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')
+                            crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')
+                            keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')
+
+                            for path in (capath, crtpath, keypath):
+                                s_common.genfile(path)
+
                             outp = s_output.OutPutStr()
                             await s_tools_enroll.main((provurl,), outp=outp)
 
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')))
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')))
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')))
+                            for path in (capath, crtpath, keypath):
+                                self.gt(os.path.getsize(path), 0)
 
                             teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                             self.eq(teleyaml.get('version'), 1)
