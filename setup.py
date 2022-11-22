@@ -95,7 +95,7 @@ setup(
         'Pygments>=2.7.4,<2.13.0',
         'packaging>=20.0,<22.0',
         'fastjsonschema>=2.15.3,<2.16',
-        'stix2-validator>=3.0.0,<4.0.0',
+        'stix2-validator>=3.0.0,<3.1.0',
         'vcrpy>=4.1.1,<4.2.0',
         'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib==0.11.0',
