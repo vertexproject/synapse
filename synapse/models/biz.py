@@ -17,11 +17,20 @@ class BizModule(s_module.CoreModule):
                 ('biz:stake', ('guid', {}), {
                     'doc': 'A stake or partial ownership in a company.',
                 }),
+                ('biz:offer', ('guid', {}), {
+                    'doc': 'A product or service being sold at a standard price by an organization for a given time.',
+                }),
                 ('biz:bundle', ('guid', {}), {
                     'doc': 'Instances of a specific product offered for a price.',
                 }),
                 ('biz:product', ('guid', {}), {
                     'doc': 'A product which is available for purchase.',
+                }),
+                ('biz:service', ('guid', {}), {
+                    'doc': 'A service which is performed by a specific organiztion.',
+                }),
+                ('biz:serivce:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of service offering types.',
                 }),
                 ('biz:dealstatus', ('taxonomy', {}), {
                     'doc': 'A deal/rfp status taxonomy.',
@@ -148,12 +157,15 @@ class BizModule(s_module.CoreModule):
                 )),
                 ('biz:bundle', {}, (
                     ('count', ('int', {}), {
-                        'doc': 'The number of instances of the product included in the bundle.',
+                        'doc': 'The number of instances of the product or service included in the bundle.',
                     }),
                     ('price', ('econ:price', {}), {
                         'doc': 'The price of the bundle.',
                     }),
                     ('product', ('biz:product', {}), {
+                        'doc': 'The product included in the bundle.',
+                    }),
+                    ('service', ('biz:service', {}), {
                         'doc': 'The product included in the bundle.',
                     }),
                     ('deal', ('biz:deal', {}), {
@@ -162,6 +174,39 @@ class BizModule(s_module.CoreModule):
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'The purchase which includes this bundle.',
                     }),
+                )),
+                ('biz:offer', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization offering the product or service.'}),
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization offering the product or service.'}),
+                    ('product', ('biz:product', {}), {
+                        'doc': 'The product being offered.'}),
+                    ('service', ('biz:product', {}), {
+                        'doc': 'The service being offered.'}),
+                    ('current', ('bool', {}), {
+                        'doc': 'Set to true if the offer is still current.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The first known offering of this product/service by the organization for the asking price.'}),
+                    ('expires', ('time', {}), {
+                        'doc': 'Set if the offer has a known expiration date.'}),
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The asking price of the product or service.'}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the asking price.'}),
+                )),
+                ('biz:service', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization that offers the service.'}),
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization that offers the service.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the service being performed.'}),
+                    ('summary', ('str', {}), {
+                        'doc': 'A brief summary of the service.'}),
+                    ('type', ('biz:service:taxonomy', {}), {
+                        'doc': 'A taxonomy of service types.'}),
+                    # TODO: billing types (fixed, hourly, etc)
                 )),
                 ('biz:product', {}, (
                     ('name', ('str', {}), {
@@ -190,6 +235,9 @@ class BizModule(s_module.CoreModule):
                     }),
                     ('price:bottom', ('econ:price', {}), {
                         'doc': 'The minimum offered or observed price of the product.',
+                    }),
+                    ('price:currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the retail and bottom price properties.',
                     }),
                     ('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of bundles included with the product.',
