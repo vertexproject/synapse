@@ -137,13 +137,13 @@ class Cidr4(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
-        ip_str, mask_str = valu.split('/', 1)
 
         try:
+            ip_str, mask_str = valu.split('/', 1)
             mask_int = int(mask_str)
         except ValueError:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid CIDR Mask')
+                                    mesg='Invalid/Missing CIDR Mask')
 
         if mask_int > 32 or mask_int < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
