@@ -169,11 +169,13 @@ class LayerApi(s_cell.CellApi):
 
     async def splices(self, offs=None, size=None):
         '''
+        This API is deprecated.
+
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
         Nodeedits will be flattened into splices before being yielded.
         '''
-        s_common.deprecated('splices')
+        s_common.deprecated('LayerApi.splices')
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.splices(offs=offs, size=size):
             yield item
@@ -1777,7 +1779,7 @@ class Layer(s_nexus.Pusher, s_cellauth.CellGate):
         Nuke all the contents in the layer, leaving an empty layer
         NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
-        s_common.deprecated('truncate')
+        s_common.deprecated('Layer.truncate')
 
         self.dirty.clear()
         self.buidcache.clear()
@@ -3804,11 +3806,13 @@ class Layer(s_nexus.Pusher, s_cellauth.CellGate):
 
     async def splices(self, offs=None, size=None):
         '''
+        This API is deprecated.
+
         Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
 
         Nodeedits will be flattened into splices before being yielded.
         '''
-        s_common.deprecated('splices')
+        s_common.deprecated('Layer.splices')
         if not self.logedits:
             return
 
@@ -3840,7 +3844,7 @@ class Layer(s_nexus.Pusher, s_cellauth.CellGate):
 
     async def splicesBack(self, offs=None, size=None):
 
-        s_common.deprecated('splicesBack')
+        s_common.deprecated('Layer.splicesBack')
         if not self.logedits:
             return
 
