@@ -27,6 +27,7 @@ class ModelRev:
             ((0, 2, 11), self.revModel20220803),
             ((0, 2, 12), self.revModel20220901),
             ((0, 2, 13), self.revModel20221025),
+            ((0, 2, 14), self.revModel20221123),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -578,6 +579,10 @@ class ModelRev:
 
     async def revModel20221025(self, layers):
         await self._propToForm(layers, 'risk:tool:software:type', 'risk:tool:software:taxonomy')
+
+    async def revModel20221123(self, layers):
+        await self._normPropValu(layers, 'inet:flow:dst:softnames')
+        await self._normPropValu(layers, 'inet:flow:src:softnames')
 
     async def runStorm(self, text, opts=None):
         '''
