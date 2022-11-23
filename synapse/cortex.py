@@ -1418,6 +1418,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.multiqueue.exists(name):
             return
 
+        # FIXME this is not ok...
         info.setdefault('iden', s_common.guid())
 
         gate = await self.addAuthGate(info.get('iden'), 'queue')
@@ -1425,7 +1426,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         creator = info.get('creator')
         if creator is not None:
             user = self.reqUser(creator)
-            gate.setUserAdmin(user.iden, True)
+            await gate.setUserAdmin(user.iden, True)
 
         await self.multiqueue.add(name, info)
 
@@ -3745,7 +3746,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await self._loadView(node)
         view.init2()
 
-        view.setUserAdmin(user.iden, True)
+        await view.setUserAdmin(user.iden, True)
         if worldread:
             role = self.getRoleByName('all')
             await view.addRoleRule(role.iden, (True, ('view', 'read')))
@@ -3956,7 +3957,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         layr = await self._initLayr(layrinfo, nexsoffs=nexsitem[0])
 
-        layr.setUserAdmin(user.iden, True)
+        await layr.setUserAdmin(user.iden, True)
 
         # forward wind the new layer to the current model version
         await layr._setModelVers(s_modelrev.maxvers)
@@ -5200,7 +5201,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         cdef = await self.agenda.add(cdef)
 
         gate = self.addAuthGate(iden, 'cronjob')
-        gate.setUserAdmin(user.iden, True)
+        await gate.setUserAdmin(user.iden, True)
 
         await self.feedBeholder('cron:add', cdef, gates=[iden])
         return cdef
