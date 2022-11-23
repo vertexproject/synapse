@@ -584,6 +584,9 @@ class ModelRev:
         await self._normPropValu(layers, 'inet:flow:dst:softnames')
         await self._normPropValu(layers, 'inet:flow:src:softnames')
 
+        await self._propArrayToForm(layers, 'inet:flow:dst:softnames', 'it:prod:softname')
+        await self._propArrayToForm(layers, 'inet:flow:src:softnames', 'it:prod:softname')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
