@@ -403,12 +403,12 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
 
         bidn = gatebidn + userbidn
 
-        info = await self.gateusers.dict(bidn)
+        info = await self.gateusers.pack(bidn)
 
         info[prop] = valu
-        reqValidGateUser(info)
+        # reqValidGateUserInfo(info)
 
-        await self.gateusers.set(bidn, prop, valu)
+        self.gateusers.set(bidn, prop, valu)
 
         user = self.usercache.get(userbidn)
         if user is not None:
@@ -425,7 +425,7 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
 
         bidn = gatebidn + rolebidn
 
-        await self.gateroles.set(bidn, prop, valu)
+        self.gateroles.set(bidn, prop, valu)
 
         async for userbidn in self.userroles.iter(rolebidn):
             user = self.usercache.get(userbidn)
@@ -803,8 +803,16 @@ class CellUser:
 
         return retn
 
+    async def grant(self, roleiden):
+
+        self.cell.userroles.add(self.bidn, s_common.uhex(roleiden)
+        self.permcache.clear()
+
+    async def revoke(self, roleiden):
+
     # for backward compatibility...
     def __getattr__(self, name):
+
         valu = self.info.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
@@ -814,6 +822,7 @@ class CellUser:
 class CellRole:
 
     def __init__(self, cell, info):
+
         self.cell = cell
         self.info = info
         self.iden = info.get('iden')
@@ -889,23 +898,23 @@ class CellGate:
         '''
         WARNING: not nexusified
         '''
-        return self._gate_cell._setGateRoleProp(self._gate_iden, useriden, 'rules', tuple(rules))
+        return self._gate_cell._setGateRoleProp(self._gate_iden, roleiden, 'rules', tuple(rules))
 
     async def addRoleRule(self, roleiden, rule, indx=0):
 
-        reqValidRules(rules)
+        rules = list(self.getRoleRules(roleiden))
+        rules.insert(indx, rule)
 
-        rules = self.getRoleRules(roleiden)
-        rules.insert(0, rule)
+        reqValidRules(rules)
 
         await self.setRoleRules(roleiden, rules)
 
     async def addUserRule(self, useriden, rule, indx=-1):
 
-        reqValidRules((rule,))
-
         rules = list(self.getUserRules(useriden))
         rules.insert(indx, rule)
+
+        reqValidRules(rules)
 
         await self.setUserRules(useriden, rules)
 

@@ -3688,14 +3688,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if self.inaugural and self.isactive:
 
-            ldef = await self.addLayer({'name': 'default'})
-            layriden = ldef.get('iden')
+            layr = await self.addLayer({'name': 'default'})
 
-            await self.allrole.addRule((True, ('layer', 'read')), gateiden=layriden)
+            await layr.addRoleRule(self.allrole.iden, (True, ('layer', 'read')))
 
             vdef = {
                 'name': 'default',
-                'layers': (layriden,),
+                'layers': (layr.iden,),
                 'worldreadable': True,
             }
 
@@ -3931,7 +3930,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         s_layer.reqValidLdef(ldef)
 
-        return await self._push('layer:add', ldef)
+        ldef = await self._push('layer:add', ldef)
+
+        return self.layers.get(ldef.get('iden'))
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):

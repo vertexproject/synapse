@@ -183,6 +183,10 @@ indxtypes = {
 }
 
 class SlabBidnDict:
+    '''
+    A slab-based dict that is keyed by a concatentation of a
+    binary form iden and named keys.
+    '''
 
     def __init__(self, slab, name):
         self.db = slab.initdb(name)
