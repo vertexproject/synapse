@@ -276,6 +276,8 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/foo')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1')
 
             # Form Tests ======================================================
             valu = '192[.]168.1.123/24'
