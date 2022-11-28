@@ -127,29 +127,6 @@ class ModUserTest(s_test.SynTest):
             argv = (
                 '--svcurl', svcurl,
                 'visi',
-                '--setroles', 'ninjas',
-                '--setroles', 'newp',
-                '--setroles', 'all',
-            )
-            outp = s_output.OutPutStr()
-            self.eq(1, await s_t_moduser.main(argv, outp=outp))
-            self.isin('ERROR: Role not found: newp', str(outp))
-
-            argv = (
-                '--svcurl', svcurl,
-                'visi',
-                '--setroles', 'ninjas',
-                '--setroles', 'all',
-            )
-            outp = s_output.OutPutStr()
-            self.eq(0, await s_t_moduser.main(argv, outp=outp))
-            self.isin('...setting roles to: ninjas, all', str(outp))
-            roles = visi.pack().get('roles')
-            self.eq(roles, (ninjas.iden, core.auth.allrole.iden))
-
-            argv = (
-                '--svcurl', svcurl,
-                'visi',
                 '--add',
                 '--del',
             )
