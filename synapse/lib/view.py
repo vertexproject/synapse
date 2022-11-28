@@ -966,7 +966,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # TODO remove addNodeEdits?
 
     async def scrapeIface(self, text, unique=False):
-        async with await s_spooled.Set.anit() as matches:  # type: s_spooled.Set
+        async with await s_spooled.Set.anit(dirn=self.core.dirn) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
             for item in s_scrape.contextScrape(text, refang=True, first=False):
                 form = item.pop('form')

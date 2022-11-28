@@ -272,7 +272,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit()
+            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn)
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
