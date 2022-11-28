@@ -24,6 +24,9 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--locked', choices=('true', 'false'), default=None, help='Set the user locked status.')
     pars.add_argument('--grant', default=[], action='append', help='A role to grant to the user.')
     pars.add_argument('--revoke', default=[], action='append', help='A role to revoke from the user.')
+    pars.add_argument('--setroles', default=[], action='append',
+                      help='A role set on the user in the order the parameter is specified. This must be specified for '
+                           'all of the roles that a user will have.')
     pars.add_argument('--allow', default=[], action='append', help='A permission string to allow for the user.')
     pars.add_argument('--deny', default=[], action='append', help='A permission string to deny for the user.')
     pars.add_argument('username', help='The username to add/edit.')
@@ -40,6 +43,7 @@ async def main(argv, outp=s_output.stdout):
 
             grants = []
             revokes = []
+            setroles = []
 
             for rolename in opts.grant:
                 role = await cell.getRoleDefByName(rolename)
@@ -54,6 +58,13 @@ async def main(argv, outp=s_output.stdout):
                     outp.printf(f'ERROR: Role not found: {rolename}')
                     return 1
                 revokes.append(role)
+
+            for rolename in opts.setroles:
+                role = await cell.getRoleDefByName(rolename)
+                if role is None:
+                    outp.printf(f'ERROR: Role not found: {rolename}')
+                    return 1
+                setroles.append(role)
 
             user = await cell.getUserDefByName(opts.username)
 
@@ -105,6 +116,12 @@ async def main(argv, outp=s_output.stdout):
                 rolename = role.get('name')
                 outp.printf(f'...revoking role: {rolename}')
                 await cell.delUserRole(useriden, role.get('iden'))
+
+            if setroles:
+                roles = [role.get('iden') for role in setroles]
+                names = ', '.join([r.get('name') for r in setroles])
+                outp.printf(f'...setting roles to: {names}')
+                await cell.setUserRoles(useriden, roles)
 
             for allow in opts.allow:
                 perm = allow.lower().split('.')
