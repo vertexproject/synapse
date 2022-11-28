@@ -1653,13 +1653,13 @@ class InetModule(s_module.CoreModule):
                         ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the destination host.',
                         }),
-                        ('dst:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the destination host.',
                         }),
                         ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the source host.',
                         }),
-                        ('src:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the source host.',
                         }),
                         ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {

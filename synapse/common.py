@@ -355,8 +355,8 @@ def genfile(*paths):
     return io.open(path, 'r+b')
 
 @contextlib.contextmanager
-def getTempDir():
-    tempdir = tempfile.mkdtemp()
+def getTempDir(dirn=None):
+    tempdir = tempfile.mkdtemp(dir=dirn)
 
     try:
         yield tempdir
