@@ -4,30 +4,30 @@
 # Author: william.gibb@vertex.link
 
 # This script is an example of using Let's Encrypt certbot tool to generate
-# a valid HTTPS certificate for a Synapse service. This example uses web
+# an HTTPS certificate for a Synapse service.
 #
 # This creates and stores a Python venv in the
 # /vertex/storage/preboot/letsencrypt/venv directory, so the certbot
-# tool it installed once in a separate python environment, and cached in
+# tool is installed once in a separate python environment, and cached in
 # a mapped volume.
 #
-# Once the venv is setup, certbot is is used to create and potentially renew
+# Once the venv is setup, certbot is used to create and potentially renew
 # an HTTPS certificate. This certificate and private key are then copied to
 # the locations in /vertex/storage where Synapse services assume they will
 # find the HTTPS keys.
 #
-# cerbot does use a random backoff timer when performing a renewal. There may
+# certbot does use a random backoff timer when performing a renewal. There may
 # be a random delay when starting a service when the certificate needs to be
 # renewed.
 #
 # Required Environment variables:
 #
-# CERTBOT_HOSTNAME - the hostname that certbot will generate certificate for.
+# CERTBOT_HOSTNAME - the hostname that certbot will generate a certificate for.
 # CERTBOT_EMAIL - the email address used with certbot.
 #
 # Optional Environment variables:
 #
-# CERTBOT_ARGS - additional args passed to the "cerbot certonly" and
+# CERTBOT_ARGS - additional args passed to the "certbot certonly" and
 #   "certbot renew" commands.
 #
 
@@ -59,7 +59,7 @@ mkdir -p $LOGSDIR
 mkdir -p $CONFDIR
 mkdir -p $WORKDIR
 
-CERBOT_DIR_ARGS=" --work-dir ${WORKDIR} --logs-dir=${LOGSDIR} --config-dir=${CONFDIR} "
+CERTBOT_DIR_ARGS=" --work-dir ${WORKDIR} --logs-dir=${LOGSDIR} --config-dir=${CONFDIR} "
 
 KEYFILE="${CONFDIR}/live/${CERTBOT_HOSTNAME}/privkey.pem"
 CERTFILE="${CONFDIR}/live/${CERTBOT_HOSTNAME}/fullchain.pem"
@@ -84,7 +84,7 @@ fi
 
 if [ ! -f ${KEYFILE} ]; then
 
-    certbot -n ${CERBOT_DIR_ARGS} certonly --agree-tos --email ${CERTBOT_EMAIL} --standalone -d ${CERTBOT_HOSTNAME} ${CERTBOT_ARGS:-}
+    certbot -n ${CERTBOT_DIR_ARGS} certonly --agree-tos --email ${CERTBOT_EMAIL} --standalone -d ${CERTBOT_HOSTNAME} ${CERTBOT_ARGS:-}
 
     if [ $? -ne 0 ]; then
         echo "Error running certbot"
@@ -93,7 +93,7 @@ if [ ! -f ${KEYFILE} ]; then
 
 fi
 
-certbot -n ${CERBOT_DIR_ARGS} renew --standalone ${CERTBOT_ARGS:-}
+certbot -n ${CERTBOT_DIR_ARGS} renew --standalone ${CERTBOT_ARGS:-}
 
 if [ $? -ne 0 ]; then
     echo "Error checking certificate renewal"
