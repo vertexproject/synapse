@@ -124,13 +124,13 @@ setup(
             'jinja2<3.1.0',
         ],
         'dev': [
-            'pytest>=6.2.5,<7.0.0',
+            'pytest>=7.2.0,<8.0.0',
             'autopep8>=1.5.4,<2.0.0',
-            'pytest-cov>=3.0.0,<4.0.0',
+            'pytest-cov>=4.0.0,<5.0.0',
             'pycodestyle>=2.8.0,<3.0.0',
             'bump2version>=1.0.1,<1.1.0',
             'pytest-xdist>=2.4.0,<3.0.0',
-            'coverage>=6.4.1,<7.0.0',
+            'coverage>=6.5.0,<7.0.0',
         ],
     },
 
