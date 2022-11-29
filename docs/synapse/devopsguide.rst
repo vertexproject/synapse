@@ -594,8 +594,8 @@ Containers with Custom Users
 
 By default, Synapse service containers will work running as ``root`` ( uid 0 ) and ``synuser`` ( uid 999 ) without any
 modification. In order to run a Synapse service container as a different user that is not built into the container by
-default, the user, group and home directory need be added to the image. This can be done with a custom Dockerfile to
-modify a container. For example, the following Dockefile would add the user ``altuser`` to the Container with a user
+default, the user, group and home directory need to be added to the image. This can be done with a custom Dockerfile to
+modify a container. For example, the following Dockerfile would add the user ``altuser`` to the Container with a user
 id value of 8888::
 
     FROM vertexproject/synapse-cortex:v2.x.x
@@ -638,13 +638,13 @@ That custom user can then be used to run the Cortex::
         - SYN_CORTEX_JSONSTOR=aha://jsonstor...
         - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
-The following bash script can be used to help automate this process, by adding the user to a image and appending
+The following bash script can be used to help automate this process, by adding the user to an image and appending
 the custom username to the image tag:
 
 .. literalinclude:: devguides/adduserimage.sh
     :language: bash
 
-Saving this to ``adduserimage.sh``, it can then be used quickly modify a image. The following example shows running
+Saving this to ``adduserimage.sh``, it can then be used to quickly modify an image. The following example shows running
 this to add a user named ``foouser`` with the uid 1234::
 
     $ ./adduserimage.sh vertexproject/synapse-aha:v2.113.0 foouser 1234
