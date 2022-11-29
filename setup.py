@@ -129,7 +129,7 @@ setup(
             'pytest-cov>=4.0.0,<5.0.0',
             'pycodestyle>=2.8.0,<3.0.0',
             'bump2version>=1.0.1,<1.1.0',
-            'pytest-xdist>=2.4.0,<3.0.0',
+            'pytest-xdist>=3.0.2,<4.0.0',
             'coverage>=6.5.0,<7.0.0',
         ],
     },
