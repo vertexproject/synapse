@@ -74,7 +74,7 @@ class CryptoHashesTest(s_test.SynTest):
 
             # A few sad paths
             # bad mode
-            mode = 'md4'
+            mode = 'newp'
             opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
             with self.raises(s_exc.BadArg):
                 await core.callStorm(q, opts=opts)
