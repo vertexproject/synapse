@@ -272,7 +272,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit()
+            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn)
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
@@ -2068,7 +2068,12 @@ class PropPivot(PivotOper):
 
                     continue
 
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                if prop.type.isarray and not srcprop.type.isarray:
+                    genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                else:
+                    genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+
+                async for pivo in genr:
                     yield pivo, path.fork(pivo)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:

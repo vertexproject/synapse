@@ -290,7 +290,8 @@ class UpLoad(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.axon = axon
-        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        dirn = s_common.gendir(axon.dirn, 'tmp')
+        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, dir=dirn)
         self.size = 0
         self.sha256 = hashlib.sha256()
         self.onfini(self._uploadFini)
@@ -301,7 +302,8 @@ class UpLoad(s_base.Base):
     def _reset(self):
         if self.fd._rolled or self.fd.closed:
             self.fd.close()
-            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+            dirn = s_common.gendir(self.axon.dirn, 'tmp')
+            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, dir=dirn)
         else:
             # If we haven't rolled over, this skips allocating new objects
             self.fd.truncate(0)
