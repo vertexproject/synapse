@@ -595,25 +595,26 @@ Synapse service containers provide two ways that users can modify the container 
 their own scripts or commands.
 
 The first way to modify the startup process is using a script that executes before services start. This can be
-configured by mapping in a file at ``/vertex/preboot/run`` and making sure it is marked as an executable. If this file
-is present, the file will be executed prior to booting the service. If this executable does not have return ``0``, the
+configured by mapping in a file at ``/vertex/boothooks/preboot.sh`` and making sure it is marked as an executable.
+If this file is present, the script will be executed prior to booting the service. If this does not return ``0``, the
 container will fail to start up.
 
 One example for using this hook is to use ``certbot`` to create HTTPS certificates for a Synapse service. This example
 assumes the Cortex is running as root, so that certbot can bind port 80 to perform the ``http-01`` challenge. Non-root
 deployments may require additional port mapping for a given deployment.
 
-Create a preboot directory::
+Create a boothooks directory::
 
-  mkdir -p /srv/syn/le.cortex/preboot
+  mkdir -p /srv/syn/le.cortex/bookhooks
 
-Copy the following script to ``/vertex/preboot/run`` and use ``chmod`` to mark it as an executable file:
+Copy the following script to ``/srv/syn/le.cortex/bookhooks/preboot.sh`` and use ``chmod`` to mark it as an executable
+file:
 
 .. literalinclude:: devguides/certbot.sh
     :language: bash
 
-That directory will be mounted at ``/vertex/preboot``. The following docker-compose file shows mounting that directory
-into the container and setting environment variables for the script to use::
+That directory will be mounted at ``/vertex/boothooks``. The following docker-compose file shows mounting that
+directory into the container and setting environment variables for the script to use::
 
   version: "3.3"
   services:
@@ -623,7 +624,7 @@ into the container and setting environment variables for the script to use::
       restart: unless-stopped
       volumes:
           - ./storage:/vertex/storage
-          - ./preboot:/vertex/preboot
+          - ./boothooks:/vertex/boothooks
       environment:
           SYN_LOG_LEVEL: "DEBUG"
           SYN_CORTEX_STORM_LOG: "true"
@@ -633,15 +634,15 @@ into the container and setting environment variables for the script to use::
 When started, the container will attempt to run the script before starting the Cortex service.
 
 The second way to modify a container startup process is running a script concurrently to the service. This can be set
-by mapping in a file at ``/vertex/concurrent/run``, also as an executable file. If this file is present, the file is
-executed as a backgrounded task prior to starting up the Synapse service. This executable would be stopped when the
-container is stopped.
+by mapping in a file at ``/vertex/boothooks/concurrent.sh``, also as an executable file. If this file is present, the
+script is executed as a backgrounded task prior to starting up the Synapse service. This script would be stopped
+when the container is stopped.
 
 .. note::
 
-    If a volume is mapped into ``/vertex/preboot/`` or ``/vertex/concurrent/``, it will not be included in any backups
-    made by a Synapse service using the backup APIs. Making backups of any data persisted in these locations is
-    the responsibility of the operator configuring the container.
+    If a volume is mapped into ``/vertex/boothooks/`` it will not be included in any backups made by a Synapse service
+    using the backup APIs. Making backups of any data persisted in these locations is the responsibility of the
+    operator configuring the container.
 
 
 Synapse Services

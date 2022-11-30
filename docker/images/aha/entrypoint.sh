@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PREBOOT_SCRIPT=/vertex/preboot/run
-CONCURRENT_SCRIPT=/vertex/concurrent/run
+PREBOOT_SCRIPT=/vertex/boothooks/preboot.sh
+CONCURRENT_SCRIPT=/vertex/boothooks/concurrent.sh
 
 if [ -f $PREBOOT_SCRIPT ]
 then
@@ -20,5 +20,4 @@ then
     ./$CONCURRENT_SCRIPT &
 fi
 
-# Execute our service
 exec python -O -m synapse.servers.aha /vertex/storage
