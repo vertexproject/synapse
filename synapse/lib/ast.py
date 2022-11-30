@@ -755,6 +755,9 @@ class ForLoop(Oper):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
+
                     for x, y in itertools.zip_longest(name, item):
                         await path.setVar(x, y)
                         await runt.setVar(x, y)
@@ -808,6 +811,9 @@ class ForLoop(Oper):
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
 
                     for x, y in itertools.zip_longest(name, item):
                         await runt.setVar(x, y)
@@ -2062,7 +2068,12 @@ class PropPivot(PivotOper):
 
                     continue
 
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                if prop.type.isarray and not srcprop.type.isarray:
+                    genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                else:
+                    genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+
+                async for pivo in genr:
                     yield pivo, path.fork(pivo)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
