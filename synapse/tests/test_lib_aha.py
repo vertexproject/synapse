@@ -579,19 +579,24 @@ class AhaTest(s_test.SynTest):
                     self.isin('one-time use URL:', str(outp))
 
                     provurl = str(outp).split(':', 1)[1].strip()
-                    with self.getTestDir() as syndir:
-                        with mock.patch('synapse.common.syndir', syndir):
+                    with self.getTestSynDir() as syndir:
 
-                            outp = s_output.OutPutStr()
-                            await s_tools_enroll.main((provurl,), outp=outp)
+                        capath = s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')
+                        crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')
+                        keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')
 
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')))
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')))
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')))
+                        for path in (capath, crtpath, keypath):
+                            s_common.genfile(path)
 
-                            teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
-                            self.eq(teleyaml.get('version'), 1)
-                            self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
+                        outp = s_output.OutPutStr()
+                        await s_tools_enroll.main((provurl,), outp=outp)
+
+                        for path in (capath, crtpath, keypath):
+                            self.gt(os.path.getsize(path), 0)
+
+                        teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
+                        self.eq(teleyaml.get('version'), 1)
+                        self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)

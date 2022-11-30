@@ -4744,6 +4744,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
+            q = '''$list=([["inet:fqdn", "nest.com"]])
+            for ($form, $valu) in $list { [ *$form=$valu ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
+
+            q = '''inet:fqdn=nest.com $list=([[$node.form(), $node.value()]])
+            for ($form, $valu) in $list { [ *$form=$valu ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
+            self.eq(('inet:fqdn', 'nest.com'), nodes[1].ndef)
+
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
