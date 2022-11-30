@@ -605,9 +605,9 @@ deployments may require additional port mapping for a given deployment.
 
 Create a boothooks directory::
 
-  mkdir -p /srv/syn/le.cortex/bookhooks
+  mkdir -p /srv/syn/00.cortex/bookhooks
 
-Copy the following script to ``/srv/syn/le.cortex/bookhooks/preboot.sh`` and use ``chmod`` to mark it as an executable
+Copy the following script to ``/srv/syn/cortex/bookhooks/preboot.sh`` and use ``chmod`` to mark it as an executable
 file:
 
 .. literalinclude:: devguides/certbot.sh
@@ -618,7 +618,7 @@ directory into the container and setting environment variables for the script to
 
   version: "3.3"
   services:
-    le.cortex:
+    00.cortex:
       image: vertexproject/synapse-cortex:v2.x.x
       network_mode: host
       restart: unless-stopped
@@ -628,6 +628,7 @@ directory into the container and setting environment variables for the script to
       environment:
           SYN_LOG_LEVEL: "DEBUG"
           SYN_CORTEX_STORM_LOG: "true"
+          SYN_CORTEX_AHA_PROVISION: "ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>"
           CERTBOT_HOSTNAME: "cortex.acme.corp"
           CERTBOT_EMAIL: "user@acme.corp"
 
