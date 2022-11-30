@@ -594,13 +594,14 @@ Entrypoint Hooking
 Synapse service containers provide two ways that users can modify the container startup process, in order to execute
 their own scripts or commands.
 
-The first way modify the startup process is using a script that executes before services start. This can be configured
-by mapping in a file at ``/vertex/preboot/run`` and making sure it is marked as an executable. If this file is present,
-the file will be executed prior to booting the service. If this executable does not have return ``0``, the container
-will fail to start up.
+The first way to modify the startup process is using a script that executes before services start. This can be
+configured by mapping in a file at ``/vertex/preboot/run`` and making sure it is marked as an executable. If this file
+is present, the file will be executed prior to booting the service. If this executable does not have return ``0``, the
+container will fail to start up.
 
 One example for using this hook is to use ``certbot`` to create HTTPS certificates for a Synapse service. This example
-assumes the Cortex is running as root with, so that certbot can bind port 80 to perform the ``http-01`` challenge.
+assumes the Cortex is running as root, so that certbot can bind port 80 to perform the ``http-01`` challenge. Non-root
+deployments may require additional port mapping for a given deployment.
 
 Create a preboot directory::
 
