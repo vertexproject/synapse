@@ -755,6 +755,9 @@ class ForLoop(Oper):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
+
                     for x, y in itertools.zip_longest(name, item):
                         await path.setVar(x, y)
                         await runt.setVar(x, y)
@@ -808,6 +811,9 @@ class ForLoop(Oper):
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
 
                     for x, y in itertools.zip_longest(name, item):
                         await runt.setVar(x, y)
