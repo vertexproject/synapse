@@ -42,6 +42,11 @@ Features and Enhancements
   created in the cell local ``tmp`` directory. In many deployments, this would
   be located in ``/vertex/storage/tmp``.
   (`#2925 <https://github.com/vertexproject/synapse/pull/2925>`_)
+- Update the allowed versions of the ``cbor2`` and ``pycryptodome``
+  libraries. For users installing ``synapse[dev]``, ``coverage``,
+  ``pytest``, ``pytest-cov`` and ``pytest-xdist`` are also updated to
+  their latest versions.
+  (`#2935 <https://github.com/vertexproject/synapse/pull/2935>`_)
 
 Bugfixes
 --------
