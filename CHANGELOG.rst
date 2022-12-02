@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+v2.115.1 - 2022-12-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Patch release to include an updated version of the ``pytest`` library in
+  containers.
+
 v2.115.0 - 2022-12-01
 =====================
 
