@@ -1773,7 +1773,8 @@ class Runtime(s_base.Base):
                 while not self.isfini:
                     ok, item = await self.emitq.get()
                     if ok:
-                        yield item
+                        if not item == s_common.novalu:
+                            yield item
                         continue
 
                     if not ok and item is None:
@@ -1785,6 +1786,8 @@ class Runtime(s_base.Base):
 
     async def emit(self, item):
         await self.emitq.put((True, item))
+        await self.emitq.put((True, s_common.novalu))
+        await self.emitq.put((True, s_common.novalu))
 
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime
