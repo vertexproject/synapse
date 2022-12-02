@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.115.0 - TBD
+v2.115.0 - 2022-12-01
 =====================
 
 Automatic Migrations
