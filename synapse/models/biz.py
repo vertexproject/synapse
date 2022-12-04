@@ -176,10 +176,8 @@ class BizModule(s_module.CoreModule):
                     }),
                 )),
                 ('biz:offer', {}, (
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The organization offering the product or service.'}),
-                    ('org:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization offering the product or service.'}),
+                    ('seller', ('ps:contact', {}), {
+                        'doc': 'The contact information for the seller.'}),
                     ('product', ('biz:product', {}), {
                         'doc': 'The product being offered.'}),
                     ('service', ('biz:product', {}), {

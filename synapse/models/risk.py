@@ -372,28 +372,37 @@ class RiskModule(s_module.CoreModule):
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),
+                ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
                     ('type', ('risk:alert:taxonomy', {}), {
-                        'doc': 'An alert type.',
-                    }),
+                        'doc': 'An alert type.'}),
+
                     ('name', ('str', {}), {
-                        'doc': 'The alert name.',
-                    }),
+                        'doc': 'The alert name.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A free-form description / overview of the alert.',
-                    }),
+                        'doc': 'A free-form description / overview of the alert.'}),
+
+                    ('benign', ('bool', {}), {
+                        'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
+
+                    ('verdict', ('risk:alert:verdict:taxonomy', {}), {
+                        'ex': 'benign.false_positive',
+                        'doc': 'Analyst specified verdict taxonomy about why the alert is malicious or benign.'}),
+
                     ('detected', ('time', {}), {
-                        'doc': 'The time the alerted condition was detected.',
-                    }),
+                        'doc': 'The time the alerted condition was detected.'}),
+
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The optional vulnerability that the alert indicates.',
-                    }),
+                        'doc': 'The optional vulnerability that the alert indicates.'}),
+
                     ('attack', ('risk:attack', {}), {
-                        'doc': 'A confirmed attack that this alert indicates.',
-                    }),
+                        'doc': 'A confirmed attack that this alert indicates.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the alert.'}),
+
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the alert.'}),
                 )),
