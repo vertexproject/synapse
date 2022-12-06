@@ -123,3 +123,31 @@ class ModUserTest(s_test.SynTest):
             self.false(visi.isLocked())
             self.true(bool(visi.allowed('foo.bar.gaz'.split('.'))))
             self.false(bool(visi.allowed('foo.bar.baz'.split('.'))))
+
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
+                '--add',
+                '--del',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_moduser.main(argv, outp=outp))
+            self.isin('ERROR: Cannot specify --add and --del together.', str(outp))
+
+            # Del visi
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
+                '--del',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin('...deleting user: visi', str(outp))
+
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_moduser.main(argv, outp=outp))
+            self.isin('ERROR: User not found (need --add?): visi', str(outp))

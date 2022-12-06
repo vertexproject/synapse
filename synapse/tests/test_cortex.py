@@ -4744,6 +4744,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
+            q = '''$list=([["inet:fqdn", "nest.com"]])
+            for ($form, $valu) in $list { [ *$form=$valu ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
+
+            q = '''inet:fqdn=nest.com $list=([[$node.form(), $node.value()]])
+            for ($form, $valu) in $list { [ *$form=$valu ] }
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
+            self.eq(('inet:fqdn', 'nest.com'), nodes[1].ndef)
+
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
@@ -5588,6 +5603,33 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(3, nodes)
                 nodes = await core.nodes('test:int')
                 self.len(1, nodes)
+
+                visi = await core.auth.addUser('visi')
+                await visi.setAdmin(True)
+                await visi.profile.set('cortex:view', view2_iden)
+
+                await core.nodes('$q=$lib.queue.add(dmon2)')
+                q = '''
+                $q = $lib.queue.get(dmon2)
+                for ($offs, $item) in $q.gets(size=3, wait=12) {
+                    [ test:str=$item ]
+                    $lib.print("made {ndef}", ndef=$node.ndef())
+                    $q.cull($offs)
+                }
+                '''
+                ddef = {'user': visi.iden, 'storm': q}
+                await core.addStormDmon(ddef)
+
+                q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
+                with self.getAsyncLoggerStream('synapse.lib.storm',
+                                               "made ('test:str', '5')") as stream:
+                    await core.nodes(q)
+                    self.true(await stream.wait(6))
+
+                nodes = await core.nodes('test:str', opts={'view': view2_iden})
+                self.len(3, nodes)
+                nodes = await core.nodes('test:str')
+                self.len(0, nodes)
 
                 # Kill the dmon and remove view2
                 await core.stormdmons.stop()
