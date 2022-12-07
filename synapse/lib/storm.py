@@ -474,7 +474,9 @@ stormcmds = (
         'storm': '''
             $lib.print('Storm daemon list:')
             for $info in $lib.dmon.list() {
-                $name = $info.name.ljust(20)
+                if $info.name { $name = $info.name.ljust(20) }
+                else { $name = '                    ' }
+
                 $lib.print("    {iden}:  ({name}): {status}", iden=$info.iden, name=$name, status=$info.status)
             }
         ''',
@@ -1633,7 +1635,7 @@ class StormDmon(s_base.Base):
             vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
 
             viewiden = opts.get('view')
-            view = await self.core.getView(viewiden)
+            view = await self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
                 logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',

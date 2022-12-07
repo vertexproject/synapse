@@ -2338,7 +2338,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware, s_cellauth.CellAuthMixin):
 
             if not os.path.isfile(certpath):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
-                with s_common.getTempDir() as dirn:
+
+                tdir = s_common.gendir(self.dirn, 'tmp')
+                with s_common.getTempDir(dirn=tdir) as dirn:
                     cdir = s_certdir.CertDir(path=(dirn,))
                     pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
