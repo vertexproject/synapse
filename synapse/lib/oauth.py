@@ -65,8 +65,8 @@ class OAuthManager(s_nexus.Pusher):
         self.cell = cell
 
         slab = self.cell.slab
-        self.clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))
-        self.providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers'))
+        self.clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))     # key=<provideriden><useriden>
+        self.providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers')) # key=<provideriden>
 
         self.refresh_window = 0.5
 
@@ -116,9 +116,14 @@ class OAuthManager(s_nexus.Pusher):
         if not self.cell.isactive:
             return
 
-        refresh_at = clientconf.get('refresh_at')
-        if refresh_at is None or clientconf.get('refresh_token') is None:
+        if clientconf.get('error'):
             return
+
+        if not clientconf.get('refresh_token'):
+            logger.warning(f'OAuth V2 client missing token to schedule refresh provider={provideriden} user={useriden}')
+            return
+
+        refresh_at = clientconf['refresh_at']
 
         newitem = (refresh_at, provideriden, useriden)
 
@@ -144,12 +149,10 @@ class OAuthManager(s_nexus.Pusher):
 
             while self.schedule_heap:
 
-                refresh_at = self.schedule_heap[0][0]
+                refresh_at, provideriden, useriden = self.schedule_heap[0]
                 refresh_in = int(max(0, refresh_at - s_common.now()) / 1000)
-                logger.debug(f'Waiting to refresh OAuth V2 token in {refresh_in}s for: {self.schedule_heap[0][1:]}')
 
                 if await s_coro.event_wait(self.schedule_wake, timeout=refresh_in):
-                    logger.debug('Received wake event for OAuth token refresh')
                     self.schedule_wake.clear()
                     continue
 
@@ -159,9 +162,11 @@ class OAuthManager(s_nexus.Pusher):
                 _, provideriden, useriden = heapq.heappop(self.schedule_heap)
                 self.schedule_map.pop((provideriden, useriden), None)
 
+                logger.debug(f'Refreshing OAuth V2 token for provider={provideriden} user={useriden}')
+
                 providerconf = self._getProvider(provideriden)
                 if providerconf is None:
-                    logger.debug(f'OAuth V2 provider does not exist ({provideriden})')
+                    logger.debug(f'OAuth V2 provider does not exist for provider={provideriden}')
                     continue
 
                 user = self.cell.auth.user(useriden)
@@ -175,13 +180,14 @@ class OAuthManager(s_nexus.Pusher):
                     continue
 
                 clientconf = self.clients.get(provideriden + useriden)
-                if clientconf is None or clientconf.get('refresh_token') is None:
+                if clientconf is None:
+                    logger.debug(f'OAuth V2 client does not exist for provider={provideriden} user={useriden}')
                     self._schedule_item_ran.set()
                     continue
 
                 ok, data = await self._refreshAccessToken(providerconf, clientconf)
                 if not ok:
-                    logger.warning(f'Failed to refresh token for provider,user ({provideriden},{useriden}): {data}')
+                    logger.warning(f'OAuth V2 token refresh failed for provider={provideriden} user={useriden} {data=}')
 
                 await self._setClientTokenData(provideriden, useriden, data)
                 self._schedule_item_ran.set()
@@ -191,6 +197,9 @@ class OAuthManager(s_nexus.Pusher):
             self.schedule_wake.clear()
 
     def _normTokenData(self, issued_at, data):
+        '''
+        Normalize timestamps to be in epoch millis and set expires_at/refresh_at.
+        '''
         reqValidTokenResponse(data)
         expires_in = data['expires_in']
         return {
@@ -214,12 +223,19 @@ class OAuthManager(s_nexus.Pusher):
         return await self._fetchToken(providerconf['token_uri'], auth, formdata)
 
     async def _refreshAccessToken(self, providerconf, clientconf):
+        refresh_token = clientconf['refresh_token']
+
         formdata = aiohttp.FormData()
         formdata.add_field('grant_type', 'refresh_token')
-        formdata.add_field('refresh_token', clientconf['refresh_token'])
+        formdata.add_field('refresh_token', refresh_token)
 
         auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
-        return await self._fetchToken(providerconf['token_uri'], auth, formdata, retries=3)
+        ok, data = await self._fetchToken(providerconf['token_uri'], auth, formdata, retries=3)
+        if ok and not data.get('refresh_token'):
+            # if a refresh_token is not provided in the response persist the existing token
+            data['refresh_token'] = refresh_token
+
+        return ok, data
 
     async def _fetchToken(self, url, auth, formdata, retries=1):
 
@@ -250,7 +266,7 @@ class OAuthManager(s_nexus.Pusher):
                             if 'error_description' in data:
                                 errmesg += f': {data["error_description"]}'
 
-                            return False, {'error': errmesg}
+                            return False, {'error': errmesg + f' (HTTP code {resp.status})'}
 
                         retn = False, {'error': f'Token API returned HTTP code {resp.status}'}
 
@@ -330,18 +346,26 @@ class OAuthManager(s_nexus.Pusher):
         if clientconf is None:
             return None
 
+        # if the client has an error return None so caller can start oauth flow again
         err = clientconf.get('error')
         if err is not None:
-            raise s_exc.BadDataValu(mesg=f'Token unavailable due to to error: {err}', iden=provideriden, user=useriden)
+            logger.debug(f'OAuth V2 client token unavailable provider={provideriden} user={useriden} err={err}')
+            return None
 
         # never return an expired token
-        if clientconf['expires_at'] < s_common.now():
-            logger.debug(f'OAuth V2 token is expired for provider,user ({provideriden},{useriden})')
+        expires_at = clientconf['expires_at']
+        if expires_at < s_common.now():
+            logger.debug(f'OAuth V2 token is expired ({expires_at}) for provider={provideriden} user={useriden}')
             return None
 
         return clientconf.get('access_token')
 
     async def clearClientAccessToken(self, provideriden, useriden):
+        '''
+        Remove a client access token by clearing the configuration.
+        This will prevent further refreshes (if scheduled),
+        and a new auth code will be required the next time an access token is requested.
+        '''
         if self.clients.get(provideriden + useriden) is not None:
             return await self._push('oauth:client:data:clear', provideriden, useriden)
 
@@ -350,13 +374,17 @@ class OAuthManager(s_nexus.Pusher):
         return self.clients.pop(provideriden + useriden)
 
     async def setClientAuthCode(self, provideriden, useriden, authcode, code_verifier=None):
+        '''
+        Typically set as the end result of a successful OAuth flow.
+        An initial access token and refresh token will be immediately requested,
+        and the client will be loaded into the schedule to be background refreshed.
+        '''
         providerconf = self._getProvider(provideriden)
         if providerconf is None:
             raise s_exc.BadArg(mesg=f'OAuth V2 provider has not been configured ({provideriden})', iden=provideriden)
 
         await self.clearClientAccessToken(provideriden, useriden)
 
-        # todo: should we delay this?
         ok, data = await self._getAccessToken(providerconf, authcode, code_verifier=code_verifier)
         if not ok:
             raise s_exc.SynErr(mesg=f'Failed to get OAuth v2 token: {data["error"]}')

@@ -68,6 +68,14 @@ class HttpOAuth2Token(s_httpapi.Handler):
                     'refresh_token': 'refreshtoken20',
                 })
 
+            if code == 'nonewrefresh':
+                return self.write({
+                    'access_token': 'accesstoken50',
+                    'token_type': 'example',
+                    'expires_in': 3,
+                    'refresh_token': 'refreshpersist00',
+                })
+
             if code == 'baddata':
                 return self.write({'foo': 'bar'})
 
@@ -84,12 +92,20 @@ class HttpOAuth2Token(s_httpapi.Handler):
         if grant_type == 'refresh_token':
 
             tok = body['refresh_token'][0]
+
             if tok.startswith('refreshtoken'):
                 return self.write({
                     'access_token': 'accesstoken01',
                     'token_type': 'example',
                     'expires_in': 3,
                     'refresh_token': 'refreshtoken01',
+                })
+
+            if tok.startswith('refreshpersist'):
+                return self.write({
+                    'access_token': 'accesstoken02',
+                    'token_type': 'example',
+                    'expires_in': 3,
                 })
 
             self.set_status(400)
@@ -410,10 +426,10 @@ class OAuthTest(s_test.SynTest):
                     self.len(0, core00.oauth.schedule_heap)
 
                     await core01.sync()
-                    mesgs = await core01.stormlist('''
+                    ret = await core01.callStorm('''
                         return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts=opts)
-                    self.stormIsInErr('bad refresh token', mesgs)
+                    self.none(ret)
 
                     # clients that dont get a refresh_token in response are not added to background refresh
                     # but you can still get the token until it expires
@@ -478,6 +494,22 @@ class OAuthTest(s_test.SynTest):
                         return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
                     ''', opts=opts)
                     self.none(ret)
+
+                    # original refresh_token is maintained if not provided in the refresh response
+                    core00.oauth._schedule_item_ran.clear()
+
+                    opts['vars']['authcode'] = 'nonewrefresh'
+                    await core01.nodes('''
+                        $iden = $providerconf.iden
+                        $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                    ''', opts=opts)
+
+                    self.true(await s_coro.event_wait(core00.oauth._schedule_item_ran, timeout=5))
+                    clientconf = core00.oauth.clients.get(providerconf00['iden'] + core00.auth.rootuser.iden)
+                    self.eq('accesstoken02', clientconf['access_token'])
+                    self.eq('refreshpersist00', clientconf['refresh_token'])
+
+                    await core01.nodes('$lib.inet.http.oauth.v2.clearUserAccessToken($providerconf.iden)', opts=opts)
 
                     # can interrupt a refresh wait if a new one gets scheduled that is sooner
                     core00.oauth._schedule_item_ran.clear()
