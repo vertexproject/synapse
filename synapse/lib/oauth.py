@@ -187,7 +187,7 @@ class OAuthManager(s_nexus.Pusher):
 
                 ok, data = await self._refreshAccessToken(providerconf, clientconf)
                 if not ok:
-                    logger.warning(f'OAuth V2 token refresh failed for provider={provideriden} user={useriden} {data=}')
+                    logger.warning(f'OAuth V2 token refresh failed provider={provideriden} user={useriden} data={data}')
 
                 await self._setClientTokenData(provideriden, useriden, data)
                 self._schedule_item_ran.set()
