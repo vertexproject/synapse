@@ -3024,7 +3024,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(tarpath)
 
         # Remove aha:provision from cell.yaml if it exists and the iden differs.
-        # conf_path = s_common.genpath(self.dirn, 'cell.yaml')
         mnfo = s_common.yamlload(self.dirn, 'cell.yaml')
         if mnfo:
             provurl = mnfo.get('aha:provision', None)
