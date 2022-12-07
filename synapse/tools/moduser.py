@@ -3,6 +3,7 @@ import yaml
 import asyncio
 import argparse
 
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
@@ -16,6 +17,7 @@ async def main(argv, outp=s_output.stdout):
     pars = argparse.ArgumentParser(prog='moduser', description=descr)
     pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the user if they do not already exist.')
+    pars.add_argument('--del', dest='delete', default=False, action='store_true', help='Delete the user if they exist.')
     pars.add_argument('--admin', choices=('true', 'false'), default=None, help='Set the user admin status.')
     pars.add_argument('--passwd', action='store', type=str, help='A password to set for the user.')
     pars.add_argument('--email', action='store', type=str, help='An email to set for the user.')
@@ -27,6 +29,10 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('username', help='The username to add/edit.')
 
     opts = pars.parse_args(argv)
+
+    if opts.add and opts.delete:
+        outp.printf('ERROR: Cannot specify --add and --del together.')
+        return 1
 
     async with s_telepath.withTeleEnv():
 
@@ -50,8 +56,6 @@ async def main(argv, outp=s_output.stdout):
                 revokes.append(role)
 
             user = await cell.getUserDefByName(opts.username)
-            if user is not None:
-                outp.printf(f'Modifying user: {opts.username}')
 
             if user is None:
                 if not opts.add:
@@ -61,7 +65,18 @@ async def main(argv, outp=s_output.stdout):
                 outp.printf(f'Adding user: {opts.username}')
                 user = await cell.addUser(opts.username)
 
+            else:
+                outp.printf(f'Modifying user: {opts.username}')
+
             useriden = user.get('iden')
+            if not s_common.isguid(useriden):  # pragma: no cover
+                outp.printf(f'ERROR: Invalid useriden: {useriden}')
+                return 1
+
+            if opts.delete:
+                outp.printf(f'...deleting user: {opts.username}')
+                await cell.delUser(useriden)
+                return 0
 
             if opts.admin is not None:
                 admin = yaml.safe_load(opts.admin)

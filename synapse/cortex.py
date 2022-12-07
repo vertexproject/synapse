@@ -4671,7 +4671,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        spooldict = await s_spooled.Dict.anit()
+        spooldict = await s_spooled.Dict.anit(dirn=self.dirn)
         async with await self.snap(user=user, view=view) as snap:
 
             async for pode in snap.iterStormPodes(text, opts=opts):

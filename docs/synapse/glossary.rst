@@ -25,6 +25,13 @@ Addition, Dependent
 
 See :ref:`gloss-depadd`.
 
+.. _gloss-admin-tool:
+
+Admin Tool
+----------
+
+See :ref:`gloss-tool-admin`.
+
 .. _gloss-analytical-model:
 
 Analytical Model
@@ -112,14 +119,16 @@ In :ref:`gloss-optic`, a column in Tabular display mode that displays a property
 Column, Tag
 -----------
 
-In :ref:`gloss-optic`, a column in Tabular display mode that displays the **timestamps** associated with the specified tag. (Technically, Optic displays two columns - one for each of the min / max timestamps, if present).
+In :ref:`gloss-optic`, a column in Tabular display mode that displays the **timestamps** associated with the
+specified tag. (Technically, Optic displays two columns - one for each of the min / max timestamps, if present).
 
 .. _gloss-col-tagglob:
 
 Column, Tag Glob
 ----------------
 
-In :ref:`gloss-optic`, a column in Tabular display mode that displays any **tags** that match the specified tag or tag glob pattern.
+In :ref:`gloss-optic`, a column in Tabular display mode that displays any **tags** that match the specified tag
+or tag glob pattern.
 
 .. _gloss-comparator:
 
@@ -160,6 +169,13 @@ Composite Form
 --------------
 
 See :ref:`gloss-form-comp`.
+
+.. _gloss-console-tool:
+
+Console Tool
+------------
+
+See :ref:`gloss-tool-console`.
 
 .. _gloss-constant:
 
@@ -225,6 +241,14 @@ Data Model
 ----------
 
 See :ref:`gloss-model-data`.
+
+.. _gloss-data-model-explorer:
+
+Data Model Explorer
+-------------------
+
+In :ref:`gloss-optic`, the Data Model Explorer (found in the :ref:`gloss-tool-help`) documents and cross-references
+the current forms and lightweight edges in the Synapse :ref:`gloss-data-model`.
 
 .. _gloss-deconflictable:
 
@@ -388,7 +412,7 @@ the fork's original :ref:`gloss-view`. The writable layer from the original view
 respect to the fork. Any changes made within a forked view are made within the new writable layer. These
 changes can optionally be merged back into the original view, or discarded. (Note that any view-specific
 automation, such as triggers, dmons, or cron jobs, are **not** copied to the forked view. However, depending
-on the automation, it may be activated if / when data is merged down into the original view.
+on the automation, it may be activated if / when data is merged down into the original view.)
 
 .. _gloss-form:
 
@@ -512,6 +536,13 @@ See :ref:`gloss-form-guid`.
 
 H
 =
+
+.. _gloss-help-tool:
+
+Help Tool
+---------
+
+See :ref:`gloss-tool-help`.
 
 .. _gloss-hive:
 
@@ -783,7 +814,7 @@ O
 Optic
 -----
 
-The Synapse user interface (UI).
+The Synapse user interface (UI), available as part of the commercial Synapse offering.
 
 P
 =
@@ -817,6 +848,17 @@ Power-Up
 Power-Ups provide specific add-on capabilities to Synapse via Storm Packages (:ref:`gloss-package`) and Services
 (:ref:`gloss-service`). For example, Power-Ups may provide connectivity to external databases or third-party data
 sources, or enable functionality such as the ability to manage YARA rules, scans, and matches.
+
+The term Power-Up is most commonly used to refer to Vertex-developed packages and services that are available as
+part of the commercial Synapse offering (only a few Power-Ups are available with open-source Synapse). However,
+many organizations write their own custom packages and services that may also be referred to as Power-Ups.
+
+.. _gloss-power-ups-tool:
+
+Power-Ups Tool
+--------------
+
+See :ref:`gloss-tool-power-ups`.
 
 .. _gloss-primary-prop:
 
@@ -1049,6 +1091,13 @@ is not required for normal use. Many of Synapse's **Power-Ups** (see :ref:`gloss
 
 See :ref:`storm-ref-intro` for additional detail.
 
+.. _gloss-storm-editor:
+
+Storm Editor
+------------
+
+Also "Storm Editor Tool". See :ref:`gloss-tool-storm-editor`.
+
 .. _gloss-subquery:
 
 Subquery
@@ -1111,6 +1160,15 @@ Tag Column
 
 See :ref:`gloss-col-tag`.
 
+.. _gloss-tag-explorer:
+
+Tag Explorer
+------------
+
+In :ref:`gloss-optic`, the Tag Explorer (found in the :ref:`gloss-help-tool`) provides an expandable,
+tree-based listing of all tags in your Synapse :ref:`gloss-cortex`, along with their definitions (if
+present).
+
 .. _gloss-tagglob-col:
 
 Tag Glob Column
@@ -1126,6 +1184,33 @@ Telepath
 Telepath is a lightweight remote procedure call (RPC) protocol used in Synapse. See :ref:`arch-telepath` in the
 :ref:`dev_architecture` guide for additional detail.
 
+.. _gloss-tool-admin:
+
+Tool, Admin
+-----------
+
+In :ref:`gloss-optic`, the Admin Tool provides a unified interface to perform basic management of
+users, roles, and permissions; views and layers; and triggers and cron jobs.
+
+.. _gloss-tool-console:
+
+Tool, Console
+-------------
+
+In :ref:`gloss-optic`, the Console Tool provides a CLI-like interface to Synapse. It can be used to run
+Storm queries in a manner similar to the Storm CLI (in the community version of Synapse). In Optic the
+Console Tool is more commonly used to display status, error, warning, and debug messages, or to view help
+for built-in Storm commands (see :ref:`storm-ref-cmd`) and / or Storm commands installed by Power-Ups.
+
+.. _gloss-tool-help:
+
+Tool, Help
+----------
+
+In :ref:`gloss-optic`, the central repository for Synapse documentation and assistance. The Help Tool
+includes the :ref:`gloss-data-model-explorer`, :ref:`gloss-tag-explorer`, documentation for any
+installed Power-Ups (see :ref:`gloss-power-up`), links to the public Synapse, Storm, and Optic
+documents, and version / changelog information.
 
 .. _gloss-tool-ingest:
 
@@ -1134,6 +1219,13 @@ Tool, Ingest
 
 In :ref:`gloss-optic`, the primary tool used to load structured data in CSV, JSON, or JSONL format into
 Synapse using Storm. The Ingest Tool can also be used to prototype and test more formal ingest code.
+
+.. _gloss-tool-power-ups:
+
+Tool, Power-Ups
+---------------
+
+In :ref:`gloss-optic`, the tool used to view, install, update, and remove Power-Ups (see :ref:`gloss-power-up`).
 
 .. _gloss-tool-research:
 
@@ -1158,6 +1250,23 @@ Tool, Stories
 Also known as simply "Stories". In :ref:`gloss-optic`, a tool used to create, collaborate on, review, and publish
 finished reports. Stories allows you to integrate data directly from the :ref:`gloss-research-tool` into your
 report ("Story").
+
+.. _gloss-tool-storm-editor:
+
+Tool, Storm Editor
+------------------
+
+Also known as simply "Storm Editor". In :ref:`gloss-optic`, a tool used to compose, test, and store Storm
+queries (including macros - see :ref:`gloss-macro`). Storm Editor includes a number of integrated development
+environment (IDE) features, including syntax highlighting, auto-indenting, and auto-completion (via
+``ctrl-space``) for the names of forms, properties, tags, and libraries.
+
+.. _gloss-tool-workflows:
+
+Tool, Workflows
+---------------
+
+In :ref:`gloss-optic`, the tool used to access and work with Workflows (see :ref:`gloss-workflow`).
 
 .. _gloss-tool-workspaces:
 
@@ -1293,6 +1402,23 @@ writes downward (merge) into lower layers.
 
 W
 =
+
+.. _gloss-workflow:
+
+Workflow
+--------
+
+In :ref:`gloss-optic`, a Workflow is a customized set of UI elements that provides an intuitive way to perform
+particular tasks. Workflows may be installed by Synapse Power-Ups (see :ref:`gloss-power-up`) and give users a
+more tailored means (compared to the :ref:`gloss-research-tool` or Storm query bar) to work with Power-Up Storm
+commands or associated analysis tasks.
+
+.. _gloss-workflows-tool:
+
+Workflows Tool
+--------------
+
+See :ref:`gloss-tool-workflows`.
 
 .. _gloss-workspace:
 

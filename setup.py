@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.114.0'
+VERSION = '2.115.1'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -99,10 +99,10 @@ setup(
         'vcrpy>=4.1.1,<4.2.0',
         'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib==0.11.0',
-        'pycryptodome>=3.11.0,<3.16.0',
+        'pycryptodome>=3.11.0,<3.17.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
         'scalecodec>=1.0.2,<1.0.38',  # synapse.vendor.substrateinterface req
-        'cbor2>=5.4.1,<5.4.3',
+        'cbor2>=5.4.1,<5.4.6',
         'bech32==1.2.0',
         'oauthlib>=3.2.1,<4.0.0',
         'idna==3.3',
@@ -124,13 +124,13 @@ setup(
             'jinja2<3.1.0',
         ],
         'dev': [
-            'pytest>=6.2.5,<7.0.0',
+            'pytest>=7.2.0,<8.0.0',
             'autopep8>=1.5.4,<2.0.0',
-            'pytest-cov>=3.0.0,<4.0.0',
+            'pytest-cov>=4.0.0,<5.0.0',
             'pycodestyle>=2.8.0,<3.0.0',
             'bump2version>=1.0.1,<1.1.0',
-            'pytest-xdist>=2.4.0,<3.0.0',
-            'coverage>=6.4.1,<7.0.0',
+            'pytest-xdist>=3.0.2,<4.0.0',
+            'coverage>=6.5.0,<7.0.0',
         ],
     },
 

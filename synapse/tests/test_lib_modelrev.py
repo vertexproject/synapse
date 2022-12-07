@@ -317,3 +317,12 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.13') as core:
             self.len(1, await core.nodes('risk:tool:software:taxonomy=testtype'))
             self.len(1, await core.nodes('risk:tool:software -> risk:tool:software:taxonomy'))
+
+    async def test_modelrev_0_2_14(self):
+        async with self.getRegrCore('model-0.2.14') as core:
+            self.len(1, await core.nodes('inet:flow:dst:softnames*[=foo]'))
+            self.len(1, await core.nodes('inet:flow:src:softnames*[=bar]'))
+            self.len(1, await core.nodes('inet:flow:dst:softnames=(baz, foo)'))
+            self.len(1, await core.nodes('inet:flow:src:softnames=(bar, baz)'))
+            self.len(1, await core.nodes('it:prod:softname=foo -> inet:flow:dst:softnames'))
+            self.len(1, await core.nodes('it:prod:softname=bar -> inet:flow:src:softnames'))

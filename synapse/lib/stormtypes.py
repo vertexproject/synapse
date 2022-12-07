@@ -2212,12 +2212,17 @@ class LibBytes(Lib):
             return size, s_common.ehex(sha256)
 
     async def _libBytesHas(self, sha256):
+        sha256 = await tostr(sha256, noneok=True)
+        if sha256 is None:
+            return None
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 
     async def _libBytesSize(self, sha256):
+        sha256 = await tostr(sha256)
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2235,6 +2240,7 @@ class LibBytes(Lib):
         return (size, s_common.ehex(sha2))
 
     async def _libBytesHashset(self, sha256):
+        sha256 = await tostr(sha256)
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)

@@ -137,9 +137,14 @@ class Cidr4(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
-        ip_str, mask_str = valu.split('/', 1)
 
-        mask_int = int(mask_str)
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
         if mask_int > 32 or mask_int < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid CIDR Mask')
@@ -1648,13 +1653,13 @@ class InetModule(s_module.CoreModule):
                         ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the destination host.',
                         }),
-                        ('dst:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the destination host.',
                         }),
                         ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the source host.',
                         }),
-                        ('src:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the source host.',
                         }),
                         ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {

@@ -52,7 +52,7 @@ async def main(argv, outp=s_output.stdout):
 
             capath = certdir.getCaCertPath(ahanetw)
             if capath is not None:
-                os.path.unlink(capath)
+                os.unlink(capath)
 
             byts = await prov.getCaCert()
             capath = certdir.saveCaCertByts(byts)
@@ -60,11 +60,11 @@ async def main(argv, outp=s_output.stdout):
 
             keypath = certdir.getUserKeyPath(username)
             if keypath is not None:
-                os.path.unlink(keypath)
+                os.unlink(keypath)
 
             crtpath = certdir.getUserCertPath(username)
             if crtpath is not None:
-                os.path.unlink(keypath)
+                os.unlink(crtpath)
 
             xcsr = certdir.genUserCsr(username)
             byts = await prov.signUserCsr(xcsr)

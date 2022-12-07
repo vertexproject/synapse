@@ -669,6 +669,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:str=b -> test:arrayprop:strsnosplit')
             self.len(1, nodes)
 
+            nodes = await core.nodes('[ test:guid=* :size=2 ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
+            self.len(1, nodes)
+
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:

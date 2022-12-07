@@ -594,52 +594,56 @@ Entrypoint Hooking
 Synapse service containers provide two ways that users can modify the container startup process, in order to execute
 their own scripts or commands.
 
-The first way is using a script that executes before services start can be configured set by mapping in a file at
-``/vertex/preboot/run`` and making sure it is marked as an executable. If this file is present, the file will be
-executed prior to booting the service. If this executable does not have return ``0``, the container will fail to start
-up.
+The first way to modify the startup process is using a script that executes before services start. This can be
+configured by mapping in a file at ``/vertex/boothooks/preboot.sh`` and making sure it is marked as an executable.
+If this file is present, the script will be executed prior to booting the service. If this does not return ``0``, the
+container will fail to start up.
 
 One example for using this hook is to use ``certbot`` to create HTTPS certificates for a Synapse service. This example
-assume the Cortex is running as root with, so that certbot can bind port 80 to perform the ``http-01`` challenge.
+assumes the Cortex is running as root, so that certbot can bind port 80 to perform the ``http-01`` challenge. Non-root
+deployments may require additional port mapping for a given deployment.
 
-Create a preboot directory::
+Create a boothooks directory::
 
-  mkdir -p /srv/syn/le.cortex/preboot
+  mkdir -p /srv/syn/00.cortex/bookhooks
 
-Copy the following script to ``/vertex/preboot/run`` and use ``chmod`` to mark it as an executable file:
+Copy the following script to ``/srv/syn/cortex/bookhooks/preboot.sh`` and use ``chmod`` to mark it as an executable
+file:
 
 .. literalinclude:: devguides/certbot.sh
     :language: bash
 
-That volume be mounted at ``/vertex/preboot``. The following docker-compose file shows mounting that directory into
-the container and setting environment variables for the script to use::
+That directory will be mounted at ``/vertex/boothooks``. The following docker-compose file shows mounting that
+directory into the container and setting environment variables for the script to use::
 
   version: "3.3"
   services:
-    le.cortex:
+    00.cortex:
       image: vertexproject/synapse-cortex:v2.x.x
       network_mode: host
       restart: unless-stopped
       volumes:
           - ./storage:/vertex/storage
-          - ./preboot:/vertex/preboot
+          - ./boothooks:/vertex/boothooks
       environment:
           SYN_LOG_LEVEL: "DEBUG"
           SYN_CORTEX_STORM_LOG: "true"
+          SYN_CORTEX_AHA_PROVISION: "ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>"
           CERTBOT_HOSTNAME: "cortex.acme.corp"
           CERTBOT_EMAIL: "user@acme.corp"
 
 When started, the container will attempt to run the script before starting the Cortex service.
 
-The second way is running a concurrent script can be set by mapping in a file at ``/vertex/concurrent/run``, also as
-an executable file. If this file is present, the file will be executed as a backgrounded task. This script executed
-prior to starting up the Synapse service. This executable would be stopped when the container is stopped.
+The second way to modify a container startup process is running a script concurrently to the service. This can be set
+by mapping in a file at ``/vertex/boothooks/concurrent.sh``, also as an executable file. If this file is present, the
+script is executed as a backgrounded task prior to starting up the Synapse service. This script would be stopped
+when the container is stopped.
 
 .. note::
 
-    If a volume is mapped into ``/vertex/preboot/`` or ``/vertex/concurrent/``, it will not be included in any backups
-    made by a Synapse service using the backup APIs. Making backups of any data persisted in these locations is
-    the responsibility of operator configuring the container.
+    If a volume is mapped into ``/vertex/boothooks/`` it will not be included in any backups made by a Synapse service
+    using the backup APIs. Making backups of any data persisted in these locations is the responsibility of the
+    operator configuring the container.
 
 
 Synapse Services

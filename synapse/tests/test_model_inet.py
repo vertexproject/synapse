@@ -276,6 +276,8 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/33')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/foo')
+            self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1')
 
             # Form Tests ======================================================
             valu = '192[.]168.1.123/24'
@@ -416,8 +418,8 @@ class InetModelTest(s_t_utils.SynTest):
             'tot:txcount': 63,
             'tot:txbytes': 3,
             'dst:handshake': 'OHai!',
-            'src:softnames': ('hehe', 'haha'),
-            'dst:softnames': ('foobar', 'bazfaz'),
+            'src:softnames': ('HeHe', 'haha'),
+            'dst:softnames': ('FooBar', 'bazfaz'),
             'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
             'dst:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
             'ip:proto': 6,
