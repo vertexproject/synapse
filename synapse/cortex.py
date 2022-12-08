@@ -2108,7 +2108,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             try:
                 self.certdir.valCodeCert(certbyts.encode())
             except OpenSSL.crypto.X509StoreContextError:
-                import traceback; traceback.print_exc()
                 mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
 
