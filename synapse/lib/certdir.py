@@ -9,6 +9,7 @@ from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.crypto.rsa as s_rsa
 
 defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
@@ -279,6 +280,102 @@ class CertDir:
 
         return pkey, cert
 
+    def genCodeCert(self, name, signas=None, outp=None, save=True):
+        '''
+        Generates a code signing keypair.
+
+        Args:
+            name (str): The name of the user keypair.
+            signas (str): The CA keypair to sign the new user keypair with.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Examples:
+            Generate a user cert for the user "myuser":
+
+                myuserkey, myusercert = cdir.genUserCert('myuser')
+
+        Returns:
+            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
+        '''
+        pkey, cert = self._genBasePkeyCert(name)
+
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'objsign'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'codeSigning'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+        ])
+
+        if signas is not None:
+            self.signCertAs(cert, signas)
+        else:
+            self.selfSignCert(cert, pkey)
+
+        if save:
+            crtpath = self._saveCertTo(cert, 'code', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
+
+            if not pkey._only_public:
+                keypath = self._savePkeyTo(pkey, 'code', '%s.key' % name)
+                if outp is not None:
+                    outp.printf('key saved: %s' % (keypath,))
+
+        return pkey, cert
+
+    def getCodeKeyPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'code', f'{name}.key')
+            if os.path.isfile(path):
+                return path
+
+    def getCodeCertPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'code', f'{name}.crt')
+            if os.path.isfile(path):
+                return path
+
+    def getCodeKey(self, name):
+
+        path = self.getCodeKeyPath(name)
+        if path is None:
+            return None
+
+        pkey = self._loadKeyPath(path)
+        return s_rsa.PriKey(pkey.to_cryptography_key())
+
+    def getCodeCert(self, name):
+
+        path = self.getCodeCertPath(name)
+        if path is None:
+            return None
+
+        return self._loadCertPath(path)
+
+    def _getCertExt(self, cert, name):
+        for i in range(cert.get_extension_count()):
+            ext = cert.get_extension(i)
+            if ext.get_short_name() == name:
+                return ext.get_data()
+
+    def valCodeCert(self, byts):
+
+        reqext = crypto.X509Extension(b'extendedKeyUsage', False, b'codeSigning')
+
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        if self._getCertExt(cert, b'extendedKeyUsage') != reqext.get_data():
+            mesg = 'Certificate is not for code signing.'
+            raise s_exc.SynErr(mesg=mesg)
+
+        cacerts = self.getCaCerts()
+
+        store = crypto.X509Store()
+        [store.add_cert(cacert) for cacert in cacerts]
+
+        ctx = crypto.X509StoreContext(store, cert)
+        ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        return cert
+
     def genClientCert(self, name, outp=None):
         '''
         Generates a user PKCS #12 archive.
@@ -399,6 +496,8 @@ class CertDir:
         for cdir in self.certdirs:
 
             path = s_common.genpath(cdir, 'cas')
+            if not os.path.isdir(path):
+                continue
 
             for name in os.listdir(path):
                 if not name.endswith('.crt'):
@@ -1124,6 +1223,9 @@ class CertDir:
         byts = self._getPathBytes(path)
         if byts:
             return self._loadCertByts(byts)
+
+    def loadCertByts(self, byts):
+        return self._loadCertByts(byts)
 
     def _loadCertByts(self, byts):
         return crypto.load_certificate(crypto.FILETYPE_PEM, byts)

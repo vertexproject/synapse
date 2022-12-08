@@ -22,6 +22,7 @@ def main(argv, outp=None):
 
     pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
     pars.add_argument('--p12', default=False, action='store_true', help='mark the certificate as a p12 archive')
+    pars.add_argument('--code', default=False, action='store_true', help='mark the certificate for use in code signing.')
     pars.add_argument('--server', default=False, action='store_true', help='mark the certificate as a server')
     pars.add_argument('--server-sans', help='server cert subject alternate names')
 
@@ -82,6 +83,10 @@ def main(argv, outp=None):
 
         if opts.server:
             cdir.genHostCert(opts.name, signas=opts.signas, outp=outp, sans=opts.server_sans)
+            return 0
+
+        if opts.code:
+            cdir.genCodeCert(opts.name, signas=opts.signas, outp=outp)
             return 0
 
         cdir.genUserCert(opts.name, signas=opts.signas, outp=outp)

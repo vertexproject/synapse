@@ -6,6 +6,8 @@ import logging
 import contextlib
 import collections
 
+import OpenSSL
+
 from collections.abc import Mapping
 
 import synapse
@@ -41,6 +43,8 @@ import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
+
+import synapse.lib.crypto.rsa as s_rsa
 
 # Importing these registers their commands
 import synapse.lib.stormhttp as s_stormhttp  # NOQA
@@ -787,9 +791,9 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
-    async def addStormPkg(self, pkgdef):
+    async def addStormPkg(self, pkgdef, verify=False):
         self.user.confirm(('pkg', 'add'))
-        return await self.cell.addStormPkg(pkgdef)
+        return await self.cell.addStormPkg(pkgdef, verify=verify)
 
     async def delStormPkg(self, iden):
         self.user.confirm(('pkg', 'del'))
@@ -2075,13 +2079,44 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
-    async def addStormPkg(self, pkgdef):
+    async def addStormPkg(self, pkgdef, verify=False):
         '''
         Add the given storm package to the cortex.
 
         This will store the package for future use.
         '''
         # do validation before nexs...
+        if verify:
+            pkgcopy = s_msgpack.deepcopy(pkgdef)
+            codesign = pkgcopy.pop('codesign', None)
+            if codesign is None:
+                mesg = 'Storm package is not signed!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            certbyts = codesign.get('cert')
+            if certbyts is None:
+                mesg = 'Storm package has no certificate!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            signbyts = codesign.get('sign')
+            if signbyts is None:
+                mesg = 'Storm package has no signature!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            cert = self.certdir.loadCertByts(certbyts)
+
+            try:
+                self.certdir.valCodeCert(certbyts.encode())
+            except OpenSSL.crypto.X509StoreContextError:
+                import traceback; traceback.print_exc()
+                mesg = 'Storm package has invalid certificate!'
+                raise s_exc.BadPkgDef(mesg=mesg) from None
+
+            pubk = s_rsa.PubKey(cert.get_pubkey().to_cryptography_key())
+            if not pubk.verifyitem(pkgcopy, s_common.uhex(signbyts)):
+                mesg = 'Storm package signature does not match!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
         await self._normStormPkg(pkgdef)
         return await self._push('pkg:add', pkgdef)
 

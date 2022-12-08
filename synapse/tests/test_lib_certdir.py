@@ -8,7 +8,10 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 import synapse.lib.certdir as s_certdir
+import synapse.tools.genpkg as s_genpkg
+import synapse.tools.easycert as s_easycert
 
+import synapse.lib.crypto.rsa as s_crypto_rsa
 
 class CertDirTest(s_t_utils.SynTest):
 
@@ -494,3 +497,79 @@ class CertDirTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoCertKey):
                 cdir.getClientSSLContext(certname='newp')
+
+    async def test_certdir_codesign(self):
+
+        async with self.getTestCore() as core:
+
+            caname = 'The Vertex Project LLC. CA ROOT'
+            codename = 'Vetex Build Pipeline'
+            core.certdir.genCaCert(caname)
+
+            certpath = s_common.genpath(core.dirn, 'certs')
+
+            self.eq(0, s_easycert.main(('--certdir', certpath, '--signas', caname, '--code', codename)))
+
+            rsak = core.certdir.getCodeKey(codename)
+            cert = core.certdir.getCodeCert(codename)
+
+            rsap = rsak.public()
+
+            self.eq(rsak.iden(), rsap.iden())
+
+            sign = rsak.signitem({'foo': 'bar', 'baz': 'faz'})
+            self.true(rsap.verifyitem({'baz': 'faz', 'foo': 'bar'}, sign))
+            self.false(rsap.verifyitem({'baz': 'faz', 'foo': 'gronk'}, sign))
+
+            with self.getTestDir() as dirn:
+
+                yamlpath = s_common.genpath(dirn, 'vertex-test.yaml')
+                jsonpath = s_common.genpath(dirn, 'vertex-test.json')
+
+                s_common.yamlsave({
+                    'name': 'vertex-test',
+                    'version': '0.0.1',
+                }, yamlpath)
+
+                await s_genpkg.main((
+                    '--signas', codename,
+                    '--certdir', certpath,
+                    '--push', core.getLocalUrl(), '--push-verify',
+                    yamlpath))
+
+                await s_genpkg.main((
+                    '--signas', codename,
+                    '--certdir', certpath,
+                    '--save', jsonpath,
+                    yamlpath))
+
+                pkgdef = s_common.yamlload(jsonpath)
+
+                opts = {'vars': {'pkgdef': pkgdef}}
+                self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts))
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef['version'] = '0.0.2'
+                    await core.addStormPkg(pkgdef, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package signature does not match!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    opts = {'vars': {'pkgdef': pkgdef}}
+                    await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts)
+                self.eq(exc.exception.get('mesg'), 'Storm package signature does not match!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef['codesign'].pop('sign', None)
+                    await core.addStormPkg(pkgdef, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has no signature!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef['codesign'].pop('cert', None)
+                    await core.addStormPkg(pkgdef, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has no certificate!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    pkgdef.pop('codesign', None)
+                    await core.addStormPkg(pkgdef, verify=True)
+
+                self.eq(exc.exception.get('mesg'), 'Storm package is not signed!')

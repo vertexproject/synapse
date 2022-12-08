@@ -109,6 +109,19 @@ def buid(valu=None):
     byts = s_msgpack.en(valu)
     return hashlib.sha256(byts).digest()
 
+def flatten(item):
+
+    if isinstance(item, (str, int, bytes)):
+        return item
+
+    if isinstance(item, (tuple, list)):
+        return tuple([flatten(i) for i in item])
+
+    if isinstance(item, dict):
+        return {flatten(k): flatten(item[k]) for k in sorted(item.keys())}
+
+    raise s_exc.BadDataValu(mesg=f'Unknown type: {type(item)}')
+
 def ehex(byts):
     '''
     Encode a bytes variable to a string using binascii.hexlify.
