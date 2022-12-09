@@ -2107,8 +2107,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             try:
                 self.certdir.valCodeCert(certbyts.encode())
-            except OpenSSL.crypto.X509StoreContextError:
-                mesg = 'Storm package has invalid certificate!'
+            except OpenSSL.crypto.X509StoreContextError as e:
+                if e.args:
+                    mesg = f'Storm package has invalid certificate: {e.args[0][2]}'
+                else:
+                    mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
 
             pubk = s_rsa.PubKey(cert.get_pubkey().to_cryptography_key())

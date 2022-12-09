@@ -1,9 +1,13 @@
+import io
 import os
 import ssl
+import time
 import shutil
 import socket
 import logging
 import collections
+
+import cryptography.hazmat.primitives.hashes as c_hashes
 
 from OpenSSL import crypto  # type: ignore
 
@@ -57,6 +61,47 @@ def _initTLSServerCiphers():
     return ciphers
 
 TLS_SERVER_CIPHERS = _initTLSServerCiphers()
+
+class CRL:
+
+    def __init__(self, certdir, name):
+
+        self.name = name
+        self.certdir = certdir
+        self.path = certdir.genCrlPath(name)
+
+        if os.path.isfile(self.path):
+            with io.open(self.path, 'rb') as fd:
+                self.opensslcrl = crypto.load_crl(crypto.FILETYPE_PEM, fd.read())
+
+        else:
+            self.opensslcrl = crypto.CRL()
+
+    def revoke(self, cert):
+
+        timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
+        revoked = crypto.Revoked()
+        revoked.set_reason(None)
+        revoked.set_rev_date(timestamp)
+        revoked.set_serial(b'%x' % cert.get_serial_number())
+
+        self.opensslcrl.add_revoked(revoked)
+        self._save(timestamp)
+
+    def _save(self, timestamp=None):
+
+        if timestamp is None:
+            timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
+
+        pkey = self.certdir.getCaKey(self.name)
+        cert = self.certdir.getCaCert(self.name)
+
+        self.opensslcrl.set_lastUpdate(timestamp)
+        self.opensslcrl.sign(cert, pkey, b'sha256')
+
+        with s_common.genfile(self.path) as fd:
+            fd.truncate(0)
+            fd.write(crypto.dump_crl(crypto.FILETYPE_PEM, self.opensslcrl))
 
 def getServerSSLContext() -> ssl.SSLContext:
     '''
@@ -367,14 +412,41 @@ class CertDir:
             mesg = 'Certificate is not for code signing.'
             raise s_exc.SynErr(mesg=mesg)
 
+        crls = self._getCaCrls()
         cacerts = self.getCaCerts()
 
         store = crypto.X509Store()
         [store.add_cert(cacert) for cacert in cacerts]
 
+        if crls:
+
+            store.set_flags(crypto.X509StoreFlags.CRL_CHECK | crypto.X509StoreFlags.CRL_CHECK_ALL)
+
+            [store.add_crl(crl) for crl in crls]
+
         ctx = crypto.X509StoreContext(store, cert)
         ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
         return cert
+
+    def _getCaCrls(self):
+
+        crls = []
+        for cdir in self.certdirs:
+
+            crlpath = os.path.join(cdir, 'crls')
+            if not os.path.isdir(crlpath):
+                continue
+
+            for name in os.listdir(crlpath):
+
+                if not name.endswith('.crl'):
+                    continue
+
+                fullpath = os.path.join(crlpath, name)
+                with io.open(fullpath, 'rb') as fd:
+                    crls.append(crypto.load_crl(crypto.FILETYPE_PEM, fd.read()))
+
+        return crls
 
     def genClientCert(self, name, outp=None):
         '''
@@ -1100,6 +1172,22 @@ class CertDir:
             return sslctx
 
         return self._getServerSSLContext(hostname=hostname, caname=caname)
+
+    def getCrlPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'crls', '%s.crl' % name)
+            if os.path.isfile(path):
+                return path
+
+    def genCrlPath(self, name):
+        path = self.getCrlPath(name)
+        if path is None:
+            s_common.gendir(self.certdirs[0], 'crls')
+            path = os.path.join(self.certdirs[0], 'crls', f'{name}.crl')
+        return path
+
+    def genCaCrl(self, name):
+        return CRL(self, name)
 
     def _getServerSSLContext(self, hostname=None, caname=None):
         sslctx = getServerSSLContext()

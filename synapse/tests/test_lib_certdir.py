@@ -6,8 +6,10 @@ from OpenSSL import crypto, SSL
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.tests.utils as s_t_utils
+import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.msgpack as s_msgpack
+import synapse.tests.utils as s_t_utils
 import synapse.tools.genpkg as s_genpkg
 import synapse.tools.easycert as s_easycert
 
@@ -502,13 +504,24 @@ class CertDirTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            caname = 'The Vertex Project LLC. CA ROOT'
+            caname = 'The Vertex Project ROOT CA'
+            immname = 'The Vertex Project Intermediate CA 00'
+
             codename = 'Vetex Build Pipeline'
-            core.certdir.genCaCert(caname)
 
             certpath = s_common.genpath(core.dirn, 'certs')
 
-            self.eq(0, s_easycert.main(('--certdir', certpath, '--signas', caname, '--code', codename)))
+            core.certdir.genCaCert(caname)
+            core.certdir.genCaCert(immname, signas=caname)
+
+            outp = s_output.OutPutStr()
+            self.eq(0, s_easycert.main(('--certdir', certpath, '--crl', caname), outp=outp))
+
+            outp = s_output.OutPutStr()
+            self.eq(0, s_easycert.main(('--certdir', certpath, '--crl', immname), outp=outp))
+
+            outp = s_output.OutPutStr()
+            self.eq(0, s_easycert.main(('--certdir', certpath, '--signas', immname, '--code', codename), outp=outp))
 
             rsak = core.certdir.getCodeKey(codename)
             cert = core.certdir.getCodeCert(codename)
@@ -544,6 +557,7 @@ class CertDirTest(s_t_utils.SynTest):
                     yamlpath))
 
                 pkgdef = s_common.yamlload(jsonpath)
+                pkgorig = s_msgpack.deepcopy(pkgdef)
 
                 opts = {'vars': {'pkgdef': pkgdef}}
                 self.none(await core.callStorm('return($lib.pkg.add($pkgdef, verify=$lib.true))', opts=opts))
@@ -573,3 +587,11 @@ class CertDirTest(s_t_utils.SynTest):
                     await core.addStormPkg(pkgdef, verify=True)
 
                 self.eq(exc.exception.get('mesg'), 'Storm package is not signed!')
+
+                # revoke our code signing cert and attempt to load
+                outp = s_output.OutPutStr()
+                self.eq(0, s_easycert.main(('--certdir', certpath, '--revokeas', immname, '--code', codename), outp=outp))
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.addStormPkg(pkgorig, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has invalid certificate: certificate revoked')

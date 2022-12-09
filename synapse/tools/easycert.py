@@ -21,6 +21,7 @@ def main(argv, outp=None):
     pars.add_argument('--importfile', choices=('cas', 'hosts', 'users'), help='import certs and/or keys into local certdir')
 
     pars.add_argument('--ca', default=False, action='store_true', help='mark the certificate as a CA/CRL signer')
+    pars.add_argument('--crl', default=False, action='store_true', help='Generate a new CRL for the given CA name.')
     pars.add_argument('--p12', default=False, action='store_true', help='mark the certificate as a p12 archive')
     pars.add_argument('--code', default=False, action='store_true', help='mark the certificate for use in code signing.')
     pars.add_argument('--server', default=False, action='store_true', help='mark the certificate as a server')
@@ -29,6 +30,7 @@ def main(argv, outp=None):
     pars.add_argument('--csr', default=False, action='store_true', help='generate a cert signing request')
     pars.add_argument('--sign-csr', default=False, action='store_true', help='sign a cert signing request')
     pars.add_argument('--signas', help='sign the new cert with the given cert name')
+    pars.add_argument('--revokeas', help='Revoke a cert as the given CA and add it to the CSR.')
 
     pars.add_argument('name', help='common name for the certificate (or filename for CSR signing)')
 
@@ -37,6 +39,42 @@ def main(argv, outp=None):
     cdir = s_certdir.CertDir(path=opts.certdir)
 
     try:
+
+        if opts.crl:
+
+            crl = cdir.genCaCrl(opts.name)
+            crl._save()
+
+            path = cdir.genCrlPath(opts.name)
+            outp.printf(f'CRL saved: {path}')
+
+            return 0
+
+        if opts.revokeas:
+
+            if opts.code:
+                cert = cdir.getCodeCert(opts.name)
+
+            elif opts.server:
+                cert = cdir.getUserCert(opts.name)
+
+            elif opts.ca:
+                cert = cdir.getCaCert(opts.name)
+
+            else:
+                cert = cdir.getUserCert(opts.name)
+
+            if cert is None:
+                outp.printf(f'Certificate not found: {opts.name}')
+                return 1
+
+            crl = cdir.genCaCrl(opts.revokeas)
+            crl.revoke(cert)
+
+            outp.printf(f'Certificate revoked: {opts.name}')
+            outp.printf(f'CRL updated: {opts.revokeas}')
+
+            return 0
 
         if opts.importfile:
             cdir.importFile(opts.name, opts.importfile, outp=outp)
