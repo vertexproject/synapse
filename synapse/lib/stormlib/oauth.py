@@ -271,7 +271,9 @@ class OAuthV2Lib(s_stormtypes.Lib):
         await self.runt.snap.core.oauth.setClientAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
 
     async def _getUserAccessToken(self, iden):
+        iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.core.oauth.getClientAccessToken(iden, self.runt.user.iden)
 
     async def _clearUserAccessToken(self, iden):
+        iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.core.oauth.clearClientAccessToken(iden, self.runt.user.iden)
