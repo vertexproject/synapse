@@ -76,7 +76,7 @@ the **Storm Package** YAML file to locate their contents::
 
         modules/
             acme.hello.storm
-            acme.privsep.storm
+            acme.hello.privsep.storm
 
         commands/
             acme.hello.sayhi.storm
