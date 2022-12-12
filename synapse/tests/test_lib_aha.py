@@ -711,7 +711,7 @@ class AhaTest(s_test.SynTest):
                         self.eq(providen, axon3providen)
 
                     # Ensure that the aha:provision value was popped from the cell.yaml file,
-                    # since that would have mismatcehd what was used to provision the mirror.
+                    # since that would have mismatched what was used to provision the mirror.
                     copied_conf = s_common.yamlload(axn3path, 'cell.yaml')
                     self.notin('aha:provision', copied_conf)
 
