@@ -715,7 +715,7 @@ class AhaTest(s_test.SynTest):
                     copied_conf = s_common.yamlload(axn3path, 'cell.yaml')
                     self.notin('aha:provision', copied_conf)
 
-                    # Turn the mirror back on with the provisioning url in the config
+                    # Turn the mirror back on with the provisioning url removed from the config
                     async with await s_axon.Axon.initFromArgv((axn3path,)) as axon3:
                         await axon3.sync()
                         self.true(axon.isactive)
