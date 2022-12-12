@@ -54,21 +54,22 @@ reqValidTokenResponse = s_config.getJsValidator({
     'required': ['access_token', 'expires_in'],
 })
 
+KEY_PART_LEN = 32
+REFRESH_WINDOW = 0.5  # refresh in REFRESH_WINDOW * expires_in
+
 class OAuthManager(s_nexus.Pusher):
     '''
     Organize and execute OAuth token refreshes.
     '''
 
-    async def __anit__(self, cell, nexsroot=None):
-        await s_nexus.Pusher.__anit__(self, 'oauth', nexsroot=nexsroot)
+    async def __anit__(self, cell):
+        await s_nexus.Pusher.__anit__(self, 'oauth', nexsroot=cell.nexsroot)
 
         self.cell = cell
 
         slab = self.cell.slab
         self.clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))     # key=<provideriden><useriden>
         self.providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers')) # key=<provideriden>
-
-        self.refresh_window = 0.5
 
         self.ssl = None
         cadir = self.cell.conf.get('tls:ca:dir')
@@ -206,7 +207,7 @@ class OAuthManager(s_nexus.Pusher):
             'access_token': data['access_token'],
             'expires_in': expires_in,
             'expires_at': issued_at + expires_in * 1000,
-            'refresh_at': issued_at + (expires_in * self.refresh_window) * 1000,
+            'refresh_at': issued_at + (expires_in * REFRESH_WINDOW) * 1000,
             'refresh_token': data.get('refresh_token'),
         }
 
@@ -278,7 +279,7 @@ class OAuthManager(s_nexus.Pusher):
                     return False, {'error': str(e)}
 
                 if attempts <= retries:
-                    await asyncio.sleep(2 ** (attempts - 1))
+                    await self.waitfini(2 ** (attempts - 1))
                     continue
 
                 return retn
@@ -335,7 +336,11 @@ class OAuthManager(s_nexus.Pusher):
         return None
 
     def listClients(self):
-        return [(iden[:32], iden[32:], copy.deepcopy(conf)) for iden, conf in self.clients.items()]
+        '''
+        Returns:
+            list: List of (provideriden, useriden, conf) for each client.
+        '''
+        return [(iden[:KEY_PART_LEN], iden[KEY_PART_LEN:], copy.deepcopy(conf)) for iden, conf in self.clients.items()]
 
     async def getClientAccessToken(self, provideriden, useriden):
 

@@ -1213,7 +1213,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addHealthFunc(self._cortexHealth)
 
-        self.oauth = await s_oauth.OAuthManager.anit(self, nexsroot=self.nexsroot)
+        self.oauth = await s_oauth.OAuthManager.anit(self)
         self.onfini(self.oauth)
 
         self.stormdmons = await s_storm.DmonManager.anit(self)
