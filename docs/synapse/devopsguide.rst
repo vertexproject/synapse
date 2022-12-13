@@ -570,7 +570,6 @@ The Telepath URLs can be provided to the Storm API as follows::
     $mirrors = ("aha://01.cortex...", "aha://02.cortex...")
     $lib.cell.trimNexsLog(consumers=$mirrors)
 
-
 .. _devops-deprecation-warnings:
 
 Viewing Deprecation Warnings
@@ -602,6 +601,138 @@ if a remote caller uses the ``eval()`` API on a Cortex, it would log the followi
       warnings.warn(mesg, DeprecationWarning)
 
 This would indicate the use of a deprecated API.
+
+Entrypoint Hooking
+------------------
+
+Synapse service containers provide two ways that users can modify the container startup process, in order to execute
+their own scripts or commands.
+
+The first way to modify the startup process is using a script that executes before services start. This can be
+configured by mapping in a file at ``/vertex/boothooks/preboot.sh`` and making sure it is marked as an executable.
+If this file is present, the script will be executed prior to booting the service. If this does not return ``0``, the
+container will fail to start up.
+
+One example for using this hook is to use ``certbot`` to create HTTPS certificates for a Synapse service. This example
+assumes the Cortex is running as root, so that certbot can bind port 80 to perform the ``http-01`` challenge. Non-root
+deployments may require additional port mapping for a given deployment.
+
+Create a boothooks directory::
+
+  mkdir -p /srv/syn/00.cortex/bookhooks
+
+Copy the following script to ``/srv/syn/cortex/bookhooks/preboot.sh`` and use ``chmod`` to mark it as an executable
+file:
+
+.. literalinclude:: devguides/certbot.sh
+    :language: bash
+
+That directory will be mounted at ``/vertex/boothooks``. The following docker-compose file shows mounting that
+directory into the container and setting environment variables for the script to use::
+
+  version: "3.3"
+  services:
+    00.cortex:
+      image: vertexproject/synapse-cortex:v2.x.x
+      network_mode: host
+      restart: unless-stopped
+      volumes:
+          - ./storage:/vertex/storage
+          - ./boothooks:/vertex/boothooks
+      environment:
+          SYN_LOG_LEVEL: "DEBUG"
+          SYN_CORTEX_STORM_LOG: "true"
+          SYN_CORTEX_AHA_PROVISION: "ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>"
+          CERTBOT_HOSTNAME: "cortex.acme.corp"
+          CERTBOT_EMAIL: "user@acme.corp"
+
+When started, the container will attempt to run the script before starting the Cortex service.
+
+The second way to modify a container startup process is running a script concurrently to the service. This can be set
+by mapping in a file at ``/vertex/boothooks/concurrent.sh``, also as an executable file. If this file is present, the
+script is executed as a backgrounded task prior to starting up the Synapse service. This script would be stopped
+when the container is stopped.
+
+.. note::
+
+    If a volume is mapped into ``/vertex/boothooks/`` it will not be included in any backups made by a Synapse service
+    using the backup APIs. Making backups of any data persisted in these locations is the responsibility of the
+    operator configuring the container.
+
+Containers with Custom Users
+----------------------------
+
+By default, Synapse service containers will work running as ``root`` ( uid 0 ) and ``synuser`` ( uid 999 ) without any
+modification. In order to run a Synapse service container as a different user that is not built into the container by
+default, the user, group and home directory need to be added to the image. This can be done with a custom Dockerfile to
+modify a container. For example, the following Dockerfile would add the user ``altuser`` to the Container with a user
+id value of 8888::
+
+    FROM vertexproject/synapse-cortex:v2.x.x
+    RUN set -ex \
+    && groupadd -g 8888 altuser \
+    && useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser \
+    && mkdir -p /home/altuser \
+    && chown 8888:8888 /home/altuser
+
+Running this with a ``docker build`` command can be used to create the image ``customcortex:v2.x.x``::
+
+    $ docker build -f Dockerfile --tag  customcortex:v2.x.x .
+    Sending build context to Docker daemon  4.608kB
+    Step 1/2 : FROM vertexproject/synapse-cortex:v2.113.0
+    ---> 8a2dd3465700
+    Step 2/2 : RUN set -ex && groupadd -g 8888 altuser && useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser && mkdir -p /home/altuser && chown 8888:8888 /home/altuser
+    ---> Running in 9c7b30365c2d
+    + groupadd -g 8888 altuser
+    + useradd -r --home-dir=/home/altuser -u 8888 -g altuser --shell /bin/bash altuser
+    + mkdir -p /home/altuser
+    + chown 8888:8888 /home/altuser
+    Removing intermediate container 9c7b30365c2d
+     ---> fd7173d42923
+    Successfully built fd7173d42923
+    Successfully tagged customcortex:v2.x.x
+
+That custom user can then be used to run the Cortex::
+
+    version: "3.3"
+    services:
+      00.cortex:
+        user: "8888"
+        image: customcortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+        - ./storage:/vertex/storage
+        environment:
+        - SYN_CORTEX_AXON=aha://axon...
+        - SYN_CORTEX_JSONSTOR=aha://jsonstor...
+        - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+
+The following bash script can be used to help automate this process, by adding the user to an image and appending
+the custom username to the image tag:
+
+.. literalinclude:: devguides/adduserimage.sh
+    :language: bash
+
+Saving this to ``adduserimage.sh``, it can then be used to quickly modify an image. The following example shows running
+this to add a user named ``foouser`` with the uid 1234::
+
+    $ ./adduserimage.sh vertexproject/synapse-aha:v2.113.0 foouser 1234
+    Add user/group foouser with 1234 into vertexproject/synapse-aha:v2.113.0, creating: vertexproject/synapse-aha:v2.113.0-foouser
+    Sending build context to Docker daemon  4.608kB
+    Step 1/2 : FROM vertexproject/synapse-aha:v2.113.0
+     ---> 53251b832df0
+    Step 2/2 : RUN set -ex && groupadd -g 1234 foouser && useradd -r --home-dir=/home/foouser -u 1234 -g foouser --shell /bin/bash foouser && mkdir -p /home/foouser && chown 1234:1234 /home/foouser
+     ---> Running in 1c9e793d6761
+    + groupadd -g 1234 foouser
+    + useradd -r --home-dir=/home/foouser -u 1234 -g foouser --shell /bin/bash foouser
+    + mkdir -p /home/foouser
+    + chown 1234:1234 /home/foouser
+    Removing intermediate container 1c9e793d6761
+     ---> 21a12f395462
+    Successfully built 21a12f395462
+    Successfully tagged vertexproject/synapse-aha:v2.113.0-foouser
+
 
 Synapse Services
 ================
@@ -659,7 +790,7 @@ accomplished using the ``withTeleEnv()`` context manager::
 
                 info = await proxy.getCellInfo()
                 print(repr(info))
-                
+
         return 0
 
     sys.exit(asyncio.run(main(sys.argv[1:]))))
