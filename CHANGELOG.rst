@@ -4,6 +4,34 @@
 Synapse Changelog
 *****************
 
+v2.116.0 - 2022-12-13
+=====================
+
+Bugfixes
+--------
+- The ``synapse.tools.genpkg`` tool could raise a Python ``TypeError`` when
+  the specified package file did not exist. It now raises a ``NoSuchFile``
+  exception.
+  (`#2941 <https://github.com/vertexproject/synapse/pull/2941>`_)
+- When a service is provisioned with an ``aha:provision`` URL placed in a
+  ``cell.yaml`` file, that could create an issue when a mirror is deployed
+  from that service, preventing it from starting up a second time. Services
+  now remove the ``aha:provision`` key from a ``cell.yaml`` file when they
+  are booted from a mirror if the URL does not match the boot URL.
+  (`#2939 <https://github.com/vertexproject/synapse/pull/2939>`_)
+- When deleting a node from the Cortex, secondary properties defined as arrays
+  were not checked for their references to other nodes. These references are
+  now properly checked prior to node deletion.
+  (`#2942 <https://github.com/vertexproject/synapse/pull/2942>`_)
+
+Improved Documentation
+----------------------
+- Add a Devops task for stamping custom users into Synapse containers to run
+  services with arbitrary user and group id values.
+  (`#2921 <https://github.com/vertexproject/synapse/pull/2921>`_)
+- Remove an invalid reference to ``insecure`` mode in HTTP API documentation.
+  (`#2938 <https://github.com/vertexproject/synapse/pull/2938>`_)
+
 v2.115.1 - 2022-12-02
 =====================
 
