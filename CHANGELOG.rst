@@ -6,6 +6,21 @@ Synapse Changelog
 
 v2.116.0 - 2022-12-13
 =====================
+Automatic Migrations
+--------------------
+- The ``ou:contract:award:price`` and ``ou:contract:budget:price`` properties
+  are migrated from ``econ:currency`` to ``econ:price`` types.
+  (`#2943 <https://github.com/vertexproject/synapse/pull/2943>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``ou`` model.
+  (`#2943 <https://github.com/vertexproject/synapse/pull/2943>`_)
+
+  ``ou:contract``
+    The ``award:price`` and ``budget:price`` properties had their types
+    changed from ``econ:currency`` to ``econ:price``.
 
 Bugfixes
 --------
