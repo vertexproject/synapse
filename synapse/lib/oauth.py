@@ -83,6 +83,7 @@ class OAuthManager(s_nexus.Pusher):
         self.schedule_heap = []
         self.schedule_task = None
         self.schedule_wake = asyncio.Event()
+        self.onfini(self.schedule_wake.set)
 
         # For testing
         self._schedule_empty = asyncio.Event()
@@ -104,9 +105,6 @@ class OAuthManager(s_nexus.Pusher):
         self.schedule_wake.clear()
 
     def _loadSchedule(self):
-        if not self.cell.isactive:
-            return
-
         self._clearSchedule()
 
         for provideriden, useriden, clientconf in self.listClients():
