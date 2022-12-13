@@ -1599,14 +1599,16 @@ class CellTest(s_t_utils.SynTest):
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
 
                     # Turning the service back on with the restore URL is fine too.
                     with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
                             # Take a backup of the cell with the restore.done file in place
@@ -1634,7 +1636,8 @@ class CellTest(s_t_utils.SynTest):
                     os.unlink(rpath)
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Removing existing') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
@@ -1645,7 +1648,8 @@ class CellTest(s_t_utils.SynTest):
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
