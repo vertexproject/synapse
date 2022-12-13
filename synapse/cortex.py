@@ -2885,7 +2885,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         _form = self.model.form(form)
         if _form is None:
-            raise s_exc.NoSuchForm(mesg='Form {form} does not exist.', name=form)
+            raise s_exc.NoSuchForm(mesg=f'Form {form} does not exist.', name=form)
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
@@ -4806,7 +4806,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        spooldict = await s_spooled.Dict.anit()
+        spooldict = await s_spooled.Dict.anit(dirn=self.dirn)
         async with await self.snap(user=user, view=view) as snap:
 
             async for pode in snap.iterStormPodes(text, opts=opts):

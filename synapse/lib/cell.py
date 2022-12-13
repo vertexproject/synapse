@@ -2319,7 +2319,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if not os.path.isfile(certpath):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
-                with s_common.getTempDir() as dirn:
+
+                tdir = s_common.gendir(self.dirn, 'tmp')
+                with s_common.getTempDir(dirn=tdir) as dirn:
                     cdir = s_certdir.CertDir(path=(dirn,))
                     pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
@@ -3020,6 +3022,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
+
+        # Remove aha:provision from cell.yaml if it exists and the iden differs.
+        mnfo = s_common.yamlload(self.dirn, 'cell.yaml')
+        if mnfo:
+            provurl = mnfo.get('aha:provision', None)
+            if provurl:
+                murlinfo = s_telepath.chopurl(provurl)
+                miden = murlinfo.get('path').strip('/')
+                if miden != providen:
+                    s_common.yamlpop('aha:provision', self.dirn, 'cell.yaml')
+                    logger.debug('Removed aha:provision from cell.yaml')
 
         await self._bootProvConf(provconf)
 

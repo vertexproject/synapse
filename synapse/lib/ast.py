@@ -260,7 +260,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit()
+            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn)
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
@@ -743,6 +743,9 @@ class ForLoop(Oper):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
+
                     for x, y in itertools.zip_longest(name, item):
                         await path.setVar(x, y)
                         await runt.setVar(x, y)
@@ -796,6 +799,9 @@ class ForLoop(Oper):
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
 
                     for x, y in itertools.zip_longest(name, item):
                         await runt.setVar(x, y)
@@ -1688,11 +1694,11 @@ class PivotIn(PivotOper):
 
         name, valu = node.ndef
 
-        for prop in runt.model.propsbytype.get(name, ()):
+        for prop in runt.model.getPropsByType(name):
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
-        for prop in runt.model.arraysbytype.get(name, ()):
+        for prop in runt.model.getArrayPropsByType(name):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
@@ -2050,7 +2056,12 @@ class PropPivot(PivotOper):
 
                     continue
 
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                if prop.type.isarray and not srcprop.type.isarray:
+                    genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                else:
+                    genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+
+                async for pivo in genr:
                     yield pivo, path.fork(pivo)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:

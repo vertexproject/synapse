@@ -4,6 +4,78 @@
 Synapse Changelog
 *****************
 
+v2.115.1 - 2022-12-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Patch release to include an updated version of the ``pytest`` library in
+  containers.
+
+v2.115.0 - 2022-12-01
+=====================
+
+Automatic Migrations
+--------------------
+- The ``inet:flow:dst:softnames`` and ``inet:flow:dst:softnames`` properties
+  are migrated from ``it:dev:str`` to ``it:prod:softname`` types.
+  (`#2930 <https://github.com/vertexproject/synapse/pull/2930>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``inet`` model.
+  (`#2930 <https://github.com/vertexproject/synapse/pull/2930>`_)
+
+  ``inet:flow``
+    The ``dst:softnames`` and ``src:softnames`` properties had their types
+    changed from ``it:dev:str`` values to ``it:prod:softname``.
+
+- Add support for secondary property pivots where the target property is an
+  array type.
+  (`#2922 <https://github.com/vertexproject/synapse/pull/2922>`_)
+- The Storm API ``$lib.bytes.has()`` now returns a false value when the input
+  is null.
+  (`#2924 <https://github.com/vertexproject/synapse/pull/2924>`_)
+- When unpacking loop values in Storm, use the primitive value when the item
+  being unpacked is a Storm primitive.
+  (`#2928 <https://github.com/vertexproject/synapse/pull/2928>`_)
+- Add a ``--del`` option to the ``synapse.tools.moduser`` tool to allow
+  removing a user from a service.
+  (`#2933 <https://github.com/vertexproject/synapse/pull/2933>`_)
+- Add entrypoint hooks to the Aha, Axon, Cortex, Cryotank, and JsonStor
+  containers that allow a user to hook the container boot process.
+  (`#2919 <https://github.com/vertexproject/synapse/pull/2919>`_)
+- Temporary files created by the Axon, Cortex and base Cell class are now
+  created in the cell local ``tmp`` directory. In many deployments, this would
+  be located in ``/vertex/storage/tmp``.
+  (`#2925 <https://github.com/vertexproject/synapse/pull/2925>`_)
+- Update the allowed versions of the ``cbor2`` and ``pycryptodome``
+  libraries. For users installing ``synapse[dev]``, ``coverage``,
+  ``pytest``, ``pytest-cov`` and ``pytest-xdist`` are also updated to
+  their latest versions.
+  (`#2935 <https://github.com/vertexproject/synapse/pull/2935>`_)
+
+Bugfixes
+--------
+- When a Storm Dmon definition lacked a ``view`` iden, it would previously
+  default to using the Cortex default view. Dmons now prefer to use the user
+  default view before using the Cortex default view. This situation would only
+  happen with Dmons created via the Telepath API where the ``view`` iden was
+  not provided in the Dmon definition.
+  (`#2929 <https://github.com/vertexproject/synapse/pull/2929>`_)
+- Non-integer mask values provided to ``inet:cidr4`` types now raise a
+  ``BadTypeValu`` exception.
+  (`#2932 <https://github.com/vertexproject/synapse/pull/2932>`_)
+- Fix an incorrect call to ``os.unlink`` in ``synapse.tools.aha.enroll``.
+  (`#2926 <https://github.com/vertexproject/synapse/pull/2926>`_)
+
+Improved Documentation
+----------------------
+- Update the automation section of the Synapse User guide, expanding upon
+  the use of cron jobs and triggers across views and forks.
+  (`#2917 <https://github.com/vertexproject/synapse/pull/2917>`_)
+
 v2.114.0 - 2022-11-15
 =====================
 

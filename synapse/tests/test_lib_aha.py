@@ -579,19 +579,24 @@ class AhaTest(s_test.SynTest):
                     self.isin('one-time use URL:', str(outp))
 
                     provurl = str(outp).split(':', 1)[1].strip()
-                    with self.getTestDir() as syndir:
-                        with mock.patch('synapse.common.syndir', syndir):
+                    with self.getTestSynDir() as syndir:
 
-                            outp = s_output.OutPutStr()
-                            await s_tools_enroll.main((provurl,), outp=outp)
+                        capath = s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')
+                        crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')
+                        keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')
 
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')))
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')))
-                            self.true(os.path.isfile(s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')))
+                        for path in (capath, crtpath, keypath):
+                            s_common.genfile(path)
 
-                            teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
-                            self.eq(teleyaml.get('version'), 1)
-                            self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
+                        outp = s_output.OutPutStr()
+                        await s_tools_enroll.main((provurl,), outp=outp)
+
+                        for path in (capath, crtpath, keypath):
+                            self.gt(os.path.getsize(path), 0)
+
+                        teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
+                        self.eq(teleyaml.get('version'), 1)
+                        self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
@@ -603,6 +608,7 @@ class AhaTest(s_test.SynTest):
 
                 onetime = await aha.addAhaSvcProv('00.axon')
                 axonconf = {
+                    'https:port': None,
                     'aha:provision': onetime,
                 }
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
@@ -653,9 +659,7 @@ class AhaTest(s_test.SynTest):
                     self.ne(axonproviden, providen)
 
                     # Punch the provisioning URL in like a environment variable
-                    with self.setTstEnvars(SYN_AXON_AHA_PROVISION=provurl,
-                                           SYN_AXON_HTTPS_PORT='null',
-                                           ):
+                    with self.setTstEnvars(SYN_AXON_AHA_PROVISION=provurl):
 
                         async with await s_axon.Axon.initFromArgv((axn2path,)) as axon2:
                             await axon2.sync()
@@ -673,6 +677,50 @@ class AhaTest(s_test.SynTest):
                             self.true(axon.isactive)
                             self.false(axon2.isactive)
                             self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+
+                # Provision a mirror using aha:provision in the mirror cell.yaml as well.
+                # This is similar to the previous test block.
+                axn3path = s_common.genpath(dirn, 'axon3')
+
+                argv = ['--url', aha.getLocalUrl(), '02.axon', '--mirror', 'axon']
+                outp = s_output.OutPutStr()
+                await s_tools_provision_service.main(argv, outp=outp)
+                self.isin('one-time use URL: ', str(outp))
+                provurl = str(outp).split(':', 1)[1].strip()
+                urlinfo = s_telepath.chopurl(provurl)
+                providen = urlinfo.get('path').strip('/')
+
+                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+
+                    with s_common.genfile(axonpath, 'prov.done') as fd:
+                        axonproviden = fd.read().decode().strip()
+                    self.ne(axonproviden, providen)
+
+                    axon2conf = {
+                        'aha:provision': provurl,
+                    }
+                    s_common.yamlsave(axon2conf, axn3path, 'cell.yaml')
+                    async with await s_axon.Axon.initFromArgv((axn3path,)) as axon03:
+                        await axon03.sync()
+                        self.true(axon.isactive)
+                        self.false(axon03.isactive)
+                        self.eq('aha://root@axon.loop.vertex.link', axon03.conf.get('mirror'))
+
+                        with s_common.genfile(axn3path, 'prov.done') as fd:
+                            axon3providen = fd.read().decode().strip()
+                        self.eq(providen, axon3providen)
+
+                    # Ensure that the aha:provision value was popped from the cell.yaml file,
+                    # since that would have mismatched what was used to provision the mirror.
+                    copied_conf = s_common.yamlload(axn3path, 'cell.yaml')
+                    self.notin('aha:provision', copied_conf)
+
+                    # Turn the mirror back on with the provisioning url removed from the config
+                    async with await s_axon.Axon.initFromArgv((axn3path,)) as axon3:
+                        await axon3.sync()
+                        self.true(axon.isactive)
+                        self.false(axon3.isactive)
+                        self.eq('aha://root@axon.loop.vertex.link', axon03.conf.get('mirror'))
 
                 # Ensure we can provision a service on a given listening ports
                 with self.raises(AssertionError):
