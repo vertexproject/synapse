@@ -297,8 +297,8 @@ log message pretty-printed log message::
 Configure Free Space Requirement
 --------------------------------
 
-To avoid data corruption due to lack of disk space, Synapse services periodically check
-the amount of free space available and will switch to read-only mode if they are below
+To avoid the risk of data corruption due to lack of disk space, Synapse services periodically
+check the amount of free space available and will switch to read-only mode if they are below
 a minimum threshold. This threshold can be controlled via the ``limit:disk:free`` configuration
 option, and is set to 5% free space by default.
 
