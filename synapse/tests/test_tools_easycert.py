@@ -150,3 +150,14 @@ class TestEasyCert(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = ['--importfile', 'cas', '--certdir', tstpath, 'nope']
             self.raises(s_exc.NoSuchFile, s_easycert.main, argv, outp=outp)
+
+    def test_easycert_revokeas(self):
+
+        with self.getTestDir() as dirn:
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'woot')))
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', 'newp@newp.newp')))
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', '--server', 'newp.newp')))
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'newp@newp.newp')))
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', '--server', 'newp.newp')))
+
+            self.eq(1, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'noexist')))

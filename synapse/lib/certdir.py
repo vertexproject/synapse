@@ -353,8 +353,6 @@ class CertDir:
 
         if signas is not None:
             self.signCertAs(cert, signas)
-        else:
-            self.selfSignCert(cert, pkey)
 
         if save:
             crtpath = self._saveCertTo(cert, 'code', '%s.crt' % name)
@@ -392,7 +390,7 @@ class CertDir:
     def getCodeCert(self, name):
 
         path = self.getCodeCertPath(name)
-        if path is None:
+        if path is None: # pragma: no cover
             return None
 
         return self._loadCertPath(path)
@@ -439,7 +437,7 @@ class CertDir:
 
             for name in os.listdir(crlpath):
 
-                if not name.endswith('.crl'):
+                if not name.endswith('.crl'): # pragma: no cover
                     continue
 
                 fullpath = os.path.join(crlpath, name)
@@ -572,7 +570,8 @@ class CertDir:
                 continue
 
             for name in os.listdir(path):
-                if not name.endswith('.crt'):
+
+                if not name.endswith('.crt'): # pragma: no cover
                     continue
 
                 full = s_common.genpath(cdir, 'cas', name)

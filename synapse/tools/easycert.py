@@ -56,7 +56,7 @@ def main(argv, outp=None):
                 cert = cdir.getCodeCert(opts.name)
 
             elif opts.server:
-                cert = cdir.getUserCert(opts.name)
+                cert = cdir.getHostCert(opts.name)
 
             elif opts.ca:
                 cert = cdir.getCaCert(opts.name)

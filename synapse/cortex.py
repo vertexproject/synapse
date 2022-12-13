@@ -2115,7 +2115,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     else: # pragma: no cover
                         errstr = e.args[0][2]
                     mesg = f'Storm package has invalid certificate: {errstr}'
-                else:
+                else: # pragma: no cover
                     mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
 

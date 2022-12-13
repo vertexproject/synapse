@@ -119,6 +119,4 @@ class PubKey:
         Returns:
             PubKey: A new PubKey instance.
         '''
-        return PubKey(c_ser.load_der_public_key(
-                byts,
-                backend=default_backend()))
+        return PubKey(c_ser.load_der_public_key(byts, backend=default_backend()))
