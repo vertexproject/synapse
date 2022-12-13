@@ -251,7 +251,7 @@ class TestUtils(s_t_utils.SynTest):
             with self.getTestCertDir(path) as certdir:
 
                 # The singleton functionality now refers to the patched objects
-                self.eq(certdir.pathrefs, {path: 1})
+                self.eq(1, certdir.pathrefs[path])
                 self.true(certdir is s_certdir.getCertDir())
                 self.false(oldcertdir is s_certdir.getCertDir())
 
@@ -261,12 +261,14 @@ class TestUtils(s_t_utils.SynTest):
                 # Adding / deleting paths does not affect the old singleton
                 newpath = s_common.genpath(dirn, 'hehe')
                 s_certdir.addCertPath(newpath)
-                self.eq(certdir.pathrefs, {path: 1, newpath: 1})
-                self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
+                self.eq(1, certdir.pathrefs[path])
+                self.eq(1, certdir.pathrefs[newpath])
+                self.eq(1, oldcertdir.pathrefs[oldcertdirn])
 
                 s_certdir.delCertPath(newpath)
-                self.eq(certdir.pathrefs, {path: 1})
-                self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
+                self.eq(1, certdir.pathrefs[path])
+                self.eq(None, certdir.pathrefs.get(newpath))
+                self.eq(1, oldcertdir.pathrefs[oldcertdirn])
 
         # Patch is removed and singleton behavior is restored
         self.true(oldcertdir is s_certdir.getCertDir())
