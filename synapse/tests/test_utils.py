@@ -241,7 +241,8 @@ class TestUtils(s_t_utils.SynTest):
     def test_utils_certdir(self):
         oldcertdirn = s_certdir.getCertDirn()
         oldcertdir = s_certdir.getCertDir()
-        self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
+
+        self.eq(1, oldcertdir.pathrefs[oldcertdirn])
 
         with self.getTestDir() as dirn:
             path = s_common.genpath(dirn, 'haha')
