@@ -47,22 +47,6 @@ class PriKey:
         byts = s_msgpack.en(s_common.flatten(item))
         return self.sign(byts)
 
-    def exchange(self, pubkey):
-        '''
-        Perform a ECDH key exchange with a public key.
-
-        Args:
-            pubkey (PubKey): A PubKey to perform the ECDH with.
-
-        Returns:
-            bytes: The ECDH bytes. This is deterministic for a given pubkey
-            and private key.
-        '''
-        try:
-            return self.priv.exchange(c_ec.ECDH(), pubkey.publ)
-        except ValueError as e:
-            raise s_exc.BadEccExchange(mesg=str(e))
-
     def public(self):
         '''
         Get the PubKey which corresponds to the RSA PriKey.
