@@ -25,6 +25,7 @@ reqValidProvider = s_config.getJsValidator({
         'client_id': {'type': 'string'},
         'client_secret': {'type': 'string'},
         'scope': {'type': 'string'},
+        'ssl_verify': {'type': 'boolean', 'default': True},
         'auth_uri': {'type': 'string'},
         'token_uri': {'type': 'string'},
         'redirect_uri': {'type': 'string'},
@@ -212,6 +213,9 @@ class OAuthManager(s_nexus.Pusher):
         }
 
     async def _getAccessToken(self, providerconf, authcode, code_verifier=None):
+        token_uri = providerconf['token_uri']
+        ssl_verify = providerconf['ssl_verify']
+
         formdata = aiohttp.FormData()
         formdata.add_field('grant_type', 'authorization_code')
         formdata.add_field('scope', providerconf['scope'])
@@ -221,9 +225,11 @@ class OAuthManager(s_nexus.Pusher):
             formdata.add_field('code_verifier', code_verifier)
 
         auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
-        return await self._fetchToken(providerconf['token_uri'], auth, formdata)
+        return await self._fetchToken(token_uri, auth, formdata, ssl_verify=ssl_verify)
 
     async def _refreshAccessToken(self, providerconf, clientconf):
+        token_uri = providerconf['token_uri']
+        ssl_verify = providerconf['ssl_verify']
         refresh_token = clientconf['refresh_token']
 
         formdata = aiohttp.FormData()
@@ -231,14 +237,14 @@ class OAuthManager(s_nexus.Pusher):
         formdata.add_field('refresh_token', refresh_token)
 
         auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
-        ok, data = await self._fetchToken(providerconf['token_uri'], auth, formdata, retries=3)
+        ok, data = await self._fetchToken(token_uri, auth, formdata, ssl_verify=ssl_verify, retries=3)
         if ok and not data.get('refresh_token'):
             # if a refresh_token is not provided in the response persist the existing token
             data['refresh_token'] = refresh_token
 
         return ok, data
 
-    async def _fetchToken(self, url, auth, formdata, retries=1):
+    async def _fetchToken(self, url, auth, formdata, ssl_verify=True, retries=1):
 
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -248,13 +254,21 @@ class OAuthManager(s_nexus.Pusher):
         attempts = 0
         issued_at = s_common.now()
 
+        cadir = self.cell.conf.get('tls:ca:dir')
+        if ssl_verify is False:
+            ssl = False
+        elif cadir:
+            ssl = s_common.getSslCtx(cadir)
+        else:
+            ssl = None
+
         async with aiohttp.ClientSession(timeout=self.timeout) as sess:
 
             while True:
                 attempts += 1
 
                 try:
-                    async with sess.post(url, auth=auth, headers=headers, data=formdata, ssl=self.ssl) as resp:
+                    async with sess.post(url, auth=auth, headers=headers, data=formdata, ssl=ssl) as resp:
 
                         if resp.status == 200:
                             data = await resp.json()

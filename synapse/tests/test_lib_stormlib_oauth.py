@@ -292,6 +292,8 @@ class OAuthTest(s_test.SynTest):
                     }
 
                     expconf00 = {
+                        # default values
+                        'ssl_verify': True,
                         **providerconf00,
                         # default values currently not configurable by the user
                         'flow_type': 'authorization_code',
@@ -357,15 +359,19 @@ class OAuthTest(s_test.SynTest):
                     ''', opts=opts)
                     self.stormIsInErr('OAuth V2 provider has not been configured', mesgs)
 
-                    # set the user auth code - SSL is always enabled
+                    # try setting the user auth code and encounter an error
                     mesgs = await core01.stormlist('''
                         $iden = $providerconf.iden
                         $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
                     ''', opts=opts)
                     self.stormIsInErr('certificate verify failed', mesgs)
 
-                    core00.oauth.ssl = False
-                    core01.oauth.ssl = False
+                    providerconf00['ssl_verify'] = False
+                    expconf00['ssl_verify'] = False
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
+                        $lib.inet.http.oauth.v2.addProvider($providerconf)
+                    ''', opts=opts)
 
                     # set the user auth code
                     core00.oauth._schedule_item_ran.clear()
