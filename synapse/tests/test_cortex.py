@@ -3576,7 +3576,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=opts))
 
                 q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
-                await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
+                await self.asyncraises(s_exc.CantDelGraph, core.nodes(q, opts=opts))
 
                 self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 

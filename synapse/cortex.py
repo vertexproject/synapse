@@ -1435,6 +1435,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.reqValidStormGraph(gdef)
 
+        if gdef['scope'] == 'power-up':
+            mesg = 'Power-up graph projections may only be added by power-ups.'
+            raise s_exc.SynErr(mesg=mesg)
+
         iden = gdef['iden']
         if self.graphs.get(iden) is not None:
             return
@@ -1462,13 +1466,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         if gdef['scope'] == 'power-up':
-            self.pkggraphs.pop(iden, None)
+            mesg = 'Power-up graph projections may not be deleted.'
+            raise s_exc.CantDelGraph(mesg=mesg)
+
+        self.graphs.pop(iden)
+        if gdef['scope'] == 'global':
+            self.globalgraphs.pop(iden, None)
         else:
-            self.graphs.pop(iden)
-            if gdef['scope'] == 'global':
-                self.globalgraphs.pop(iden, None)
-            else:
-                self.usergraphs[gdef['creatoriden']].pop(iden, None)
+            self.usergraphs[gdef['creatoriden']].pop(iden, None)
 
         await self.feedBeholder('storm:graph:del', {'iden': iden})
 
@@ -1836,7 +1841,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if gdef['scope'] == 'global':
                 self.globalgraphs[iden] = gdef
             else:
-                self.usergraphs[gdef['creatoriden']] = gdef
+                self.usergraphs[gdef['creatoriden']][iden] = gdef
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)

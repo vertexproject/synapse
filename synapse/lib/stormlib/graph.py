@@ -155,23 +155,16 @@ class GraphLib(s_stormtypes.Lib):
 
     async def _methGraphDel(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        if self.runt.isAdmin():
-            gdef = await self.runt.snap.core.getStormGraph(iden)
-        else:
-            gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
-
-        if gdef is None:
-            mesg = f'No graph projection exists with iden {iden}.'
-            raise s_exc.NoSuchIden(mesg=mesg)
+        gdef = await self._methGraphGet(iden)
 
         scope = gdef['scope']
         if scope == 'global':
             if gdef['creatoriden'] != self.runt.user.iden:
                 self.runt.confirm(('graph', 'del'), None)
 
-        elif scope == 'power-up' and not self.runt.isAdmin():
-            mesg = 'Deleting power-up graph projections requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+        elif scope == 'power-up':
+            mesg = 'Power-up graph projections may not be deleted.'
+            raise s_exc.CantDelGraph(mesg=mesg)
 
         await self.runt.snap.core.delStormGraph(iden)
 
@@ -188,14 +181,5 @@ class GraphLib(s_stormtypes.Lib):
         return list(sorted(projs, key=lambda x: x.get('name')))
 
     async def _methGraphActivate(self, iden):
-        iden = await s_stormtypes.tostr(iden)
-        if self.runt.isAdmin():
-            gdef = await self.runt.snap.core.getStormGraph(iden)
-        else:
-            gdef = await self.runt.snap.core.getStormGraph(iden, useriden=self.runt.user.iden)
-
-        if gdef is None:
-            mesg = f'No graph projection exists with iden {iden}.'
-            raise s_exc.NoSuchIden(mesg=mesg)
-
+        gdef = await self._methGraphGet(iden)
         self.runt.setGraph(gdef)
