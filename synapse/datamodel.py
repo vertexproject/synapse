@@ -578,6 +578,10 @@ class Model:
         # TODO order props based on score...
         return props
 
+    def getArrayPropsByType(self, name):
+        props = self.arraysbytype.get(name, ())
+        return props
+
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
                 if not (isinstance(pname, tuple))]
