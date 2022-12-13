@@ -953,7 +953,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
-    MIN_SPACE_CHECK_FREQ = 60.0
+    FREE_SPACE_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -981,12 +981,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
 
-        self.minspace = self.conf.get('cell:minspace')
-        if self.minspace is not None:
-            self.minspace = self.minspace / 100
+        self.minfree = self.conf.get('limit:disk:free')
+        if self.minfree is not None:
+            self.minfree = self.minfree / 100
 
             disk = shutil.disk_usage(self.dirn)
-            if (disk.free / disk.total) <= self.minspace:
+            if (disk.free / disk.total) <= self.minfree:
                 free = disk.free / disk.total * 100
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
@@ -1174,14 +1174,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
-    async def _runMinSpaceLoop(self):
+    async def _runFreeSpaceLoop(self):
 
         nexsroot = self.getCellNexsRoot()
 
         while not self.isfini:
             disk = shutil.disk_usage(self.dirn)
 
-            if (disk.free / disk.total) <= self.minspace:
+            if (disk.free / disk.total) <= self.minfree:
 
                 await self._setReadOnly(True)
                 nexsroot.readonly = True
@@ -1200,7 +1200,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
                 logger.warning(mesg)
 
-            await asyncio.sleep(self.MIN_SPACE_CHECK_FREQ)
+            await asyncio.sleep(self.FREE_SPACE_CHECK_FREQ)
 
     async def _setReadOnly(self, valu):
         # implement any behavior necessary to change the cell read-only status
@@ -1265,8 +1265,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
 
-            if self.minspace is not None:
-                self.schedCoro(self._runMinSpaceLoop())
+            if self.minfree is not None:
+                self.schedCoro(self._runFreeSpaceLoop())
 
     async def initServiceNetwork(self):
 
