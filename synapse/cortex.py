@@ -2108,8 +2108,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             try:
                 self.certdir.valCodeCert(certbyts.encode())
             except OpenSSL.crypto.X509StoreContextError as e:
+                # account for backward incompatible openssl changes...
                 if e.args:
-                    mesg = f'Storm package has invalid certificate: {e.args[0][2]}'
+                    if isinstance(e.args[0], str):
+                        errstr = e.args[0]
+                    else:
+                        errstr = e.args[0][2]
+                    mesg = f'Storm package has invalid certificate: {errstr}'
                 else:
                     mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
