@@ -3597,13 +3597,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
+                visi = await core.auth.addUser('visi')
+                opts = {'user': visi.iden}
+
                 await core.addStormPkg(otherpkg)
-                await core.nodes('$lib.graph.add(({"name": "foo"}))')
-                await core.nodes('$lib.graph.add(({"name": "foo"}), public=$lib.true)')
-                self.len(3, await core.callStorm('return($lib.graph.list())'))
+                await core.nodes('$lib.graph.add(({"name": "foo"}))', opts=opts)
+                await core.nodes('$lib.graph.add(({"name": "bar"}), public=$lib.true)')
+                self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.len(3, await core.callStorm('return($lib.graph.list())'))
+                self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
