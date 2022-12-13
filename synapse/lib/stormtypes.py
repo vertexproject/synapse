@@ -544,7 +544,8 @@ class LibPkg(Lib):
          'type': {'type': 'function', '_funcname': '_libPkgAdd',
                   'args': (
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
-                      {'name': 'verify', 'type': 'boolean', 'desc': 'Verify storm package signature.', },
+                      {'name': 'verify', 'type': 'boolean', 'default': False,
+                       'desc': 'Verify storm package signature.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
