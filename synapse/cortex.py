@@ -2112,7 +2112,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 if e.args:
                     if isinstance(e.args[0], str):
                         errstr = e.args[0]
-                    else:
+                    else: # pragma: no cover
                         errstr = e.args[0][2]
                     mesg = f'Storm package has invalid certificate: {errstr}'
                 else:
