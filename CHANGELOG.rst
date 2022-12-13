@@ -6,6 +6,7 @@ Synapse Changelog
 
 v2.116.0 - 2022-12-13
 =====================
+
 Automatic Migrations
 --------------------
 - The ``ou:contract:award:price`` and ``ou:contract:budget:price`` properties
