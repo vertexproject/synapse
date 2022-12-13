@@ -1726,7 +1726,7 @@ class CellTest(s_t_utils.SynTest):
             await orig(self, valu)
             revt.set()
 
-        with mock.patch.object(s_cell.Cell, 'MIN_SPACE_CHECK_FREQ', 0.1), \
+        with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
              mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
 
             async with self.getTestCore() as core:
