@@ -108,6 +108,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     full = s_common.genpath(path)
     pkgdef = s_common.yamlload(full)
+    if pkgdef is None:
+        raise s_exc.NoSuchFile(mesg=f'File {full} does not exist or is empty.', path=full)
 
     version = pkgdef.get('version')
     if isinstance(version, (tuple, list)):

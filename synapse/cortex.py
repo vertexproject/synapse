@@ -2787,7 +2787,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         _form = self.model.form(form)
         if _form is None:
-            raise s_exc.NoSuchForm(mesg='Form {form} does not exist.', name=form)
+            raise s_exc.NoSuchForm(mesg=f'Form {form} does not exist.', name=form)
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
