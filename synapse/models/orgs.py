@@ -425,28 +425,39 @@ class OuModule(s_module.CoreModule):
                         'disp': {'hint': 'taxonomy'},
                     }),
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the campaign.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the campaign.'}),
 
-                    ('period', ('ival', {}), {}),
-                    ('currency', ('econ:currency', {}), {}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time interval when the organization was running the campaign.'}),
 
-                    ('cost', ('econ:price', {}), {}),
-                    ('budget', ('econ:price', {}), {}),
+                    ('cost', ('econ:price', {}), {
+                        'doc': 'The actual cost to the organization.'}),
 
-                    ('goal:revenue', ('econ:price', {}), {}),
+                    ('budget', ('econ:price', {}), {
+                        'doc': 'The budget allocated by the organization to execute the campaign.'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used to record econ:price properties.'}),
+
+                    ('goal:revenue', ('econ:price', {}), {
+                        'doc': 'A goal for revenue resulting from the campaign.'}),
+
                     ('result:revenue', ('econ:price', {}), {}),
+                        'doc': 'The revenue resulting from the campaign.'}),
 
-                    ('goal:pop', ('int', {}), {}),
-                    ('result:pop', ('int', {}), {}),
+                    ('goal:pop', ('int', {}), {
+                        'doc': 'A goal for the number of people effected by the campaign.'}),
+
+                    ('result:pop', ('int', {}), {
+                        'doc': 'The count of people effected by the campaign.'}),
 
                     ('team', ('ou:team', {}), {
-                        'doc': 'The org team responsible for carrying out the campaign.',
-                    }),
+                        'doc': 'The org team responsible for carrying out the campaign.'}),
+
                     ('conflict', ('ou:conflict', {}), {
-                        'doc': 'The conflict in which this campaign is a primary participant.',
-                    }),
+                        'doc': 'The conflict in which this campaign is a primary participant.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',

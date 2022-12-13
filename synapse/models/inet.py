@@ -1050,6 +1050,13 @@ class InetModule(s_module.CoreModule):
 
                 ),
 
+                'edges': (
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv4'), {
+                        'doc': 'The source IP whois record describes the target IPv4 address.'}),
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv6'), {
+                        'doc': 'The source IP whois record describes the target IPv6 address.'}),
+                ),
+
                 'types': (
 
                     ('inet:asn', ('int', {}), {
