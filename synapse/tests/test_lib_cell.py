@@ -1711,7 +1711,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_minspace(self):
 
         with self.raises(s_exc.LowSpace):
-            conf = {'cell:minspace': 100}
+            conf = {'limit:disk:free': 100}
             async with self.getTestCore(conf=conf) as core:
                 pass
 
@@ -1752,7 +1752,7 @@ class CellTest(s_t_utils.SynTest):
                 path00 = s_common.gendir(dirn, 'core00')
                 path01 = s_common.gendir(dirn, 'core01')
 
-                conf = {'cell:minspace': 0}
+                conf = {'limit:disk:free': 0}
                 async with self.getTestCore(dirn=path00, conf=conf) as core00:
                     await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
 

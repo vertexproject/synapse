@@ -774,13 +774,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
             'hideconf': True,
         },
-        'cell:minspace': {
-            'default': 5,
-            'description': 'Minimum free space percentage before setting the cell read-only.',
-            'type': ['integer', 'null'],
-            'minimum': 0,
-            'maximum': 100,
-        },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
             'type': ['string', 'null'],
@@ -833,6 +826,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
+        },
+        'limit:disk:free': {
+            'default': 5,
+            'description': 'Minimum disk free space percentage before setting the cell read-only.',
+            'type': ['integer', 'null'],
+            'minimum': 0,
+            'maximum': 100,
         },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',

@@ -292,14 +292,14 @@ log message pretty-printed log message::
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
 
-.. _devops-task-minspace:
+.. _devops-task-diskfree:
 
 Configure Free Space Requirement
 --------------------------------
 
 To avoid data corruption due to lack of disk space, Synapse services periodically check
 the amount of free space available and will switch to read-only mode if they are below
-a minimum threshold. This threshold can be controlled via the ``cell:minspace`` configuration
+a minimum threshold. This threshold can be controlled via the ``limit:disk:free`` configuration
 option, and is set to 5% free space by default.
 
 If the available free space goes below the minimum threshold, the service will continue
