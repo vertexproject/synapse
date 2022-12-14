@@ -49,6 +49,8 @@ class RiskModule(s_module.CoreModule):
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
+                ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
+                    'doc': 'An assessment of the origin and validity of the alert.'}),
             ),
             'edges': (
                 # some explicit examples...

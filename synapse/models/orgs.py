@@ -421,9 +421,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
                     ('camptype', ('ou:camptype', {}), {
-                        'doc': 'The campaign type taxonomy.',
                         'disp': {'hint': 'taxonomy'},
-                    }),
+                        'doc': 'The campaign type taxonomy.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the campaign.'}),
@@ -443,7 +443,7 @@ class OuModule(s_module.CoreModule):
                     ('goal:revenue', ('econ:price', {}), {
                         'doc': 'A goal for revenue resulting from the campaign.'}),
 
-                    ('result:revenue', ('econ:price', {}), {}),
+                    ('result:revenue', ('econ:price', {}), {
                         'doc': 'The revenue resulting from the campaign.'}),
 
                     ('goal:pop', ('int', {}), {
@@ -460,8 +460,7 @@ class OuModule(s_module.CoreModule):
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
-                    }),
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {

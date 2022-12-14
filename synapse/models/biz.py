@@ -17,11 +17,11 @@ class BizModule(s_module.CoreModule):
                 ('biz:stake', ('guid', {}), {
                     'doc': 'A stake or partial ownership in a company.',
                 }),
-                ('biz:offer', ('guid', {}), {
-                    'doc': 'A product or service being sold at a standard price by an organization for a given time.',
+                ('biz:listing', ('guid', {}), {
+                    'doc': 'A product or service being listed for sale at a given price by a specific seller.',
                 }),
                 ('biz:bundle', ('guid', {}), {
-                    'doc': 'Instances of a specific product offered for a price.',
+                    'doc': 'A bundle allows construction of products which bundle instances of other products.',
                 }),
                 ('biz:product', ('guid', {}), {
                     'doc': 'A product which is available for purchase.',
@@ -29,7 +29,7 @@ class BizModule(s_module.CoreModule):
                 ('biz:service', ('guid', {}), {
                     'doc': 'A service which is performed by a specific organiztion.',
                 }),
-                ('biz:serivce:taxonomy', ('taxonomy', {}), {
+                ('biz:service:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of service offering types.',
                 }),
                 ('biz:dealstatus', ('taxonomy', {}), {
@@ -150,10 +150,6 @@ class BizModule(s_module.CoreModule):
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'Records a purchase resulting from the deal.',
                     }),
-                    # TODO
-                    # -(deal:comms)>
-                    # -(buyer:contacts)>
-                    # -(seller:contacts)>
                 )),
                 ('biz:bundle', {}, (
                     ('count', ('int', {}), {
@@ -166,16 +162,18 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The product included in the bundle.',
                     }),
                     ('service', ('biz:service', {}), {
-                        'doc': 'The product included in the bundle.',
+                        'doc': 'The service included in the bundle.',
                     }),
                     ('deal', ('biz:deal', {}), {
-                        'doc': 'The deal which includes this bundle.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use econ:receipt:item for individual instances.',
                     }),
                     ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase which includes this bundle.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use econ:receipt:item for individual instances.',
                     }),
                 )),
-                ('biz:offer', {}, (
+                ('biz:listing', {}, (
                     ('seller', ('ps:contact', {}), {
                         'doc': 'The contact information for the seller.'}),
                     ('product', ('biz:product', {}), {
@@ -202,7 +200,7 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The name of the service being performed.'}),
                     ('summary', ('str', {}), {
                         'doc': 'A brief summary of the service.'}),
-                    ('type', ('biz:service:taxonomy', {}), {
+                    ('type', ('biz:service:type:taxonomy', {}), {
                         'doc': 'A taxonomy of service types.'}),
                     # TODO: billing types (fixed, hourly, etc)
                 )),
