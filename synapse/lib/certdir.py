@@ -338,7 +338,7 @@ class CertDir:
 
             Generate a code signing cert for the name "The Vertex Project":
 
-                myuserkey, myusercert = cdir.genUserCert('The Vertex Project')
+                myuserkey, myusercert = cdir.genCodeCert('The Vertex Project')
 
         Returns:
             ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
