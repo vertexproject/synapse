@@ -22,6 +22,8 @@ Features and Enhancements
   ``ou:contract``
     The ``award:price`` and ``budget:price`` properties had their types
     changed from ``econ:currency`` to ``econ:price``.
+    Add a ``currency`` secondary property to record the currency of the
+    ``econ:price`` values.
 
 Bugfixes
 --------
