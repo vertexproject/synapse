@@ -330,14 +330,15 @@ class CertDir:
         Generates a code signing keypair.
 
         Args:
-            name (str): The name of the user keypair.
-            signas (str): The CA keypair to sign the new user keypair with.
+            name (str): The name of the code signing cert.
+            signas (str): The CA keypair to sign the new code keypair with.
             outp (synapse.lib.output.Output): The output buffer.
 
         Examples:
-            Generate a user cert for the user "myuser":
 
-                myuserkey, myusercert = cdir.genUserCert('myuser')
+            Generate a code signing cert for the name "The Vertex Project":
+
+                myuserkey, myusercert = cdir.genUserCert('The Vertex Project')
 
         Returns:
             ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.

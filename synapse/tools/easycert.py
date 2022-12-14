@@ -45,8 +45,7 @@ def main(argv, outp=None):
             crl = cdir.genCaCrl(opts.name)
             crl._save()
 
-            path = cdir.genCrlPath(opts.name)
-            outp.printf(f'CRL saved: {path}')
+            outp.printf(f'CRL saved: {crl.path}')
 
             return 0
 
