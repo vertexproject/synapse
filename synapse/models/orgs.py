@@ -447,10 +447,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The revenue resulting from the campaign.'}),
 
                     ('goal:pop', ('int', {}), {
-                        'doc': 'A goal for the number of people effected by the campaign.'}),
+                        'doc': 'A goal for the number of people affected by the campaign.'}),
 
                     ('result:pop', ('int', {}), {
-                        'doc': 'The count of people effected by the campaign.'}),
+                        'doc': 'The count of people affected by the campaign.'}),
 
                     ('team', ('ou:team', {}), {
                         'doc': 'The org team responsible for carrying out the campaign.'}),
