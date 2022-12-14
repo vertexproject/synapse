@@ -326,3 +326,19 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('inet:flow:src:softnames=(bar, baz)'))
             self.len(1, await core.nodes('it:prod:softname=foo -> inet:flow:dst:softnames'))
             self.len(1, await core.nodes('it:prod:softname=bar -> inet:flow:src:softnames'))
+
+    async def test_modelrev_0_2_15(self):
+        async with self.getRegrCore('model-0.2.15') as core:
+            nodes = await core.nodes('ou:contract:award:price=1.230')
+            self.len(1, nodes)
+            self.eq('1.23', nodes[0].props.get('award:price'))
+
+            nodes = await core.nodes('ou:contract:budget:price=4.560')
+            self.len(1, nodes)
+            self.eq('4.56', nodes[0].props.get('budget:price'))
+
+            nodes = await core.nodes('ou:contract -:award:price -:budget:price $node.data.load(migration:0_2_15)')
+            self.len(1, nodes)
+            data = nodes[0].nodedata['migration:0_2_15']
+            self.eq(data['award:price'], 'foo')
+            self.eq(data['budget:price'], 'bar')
