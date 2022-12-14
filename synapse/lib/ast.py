@@ -1706,11 +1706,11 @@ class PivotIn(PivotOper):
 
         name, valu = node.ndef
 
-        for prop in runt.model.propsbytype.get(name, ()):
+        for prop in runt.model.getPropsByType(name):
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
-        for prop in runt.model.arraysbytype.get(name, ()):
+        for prop in runt.model.getArrayPropsByType(name):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 

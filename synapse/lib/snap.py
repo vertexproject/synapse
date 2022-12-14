@@ -872,6 +872,10 @@ class Snap(s_base.Base):
             async for node in self.nodesByPropValu(prop.full, '=', valu):
                 yield node
 
+        for prop in self.core.model.getArrayPropsByType(name):
+            async for node in self.nodesByPropArray(prop.full, '=', valu):
+                yield node
+
     async def nodesByPropArray(self, full, cmpr, valu):
 
         prop = self.core.model.prop(full)
