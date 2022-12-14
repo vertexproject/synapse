@@ -2432,7 +2432,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
             gdef['scope'] = 'power-up'
-            gdef['creatorname'] = pkgname
+            gdef['power-up'] = pkgname
 
             if validstorm:
                 await self.reqValidStormGraph(gdef)
