@@ -1001,7 +1001,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
-class Cortex(s_cell.Cell):  # type: ignore
+class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
 
@@ -1213,8 +1213,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.addHealthFunc(self._cortexHealth)
 
-        self.oauth = await s_oauth.OAuthManager.anit(self)
-        self.onfini(self.oauth)
+        await self._initOAuthManager()
 
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
@@ -1351,7 +1350,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def initServiceActive(self):
-        await self.oauth.initActive()
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
@@ -1364,7 +1362,6 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
-        await self.oauth.initPassive()
         for view in self.views.values():
             await view.finiTrigTask()
 

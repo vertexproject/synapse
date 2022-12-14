@@ -209,13 +209,30 @@ class OAuthV2Lib(s_stormtypes.Lib):
         },
         {
             'name': 'getUserAccessToken',
-            'desc': 'Get the provider access token for the current user.',
+            'desc': '''
+                Get the provider access token for the current user.
+
+                Example:
+
+                    Retrieve the token and handle needing an auth code::
+
+                        $provideriden = $lib.globals.get("oauth:myprovider")
+
+                        ($ok, $data) = $lib.inet.http.oauth.v2.getUserAccessToken($provideriden)
+
+                        if $ok {
+                            // $data is the token to be used in a request
+                        else {
+                            // $data is a message stating why the token is not available
+                            // caller should now handle retrieving a new auth code for the user
+                        }
+            ''',
             'type': {
                 'type': 'function', '_funcname': '_getUserAccessToken',
                 'args': (
                     {'name': 'iden', 'type': 'str', 'desc': 'The provider iden.'},
                 ),
-                'returns': {'type': 'str', 'desc': 'The token value or None if an auth code is required.'},
+                'returns': {'type': 'list', 'desc': 'List of (<bool>, <token/mesg>) for status and data.'},
             },
         },
         {
@@ -246,24 +263,24 @@ class OAuthV2Lib(s_stormtypes.Lib):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='addProvider() requires admin privs.')
         conf = await s_stormtypes.toprim(conf)
-        await self.runt.snap.core.oauth.addProvider(conf)
+        await self.runt.snap.core.addOAuthProvider(conf)
 
     async def _delProvider(self, iden):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='delProvider() requires admin privs.')
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.oauth.delProvider(iden)
+        return await self.runt.snap.core.delOAuthProvider(iden)
 
     async def _getProvider(self, iden):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='getProvider() requires admin privs.')
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.oauth.getProvider(iden)
+        return await self.runt.snap.core.getOAuthProvider(iden)
 
     async def _listProviders(self):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='listProviders() requires admin privs.')
-        return await self.runt.snap.core.oauth.listProviders()
+        return await self.runt.snap.core.listOAuthProviders()
 
     async def _setUserAuthCode(self, iden, authcode, code_verifier=None):
         iden = await s_stormtypes.tostr(iden)
@@ -271,12 +288,12 @@ class OAuthV2Lib(s_stormtypes.Lib):
         code_verifier = await s_stormtypes.tostr(code_verifier, True)
 
         useriden = self.runt.user.iden
-        await self.runt.snap.core.oauth.setClientAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
+        await self.runt.snap.core.setOAuthAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
 
     async def _getUserAccessToken(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.oauth.getClientAccessToken(iden, self.runt.user.iden)
+        return await self.runt.snap.core.getOAuthAccessToken(iden, self.runt.user.iden)
 
     async def _clearUserAccessToken(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.oauth.clearClientAccessToken(iden, self.runt.user.iden)
+        return await self.runt.snap.core.clearOAuthAccessToken(iden, self.runt.user.iden)
