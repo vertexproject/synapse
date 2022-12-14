@@ -9,7 +9,7 @@ gdefSchema = {
         'name': {'type': 'string', 'minLength': 1},
         'scope': {'type': 'string', 'enum': ['user', 'global', 'power-up']},
         'creatoriden': {'type': 'string', 'pattern': s_config.re_iden},
-        'creatorname': {'type': 'string', 'minLength': 1},
+        'power-up': {'type': 'string', 'minLength': 1},
         'refs': {'type': 'boolean', 'default': False},
         'edges': {'type': 'boolean', 'default': True},
         'degrees': {'type': ['integer', 'null'], 'minimum': 0},
@@ -48,7 +48,7 @@ gdefSchema = {
     'allOf': [
         {
             'if': {'properties': {'scope': {'const': 'power-up'}}},
-            'then': {'required': ['creatorname']},
+            'then': {'required': ['power-up']},
             'else': {'required': ['creatoriden']},
         }
     ]

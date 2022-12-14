@@ -85,7 +85,7 @@ class GenPkgTest(s_test.SynTest):
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(1, gdefs)
             self.eq(gdefs[0]['name'], 'testgraph')
-            self.eq(gdefs[0]['creatorname'], 'testpkg')
+            self.eq(gdefs[0]['power-up'], 'testpkg')
 
             pdef = s_common.yamlload(savepath)
             s_common.yamlsave(pdef, yamlpath)
