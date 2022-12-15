@@ -257,9 +257,9 @@ async def main(argv, outp=s_output.stdout):
     else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
 
-    if opts.signas is not None:
+    pkgdef['build'] = {'time': s_common.now()}
 
-        pkgdef['buildtime'] = s_common.now()
+    if opts.signas is not None:
 
         s_certdir.addCertPath(opts.certdir)
         certdir = s_certdir.getCertDir()
