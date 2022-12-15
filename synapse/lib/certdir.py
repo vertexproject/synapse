@@ -1205,6 +1205,15 @@ class CertDir:
         return path
 
     def genCaCrl(self, name):
+        '''
+        Get the CRL for a given CA.
+
+        Args:
+            name (str): The CA name.
+
+        Returns:
+            CRL: The CRL object.
+        '''
         return CRL(self, name)
 
     def _getServerSSLContext(self, hostname=None, caname=None):
