@@ -7,8 +7,6 @@ import socket
 import logging
 import collections
 
-import cryptography.hazmat.primitives.hashes as c_hashes
-
 from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
@@ -78,7 +76,19 @@ class CRL:
             self.opensslcrl = crypto.CRL()
 
     def revoke(self, cert):
+        '''
+        Revoke a certificate with the CRL.
 
+        Args:
+            cert (cryto.X509): The certificate to revoke.
+
+        Returns:
+            None
+        '''
+        try:
+            self._verify(cert)
+        except crypto.X509StoreContextError:
+            raise s_exc.SynErr(mesg=f'Failed to validate that certificate was signed by {self.name}')
         timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
         revoked = crypto.Revoked()
         revoked.set_reason(None)
@@ -87,6 +97,14 @@ class CRL:
 
         self.opensslcrl.add_revoked(revoked)
         self._save(timestamp)
+
+    def _verify(self, cert):
+        # Verify the cert was signed by the CA in self.name
+        cacert = self.certdir.getCaCert(self.name)
+        store = crypto.X509Store()
+        store.add_cert(cacert)
+        ctx = crypto.X509StoreContext(store, cert,)
+        ctx.verify_certificate()
 
     def _save(self, timestamp=None):
 
