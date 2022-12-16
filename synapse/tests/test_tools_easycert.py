@@ -172,3 +172,13 @@ class TestEasyCert(s_t_utils.SynTest):
             outp.clear()
             self.eq(1, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'noexist'), outp=outp))
             outp.expect('Certificate not found: noexist')
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'dude'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'dude', 'giggle@dude.dude'), outp=outp))
+
+            outp.clear()
+            self.eq(1, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'giggle@dude.dude'), outp=outp))
+            outp.expect('Failed to validate that certificate was signed by woot')
