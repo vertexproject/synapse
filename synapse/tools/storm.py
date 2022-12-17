@@ -415,7 +415,7 @@ async def main(argv, outp=s_output.stdout):
                 cli.printf(welcome)
 
                 await cli.addSignalHandlers()
-                await cli.runCmdLoop(stormopts)
+                await cli.runCmdLoop(stormopts=stormopts)
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

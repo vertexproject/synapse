@@ -373,7 +373,7 @@ class Cli(s_base.Base):
                 if not line:
                     continue
 
-                coro = self.runCmdLine(line, stormopts)
+                coro = self.runCmdLine(line, opts=stormopts)
                 self.cmdtask = self.schedCoro(coro)
                 await self.cmdtask
 

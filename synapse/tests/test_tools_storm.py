@@ -198,8 +198,8 @@ class StormCliTest(s_test.SynTest):
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
 
             proc = subprocess.Popen(['python', '-m', 'synapse.tools.storm', '--view', view, url], stdout=subprocess.PIPE, shell=True)
-            proc.communicate('[inet:fqdn=lol.com]', timeout=1)
+            proc.communicate('[inet:user=hello]', timeout=1)
             proc.terminate()
 
-            self.len(0, await core.nodes('inet:fqdn'))
-            self.len(1, await core.nodes('inet:fqdn', opts={'view': view}))
+            self.len(0, await core.nodes('inet:user'))
+            self.len(1, await core.nodes('inet:user', opts={'view': view}))
