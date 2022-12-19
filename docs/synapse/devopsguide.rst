@@ -370,7 +370,7 @@ Which will produce output similar to::
 Once the one-time enrollment URL has been passed along to the user, the **user must run an enrollment command** to configure
 their environment to use the AHA server and generate a user certificate from the host they will be using to run the Storm CLI::
 
-    python -m synapse.tools.enroll ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    python -m synapse.tools.aha.enroll ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Once they are enrolled, the user can connect using the Telepath URL ``aha://cortex.<yournetwork>``::
 
