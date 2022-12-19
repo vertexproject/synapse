@@ -486,8 +486,8 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cnfo.get('version'), (1, 2, 3))
                 self.eq(cnfo.get('verstring'), '1.2.3')
                 self.eq(cnfo.get('type'), 'cortex')
-                self.isin('nexsoffs', cnfo)
-                self.ge(cnfo.get('nexsoffs'), 0)
+                self.isin('nexsindx', cnfo)
+                self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
