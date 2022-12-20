@@ -39,6 +39,7 @@ class AstNode:
     def __init__(self, kids=()):
         self.kids = []
         self.hasast = {}
+        self.lines = (-1, -1)
         [self.addKid(k) for k in kids]
 
     def repr(self):

@@ -151,13 +151,16 @@ class AstConverter(lark.Transformer):
             return child
         tokencls = terminalClassMap.get(child.type, s_ast.Const)
         newkid = tokencls(child.value)
+        newkid.lines = (child.line, child.end_line)
         return newkid
 
     def __default__(self, treedata, children, treemeta):
         assert treedata in ruleClassMap, f'Unknown grammar rule: {treedata}'
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
-        return cls(newkids)
+        newkid = cls(newkids)
+        newkid.lines = (treemeta.line, treemeta.end_line)
+        return newkid
 
     @lark.v_args(meta=True)
     def subquery(self, meta, kids):
