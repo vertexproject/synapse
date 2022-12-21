@@ -192,17 +192,15 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The currency of the asking price.'}),
                 )),
                 ('biz:service', {}, (
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The organization that offers the service.'}),
-                    ('org:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization that offers the service.'}),
-                    ('name', ('str', {}), {
+                    ('provider', ('ps:contact', {}), {
+                        'doc': 'The contact info of the entity which performs the service.'}),
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the service being performed.'}),
                     ('summary', ('str', {}), {
                         'doc': 'A brief summary of the service.'}),
                     ('type', ('biz:service:type:taxonomy', {}), {
                         'doc': 'A taxonomy of service types.'}),
-                    # TODO: billing types (fixed, hourly, etc)
+                    # TODO: billing types (fixed, hourly, subscription, etc)
                 )),
                 ('biz:product', {}, (
                     ('name', ('str', {}), {
@@ -217,14 +215,20 @@ class BizModule(s_module.CoreModule):
                         'doc': 'A brief summary of the product.',
                         'disp': {'hint': 'text'},
                     }),
+                    ('maker', ('ps:contact', {}), {
+                        'doc': 'A contact for the maker of the product.',
+                    }),
                     ('madeby:org', ('ou:org', {}), {
-                        'doc': 'The product manufacturer.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use biz:product:maker.',
                     }),
                     ('madeby:orgname', ('ou:name', {}), {
-                        'doc': 'The reported ou:name of the product manufacturer.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use biz:product:maker.',
                     }),
                     ('madeby:orgfqdn', ('inet:fqdn', {}), {
-                        'doc': 'The reported inet:fqdn of the product manufacturer.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use biz:product:maker.',
                     }),
                     ('price:retail', ('econ:price', {}), {
                         'doc': 'The MSRP price of the product.',
