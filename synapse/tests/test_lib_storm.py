@@ -239,6 +239,8 @@ class StormTest(s_t_utils.SynTest):
             prnt = [m[1]['mesg'] for m in msgs if m[0] == 'print']
             self.eq(prnt, ['inner 0', 'outer 0'])
 
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+
             # include a quick test for using stop in a node yielder
 
     async def test_lib_storm_intersect(self):

@@ -1773,8 +1773,8 @@ class Runtime(s_base.Base):
                 while not self.isfini:
                     ok, item = await self.emitq.get()
                     if ok:
-                        if not item == s_common.novalu:
-                            yield item
+                        yield item
+                        self.emitevt.set()
                         continue
 
                     if not ok and item is None:
@@ -1782,12 +1782,17 @@ class Runtime(s_base.Base):
 
                     raise item
 
+        self.emitevt = asyncio.Event()
         return genr()
 
     async def emit(self, item):
+        if self.emitq is None:
+            mesg = 'Cannot emit from outside an emitter function'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        self.emitevt.clear()
         await self.emitq.put((True, item))
-        await self.emitq.put((True, s_common.novalu))
-        await self.emitq.put((True, s_common.novalu))
+        await self.emitevt.wait()
 
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime
