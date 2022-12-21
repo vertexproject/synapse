@@ -27,7 +27,7 @@ class BizModule(s_module.CoreModule):
                     'doc': 'A product which is available for purchase.',
                 }),
                 ('biz:service', ('guid', {}), {
-                    'doc': 'A service which is performed by a specific organiztion.',
+                    'doc': 'A service which is performed by a specific organization.',
                 }),
                 ('biz:service:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of service offering types.',
@@ -166,11 +166,11 @@ class BizModule(s_module.CoreModule):
                     }),
                     ('deal', ('biz:deal', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use econ:receipt:item for individual instances.',
+                        'doc': 'Deprecated. Please use econ:receipt:item for instances of bundles being sold.',
                     }),
                     ('purchase', ('econ:purchase', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use econ:receipt:item for individual instances.',
+                        'doc': 'Deprecated. Please use econ:receipt:item for instances of bundles being sold.',
                     }),
                 )),
                 ('biz:listing', {}, (
