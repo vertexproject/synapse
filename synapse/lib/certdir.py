@@ -7,8 +7,6 @@ import socket
 import logging
 import collections
 
-import cryptography.hazmat.primitives.hashes as c_hashes
-
 from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
@@ -62,6 +60,10 @@ def _initTLSServerCiphers():
 
 TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 
+# openssl X509_V_FLAG_PARTIAL_CHAIN flag. This allows a context to treat all loaded
+# certificates as trust anchors when doing verification.
+_X509_PARTIAL_CHAIN = 0x80000
+
 class CRL:
 
     def __init__(self, certdir, name):
@@ -78,7 +80,19 @@ class CRL:
             self.opensslcrl = crypto.CRL()
 
     def revoke(self, cert):
+        '''
+        Revoke a certificate with the CRL.
 
+        Args:
+            cert (cryto.X509): The certificate to revoke.
+
+        Returns:
+            None
+        '''
+        try:
+            self._verify(cert)
+        except crypto.X509StoreContextError:
+            raise s_exc.SynErr(mesg=f'Failed to validate that certificate was signed by {self.name}')
         timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
         revoked = crypto.Revoked()
         revoked.set_reason(None)
@@ -87,6 +101,15 @@ class CRL:
 
         self.opensslcrl.add_revoked(revoked)
         self._save(timestamp)
+
+    def _verify(self, cert):
+        # Verify the cert was signed by the CA in self.name
+        cacert = self.certdir.getCaCert(self.name)
+        store = crypto.X509Store()
+        store.add_cert(cacert)
+        store.set_flags(_X509_PARTIAL_CHAIN)
+        ctx = crypto.X509StoreContext(store, cert,)
+        ctx.verify_certificate()
 
     def _save(self, timestamp=None):
 
@@ -1187,6 +1210,15 @@ class CertDir:
         return path
 
     def genCaCrl(self, name):
+        '''
+        Get the CRL for a given CA.
+
+        Args:
+            name (str): The CA name.
+
+        Returns:
+            CRL: The CRL object.
+        '''
         return CRL(self, name)
 
     def _getServerSSLContext(self, hostname=None, caname=None):

@@ -507,7 +507,7 @@ class CertDirTest(s_t_utils.SynTest):
             caname = 'The Vertex Project ROOT CA'
             immname = 'The Vertex Project Intermediate CA 00'
 
-            codename = 'Vetex Build Pipeline'
+            codename = 'Vertex Build Pipeline'
 
             certpath = s_common.genpath(core.dirn, 'certs')
 

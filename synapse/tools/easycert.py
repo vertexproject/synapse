@@ -68,7 +68,11 @@ def main(argv, outp=None):
                 return 1
 
             crl = cdir.genCaCrl(opts.revokeas)
-            crl.revoke(cert)
+            try:
+                crl.revoke(cert)
+            except s_exc.SynErr as e:
+                outp.printf(f'Failed to revoke certificate: {e.get("mesg")}')
+                return 1
 
             outp.printf(f'Certificate revoked: {opts.name}')
             outp.printf(f'CRL updated: {opts.revokeas}')

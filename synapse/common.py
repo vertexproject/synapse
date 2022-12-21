@@ -111,7 +111,10 @@ def buid(valu=None):
 
 def flatten(item):
 
-    if isinstance(item, (str, int, bytes, types.NoneType)):
+    if item is None:
+        return None
+
+    if isinstance(item, (str, int, bytes)):
         return item
 
     if isinstance(item, (tuple, list)):
