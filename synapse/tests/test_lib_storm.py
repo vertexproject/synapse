@@ -1253,6 +1253,13 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('ou:name | merge --apply', opts=altview)
             self.len(1, await core.nodes('ou:name=foo -(bar)> *'))
 
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("No form named None", buf)
+
     async def test_storm_merge_opts(self):
 
         async with self.getTestCore() as core:

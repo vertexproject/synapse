@@ -73,7 +73,7 @@ if [ ! -d $VENV ]; then
 
     python3 -Im ensurepip --default-pip
     python3 -m pip install --no-cache-dir -U pip wheel
-    python3 -m pip install --no-cache-dir "certbot==1.32.0"
+    python3 -m pip install --no-cache-dir "certbot==2.0.0"
 
 else
 

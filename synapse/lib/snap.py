@@ -351,7 +351,7 @@ class SnapEditor:
 
         form = self.snap.core.model.form(formname)
         if form is None:
-            mesg = f'No form named {formname}.'
+            mesg = f'No form named {formname} for valu={valu}.'
             return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
 
         if form.isrunt:
@@ -359,7 +359,7 @@ class SnapEditor:
             return await self.snap._raiseOnStrict(s_exc.IsRuntForm, mesg)
 
         if form.locked:
-            mesg = f'Form {form.full} is locked due to deprecation.'
+            mesg = f'Form {form.full} is locked due to deprecation for valu={valu}.'
             return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
 
         if norminfo is None:
@@ -368,7 +368,7 @@ class SnapEditor:
             except s_exc.BadTypeValu as e:
                 e.errinfo['form'] = form.name
                 if self.snap.strict: raise e
-                await self.snap.warn('addNode() BadTypeValu {formname}={valu} {e}')
+                await self.snap.warn(f'addNode() BadTypeValu {formname}={valu} {e}')
                 return None
 
         protonode = await self._initProtoNode(form, valu, norminfo)
@@ -870,6 +870,10 @@ class Snap(s_base.Base):
 
         for prop in self.core.model.getPropsByType(name):
             async for node in self.nodesByPropValu(prop.full, '=', valu):
+                yield node
+
+        for prop in self.core.model.getArrayPropsByType(name):
+            async for node in self.nodesByPropArray(prop.full, '=', valu):
                 yield node
 
     async def nodesByPropArray(self, full, cmpr, valu):

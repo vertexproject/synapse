@@ -1821,6 +1821,11 @@ class CortexTest(s_t_utils.SynTest):
 
                 await self.asyncraises(s_exc.CantDelNode, targ.delete())
 
+                targ = await snap.addNode('test:str', 'foo')
+                await snap.nodes('[ test:arrayprop=* :strs=(foo, bar) ]')
+
+                await self.asyncraises(s_exc.CantDelNode, targ.delete())
+
                 tstr = await snap.addNode('test:str', 'baz')
 
                 await tstr.set('tick', 100)
