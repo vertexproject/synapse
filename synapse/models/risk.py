@@ -157,10 +157,10 @@ class RiskModule(s_module.CoreModule):
                     ('soft:name', ('it:prod:softname', {}), {
                         'doc': 'The reported primary name of the tool.'}),
 
-                    ('soft:names', ('array', {'type': 'it:prod:softname'}), {
+                    ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of reported alterate names for the tool.'}),
 
-                    ('techniques', ('array', {'type': 'ou:technique'}), {
+                    ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 

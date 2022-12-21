@@ -3143,7 +3143,7 @@ class MergeCmd(Cmd):
                 if self.opts.apply:
                     await self._checkNodePerms(node, sode, runt)
 
-                form = sode.get('form')
+                form = node.form.name
                 if form == 'syn:tag':
                     if notags:
                         continue
