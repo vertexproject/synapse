@@ -112,6 +112,7 @@ class BizModelTest(s_t_utils.SynTest):
                     :count = 10
                     :price = 299999
                     :product = {[ biz:product=* :name=LoLoLoL ]}
+                    :service = {[ biz:service=* :name=WoWoWow ]}
                     :deal = { biz:deal }
                     :purchase = *
                 ]
@@ -123,11 +124,13 @@ class BizModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('deal'))
             self.nn(nodes[0].get('product'))
+            self.nn(nodes[0].get('service'))
             self.nn(nodes[0].get('purchase'))
 
             self.len(1, await core.nodes('biz:bundle -> biz:deal'))
             self.len(1, await core.nodes('biz:bundle -> econ:purchase'))
             self.len(1, await core.nodes('biz:bundle -> biz:product +:name=LoLoLoL'))
+            self.len(1, await core.nodes('biz:bundle -> biz:service +:name=WoWoWoW'))
 
             nodes = await core.nodes('''
                 [ biz:product=*
@@ -201,9 +204,14 @@ class BizModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ biz:listing=*
-                    :seller={[ ps:contact=* :name=visi ]}
-                    :service={[ biz:service=* :name=wootsvc ]}
+                    :seller={ ps:contact:name=visi | limit 1 }
                     :product={[ biz:product=* :name=wootprod ]}
+                    :service={[ biz:service=*
+                        :name=wootsvc
+                        :type=awesome
+                        :summary="hehe haha"
+                        :provider={ ps:contact:name=visi | limit 1}
+                    ]}
                     :current=1
                     :time=20221221
                     :expires=2023

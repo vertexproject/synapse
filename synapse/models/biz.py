@@ -197,6 +197,7 @@ class BizModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the service being performed.'}),
                     ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A brief summary of the service.'}),
                     ('type', ('biz:service:type:taxonomy', {}), {
                         'doc': 'A taxonomy of service types.'}),
