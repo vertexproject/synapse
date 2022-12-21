@@ -1296,6 +1296,17 @@ class StormTypesTest(s_test.SynTest):
                 self.len(1, nodes)
                 self.eq(foo, nodes[0].props['data'])
 
+            buf = b'\xff\xfe{\x00"\x00k\x00"\x00:\x00 \x00"\x00v\x00"\x00}\x00'
+            q = '''return( $buf.json(encoding=$encoding) )'''
+            resp = await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-16'}})
+            self.eq(resp, {'k': 'v'})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
+
+            with self.raises(s_exc.BadJsonText):
+                await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
+
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
             # Base List object behavior

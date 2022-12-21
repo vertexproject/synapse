@@ -3356,6 +3356,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
+                'nexsindx': await self.getNexsIndx(),
             },
             'features': {
                 'tellready': True,
