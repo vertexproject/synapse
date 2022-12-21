@@ -389,13 +389,13 @@ class OAuthTest(s_test.SynTest):
                     # access token refreshes in the background and refresh_token also gets updated
                     self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=15))
                     await core01.sync()
-                    clientconf = core01.oauth_clients.get(providerconf00['iden'] + core00.auth.rootuser.iden)
+                    clientconf = await core01.getOAuthClient(providerconf00['iden'], core00.auth.rootuser.iden)
                     self.eq('accesstoken01', clientconf['access_token'])
                     self.eq('refreshtoken01', clientconf['refresh_token'])
-                    self.eq(core00.oauth_sched_heap[0][0], clientconf['refresh_at'])
+                    self.eq(core00._oauth_sched_heap[0][0], clientconf['refresh_at'])
 
                     # background refresh is only happening on the leader
-                    self.none(core01.activecoros[core01.oauth_actviden].get('task'))
+                    self.none(core01.activecoros[core01._oauth_actviden].get('task'))
 
                     # can clear the access token so new auth code will be needed
                     core00._oauth_sched_empty.clear()
@@ -413,7 +413,7 @@ class OAuthTest(s_test.SynTest):
 
                     # without the token data the refresh item gets popped out of the loop
                     self.true(await s_coro.event_wait(core00._oauth_sched_empty, timeout=5))
-                    self.len(0, core00.oauth_sched_heap)
+                    self.len(0, core00._oauth_sched_heap)
 
                     # background refresh fails; will require new auth code
                     opts['vars']['authcode'] = 'badrefresh'
@@ -429,7 +429,7 @@ class OAuthTest(s_test.SynTest):
                     self.eq((True, 'accesstoken10'), ret)
 
                     self.true(await s_coro.event_wait(core00._oauth_sched_empty, timeout=5))
-                    self.len(0, core00.oauth_sched_heap)
+                    self.len(0, core00._oauth_sched_heap)
 
                     await core01.sync()
                     ret = await core01.callStorm('''
@@ -454,7 +454,7 @@ class OAuthTest(s_test.SynTest):
                     self.eq((True, 'accesstoken20'), ret)
 
                     self.false(await s_coro.event_wait(core00._oauth_sched_ran, timeout=1))
-                    self.len(0, core00.oauth_sched_heap)
+                    self.len(0, core00._oauth_sched_heap)
 
                     await core01.sync()
                     ret = await core01.callStorm('''
@@ -511,7 +511,7 @@ class OAuthTest(s_test.SynTest):
                     ''', opts=opts)
 
                     self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=5))
-                    clientconf = core00.oauth_clients.get(providerconf00['iden'] + core00.auth.rootuser.iden)
+                    clientconf = await core00.getOAuthClient(providerconf00['iden'], core00.auth.rootuser.iden)
                     self.eq('accesstoken02', clientconf['access_token'])
                     self.eq('refreshpersist00', clientconf['refresh_token'])
 
@@ -546,18 +546,18 @@ class OAuthTest(s_test.SynTest):
                     self.eq((True, 'accesstoken01'), ret)
 
                     # verify active<->passive handoff
-                    numsched = len(core00.oauth_sched_map)
-                    self.len(0, core01.oauth_sched_map)
+                    numsched = len(core00._oauth_sched_map)
+                    self.len(0, core01._oauth_sched_map)
 
                     await core00.handoff(core01.getLocalUrl())
                     await core00.sync()
                     self.true(core01.isactive)
                     self.false(core00.isactive)
 
-                    self.nn(core01.activecoros[core01.oauth_actviden].get('task'))
-                    self.len(numsched, core01.oauth_sched_heap)
+                    self.nn(core01.activecoros[core01._oauth_actviden].get('task'))
+                    self.len(numsched, core01._oauth_sched_heap)
 
-                    self.none(core00.activecoros[core00.oauth_actviden].get('task'))
+                    self.none(core00.activecoros[core00._oauth_actviden].get('task'))
 
                     # try to delete provider that doesn't exist
                     ret = await core00.callStorm('''
@@ -574,9 +574,9 @@ class OAuthTest(s_test.SynTest):
 
                     # deleted provider clients no longer exist
                     # and refresh items are lazily deleted
-                    self.len(0, core01.oauth_clients.items())
+                    self.len(0, core01._oauth_clients.items())
                     self.true(await s_coro.event_wait(core01._oauth_sched_empty, timeout=6))
-                    self.len(0, core01.oauth_sched_heap)
+                    self.len(0, core01._oauth_sched_heap)
 
                     # permissions
                     lowopts = {**opts, 'user': user.iden}
@@ -615,7 +615,7 @@ class OAuthTest(s_test.SynTest):
                     await user.setLocked(True)
 
                     self.true(await s_coro.event_wait(core01._oauth_sched_empty, timeout=5))
-                    self.len(0, core01.oauth_sched_heap)
+                    self.len(0, core01._oauth_sched_heap)
                     self.eq({'error': 'User is locked'}, await core01.getOAuthClient(expconf00['iden'], user.iden))
 
                     # if a user is deleted their token goes into error state and will never be refreshed
@@ -639,5 +639,5 @@ class OAuthTest(s_test.SynTest):
                     await core01.auth.delUser(user.iden)
 
                     self.true(await s_coro.event_wait(core01._oauth_sched_empty, timeout=5))
-                    self.len(0, core01.oauth_sched_heap)
+                    self.len(0, core01._oauth_sched_heap)
                     self.eq({'error': 'User does not exist'}, await core01.getOAuthClient(expconf00['iden'], user.iden))

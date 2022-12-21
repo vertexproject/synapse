@@ -81,24 +81,24 @@ class OAuthMixin(s_nexus.Pusher):
     async def _initOAuthManager(self):
 
         slab = self.slab
-        self.oauth_clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))     # key=<provider><user>
-        self.oauth_providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers')) # key=<provider>
+        self._oauth_clients = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:clients'))     # key=<provider><user>
+        self._oauth_providers = s_lmdbslab.SlabDict(slab, db=slab.initdb('oauth:v2:providers')) # key=<provider>
 
-        self.oauth_sched_map = {}
-        self.oauth_sched_heap = []
-        self.oauth_sched_wake = asyncio.Event()
-        self.onfini(self.oauth_sched_wake.set)
+        self._oauth_sched_map = {}
+        self._oauth_sched_heap = []
+        self._oauth_sched_wake = asyncio.Event()
+        self.onfini(self._oauth_sched_wake.set)
 
-        self.oauth_actviden = self.addActiveCoro(self._runOAuthRefreshLoop)
+        self._oauth_actviden = self.addActiveCoro(self._runOAuthRefreshLoop)
 
         # For testing
         self._oauth_sched_ran = asyncio.Event()
         self._oauth_sched_empty = asyncio.Event()
 
     async def _runOAuthRefreshLoop(self):
-        self.oauth_sched_map.clear()
-        self.oauth_sched_heap.clear()
-        self.oauth_sched_wake.clear()
+        self._oauth_sched_map.clear()
+        self._oauth_sched_heap.clear()
+        self._oauth_sched_wake.clear()
 
         for provideriden, useriden, clientconf in self.listOAuthClients():
             self._scheduleOAuthItem(provideriden, useriden, clientconf)
@@ -120,40 +120,40 @@ class OAuthMixin(s_nexus.Pusher):
 
         newitem = (refresh_at, provideriden, useriden)
 
-        old_refresh_at = self.oauth_sched_map.get(newitem[1:])
+        old_refresh_at = self._oauth_sched_map.get(newitem[1:])
         if old_refresh_at == refresh_at:
             return
 
         if old_refresh_at is not None:
             # there's an old item for this client in the refresh queue to remove
-            self.oauth_sched_heap.remove((old_refresh_at, *newitem[1:]))
-            heapq.heapify(self.oauth_sched_heap)
+            self._oauth_sched_heap.remove((old_refresh_at, *newitem[1:]))
+            heapq.heapify(self._oauth_sched_heap)
 
-        self.oauth_sched_map[newitem[1:]] = refresh_at
-        heapq.heappush(self.oauth_sched_heap, newitem)
+        self._oauth_sched_map[newitem[1:]] = refresh_at
+        heapq.heappush(self._oauth_sched_heap, newitem)
 
-        if self.oauth_sched_heap[0] == newitem:
+        if self._oauth_sched_heap[0] == newitem:
             # the new item is at the front of the line so wake up the loop if its waiting
-            self.oauth_sched_wake.set()
+            self._oauth_sched_wake.set()
 
     async def _oauthRefreshLoop(self):
 
         while not self.isfini:
 
-            while self.oauth_sched_heap:
+            while self._oauth_sched_heap:
 
-                refresh_at, provideriden, useriden = self.oauth_sched_heap[0]
+                refresh_at, provideriden, useriden = self._oauth_sched_heap[0]
                 refresh_in = int(max(0, refresh_at - s_common.now()) / 1000)
 
-                if await s_coro.event_wait(self.oauth_sched_wake, timeout=refresh_in):
-                    self.oauth_sched_wake.clear()
+                if await s_coro.event_wait(self._oauth_sched_wake, timeout=refresh_in):
+                    self._oauth_sched_wake.clear()
                     continue
 
                 if self.isfini:  # pragma: no cover
                     break
 
-                _, provideriden, useriden = heapq.heappop(self.oauth_sched_heap)
-                self.oauth_sched_map.pop((provideriden, useriden), None)
+                _, provideriden, useriden = heapq.heappop(self._oauth_sched_heap)
+                self._oauth_sched_map.pop((provideriden, useriden), None)
 
                 logger.debug(f'Refreshing OAuth V2 token for provider={provideriden} user={useriden}')
 
@@ -170,7 +170,7 @@ class OAuthMixin(s_nexus.Pusher):
                     await self._setOAuthTokenData(provideriden, useriden, {'error': 'User is locked'})
                     continue
 
-                clientconf = self.oauth_clients.get(provideriden + useriden)
+                clientconf = self._oauth_clients.get(provideriden + useriden)
                 if clientconf is None:
                     logger.debug(f'OAuth V2 client does not exist for provider={provideriden} user={useriden}')
                     continue
@@ -183,8 +183,8 @@ class OAuthMixin(s_nexus.Pusher):
                 self._oauth_sched_ran.set()
 
             self._oauth_sched_empty.set()
-            await s_coro.event_wait(self.oauth_sched_wake)
-            self.oauth_sched_wake.clear()
+            await s_coro.event_wait(self._oauth_sched_wake)
+            self._oauth_sched_wake.clear()
 
     async def _getOAuthAccessToken(self, providerconf, authcode, code_verifier=None):
         token_uri = providerconf['token_uri']
@@ -287,10 +287,10 @@ class OAuthMixin(s_nexus.Pusher):
     async def _addOAuthProvider(self, conf):
         iden = conf['iden']
         if self._getOAuthProvider(iden) is None:
-            self.oauth_providers.set(iden, conf)
+            self._oauth_providers.set(iden, conf)
 
     def _getOAuthProvider(self, iden):
-        conf = self.oauth_providers.get(iden)
+        conf = self._oauth_providers.get(iden)
         if conf is not None:
             return copy.deepcopy(conf)
 
@@ -301,7 +301,7 @@ class OAuthMixin(s_nexus.Pusher):
         return conf
 
     async def listOAuthProviders(self):
-        return [(iden, await self.getOAuthProvider(iden)) for iden in self.oauth_providers.keys()]
+        return [(iden, await self.getOAuthProvider(iden)) for iden in self._oauth_providers.keys()]
 
     async def delOAuthProvider(self, iden):
         if self._getOAuthProvider(iden) is not None:
@@ -309,18 +309,18 @@ class OAuthMixin(s_nexus.Pusher):
 
     @s_nexus.Pusher.onPush('oauth:provider:del')
     async def _delOAuthProvider(self, iden):
-        for clientiden in list(self.oauth_clients.keys()):
+        for clientiden in list(self._oauth_clients.keys()):
             if clientiden.startswith(iden):
-                self.oauth_clients.pop(clientiden)
+                self._oauth_clients.pop(clientiden)
 
-        conf = self.oauth_providers.pop(iden)
+        conf = self._oauth_providers.pop(iden)
         if conf is not None:
             conf.pop('client_secret')
 
         return conf
 
     async def getOAuthClient(self, provideriden, useriden):
-        conf = self.oauth_clients.get(provideriden + useriden)
+        conf = self._oauth_clients.get(provideriden + useriden)
         if conf is not None:
             return copy.deepcopy(conf)
         return None
@@ -330,7 +330,7 @@ class OAuthMixin(s_nexus.Pusher):
         Returns:
             list: List of (provideriden, useriden, conf) for each client.
         '''
-        return [(iden[:KEY_LEN], iden[KEY_LEN:], copy.deepcopy(conf)) for iden, conf in self.oauth_clients.items()]
+        return [(iden[:KEY_LEN], iden[KEY_LEN:], copy.deepcopy(conf)) for iden, conf in self._oauth_clients.items()]
 
     async def getOAuthAccessToken(self, provideriden, useriden):
 
@@ -361,12 +361,12 @@ class OAuthMixin(s_nexus.Pusher):
         This will prevent further refreshes (if scheduled),
         and a new auth code will be required the next time an access token is requested.
         '''
-        if self.oauth_clients.get(provideriden + useriden) is not None:
+        if self._oauth_clients.get(provideriden + useriden) is not None:
             return await self._push('oauth:client:data:clear', provideriden, useriden)
 
     @s_nexus.Pusher.onPush('oauth:client:data:clear')
     async def _clearOAuthAccessToken(self, provideriden, useriden):
-        return self.oauth_clients.pop(provideriden + useriden)
+        return self._oauth_clients.pop(provideriden + useriden)
 
     async def setOAuthAuthCode(self, provideriden, useriden, authcode, code_verifier=None):
         '''
@@ -389,5 +389,5 @@ class OAuthMixin(s_nexus.Pusher):
     @s_nexus.Pusher.onPushAuto('oauth:client:data:set')
     async def _setOAuthTokenData(self, provideriden, useriden, data):
         iden = provideriden + useriden
-        self.oauth_clients.set(iden, data)
+        self._oauth_clients.set(iden, data)
         self._scheduleOAuthItem(provideriden, useriden, data)
