@@ -178,7 +178,7 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The contact information for the seller.'}),
                     ('product', ('biz:product', {}), {
                         'doc': 'The product being offered.'}),
-                    ('service', ('biz:product', {}), {
+                    ('service', ('biz:service', {}), {
                         'doc': 'The service being offered.'}),
                     ('current', ('bool', {}), {
                         'doc': 'Set to true if the offer is still current.'}),
