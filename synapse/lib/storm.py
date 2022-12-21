@@ -1787,7 +1787,7 @@ class Runtime(s_base.Base):
 
     async def emit(self, item):
         if self.emitq is None:
-            mesg = 'Cannot emit from outside an emitter function'
+            mesg = 'Cannot emit from outside of an emitter function'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         self.emitevt.clear()
