@@ -796,7 +796,6 @@ workflows:
             branches:
               only:
                 - master
-                - redox-oauth2  # fixme
 
       - push_docker_branch:
           requires:
