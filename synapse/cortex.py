@@ -26,6 +26,7 @@ import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.oauth as s_oauth
 import synapse.lib.queue as s_queue
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
@@ -1004,7 +1005,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
-class Cortex(s_cell.Cell):  # type: ignore
+class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
 
@@ -1215,6 +1216,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initCoreQueues()
 
         self.addHealthFunc(self._cortexHealth)
+
+        await self._initOAuthManager()
 
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
