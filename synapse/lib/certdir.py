@@ -448,7 +448,7 @@ class CertDir:
             byts (bytes): The certificate bytes.
 
         Returns:
-            OpenSSL.crypto.X509: The certificate file.
+            OpenSSL.crypto.X509: The certificate.
         '''
 
         reqext = crypto.X509Extension(b'extendedKeyUsage', False, b'codeSigning')
