@@ -72,7 +72,7 @@ def _unpackContextError(e: crypto.X509StoreContextError) -> str:
         else:  # pragma: no cover
             errstr = e.args[0][2]  # pyopenssl < 22.1.0
         mesg = f'{errstr}'
-    else:
+    else:  # pragma: no cover
         mesg = 'Certficate failed to verify.'
     return mesg
 
@@ -1396,7 +1396,7 @@ class CertDir:
             # Unwrap pyopenssl's exception_from_error_queue
             estr = ''
             for argv in e.args:
-                if estr:
+                if estr:  # pragma: no cover
                     estr += ', '
                 estr += ' '.join((arg for arg in argv[0] if arg))
             raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {estr}')

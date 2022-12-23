@@ -513,6 +513,7 @@ class CertDirTest(s_t_utils.SynTest):
 
             core.certdir.genCaCert(caname)
             core.certdir.genCaCert(immname, signas=caname)
+            core.certdir.genUserCert('notCodeCert', signas=caname, )
 
             outp = s_output.OutPutStr()
             self.eq(0, s_easycert.main(('--certdir', certpath, '--crl', caname), outp=outp))
@@ -596,6 +597,13 @@ class CertDirTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadPkgDef) as exc:
                     await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
+
+                certpath = core.certdir.getUserCertPath('notCodeCert')
+                with s_common.genfile(certpath) as fd:
+                    cert = fd.read().decode()
+                with self.raises(s_exc.BadCertBytes) as exc:
+                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Certificate is not for code signing.')
 
                 # revoke our code signing cert and attempt to load
                 outp = s_output.OutPutStr()
