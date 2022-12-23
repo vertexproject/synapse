@@ -52,7 +52,7 @@ def _initTLSServerCiphers():
         _ciphers.append(cipher)
 
     if len(_ciphers) == 0:  # pragma: no cover
-        raise s_exc.CryptoErr(mesg='No valid TLS ciphers are available for this Python installation.')
+        raise s_exc.SynErr(mesg='No valid TLS ciphers are available for this Python installation.')
 
     ciphers = ':'.join([c.get('name') for c in _ciphers])
 
