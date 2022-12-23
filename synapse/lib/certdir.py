@@ -1372,7 +1372,7 @@ class CertDir:
     def _loadCertPath(self, path):
         byts = self._getPathBytes(path)
         if byts:
-            return self.loadCertByts(byts)
+            return self._loadCertByts(byts)
 
     def loadCertByts(self, byts):
         '''
@@ -1389,7 +1389,7 @@ class CertDir:
         '''
         return self._loadCertByts(byts)
 
-    def _loadCertByts(self, byts):
+    def _loadCertByts(self, byts: bytes) -> crypto.X509:
         try:
             return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
         except crypto.Error as e:
