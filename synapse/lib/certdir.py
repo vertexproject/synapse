@@ -52,7 +52,7 @@ def _initTLSServerCiphers():
         _ciphers.append(cipher)
 
     if len(_ciphers) == 0:  # pragma: no cover
-        raise s_exc.SynErr(mesg='No valid TLS ciphers are available for this Python installation.')
+        raise s_exc.CryptoErr(mesg='No valid TLS ciphers are available for this Python installation.')
 
     ciphers = ':'.join([c.get('name') for c in _ciphers])
 
@@ -63,6 +63,18 @@ TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 # openssl X509_V_FLAG_PARTIAL_CHAIN flag. This allows a context to treat all loaded
 # certificates as trust anchors when doing verification.
 _X509_PARTIAL_CHAIN = 0x80000
+
+def _unpackContextError(e: crypto.X509StoreContextError) -> str:
+    # account for backward incompatible change in pyopenssl v22.1.0
+    if e.args:
+        if isinstance(e.args[0], str):
+            errstr = e.args[0]
+        else:  # pragma: no cover
+            errstr = e.args[0][2]  # pyopenssl < 22.1.0
+        mesg = f'{errstr}'
+    else:
+        mesg = 'Certficate failed to verify.'
+    return mesg
 
 class CRL:
 
@@ -91,8 +103,8 @@ class CRL:
         '''
         try:
             self._verify(cert)
-        except crypto.X509StoreContextError:
-            raise s_exc.SynErr(mesg=f'Failed to validate that certificate was signed by {self.name}')
+        except s_exc.BadCertVerify as e:
+            raise s_exc.BadCertVerify(mesg=f'Failed to validate that certificate was signed by {self.name}') from e
         timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
         revoked = crypto.Revoked()
         revoked.set_reason(None)
@@ -109,7 +121,10 @@ class CRL:
         store.add_cert(cacert)
         store.set_flags(_X509_PARTIAL_CHAIN)
         ctx = crypto.X509StoreContext(store, cert,)
-        ctx.verify_certificate()
+        try:
+            ctx.verify_certificate()
+        except crypto.X509StoreContextError as e:
+            raise s_exc.BadCertVerify(mesg=_unpackContextError(e)) from None
 
     def _save(self, timestamp=None):
 
@@ -426,13 +441,22 @@ class CertDir:
                 return ext.get_data()
 
     def valCodeCert(self, byts):
+        '''
+        Verify a code cert is valid according to certdir's available CAs and CRLs.
+
+        Args:
+            byts (bytes): The certificate bytes.
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate file.
+        '''
 
         reqext = crypto.X509Extension(b'extendedKeyUsage', False, b'codeSigning')
 
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        cert = self.loadCertByts(byts)
         if self._getCertExt(cert, b'extendedKeyUsage') != reqext.get_data():
             mesg = 'Certificate is not for code signing.'
-            raise s_exc.SynErr(mesg=mesg)
+            raise s_exc.BadCertBytes(mesg=mesg)
 
         crls = self._getCaCrls()
         cacerts = self.getCaCerts()
@@ -447,7 +471,11 @@ class CertDir:
             [store.add_crl(crl) for crl in crls]
 
         ctx = crypto.X509StoreContext(store, cert)
-        ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        try:
+            ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        except crypto.X509StoreContextError as e:
+            mesg = _unpackContextError(e)
+            raise s_exc.BadCertVerify(mesg=mesg)
         return cert
 
     def _getCaCrls(self):
@@ -519,13 +547,12 @@ class CertDir:
             cacerts (tuple): A tuple of OpenSSL.crypto.X509 CA Certificates.
 
         Raises:
-            OpenSSL.crypto.X509StoreContextError: If the certificate is not valid.
+            BadCertVerify: If the certificate is not valid.
 
         Returns:
             OpenSSL.crypto.X509: The certificate, if it is valid.
-
         '''
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        cert = self.loadCertByts(byts)
 
         if cacerts is None:
             cacerts = self.getCaCerts()
@@ -534,7 +561,10 @@ class CertDir:
         [store.add_cert(cacert) for cacert in cacerts]
 
         ctx = crypto.X509StoreContext(store, cert)
-        ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        try:
+            ctx.verify_certificate()
+        except crypto.X509StoreContextError as e:
+            raise s_exc.BadCertVerify(mesg=_unpackContextError(e))
         return cert
 
     def genUserCsr(self, name, outp=None):
@@ -1342,13 +1372,34 @@ class CertDir:
     def _loadCertPath(self, path):
         byts = self._getPathBytes(path)
         if byts:
-            return self._loadCertByts(byts)
+            return self.loadCertByts(byts)
 
     def loadCertByts(self, byts):
+        '''
+        Load a X509 certificate from its PEM encoded bytes.
+
+        Args:
+            byts (bytes): The PEM encoded bytes of the certificate.
+
+        Returns:
+            OpenSSL.crypto.X509: The X509 certificate.
+
+        Raises:
+            BadCertBytes: If the certificate bytes are invalid.
+        '''
         return self._loadCertByts(byts)
 
     def _loadCertByts(self, byts):
-        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        try:
+            return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        except crypto.Error as e:
+            # Unwrap pyopenssl's exception_from_error_queue
+            estr = ''
+            for argv in e.args:
+                if estr:
+                    estr += ', '
+                estr += ' '.join((arg for arg in argv[0] if arg))
+            raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {estr}')
 
     def _loadCsrPath(self, path):
         byts = self._getPathBytes(path)

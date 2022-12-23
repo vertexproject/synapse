@@ -6,8 +6,6 @@ import logging
 import contextlib
 import collections
 
-import OpenSSL
-
 from collections.abc import Mapping
 
 import synapse
@@ -2106,19 +2104,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = 'Storm package has no signature!'
                 raise s_exc.BadPkgDef(mesg=mesg)
 
-            cert = self.certdir.loadCertByts(certbyts)
+            try:
+                cert = self.certdir.loadCertByts(certbyts)
+            except s_exc.BadCertBytes as e:
+                raise s_exc.BadPkgDef(mesg='Storm package has malformed certificate!') from None
 
             try:
                 self.certdir.valCodeCert(certbyts.encode())
-            except OpenSSL.crypto.X509StoreContextError as e:
-                # account for backward incompatible openssl changes...
-                if e.args:
-                    if isinstance(e.args[0], str):
-                        errstr = e.args[0]
-                    else: # pragma: no cover
-                        errstr = e.args[0][2]
-                    mesg = f'Storm package has invalid certificate: {errstr}'
-                else: # pragma: no cover
+            except s_exc.BadCertVerify as e:
+                mesg = e.get('mesg')
+                if mesg:
+                    mesg = f'Storm package has invalid certificate: {mesg}'
+                else:
                     mesg = 'Storm package has invalid certificate!'
                 raise s_exc.BadPkgDef(mesg=mesg) from None
 
