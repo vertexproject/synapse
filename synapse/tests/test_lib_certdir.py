@@ -463,29 +463,29 @@ class CertDirTest(s_t_utils.SynTest):
             syntestca = cdir.getCaCert('syntest')
             newpca = cdir.getCaCert('newp')
 
-            self.raises(crypto.Error, cdir.valUserCert, b'')
+            self.raises(s_exc.BadCertBytes, cdir.valUserCert, b'')
 
             cdir.genUserCert('cool')
             path = cdir.getUserCertPath('cool')
             byts = cdir._getPathBytes(path)
 
-            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts)
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts)
 
             cdir.genUserCert('cooler', signas='syntest')
             path = cdir.getUserCertPath('cooler')
             byts = cdir._getPathBytes(path)
             self.nn(cdir.valUserCert(byts))
             self.nn(cdir.valUserCert(byts, cacerts=(syntestca,)))
-            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(newpca,))
-            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=(newpca,))
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=())
 
             cdir.genUserCert('coolest', signas='newp')
             path = cdir.getUserCertPath('coolest')
             byts = cdir._getPathBytes(path)
             self.nn(cdir.valUserCert(byts))
             self.nn(cdir.valUserCert(byts, cacerts=(newpca,)))
-            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=(syntestca,))
-            self.raises(crypto.X509StoreContextError, cdir.valUserCert, byts, cacerts=())
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=(syntestca,))
+            self.raises(s_exc.BadCertVerify, cdir.valUserCert, byts, cacerts=())
 
     def test_certdir_sslctx(self):
 
@@ -513,6 +513,7 @@ class CertDirTest(s_t_utils.SynTest):
 
             core.certdir.genCaCert(caname)
             core.certdir.genCaCert(immname, signas=caname)
+            core.certdir.genUserCert('notCodeCert', signas=caname, )
 
             outp = s_output.OutPutStr()
             self.eq(0, s_easycert.main(('--certdir', certpath, '--crl', caname), outp=outp))
@@ -587,6 +588,22 @@ class CertDirTest(s_t_utils.SynTest):
                     await core.addStormPkg(pkgdef, verify=True)
 
                 self.eq(exc.exception.get('mesg'), 'Storm package is not signed!')
+
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.addStormPkg({'codesign': {'cert': 'foo', 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
+
+                cert = '''-----BEGIN CERTIFICATE-----\nMIIE9jCCAt6'''
+                with self.raises(s_exc.BadPkgDef) as exc:
+                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
+
+                usercertpath = core.certdir.getUserCertPath('notCodeCert')
+                with s_common.genfile(usercertpath) as fd:
+                    cert = fd.read().decode()
+                with self.raises(s_exc.BadCertBytes) as exc:
+                    await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
+                self.eq(exc.exception.get('mesg'), 'Certificate is not for code signing.')
 
                 # revoke our code signing cert and attempt to load
                 outp = s_output.OutPutStr()
