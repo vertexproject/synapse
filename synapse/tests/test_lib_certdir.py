@@ -598,8 +598,8 @@ class CertDirTest(s_t_utils.SynTest):
                     await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
                 self.eq(exc.exception.get('mesg'), 'Storm package has malformed certificate!')
 
-                certpath = core.certdir.getUserCertPath('notCodeCert')
-                with s_common.genfile(certpath) as fd:
+                usercertpath = core.certdir.getUserCertPath('notCodeCert')
+                with s_common.genfile(usercertpath) as fd:
                     cert = fd.read().decode()
                 with self.raises(s_exc.BadCertBytes) as exc:
                     await core.addStormPkg({'codesign': {'cert': cert, 'sign': 'bar'}}, verify=True)
