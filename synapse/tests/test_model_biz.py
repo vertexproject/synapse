@@ -219,6 +219,7 @@ class BizModelTest(s_t_utils.SynTest):
                     :currency=usd
                 ]
             ''')
+            self.len(1, nodes)
             self.nn(nodes[0].get('seller'))
             self.nn(nodes[0].get('product'))
             self.nn(nodes[0].get('service'))
