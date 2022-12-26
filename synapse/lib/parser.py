@@ -159,7 +159,8 @@ class AstConverter(lark.Transformer):
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
         newkid = cls(newkids)
-        newkid.lines = (treemeta.line, treemeta.end_line)
+        if not treemeta.empty:
+            newkid.lines = (treemeta.line, treemeta.line)
         return newkid
 
     @lark.v_args(meta=True)
@@ -187,12 +188,16 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
         kids = [self._parseJsonToken(meta, k) for k in kids]
-        return s_ast.ExprList(kids=kids)
+        node = s_ast.ExprList(kids=kids)
+        node.lines = (meta.line, meta.end_line)
+        return node
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
         kids = [self._parseJsonToken(meta, k) for k in kids]
-        return s_ast.ExprDict(kids=kids)
+        node = s_ast.ExprDict(kids=kids)
+        node.lines = (meta.line, meta.end_line)
+        return node
 
     @lark.v_args(meta=True)
     def trycatch(self, meta, kids):

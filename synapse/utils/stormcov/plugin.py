@@ -5,8 +5,6 @@ import coverage
 
 import synapse.common as s_common
 
-import synapse.lib.ast as s_ast
-import synapse.lib.parser as s_parser
 import synapse.lib.datfile as s_datfile
 
 class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
@@ -22,8 +20,9 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
                                 parser='lalr', keep_all_tokens=True, maybe_placeholders=False,
                                 propagate_positions=True)
 
+        self.node_map = {}
         self.text_map = {}
-        self.query_map = {}
+        self.guid_map = {}
         dirs = options.get("storm_dirs", ".")
         if dirs:
             self.stormdirs = [d.strip() for d in dirs.split(",")]
@@ -40,7 +39,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
                         source = f.read()
                         tree = self.parser.parse(source)
                         guid = s_common.guid(str(tree))
-                        self.query_map[guid] = os.path.abspath(path)
+                        self.guid_map[guid] = os.path.abspath(path)
 
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
@@ -61,10 +60,10 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
     def has_dynamic_source_filename(self):
         return True
 
-    def _parent_text(self, node):
+    def _parent_node(self, node):
         if not hasattr(node, 'parent'):
-            return node.text
-        return self._parent_text(node.parent)
+            return node
+        return self._parent_node(node.parent)
 
     PARSE_METHODS = {"run", "compute"}
 
@@ -73,15 +72,25 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             return None
 
         node = frame.f_locals.get('self')
-        text = self._parent_text(node)
-        filename = self.text_map.get(text)
+        pnode = self._parent_node(node)
+        filename = self.node_map.get(id(pnode), s_common.novalu)
+        if filename is not s_common.novalu:
+            return filename
+
+        if not pnode.__class__.__name__ == 'Query':
+            self.node_map[id(pnode)] = None
+            return
+
+        filename = self.text_map.get(pnode.text)
         if filename:
             return filename
 
-        tree = self.parser.parse(text)
+        tree = self.parser.parse(pnode.text)
         guid = s_common.guid(str(tree))
-        filename = self.query_map.get(guid)
-        self.text_map[text] = filename
+        filename = self.guid_map.get(guid)
+
+        self.node_map[id(pnode)] = filename
+        self.text_map[pnode.text] = filename
         return filename
 
     def line_number_range(self, frame):
@@ -91,6 +100,27 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         return frame.f_locals.get('self').lines
 
 SHOW_PARSING = False
+
+TOKENS = [
+    'ABSPROP',
+    'ABSPROPNOUNIV',
+    'PROPS',
+    'UNIVNAME',
+    'EXPRUNIVNAME',
+    'RELNAME',
+    'EXPRRELNAME',
+    'ALLTAGS',
+    'BREAK',
+    'CONTINUE',
+    'CMDNAME',
+    'TAGMATCH',
+    'NONQUOTEWORD',
+    'VARTOKN',
+    'EXPRVARTOKN',
+    '_EMIT',
+    '_STOP',
+    '_RETURN',
+]
 
 class FileReporter(coverage.FileReporter):
     def __init__(self, filename, parser):
@@ -118,7 +148,7 @@ class FileReporter(coverage.FileReporter):
         tree = self._parser.parse(self.source())
 
         for token in tree.scan_values(lambda v: isinstance(v, lark.lexer.Token)):
-            if token.type not in s_parser.terminalClassMap:
+            if token.type not in TOKENS:
                 continue
 
             if SHOW_PARSING:
