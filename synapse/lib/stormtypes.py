@@ -4001,6 +4001,11 @@ class Bytes(Prim):
                 Load bytes to a object::
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
+                       'default': 'surrogatepass', },
+                  ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
         {'name': 'slice', 'desc': '''
@@ -4110,8 +4115,24 @@ class Bytes(Prim):
     async def _methGzip(self):
         return gzip.compress(self.valu)
 
-    async def _methJsonLoad(self):
-        return json.loads(self.valu)
+    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+        try:
+            valu = self.valu
+            errors = await tostr(errors)
+
+            if encoding is None:
+                encoding = json.detect_encoding(valu)
+            else:
+                encoding = await tostr(encoding)
+
+            return json.loads(valu.decode(encoding, errors))
+
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=valu[:1024]) from None
+
+        except json.JSONDecodeError as e:
+            mesg = f'Unable to decode bytes as json: {e.args[0]}'
+            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Dict(Prim):
