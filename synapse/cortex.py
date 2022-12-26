@@ -663,6 +663,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return stream of (iden, provenance stack) tuples at the given offset.
         '''
+        s_common.deprecated('CoreApi.provStacks()', curv='2.117.0', eolv='2.221.0')
         count = 0
         for iden, stack in self.cell.provstor.provStacks(offs, size):
             count += 1
@@ -680,6 +681,7 @@ class CoreApi(s_cell.CellApi):
 
         Note: the iden appears on each splice entry as the 'prov' property
         '''
+        s_common.deprecated('CoreApi.getProvStack()', curv='2.117.0', eolv='2.221.0')
         if iden is None:
             return None
 
@@ -1060,7 +1062,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'provenance:en': {
             'default': False,
-            'description': 'Enable provenance tracking for all writes.',
+            'description': 'Enable provenance tracking for all writes. This option will be removed in v2.221.0.',
             'type': 'boolean'
         },
         'max:nodes': {
