@@ -3488,7 +3488,12 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
                 self.eq(actv, len(core.activecoros))
 
-                tasks = [cdef.get('task') for cdef in core.activecoros.values()]
+                pushpulls = set()
+                for ldef in await core.getLayerDefs():
+                    pushpulls.update(ldef.get('pushs', {}))
+                    pushpulls.update(ldef.get('pulls', {}))
+
+                tasks = [cdef.get('task') for iden, cdef in core.activecoros.items() if iden in pushpulls]
 
                 await core.callStorm('$lib.view.del($view0)', opts=opts)
                 await core.callStorm('$lib.view.del($view1)', opts=opts)
