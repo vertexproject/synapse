@@ -110,6 +110,11 @@ def buid(valu=None):
     return hashlib.sha256(byts).digest()
 
 def flatten(item):
+    '''
+    Normalize a JSON compatible primitive object for cryptographic signing.
+
+    NOTE: All dict keys *must* be strings.
+    '''
 
     if item is None:
         return None
