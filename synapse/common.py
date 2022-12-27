@@ -111,9 +111,18 @@ def buid(valu=None):
 
 def flatten(item):
     '''
-    Normalize a JSON compatible primitive object for cryptographic signing.
+    Normalize a primitive object for cryptographic signing.
 
-    NOTE: All dict keys *must* be strings.
+    Args:
+        item: The python primitive object to normalize.
+
+    Notes:
+        Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
+        List objects will be converted to tuples.
+        Dictionary objects must have keeps which can be sorted.
+
+    Returns:
+        A new copy of the object.
     '''
 
     if item is None:
