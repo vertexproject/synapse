@@ -119,7 +119,7 @@ def flatten(item):
     Notes:
         Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
         List objects will be converted to tuples.
-        Dictionary objects must have keeps which can be sorted.
+        Dictionary objects must have keys which can be sorted.
 
     Returns:
         A new copy of the object.
