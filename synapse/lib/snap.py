@@ -16,6 +16,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.spooled as s_spooled
@@ -469,6 +470,11 @@ class Snap(s_base.Base):
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
         self.trigson = self.core.trigson
+
+        s_scope.set('user', self.user)
+        def onfini():
+            s_scope.pop('user')
+        self.onfini(onfini)
 
     def disableTriggers(self):
         self.trigson = False
