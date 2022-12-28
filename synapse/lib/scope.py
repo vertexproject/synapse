@@ -128,8 +128,17 @@ class Scope:
 envr = dict(os.environ)
 globscope = Scope(envr)
 
-def _task_scope():
+def _task_scope() -> Scope:
+    '''
+    Get the current task scope. If the _syn_scope is not set, set it to a new scope
+    that inherits from the globscope.
 
+    Notes:
+        This must be run from inside an asyncio.Task.
+
+    Returns:
+        Scope: A Scope object.
+    '''
     task = asyncio.current_task()
     scope = getattr(task, '_syn_scope', None)
 
@@ -179,5 +188,52 @@ def enter(vals=None):
     '''
     scope = _task_scope()
     scope.enter(vals)
-    yield
-    scope.leave()
+    try:
+        yield
+    finally:
+        scope.leave()
+
+def copy(task: asyncio.Task) -> None:
+    '''
+    Clone the current task Scope onto the provided task.
+
+    Args:
+        task (asyncio.Task): The task object to attach the scope too.
+
+    Notes:
+        This must be run from an asynio IO loop.
+
+        If the current task does not have a scope, we clone the default global Scope.
+
+    Returns:
+        None
+    '''
+
+    current_task = asyncio.current_task()
+
+    if current_task is None:
+        # It is possible that we are executing code started by
+        # asyncio.call_soon_threadsafe (or similar mechanisms)
+        # in which case there is not yet a task for us to
+        # retrieve the scope from, and we can inherit directly
+        # from globscope.
+
+        parent_scope = globscope
+
+    else:
+
+        parent_scope = _task_scope()
+
+    scope = Scope(parent_scope)
+    task._syn_scope = scope
+    # Ensure the scope is fresh to write too.
+    scope.enter()
+
+    def fini(*args):
+        # Drop anything from the current scope.
+        scope.leave()
+
+        # Drop any refs to objects on Tasks
+        delattr(task, '_syn_scope')
+
+    task.add_done_callback(fini)

@@ -1,3 +1,5 @@
+import asyncio
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.scope as s_scope
@@ -67,6 +69,34 @@ class ScopeTest(s_t_utils.SynTest):
         self.none(scope.get('yes'))
         self.none(scope.get('no'))
         self.raises(IndexError, scope.leave)
+
+        with self.raises(ValueError) as cm:
+            with s_scope.enter({'foo': 'bar'}):
+                self.eq(s_scope.get('foo'), 'bar')
+                raise ValueError('bad value')
+        self.none(s_scope.get('foo'))
+
+        current_task = asyncio.current_task()
+        self.nn(current_task)
+        cscope = current_task._syn_scope  # type: s_scope.Scope
+        print(cscope)
+        print(cscope.frames, [f for f in cscope.frames])
+
+        with s_scope.enter({'foo': 'bar'}):
+            print(cscope)
+            print(cscope.frames, [f for f in cscope.frames])
+            self.eq(s_scope.get('foo'), 'bar')
+            print(cscope)
+            print(cscope.frames, [f for f in cscope.frames])
+            with s_scope.enter({'hehe': 'haha'}):
+                print(cscope)
+                print(cscope.frames, [f for f in cscope.frames])
+                self.eq(s_scope.get('hehe'), 'haha')
+                self.eq(s_scope.get('foo'), 'bar')
+                with s_scope.enter({'foo': 'woah'}):
+                    self.eq(s_scope.get('foo'), 'woah')
+            self.none(s_scope.get('hehe'))
+            self.eq(s_scope.get('foo'), 'bar')
 
     def test_lib_scope_get_defval(self):
         syms = {'foo': None, 'bar': 123}
