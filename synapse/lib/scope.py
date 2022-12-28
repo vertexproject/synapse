@@ -179,5 +179,7 @@ def enter(vals=None):
     '''
     scope = _task_scope()
     scope.enter(vals)
-    yield
-    scope.leave()
+    try:
+        yield
+    finally:
+        scope.leave()

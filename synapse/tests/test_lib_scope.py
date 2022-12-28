@@ -68,6 +68,12 @@ class ScopeTest(s_t_utils.SynTest):
         self.none(scope.get('no'))
         self.raises(IndexError, scope.leave)
 
+        with self.raises(ValueError) as cm:
+            with s_scope.enter({'foo': 'bar'}):
+                self.eq(s_scope.get('foo'), 'bar')
+                raise ValueError('bad value')
+        self.none(s_scope.get('foo'))
+
     def test_lib_scope_get_defval(self):
         syms = {'foo': None, 'bar': 123}
         scope = s_scope.Scope(**syms)
