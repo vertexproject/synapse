@@ -44,6 +44,8 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
             return self
+        if filename.endswith('synapse/lib/stormctrl.py'):
+            return StormCtrlTracer(self)
         return None
 
     def file_reporter(self, filename):
@@ -65,10 +67,10 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             return node
         return self._parent_node(node.parent)
 
-    PARSE_METHODS = {"run", "compute"}
+    PARSE_METHODS = {"compute", "once"}
 
-    def dynamic_source_filename(self, filename, frame):
-        if frame.f_code.co_name not in self.PARSE_METHODS:
+    def dynamic_source_filename(self, filename, frame, force=False):
+        if frame.f_code.co_name not in self.PARSE_METHODS and not force:
             return None
 
         node = frame.f_locals.get('self')
@@ -94,10 +96,22 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         return filename
 
     def line_number_range(self, frame):
-        if frame.f_code.co_name not in self.PARSE_METHODS:
-            return (-1, -1)
-
         return frame.f_locals.get('self').lines
+
+class StormCtrlTracer(coverage.FileTracer):
+    def __init__(self, parent):
+        self.parent = parent
+
+    def has_dynamic_source_filename(self):
+        return True
+
+    def dynamic_source_filename(self, filename, frame):
+        if frame.f_code.co_name != '__init__':
+            return None
+        return self.parent.dynamic_source_filename(None, frame.f_back, force=True)
+
+    def line_number_range(self, frame):
+        return self.parent.line_number_range(frame.f_back)
 
 SHOW_PARSING = False
 
@@ -163,26 +177,3 @@ class FileReporter(coverage.FileReporter):
                 print(f"\t\t\tNow source_lines is: {source_lines!r}")
 
         return source_lines
-
-def dump_frame(frame, label=""):
-    """Dump interesting information about this frame."""
-    locals = dict(frame.f_locals)
-    self = locals.get('self', None)
-    context = locals.get('context', None)
-    if "__builtins__" in locals:
-        del locals["__builtins__"]
-
-    if label:
-        label = " ( %s ) " % label
-    print("-- frame --%s---------------------" % label)
-    print("{}:{}:{}".format(
-        os.path.basename(frame.f_code.co_filename),
-        frame.f_lineno,
-        type(self),
-        ))
-    print(locals)
-    if self:
-        print("self:", self.__dict__)
-    if context:
-        print("context:", context.__dict__)
-    print("\\--")

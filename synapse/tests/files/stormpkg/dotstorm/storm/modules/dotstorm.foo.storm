@@ -1,1 +1,12 @@
-$lib.print("hello foo")
+function foo() {
+    { $lib.print(newp) }
+    if $lib.true {
+        $lib.print("hello foo")
+    } else {
+        $lib.print(newp)
+    }
+    return()
+    $lib.print(newp)
+    return()
+}
+$foo()
