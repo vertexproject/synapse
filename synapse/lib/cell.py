@@ -2599,7 +2599,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         extra = {**kwargs}
         sess = s_scope.get('sess')  # type: s_daemon.Sess
         user = s_scope.get('user')  # type: s_hiveauth.HiveUser
-        logger.info(f'{sess=} {user=}')
         if user:
             extra['user'] = user.iden
             extra['username'] = user.name
