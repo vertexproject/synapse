@@ -116,13 +116,13 @@ class SmtpMessage(s_stormtypes.StormType):
 
         self.gtors.update({
             'text': self._getEmailText,
-            'html': self._getEmailText,
+            'html': self._getEmailHtml,
             'sender': self._getSenderEmail,
         })
 
         self.stors.update({
             'text': self._setEmailText,
-            'html': self._setEmailText,
+            'html': self._setEmailHtml,
             'sender': self._setSenderEmail,
         })
 
