@@ -730,7 +730,7 @@ class ForLoop(Oper):
     async def run(self, runt, genr):
 
         subq = self.kids[2]
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
         node = None
 
         async for node, path in genr:
@@ -914,7 +914,7 @@ class CmdOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
@@ -959,7 +959,7 @@ class SetVarOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
 
         vkid = self.kids[1]
 
@@ -1036,7 +1036,7 @@ class VarListSetOper(Oper):
 
     async def run(self, runt, genr):
 
-        names = await self.kids[0].compute(runt, None)
+        names = self.kids[0].value()
         vkid = self.kids[1]
 
         async for node, path in genr:
