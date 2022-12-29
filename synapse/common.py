@@ -975,7 +975,7 @@ def unjsonsafe_nodeedits(nodeedits):
 
 def reqJsonSafe(item):
     '''
-    Require the item to be safe to serialize to JSON without type coercian issues.
+    Require the item to be safe to serialize to JSON without type coercion issues.
 
     Args:
         item: The python primitive to check.
