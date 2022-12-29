@@ -973,6 +973,35 @@ def unjsonsafe_nodeedits(nodeedits):
 
     return retn
 
+def reqJsonSafe(item):
+    '''
+    Require the item to be safe to serialize to JSON without type coercion issues.
+
+    Args:
+        item: The python primitive to check.
+
+    Returns:
+        None
+
+    Raise:
+        s_exc.BadArg: If the item contains invalid data.
+    '''
+    if item is None:
+        return
+    if isinstance(item, (str, int,)):
+        return
+    if isinstance(item, (list, tuple)):
+        for valu in item:
+            reqJsonSafe(valu)
+        return
+    if isinstance(item, dict):
+        for key, valu in item.items():
+            if not isinstance(key, str):
+                raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
+            reqJsonSafe(valu)
+        return
+    raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
+
 async def merggenr(genrs, cmprkey):
     '''
     Iterate multiple sorted async generators and yield their results in order.

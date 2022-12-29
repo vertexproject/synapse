@@ -218,7 +218,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     s_storm.reqValidPkgdef(pkgdef)
 
-    # Tuplify the package.
+    # Ensure the package is json safe and tuplify it.
+    s_common.reqJsonSafe(pkgdef)
     pkgdef = s_common.tuplify(pkgdef)
     return pkgdef
 
