@@ -5,6 +5,10 @@ function foo() {
     } else {
         $lib.print(newp)
     }
+    while (1) {
+        break
+        $lib.print(newp)
+    }
     return()
     $lib.print(newp)
     return()
