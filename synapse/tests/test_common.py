@@ -397,7 +397,7 @@ class CommonTest(s_t_utils.SynTest):
             (1234, None),
             ('1234', None),
             ({'asdf': 'haha'}, None),
-            ({'a': (1,), 'b': [{'': 4}, 56, None, {}, 'oh my']}, None),
+            ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
             (b'1234', s_exc.BadArg),
             ({'a': 'a', 2: 2}, s_exc.BadArg),
             ({'a', 'b', 'c'}, s_exc.BadArg),
