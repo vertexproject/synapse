@@ -49,7 +49,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         return None
 
     def file_reporter(self, filename):
-        return FileReporter(filename, self.parser)
+        return StormReporter(filename, self.parser)
 
     def find_executable_files(self, src_dir):
         rx = r"^[^#~!$@%^&*()+=,]+\.(" + "|".join(self.extensions) + r")$"
@@ -139,7 +139,7 @@ TOKENS = [
     '_RETURN',
 ]
 
-class FileReporter(coverage.FileReporter):
+class StormReporter(coverage.FileReporter):
     def __init__(self, filename, parser):
         super().__init__(filename)
 
