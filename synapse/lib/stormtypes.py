@@ -544,6 +544,8 @@ class LibPkg(Lib):
          'type': {'type': 'function', '_funcname': '_libPkgAdd',
                   'args': (
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                      {'name': 'verify', 'type': 'boolean', 'default': False,
+                       'desc': 'Verify storm package signature.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
@@ -588,10 +590,11 @@ class LibPkg(Lib):
             'deps': self._libPkgDeps,
         }
 
-    async def _libPkgAdd(self, pkgdef):
+    async def _libPkgAdd(self, pkgdef, verify=False):
         self.runt.confirm(('pkg', 'add'), None)
         pkgdef = await toprim(pkgdef)
-        await self.runt.snap.core.addStormPkg(pkgdef)
+        verify = await tobool(verify)
+        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
 
     async def _libPkgGet(self, name):
         name = await tostr(name)

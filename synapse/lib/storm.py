@@ -179,6 +179,21 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': 'string',
             'pattern': s_version.semverstr,
         },
+        'build': {
+            'type' 'object'
+            'properties': {
+                'time': {'type': 'number'},
+            },
+            'required': ['time'],
+        },
+        'codesign': {
+            'type': 'object',
+            'properties': {
+                'sign': {'type': 'string'},
+                'cert': {'type': 'string'},
+            },
+            'required': ['cert', 'sign'],
+        },
         'synapse_minversion': {
             'type': ['array', 'null'],
             'items': {'type': 'number'}
@@ -796,6 +811,8 @@ stormcmds = (
             ('url', {'help': 'The HTTP URL to load the package from.'}),
             ('--raw', {'default': False, 'action': 'store_true',
                 'help': 'Response JSON is a raw package definition without an envelope.'}),
+            ('--verify', {'default': False, 'action': 'store_true',
+                'help': 'Enforce code signature verification on the storm package.'}),
             ('--ssl-noverify', {'default': False, 'action': 'store_true',
                 'help': 'Specify to disable SSL verification of the server.'}),
         ),
@@ -826,7 +843,7 @@ stormcmds = (
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
 
-                $pkd = $lib.pkg.add($pkg)
+                $pkd = $lib.pkg.add($pkg, verify=$cmdopts.verify)
 
                 $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
             }

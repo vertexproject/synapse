@@ -36,6 +36,11 @@ class CommonTest(s_t_utils.SynTest):
         ev = ('foo', ('bar', 'bat'))
         self.eq(ev, s_common.tuplify(tv))
 
+    def test_common_flatten(self):
+        item = {'foo': 'bar', 'baz': 10, 'gronk': True, 'hehe': ['ha', 'ha'], 'tupl': (1, 'two'), 'newp': None}
+        self.ne('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(item))
+        self.eq('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(s_common.flatten(item)))
+
     def test_common_vertup(self):
         self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
         self.true(s_common.vertup('30.40.50') > (9, 0))

@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 import base64
@@ -13,6 +14,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
+import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 
 logger = logging.getLogger(__name__)
@@ -228,8 +230,13 @@ async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser()
     pars.add_argument('--push', metavar='<url>', help='A telepath URL of a Cortex or PkgRepo.')
+    pars.add_argument('--push-verify', default=False, action='store_true',
+                      help='Tell the Cortex to verify the package signature.')
     pars.add_argument('--save', metavar='<path>', help='Save the completed package JSON to a file.')
     pars.add_argument('--optic', metavar='<path>', help='Load Optic module files from a directory.')
+    pars.add_argument('--signas', metavar='<name>', help='Specify a code signing identity to use from ~/.syn/certs/code.')
+    pars.add_argument('--certdir', metavar='<dir>', default='~/.syn/certs',
+                      help='Specify an alternate certdir to ~/.syn/certs.')
     pars.add_argument('--no-build', action='store_true',
                       help='Treat pkgfile argument as an already-built package')
     pars.add_argument('--no-docs', default=False, action='store_true',
@@ -250,6 +257,24 @@ async def main(argv, outp=s_output.stdout):
     else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
 
+    pkgdef['build'] = {'time': s_common.now()}
+
+    if opts.signas is not None:
+
+        s_certdir.addCertPath(opts.certdir)
+        certdir = s_certdir.getCertDir()
+
+        pkey = certdir.getCodeKey(opts.signas)
+        with io.open(certdir.getCodeCertPath(opts.signas)) as fd:
+            cert = fd.read()
+
+        sign = s_common.ehex(pkey.signitem(pkgdef))
+
+        pkgdef['codesign'] = {
+            'cert': cert,
+            'sign': sign,
+        }
+
     if not opts.save and not opts.push:
         outp.printf('Neither --push nor --save provided.  Nothing to do.')
         return 1
@@ -262,7 +287,7 @@ async def main(argv, outp=s_output.stdout):
         async with s_telepath.withTeleEnv():
 
             async with await s_telepath.openurl(opts.push) as core:
-                await core.addStormPkg(pkgdef)
+                await core.addStormPkg(pkgdef, verify=opts.push_verify)
 
     return 0
 
