@@ -1,4 +1,8 @@
 include synapse/data/*.mpk
+include synapse/data/certs/cas/The Vertex Project ROOT CA.crt
+include synapse/data/certs/cas/The Vertex Project Intermediate CA 00.crt
+include synapse/data/certs/crls/The Vertex Project ROOT CA.crl
+include synapse/data/certs/crls/The Vertex Project Intermediate CA 00.crl
 include synapse/lib/storm.lark
 include synapse/vendor/*/LICENSE
 graft synapse/tests/files
