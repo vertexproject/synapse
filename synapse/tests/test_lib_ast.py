@@ -2360,15 +2360,3 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVar) as err:
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
-
-    async def test_ast_maxdepth(self):
-
-        async with self.getTestCore() as core:
-
-            q = '['
-            for x in range(1000):
-                q += f'inet:ipv4={x} '
-            q += ']'
-
-            with self.raises(s_exc.RecursionLimitHit) as err:
-                msgs = await core.nodes(q)
