@@ -2027,7 +2027,7 @@ class Runtime(s_base.Base):
                 async for item in self.query.iterNodePaths(self, genr=genr):
                     self.tick()
                     yield item
-        except RecursionError:  # pragma: no cover
+        except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
 
