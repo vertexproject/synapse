@@ -10,7 +10,7 @@ import synapse.lib.datfile as s_datfile
 class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
 
     def __init__(self, options):
-        extensions = options.get("template_extensions", "storm")
+        extensions = options.get("storm_extensions", "storm")
         self.extensions = [e.strip() for e in extensions.split(",")]
 
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
