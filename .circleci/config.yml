@@ -796,6 +796,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_py310
 
       - push_docker_branch:
           requires:
