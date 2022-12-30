@@ -342,3 +342,10 @@ class ModelRevTest(s_tests.SynTest):
             data = nodes[0].nodedata['migration:0_2_15']
             self.eq(data['award:price'], 'foo')
             self.eq(data['budget:price'], 'bar')
+
+    async def test_modelrev_0_2_16(self):
+        async with self.getRegrCore('model-0.2.16') as core:
+            nodes = await core.nodes('risk:tool:software=bb1b3ecd5ff61b52ebad87e639e50276')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('soft:names'))
+            self.len(2, nodes[0].get('techniques'))
