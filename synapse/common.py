@@ -1181,4 +1181,5 @@ class aclosing(contextlib.AbstractAsyncContextManager):
     async def __aenter__(self):
         return self.thing
     async def __aexit__(self, exc, cls, tb):
-        await self.thing.aclose()
+        if not self.thing.ag_running:
+            await self.thing.aclose()
