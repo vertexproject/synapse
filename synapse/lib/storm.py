@@ -840,9 +840,6 @@ stormcmds = (
                     $pkg = $reply.result
                 }
 
-                $pkg.url = $cmdopts.url
-                $pkg.loaded = $lib.time.now()
-
                 $pkd = $lib.pkg.add($pkg, verify=$cmdopts.verify)
 
                 $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
