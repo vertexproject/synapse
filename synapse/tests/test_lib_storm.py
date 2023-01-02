@@ -230,6 +230,24 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('foo', nodes[0].ndef[1])
 
+            msgs = await core.stormlist('''
+                function generate() {
+                    for $i in $lib.range(3) {
+                        $lib.print(`inner {$i}`)
+                        emit $i
+                    }
+                }
+                for $i in $generate() {
+                    $lib.print(`outer {$i}`)
+                    for $_ in $lib.range(5) {}
+                    break
+                }
+            ''')
+            prnt = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(prnt, ['inner 0', 'outer 0'])
+
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+
             # include a quick test for using stop in a node yielder
 
     async def test_lib_storm_intersect(self):
