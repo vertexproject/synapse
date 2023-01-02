@@ -743,7 +743,7 @@ ruleClassMap = {
 
 def format_unescape(valu):
     repl = valu.replace('\\`', '`').replace('\\{', '{')
-    return unescape(f'"{repl}"')
+    return unescape(f"'''{repl}'''")
 
 def unescape(valu):
     '''

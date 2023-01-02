@@ -146,6 +146,13 @@ class StormTest(s_t_utils.SynTest):
             self.eq("{'k': 'v'}56", retn[0])
             self.eq(retn[0], retn[1])
 
+            retn = await core.callStorm('''$foo=bar $baz=faz return(`foo={$foo}
+            baz={$baz}
+            `)''')
+            self.eq(retn, '''foo=bar
+            baz=faz
+            ''')
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''
