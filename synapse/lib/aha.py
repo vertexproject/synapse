@@ -168,7 +168,10 @@ class AhaApi(s_cell.CellApi):
 
         svcentry = await self.cell.getAhaSvc(name)
         if svcentry is None:
+            logger.error(f'No svcentry found for {name}')
             return False
+
+        logger.debug(f'Modifying aha service {name} -> {svcinfo}')
 
         svcnetw = svcentry.get('svcnetw')
         svcname = svcentry.get('svcname')
