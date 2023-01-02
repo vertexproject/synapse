@@ -1,5 +1,7 @@
+import io
 import os
 import ssl
+import time
 import shutil
 import socket
 import logging
@@ -9,6 +11,7 @@ from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.crypto.rsa as s_rsa
 
 defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
@@ -56,6 +59,87 @@ def _initTLSServerCiphers():
     return ciphers
 
 TLS_SERVER_CIPHERS = _initTLSServerCiphers()
+
+# openssl X509_V_FLAG_PARTIAL_CHAIN flag. This allows a context to treat all loaded
+# certificates as trust anchors when doing verification.
+_X509_PARTIAL_CHAIN = 0x80000
+
+def _unpackContextError(e: crypto.X509StoreContextError) -> str:
+    # account for backward incompatible change in pyopenssl v22.1.0
+    if e.args:
+        if isinstance(e.args[0], str):
+            errstr = e.args[0]
+        else:  # pragma: no cover
+            errstr = e.args[0][2]  # pyopenssl < 22.1.0
+        mesg = f'{errstr}'
+    else:  # pragma: no cover
+        mesg = 'Certficate failed to verify.'
+    return mesg
+
+class CRL:
+
+    def __init__(self, certdir, name):
+
+        self.name = name
+        self.certdir = certdir
+        self.path = certdir.genCrlPath(name)
+
+        if os.path.isfile(self.path):
+            with io.open(self.path, 'rb') as fd:
+                self.opensslcrl = crypto.load_crl(crypto.FILETYPE_PEM, fd.read())
+
+        else:
+            self.opensslcrl = crypto.CRL()
+
+    def revoke(self, cert):
+        '''
+        Revoke a certificate with the CRL.
+
+        Args:
+            cert (cryto.X509): The certificate to revoke.
+
+        Returns:
+            None
+        '''
+        try:
+            self._verify(cert)
+        except s_exc.BadCertVerify as e:
+            raise s_exc.BadCertVerify(mesg=f'Failed to validate that certificate was signed by {self.name}') from e
+        timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
+        revoked = crypto.Revoked()
+        revoked.set_reason(None)
+        revoked.set_rev_date(timestamp)
+        revoked.set_serial(b'%x' % cert.get_serial_number())
+
+        self.opensslcrl.add_revoked(revoked)
+        self._save(timestamp)
+
+    def _verify(self, cert):
+        # Verify the cert was signed by the CA in self.name
+        cacert = self.certdir.getCaCert(self.name)
+        store = crypto.X509Store()
+        store.add_cert(cacert)
+        store.set_flags(_X509_PARTIAL_CHAIN)
+        ctx = crypto.X509StoreContext(store, cert,)
+        try:
+            ctx.verify_certificate()
+        except crypto.X509StoreContextError as e:
+            raise s_exc.BadCertVerify(mesg=_unpackContextError(e)) from None
+
+    def _save(self, timestamp=None):
+
+        if timestamp is None:
+            timestamp = time.strftime('%Y%m%d%H%M%SZ').encode()
+
+        pkey = self.certdir.getCaKey(self.name)
+        cert = self.certdir.getCaCert(self.name)
+
+        self.opensslcrl.set_lastUpdate(timestamp)
+        self.opensslcrl.sign(cert, pkey, b'sha256')
+
+        with s_common.genfile(self.path) as fd:
+            fd.truncate(0)
+            fd.write(crypto.dump_crl(crypto.FILETYPE_PEM, self.opensslcrl))
 
 def getServerSSLContext() -> ssl.SSLContext:
     '''
@@ -279,6 +363,141 @@ class CertDir:
 
         return pkey, cert
 
+    def genCodeCert(self, name, signas=None, outp=None, save=True):
+        '''
+        Generates a code signing keypair.
+
+        Args:
+            name (str): The name of the code signing cert.
+            signas (str): The CA keypair to sign the new code keypair with.
+            outp (synapse.lib.output.Output): The output buffer.
+
+        Examples:
+
+            Generate a code signing cert for the name "The Vertex Project":
+
+                myuserkey, myusercert = cdir.genCodeCert('The Vertex Project')
+
+        Returns:
+            ((OpenSSL.crypto.PKey, OpenSSL.crypto.X509)): Tuple containing the key and certificate objects.
+        '''
+        pkey, cert = self._genBasePkeyCert(name)
+
+        cert.add_extensions([
+            crypto.X509Extension(b'nsCertType', False, b'objsign'),
+            crypto.X509Extension(b'keyUsage', False, b'digitalSignature'),
+            crypto.X509Extension(b'extendedKeyUsage', False, b'codeSigning'),
+            crypto.X509Extension(b'basicConstraints', False, b'CA:FALSE'),
+        ])
+
+        if signas is not None:
+            self.signCertAs(cert, signas)
+
+        if save:
+            crtpath = self._saveCertTo(cert, 'code', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
+
+            if not pkey._only_public:
+                keypath = self._savePkeyTo(pkey, 'code', '%s.key' % name)
+                if outp is not None:
+                    outp.printf('key saved: %s' % (keypath,))
+
+        return pkey, cert
+
+    def getCodeKeyPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'code', f'{name}.key')
+            if os.path.isfile(path):
+                return path
+
+    def getCodeCertPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'code', f'{name}.crt')
+            if os.path.isfile(path):
+                return path
+
+    def getCodeKey(self, name):
+
+        path = self.getCodeKeyPath(name)
+        if path is None:
+            return None
+
+        pkey = self._loadKeyPath(path)
+        return s_rsa.PriKey(pkey.to_cryptography_key())
+
+    def getCodeCert(self, name):
+
+        path = self.getCodeCertPath(name)
+        if path is None: # pragma: no cover
+            return None
+
+        return self._loadCertPath(path)
+
+    def _getCertExt(self, cert, name):
+        for i in range(cert.get_extension_count()):
+            ext = cert.get_extension(i)
+            if ext.get_short_name() == name:
+                return ext.get_data()
+
+    def valCodeCert(self, byts):
+        '''
+        Verify a code cert is valid according to certdir's available CAs and CRLs.
+
+        Args:
+            byts (bytes): The certificate bytes.
+
+        Returns:
+            OpenSSL.crypto.X509: The certificate.
+        '''
+
+        reqext = crypto.X509Extension(b'extendedKeyUsage', False, b'codeSigning')
+
+        cert = self.loadCertByts(byts)
+        if self._getCertExt(cert, b'extendedKeyUsage') != reqext.get_data():
+            mesg = 'Certificate is not for code signing.'
+            raise s_exc.BadCertBytes(mesg=mesg)
+
+        crls = self._getCaCrls()
+        cacerts = self.getCaCerts()
+
+        store = crypto.X509Store()
+        [store.add_cert(cacert) for cacert in cacerts]
+
+        if crls:
+
+            store.set_flags(crypto.X509StoreFlags.CRL_CHECK | crypto.X509StoreFlags.CRL_CHECK_ALL)
+
+            [store.add_crl(crl) for crl in crls]
+
+        ctx = crypto.X509StoreContext(store, cert)
+        try:
+            ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        except crypto.X509StoreContextError as e:
+            mesg = _unpackContextError(e)
+            raise s_exc.BadCertVerify(mesg=mesg)
+        return cert
+
+    def _getCaCrls(self):
+
+        crls = []
+        for cdir in self.certdirs:
+
+            crlpath = os.path.join(cdir, 'crls')
+            if not os.path.isdir(crlpath):
+                continue
+
+            for name in os.listdir(crlpath):
+
+                if not name.endswith('.crl'): # pragma: no cover
+                    continue
+
+                fullpath = os.path.join(crlpath, name)
+                with io.open(fullpath, 'rb') as fd:
+                    crls.append(crypto.load_crl(crypto.FILETYPE_PEM, fd.read()))
+
+        return crls
+
     def genClientCert(self, name, outp=None):
         '''
         Generates a user PKCS #12 archive.
@@ -328,13 +547,12 @@ class CertDir:
             cacerts (tuple): A tuple of OpenSSL.crypto.X509 CA Certificates.
 
         Raises:
-            OpenSSL.crypto.X509StoreContextError: If the certificate is not valid.
+            BadCertVerify: If the certificate is not valid.
 
         Returns:
             OpenSSL.crypto.X509: The certificate, if it is valid.
-
         '''
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        cert = self.loadCertByts(byts)
 
         if cacerts is None:
             cacerts = self.getCaCerts()
@@ -343,7 +561,10 @@ class CertDir:
         [store.add_cert(cacert) for cacert in cacerts]
 
         ctx = crypto.X509StoreContext(store, cert)
-        ctx.verify_certificate()  # raises X509StoreContextError if unable to verify
+        try:
+            ctx.verify_certificate()
+        except crypto.X509StoreContextError as e:
+            raise s_exc.BadCertVerify(mesg=_unpackContextError(e))
         return cert
 
     def genUserCsr(self, name, outp=None):
@@ -399,9 +620,12 @@ class CertDir:
         for cdir in self.certdirs:
 
             path = s_common.genpath(cdir, 'cas')
+            if not os.path.isdir(path):
+                continue
 
             for name in os.listdir(path):
-                if not name.endswith('.crt'):
+
+                if not name.endswith('.crt'): # pragma: no cover
                     continue
 
                 full = s_common.genpath(cdir, 'cas', name)
@@ -1002,6 +1226,31 @@ class CertDir:
 
         return self._getServerSSLContext(hostname=hostname, caname=caname)
 
+    def getCrlPath(self, name):
+        for cdir in self.certdirs:
+            path = s_common.genpath(cdir, 'crls', '%s.crl' % name)
+            if os.path.isfile(path):
+                return path
+
+    def genCrlPath(self, name):
+        path = self.getCrlPath(name)
+        if path is None:
+            s_common.gendir(self.certdirs[0], 'crls')
+            path = os.path.join(self.certdirs[0], 'crls', f'{name}.crl')
+        return path
+
+    def genCaCrl(self, name):
+        '''
+        Get the CRL for a given CA.
+
+        Args:
+            name (str): The CA name.
+
+        Returns:
+            CRL: The CRL object.
+        '''
+        return CRL(self, name)
+
     def _getServerSSLContext(self, hostname=None, caname=None):
         sslctx = getServerSSLContext()
 
@@ -1125,8 +1374,32 @@ class CertDir:
         if byts:
             return self._loadCertByts(byts)
 
-    def _loadCertByts(self, byts):
-        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+    def loadCertByts(self, byts):
+        '''
+        Load a X509 certificate from its PEM encoded bytes.
+
+        Args:
+            byts (bytes): The PEM encoded bytes of the certificate.
+
+        Returns:
+            OpenSSL.crypto.X509: The X509 certificate.
+
+        Raises:
+            BadCertBytes: If the certificate bytes are invalid.
+        '''
+        return self._loadCertByts(byts)
+
+    def _loadCertByts(self, byts: bytes) -> crypto.X509:
+        try:
+            return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+        except crypto.Error as e:
+            # Unwrap pyopenssl's exception_from_error_queue
+            estr = ''
+            for argv in e.args:
+                if estr:  # pragma: no cover
+                    estr += ', '
+                estr += ' '.join((arg for arg in argv[0] if arg))
+            raise s_exc.BadCertBytes(mesg=f'Failed to load bytes: {estr}')
 
     def _loadCsrPath(self, path):
         byts = self._getPathBytes(path)
