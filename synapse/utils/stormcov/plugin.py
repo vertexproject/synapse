@@ -62,11 +62,6 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
     def has_dynamic_source_filename(self):
         return True
 
-    def _parent_node(self, node):
-        if not hasattr(node, 'parent'):
-            return node
-        return self._parent_node(node.parent)
-
     PARSE_METHODS = {"compute", "once"}
 
     def dynamic_source_filename(self, filename, frame, force=False):
@@ -74,25 +69,27 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             return None
 
         node = frame.f_locals.get('self')
-        pnode = self._parent_node(node)
-        filename = self.node_map.get(id(pnode), s_common.novalu)
+        while hasattr(node, 'parent'):
+            node = node.parent
+
+        filename = self.node_map.get(id(node), s_common.novalu)
         if filename is not s_common.novalu:
             return filename
 
-        if not pnode.__class__.__name__ == 'Query':
-            self.node_map[id(pnode)] = None
+        if not node.__class__.__name__ == 'Query':
+            self.node_map[id(node)] = None
             return
 
-        filename = self.text_map.get(pnode.text)
+        filename = self.text_map.get(node.text)
         if filename:
             return filename
 
-        tree = self.parser.parse(pnode.text)
+        tree = self.parser.parse(node.text)
         guid = s_common.guid(str(tree))
         filename = self.guid_map.get(guid)
 
-        self.node_map[id(pnode)] = filename
-        self.text_map[pnode.text] = filename
+        self.node_map[id(node)] = filename
+        self.text_map[node.text] = filename
         return filename
 
     def line_number_range(self, frame):

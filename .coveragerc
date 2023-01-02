@@ -1,9 +1,3 @@
 [report]
 omit =
     */synapse/tests/test_*
-
-[run]
-plugins = synapse.utils.stormcov
-
-[synapse.utils.stormcov]
-storm_dirs = synapse
