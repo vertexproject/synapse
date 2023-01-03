@@ -542,9 +542,8 @@ class StormTypesTest(s_test.SynTest):
             'modules': [
                 {
                     'name': 'test',
-                    'storm': 'function f(a) { return ($a) }',
-                    'modconf': {'valu': 'foo'},
                     'storm': '$valu=$modconf.valu function getvalu() { return($valu) }',
+                    'modconf': {'valu': 'foo'},
                 }
             ],
             'commands': [
@@ -660,6 +659,12 @@ class StormTypesTest(s_test.SynTest):
 
             await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
+
+            mods = await core.getStormMods()
+            self.len(1, mods)
+            mods['test']['modconf']['valu'] = 'bar'
+            mods = await core.getStormMods()
+            self.eq('foo', mods['test']['modconf']['valu'])
 
             # lib.len()
             opts = {
