@@ -4,6 +4,91 @@
 Synapse Changelog
 *****************
 
+v2.117.0 - 2023-01-04
+=====================
+
+Automatic Migrations
+--------------------
+- The ``risk:tool:software:soft:names`` and ``risk:tool:software:techniques``
+  properties are migrated to being unique arrays.
+  (`#2950 <https://github.com/vertexproject/synapse/pull/2950>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``risk`` model.
+  (`#2950 <https://github.com/vertexproject/synapse/pull/2950>`_)
+
+  ``risk:tool:software``
+    The ``soft:names`` and ``techniques`` properties are converted into sorted
+    and uniqued arrays.
+
+- Add support to the Cortex ``addStormPkg()`` and ``$lib.pkg.add()`` APIs to
+  load Storm Packages which have been signed to provide tamper resistance.
+  Root CA and intermediate CA certificates have been embedded into Synapse
+  now allow for verification of Rapid Power-Ups signed by The Vertex Project.
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+  (`#2957 <https://github.com/vertexproject/synapse/pull/2957>`_)
+  (`#2963 <https://github.com/vertexproject/synapse/pull/2963>`_)
+- Update ``synapse.tools.genpkg`` to add optional code signing to Storm packages
+  that it creates.
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+- Update ``synapse.tools.genpkg`` to require the packages it produces will be
+  JSON compatible when serialized, to avoid possible type coercion issues
+  introduced by the Python ``json`` library.
+  (`#2958 <https://github.com/vertexproject/synapse/pull/2958>`_)
+- Update ``synapse.tools.easycert`` to allow for creating code signing
+  certificates and managing certificate revocation lists (CRLs).
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+- Add the Nexus index ( ``nexsindx`` ) value to the data returned by the
+  ``getCellInfo()`` APIs.
+  (`#2949 <https://github.com/vertexproject/synapse/pull/2949>`_)
+- Allow the Storm backtick format strings to work with multiline strings.
+  (`#2956 <https://github.com/vertexproject/synapse/pull/2956>`_)
+- The Storm ``Bytes.json()`` method now raises exceptions that are ``SynErr``
+  subclasses when encountering errors. This method has been updated to add
+  optional ``encoding`` and ``errors`` arguments, to control how data is
+  deserialized.
+  (`#2945 <https://github.com/vertexproject/synapse/pull/2945>`_)
+- Add support for registering an OAuth2 provider in the Cortex and having
+  user tokens automatically refreshed in the background. These APIs are
+  exposed in Storm under the ``$lib.inet.http.oauth.v2`` library.
+  (`#2910 <https://github.com/vertexproject/synapse/pull/2910>`_)
+
+Bugfixes
+--------
+- Fix some error messages in the Snap which did not properly add variables
+  to the message.
+  (`#2951 <https://github.com/vertexproject/synapse/pull/2951>`_)
+- Fix an error in the ``synapse.tools.aha.enroll`` command example.
+  (`#2948 <https://github.com/vertexproject/synapse/pull/2948>`_)
+- Fix an error with the ``merge`` command creating ``No form named None``
+  warnings in the Cortex logs.
+  (`#2952 <https://github.com/vertexproject/synapse/pull/2952>`_)
+- Fix the Storm ``storm:smtp:message`` getter and setter for the ``html``
+  property so it will correctly produce HTML formatted messages.
+  (`#2955 <https://github.com/vertexproject/synapse/pull/2955>`_)
+- Several ``certdir`` APIs previously allowed through
+  ``openssl.crypto.X509StoreContextError`` and ``openssl.crypto.Error``
+  exceptions. These now raise Synapse ``BadCertVerify`` and ``BadCertBytes``
+  exceptions.
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+- Fix an issue where a Storm packages ``modconf`` values were mutable.
+  (`#2964 <https://github.com/vertexproject/synapse/pull/2964>`_)
+
+Improved Documentation
+----------------------
+- Removed outdated Kubernetes related devops documentation as it is in
+  the process of being rewritten.
+  (`#2948 <https://github.com/vertexproject/synapse/pull/2948>`_)
+
+Deprecations
+------------
+- The Cortex APIs ``provStacks()`` and ``getProvStack(iden)`` and the
+  corresponding Cortex configuration option ``provenance:en`` have been marked
+  as deprecated and are planned to be removed in ``v2.221.0``.
+  (`#2682 <https://github.com/vertexproject/synapse/pull/2682>`_)
+
 v2.116.0 - 2022-12-14
 =====================
 
