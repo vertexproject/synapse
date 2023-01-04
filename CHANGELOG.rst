@@ -55,6 +55,9 @@ Features and Enhancements
   user tokens automatically refreshed in the background. These APIs are
   exposed in Storm under the ``$lib.inet.http.oauth.v2`` library.
   (`#2910 <https://github.com/vertexproject/synapse/pull/2910>`_)
+- STIX validation no longer caches any downloaded files it may use when
+  attempting to validate STIX objects.
+  (`#2966 <https://github.com/vertexproject/synapse/pull/2966>`_)
 
 Bugfixes
 --------
