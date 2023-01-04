@@ -24,10 +24,10 @@ Features and Enhancements
     and uniqued arrays.
 
 - Add support to the Cortex ``addStormPkg()`` and ``$lib.pkg.add()`` APIs to
-  load Storm Packages which have been signed to provide to allow cryptographic
-  signature verification. Root CA and intermediate CA certificates have been
-  embedded into Synapse now allow for verification of Rapid Power-Ups signed
-  by The Vertex Project.
+  load Storm Packages which have been signed to allow cryptographic signature
+  verification. Root CA and intermediate CA certificates have been embedded
+  into Synapse to allow for verification of Rapid Power-Ups signed by
+  The Vertex Project.
   (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
   (`#2957 <https://github.com/vertexproject/synapse/pull/2957>`_)
   (`#2963 <https://github.com/vertexproject/synapse/pull/2963>`_)
