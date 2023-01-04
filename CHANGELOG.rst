@@ -74,7 +74,7 @@ Bugfixes
   exceptions. These now raise Synapse ``BadCertVerify`` and ``BadCertBytes``
   exceptions.
   (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
-- Fix an issue where a Storm packages ``modconf`` values were mutable.
+- Fix an issue where a Storm package's ``modconf`` values were mutable.
   (`#2964 <https://github.com/vertexproject/synapse/pull/2964>`_)
 
 Improved Documentation
