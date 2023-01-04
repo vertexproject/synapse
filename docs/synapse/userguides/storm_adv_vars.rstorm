@@ -7,11 +7,20 @@
 Storm Reference - Advanced - Variables
 ======================================
 
-Storm supports the use of **variables.** A :ref:`gloss-variable` is a value that can change depending on conditions or on information passed to the Storm query. (Contrast this with a :ref:`gloss-constant`, which is a value that is fixed and does not change.)
+Storm supports the use of **variables.** A :ref:`gloss-variable` is a value that can change depending
+on conditions or on information passed to the Storm query. (Contrast this with a :ref:`gloss-constant`,
+which is a value that is fixed and does not change.)
 
-Variables can be used in a variety of ways, from providing simpler or more efficient ways to reference node properties, to facilitating bulk operations, to performing complex tasks or writing extensions to Synapse in Storm.
+Variables can be used in a variety of ways, from providing simpler or more efficient ways to reference
+node properties, to facilitating bulk operations, to performing complex tasks or writing extensions
+such as Power-Ups (see :ref:`gloss-power-up`) to Synapse in Storm.
 
-These documents approach variables and their use from a **user** standpoint and aim to provide sufficient background for users to understand and begin to use variables. They do not provide an in-depth discussion of variables and their use from a fully developer-oriented perspective.
+.. NOTE::
+  
+  These documents approach variables and their use from a **user** standpoint and aim to provide
+  sufficient background for users to understand and begin to use variables. They do not provide an
+  in-depth discussion of variables and their use. See the :ref:`devguide` for more developer-focused
+  topics.
 
 - `Storm Operating Concepts`_
 - `Variable Concepts`_
@@ -30,14 +39,19 @@ These documents approach variables and their use from a **user** standpoint and 
 Storm Operating Concepts
 ------------------------
 
-When leveraging variables in Storm, it is important to keep in mind the high-level :ref:`storm-op-concepts`. Specifically:
+When using variables in Storm, it is important to keep in mind the high-level :ref:`storm-op-concepts`.
+Specifically:
 
-- Storm operations (e.g., lifts, filters, pivots, etc.) are performed on **nodes.**
+- Storm operations (e.g., lifts, filters, pivots, etc.) are commonly performed on **nodes.**
 - Operations can be **chained** and are executed in order from left to right.
-- Storm acts as an **execution pipeline,** with each node passed individually and independently through the chain of Storm operations.
-- Most Storm operations **consume** nodes — that is, a given operation (such as a filter or pivot) acts upon the inbound node in some way and returns only the node or set of nodes that result from that operation.
+- Storm acts as an **execution pipeline,** with each node passed individually and independently through
+  the chain of Storm operations.
+- Most Storm operations **consume** nodes — that is, a given operation (such as a filter or pivot) acts
+  upon the inbound node in some way and returns only the node or set of nodes that result from that
+  operation.
 
-These principles apply to variables that reference nodes (or node properties) in Storm just as they apply to nodes, and so affect the way variables behave within Storm queries.
+These principles apply to variables that reference nodes (or node properties) in Storm just as they apply
+to nodes, and so affect the way variables behave within Storm queries.
 
 .. _var-concepts:
 
@@ -49,27 +63,47 @@ Variable Concepts
 Variable Scope
 ++++++++++++++
 
-A variable’s **scope** is its lifetime and under what conditions it may be accessed. There are two dimensions that impact a variable’s scope: its **call frame** and its **runtime safety** ("runtsafety").
+A variable’s **scope** is its lifetime and under what conditions it may be accessed. There are two
+dimensions that impact a variable’s scope: its **call frame** and its **runtime safety** ("runtsafety").
 
 .. _var-call-frame:
 
 Call Frame
 ++++++++++
 
-A variable’s **call frame** is where the variable is used. The main Storm query starts with its own call frame, and each call to a "pure" Storm command, function, or subquery creates a new call frame. The new call frame gets a copy of all the variables from the calling call frame. Changes to existing variables or the creation of new variables within the new call frame do not impact the calling scope.
+A variable’s **call frame** is where the variable is used. The main Storm query starts with its own call
+frame, and each call to a "pure" Storm command, function, or subquery creates a new call frame. The new
+call frame gets a copy of all the variables from the calling call frame. Changes to existing variables or
+the creation of new variables within the new call frame do not impact the calling scope.
 
 Runtsafe vs. Non-Runtsafe
 +++++++++++++++++++++++++
 
-An important distinction to keep in mind when using variables in Storm is whether the variable is runtime-safe (":ref:`gloss-runtsafe`") or non-runtime safe (":ref:`gloss-non-runtsafe`").
+An important distinction to keep in mind when using variables in Storm is whether the variable is runtime-safe
+(":ref:`gloss-runtsafe`") or non-runtime safe (":ref:`gloss-non-runtsafe`").
 
-A variable that is **runtsafe** has a value independent of any nodes passing through the Storm pipeline. For example, a variable whose value is explicitly set, such as ``$string = mystring`` or ``$ipv4 = 8.8.8.8``  is considered runtsafe because the value does not change / is not affected by the specific node passing through the Storm pipeline.
+A variable that is **runtsafe** has a value independent of any nodes passing through the Storm pipeline. For
+example, a variable whose value is explicitly set, such as ``$string = mystring`` or ``$ipv4 = 8.8.8.8``  is
+considered runtsafe because the value does not change / is not affected by the specific node passing through
+the Storm pipeline.
 
-A variable that is **non-runtsafe** has a value derived from a node passing through the Storm pipeline. For example, a variable whose value is set to a node property value may change based on the specific node passing through the Storm pipeline. In other words, if your Storm query is operating on a set of DNS A nodes (``inet:dns:a``) and you define the variable ``$fqdn = :fqdn`` (setting the variable to the value of the ``:fqdn`` secondary property), the value of the variable will change based on the specific value of that property for each ``inet:dns:a`` node in the pipeline.
+A variable that is **non-runtsafe** has a value derived from a node passing through the Storm pipeline. For
+example, a variable whose value is set to a node property value may change based on the specific node passing
+through the Storm pipeline. In other words, if your Storm query is operating on a set of DNS A nodes
+(``inet:dns:a``) and you define the variable ``$fqdn = :fqdn`` (setting the variable to the value of the 
+``:fqdn`` secondary property), the value of the variable will change based on the specific value of that
+property for each ``inet:dns:a`` node in the pipeline.
 
-All non-runtsafe variables are **scoped** to an individual node as it passes through the Storm pipeline. This means that a variable’s value based on a given node is not available when processing a different node (at least not without using special commands, methods, or libraries). In other words, the path of a particular node as it passes through the Storm pipeline is its own scope.
+All non-runtsafe variables are **scoped** to an individual node as it passes through the Storm pipeline. This
+means that a variable’s value based on a given node is not available when processing a different node (at least
+not without using special commands, methods, or libraries). In other words, the path of a particular node as
+it passes through the Storm pipeline is its own scope.
 
-The "safe" in non-runtsafe should **not** be interpreted as meaning the use of non-runtsafe variables is somehow "risky" or involves insecure programming or processing of data. It simply means the value of the variable is not safe from changing (i.e., it may change) as the Storm pipeline progresses.
+.. NOTE::
+  
+  The "safe" in non-runtsafe should **not** be interpreted to mean that the use of non-runtsafe variables is
+  somehow "risky" or involves insecure programming or processing of data. It simply means the value of the
+  variable is not safe from changing (i.e., it may change) as the Storm pipeline progresses.
 
 .. _var-types:
 
@@ -78,15 +112,19 @@ Types of Variables
 
 Storm supports two types of variables:
 
-- **Built-in variables.** Built-in variables facilitate many common Storm operations. They may vary in their scope and in the context in which they can be used.
-- **User-defined variables** User-defined variables are named and defined by the user. They are most often limited in scope and facilitate operations within a specific Storm query.
+- **Built-in variables.** Built-in variables facilitate many common Storm operations. They may vary in their
+  scope and in the context in which they can be used.
+- **User-defined variables** User-defined variables are named and defined by the user. They are most often
+  limited in scope and facilitate operations within a specific Storm query.
 
 .. _vars-builtin:
 
 Built-In Variables
 ++++++++++++++++++
 
-Storm includes a set of built-in variables and associated variable methods (:ref:`storm-adv-methods`) and libraries (:ref:`stormtypes-libs-header`) that facilitate Cortex-wide, node-specific, and context-specific operations.
+Storm includes a set of built-in variables and associated variable methods (:ref:`storm-adv-methods`) and
+libraries (:ref:`stormtypes-libs-header`) that facilitate Cortex-wide, node-specific, and context-specific
+operations.
 
 Built-in variables differ from user-defined variables in that built-in variable names:
 
@@ -95,28 +133,40 @@ Built-in variables differ from user-defined variables in that built-in variable 
 - can be accessed automatically (i.e., without needing to define them) from within Storm, and
 - persist across user sessions and Cortex reboots.
 
+.. TIP::
+  
+  We cover a few of the most common built-in variables here. For additional detail on Synapse's
+  Storm types (objects) and libraries, see the :ref:`stormtypes_index`.
+
+
 .. _vars-global:
 
 Global Variables
 ~~~~~~~~~~~~~~~~
 
-Global variables operate independently of any node. That is, they can be invoked in a Storm query in the absence of any nodes in the Storm execution pipeline (though they can also be leveraged when performing operations on nodes).
+Global variables operate independently of any node. That is, they can be invoked in a Storm query in the
+absence of any nodes in the Storm execution pipeline (though they can also be used when performing
+operations on nodes).
 
 .. _vars-global-lib:
 
 $lib
 ####
 
-The library variable ( ``$lib`` ) is a built-in variable that provides access to the global Storm library. In Storm, libraries are accessed using built-in variable names (e.g., ``$lib.print()``).
+The library variable ( ``$lib`` ) is a built-in variable that provides access to the global Storm library.
+In Storm, libraries are accessed using built-in variable names (e.g., ``$lib.print()``).
 
-See the :ref:`stormtypes-libs-header` technical documentation for descriptions of the libraries available within Storm.
+Libraries provide access to a wide range of additional functionality with Storm. See the
+:ref:`stormtypes-libs-header` technical documentation for descriptions of the libraries available
+within Storm.
 
 .. _vars-node:
 
 Node-Specific Variables
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Storm includes node-specific variables that are designed to operate on or in conjunction with nodes and require one or more nodes in the Storm pipeline.
+Storm includes node-specific variables that are designed to operate on or in conjunction with nodes and
+require one or more nodes in the Storm pipeline.
 
 .. NOTE::
 
@@ -127,65 +177,86 @@ Storm includes node-specific variables that are designed to operate on or in con
 $node
 #####
 
-The node variable (``$node``) is a built-in Storm variable that **references the current node in the Storm query.** Specifically, this variable contains the inbound node’s node object, and provides access to the node’s attributes, properties, and associated attribute and property values.
+The node variable (``$node``) is a built-in Storm variable that **references the current node in the Storm
+pipeline.** Specifically, this variable contains the inbound node’s node object, and provides access to the
+node’s attributes, properties, and associated attribute and property values.
 
 Invoking this variable during a Storm query is useful when you want to:
 
-- access the raw and entire node object,
+- access the entire raw node object,
 - store the value of the current node before pivoting to another node, or
 - use an aspect of the current node in subsequent query operations.
 
-The ``$node`` variable supports a number of built-in methods that can be used to access specific data or properties associated with a node. See the technical documentation for the :ref:`stormprims-storm-node-f527` object or the :ref:`meth-node` section of the :ref:`storm-adv-methods` user documentation for additional detail and examples.
+The ``$node`` variable supports a number of built-in **methods** that can be used to access specific data
+or properties associated with a node. See the technical documentation for the :ref:`stormprims-storm-node-f527`
+object or the :ref:`meth-node` section of the :ref:`storm-adv-methods` user documentation for additional
+detail and examples.
 
 .. _vars-node-path:
 
 $path
 #####
 
-The path variable (``$path``) is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query.**
+The path variable (``$path``) is a built-in Storm variable that **references the path of a node as it travels
+through the pipeline of a Storm query.**
 
-The ``$path`` variable is not used on its own, but in conjunction with its methods. See the technical documentation for the :ref:`stormprims-storm-path-f527` object or the :ref:`meth-path` section of the :ref:`storm-adv-methods` user documentation for additional detail and examples.
+The ``$path`` variable is not used on its own, but in conjunction with its methods. See the technical
+documentation for the :ref:`stormprims-storm-path-f527` object or the :ref:`meth-path` section of the
+:ref:`storm-adv-methods` user documentation for additional detail and examples.
 
 .. _vars-trigger:
 
 Trigger-Specific Variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A :ref:`gloss-trigger` is used to support automation within a Cortex. Triggers use events (such as the creation of a node, setting the value of a node’s property, or applying a tag to a node) to fire ("trigger") the execution of a predefined Storm query. Storm uses a built-in variable specifically within the context of trigger-initiated Storm queries.
+A :ref:`gloss-trigger` is used to support automation within a Cortex. Triggers use events (such as creating a
+node, setting a node’s property value, or applying a tag to a node) to fire ("trigger") the execution of a
+predefined Storm query. Storm uses a built-in variable specifically within the context of trigger-initiated
+Storm queries.
 
 .. _vars-trigger-tag:
 
 $tag
 ####
 
-Within the context of triggers that fire on ``tag:add`` events, the ``$tag`` variable represents the name of the tag that caused the trigger to fire.
+For triggers that fire on ``tag:add`` events, the ``$tag`` variable represents the name of the tag that
+caused the trigger to fire.
 
 For example:
 
-You write a trigger to fire when any tag matching the expression ``#foo.bar.*`` is added to a ``file:bytes`` node. The trigger executes the following Storm command:
+You write a trigger to fire when any tag matching the expression ``#foo.bar.*`` is added to a ``file:bytes``
+node. The trigger executes the following Storm command:
 
 .. storm-pre:: [file:bytes="*"] $tag=malware -> hash:md5 [ +#$tag ]
 ::
 
   -> hash:md5 [ +#$tag ]
 
-Because the trigger uses a wildcard expression, it will fire on any tag that matches that expression (e.g., ``#foo.bar.hurr``, ``#foo.bar.derp``, etc.). The Storm snippet above will take the inbound ``file:bytes`` node, pivot to the file’s associated MD5 node (``hash:md5``), and apply the same tag that fired the trigger to the MD5.
+Because the trigger uses a tag glob ("wildcard") expression, it will fire on any tag that matches that expression
+(e.g., ``#foo.bar.hurr``, ``#foo.bar.derp``, etc.). The Storm snippet above will take the inbound ``file:bytes``
+node, pivot to the file’s associated MD5 node (``hash:md5``), and apply the same tag that fired the trigger to 
+the MD5.
 
-See the :ref:`auto-triggers` section of the :ref:`storm-ref-automation` document and the Storm :ref:`storm-trigger` command for a more detailed discussion of triggers and associated Storm commands.
+See the :ref:`auto-triggers` section of the :ref:`storm-ref-automation` document and the Storm :ref:`storm-trigger`
+command for a more detailed discussion of triggers and associated Storm commands.
 
-.. _vars-csvtool:
+.. _vars-ingest:
 
-CSVTool-Specific Variables
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Ingest Variables
+~~~~~~~~~~~~~~~~
 
-Synapse's **CSVTool** is used to ingest (import) data into or export data from a Cortex using comma-separated value (CSV) format. Storm includes a built-in variable to facilitate bulk data ingest using CSV.
+Synapse's :ref:`syn-tools-csvtool` can be used to ingest (import) data into Synapse from a comma-separated
+value (CSV) file. Storm includes a built-in variable to facilitate bulk data ingest using CSV.
 
-.. _vars-csvtool-rows:
+.. _vars-ingest-rows:
 
 $rows
 #####
 
-The ``$rows`` variable refers to the set of rows in a CSV file. When ingesting data into a Cortex, CSVTool reads a CSV file and a file containing a Storm query that tells CSVTool how to process the CSV data. The Storm query is typically constructed to iterate over the set of rows (``$rows``) using a "for" loop that uses user-defined variables to reference each field (column) in the CSV data.
+The ``$rows`` variable refers to the set of rows in a CSV file. When ingesting data into Synapse, CSVTool
+(or the Optic Ingest Tool) reads a CSV file and a file containing a Storm query that tells Synapse how to
+process the CSV data. The Storm query is typically constructed to iterate over the set of rows (``$rows``)
+using a :ref:`flow-for` that uses user-defined variables to reference each field (column) in the CSV data.
 
 For example:
 
@@ -193,7 +264,14 @@ For example:
 
   for ($var1, $var2, $var3, $var4) in $rows { <do stuff> }
 
-See :ref:`syn-tools-csvtool` for a more detailed discussion of CSVTool use and associated Storm syntax.
+
+.. TIP::
+  
+  The commercial Synapse UI (:ref:`gloss-optic`) includes an `Ingest Tool`_ that can ingest data in CSV, 
+  JSONL, or JSON format. The ``$rows`` variable is used in the Ingest Tool to refer to either the set
+  of rows in a CSV file or the set of lines ("rows") in a JSONL file. In addition, the ``$blob`` variable
+  is used to refer to the entire JSON blob when ingesting JSON data. See the `ingest examples`_ section
+  of the Ingest Tool documentation for additional detail.
 
 .. _vars-user:
 
@@ -202,20 +280,26 @@ User-Defined Variables
 
 User-defined variables can be defined in one of two ways:
 
-- At runtime (i.e., within the scope of a specific Storm query). This is the most common use for user-defined variables.
-- Mapped via options passed to the Storm runtime (i.e., when using the ``--optifle`` option from Synapse cmdr or via Cortex API access). This method is less common. When defined in this manner, user-defined variables will behave as though they are built-in variables that are runtsafe.
+- At runtime (i.e., within the scope of a specific Storm query). This is the most common use for user-defined
+  variables.
+- Mapped via options passed to the Storm runtime (for example, when using the :ref:`http-api-cortex` API. This
+  method is less common for everyday users. When defined in this manner, user-defined variables will behave as
+  though they are built-in variables that are runtsafe.
 
 .. _vars-names:
 
 Variable Names
 ~~~~~~~~~~~~~~
 
-All variable names in Storm (including built-in variables) begin with a dollar sign ( ``$`` ). A variable name can be any alphanumeric string, **except for** the name of a built-in variable (see :ref:`vars-builtin`), as those names are reserved. Variable names are case-sensitive; the variable ``$MyVar`` is different from ``$myvar``.
-
+All variable names in Storm (including built-in variables) begin with a dollar sign ( ``$`` ). A variable name
+can be any alphanumeric string, **except for** the name of a built-in variable (see :ref:`vars-builtin`), as
+those names are reserved. Variable names are case-sensitive; the variable ``$MyVar`` is different from ``$myvar``.
 
 .. NOTE::
 
-  Storm will not prevent you from using the name of a built-in variable to define a variable (such as ``$node = 7``). However, doing so may result in undesired effects or unexpected errors due to the variable name collision.
+  Storm will not **prevent** you from using the name of a built-in variable to define a variable (such as
+  ``$node = 7``). However, doing so may result in undesired effects or unexpected errors due to the variable
+  name collision.
 
 .. _vars-define:
 
@@ -232,204 +316,268 @@ The variable name must be specified first, followed by the equals sign and the v
 
 ``<value>`` can be:
 
-- an explicit value / literal,
-- a node secondary or universal property,
-- a tag or tag property,
-- a built-in variable or method,
+- an explicit value (literal),
+- a node property (secondary or universal),
+- a built-in variable or method (e.g., can allow you to access a node's primary property, form name, or other
+  elements),
+- a tag (allows you to access timestamps associated with a tag),
 - a library function,
-- a mathematical expression / "dollar expression", or
-- an embedded query.
+- an expression, or
+- an embedded Storm query.
 
 Examples
 ~~~~~~~~
 
-Two types of examples are used below:
+The examples below use the ``$lib.print()`` library function to display the **value** of the user-defined
+variable being set. (This is done for illustrative purposes only; ``$lib.print()`` is not required in order
+to use variables or methods.)
 
-- **Demonstrative example:** the ``$lib.print()`` library function is used to display the value of the user-defined variable being set. This is done for illustrative purposes only; ``$lib.print()`` is not required in order to use variables or methods.
+In some instances we include a second example to illustrate how a particular kind of variable assignment
+might be used in a real-world scenario. While we have attempted to use relatively simple examples for clarity,
+some examples may leverage additional Storm features such as `subqueries`_, `subquery filters`_, or 
+`control flow`_ elements such as for loops or switch statements.
 
-  Keep Storm's operation chaining, pipeline, and node consumption aspects in mind when reviewing the demonstrative examples below. When using ``$lib.print()`` to display the value of a variable, the queries below will:
+.. TIP::
   
-    - Lift the specified node(s).
-    - Assign the variable. Note that assigning a variable has no impact on the nodes themselves.
-    - Print the variable's value.
-    - Return any nodes still in the pipeline. Because variable assignment doesn't impact the node(s), they are not consumed and so are returned (displayed) at the CLI.
+  Keep Storm's operation chaining, pipeline, and node consumption aspects in mind when reviewing the
+  following examples. When using ``$lib.print()`` to display the value of a variable, the queries
+  below will:
   
-  The effect of this process is that for each node in the Storm query pipeline, the output of ``$lib.print()`` is displayed, followed by the relevant node.
+  - Lift the specified node(s).
+  - Assign the variable. Note that assigning a variable has no impact on the nodes themselves.
+  - Print the variable's value using ``$lib.print()``.
+  - Return any nodes still in the pipeline. Because variable assignment doesn't impact the node(s), they
+    are not consumed and so are returned (displayed) at the CLI.
+  
+  The effect of this process is that for each node in the Storm query pipeline, the output of ``$lib.print()``
+  is displayed, followed by the relevant node.
+  
+  In some examples the Storm :ref:`storm-spin` command is used to suppress display of the node itself.
+  We do this for cases where displaying the node detracts from illustrating the value of the variable.
 
-- **Use-case example:** the user-defined variable is used in one or more sample queries to illustrate possible practical use cases. These represent exemplar Storm queries for how a variable or method might be used in practice. While we have attempted to use relatively simple examples for clarity, some examples may leverage additional Storm features such as subqueries, subquery filters, or flow control elements such as "for" loops or "switch" statements.
 
-*Assign a literal to a user-defined variable:*
+**Explicit values / literals**
+
+You can assign an explicit, unchanging value to a variable.
 
 - Assign the value 5 to the variable ``$threshold``:
-
 
 .. storm-cli:: $threshold=5 $lib.print($threshold)
     
 
-- Tag any ``file:bytes`` nodes that have a number of AV signature hits higher than a given threshold for review:
+*Example:*
+
+- Tag ``file:bytes`` nodes that have a number of AV signature hits higher than a given threshold for review:
 
 .. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 it:av:filehit=(sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4, (0bfef0179bf358f3fe7bad67fa529c77, trojan.gen.2)) it:av:filehit=(sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4, (325cd5a01724fa0c63907eac044f4961, trojan.agent/gen-onlinegames)) it:av:filehit=(sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4, (ac8d9645c6cdf123683a73a02e231052, w32/imestartup.a.gen!eldorado))]
 .. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (be9793d772d23269ab0c165af819e74a, troj_gen.r002c0gkj17)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (eef2ccb70945fb28a45c7f14f2a0f11d, malicious.1b8fb7)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (ce4e34d2f9207095aa7351986bbad357, trojan-ddos.win32.stormattack.c)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (ed344310e3203ec4348c4ee549a3b188, "trojan ( 00073eb11 )")) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (f5b5daeda10e487fccc07463d9df6b47, tool.stormattack.win32.10)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (a0f25a5ba637d5c8e7c42911c4336085, trojan/w32.agent.61440.eii))]
 .. storm-cli:: $threshold=5 file:bytes +{ -> it:av:filehit } >= $threshold [ +#review ]
 
-
-*Assign a node secondary property to a user-defined variable:*
-
-- Assign the ``:user`` property from an Internet-based account (``inet:web:acct``) to the variable ``$user``:
-
-
-.. storm-pre:: [inet:web:acct=(twitter.com,bert) :email=bert@gmail.com]
-.. storm-cli:: inet:web:acct=(twitter.com,bert) $user=:user $lib.print($user) | spin
-    
-   
-- Find email addresses associated with a set of Internet accounts where the username of the email address is the same as the username of the Internet account:
-
-.. storm-pre:: [inet:web:acct=(twitter.com,ernie) :email=noternie@gmail.com]
-.. storm-cli:: inet:web:acct $user=:user -> inet:email +:user=$user
+.. TIP::
+  
+  The example above uses a subquery filter (:ref:`filter-subquery`) to pivot to the ``it:av:filehit`` nodes
+  associated with the ``file:bytes`` node, and compares the number of AV hits to the value of the ``$threshold``
+  variable.
 
 
-*Assign a node universal property to a user-defined variable:*
+**Node properties**
 
-- Assign the ``.seen`` universal property from a DNS A node to the variable ``$time``:
+You can assign the value of a particular node property (secondary or universal) to a variable.
+
+- **Secondary property:** Assign the ``:user`` property from an Internet-based account (``inet:web:acct``) to
+  the variable ``$user``:
+
+.. storm-pre:: [inet:web:acct=(twitter.com,hacks4cats) :email=ron@protonmail.com]
+.. storm-cli:: inet:web:acct=(twitter.com,hacks4cats) $user=:user $lib.print($user)
+
+
+- **Universal property:** Assign the ``.seen`` universal property from a DNS A node to the variable ``$time``:
 
 .. storm-pre:: [inet:dns:a=(woot.com,1.2.3.4) .seen=("2018/11/27 03:28:14","2019/08/15 18:32:47")]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen $lib.print($time) | spin
-    
+.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen $lib.print($time)
 
 .. NOTE::
+  
+  In the output above, the variable value is displayed as a pair of epoch milliseconds, which is how Synapse
+  stores date/time values.
 
-  In the example above, the raw value of the ``.seen`` property is assigned to the ``$time`` variable. ``.seen`` is an interval (:ref:`type-ival`) type, consisting of a pair of minimum and maximum time values. These values are stored in Unix epoch millis, which are the values shown by the output of the ``$lib.print()`` function.
 
-
-- Given a DNS A record, find other DNS A records that pointed to the same IP address in the same time window:
+*Example:*
+  
+- Given a DNS A record observed within a specific time period, find other DNS A records that pointed to the
+  same IP address in the same time window:
 
 .. storm-pre:: [ ( inet:dns:a=(hurr.net,1.2.3.4) .seen=("2018/12/09 06:02:53","2019/01/03 11:27:01") ) ( inet:dns:a=(derp.org,1.2.3.4) .seen=("2019/09/03 01:11:23","2019/12/14 14:22:00"))]
 .. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen -> inet:ipv4 -> inet:dns:a +.seen@=$time
 
-
-*Assign a tag to a user-defined variable:*
-
-- Assign the explicit tag value ``cno.infra.anon.tor`` to the variable ``$tortag``:
-
-
-.. storm-cli:: $tortag=cno.infra.anon.tor $lib.print($tortag)
-    
-
-- Tag IP addresses that Shodan  says are associated with Tor with the ``#cno.infra.anon.tor`` tag:
-
-.. storm-pre:: [ inet:ipv4=84.140.90.95 inet:ipv4=54.38.219.150 inet:ipv4=46.105.100.149 +#rep.shodan.tor ]
-.. storm-cli:: $tortag=cno.infra.anon.tor inet:ipv4#rep.shodan.tor [ +#$tortag ]
+.. TIP::
+  
+  An interval (such as a ``.seen`` property) consists of a **pair** of date/time values. In the example
+  above, the value of the variable ``$time`` is the combined pair (min / max) of times.
+  
+  To access the "first seen" (minimum) or "last seen" (maximum) time values separately, use a pair of
+  variables in the assignment:
+  
+  ``($min, $max) = .seen``
 
 
-*Assign a tag timestamp to a user-defined variable:*
+**Built-in variables and methods**
 
-- Assign the times associated with Threat Group 20’s use of a malicious domain to the variable ``$time``:
+:ref:`vars-builtin` (including :ref:`vars-node`) allow you to reference common Synapse objects and their
+associated components. For many common user-facing tasks, the ``$node`` variable and its methods are the
+most useful.
 
-.. storm-pre:: [inet:fqdn=evildomain.com +#cno.threat.t20.tc=(2015/09/08,2017/09/08)]
-.. storm-cli:: inet:fqdn=evildomain.com $time=#cno.threat.t20.tc $lib.print($time) | spin
-    
+- **Node object:** Assign an entire FQDN node to the variable ``$fqdn`` using the ``$node`` built-in
+  variable:
 
-- Find DNS A records for any subdomain associated with a Threat Group 20 zone during the time they controlled the zone:
-
-.. storm-pre:: [ (inet:dns:a=(www.evildomain.com,1.2.3.4) .seen=(2016/07/12,2016/12/13)) (inet:dns:a=(smtp.evildomain.com,5.6.7.8) .seen=(2016/04/04,2016/08/02)) (inet:dns:a=(evildomain.com,12.13.14.15) .seen=(2017/12/22,2019/12/22))]
-.. storm-cli:: inet:fqdn#cno.threat.t20.tc $time=#cno.threat.t20.tc -> inet:fqdn:zone -> inet:dns:a +.seen@=$time
-
-
-*Assign a tag property to a user-defined variable:*
-
-- Assign the risk value assigned by DomainTools to an FQDN to the variable ``$risk``:
-
-
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A tagprop doc.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=badsite.org +#rep.domaintools:risk=85]
-.. storm-cli:: inet:fqdn=badsite.org $risk=#rep.domaintools:risk $lib.print($risk) | spin
-
-
-- Given an FQDN with a risk score, find all FQDNs with an equal or higher risk score:
-
-
-.. storm-pre:: [ (inet:fqdn=stillprettybad.com +#rep.domaintools:risk=92) (inet:fqdn=notsobad.net +#rep.domaintools:risk=67)]
-.. storm-cli:: inet:fqdn=badsite.org $risk=#rep.domaintools:risk inet:fqdn#rep.domaintools:risk>=$risk
-
-
-*Assign a built-in variable to a user-defined variable:*
-
-- Assign a ``ps:person`` node to the variable ``$person``:
-
-.. storm-pre:: [ps:person=0040a7600a7a4b59297a287d11173d5c]
-.. storm-cli:: ps:person=0040a7600a7a4b59297a287d11173d5c $person=$node $lib.print($person) | spin
-    
-   
-- For a given person, find all objects the person "has" and all the news articles that reference that person (uses the Storm :ref:`storm-tee` command):
-
-.. storm-pre:: [ (edge:has=((ps:person,0040a7600a7a4b59297a287d11173d5c),(inet:web:acct,(twitter.com,mytwitter)))) (edge:refs=((media:news,00076a3f20808a14cbaa01ad51111edc),(ps:person,0040a7600a7a4b59297a287d11173d5c)))]
-.. storm-cli:: ps:person=0040a7600a7a4b59297a287d11173d5c $person = $node | tee { edge:has:n1=$person -> * } { edge:refs:n2=$person <- * +media:news }
-
+.. storm-pre:: [ inet:fqdn=mail.mydomain.com ]
+.. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node $lib.print($fqdn)
 
 .. NOTE::
+  
+  When you use the built-in variable ``$node`` to assign a value to a variable, the value is set to the
+  **entire node object** (refer to the output above). For common user-facing tasks, it is less likely that
+  users will need "the entire node"; more often, they need to refer to a **component** of the node, such as
+  its primary property value, form name, or associated tags.
+  
+  For some use cases, Synapse and Storm can "understand" which component of the node you want when
+  referring to the full ``$node`` object. However, you can always be explicit by using the appropriate
+  **method** to access the specific component you want (such as ``$node.value()`` or ``$node.form()``).
+  
+  See the technical documentation for the :ref:`stormprims-storm-node-f527` object or the :ref:`meth-node`
+  section of the :ref:`storm-adv-methods` user documentation for additional detail and examples when using
+  methods associated with the ``$node`` built-in variable.
 
-  See the technical documentation for the :ref:`stormprims-storm-node-f527` object or the :ref:`meth-node` section of the :ref:`storm-adv-methods` user documentation for additional detail and examples when using the ``$node`` built-in variable.
-
-*Assign a built-in variable method to a user-defined variable:*
-
-- Assign the value of a domain node to the variable ``$fqdn``:
+- **Node method:** Assign the **primary property value** of a domain node to the variable ``$fqdn`` using
+  the ``$node.value()`` method:
 
 .. storm-pre:: [ inet:dns:a=(mail.mydomain.com,11.12.13.14) inet:dns:a=(mail.mydomain.com,25.25.25.25) ( inet:ipv4=25.25.25.25 :dns:rev=mail.mydomain.com ) ]
-.. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node.value() $lib.print($fqdn) | spin
+.. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node.value() $lib.print($fqdn)
     
 
 - Find the DNS A records associated with a given domain where the PTR record for the IP matches the FQDN:
 
 .. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node.value() -> inet:dns:a +{ -> inet:ipv4 +:dns:rev=$fqdn }
 
-
-*Assign a library function to a user-defined variable:*
-
-- Assign a value to the variable ``$mytag`` using a library function:
-
-
-.. storm-cli:: $mytag = $lib.str.format("cno.mal.sofacy") $lib.print($mytag)
+.. TIP::
+  
+  The example above uses a subquery filter (see :ref:`filter-subquery`) to pivot from the DNS A records
+  to associated IPv4 nodes (``inet:ipv4``) and checks whether the ``:dns:rev`` property matches the FQDN
+  in the variable ``$fqdn``.
 
 
-- Assign a value to the variable ``$mytag`` using a library function (example 2):
+**Tags**
 
-.. storm-pre:: [ file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#code.fam.sofacy ]
-.. storm-cli:: file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 for $tag in $node.tags(code.fam.*) { $malfam=$tag.split(".").index(2) $mytag=$lib.str.format("cno.mal.{malfam}", malfam=$malfam) $lib.print($mytag) } | spin
+Recall that tags are both **nodes** (``syn:tag=my.tag``) and **labels** that can be applied to other nodes
+(``#my.tag``). Tags can also have optional timestamps (a time interval) associated with them.
+
+There are various ways to assign tags as variables, depending on what part of the tag you want to access.
+Many of these use cases are covered above so are briefly illustrated here.
+
+- **Tag value:** Assign an explicit tag value (literal) to the variable ``$mytag``:
+
+.. storm-cli:: $mytag=cno.infra.dns.sinkhole
+
+- **Tag on a node:** Given a ``hash:md5`` node, assign any malware tags (tags matching the glob pattern
+  ``cno.mal.*``) to the variable ``$mytags`` using the ``$node.tags()`` method:
+
+.. storm-pre:: [ hash:md5=d41d8cd98f00b204e9800998ecf8427e +#cno.mal.foo +#cno.mal.bar +#cno.threat.baz ]
+.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) $lib.print($mytags)
+
+.. TIP::
+  
+  In the example above, the value of the variable ``$mytags`` is the **set** of two tags, ``cno.mal.foo``
+  and ``cno.mal.bar``, because the MD5 hash node has two tags that match the pattern ``cno.mal.*``.
+  
+  To assign the set of any / all tags on a node to a variable, simply use ``$mytags=$node.tags()``.
+  
+  **Note** that you can also use ``$node.tags()`` directly (this method **always** refers to the set of tags on
+  the current node) without explicitly assigning a separate variable.)
+  
+  Where the value of a variable is a **set**, a :ref:`flow-for` is often used to "do something" based on each
+  value in the set.
+
+*Example*
+
+- Given an MD5 hash, copy any ``cno.mal.*`` tags from the hash to the associated file (``file:bytes`` node):
+
+.. storm-pre:: [ file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 :md5=d41d8cd98f00b204e9800998ecf8427e :sha1=da39a3ee5e6b4b0d3255bfef95601890afd80709 :size=0 ]
+.. storm-cli:: hash:md5=d41d8cd98f00b204e9800998ecf8427e $mytags=$node.tags(cno.mal.*) for $tag in $mytags { -> file:bytes [ +#$tag ] }
+
+The output above includes two "copies" of the ``file:bytes`` node because the node is output twice - once
+for each iteration of the for loop. For a detailed explanation of this behavior, see :ref:`storm-adv-example`.
+
+.. TIP::
+  
+  The above example explicitly creates and assigns the variable ``$mytags`` and then uses that variable in a
+  :ref:`flow-for`. In this case you can shorten the syntax by skipping the explicit variable assignment and
+  using the ``$node.tags()`` method directly:
+  
+  ::
     
+    hash:md5=d41d8cd98f00b204e9800998ecf8427e for $tag in $node.tags(cno.mal.*) { -> file:bytes [ +#$tag ] }
+  
+
+- **Tag timestamps:** Assign the times associated with Threat Group 20’s control of a malicious domain to the variable
+  ``$time``:
+
+.. storm-pre:: [inet:fqdn=evildomain.com +#cno.threat.t20.own=(2019/09/08,2021/09/08)]
+.. storm-cli:: inet:fqdn=evildomain.com $time=#cno.threat.t20.own $lib.print($time)
+
+*Example*
+
+- Find DNS A records for any subdomain associated with a Threat Group 20 FQDN (zone) during the time they
+  controlled the domain:
+
+.. storm-pre:: [ (inet:dns:a=(www.evildomain.com,1.2.3.4) .seen=(2020/07/12,2020/12/13)) (inet:dns:a=(smtp.evildomain.com,5.6.7.8) .seen=(2020/04/04,2020/08/02)) (inet:dns:a=(evildomain.com,12.13.14.15) .seen=(2021/12/22,2022/12/22))]
+.. storm-cli:: inet:fqdn#cno.threat.t20.own $time=#cno.threat.t20.own -> inet:fqdn:zone -> inet:dns:a +.seen@=$time
 
 
-The above example leverages:
+**Library Functions**
 
- - three variables (``$tag``, ``$malfam``, and ``$mytag``);
- - the :ref:`meth-node-tags` method;
- - the ``$lib.split()``, ``$lib.index()``, and ``$lib.str.format()`` library functions; as well as
- - a "for" loop.
+Storm types (Storm objects) and Storm libraries allow you to inspect, edit, and otherwise work with data in
+Synapse in various ways. You can assign a variable based on the output of a method or library.
 
-
-
-- If a file is tagged as part of a malicious code (malware) family, then also tag the file to indicate it is part of that malware's ecosystem:
+A full discussion of this topic is outside of the scope of this user guide. See :ref:`stormtypes_index` for
+additional details.
 
 
-.. storm-cli:: file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 for $tag in $node.tags(code.fam.*) { $malfam=$tag.split(".").index(2) $mytag=$lib.str.format("cno.mal.{malfam}", malfam=$malfam) [ +#$mytag ] }
+- Assign the current time to the variable ``$now`` using ``$lib.time.now()``:
 
+.. storm-cli:: $now=$lib.time.now() $lib.print($now)
 
-.. NOTE:
+- Convert an epoch milliseconds integer into a human-readable date/time string using ``$lib.str.format()``:
 
-  The above query could be written as a **trigger** (:ref:`auto-triggers`) so that any time a ``#code.fam.<family>`` tag was applied to a file, the corresponding ``#cno.mal.<family>`` tag would be applied automatically.
+.. storm-cli:: $now=$lib.time.now() $time=$lib.time.format($now, '%Y/%m/%d %H:%M:%S') $lib.print($time)
 
-*Use a mathematical expression / "dollar expression" as a variable:*
+**Expressions**
 
-- Use a mathematical expression to increment the variable ``$x``:
+You can assign the value of a variable based on the computed value of an expression. To denote an expression
+to be evaluated, enclose the expression in parentheses preceded by a dollar sign (``$( <expression> )``).
 
+- Use an expression to increment the variable ``$x``:
 
 .. storm-cli:: $x=5 $x=$($x + 1) $lib.print($x)
-    
-
-- For any domain with a "risk" score from Talos, tag those with a score greater than 75 as "high risk":
-
-.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.talos:risk=36 ) ( inet:fqdn=derp.net +#rep.talos:risk=78 ) ( inet:fqdn=hurr.org +#rep.talos:risk=92 ) ]
-.. storm-cli::  inet:fqdn#rep.talos:risk $risk=#rep.talos:risk if $($risk > 75) { [ +#high.risk ] }
 
 
-.. NOTE::
+**Embedded Storm query**
 
-  In the examples above, the mathematical expressions ``$($x + 1)`` and ``$($risk > 75)`` are not themselves variables, despite starting with a dollar sign ( ``$`` ). The syntax convention of "dollar expression" ( ``$( <expression> )`` ) allows Storm to support the use of variables (like ``$x`` and ``$risk``) in mathematical and logical operations.
+You can assign the value of a variable based on the output of a Storm query. To denote the Storm query to be
+evaluated, enclose the query in curly braces (``{ <storm query> }``).
+
+- Assign an ``ou:org`` node's guid value to the variable ``$org`` by lifting the associated org node by its
+  ``:name`` propertys:
+
+.. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
+.. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
+
+
+.. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
+
+.. _subquery filters: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_filter.html#subquery-filters
+
+.. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
+
+.. _Ingest Tool: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/ingest_tool.html
+
+.. _ingest examples: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/ingest_tool.html#ingest-examples
