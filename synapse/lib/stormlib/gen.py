@@ -297,8 +297,8 @@ stormcmds = (
 
             Examples:
 
-                // Yield the pol:country node which represents the country of Ukraine.
-                gen.ps.contact.email vertex:employee visi@vertex.link
+                // Yield the ps:contact node for the type and email
+                gen.ps.contact.email vertex.employee visi@vertex.link
         ''',
         'cmdargs': (
             ('type', {'help': 'The contact type.'}),
