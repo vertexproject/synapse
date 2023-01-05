@@ -170,6 +170,7 @@ class LibMacro(s_stormtypes.Lib):
         return await self.runt.snap.core.getHiveKey(path)
 
     async def _funcMacroDel(self, name):
+
         name = await s_stormtypes.tostr(name)
         path = ('cortex', 'storm', 'macros', name)
 

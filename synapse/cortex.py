@@ -121,6 +121,37 @@ reqValidTagModel = s_config.getJsValidator({
     'required': [],
 })
 
+MACRO_NONE  = 0
+MACRO_EDIT  = 5
+MACRO_ADMIN = 10
+
+reqValidStormMacro = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'storm': {'type': 'string'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number'},
+        'updated': {'type': 'number'},
+        'permissions': {
+            'type': 'object',
+            'properties': {
+                'users': {'type': 'object', 'items': {'type': 'number'}},
+                'roles': {'type': 'object', 'items': {'type': 'number'}},
+            'required': ['users', 'roles'],
+        },
+    },
+    'required': [
+        'iden',
+        'name',
+        'storm',
+        'creator',
+        'created',
+        'updated',
+        'permissions',
+    ],
+})
+
 def cmprkey_indx(x):
     return x[1]
 
@@ -1121,6 +1152,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceStorage(self):
 
         # NOTE: we may not make *any* nexus actions in this method
+        self.macros = self.slab.intidb('storm:macros')
+        #self.macrohist = self.slab.intidb('storm:macros:history')
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
@@ -1251,6 +1284,36 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+        await self._bumpCellVers('cortex:storage', (
+            (1, self._storUpdateMacros),
+        ))
+
+    async def _storUpdateMacros(self):
+        # no nexus!
+        async for name, node in self.hive.open(('cortex', 'storm', 'macros')):
+            info = await node.dict()
+            for prop, valu in info.items():
+
+    async def addStormMacro(self, mdef):
+        reqValidStormMacro(mdef)
+        return await self._push('storm:macro:add', mdef)
+
+    @s_nexus.Pusher.onPush('storm:macro:add')
+    async def _addStormMacro(self, mdef):
+        reqValidStormMacro(mdef)
+
+    @s_nexus.Pusher.onPush('storm:macro:del')
+    async def delStormMacro(self, name):
+
+    async def modStormMacro(self, name, storm):
+
+    @s_nexus.Pusher.onPush('storm:macro:add')
+    async def setStormMacroPerm(self, scope, iden, level):
+
+    async def iterStormMacros(self):
+        path = ('cortex', 'storm', 'macros')
+        async for path, mdef in self.jsonstor.getPathObjs(path):
 
     async def getStormIfaces(self, name):
 
