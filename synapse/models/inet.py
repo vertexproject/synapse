@@ -1082,7 +1082,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A taxonomy of network tunnel types.'}),
 
                     ('inet:tunnel', ('guid', {}), {
-                        'doc': 'A a specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
+                        'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
