@@ -63,3 +63,9 @@ class StormLibGenTest(s_test.SynTest):
                 +ou:org +:name="ua government"
                 -> pol:country +:iso2=ua
             '''))
+
+            nodes00 = await core.nodes('gen.ps.contact.email vertex.employee visi@vertex.link')
+            nodes01 = await core.nodes('yield $lib.gen.psContactByEmail(vertex.employee, visi@vertex.link)')
+            self.eq('vertex.employee.', nodes00[0].get('type'))
+            self.eq('visi@vertex.link', nodes00[0].get('email'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)

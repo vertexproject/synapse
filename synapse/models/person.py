@@ -44,6 +44,10 @@ class PsModule(s_module.CoreModule):
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
                 }),
+                ('ps:contact:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of contact types.',
+                }),
                 ('ps:contactlist', ('guid', {}), {
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
@@ -289,11 +293,12 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The form of the object or resource that is owned or controlled by the persona.',
                     }),
                 )),
+                ('ps:contact:type:taxonomy', {}, ()),
                 ('ps:contact', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which this contact represents.',
                     }),
-                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                    ('type', ('ps:contact:type:taxonomy', {}), {
                         'doc': 'The type of contact which may be used for entity resolution.',
                     }),
                     ('asof', ('time', {}), {

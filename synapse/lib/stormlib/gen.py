@@ -298,4 +298,20 @@ stormcmds = (
             :government -> ou:org
         ''',
     },
+    {
+        'name': 'gen.ps.contact.email',
+        'descr': '''
+            Lift (or create) the ps:contact node by deconflicting the email and type.
+
+            Examples:
+
+                // Yield the pol:country node which represents the country of Ukraine.
+                gen.ps.contact.email vertex:employee visi@vertex.link
+        ''',
+        'cmdargs': (
+            ('type', {'help': 'The contact type.'}),
+            ('email', {'help': 'The contact email address.'}),
+        ),
+        'storm': 'yield $lib.gen.psContactByEmail($cmdopts.type, $cmdopts.email)',
+    },
 )
