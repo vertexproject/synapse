@@ -55,7 +55,7 @@ class PolModule(s_module.CoreModule):
                         ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate or localized names for the country.'}),
                         ('government', ('ou:org', {}), {
-                            'doc': 'The ou:org node which represents the govenerment of the country.'}),
+                            'doc': 'The ou:org node which represents the government of the country.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'A geo:place node representing the geospatial properties of the country.'}),
                         ('founded', ('time', {}), {

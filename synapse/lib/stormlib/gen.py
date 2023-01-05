@@ -43,7 +43,8 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
-        {'name': 'riskThreat', 'desc': 'Returns risk:vuln node by CVE, adding the node if it does not exist.',
+        {'name': 'riskThreat',
+         'desc': 'Returns a risk:threat node based on the threat and reporter names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the threat cluster.'},
@@ -51,7 +52,8 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A risk:threat node.'}}},
 
-        {'name': 'riskToolSoftware', 'desc': 'Returns risk:vuln node by CVE, adding the node if it does not exist.',
+        {'name': 'riskToolSoftware',
+         'desc': 'Returns a risk:tool:software node based on the tool and reporter names, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the tool.'},
@@ -67,7 +69,7 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A ps:contact node.'}}},
 
-        {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting :iso2 property.',
+        {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting the :iso2 property.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'iso2', 'type': 'str', 'desc': 'The pol:country:iso2 property.'},
@@ -124,11 +126,12 @@ class LibGen(s_stormtypes.Lib):
             ou:name=$name
             tee { -> risk:threat:org:name } { -> risk:threat:org:names } |
             +:reporter:name=$reporter
+            { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
             [ risk:threat=*
                 :org:name=$name
-                :reporter = { yield $orgByName($name) }
+                :reporter = { yield $orgByName($reporter) }
                 :reporter:name = $reporter
             ]
             return($node)
@@ -152,17 +155,6 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function psContactByEmail(type, email) {
-            ps:contact:email = $email
-            +:type = $type
-            return($node)
-            [ ps:contact=*
-                :email = $email
-                :type = $type
-            ]
-            return($node)
-        }
-
-        function psContactByName(type, name) {
             ps:contact:email = $email
             +:type = $type
             return($node)
@@ -266,7 +258,7 @@ stormcmds = (
     {
         'name': 'gen.pol.country',
         'descr': '''
-            Lift (or create) a pol:country node based on the 2 digit ISO-3166 country code.
+            Lift (or create) a pol:country node based on the 2 letter ISO-3166 country code.
 
             Examples:
 
@@ -274,23 +266,23 @@ stormcmds = (
                 gen.pol.country ua
         ''',
         'cmdargs': (
-            ('iso2', {'help': 'The 2 digit ISO-3166 country code.'}),
+            ('iso2', {'help': 'The 2 letter ISO-3166 country code.'}),
         ),
         'storm': 'yield $lib.gen.polCountryByIso2($cmdopts.iso2)',
     },
     {
         'name': 'gen.pol.country.government',
         'descr': '''
-            Lift (or create) the ou:org node representing a country's
-            government based on the 2 digit ISO-3166 country code.
+            Lift (or create) the ps:contact node representing a country's
+            government based on the 2 letter ISO-3166 country code.
 
             Examples:
 
-                // Yield the pol:country node which represents the country of Ukraine.
+                // Yield the ps:contact node which represents the Government of Ukraine.
                 gen.pol.country.government ua
         ''',
         'cmdargs': (
-            ('iso2', {'help': 'The 2 digit ISO-3166 country code.'}),
+            ('iso2', {'help': 'The 2 letter ISO-3166 country code.'}),
         ),
         'storm': '''
             yield $lib.gen.polCountryByIso2($cmdopts.iso2)
