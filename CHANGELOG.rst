@@ -4,6 +4,21 @@
 Synapse Changelog
 *****************
 
+v2.118.0 - 2023-01-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the CRL bundled within Synapse to revoke the
+  ``The Vertex Project Code Signer 00`` key.
+  (`#2972 <https://github.com/vertexproject/synapse/pull/2972>`_)
+
+Bugfixes
+--------
+- Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
+  which could cause the Axon service to hang.
+  (`#2969 <https://github.com/vertexproject/synapse/pull/2969>`_)
+
 v2.117.0 - 2023-01-04
 =====================
 
