@@ -2181,11 +2181,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
-        return self.stormmods
+        return copy.deepcopy(self.stormmods)
 
     async def getStormMod(self, name, reqvers=None):
 
-        mdef = self.stormmods.get(name)
+        mdef = copy.deepcopy(self.stormmods.get(name))
         if mdef is None or reqvers is None:
             return mdef
 
