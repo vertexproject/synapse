@@ -152,6 +152,7 @@ class AstConverter(lark.Transformer):
         tokencls = terminalClassMap.get(child.type, s_ast.Const)
         newkid = tokencls(child.value)
         newkid.lines = (child.line, child.end_line)
+        newkid.textpos = (child.start_pos, child.end_pos)
         return newkid
 
     def __default__(self, treedata, children, treemeta):
@@ -161,6 +162,7 @@ class AstConverter(lark.Transformer):
         newkid = cls(newkids)
         if not treemeta.empty:
             newkid.lines = (treemeta.line, treemeta.line)
+            newkid.textpos = (treemeta.start_pos, treemeta.end_pos)
         return newkid
 
     @lark.v_args(meta=True)
@@ -190,6 +192,7 @@ class AstConverter(lark.Transformer):
         kids = [self._parseJsonToken(meta, k) for k in kids]
         node = s_ast.ExprList(kids=kids)
         node.lines = (meta.line, meta.end_line)
+        node.textpos = (meta.start_pos, meta.end_pos)
         return node
 
     @lark.v_args(meta=True)
@@ -197,6 +200,7 @@ class AstConverter(lark.Transformer):
         kids = [self._parseJsonToken(meta, k) for k in kids]
         node = s_ast.ExprDict(kids=kids)
         node.lines = (meta.line, meta.end_line)
+        node.textpos = (meta.start_pos, meta.end_pos)
         return node
 
     @lark.v_args(meta=True)
