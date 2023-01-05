@@ -30,16 +30,12 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
                 self.find_storm_files(dirn)
 
     def find_storm_files(self, dirn):
-        rx = r"^[^#~!$@%^&*()+=,]+\.(" + "|".join(self.extensions) + r")$"
-        for (dirpath, dirnames, filenames) in os.walk(dirn):
-            for filename in filenames:
-                if regex.search(rx, filename):
-                    path = os.path.join(dirpath, filename)
-                    with open(path, "r") as f:
-                        source = f.read()
-                        tree = self.parser.parse(source)
-                        guid = s_common.guid(str(tree))
-                        self.guid_map[guid] = os.path.abspath(path)
+        for path in self.find_executable_files(dirn):
+            with open(path, "r") as f:
+                source = f.read()
+                tree = self.parser.parse(source)
+                guid = s_common.guid(str(tree))
+                self.guid_map[guid] = os.path.abspath(path)
 
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
