@@ -1075,8 +1075,14 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:flow', ('guid', {}), {
-                        'doc': 'An individual network connection between a given source and destination.'
-                    }),
+                        'doc': 'An individual network connection between a given source and destination.'}),
+
+                    ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy',),
+                        'doc': 'A taxonomy of network tunnel types.'}),
+
+                    ('inet:tunnel', ('guid', {}), {
+                        'doc': 'A a specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
@@ -1671,6 +1677,20 @@ class InetModule(s_module.CoreModule):
                         ('sandbox:file', ('file:bytes', {}), {
                             'doc': 'The initial sample given to a sandbox environment to analyze.'
                         }),
+                    )),
+
+                    ('inet:tunnel:type:taxonomy', {}, ()),
+                    ('inet:tunnel', {}, (
+                        ('anon', ('bool', {}), {
+                            'doc': 'Indicates that this tunnel provides anonymization.'}),
+                        ('type', ('inet:tunnel:type:taxonomy', {}), {
+                            'doc': 'The type of tunnel such as vpn or proxy.'}),
+                        ('ingress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic enters the tunnel.'}),
+                        ('egress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic leaves the tunnel.'}),
+                        ('operator', ('ps:contact', {}), {
+                            'doc': 'The contact information for the tunnel operator.'}),
                     )),
 
                     ('inet:fqdn', {}, (
