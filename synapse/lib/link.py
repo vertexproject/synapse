@@ -78,13 +78,13 @@ async def linkfile(mode='wb'):
 
     return link0, file1
 
-async def linksock():
+async def linksock(forceclose=False):
     '''
     Connect a Link, socket pair.
     '''
     sock0, sock1 = socket.socketpair()
     reader, writer = await asyncio.open_connection(sock=sock0)
-    link0 = await Link.anit(reader, writer, info={'unix': True})
+    link0 = await Link.anit(reader, writer, info={'unix': True}, forceclose=forceclose)
     return link0, sock1
 
 async def fromspawn(spawninfo):
@@ -98,7 +98,7 @@ class Link(s_base.Base):
     '''
     A Link() is created to wrap a socket reader/writer.
     '''
-    async def __anit__(self, reader, writer, info=None):
+    async def __anit__(self, reader, writer, info=None, forceclose=False):
 
         await s_base.Base.__anit__(self)
 
@@ -114,6 +114,7 @@ class Link(s_base.Base):
         self.sock = self.writer.get_extra_info('socket')
         self.peercert = self.writer.get_extra_info('peercert')
 
+        self._forceclose = forceclose
         self._drain_lock = asyncio.Lock()
 
         if info is None:
@@ -140,6 +141,8 @@ class Link(s_base.Base):
 
         async def fini():
             self.writer.close()
+            if self._forceclose:
+                self.reader._transport.abort()
             try:
                 await self.writer.wait_closed()
             except (BrokenPipeError, ConnectionResetError) as e:
