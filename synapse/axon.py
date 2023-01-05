@@ -1342,7 +1342,7 @@ class Axon(s_cell.Cell):
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
 
-        link00, sock00 = await s_link.linksock()
+        link00, sock00 = await s_link.linksock(forceclose=True)
 
         try:
             todo = s_common.todo(_spawn_readlines, sock00)
@@ -1372,7 +1372,7 @@ class Axon(s_cell.Cell):
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
 
-        link00, sock00 = await s_link.linksock()
+        link00, sock00 = await s_link.linksock(forceclose=True)
 
         try:
             todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)

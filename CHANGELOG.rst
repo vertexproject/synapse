@@ -58,6 +58,9 @@ Features and Enhancements
 - STIX validation no longer caches any downloaded files it may use when
   attempting to validate STIX objects.
   (`#2966 <https://github.com/vertexproject/synapse/pull/2966>`_)
+- Modified the behavior of Storm emitter functions to remove the read-ahead
+  behavior.
+  (`#2953 <https://github.com/vertexproject/synapse/pull/2953>`_)
 
 Bugfixes
 --------
