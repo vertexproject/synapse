@@ -293,6 +293,9 @@ class PsModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which this contact represents.',
                     }),
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The type of contact which may be used for entity resolution.',
+                    }),
                     ('asof', ('time', {}), {
                         'date': 'The time this contact was created or modified.',
                     }),
