@@ -234,7 +234,7 @@ stormcmds = (
 
             Examples:
 
-                // Yield a risk:tool:software node for the "redtree" malware family reported by "vertex".
+                // Yield a risk:tool:software node for the "redtree" tool reported by "vertex".
                 gen.risk.tool.software redtree vertex
         ''',
         'cmdargs': (
