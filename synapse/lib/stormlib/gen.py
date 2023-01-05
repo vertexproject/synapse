@@ -273,12 +273,12 @@ stormcmds = (
     {
         'name': 'gen.pol.country.government',
         'descr': '''
-            Lift (or create) the ps:contact node representing a country's
+            Lift (or create) the ou:org node representing a country's
             government based on the 2 letter ISO-3166 country code.
 
             Examples:
 
-                // Yield the ps:contact node which represents the Government of Ukraine.
+                // Yield the ou:org node which represents the Government of Ukraine.
                 gen.pol.country.government ua
         ''',
         'cmdargs': (
