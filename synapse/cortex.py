@@ -1286,7 +1286,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate('cortex', 'cortex')
 
     async def _storUpdateMacros(self):
-        # no nexus!
         async for name, node in self.hive.open(('cortex', 'storm', 'macros')):
             info = (await node.dict()).pack()
             await self.addStormMacro(info)
