@@ -18,6 +18,7 @@ Features and Enhancements
 
   ``inet:tunnel:type:taxonomy``
     Add a form to record an analyst defined taxonomy of network tunnel types.
+
 - Add the following Storm commands to help with analyst generation of several
   guid node types:
   (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
