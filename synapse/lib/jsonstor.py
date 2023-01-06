@@ -286,42 +286,6 @@ class JsonStor(s_base.Base):
 
         return retn
 
-    async def modPathObj(self, path, props):
-
-        buid = self._pathToBuid(path)
-        if buid is None:
-            return False
-
-        item = self._getBuidItem(buid)
-        if item is None:
-            return False
-
-        dirty = False
-        for prop, valu in props.items():
-
-            step = item
-            names = self._pathToTupl(prop)
-            for name in names[:-1]:
-                down = step.get(name)
-
-                if down is None:
-                    down = step[name] = {}
-
-                step = down
-
-            name = names[-1]
-            if step.get(name, s_common.novalu) == valu:
-                continue
-
-            step[name] = valu
-            dirty = True
-
-        if dirty:
-            self.dirty[buid] = item
-
-        return True
-
-
 class JsonStorApi(s_cell.CellApi):
 
     async def popPathObjProp(self, path, prop):
@@ -398,11 +362,6 @@ class JsonStorApi(s_cell.CellApi):
         path = self.cell.jsonstor._pathToTupl(path)
         await self._reqUserAllowed(('json', 'set', *path))
         return await self.cell.setPathObjProp(path, prop, valu)
-
-    async def modPathObj(self, path, info):
-        path = self.cell.jsonstor._pathToTupl(path)
-        await self._reqUserAllowed(('json', 'set', *path))
-        return await self.cell.modPathObj(path, info)
 
     async def setPathLink(self, srcpath, dstpath):
         srcpath = self.cell.jsonstor._pathToTupl(srcpath)
@@ -527,10 +486,6 @@ class JsonStorCell(s_cell.Cell):
     @s_nexus.Pusher.onPushAuto('json:set:prop')
     async def setPathObjProp(self, path, prop, valu):
         return await self.jsonstor.setPathObjProp(path, prop, valu)
-
-    @s_nexus.Pusher.onPushAuto('json:mod')
-    async def modPathObj(self, path, info):
-        return await self.jsonstor.modPathObj(path, info)
 
     @s_nexus.Pusher.onPushAuto('json:link')
     async def setPathLink(self, srcpath, dstpath):
