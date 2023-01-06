@@ -9,15 +9,27 @@ v2.118.0 - 2023-01-06
 
 Features and Enhancements
 -------------------------
-- Updates to the  ``inet`` model.
+- Updates to the  ``inet``, ``pol``, and ``ps`` models.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
   (`#2971 <https://github.com/vertexproject/synapse/pull/2971>`_)
 
   ``inet:tunnel``
     Add a form to represent the specific sequence of hosts forwarding
-    connections, such as a VPNs or a proxy.
+    connections, such as a VPN or proxy.
 
   ``inet:tunnel:type:taxonomy``
     Add a form to record an analyst defined taxonomy of network tunnel types.
+
+  ``pol:country``
+    Add a ``government`` property to represent the organization for the
+    government of the country.
+
+  ``ps:contact``
+    Add a ``type`` property to record the taxonomy of the node. This may be
+    used for entity resolution.
+
+  ``ps:contact:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of contact types.
 
 - Add the following Storm commands to help with analyst generation of several
   guid node types:
