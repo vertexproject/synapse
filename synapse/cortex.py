@@ -131,6 +131,7 @@ reqValidStormMacro = s_config.getJsValidator({
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,491}$'},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'desc': {'type': 'string'},
         'storm': {'type': 'string'},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},

@@ -144,6 +144,13 @@ class LibMacro(s_stormtypes.Lib):
         {'name': 'list', 'desc': 'Get a list of Storm Macros in the Cortex.',
          'type': {'type': 'function', '_funcname': '_funcMacroList',
                   'returns': {'type': 'list', 'desc': 'A list of ``dict`` objects containing Macro definitions.', }}},
+        {'name': 'mod', 'desc': 'Modify user editable properties of a Storm Macro.',
+         'type': {'type': 'function', '_funcname': '_funcMacroMod',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Macro to add or modify.', },
+                      {'name': 'info', 'type': 'dict', 'desc': 'A dictionary of the properties to edit.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('macro',)
 
@@ -152,6 +159,7 @@ class LibMacro(s_stormtypes.Lib):
             'set': self._funcMacroSet,
             'get': self._funcMacroGet,
             'del': self._funcMacroDel,
+            'mod': self._funcMacroDel,
             'list': self._funcMacroList,
         }
 
@@ -189,3 +197,18 @@ class LibMacro(s_stormtypes.Lib):
         else:
             updates = {'storm': storm, 'updated': s_common.now()}
             await self.runt.snap.core.modStormMacro(name, updates, user=self.runt.user)
+
+    async def _funcMacroMod(self, name, info):
+
+        name = await s_stormtypes.tostr(name)
+        info = await s_stormtypes.toprim(info)
+
+        if not isinstance(info, dict):
+            raise s_exc.BadArg(f'Macro info must be a dictionary object.')
+
+        for prop in info.keys():
+            if prop not in ('name', 'desc', 'storm')
+                raise s_exc.BadArg(f'Macro user may not edit the field: {prop}.')
+
+        info['updated'] = s_common.now()
+        await self.runt.snap.core.modStormMacro(name, updates, user=self.runt.user)
