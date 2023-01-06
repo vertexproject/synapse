@@ -12,8 +12,11 @@ class MacroTest(s_test.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 ]')
 
-            await core.callStorm('macro.set hehe ${ inet:ipv4 }')
-            await core.callStorm('macro.set hoho "+#foo"')
+            msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 }')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('macro.set hoho "+#foo"')
+            self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('macro.list')
 

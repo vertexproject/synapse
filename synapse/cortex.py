@@ -121,16 +121,17 @@ reqValidTagModel = s_config.getJsValidator({
     'required': [],
 })
 
-MACRO_NONE  = 0
-MACRO_EDIT  = 5
-MACRO_ADMIN = 10
+PERM_NONE = 0
+PERM_READ = 1
+PERM_EDIT = 2
+PERM_ADMIN = 3
 
 reqValidStormMacro = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        'name': {'type': 'string'},
+        'name': {'type': 'string', 'pattern': '^.{1,491}$'},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
         'storm': {'type': 'string'},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
         'permissions': {
@@ -138,14 +139,14 @@ reqValidStormMacro = s_config.getJsValidator({
             'properties': {
                 'users': {'type': 'object', 'items': {'type': 'number'}},
                 'roles': {'type': 'object', 'items': {'type': 'number'}},
+            },
             'required': ['users', 'roles'],
         },
     },
     'required': [
-        'iden',
         'name',
+        'user',
         'storm',
-        'creator',
         'created',
         'updated',
         'permissions',
@@ -1152,8 +1153,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceStorage(self):
 
         # NOTE: we may not make *any* nexus actions in this method
-        self.macros = self.slab.intidb('storm:macros')
-        #self.macrohist = self.slab.intidb('storm:macros:history')
+        self.macrodb = self.slab.initdb('storm:macros')
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
@@ -1285,35 +1285,137 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-        await self._bumpCellVers('cortex:storage', (
-            (1, self._storUpdateMacros),
-        ))
-
     async def _storUpdateMacros(self):
         # no nexus!
         async for name, node in self.hive.open(('cortex', 'storm', 'macros')):
-            info = await node.dict()
-            for prop, valu in info.items():
+            info = (await node.dict()).pack()
+            await self.addStormMacro(info)
 
-    async def addStormMacro(self, mdef):
+    def getStormMacro(self, name):
+
+        byts = self.slab.get(name.encode(), db=self.macrodb)
+        if byts is None:
+            return None
+
+        return s_msgpack.un(byts)
+
+    def reqStormMacro(self, name):
+        mdef = self.getStormMacro(name)
+        if mdef is None:
+            raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
+        return mdef
+
+    def _reqStormMacroPerm(self, user, name, level):
+
+        mdef = self.reqStormMacro(name)
+
+        userlevel = mdef['permissions']['users'].get(user.iden)
+        if userlevel is not None and userlevel >= level:
+            return mdef
+
+        roleperms = mdef['permissions']['roles']
+        for role in user.getRoles():
+            rolelevel = roleperms.get(role.iden)
+            if rolelevel is not None and rolelevel >= level:
+                return mdef
+
+        # allow read by default unless explicitly set
+        if level <= PERM_READ:
+            return mdef
+
+        raise s_exc.AuthDeny(f'User has insufficient permissions on macro: {name}.')
+
+    async def addStormMacro(self, mdef, user=None):
+
+        if user is not None:
+            user.confirm(('storm', 'macro', 'add'), default=True)
+
+        now = s_common.now()
+
+        mdef['updated'] = now
+        mdef['created'] = now
+
+        mdef.setdefault('storm', '')
+        mdef.setdefault('permissions', {})
+
+        mdef['permissions'].setdefault('users', {})
+        mdef['permissions'].setdefault('roles', {})
+
+        creator = mdef.get('user')
+        mdef['permissions']['users'][creator] = PERM_ADMIN
+
         reqValidStormMacro(mdef)
+
         return await self._push('storm:macro:add', mdef)
 
     @s_nexus.Pusher.onPush('storm:macro:add')
     async def _addStormMacro(self, mdef):
+        name = mdef.get('name')
         reqValidStormMacro(mdef)
 
+        oldv = self.getStormMacro(name)
+        if oldv is not None and oldv.get('created') != mdef.get('created'):
+            raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
+
+        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        return mdef
+
+    async def delStormMacro(self, name, user=None):
+
+        if user is not None:
+            self._reqStormMacroPerm(user, name, PERM_ADMIN)
+
+        return await self._push('storm:macro:del', name)
+
     @s_nexus.Pusher.onPush('storm:macro:del')
-    async def delStormMacro(self, name):
+    async def _delStormMacro(self, name):
+        byts = self.slab.pop(name.encode(), db=self.macrodb)
+        if byts is not None:
+            return s_msgpack.un(byts)
 
-    async def modStormMacro(self, name, storm):
+    async def modStormMacro(self, name, info, user=None):
+        if user is not None:
+            self._reqStormMacroPerm(user, name, PERM_EDIT)
+        return await self._push('storm:macro:mod', name, info)
 
-    @s_nexus.Pusher.onPush('storm:macro:add')
-    async def setStormMacroPerm(self, scope, iden, level):
+    @s_nexus.Pusher.onPush('storm:macro:mod')
+    async def _modStormMacro(self, name, info):
+
+        mdef = self.reqStormMacro(name)
+        mdef.update(info)
+
+        reqValidStormMacro(mdef)
+        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+
+        return mdef
+
+    async def setStormMacroPerm(self, name, scope, iden, level, user=None):
+
+        if user is not None:
+            self._reqStormMacroPerm(user, name, PERM_ADMIN)
+
+        return await self._push('storm:macro:set:perm', name, scope, iden, level)
+
+    @s_nexus.Pusher.onPush('storm:macro:set:perm')
+    async def _setStormMacroPerm(self, name, scope, iden, level):
+
+        mdef = self.reqStormMacro(name)
+        if scope not in ('users', 'roles'):
+            raise s_exc.BadArg(mesg=f'Invalid macro permissions scope: {scope}')
+
+        perms = mdef['permissions'].get(scope)
+        if level is None:
+            perms.pop(iden, None)
+        else:
+            perms[iden] = level
+
+        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        return mdef
 
     async def iterStormMacros(self):
-        path = ('cortex', 'storm', 'macros')
-        async for path, mdef in self.jsonstor.getPathObjs(path):
+        for lkey, byts in self.slab.scanByFull(db=self.macrodb):
+            yield s_msgpack.un(byts)
+            await asyncio.sleep(0)
 
     async def getStormIfaces(self, name):
 
@@ -1390,6 +1492,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
+            (1, self._storUpdateMacros),
         ))
 
     async def _addAllLayrRead(self):

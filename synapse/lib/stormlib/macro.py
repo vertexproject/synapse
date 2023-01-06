@@ -107,12 +107,8 @@ class MacroExecCmd(s_storm.Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         name = await s_stormtypes.tostr(self.opts.name)
-        hivepath = ('cortex', 'storm', 'macros', name)
 
-        mdef = await runt.snap.core.getHiveKey(hivepath)
-        if mdef is None:
-            mesg = f'Macro name not found: {name}'
-            raise s_exc.NoSuchName(mesg=mesg)
+        mdef = runt.snap.core.reqStormMacro(name)
 
         query = await runt.getStormQuery(mdef['storm'])
 
@@ -160,57 +156,36 @@ class LibMacro(s_stormtypes.Lib):
         }
 
     async def _funcMacroList(self):
-        path = ('cortex', 'storm', 'macros')
-        return await self.runt.snap.core.getHiveKeys(path)
+        retn = []
+        async for mdef in self.runt.snap.core.iterStormMacros():
+            retn.append((mdef['name'], mdef))
+        return retn
 
     async def _funcMacroGet(self, name):
         name = await s_stormtypes.tostr(name)
-
-        path = ('cortex', 'storm', 'macros', name)
-        return await self.runt.snap.core.getHiveKey(path)
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
+        return self.runt.snap.core.getStormMacro(name)
 
     async def _funcMacroDel(self, name):
-
         name = await s_stormtypes.tostr(name)
-        path = ('cortex', 'storm', 'macros', name)
-
-        mdef = await self.runt.snap.core.getHiveKey(path)
-        if mdef is None:
-            mesg = f'Macro name not found: {name}'
-            raise s_exc.NoSuchName(mesg)
-
-        user = self.runt.user
-        if mdef['user'] != user.iden and not user.isAdmin():
-            mesg = 'Macro belongs to a different user'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        await self.runt.snap.core.popHiveKey(path)
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
+        return await self.runt.snap.core.delStormMacro(name, user=self.runt.user)
 
     async def _funcMacroSet(self, name, storm):
         name = await s_stormtypes.tostr(name)
         storm = await s_stormtypes.tostr(storm)
 
-        if len(name) >= 492:
-            raise s_exc.BadArg(mesg='Macro name cannot exceed 491 characters.',
-                               valu=name)
-
         # validation
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
+
         await self.runt.getStormQuery(storm)
 
-        path = ('cortex', 'storm', 'macros', name)
-
-        user = self.runt.user
-
-        mdef = await self.runt.snap.core.getHiveKey(path)
-        if mdef is not None:
-            if mdef['user'] != user.iden and not user.isAdmin():
-                mesg = 'Macro belongs to a different user'
-                raise s_exc.AuthDeny(mesg=mesg)
-
-        mdef = {
-            'user': user.iden,
-            'storm': storm,
-            'edited': s_common.now(),
-        }
-
-        await self.runt.snap.core.setHiveKey(path, mdef)
+        if self.runt.snap.core.getStormMacro(name) is None:
+            mdef = {'name': name, 'user': self.runt.user.iden, 'storm': storm}
+            await self.runt.snap.core.addStormMacro(mdef, user=self.runt.user)
+        else:
+            updates = {'storm': storm, 'updated': s_common.now()}
+            await self.runt.snap.core.modStormMacro(name, updates, user=self.runt.user)

@@ -34,7 +34,7 @@ class JsonStor(s_base.Base):
         self.pathdb = self.slab.initdb(f'{pref}:paths')
         self.itemdb = self.slab.initdb(f'{pref}:items')
 
-        elf.metadb = self.slab.initdb(f'{pref}:meta')
+        self.metadb = self.slab.initdb(f'{pref}:meta')
         self.fsinfo = self.slab.initdb(f'{pref}:fsinfo')
 
         self.slab.on('commit', self._syncDirtyItems)
