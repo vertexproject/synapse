@@ -149,7 +149,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The number of items included in this line item.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The cost of this receipt line item.'}),
+                        'doc': 'The total cost of this receipt line item.'}),
 
                     ('product', ('biz:product', {}), {
                         'doc': 'The product being being purchased in this line item.'}),
