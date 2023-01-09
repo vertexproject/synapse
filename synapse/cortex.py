@@ -3544,6 +3544,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_storm.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_gen.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
         for cdef in s_stormlib_auth.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
