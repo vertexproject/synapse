@@ -130,6 +130,7 @@ reqValidStormMacro = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,491}$'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'desc': {'type': 'string'},
         'storm': {'type': 'string'},
@@ -146,6 +147,7 @@ reqValidStormMacro = s_config.getJsValidator({
     },
     'required': [
         'name',
+        'iden',
         'user',
         'storm',
         'created',
@@ -1330,8 +1332,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is not None:
             user.confirm(('storm', 'macro', 'add'), default=True)
 
-        now = s_common.now()
+        mdef['iden'] = s_common.iden()
 
+        now = s_common.now()
         mdef['updated'] = now
         mdef['created'] = now
 
@@ -1385,7 +1388,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef.update(info)
 
         reqValidStormMacro(mdef)
-        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+
+        newname = info.get('name')
+        if newname is not None:
+
+            byts = self.slab.get(newname.encode(), db=self.macrodb)
+            if byts is not None:
+                oldv = s_msgpack.un(byts
+            self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
+            self.slab.pop(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        else:
+            self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
         return mdef
 
