@@ -63,6 +63,7 @@ Features and Enhancements
   ``risk:alert``
      Add a ``benign`` property to record if the alert has been confirmed as
      benign or malicious.
+
      Add a ``verdict`` property to record the analyst verdict taxonomy about
      why an alert is marked as benign or malicious.
 
@@ -80,9 +81,10 @@ Features and Enhancements
 
 - Add a new Cell configuration option, ``limit:disk:free``. This represents
   the minimum percentage of free disk space on the volume hosting a Synapse
-  service in order to start up. This value is also monitored every minute and
-  will disable the Cell Nexus if the free space drops below the specified
-  value. This value defaults to five percent ( ``5 %`` ) free disk space.
+  service is required in order to start up. This value is also monitored
+  every minute and will disable the Cell Nexus if the free space drops below
+  the specified value. This value defaults to five percent ( ``5 %`` ) free
+  disk space.
   (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
 
 Improved Documentation
