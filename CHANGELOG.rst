@@ -4,6 +4,92 @@
 Synapse Changelog
 *****************
 
+v2.119.0 - 2023-01-09
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Updates to the  ``biz``, ``econ``, ``org``, and ``risk`` models.
+  (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
+
+  ``biz:listing``
+    Add a form to track a specific product or service listed for sale
+    at a given price by a specific seller.
+
+  ``biz:service``
+    Add a form to track a service performed by a specific organization.
+
+  ``biz:service:type``
+    Add a form to record an analyst defined taxonomy of business services.
+
+  ``biz:bundle``
+    Add a ``service`` property to record the service included in the bundle.
+
+    Deprecate the ``deal`` and ``purchase`` secondary properties in favor of
+    ``econ:receipt:item`` to represent bundles being sold.
+
+  ``biz:product``
+    Add a ``price:currency`` property to denote the currency of the prices.
+
+    Add a ``maker`` property to represent the contact information for the
+    maker of a product.
+
+    Deprecate the ``madeby:org``, ``madeby:orgname``, ``madeby:orgfqdn``
+    properties in favor of using the new ``maker`` property.
+
+  ``econ:receipt:item``
+    Add a form to represent a line item included as part of a purchase.
+
+  ``econ:acquired``
+    Deprecate the form in favor of an ``acquired`` light edge.
+
+  ``ou:campaign``
+    Add a ``budget`` property to record the budget allocated for the campaign.
+
+    Add a ``currency`` property to record the currency of the ``econ:price``
+    secondary properties.
+
+    Add a ``result:revenue`` property to record the revenue resulting from the
+    campaign.
+
+    Add a ``result:pop`` property to record the count of people affected by
+    the campaign.
+
+  ``risk:alert:verdict:taxonomy``
+    Add a form to record an analyst defined taxonomy of the origin and
+    validity of an alert.
+
+  ``risk:alert``
+     Add a ``benign`` property to record if the alert has been confirmed as
+     benign or malicious.
+     Add a ``verdict`` property to record the analyst verdict taxonomy about
+     why an alert is marked as benign or malicious.
+
+- Annotate the following light edges.
+  (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
+
+  ``acquired``
+    When used with a ``econ:purchase`` node, the edge indicates the purchase
+    was used to acquire the target node.
+
+  ``ipwhois``
+    When used with a ``inet:whois:iprec`` node and ``inet:ivp4`` or
+    ``inet:ipv6`` nodes, the edge indicates the source IP whois record
+    describes the target IP address.
+
+- Add a new Cell configuration option, ``limit:disk:free``. This represents
+  the minimum percentage of free disk space on the volume hosting a Synapse
+  service in order to start up. This value is also monitored every minute and
+  will disable the Cell Nexus if the free space drops below the specified
+  value. This value defaults to five percent ( ``5 %`` ) free disk space.
+  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+
+Improved Documentation
+----------------------
+- Add a Devops task related to configuration of the free space requirement.
+  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+
 v2.118.0 - 2023-01-06
 =====================
 
