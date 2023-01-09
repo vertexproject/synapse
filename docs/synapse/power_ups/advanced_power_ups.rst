@@ -20,7 +20,6 @@ Documentation for specific Advanced Power-Ups can be found here:
 - `Synapse Playwright <https://synapse.docs.vertex.link/projects/playwright/en/latest/>`_
 - `Synapse Rapid7 <https://synapse.docs.vertex.link/projects/rapid7/en/latest/>`_
 - `Synapse Rapid7 SonarRDNS <https://synapse.docs.vertex.link/projects/rapid7-sonarrdns/en/latest/>`_
-- `Synapse RiskIQ SIS <https://synapse.docs.vertex.link/projects/riskiq-sis/en/latest/>`_
 - `Synapse S3 <https://synapse.docs.vertex.link/projects/s3/en/latest/>`_
 - `Synapse Search <https://synapse.docs.vertex.link/projects/search/en/latest/>`_
 - `Synapse Sidepocket <https://synapse.docs.vertex.link/projects/sidepocket/en/latest/>`_

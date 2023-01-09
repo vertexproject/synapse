@@ -542,7 +542,8 @@ class StormTypesTest(s_test.SynTest):
             'modules': [
                 {
                     'name': 'test',
-                    'storm': 'function f(a) { return ($a) }',
+                    'storm': '$valu=$modconf.valu function getvalu() { return($valu) }',
+                    'modconf': {'valu': 'foo'},
                 }
             ],
             'commands': [
@@ -655,6 +656,15 @@ class StormTypesTest(s_test.SynTest):
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
+
+            await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
+            self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
+
+            mods = await core.getStormMods()
+            self.len(1, mods)
+            mods['test']['modconf']['valu'] = 'bar'
+            mods = await core.getStormMods()
+            self.eq('foo', mods['test']['modconf']['valu'])
 
             # lib.len()
             opts = {
@@ -1295,6 +1305,17 @@ class StormTypesTest(s_test.SynTest):
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.len(1, nodes)
                 self.eq(foo, nodes[0].props['data'])
+
+            buf = b'\xff\xfe{\x00"\x00k\x00"\x00:\x00 \x00"\x00v\x00"\x00}\x00'
+            q = '''return( $buf.json(encoding=$encoding) )'''
+            resp = await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-16'}})
+            self.eq(resp, {'k': 'v'})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
+
+            with self.raises(s_exc.BadJsonText):
+                await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:

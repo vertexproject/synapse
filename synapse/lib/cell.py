@@ -19,6 +19,7 @@ import tornado.web as t_web
 
 import synapse.exc as s_exc
 
+import synapse.data as s_data
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -2461,8 +2462,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # add our cert path to the global resolver
         s_certdir.addCertPath(self.certpath)
 
-        # our certdir is *only* the cell certs dir
-        self.certdir = s_certdir.CertDir(path=(self.certpath,))
+        syncerts = s_data.path('certs')
+        self.certdir = s_certdir.CertDir(path=(self.certpath, syncerts))
 
         def fini():
             s_certdir.delCertPath(self.certpath)
@@ -3409,6 +3410,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
+                'nexsindx': await self.getNexsIndx(),
             },
             'features': {
                 'tellready': True,

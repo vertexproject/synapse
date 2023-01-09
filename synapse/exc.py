@@ -156,6 +156,12 @@ class BadEccExchange(CryptoErr):
     ''' Raised when there is an issue doing a ECC Key Exchange '''
     pass
 
+class BadCertBytes(SynErr):
+    '''Raised by certdir when the certificate fails to load.'''
+
+class BadCertVerify(SynErr):
+    '''Raised by certdir when there is a failure to verify a certificate context.'''
+
 class PathExists(SynErr): pass
 class DataAlreadyExists(SynErr):
     '''

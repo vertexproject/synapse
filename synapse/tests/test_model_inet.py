@@ -2586,3 +2586,22 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
+
+    async def test_model_inet_tunnel(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+            [ inet:tunnel=*
+                :ingress=1.2.3.4:443
+                :egress=5.5.5.5
+                :type=vpn
+                :anon=$lib.true
+                :operator = {[ ps:contact=* :email=visi@vertex.link ]}
+            ]''')
+            self.len(1, nodes)
+
+            self.eq(True, nodes[0].get('anon'))
+            self.eq('vpn.', nodes[0].get('type'))
+            self.eq('tcp://5.5.5.5', nodes[0].get('egress'))
+            self.eq('tcp://1.2.3.4:443', nodes[0].get('ingress'))
+
+            self.len(1, await core.nodes('inet:tunnel -> ps:contact +:email=visi@vertex.link'))
