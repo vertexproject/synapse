@@ -145,7 +145,7 @@ class EconModule(s_module.CoreModule):
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'The purchase that contains this line item.'}),
 
-                    ('count', ('int', {}), {
+                    ('count', ('int', {'min': 1}), {
                         'doc': 'The number of items included in this line item.'}),
 
                     ('price', ('econ:price', {}), {
