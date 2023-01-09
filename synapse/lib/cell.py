@@ -70,8 +70,8 @@ permnames = {
 easyPermSchema = {
     'type': 'object',
     'properties': {
-        'users': {'type': 'object', 'items': {'type': 'number'}},
-        'roles': {'type': 'object', 'items': {'type': 'number'}},
+        'users': {'type': 'object', 'items': {'type': 'number', 'minimum': 0, 'maximum': 3}},
+        'roles': {'type': 'object', 'items': {'type': 'number', 'minimum': 0, 'maximum': 3}},
     },
     'required': ['users', 'roles'],
 }
