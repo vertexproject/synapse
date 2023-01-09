@@ -4,6 +4,88 @@
 Synapse Changelog
 *****************
 
+v2.118.0 - 2023-01-06
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``inet``, ``pol``, and ``ps`` models.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+  (`#2971 <https://github.com/vertexproject/synapse/pull/2971>`_)
+
+  ``inet:tunnel``
+    Add a form to represent the specific sequence of hosts forwarding
+    connections, such as a VPN or proxy.
+
+  ``inet:tunnel:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of network tunnel types.
+
+  ``pol:country``
+    Add a ``government`` property to represent the organization for the
+    government of the country.
+
+  ``ps:contact``
+    Add a ``type`` property to record the taxonomy of the node. This may be
+    used for entity resolution.
+
+  ``ps:contact:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of contact types.
+
+- Add the following Storm commands to help with analyst generation of several
+  guid node types:
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+
+  ``gen.it.prod.soft``
+    Lift (or create) an ``it:prod:soft`` node based on the software name.
+
+  ``gen.ou.industry``
+    Lift (or create) an ``ou:industry`` node based on the industry name.
+
+  ``gen.ou.org``
+    Lift (or create) an ``ou:org`` node based on the organization name.
+
+  ``gen.ou.org.hq``
+    Lift (or create) the primary ``ps:contact`` node for the ou:org based on
+    the organization name.
+
+  ``gen.pol.country``
+    Lift (or create) a ``pol:country`` node based on the 2 letter ISO-3166
+    country code.
+
+  ``gen.pol.country.government``
+    Lift (or create) the ``ou:org`` node representing a country's government
+    based on the 2 letter ISO-3166 country code.
+
+  ``gen.ps.contact.email``
+    Lift (or create) the ``ps:contact`` node by deconflicting the email and
+    type.
+
+  ``gen.risk.threat``
+    Lift (or create) a ``risk:threat`` node based on the threat name and
+    reporter name.
+
+  ``gen.risk.tool.software``
+    Lift (or create) a ``risk:tool:software`` node based on the tool name and
+    reporter name.
+
+  ``gen.risk.vuln``
+    Lift (or create) a ``risk:vuln`` node based on the CVE.
+
+- Add ``$lib.gen.riskThreat()``, ``$lib.gen.riskToolSoftware()``,
+  ``$lib.gen.psContactByEmail()``, and ``$lib.gen.polCountryByIso2()`` Storm
+  API functions to assist in generating ``risk:threat``, ``risk:tool:software``,
+  ``ps:contact`` and ``pol:country`` nodes.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+- Update the CRL bundled within Synapse to revoke the
+  ``The Vertex Project Code Signer 00`` key.
+  (`#2972 <https://github.com/vertexproject/synapse/pull/2972>`_)
+
+Bugfixes
+--------
+- Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
+  which could cause the Axon service to hang.
+  (`#2969 <https://github.com/vertexproject/synapse/pull/2969>`_)
+
 v2.117.0 - 2023-01-04
 =====================
 
