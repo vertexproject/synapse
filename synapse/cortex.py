@@ -43,6 +43,8 @@ import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
 
+import synapse.lib.crypto.rsa as s_rsa
+
 # Importing these registers their commands
 import synapse.lib.stormhttp as s_stormhttp  # NOQA
 import synapse.lib.stormwhois as s_stormwhois  # NOQA
@@ -790,9 +792,9 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
-    async def addStormPkg(self, pkgdef):
+    async def addStormPkg(self, pkgdef, verify=False):
         self.user.confirm(('pkg', 'add'))
-        return await self.cell.addStormPkg(pkgdef)
+        return await self.cell.addStormPkg(pkgdef, verify=verify)
 
     async def delStormPkg(self, iden):
         self.user.confirm(('pkg', 'del'))
@@ -2080,13 +2082,50 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
-    async def addStormPkg(self, pkgdef):
+    async def addStormPkg(self, pkgdef, verify=False):
         '''
         Add the given storm package to the cortex.
 
         This will store the package for future use.
         '''
         # do validation before nexs...
+        if verify:
+            pkgcopy = s_msgpack.deepcopy(pkgdef)
+            codesign = pkgcopy.pop('codesign', None)
+            if codesign is None:
+                mesg = 'Storm package is not signed!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            certbyts = codesign.get('cert')
+            if certbyts is None:
+                mesg = 'Storm package has no certificate!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            signbyts = codesign.get('sign')
+            if signbyts is None:
+                mesg = 'Storm package has no signature!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
+            try:
+                cert = self.certdir.loadCertByts(certbyts)
+            except s_exc.BadCertBytes as e:
+                raise s_exc.BadPkgDef(mesg='Storm package has malformed certificate!') from None
+
+            try:
+                self.certdir.valCodeCert(certbyts.encode())
+            except s_exc.BadCertVerify as e:
+                mesg = e.get('mesg')
+                if mesg:
+                    mesg = f'Storm package has invalid certificate: {mesg}'
+                else:
+                    mesg = 'Storm package has invalid certificate!'
+                raise s_exc.BadPkgDef(mesg=mesg) from None
+
+            pubk = s_rsa.PubKey(cert.get_pubkey().to_cryptography_key())
+            if not pubk.verifyitem(pkgcopy, s_common.uhex(signbyts)):
+                mesg = 'Storm package signature does not match!'
+                raise s_exc.BadPkgDef(mesg=mesg)
+
         await self._normStormPkg(pkgdef)
         return await self._push('pkg:add', pkgdef)
 
@@ -2142,11 +2181,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
-        return self.stormmods
+        return copy.deepcopy(self.stormmods)
 
     async def getStormMod(self, name, reqvers=None):
 
-        mdef = self.stormmods.get(name)
+        mdef = copy.deepcopy(self.stormmods.get(name))
         if mdef is None or reqvers is None:
             return mdef
 
@@ -3363,6 +3402,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_gen.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_stormlib_auth.stormcmds:
