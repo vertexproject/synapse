@@ -121,11 +121,6 @@ reqValidTagModel = s_config.getJsValidator({
     'required': [],
 })
 
-PERM_NONE = 0
-PERM_READ = 1
-PERM_EDIT = 2
-PERM_ADMIN = 3
-
 reqValidStormMacro = s_config.getJsValidator({
     'type': 'object',
     'properties': {
@@ -136,14 +131,7 @@ reqValidStormMacro = s_config.getJsValidator({
         'storm': {'type': 'string'},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
-        'permissions': {
-            'type': 'object',
-            'properties': {
-                'users': {'type': 'object', 'items': {'type': 'number'}},
-                'roles': {'type': 'object', 'items': {'type': 'number'}},
-            },
-            'required': ['users', 'roles'],
-        },
+        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
     },
     'required': [
         'name',
@@ -1308,44 +1296,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return mdef
 
     def _reqStormMacroPerm(self, user, name, level):
-
         mdef = self.reqStormMacro(name)
-
-        userlevel = mdef['permissions']['users'].get(user.iden)
-        if userlevel is not None and userlevel >= level:
-            return mdef
-
-        roleperms = mdef['permissions']['roles']
-        for role in user.getRoles():
-            rolelevel = roleperms.get(role.iden)
-            if rolelevel is not None and rolelevel >= level:
-                return mdef
-
-        # allow read by default unless explicitly set
-        if level <= PERM_READ:
-            return mdef
-
-        raise s_exc.AuthDeny(f'User has insufficient permissions on macro: {name}.')
+        mesg = f'User requires {s_cell.permnames.get(level)} permission on macro: {name}'
+        self._reqEasyPerm(mdef, user, level, mesg=mesg)
+        return mdef
 
     async def addStormMacro(self, mdef, user=None):
 
         if user is not None:
             user.confirm(('storm', 'macro', 'add'), default=True)
 
-        mdef['iden'] = s_common.iden()
+        mdef['iden'] = s_common.guid()
 
         now = s_common.now()
         mdef['updated'] = now
         mdef['created'] = now
 
         mdef.setdefault('storm', '')
-        mdef.setdefault('permissions', {})
-
-        mdef['permissions'].setdefault('users', {})
-        mdef['permissions'].setdefault('roles', {})
+        self._initEasyPerm(mdef)
 
         creator = mdef.get('user')
-        mdef['permissions']['users'][creator] = PERM_ADMIN
+        mdef['permissions']['users'][creator] = s_cell.PERM_ADMIN
 
         reqValidStormMacro(mdef)
 
@@ -1366,7 +1337,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def delStormMacro(self, name, user=None):
 
         if user is not None:
-            self._reqStormMacroPerm(user, name, PERM_ADMIN)
+            self._reqStormMacroPerm(user, name, s_cell.PERM_ADMIN)
 
         return await self._push('storm:macro:del', name)
 
@@ -1378,7 +1349,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def modStormMacro(self, name, info, user=None):
         if user is not None:
-            self._reqStormMacroPerm(user, name, PERM_EDIT)
+            self._reqStormMacroPerm(user, name, s_cell.PERM_EDIT)
         return await self._push('storm:macro:mod', name, info)
 
     @s_nexus.Pusher.onPush('storm:macro:mod')
@@ -1394,7 +1365,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)
             if byts is not None:
-                oldv = s_msgpack.un(byts
+                raise s_exc.DupName('A macro named {newname} already exists!')
+
             self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
             self.slab.pop(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
         else:
@@ -1405,7 +1377,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def setStormMacroPerm(self, name, scope, iden, level, user=None):
 
         if user is not None:
-            self._reqStormMacroPerm(user, name, PERM_ADMIN)
+            self._reqStormMacroPerm(user, name, s_cell.PERM_ADMIN)
 
         return await self._push('storm:macro:set:perm', name, scope, iden, level)
 
@@ -1413,14 +1385,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _setStormMacroPerm(self, name, scope, iden, level):
 
         mdef = self.reqStormMacro(name)
-        if scope not in ('users', 'roles'):
-            raise s_exc.BadArg(mesg=f'Invalid macro permissions scope: {scope}')
-
-        perms = mdef['permissions'].get(scope)
-        if level is None:
-            perms.pop(iden, None)
-        else:
-            perms[iden] = level
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
         return mdef

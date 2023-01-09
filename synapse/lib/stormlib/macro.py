@@ -207,7 +207,7 @@ class LibMacro(s_stormtypes.Lib):
             raise s_exc.BadArg(f'Macro info must be a dictionary object.')
 
         for prop in info.keys():
-            if prop not in ('name', 'desc', 'storm')
+            if prop not in ('name', 'desc', 'storm'):
                 raise s_exc.BadArg(f'Macro user may not edit the field: {prop}.')
 
         info['updated'] = s_common.now()
