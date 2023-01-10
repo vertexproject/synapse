@@ -1281,18 +1281,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info = (await node.dict()).pack()
             await self.addStormMacro(info)
 
-    def getStormMacro(self, name):
+    def getStormMacro(self, name, user=None):
+
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
         byts = self.slab.get(name.encode(), db=self.macrodb)
         if byts is None:
             return None
 
-        return s_msgpack.un(byts)
+        mdef = s_msgpack.un(byts)
 
-    def reqStormMacro(self, name):
+        if user is not None:
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+
+        return mdef
+
+    def reqStormMacro(self, name, user=None):
+
         mdef = self.getStormMacro(name)
         if mdef is None:
             raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
+
+        if user is not None:
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+
         return mdef
 
     def _reqStormMacroPerm(self, user, name, level):
@@ -1327,8 +1340,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = mdef.get('name')
         reqValidStormMacro(mdef)
 
+        # idempotency protection...
         oldv = self.getStormMacro(name)
-        if oldv is not None and oldv.get('created') != mdef.get('created'):
+        if oldv is not None and oldv.get('iden') != mdef.get('iden'):
             raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
@@ -1361,14 +1375,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         reqValidStormMacro(mdef)
 
         newname = info.get('name')
-        if newname is not None:
+        if newname is not None and newname != name:
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)
             if byts is not None:
                 raise s_exc.DupName('A macro named {newname} already exists!')
 
             self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
-            self.slab.pop(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+            self.slab.pop(name.encode(), db=self.macrodb)
         else:
             self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
@@ -1385,14 +1399,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _setStormMacroPerm(self, name, scope, iden, level):
 
         mdef = self.reqStormMacro(name)
+        await self._setEasyPerm(mdef, scope, iden, level)
+
+        reqValidStormMacro(mdef)
 
         self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
         return mdef
 
-    async def iterStormMacros(self):
+    async def getStormMacros(self, user=None):
+
+        retn = []
+
         for lkey, byts in self.slab.scanByFull(db=self.macrodb):
-            yield s_msgpack.un(byts)
+
             await asyncio.sleep(0)
+
+            mdef = s_msgpack.un(byts)
+
+            if user is not None and not self._hasEasyPerm(mdef, user, s_cell.PERM_READ):
+                continue
+
+            retn.append(mdef)
+
+        return retn
 
     async def getStormIfaces(self, name):
 

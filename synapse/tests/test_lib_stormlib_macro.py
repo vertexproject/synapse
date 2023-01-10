@@ -121,3 +121,96 @@ class MacroTest(s_test.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'data': data}})
             self.len(1, nodes)
             self.eq(('test:str', 'beef'), nodes[0].ndef)
+
+    async def test_stormlib_macro_meta_and_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            asvisi = {'user': visi.iden}
+
+            msgs = await core.stormlist('macro.set foo {$lib.print(woot)}')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('macro.list', opts=asvisi)
+            self.stormIsInPrint('foo', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, hehe, 3)')
+            self.stormIsInErr('No user with iden hehe', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, hehe, 3)')
+            self.stormIsInErr('No role with iden hehe', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, newp, hehe, 3)')
+            self.stormIsInErr('Invalid permissions scope: newp', msgs)
+
+            opts = {'user': visi.iden, 'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 3)', opts=opts)
+            self.stormIsInErr('User requires admin permission on macro: foo', msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(1, macros)
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 0)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(0, macros)
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, $lib.null)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(1, macros)
+
+            # remove global read access from the macro
+            opts = {'vars': {'allrole': core.auth.allrole.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, $allrole, 0)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(0, macros)
+
+            opts = {'vars': {'allrole': core.auth.allrole.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, $allrole, $lib.null)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(1, macros)
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"desc": "i am a macro!"}))', opts=asvisi)
+            self.stormIsInErr('User requires edit permission on macro: foo', msgs)
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 2)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"desc": "i am a macro!"}))', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"newp": "i am a macro!"}))', opts=asvisi)
+            self.stormIsInErr('User may not edit the field: newp', msgs)
+
+            mdef = await core.callStorm('return($lib.macro.get(foo))')
+            self.eq(mdef['desc'], 'i am a macro!')
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"name": "bar"}))', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            self.nn(await core.callStorm('return($lib.macro.get(bar))'))
+            self.none(await core.callStorm('return($lib.macro.get(foo))'))
+
+            msgs = await core.stormlist('$lib.macro.del(bar)', opts=asvisi)
+            self.stormIsInErr('User requires admin permission on macro: bar', msgs)
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(bar, users, $visi, 3)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.del(bar)', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            self.none(await core.callStorm('return($lib.macro.get(bar))'))

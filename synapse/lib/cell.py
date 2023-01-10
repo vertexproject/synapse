@@ -70,8 +70,16 @@ permnames = {
 easyPermSchema = {
     'type': 'object',
     'properties': {
-        'users': {'type': 'object', 'items': {'type': 'number', 'minimum': 0, 'maximum': 3}},
-        'roles': {'type': 'object', 'items': {'type': 'number', 'minimum': 0, 'maximum': 3}},
+        'users': {
+            'type': 'object',
+            # 'propertyNames': {'type': 'string', 'pattern': s_config.re_iden},
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            # 'propertyNames': {'type': 'string', 'pattern': s_config.re_iden},
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
     },
     'required': ['users', 'roles'],
 }
@@ -2640,6 +2648,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return {}
 
+    def _hasEasyPerm(self, item, user, level):
+
+        if user.isAdmin():
+            return True
+
+        userlevel = item['permissions']['users'].get(user.iden)
+        if userlevel is not None:
+            if userlevel == 0:
+                return False
+            elif userlevel >= level:
+                return True
+
+        roleperms = item['permissions']['roles']
+        for role in user.getRoles():
+            rolelevel = roleperms.get(role.iden)
+            if rolelevel is not None:
+                if rolelevel == 0:
+                    return False
+                elif rolelevel >= level:
+                    return True
+
+        # allow read by default unless explicitly set
+        if level <= PERM_READ:
+            return True
+
+        return False
+
     def _reqEasyPerm(self, item, user, level, mesg=None):
         '''
         Require the user (or an assigned role) to have the given permission
@@ -2650,19 +2685,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         NOTE: By default a user will only be denied read access if they
               (or an assigned role) has PERM_DENY assigned.
         '''
-        userlevel = item['permissions']['users'].get(user.iden)
-        if userlevel is not None and userlevel >= level:
+        if self._hasEasyPerm(item, user, level):
             return
-
-        roleperms = item['permissions']['roles']
-        for role in user.getRoles():
-            rolelevel = roleperms.get(role.iden)
-            if rolelevel is not None and rolelevel >= level:
-                return
-
-        # allow read by default unless explicitly set
-        if level <= PERM_READ:
-            return mdef
 
         if mesg is None:
             name = permnames.get(level)
@@ -2670,13 +2694,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         raise s_exc.AuthDeny(mesg=mesg)
 
-    def _setEasyPerm(self, item, scope, iden, level):
+    async def _setEasyPerm(self, item, scope, iden, level):
         '''
         Set a user or role permission level within an object that uses the "easy perm"
         convention. If level is None, permissions are removed.
         '''
         if scope not in ('users', 'roles'):
             raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope}')
+
+        if scope == 'users':
+            await self.auth.reqUser(iden)
+
+        elif scope == 'roles':
+            await self.auth.reqRole(iden)
 
         perms = item['permissions'].get(scope)
         if level is None:
