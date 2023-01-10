@@ -206,8 +206,8 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.macro.del(bar)', opts=asvisi)
             self.stormIsInErr('User requires admin permission on macro: bar', msgs)
 
-            opts = {'vars': {'visi': visi.iden}}
-            msgs = await core.stormlist('$lib.macro.grant(bar, users, $visi, 3)', opts=opts)
+            opts = {'vars': {'allrole': core.auth.allrole.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(bar, roles, $allrole, 3)', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('$lib.macro.del(bar)', opts=asvisi)
