@@ -126,7 +126,9 @@ reqValidStormMacro = s_config.getJsValidator({
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,491}$'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        # user kept for backward compat. remove eventually...
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'desc': {'type': 'string'},
         'storm': {'type': 'string'},
         'created': {'type': 'number'},
@@ -138,6 +140,7 @@ reqValidStormMacro = s_config.getJsValidator({
         'iden',
         'user',
         'storm',
+        'creator',
         'created',
         'updated',
         'permissions',
@@ -1316,8 +1319,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def addStormMacro(self, mdef, user=None):
 
-        if user is not None:
-            user.confirm(('storm', 'macro', 'add'), default=True)
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('storm', 'macro', 'add'), default=True)
 
         mdef['iden'] = s_common.guid()
 
@@ -1325,11 +1330,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef['updated'] = now
         mdef['created'] = now
 
+        mdef['user'] = user.iden
+        mdef['creator'] = user.iden
+
         mdef.setdefault('storm', '')
         self._initEasyPerm(mdef)
 
-        creator = mdef.get('user')
-        mdef['permissions']['users'][creator] = s_cell.PERM_ADMIN
+        mdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
         reqValidStormMacro(mdef)
 

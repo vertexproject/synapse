@@ -206,7 +206,7 @@ class LibMacro(s_stormtypes.Lib):
         await self.runt.getStormQuery(storm)
 
         if self.runt.snap.core.getStormMacro(name) is None:
-            mdef = {'name': name, 'user': self.runt.user.iden, 'storm': storm}
+            mdef = {'name': name, 'storm': storm}
             await self.runt.snap.core.addStormMacro(mdef, user=self.runt.user)
         else:
             updates = {'storm': storm, 'updated': s_common.now()}
@@ -221,7 +221,7 @@ class LibMacro(s_stormtypes.Lib):
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
         if not isinstance(info, dict):
-            raise s_exc.BadArg(f'Macro info must be a dictionary object.')
+            raise s_exc.BadArg('Macro info must be a dictionary object.')
 
         for prop in info.keys():
             if prop not in ('name', 'desc', 'storm'):
