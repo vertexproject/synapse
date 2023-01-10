@@ -3569,18 +3569,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as asvisi:
-                opts['user'] = visi.iden
+                uopts = dict(opts)
+                uopts['user'] = visi.iden
+                opts['vars']['useriden'] = visi.iden
 
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=opts))
+                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+                await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
-                q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
-                await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
+                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
-                self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
+            q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
 
             await core.callStorm('pkg.del graph.powerup')
             await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
-            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden2}})
 
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(0, gdefs)

@@ -1525,13 +1525,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if user is not None and self._hasEasyPerm(gdef, user, s_cell.PERM_READ):
                 yield copy.deepcopy(gdef)
 
-    async def modStormGraph(self, name, info, user=None):
+    async def modStormGraph(self, iden, info, user=None):
         self._reqStormGraphPerm(user, iden, s_cell.PERM_EDIT)
         info['updated'] = s_common.now()
         return await self._push('storm:graph:mod', iden, info)
 
     @s_nexus.Pusher.onPush('storm:graph:mod')
-    async def _modStormGraph(self, name, info):
+    async def _modStormGraph(self, iden, info):
 
         gdef = self._reqStormGraphPerm(None, iden, s_cell.PERM_EDIT)
         gdef = copy.deepcopy(gdef)
@@ -1561,7 +1561,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         s_stormlib_graph.reqValidGdef(gdef)
 
-        self.graphs.set(iden, gdef)
+        self.graphs.set(gden, gdef)
 
         await self.feedBeholder('storm:graph:set:perm', {'gdef': gdef})
         return copy.deepcopy(gdef)

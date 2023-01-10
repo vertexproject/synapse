@@ -142,7 +142,7 @@ class GraphLib(s_stormtypes.Lib):
                   'returns': {'type': 'list', 'desc': 'A list of graph projection definitions.'}}},
 
         {'name': 'grant', 'desc': 'Modify permissions granted to users/roles on a graph projection.',
-         'type': {'type': 'function', '_funcname': '_funcGraphGrant',
+         'type': {'type': 'function', '_funcname': '_methGraphGrant',
                   'args': (
                       {'name': 'gden', 'type': 'str', 'desc': 'Iden of the graph projection to modify.', },
                       {'name': 'scope', 'type': 'str', 'desc': 'The scope, either "users" or "roles".', },
