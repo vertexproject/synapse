@@ -147,7 +147,7 @@ class LibMacro(s_stormtypes.Lib):
         {'name': 'mod', 'desc': 'Modify user editable properties of a Storm Macro.',
          'type': {'type': 'function', '_funcname': '_funcMacroMod',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Macro to add or modify.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Macro to modify.', },
                       {'name': 'info', 'type': 'dict', 'desc': 'A dictionary of the properties to edit.', },
                   ),
                   'returns': {'type': 'null', }}},
