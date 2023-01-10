@@ -1372,6 +1372,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layer in self.layers.values():
             await layer.initLayerPassive()
 
+    async def _setReadOnly(self, valu):
+        if valu:
+            self.provstor.enabled = False
+        else:
+            self.provstor.enabled = self.conf.get('provenance:en')
+
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
 
@@ -3402,6 +3408,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_gen.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_stormlib_auth.stormcmds:

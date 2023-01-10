@@ -4,6 +4,176 @@
 Synapse Changelog
 *****************
 
+v2.119.0 - 2023-01-09
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Updates to the  ``biz``, ``econ``, ``org``, and ``risk`` models.
+  (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
+
+  ``biz:listing``
+    Add a form to track a specific product or service listed for sale
+    at a given price by a specific seller.
+
+  ``biz:service``
+    Add a form to track a service performed by a specific organization.
+
+  ``biz:service:type``
+    Add a form to record an analyst defined taxonomy of business services.
+
+  ``biz:bundle``
+    Add a ``service`` property to record the service included in the bundle.
+
+    Deprecate the ``deal`` and ``purchase`` secondary properties in favor of
+    ``econ:receipt:item`` to represent bundles being sold.
+
+  ``biz:product``
+    Add a ``price:currency`` property to denote the currency of the prices.
+
+    Add a ``maker`` property to represent the contact information for the
+    maker of a product.
+
+    Deprecate the ``madeby:org``, ``madeby:orgname``, ``madeby:orgfqdn``
+    properties in favor of using the new ``maker`` property.
+
+  ``econ:receipt:item``
+    Add a form to represent a line item included as part of a purchase.
+
+  ``econ:acquired``
+    Deprecate the form in favor of an ``acquired`` light edge.
+
+  ``ou:campaign``
+    Add a ``budget`` property to record the budget allocated for the campaign.
+
+    Add a ``currency`` property to record the currency of the ``econ:price``
+    secondary properties.
+
+    Add a ``result:revenue`` property to record the revenue resulting from the
+    campaign.
+
+    Add a ``result:pop`` property to record the count of people affected by
+    the campaign.
+
+  ``risk:alert:verdict:taxonomy``
+    Add a form to record an analyst defined taxonomy of the origin and
+    validity of an alert.
+
+  ``risk:alert``
+    Add a ``benign`` property to record if the alert has been confirmed as
+    benign or malicious.
+
+    Add a ``verdict`` property to record the analyst verdict taxonomy about
+    why an alert is marked as benign or malicious.
+
+- Annotate the following light edges.
+  (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
+
+  ``acquired``
+    When used with an ``econ:purchase`` node, the edge indicates the purchase
+    was used to acquire the target node.
+
+  ``ipwhois``
+    When used with an ``inet:whois:iprec`` node and ``inet:ipv4`` or
+    ``inet:ipv6`` nodes, the edge indicates the source IP whois record
+    describes the target IP address.
+
+- Add a new Cell configuration option, ``limit:disk:free``. This represents
+  the minimum percentage of free disk space on the volume hosting a Synapse
+  service that is required in order to start up. This value is also
+  monitored every minute and will disable the Cell Nexus if the free space
+  drops below the specified value. This value defaults to five percent
+  ( ``5 %`` ) free disk space.
+  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+
+Improved Documentation
+----------------------
+- Add a Devops task related to configuration of the free space requirement.
+  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+
+v2.118.0 - 2023-01-06
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``inet``, ``pol``, and ``ps`` models.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+  (`#2971 <https://github.com/vertexproject/synapse/pull/2971>`_)
+
+  ``inet:tunnel``
+    Add a form to represent the specific sequence of hosts forwarding
+    connections, such as a VPN or proxy.
+
+  ``inet:tunnel:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of network tunnel types.
+
+  ``pol:country``
+    Add a ``government`` property to represent the organization for the
+    government of the country.
+
+  ``ps:contact``
+    Add a ``type`` property to record the taxonomy of the node. This may be
+    used for entity resolution.
+
+  ``ps:contact:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of contact types.
+
+- Add the following Storm commands to help with analyst generation of several
+  guid node types:
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+
+  ``gen.it.prod.soft``
+    Lift (or create) an ``it:prod:soft`` node based on the software name.
+
+  ``gen.ou.industry``
+    Lift (or create) an ``ou:industry`` node based on the industry name.
+
+  ``gen.ou.org``
+    Lift (or create) an ``ou:org`` node based on the organization name.
+
+  ``gen.ou.org.hq``
+    Lift (or create) the primary ``ps:contact`` node for the ou:org based on
+    the organization name.
+
+  ``gen.pol.country``
+    Lift (or create) a ``pol:country`` node based on the 2 letter ISO-3166
+    country code.
+
+  ``gen.pol.country.government``
+    Lift (or create) the ``ou:org`` node representing a country's government
+    based on the 2 letter ISO-3166 country code.
+
+  ``gen.ps.contact.email``
+    Lift (or create) the ``ps:contact`` node by deconflicting the email and
+    type.
+
+  ``gen.risk.threat``
+    Lift (or create) a ``risk:threat`` node based on the threat name and
+    reporter name.
+
+  ``gen.risk.tool.software``
+    Lift (or create) a ``risk:tool:software`` node based on the tool name and
+    reporter name.
+
+  ``gen.risk.vuln``
+    Lift (or create) a ``risk:vuln`` node based on the CVE.
+
+- Add ``$lib.gen.riskThreat()``, ``$lib.gen.riskToolSoftware()``,
+  ``$lib.gen.psContactByEmail()``, and ``$lib.gen.polCountryByIso2()`` Storm
+  API functions to assist in generating ``risk:threat``, ``risk:tool:software``,
+  ``ps:contact`` and ``pol:country`` nodes.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+- Update the CRL bundled within Synapse to revoke the
+  ``The Vertex Project Code Signer 00`` key.
+  (`#2972 <https://github.com/vertexproject/synapse/pull/2972>`_)
+
+Bugfixes
+--------
+- Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
+  which could cause the Axon service to hang.
+  (`#2969 <https://github.com/vertexproject/synapse/pull/2969>`_)
+
 v2.117.0 - 2023-01-04
 =====================
 

@@ -828,6 +828,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
         },
+        'limit:disk:free': {
+            'default': 5,
+            'description': 'Minimum disk free space percentage before setting the cell read-only.',
+            'type': ['integer', 'null'],
+            'minimum': 0,
+            'maximum': 100,
+        },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
@@ -947,6 +954,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
+    FREE_SPACE_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -973,6 +981,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
+
+        self.minfree = self.conf.get('limit:disk:free')
+        if self.minfree is not None:
+            self.minfree = self.minfree / 100
+
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= self.minfree:
+                free = disk.free / disk.total * 100
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
         await self._initCellBoot()
 
@@ -1157,6 +1175,38 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    async def _runFreeSpaceLoop(self):
+
+        nexsroot = self.getCellNexsRoot()
+
+        while not self.isfini:
+            disk = shutil.disk_usage(self.dirn)
+
+            if (disk.free / disk.total) <= self.minfree:
+
+                await self._setReadOnly(True)
+                nexsroot.readonly = True
+
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
+                logger.warning(mesg)
+
+            elif nexsroot.readonly:
+
+                await self._setReadOnly(False)
+                nexsroot.readonly = False
+                await self.nexsroot.startup()
+
+                mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                logger.warning(mesg)
+
+            await asyncio.sleep(self.FREE_SPACE_CHECK_FREQ)
+
+    async def _setReadOnly(self, valu):
+        # implement any behavior necessary to change the cell read-only status
+        pass
+
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
         if name is not None:
@@ -1215,6 +1265,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.recover()
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
+
+            if self.minfree is not None:
+                self.schedCoro(self._runFreeSpaceLoop())
 
     async def initServiceNetwork(self):
 
