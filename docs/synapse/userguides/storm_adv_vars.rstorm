@@ -536,7 +536,7 @@ for each iteration of the for loop. For a detailed explanation of this behavior,
 **Library Functions**
 
 Storm types (Storm objects) and Storm libraries allow you to inspect, edit, and otherwise work with data in
-Synapse in various ways. You can assign a variable based on the output of a method or library.
+Synapse in various ways. You can assign a value to a variable based on the output of a method or library.
 
 A full discussion of this topic is outside of the scope of this user guide. See :ref:`stormtypes_index` for
 additional details.
@@ -552,21 +552,20 @@ additional details.
 
 **Expressions**
 
-You can assign the value of a variable based on the computed value of an expression. To denote an expression
-to be evaluated, enclose the expression in parentheses preceded by a dollar sign (``$( <expression> )``).
+You can assign a value to a variable based on the computed value of an expression:
 
 - Use an expression to increment the variable ``$x``:
 
-.. storm-cli:: $x=5 $x=$($x + 1) $lib.print($x)
+.. storm-cli:: $x=5 $x=($x + 1) $lib.print($x)
 
 
 **Embedded Storm query**
 
-You can assign the value of a variable based on the output of a Storm query. To denote the Storm query to be
+You can assign a value to a variable based on the output of a Storm query. To denote the Storm query to be
 evaluated, enclose the query in curly braces (``{ <storm query> }``).
 
 - Assign an ``ou:org`` node's guid value to the variable ``$org`` by lifting the associated org node by its
-  ``:name`` propertys:
+  ``:name`` property:
 
 .. storm-pre:: [ ou:org=* :name=vertex :loc=us.va :url=https://vertex.link/ ]
 .. storm-cli:: $org={ ou:org:name=vertex } $lib.print($org)
