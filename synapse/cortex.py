@@ -1284,11 +1284,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ), nexs=False)
 
     async def _storUpdateMacros(self):
-        async for name, node in self.hive.open(('cortex', 'storm', 'macros')):
+        for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
+
             try:
-                info = (await node.dict()).pack()
+
+                info = node.valu
+                info['name'] = name
+
+                edited = info.pop('edited', None)
+
+                if edited is not None:
+
+                    info['updated'] = edited
+
+                    if info.get('created') is None:
+                        info['created'] = edited
+
                 mdef = self._initStormMacro(info)
+
                 await self._addStormMacro(mdef)
+
             except Exception as e:
                 logger.exception(f'Macro migration error for macro: {name} (skipped).')
 
@@ -1347,7 +1362,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         now = s_common.now()
 
-        mdef['updated'] = now
+        mdef.setdefault('updated', now)
         mdef.setdefault('created', now)
 
         useriden = mdef.get('user', user.iden)
