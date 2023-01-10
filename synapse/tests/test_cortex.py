@@ -3402,8 +3402,30 @@ class CortexBasicTest(s_t_utils.SynTest):
             rules['name'] = 'foo'
             iden = await core.callStorm('return($lib.graph.add($rules).iden)', opts={'vars': {'rules': rules}})
 
-            q = 'return($lib.graph.add($rules).iden)'
-            iden2 = await core.callStorm(q, opts={'vars': {'rules': rules}})
+            gdef = await core.addStormGraph(rules)
+            iden2 = gdef['iden']
+
+            mods = {
+                'name': 'bar',
+                'desc': 'foorules',
+                'refs': True,
+                'edges': False,
+                'forms': {},
+                'pivots': ['<- meta:seen'],
+                'degrees': 3,
+                'filters': ['+#nope'],
+                'filterinput': False,
+                'yieldfiltered': True
+            }
+
+            await core.callStorm('$lib.graph.mod($iden, $info)', opts={'vars': {'iden': iden2, 'info': mods}})
+
+            q = '$lib.graph.mod($iden, ({"iden": "foo"}))'
+            self.asyncraises(s_exc.BadArg, core.callStorm(q, opts={'vars': {'iden': iden2}}))
+
+            gdef['scope'] = 'power-up'
+            gdef['power-up'] = 'newp'
+            self.asyncraises(s_exc.SynErr, core._addStormGraph(gdef))
 
             gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
             self.eq(gdef['name'], 'foo')
@@ -3411,8 +3433,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(2, gdefs)
-            self.eq(gdefs[0]['name'], 'foo')
+            self.eq(gdefs[0]['name'], 'bar')
             self.eq(gdefs[0]['creator'], core.auth.rootuser.iden)
+            self.eq(gdefs[1]['name'], 'foo')
+            self.eq(gdefs[1]['creator'], core.auth.rootuser.iden)
 
             seeds = []
             alldefs = {}

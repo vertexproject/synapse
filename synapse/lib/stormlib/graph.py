@@ -189,7 +189,7 @@ class GraphLib(s_stormtypes.Lib):
         await self.runt.snap.core.delStormGraph(iden, user=self.runt.user)
 
     async def _methGraphMod(self, iden, info):
-        name = await s_stormtypes.tostr(name)
+        iden = await s_stormtypes.tostr(iden)
         info = await s_stormtypes.toprim(info)
 
         for prop in info.keys():
