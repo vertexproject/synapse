@@ -214,3 +214,19 @@ class MacroTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             self.none(await core.callStorm('return($lib.macro.get(bar))'))
+
+            opts = {'vars': {'aaaa': 'A' * 512}}
+            msgs = await core.stormlist('macro.set $aaaa {$lib.print(hi)}', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.del($aaaa)', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.set($aaaa, hi)', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod($aaaa, ({"desc": "woot"}))', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant($aaaa, users, woot, 10)', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
