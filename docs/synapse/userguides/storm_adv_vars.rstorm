@@ -282,7 +282,7 @@ User-defined variables can be defined in one of two ways:
 
 - At runtime (i.e., within the scope of a specific Storm query). This is the most common use for user-defined
   variables.
-- Mapped via options passed to the Storm runtime (for example, when using the :ref:`http-api-cortex` API. This
+- Mapped via options passed to the Storm runtime (for example, when using the :ref:`http-api-cortex` API). This
   method is less common for everyday users. When defined in this manner, user-defined variables will behave as
   though they are built-in variables that are runtsafe.
 
