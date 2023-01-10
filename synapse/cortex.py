@@ -1427,8 +1427,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for pivo in rule.get('filters', ()):
                 await self.getStormQuery(pivo)
 
-    async def addStormGraph(self, gdef):
+    async def addStormGraph(self, gdef, user=None):
+
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('storm', 'graph', 'add'), default=True)
+
+        self._initEasyPerm(gdef)
+
+        now = s_common.now()
+
         gdef['iden'] = s_common.guid()
+        gdef['scope'] = 'user'
+        gdef['creator'] = user.iden
+        gdef['created'] = now
+        gdef['updated'] = now
+        gdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
         s_stormlib_graph.reqValidGdef(gdef)
 
@@ -1451,68 +1466,99 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         self.graphs.set(iden, gdef)
-        if gdef['scope'] == 'global':
-            self.globalgraphs[iden] = gdef
-        else:
-            self.usergraphs[gdef['creatoriden']][iden] = gdef
 
         await self.feedBeholder('storm:graph:add', {'gdef': gdef})
         return copy.deepcopy(gdef)
 
-    async def delStormGraph(self, iden):
-        if await self.getStormGraph(iden) is None:
-            mesg = f'No graph projection with iden {iden} exists!'
-            raise s_exc.NoSuchIden(mesg=mesg)
-
-        return await self._push('storm:graph:del', iden)
-
-    @s_nexus.Pusher.onPush('storm:graph:del')
-    async def _delStormGraph(self, iden):
-        gdef = await self.getStormGraph(iden)
-        if gdef is None:
-            return
-
-        if gdef['scope'] == 'power-up':
-            mesg = 'Power-up graph projections may not be deleted.'
-            raise s_exc.CantDelGraph(mesg=mesg)
-
-        self.graphs.pop(iden)
-        if gdef['scope'] == 'global':
-            self.globalgraphs.pop(iden, None)
-        else:
-            self.usergraphs[gdef['creatoriden']].pop(iden, None)
-
-        await self.feedBeholder('storm:graph:del', {'iden': iden})
-
-    async def getStormGraph(self, iden, useriden=None):
-        if useriden is None:
-            gdef = self.graphs.get(iden)
-        else:
-            gdef = self.usergraphs[useriden].get(iden)
-            if gdef is None:
-                gdef = self.globalgraphs.get(iden)
-
+    def _reqStormGraphPerm(self, user, iden, level):
+        gdef = self.graphs.get(iden)
         if gdef is None:
             gdef = self.pkggraphs.get(iden)
 
         if gdef is None:
-            return None
+            mesg = f'No graph projection with iden {iden} exists!'
+            raise s_exc.NoSuchIden(mesg=mesg)
 
+        if gdef['scope'] == 'power-up' and level > s_cell.PERM_READ:
+            mesg = 'Power-up graph projections may not be modified.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        if user is not None:
+            self._reqEasyPerm(gdef, user, level)
+
+        return gdef
+
+    async def delStormGraph(self, iden, user=None):
+        self._reqStormGraphPerm(user, iden, s_cell.PERM_ADMIN)
+        return await self._push('storm:graph:del', iden)
+
+    @s_nexus.Pusher.onPush('storm:graph:del')
+    async def _delStormGraph(self, iden):
+        gdef = self.graphs.pop(iden, None)
+        if gdef is not None:
+            await self.feedBeholder('storm:graph:del', {'iden': iden})
+            return gdef
+
+    async def getStormGraph(self, iden, user=None):
+        gdef = self._reqStormGraphPerm(user, iden, s_cell.PERM_READ)
         return copy.deepcopy(gdef)
 
-    async def getStormGraphs(self, useriden=None):
-        if useriden is None:
-            for _, gdef in self.graphs.items():
-                yield gdef
-        else:
-            for gdef in self.usergraphs[useriden].values():
-                yield gdef
+    async def getStormGraphs(self, user=None):
 
-            for gdef in self.globalgraphs.values():
-                yield gdef
+        for _, gdef in self.graphs.items():
+
+            await asyncio.sleep(0)
+
+            if user is not None and self._hasEasyPerm(gdef, user, s_cell.PERM_READ):
+                yield copy.deepcopy(gdef)
 
         for gdef in self.pkggraphs.values():
-            yield gdef
+
+            await asyncio.sleep(0)
+
+            if user is not None and self._hasEasyPerm(gdef, user, s_cell.PERM_READ):
+                yield copy.deepcopy(gdef)
+
+    async def modStormGraph(self, name, info, user=None):
+        self._reqStormGraphPerm(user, iden, s_cell.PERM_EDIT)
+        info['updated'] = s_common.now()
+        return await self._push('storm:graph:mod', iden, info)
+
+    @s_nexus.Pusher.onPush('storm:graph:mod')
+    async def _modStormGraph(self, name, info):
+
+        gdef = self._reqStormGraphPerm(None, iden, s_cell.PERM_EDIT)
+        gdef = copy.deepcopy(gdef)
+        gdef.update(info)
+
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        await self.reqValidStormGraph(gdef)
+
+        self.graphs.set(iden, gdef)
+
+        await self.feedBeholder('storm:graph:mod', {'gdef': gdef})
+        return copy.deepcopy(gdef)
+
+    async def setStormGraphPerm(self, gden, scope, iden, level, user=None):
+        self._reqStormGraphPerm(user, gden, s_cell.PERM_ADMIN)
+        return await self._push('storm:graph:set:perm', gden, scope, iden, level, s_common.now())
+
+    @s_nexus.Pusher.onPush('storm:graph:set:perm')
+    async def _setStormGraphPerm(self, gden, scope, iden, level, utime):
+
+        gdef = self._reqStormGraphPerm(None, gden, s_cell.PERM_ADMIN)
+        gdef = copy.deepcopy(gdef)
+        gdef['updated'] = utime
+
+        await self._setEasyPerm(gdef, scope, iden, level)
+
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        self.graphs.set(iden, gdef)
+
+        await self.feedBeholder('storm:graph:set:perm', {'gdef': gdef})
+        return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, name, info):
 
@@ -1838,17 +1884,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         slab = await s_lmdbslab.Slab.anit(path)
         self.onfini(slab.fini)
 
-        self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
-
         self.pkggraphs = {}
-        self.usergraphs = collections.defaultdict(dict)
-        self.globalgraphs = {}
-
-        for iden, gdef in self.graphs.items():
-            if gdef['scope'] == 'global':
-                self.globalgraphs[iden] = gdef
-            else:
-                self.usergraphs[gdef['creatoriden']][iden] = gdef
+        self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2525,6 +2562,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for gdef in pkgdef.get('graphs', ()):
             await self.reqValidStormGraph(gdef)
+
+            gdef = copy.deepcopy(gdef)
+            self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
         onload = pkgdef.get('onload')

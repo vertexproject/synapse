@@ -55,6 +55,35 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 Base classes for the synapse "cell" microservice architecture.
 '''
 
+PERM_DENY = 0
+PERM_READ = 1
+PERM_EDIT = 2
+PERM_ADMIN = 3
+
+permnames = {
+    PERM_DENY: 'deny',
+    PERM_READ: 'read',
+    PERM_EDIT: 'edit',
+    PERM_ADMIN: 'admin',
+}
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            # 'propertyNames': {'type': 'string', 'pattern': s_config.re_iden},
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            # 'propertyNames': {'type': 'string', 'pattern': s_config.re_iden},
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
+
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -2565,6 +2594,79 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.yamlload(path)
 
         return {}
+
+    def _hasEasyPerm(self, item, user, level):
+
+        if user.isAdmin():
+            return True
+
+        userlevel = item['permissions']['users'].get(user.iden)
+        if userlevel is not None:
+            if userlevel == 0:
+                return False
+            elif userlevel >= level:
+                return True
+
+        roleperms = item['permissions']['roles']
+        for role in user.getRoles():
+            rolelevel = roleperms.get(role.iden)
+            if rolelevel is not None:
+                if rolelevel == 0:
+                    return False
+                elif rolelevel >= level:
+                    return True
+
+        # allow read by default unless explicitly set
+        if level <= PERM_READ:
+            return True
+
+        return False
+
+    def _reqEasyPerm(self, item, user, level, mesg=None):
+        '''
+        Require the user (or an assigned role) to have the given permission
+        level on the specified item. The item must implement the "easy perms"
+        convention by having a key named "permissions" which adheres to the
+        easyPermSchema definition.
+        NOTE: By default a user will only be denied read access if they
+              (or an assigned role) has PERM_DENY assigned.
+        '''
+        if self._hasEasyPerm(item, user, level):
+            return
+
+        if mesg is None:
+            permname = permnames.get(level)
+            mesg = f'User has insufficient permissions (requires: {permname}).'
+
+        raise s_exc.AuthDeny(mesg=mesg)
+
+    async def _setEasyPerm(self, item, scope, iden, level):
+        '''
+        Set a user or role permission level within an object that uses the "easy perm"
+        convention. If level is None, permissions are removed.
+        '''
+        if scope not in ('users', 'roles'):
+            raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope}')
+
+        if scope == 'users':
+            await self.auth.reqUser(iden)
+
+        elif scope == 'roles':
+            await self.auth.reqRole(iden)
+
+        perms = item['permissions'].get(scope)
+        if level is None:
+            perms.pop(iden, None)
+        else:
+            perms[iden] = level
+
+    def _initEasyPerm(self, item):
+        '''
+        Ensure that the given object has populated the "easy perm" convention.
+        '''
+        item.setdefault('permissions', {})
+        item['permissions'].setdefault('users', {})
+        item['permissions'].setdefault('roles', {})
 
     async def getTeleApi(self, link, mesg, path):
 

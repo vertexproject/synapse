@@ -3402,17 +3402,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             rules['name'] = 'foo'
             iden = await core.callStorm('return($lib.graph.add($rules).iden)', opts={'vars': {'rules': rules}})
 
-            q = 'return($lib.graph.add($rules, public=$lib.true).iden)'
+            q = 'return($lib.graph.add($rules).iden)'
             iden2 = await core.callStorm(q, opts={'vars': {'rules': rules}})
 
             gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
             self.eq(gdef['name'], 'foo')
-            self.eq(gdef['creatoriden'], core.auth.rootuser.iden)
+            self.eq(gdef['creator'], core.auth.rootuser.iden)
 
             gdefs = await core.callStorm('return($lib.graph.list())')
             self.len(2, gdefs)
             self.eq(gdefs[0]['name'], 'foo')
-            self.eq(gdefs[0]['creatoriden'], core.auth.rootuser.iden)
+            self.eq(gdefs[0]['creator'], core.auth.rootuser.iden)
 
             seeds = []
             alldefs = {}
@@ -3570,15 +3570,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as asvisi:
                 opts['user'] = visi.iden
-                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get($iden)', opts=opts))
-                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del($iden)', opts=opts))
-                await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate($iden)', opts=opts))
+
                 await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=opts))
 
                 q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
-                await self.asyncraises(s_exc.CantDelGraph, core.nodes(q, opts=opts))
+                await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=opts))
 
-                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+                self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             await core.callStorm('pkg.del graph.powerup')
             await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
@@ -3592,7 +3590,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
             await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
 
-            q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}), public=$lib.true)'
+            q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
         with self.getTestDir() as dirn:
@@ -3602,7 +3600,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.addStormPkg(otherpkg)
                 await core.nodes('$lib.graph.add(({"name": "foo"}))', opts=opts)
-                await core.nodes('$lib.graph.add(({"name": "bar"}), public=$lib.true)')
+                await core.nodes('$lib.graph.add(({"name": "bar"}))')
                 self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             async with self.getTestCore(dirn=dirn) as core:
