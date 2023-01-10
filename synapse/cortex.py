@@ -1279,10 +1279,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+        await self._bumpCellVers('cortex:storage', (
+            (1, self._storUpdateMacros),
+        ), nexs=False)
+
     async def _storUpdateMacros(self):
         async for name, node in self.hive.open(('cortex', 'storm', 'macros')):
-            info = (await node.dict()).pack()
-            await self.addStormMacro(info)
+            try:
+                info = (await node.dict()).pack()
+                mdef = self._initStormMacro(info)
+                await self._addStormMacro(mdef)
+            except Exception as e:
+                logger.exception(f'Macro migration error for macro: {name} (skipped).')
 
     def getStormMacro(self, name, user=None):
 
@@ -1324,23 +1332,35 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         user.confirm(('storm', 'macro', 'add'), default=True)
 
-        mdef['iden'] = s_common.guid()
-
-        now = s_common.now()
-        mdef['updated'] = now
-        mdef['created'] = now
-
-        mdef['user'] = user.iden
-        mdef['creator'] = user.iden
-
-        mdef.setdefault('storm', '')
-        self._initEasyPerm(mdef)
-
-        mdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
+        mdef = self._initStormMacro(mdef)
 
         reqValidStormMacro(mdef)
 
         return await self._push('storm:macro:add', mdef)
+
+    def _initStormMacro(self, mdef, user=None):
+
+        if user is None:
+            user = self.auth.rootuser
+
+        mdef['iden'] = s_common.guid()
+
+        now = s_common.now()
+
+        mdef['updated'] = now
+        mdef.setdefault('created', now)
+
+        useriden = mdef.get('user', user.iden)
+
+        mdef['user'] = useriden
+        mdef['creator'] = useriden
+
+        mdef.setdefault('storm', '')
+        self._initEasyPerm(mdef)
+
+        mdef['permissions']['users'][useriden] = s_cell.PERM_ADMIN
+
+        return mdef
 
     @s_nexus.Pusher.onPush('storm:macro:add')
     async def _addStormMacro(self, mdef):
@@ -1505,7 +1525,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
-            (1, self._storUpdateMacros),
         ))
 
     async def _addAllLayrRead(self):

@@ -1185,10 +1185,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # ( and do so using _bumpCellVers )
         pass
 
-    async def _bumpCellVers(self, name, updates):
+    async def _bumpCellVers(self, name, updates, nexs=True):
 
         if self.inaugural:
-            await self.cellvers.set(name, updates[-1][0])
+            await self.cellvers.set(name, updates[-1][0], nexs=nexs)
             return
 
         curv = self.cellvers.get(name, 0)
@@ -1200,7 +1200,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await callback()
 
-            await self.cellvers.set(name, vers)
+            await self.cellvers.set(name, vers, nexs=nexs)
 
             curv = vers
 
