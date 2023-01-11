@@ -18,10 +18,10 @@ Features and Enhancements
     threat cluster was merged with another threat cluster.
 
   ``risk:alert``
-    Add a ``engine`` property to track the software engine that generated the
+    Add an ``engine`` property to track the software engine that generated the
     alert.
 
-- Add events for ``triger:add``, ``triger:del`` and ``trigger:set`` to the
+- Add events for ``trigger:add``, ``trigger:del``, and ``trigger:set`` to the
   Beholder API.
   (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
 
