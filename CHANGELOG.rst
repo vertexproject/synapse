@@ -23,7 +23,7 @@ Features and Enhancements
 
 - Add events for ``trigger:add``, ``trigger:del``, and ``trigger:set`` to the
   Beholder API.
-  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+  (`#2975 <https://github.com/vertexproject/synapse/pull/2975>`_)
 
 Bugfixes
 --------
