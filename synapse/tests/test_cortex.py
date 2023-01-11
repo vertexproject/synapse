@@ -6161,11 +6161,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                 task = core.schedCoro(action())
+                replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+                dlen = 7 if replay else 6
 
                 data = []
                 async for mesg in prox.behold():
                     data.append(mesg)
-                    if len(data) == 6:
+                    if len(data) == dlen:
                         break
 
                 await asyncio.wait_for(task, timeout=1)
@@ -6208,11 +6210,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.false(data[4]['info']['valu'])
                 self.eq(data[4]['info']['view'], view)
 
-                self.eq(data[5]['event'], 'trigger:del')
-                self.gt(data[5]['offset'], data[4]['offset'])
-                self.len(1, data[5]['gates'])
-                self.nn(data[5]['info'].get('iden'))
-                self.eq(data[5]['info']['view'], view)
+                off = 5
+                if replay:
+                    self.eq(data[off]['event'], 'trigger:set')
+                    self.gt(data[off]['offset'], data[3]['offset'])
+                    self.len(1, data[off]['gates'])
+                    self.eq(data[off]['info']['name'], 'enabled')
+                    self.false(data[off]['info']['valu'])
+                    self.eq(data[off]['info']['view'], view)
+                    off += 1
+
+                self.eq(data[off]['event'], 'trigger:del')
+                self.gt(data[off]['offset'], data[4]['offset'])
+                self.len(1, data[off]['gates'])
+                self.nn(data[off]['info'].get('iden'))
+                self.eq(data[off]['info']['view'], view)
 
     async def test_stormpkg_sad(self):
         base_pkg = {
