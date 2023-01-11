@@ -126,6 +126,12 @@ class RiskModule(s_module.CoreModule):
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
+                    ('merged:time', ('time', {}), {
+                        'doc': 'The time that this threat cluster was merged into another.'}),
+
+                    ('merged:isnow', ('risk:threat', {}), {
+                        'doc': 'The threat cluster that this cluster has been merged into.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -392,6 +398,9 @@ class RiskModule(s_module.CoreModule):
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
                         'doc': 'Analyst specified verdict taxonomy about why the alert is malicious or benign.'}),
+
+                    ('engine', ('it:prod:softver', {}), {
+                        'doc': 'The software which generated the alert.'}),
 
                     ('detected', ('time', {}), {
                         'doc': 'The time the alerted condition was detected.'}),
