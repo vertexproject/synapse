@@ -56,6 +56,14 @@ class MacroTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.macro.set(hehe, ${ inet:ipv6 })', opts=asvisi)
 
+            await core.addStormMacro({'name': 'foo', 'storm': '$lib.print(woot)'})
+
+            with self.raises(s_exc.BadArg):
+                await core.addStormMacro({'name': 'foo', 'storm': '$lib.print(woot)'})
+
+            with self.raises(s_exc.DupName):
+                await core.modStormMacro('foo', {'name': 'hehe'})
+
             # Maximum size a macro name can currently be.
             name = 'v' * 491
             q = '$lib.macro.set($name, ${ help }) return ( $lib.macro.get($name) )'
@@ -158,6 +166,8 @@ class MacroTest(s_test.SynTest):
 
             macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
             self.len(0, macros)
+
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.macro.get(foo)', opts=asvisi))
 
             opts = {'vars': {'visi': visi.iden}}
             msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, $lib.null)', opts=opts)

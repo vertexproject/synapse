@@ -2689,7 +2689,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         if mesg is None:
-            name = permnames.get(level)
+            permname = permnames.get(level)
             mesg = f'User has insufficient permissions (requires: {permname}).'
 
         raise s_exc.AuthDeny(mesg=mesg)
