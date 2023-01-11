@@ -6152,13 +6152,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
                     await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
+                    opts = {'vars': {'tdef': tdef}}
+                    trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
+                    opts = {'vars': {'trig': trig['iden']}}
+
+                    await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
+                    await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                 task = core.schedCoro(action())
 
                 data = []
                 async for mesg in prox.behold():
                     data.append(mesg)
-                    if len(data) == 3:
+                    if len(data) == 6:
                         break
 
                 await asyncio.wait_for(task, timeout=1)
@@ -6180,6 +6187,32 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.true(type(data[2]['info']) is dict)
                 self.true(type(data[2]['gates']) is tuple)
                 self.len(1, data[2]['gates'])
+
+                view = await core.callStorm('return($lib.view.get().iden)')
+
+                self.eq(data[3]['event'], 'trigger:add')
+                self.gt(data[3]['offset'], data[2]['offset'])
+                self.len(1, data[3]['gates'])
+                self.false(data[3]['info']['async'])
+                self.eq(data[3]['info']['cond'], 'node:add')
+                self.true(data[3]['info']['enabled'])
+                self.eq(data[3]['info']['form'], 'test:int')
+                self.eq(data[3]['info']['storm'], '[test:str="foobar"]')
+                self.eq(data[3]['info']['username'], 'root')
+                self.eq(data[3]['info']['view'], view)
+
+                self.eq(data[4]['event'], 'trigger:set')
+                self.gt(data[4]['offset'], data[3]['offset'])
+                self.len(1, data[4]['gates'])
+                self.eq(data[4]['info']['name'], 'enabled')
+                self.false(data[4]['info']['valu'])
+                self.eq(data[4]['info']['view'], view)
+
+                self.eq(data[5]['event'], 'trigger:del')
+                self.gt(data[5]['offset'], data[4]['offset'])
+                self.len(1, data[5]['gates'])
+                self.nn(data[5]['info'].get('iden'))
+                self.eq(data[5]['info']['view'], view)
 
     async def test_stormpkg_sad(self):
         base_pkg = {
