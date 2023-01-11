@@ -72,12 +72,10 @@ easyPermSchema = {
     'properties': {
         'users': {
             'type': 'object',
-            # 'propertyNames': {'type': 'string', 'pattern': s_config.re_iden},
             'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
         },
         'roles': {
             'type': 'object',
-            # 'propertyNames': {'type': 'string', 'pattern': s_config.re_iden},
             'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
         },
     },
@@ -2678,7 +2676,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def _reqEasyPerm(self, item, user, level, mesg=None):
         '''
         Require the user (or an assigned role) to have the given permission
-        level on the specified item. The item must implement the "easy perms"
+        level on the specified item. The item must implement the "easy perm"
         convention by having a key named "permissions" which adheres to the
         easyPermSchema definition.
 

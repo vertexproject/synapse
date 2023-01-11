@@ -70,10 +70,17 @@ class MacroTest(s_test.SynTest):
             mdef = await core.callStorm(q, opts={'vars': {'name': name}})
             self.eq(mdef.get('storm'), 'help')
 
+            badname = 'v' * 492
             with self.raises(s_exc.BadArg):
-                badname = 'v' * 492
                 q = '$lib.macro.set($name, ${ help })'
                 await core.nodes(q, opts={'vars': {'name': badname}})
+
+            with self.raises(s_exc.BadArg):
+                q = '$lib.macro.get($name)'
+                await core.nodes(q, opts={'vars': {'name': badname}})
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.mod(foo, bar)', opts=asvisi)
 
             msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 -:asn=30 }')
             self.stormIsInPrint('Set macro: hehe', msgs)
