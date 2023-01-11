@@ -400,7 +400,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Analyst specified verdict taxonomy about why the alert is malicious or benign.'}),
 
                     ('engine', ('it:prod:softver', {}), {
-                        'doc': 'The sofware detected the alert condition.'}),
+                        'doc': 'The software which generated the alert.'}),
 
                     ('detected', ('time', {}), {
                         'doc': 'The time the alerted condition was detected.'}),
