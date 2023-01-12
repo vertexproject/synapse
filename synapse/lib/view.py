@@ -898,6 +898,8 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
         await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
+        await self.core.feedBeholder('trigger:add', trig.pack(), gates=[trig.iden])
+
         return trig.pack()
 
     async def getTrigger(self, iden):
@@ -923,6 +925,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             return
 
+        await self.core.feedBeholder('trigger:del', {'iden': trig.iden, 'view': trig.view.iden}, gates=[trig.iden])
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
@@ -932,6 +935,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
+
+        await self.core.feedBeholder('trigger:set', {'iden': trig.iden, 'view': trig.view.iden, 'name': name, 'valu': valu}, gates=[trig.iden])
 
     async def listTriggers(self):
         '''

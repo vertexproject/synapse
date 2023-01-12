@@ -663,7 +663,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Return stream of (iden, provenance stack) tuples at the given offset.
         '''
-        s_common.deprecated('CoreApi.provStacks()', curv='2.117.0', eolv='2.221.0')
+        s_common.deprecated('CoreApi.provStacks()', curv='2.117.0', eolv='2.122.0')
         count = 0
         for iden, stack in self.cell.provstor.provStacks(offs, size):
             count += 1
@@ -681,7 +681,7 @@ class CoreApi(s_cell.CellApi):
 
         Note: the iden appears on each splice entry as the 'prov' property
         '''
-        s_common.deprecated('CoreApi.getProvStack()', curv='2.117.0', eolv='2.221.0')
+        s_common.deprecated('CoreApi.getProvStack()', curv='2.117.0', eolv='2.122.0')
         if iden is None:
             return None
 

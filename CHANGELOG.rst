@@ -4,6 +4,33 @@
 Synapse Changelog
 *****************
 
+v2.120.0 - 2023-01-11
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Update to the ``risk`` models.
+  (`#2978 <https://github.com/vertexproject/synapse/pull/2978>`_)
+
+  ``risk:threat``
+    Add a ``merge:time`` and ``merged:isnow`` properties to track when a
+    threat cluster was merged with another threat cluster.
+
+  ``risk:alert``
+    Add an ``engine`` property to track the software engine that generated the
+    alert.
+
+- Add events for ``trigger:add``, ``trigger:del``, and ``trigger:set`` to the
+  Beholder API.
+  (`#2975 <https://github.com/vertexproject/synapse/pull/2975>`_)
+
+Bugfixes
+--------
+- Fix an infinite loop in ``synapse.tools.storm`` when using the tool in
+  an environment without write access to the history file.
+  (`#2977 <https://github.com/vertexproject/synapse/pull/2977>`_)
+
 v2.119.0 - 2023-01-09
 =====================
 
@@ -263,7 +290,7 @@ Deprecations
 ------------
 - The Cortex APIs ``provStacks()`` and ``getProvStack(iden)`` and the
   corresponding Cortex configuration option ``provenance:en`` have been marked
-  as deprecated and are planned to be removed in ``v2.221.0``.
+  as deprecated and are planned to be removed in ``v2.122.0``.
   (`#2682 <https://github.com/vertexproject/synapse/pull/2682>`_)
 
 v2.116.0 - 2022-12-14
