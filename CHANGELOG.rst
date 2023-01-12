@@ -290,7 +290,7 @@ Deprecations
 ------------
 - The Cortex APIs ``provStacks()`` and ``getProvStack(iden)`` and the
   corresponding Cortex configuration option ``provenance:en`` have been marked
-  as deprecated and are planned to be removed in ``v2.221.0``.
+  as deprecated and are planned to be removed in ``v2.122.0``.
   (`#2682 <https://github.com/vertexproject/synapse/pull/2682>`_)
 
 v2.116.0 - 2022-12-14
