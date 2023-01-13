@@ -223,13 +223,11 @@ class LibMacro(s_stormtypes.Lib):
         if not isinstance(info, dict):
             raise s_exc.BadArg('Macro info must be a dictionary object.')
 
-        for prop in info.keys():
+        for prop, valu in info.items():
             if prop not in ('name', 'desc', 'storm'):
                 raise s_exc.BadArg(mesg=f'User may not edit the field: {prop}.')
-
-        storm = info.get('storm')
-        if storm is not None:
-            await self.runt.getStormQuery(storm)
+            if prop == 'storm':
+                await self.runt.getStormQuery(valu)
 
         info['updated'] = s_common.now()
         await self.runt.snap.core.modStormMacro(name, info, user=self.runt.user)
