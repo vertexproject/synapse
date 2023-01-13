@@ -387,7 +387,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 t.norm('hehe')
-            self.isin('Cannot split the email user and fqdn', cm.exception.get('mesg'))
+            self.isin('Email address expected in <user>@<fqdn> format', cm.exception.get('mesg'))
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 t.norm('hehe@1.2.3.4')

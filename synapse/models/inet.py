@@ -199,7 +199,7 @@ class Email(s_types.Str):
         try:
             user, fqdn = valu.split('@', 1)
         except ValueError:
-            mesg = f'Cannot split the email user and fqdn for "{valu}"'
+            mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         try:
