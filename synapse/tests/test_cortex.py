@@ -6843,3 +6843,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
+
+    async def test_cortex_storage_v1(self):
+
+        async with self.getRegrCore('cortex-storage-v1') as core:
+
+            mdef = await core.callStorm('return($lib.macro.get(woot))')
+            self.true(core.cellvers.get('cortex:storage') >= 1)
+
+            self.eq(core.auth.rootuser.iden, mdef['user'])
+            self.eq(core.auth.rootuser.iden, mdef['creator'])
+
+            self.eq(1673371514938, mdef['created'])
+            self.eq(1673371514938, mdef['updated'])
+            self.eq('$lib.print("hi there")', mdef['storm'])
+
+            msgs = await core.stormlist('macro.exec woot')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('hi there', msgs)
