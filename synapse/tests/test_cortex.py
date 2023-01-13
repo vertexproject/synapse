@@ -6268,13 +6268,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
                     await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
+                    opts = {'vars': {'tdef': tdef}}
+                    trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
+                    opts = {'vars': {'trig': trig['iden']}}
+
+                    await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
+                    await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                 task = core.schedCoro(action())
+                replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+                dlen = 7 if replay else 6
 
                 data = []
                 async for mesg in prox.behold():
                     data.append(mesg)
-                    if len(data) == 3:
+                    if len(data) == dlen:
                         break
 
                 await asyncio.wait_for(task, timeout=1)
@@ -6296,6 +6305,42 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.true(type(data[2]['info']) is dict)
                 self.true(type(data[2]['gates']) is tuple)
                 self.len(1, data[2]['gates'])
+
+                view = await core.callStorm('return($lib.view.get().iden)')
+
+                self.eq(data[3]['event'], 'trigger:add')
+                self.gt(data[3]['offset'], data[2]['offset'])
+                self.len(1, data[3]['gates'])
+                self.false(data[3]['info']['async'])
+                self.eq(data[3]['info']['cond'], 'node:add')
+                self.true(data[3]['info']['enabled'])
+                self.eq(data[3]['info']['form'], 'test:int')
+                self.eq(data[3]['info']['storm'], '[test:str="foobar"]')
+                self.eq(data[3]['info']['username'], 'root')
+                self.eq(data[3]['info']['view'], view)
+
+                self.eq(data[4]['event'], 'trigger:set')
+                self.gt(data[4]['offset'], data[3]['offset'])
+                self.len(1, data[4]['gates'])
+                self.eq(data[4]['info']['name'], 'enabled')
+                self.false(data[4]['info']['valu'])
+                self.eq(data[4]['info']['view'], view)
+
+                off = 5
+                if replay:
+                    self.eq(data[off]['event'], 'trigger:set')
+                    self.gt(data[off]['offset'], data[3]['offset'])
+                    self.len(1, data[off]['gates'])
+                    self.eq(data[off]['info']['name'], 'enabled')
+                    self.false(data[off]['info']['valu'])
+                    self.eq(data[off]['info']['view'], view)
+                    off += 1
+
+                self.eq(data[off]['event'], 'trigger:del')
+                self.gt(data[off]['offset'], data[4]['offset'])
+                self.len(1, data[off]['gates'])
+                self.nn(data[off]['info'].get('iden'))
+                self.eq(data[off]['info']['view'], view)
 
     async def test_stormpkg_sad(self):
         base_pkg = {
@@ -6914,3 +6959,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
+
+    async def test_cortex_storage_v1(self):
+
+        async with self.getRegrCore('cortex-storage-v1') as core:
+
+            mdef = await core.callStorm('return($lib.macro.get(woot))')
+            self.true(core.cellvers.get('cortex:storage') >= 1)
+
+            self.eq(core.auth.rootuser.iden, mdef['user'])
+            self.eq(core.auth.rootuser.iden, mdef['creator'])
+
+            self.eq(1673371514938, mdef['created'])
+            self.eq(1673371514938, mdef['updated'])
+            self.eq('$lib.print("hi there")', mdef['storm'])
+
+            msgs = await core.stormlist('macro.exec woot')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('hi there', msgs)
