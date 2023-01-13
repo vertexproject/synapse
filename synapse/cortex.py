@@ -2791,8 +2791,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._setStormCmd(cdef)
 
         for gdef in pkgdef.get('graphs', ()):
-            await self.reqValidStormGraph(gdef)
-
             gdef = copy.deepcopy(gdef)
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
