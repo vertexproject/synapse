@@ -163,6 +163,8 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.macro.grant(foo, users, hehe, 4)')
             self.stormIsInErr('Invalid permission level: 4 (must be <= 3 and >= 0, or None)', msgs)
 
+            self.raises(s_exc.BadArg, core._hasEasyPerm, {}, 'newp', 4)
+
             opts = {'user': visi.iden, 'vars': {'visi': visi.iden}}
             msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 3)', opts=opts)
             self.stormIsInErr('User requires admin permission on macro: foo', msgs)

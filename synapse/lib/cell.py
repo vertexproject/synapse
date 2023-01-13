@@ -2648,6 +2648,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _hasEasyPerm(self, item, user, level):
 
+        if level > PERM_ADMIN or level < PERM_DENY:
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0)')
+
         if user.isAdmin():
             return True
 
