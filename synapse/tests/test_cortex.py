@@ -3421,11 +3421,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.callStorm('$lib.graph.mod($iden, $info)', opts={'vars': {'iden': iden2, 'info': mods}})
 
             q = '$lib.graph.mod($iden, ({"iden": "foo"}))'
-            self.asyncraises(s_exc.BadArg, core.callStorm(q, opts={'vars': {'iden': iden2}}))
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts={'vars': {'iden': iden2}}))
 
             gdef['scope'] = 'power-up'
             gdef['power-up'] = 'newp'
-            self.asyncraises(s_exc.SynErr, core._addStormGraph(gdef))
+            await self.asyncraises(s_exc.SynErr, core._addStormGraph(gdef))
 
             gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
             self.eq(gdef['name'], 'foo')
