@@ -227,6 +227,10 @@ class LibMacro(s_stormtypes.Lib):
             if prop not in ('name', 'desc', 'storm'):
                 raise s_exc.BadArg(mesg=f'User may not edit the field: {prop}.')
 
+        storm = info.get('storm')
+        if storm is not None:
+            await self.runt.getStormQuery(storm)
+
         info['updated'] = s_common.now()
         await self.runt.snap.core.modStormMacro(name, info, user=self.runt.user)
 

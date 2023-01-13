@@ -129,7 +129,7 @@ reqValidStormMacro = s_config.getJsValidator({
         # user kept for backward compat. remove eventually...
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'desc': {'type': 'string'},
+        'desc': {'type': 'string', 'default': ''},
         'storm': {'type': 'string'},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
@@ -1288,13 +1288,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             try:
 
-                info = node.valu
-                info['name'] = name
+                info = {
+                    'name': node.valu.get('name'),
+                    'storm': node.valu.get('storm'),
+                }
 
-                edited = info.pop('edited', None)
+                user = node.valu.get('user')
+                if user is not None:
+                    info['user'] = user
 
+                created = node.valu.get('created')
+                if created is not None:
+                    info['created'] = created
+
+                edited = node.valu.get('edited')
                 if edited is not None:
-
                     info['updated'] = edited
 
                     if info.get('created') is None:
@@ -1411,7 +1419,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('storm:macro:mod')
     async def _modStormMacro(self, name, info):
 
-        mdef = self.reqStormMacro(name)
+        mdef = self.getStormMacro(name)
+        if mdef is None:
+            return
+
         mdef.update(info)
 
         reqValidStormMacro(mdef)

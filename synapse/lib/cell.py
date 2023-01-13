@@ -2698,7 +2698,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         convention. If level is None, permissions are removed.
         '''
         if scope not in ('users', 'roles'):
-            raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope}')
+            raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope} (must be "users" or "roles")')
+
+        if level is not None and (level > PERM_ADMIN or level < PERM_DENY):
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0, or None)')
 
         if scope == 'users':
             await self.auth.reqUser(iden)
