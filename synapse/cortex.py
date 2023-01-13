@@ -1289,7 +1289,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
 
                 info = {
-                    'name': node.valu.get('name'),
+                    'name': name,
                     'storm': node.valu.get('storm'),
                 }
 
