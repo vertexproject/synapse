@@ -198,7 +198,11 @@ class Email(s_types.Str):
 
         try:
             user, fqdn = valu.split('@', 1)
+        except ValueError:
+            mesg = f'Cannot split the email user and fqdn for "{valu}"'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
