@@ -10,7 +10,7 @@ gdefSchema = {
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string', 'minLength': 1},
-        'desc': {'type': 'string'},
+        'desc': {'type': 'string', 'default': ''},
         'scope': {'type': 'string', 'enum': ['user', 'power-up']},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'power-up': {'type': 'string', 'minLength': 1},
@@ -89,7 +89,8 @@ class GraphLib(s_stormtypes.Lib):
 
             Example:
                     $rules = ({
-                        "name": "My test projection",
+                        "name": "Test Projection",
+                        "desc": "My test projection",
                         "degrees": 2,
                         "pivots": ["<- meta:seen <- meta:source"],
                         "filters": ["-#nope"],
@@ -172,9 +173,7 @@ class GraphLib(s_stormtypes.Lib):
         }
 
     async def _methGraphAdd(self, gdef):
-        self.runt.confirm(('graph', 'add'), default=True)
-        gdef = await s_stormtypes.toprim(gdef
-)
+        gdef = await s_stormtypes.toprim(gdef)
         return await self.runt.snap.core.addStormGraph(gdef, user=self.runt.user)
 
     async def _methGraphGet(self, iden=None):
