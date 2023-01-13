@@ -223,6 +223,9 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.macro.mod(bar, ({"storm": "$lib.print(woot)"}))', opts=asvisi)
             self.stormHasNoWarnErr(msgs)
 
+            msgs = await core.stormlist('$lib.macro.mod(bar, ({"storm": " | | | "}))', opts=asvisi)
+            self.stormIsInErr('Unexpected token', msgs)
+
             self.nn(await core.callStorm('return($lib.macro.get(bar))'))
             self.none(await core.callStorm('return($lib.macro.get(foo))'))
 
