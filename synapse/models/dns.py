@@ -192,11 +192,11 @@ class DnsModule(s_module.CoreModule):
                 )),
 
                 ('inet:dns:soa', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                    ('fqdn', ('inet:fqdn', {}), {
                          'doc': 'The domain queried for its SOA record.'}),
-                    ('ns', ('inet:fqdn', {}), {'ro': True,
+                    ('ns', ('inet:fqdn', {}), {
                          'doc': 'The domain (MNAME) returned in the SOA record.'}),
-                    ('email', ('inet:email', {}), {'ro': True,
+                    ('email', ('inet:email', {}), {
                          'doc': 'The email address (RNAME) returned in the SOA record.'}),
                 )),
 
