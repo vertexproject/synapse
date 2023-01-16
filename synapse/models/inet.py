@@ -198,7 +198,11 @@ class Email(s_types.Str):
 
         try:
             user, fqdn = valu.split('@', 1)
+        except ValueError:
+            mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:

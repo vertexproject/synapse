@@ -385,6 +385,14 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = t.norm('bob\udcfesmith@woot.com')[0]
 
+            with self.raises(s_exc.BadTypeValu) as cm:
+                t.norm('hehe')
+            self.isin('Email address expected in <user>@<fqdn> format', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                t.norm('hehe@1.2.3.4')
+            self.isin('FQDN Got an IP address instead', cm.exception.get('mesg'))
+
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
