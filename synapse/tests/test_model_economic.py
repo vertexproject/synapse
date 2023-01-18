@@ -223,3 +223,19 @@ class EconTest(s_utils.SynTest):
             self.eq(nodes[0].get('delta'), '12')
             self.eq(nodes[0].get('total:received'), '13.14')
             self.eq(nodes[0].get('total:sent'), '15.16')
+
+            nodes = await core.nodes('''
+                [ econ:receipt:item=*
+                    :purchase=*
+                    :count=10
+                    :product={[ biz:product=* :name=bananna ]}
+                    :price=100
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('product'))
+            self.nn(nodes[0].get('purchase'))
+            self.eq(nodes[0].get('count'), 10)
+            self.eq(nodes[0].get('price'), '100')
+            self.len(1, await core.nodes('econ:receipt:item -> econ:purchase'))
+            self.len(1, await core.nodes('econ:receipt:item -> biz:product +:name=bananna'))

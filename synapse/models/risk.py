@@ -49,6 +49,8 @@ class RiskModule(s_module.CoreModule):
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
+                ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
+                    'doc': 'An assessment of the origin and validity of the alert.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -124,6 +126,12 @@ class RiskModule(s_module.CoreModule):
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
+                    ('merged:time', ('time', {}), {
+                        'doc': 'The time that this threat cluster was merged into another.'}),
+
+                    ('merged:isnow', ('risk:threat', {}), {
+                        'doc': 'The threat cluster that this cluster has been merged into.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -372,28 +380,40 @@ class RiskModule(s_module.CoreModule):
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),
+                ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
                     ('type', ('risk:alert:taxonomy', {}), {
-                        'doc': 'An alert type.',
-                    }),
+                        'doc': 'An alert type.'}),
+
                     ('name', ('str', {}), {
-                        'doc': 'The alert name.',
-                    }),
+                        'doc': 'The alert name.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A free-form description / overview of the alert.',
-                    }),
+                        'doc': 'A free-form description / overview of the alert.'}),
+
+                    ('benign', ('bool', {}), {
+                        'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
+
+                    ('verdict', ('risk:alert:verdict:taxonomy', {}), {
+                        'ex': 'benign.false_positive',
+                        'doc': 'Analyst specified verdict taxonomy about why the alert is malicious or benign.'}),
+
+                    ('engine', ('it:prod:softver', {}), {
+                        'doc': 'The software which generated the alert.'}),
+
                     ('detected', ('time', {}), {
-                        'doc': 'The time the alerted condition was detected.',
-                    }),
+                        'doc': 'The time the alerted condition was detected.'}),
+
                     ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The optional vulnerability that the alert indicates.',
-                    }),
+                        'doc': 'The optional vulnerability that the alert indicates.'}),
+
                     ('attack', ('risk:attack', {}), {
-                        'doc': 'A confirmed attack that this alert indicates.',
-                    }),
+                        'doc': 'A confirmed attack that this alert indicates.'}),
+
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the alert.'}),
+
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the alert.'}),
                 )),

@@ -193,6 +193,7 @@ testmodel = {
 
         ('test:ival', ('ival', {}), {}),
 
+        ('test:ro', ('str', {}), {}),
         ('test:int', ('int', {}), {}),
         ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
@@ -361,6 +362,11 @@ testmodel = {
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
         )),
+
+        ('test:ro', {}, (
+            ('writeable', ('str', {}), {'doc': 'writeable property'}),
+            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+        ))
 
     ),
 }

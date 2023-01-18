@@ -169,15 +169,6 @@ class Query(AstNode):
     async def iterNodePaths(self, runt, genr=None):
 
         count = 0
-        subgraph = None
-
-        rules = runt.getOpt('graph')
-
-        if rules not in (False, None):
-            if rules is True:
-                rules = {'degrees': None, 'refs': True}
-
-            subgraph = SubGraph(rules)
 
         self.optimize()
         self.validate(runt)
@@ -187,9 +178,6 @@ class Query(AstNode):
             genr = runt.getInput()
 
         genr = self.run(runt, genr)
-
-        if subgraph is not None:
-            genr = subgraph.run(runt, genr)
 
         async for node, path in genr:
 

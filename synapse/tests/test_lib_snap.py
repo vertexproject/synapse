@@ -577,7 +577,7 @@ class SnapTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 
-            self.len(1, await core.nodes('[ inet:dns:soa=(lol,) :fqdn=vertex.link ]'))
-            self.len(1, await core.nodes('inet:dns:soa=(lol,) [ :fqdn=vertex.link ]'))
+            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
+            self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
-                await core.nodes('inet:dns:soa=(lol,) [ :fqdn=woot.com ]')
+                await core.nodes('test:ro=foo [ :readable=newp ]')

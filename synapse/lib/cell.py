@@ -55,6 +55,33 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 Base classes for the synapse "cell" microservice architecture.
 '''
 
+PERM_DENY = 0
+PERM_READ = 1
+PERM_EDIT = 2
+PERM_ADMIN = 3
+
+permnames = {
+    PERM_DENY: 'deny',
+    PERM_READ: 'read',
+    PERM_EDIT: 'edit',
+    PERM_ADMIN: 'admin',
+}
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
+
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -828,6 +855,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
         },
+        'limit:disk:free': {
+            'default': 5,
+            'description': 'Minimum disk free space percentage before setting the cell read-only.',
+            'type': ['integer', 'null'],
+            'minimum': 0,
+            'maximum': 100,
+        },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
@@ -947,6 +981,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
+    FREE_SPACE_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -973,6 +1008,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
+
+        self.minfree = self.conf.get('limit:disk:free')
+        if self.minfree is not None:
+            self.minfree = self.minfree / 100
+
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= self.minfree:
+                free = disk.free / disk.total * 100
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
         await self._initCellBoot()
 
@@ -1138,10 +1183,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # ( and do so using _bumpCellVers )
         pass
 
-    async def _bumpCellVers(self, name, updates):
+    async def _bumpCellVers(self, name, updates, nexs=True):
 
         if self.inaugural:
-            await self.cellvers.set(name, updates[-1][0])
+            await self.cellvers.set(name, updates[-1][0], nexs=nexs)
             return
 
         curv = self.cellvers.get(name, 0)
@@ -1153,9 +1198,41 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await callback()
 
-            await self.cellvers.set(name, vers)
+            await self.cellvers.set(name, vers, nexs=nexs)
 
             curv = vers
+
+    async def _runFreeSpaceLoop(self):
+
+        nexsroot = self.getCellNexsRoot()
+
+        while not self.isfini:
+            disk = shutil.disk_usage(self.dirn)
+
+            if (disk.free / disk.total) <= self.minfree:
+
+                await self._setReadOnly(True)
+                nexsroot.readonly = True
+
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
+                logger.warning(mesg)
+
+            elif nexsroot.readonly:
+
+                await self._setReadOnly(False)
+                nexsroot.readonly = False
+                await self.nexsroot.startup()
+
+                mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                logger.warning(mesg)
+
+            await asyncio.sleep(self.FREE_SPACE_CHECK_FREQ)
+
+    async def _setReadOnly(self, valu):
+        # implement any behavior necessary to change the cell read-only status
+        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1215,6 +1292,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.recover()
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
+
+            if self.minfree is not None:
+                self.schedCoro(self._runFreeSpaceLoop())
 
     async def initServiceNetwork(self):
 
@@ -2565,6 +2645,86 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.yamlload(path)
 
         return {}
+
+    def _hasEasyPerm(self, item, user, level):
+
+        if level > PERM_ADMIN or level < PERM_DENY:
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0)')
+
+        if user.isAdmin():
+            return True
+
+        userlevel = item['permissions']['users'].get(user.iden)
+        if userlevel is not None:
+            if userlevel == 0:
+                return False
+            elif userlevel >= level:
+                return True
+
+        roleperms = item['permissions']['roles']
+        for role in user.getRoles():
+            rolelevel = roleperms.get(role.iden)
+            if rolelevel is not None:
+                if rolelevel == 0:
+                    return False
+                elif rolelevel >= level:
+                    return True
+
+        # allow read by default unless explicitly set
+        if level <= PERM_READ:
+            return True
+
+        return False
+
+    def _reqEasyPerm(self, item, user, level, mesg=None):
+        '''
+        Require the user (or an assigned role) to have the given permission
+        level on the specified item. The item must implement the "easy perm"
+        convention by having a key named "permissions" which adheres to the
+        easyPermSchema definition.
+
+        NOTE: By default a user will only be denied read access if they
+              (or an assigned role) has PERM_DENY assigned.
+        '''
+        if self._hasEasyPerm(item, user, level):
+            return
+
+        if mesg is None:
+            permname = permnames.get(level)
+            mesg = f'User has insufficient permissions (requires: {permname}).'
+
+        raise s_exc.AuthDeny(mesg=mesg)
+
+    async def _setEasyPerm(self, item, scope, iden, level):
+        '''
+        Set a user or role permission level within an object that uses the "easy perm"
+        convention. If level is None, permissions are removed.
+        '''
+        if scope not in ('users', 'roles'):
+            raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope} (must be "users" or "roles")')
+
+        if level is not None and (level > PERM_ADMIN or level < PERM_DENY):
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0, or None)')
+
+        if scope == 'users':
+            await self.auth.reqUser(iden)
+
+        elif scope == 'roles':
+            await self.auth.reqRole(iden)
+
+        perms = item['permissions'].get(scope)
+        if level is None:
+            perms.pop(iden, None)
+        else:
+            perms[iden] = level
+
+    def _initEasyPerm(self, item):
+        '''
+        Ensure that the given object has populated the "easy perm" convention.
+        '''
+        item.setdefault('permissions', {})
+        item['permissions'].setdefault('users', {})
+        item['permissions'].setdefault('roles', {})
 
     async def getTeleApi(self, link, mesg, path):
 

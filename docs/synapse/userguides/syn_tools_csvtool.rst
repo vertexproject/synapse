@@ -11,7 +11,7 @@ The ``--export`` option can be used to export a set of data from a Cortex into a
 
 Storm queries are used both to ingest and export data using ``csvtool``. Users should be familiar with the Storm query language (:ref:`storm-ref-intro` et al.) and the Synapse data model (:ref:`data-model-terms` et al.) in order to use ``csvtool`` effectively.
 
-The Storm syntax used with ``csvtool`` makes use of a few more advanced Storm concepts such as variables, methods, libraries, and some programming flow control concepts (e.g., "for" loops and "switch" statements). However, the examples below should be fairly self-explanatory. In other words, users do **not** need to understand in detail how those concepts work in order to create basic ``stormfile`` queries and start loading data using ``csvtool``.
+The Storm syntax used with ``csvtool`` makes use of a few more advanced Storm concepts such as variables, methods, libraries, and some programming flow control concepts (e.g., for loops and switch statements). However, the examples below should be fairly self-explanatory. In other words, users do **not** need to understand in detail how those concepts work in order to create basic ``stormfile`` queries and start loading data using ``csvtool``.
 
 That said, the set of advanced Storm concepts and features can be fully leveraged within a ``stormfile`` to perform complex data ingest. Interested users are encouraged to refer to the appropriate sections of the Storm reference documents for a more detailed discussion of those concepts, which may be useful for creating more complex ``stormfile`` queries (or Storm queries in general).
 
@@ -163,7 +163,7 @@ We want to load the data in the CSV file into a Cortex as a set of DNS A records
 
 **Stormfile:**
 
-Storm references the set of rows in the CSV file by the :ref:`vars-csvtool-rows` built-in variable. We need to define a set of variables (see :ref:`storm-adv-vars`) to represent each field in a row (i.e., each column in the CSV file) and tell Storm to iterate over each row using a :ref:`flow-for`. For example:
+Storm references the set of rows in the CSV file by the :ref:`vars-ingest-rows` built-in variable. We need to define a set of variables (see :ref:`storm-adv-vars`) to represent each field in a row (i.e., each column in the CSV file) and tell Storm to iterate over each row using a :ref:`flow-for`. For example:
 
 ::
   
