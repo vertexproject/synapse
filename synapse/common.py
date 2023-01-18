@@ -894,6 +894,14 @@ def err(e, fulltb=False):
     name = e.__class__.__name__
     info = {}
 
+    if isinstance(e, s_exc.StormRaise):
+        info = {
+            'info': e.errinfo,
+            'mesg': e.errinfo['mesg'],
+            'name': e.errinfo['errname']
+        }
+        return (name, info)
+
     tb = sys.exc_info()[2]
     tbinfo = traceback.extract_tb(tb)
     if tbinfo:
