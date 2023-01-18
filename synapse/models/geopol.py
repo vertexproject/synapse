@@ -41,7 +41,8 @@ class PolModule(s_module.CoreModule):
                 'forms': (
 
                     ('pol:country', {}, (
-                        ('flag', ('file:bytes', {}), {}),
+                        ('flag', ('file:bytes', {}), {
+                            'doc': 'A thumbnail image of the flag of the country.'}),
                         ('iso2', ('pol:iso2', {}), {}),
                         ('iso3', ('pol:iso3', {}), {}),
                         ('isonum', ('pol:isonum', {}), {}),
@@ -62,7 +63,7 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The date that the country was founded.'}),
                         ('dissolved', ('time', {}), {
                             'doc': 'The date that the country was dissolved.'}),
-                        ('vitals', ('ps:vitals', {}), {
+                        ('vitals', ('ou:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
                     )),
                     ('pol:vitals', {}, (

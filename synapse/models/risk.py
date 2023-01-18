@@ -49,8 +49,12 @@ class RiskModule(s_module.CoreModule):
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
+
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
                     'doc': 'An assessment of the origin and validity of the alert.'}),
+
+                ('risk:threat:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of threat types.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -87,10 +91,17 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
             ),
             'forms': (
+
+                ('risk:threat:type:taxonomy', {}, ()),
+
                 ('risk:threat', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ex': "apt1 (mandiant)",
                         'doc': 'The name of the threat cluster.'}),
+
+                    ('type', ('risk:threat:type:taxonomy', {}), {
+                        'doc': 'The type of threat cluster.'}),
 
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
@@ -394,6 +405,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
+
+                    ('severity', ('int', {}), {
+                        'doc': 'A numeric value used to rank alerts by severity.'}),
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',

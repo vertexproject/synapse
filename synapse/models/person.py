@@ -57,6 +57,12 @@ class PsModule(s_module.CoreModule):
                 ('ps:vitals', ('guid', {}), {
                     'doc': 'Statistics and demographic data about a person or contact.',
                 }),
+                ('ps:skill', ('guid', {}), {
+                    'doc': 'A specific skill which a person or organization may have.'
+                }),
+                ('ps:proficiency', ('guid', {}), {
+                    'doc': 'The assessment that a given contact possesses a specific skill.'
+                }),
             ),
             'forms': (
                 ('ps:workhist', {}, (
@@ -426,6 +432,12 @@ class PsModule(s_module.CoreModule):
                     ('crypto:address', ('crypto:currency:address', {}), {
                         'doc': 'A crypto currency address associated with the contact.'
                     }),
+
+                    ('lang', ('lang:language', {}), {
+                        'doc': 'The language specified for the contact.'})
+
+                    ('langs', ('array', {'type': 'lang:language'}), {
+                        'doc': 'An array of alterative languages specified for the contact.'})
                 )),
                 ('ps:vitals', {}, (
                     ('asof', ('time', {}), {
@@ -459,6 +471,24 @@ class PsModule(s_module.CoreModule):
                     ('source:acct', ('inet:web:acct', {}), {
                         'doc': 'The web account from which the contact list was extracted.',
                     }),
+                )),
+
+                ('ps:skill', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the skill.'}),
+
+                    ('type', ('ps:skill:type:taxonomy', {}), {
+                        'doc': 'The type of skill as a taxonomy.'})
+                )),
+
+                ('ps:proficiency', {}, (
+
+                    ('skill', ('ps:skill', {}), {
+                        'doc': 'The skill in which the contact is proficient.'}),
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact which is proficient in the skill.'}),
                 )),
             )
         }
