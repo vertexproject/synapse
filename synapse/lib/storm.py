@@ -30,6 +30,8 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.graph as s_stormlib_graph
+
 logger = logging.getLogger(__name__)
 
 addtriggerdescr = '''
@@ -218,6 +220,10 @@ reqValidPkgdef = s_config.getJsValidator({
         'commands': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/command'},
+        },
+        'graphs': {
+            'type': ['array', 'null'],
+            'items': s_stormlib_graph.gdefSchema,
         },
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
@@ -2026,12 +2032,41 @@ class Runtime(s_base.Base):
                     continue
                 self.runtvars[name] = isrunt
 
+    def setGraph(self, gdef):
+        if self.root is not None:
+            self.root.setGraph(gdef)
+        else:
+            self.opts['graph'] = gdef
+
+    def getGraph(self):
+        if self.root is not None:
+            return self.root.getGraph()
+        return self.opts.get('graph')
+
     async def execute(self, genr=None):
         try:
             with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
-                async for item in self.query.iterNodePaths(self, genr=genr):
+
+                nodegenr = self.query.iterNodePaths(self, genr=genr)
+                nodegenr, empty = await s_ast.pullone(nodegenr)
+
+                if empty:
+                    return
+
+                rules = self.opts.get('graph')
+                if rules not in (False, None):
+                    if rules is True:
+                        rules = {'degrees': None, 'refs': True}
+                    elif isinstance(rules, str):
+                        rules = await self.snap.core.getStormGraph(rules)
+
+                    subgraph = s_ast.SubGraph(rules)
+                    nodegenr = subgraph.run(self, nodegenr)
+
+                async for item in nodegenr:
                     self.tick()
                     yield item
+
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
