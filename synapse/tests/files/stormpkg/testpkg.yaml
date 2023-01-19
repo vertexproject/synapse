@@ -18,6 +18,22 @@ external_modules:
       # the genpkg tool is executed from.
       file_path: synapse/tests/files/stormmod/common
 
+graphs:
+    - name: testgraph
+      degrees: 2
+      pivots: ["<- meta:seen <- meta:source"]
+      filters: ["-#nope"]
+      forms:
+        inet:fqdn:
+          pivots: ['<- *', '-> *']
+          filters: ['-inet:fqdn:issuffix=1']
+
+        syn:tag:
+          pivots: ['-> *']
+
+        "*":
+          pivots: ['-> #']
+
 docs:
     - title: Foo Bar
       path: docs/foobar.md

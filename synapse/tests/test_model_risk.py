@@ -188,6 +188,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vuln=*
                     :url=https://vertex.link/alerts/WOOT-20
                     :ext:id=WOOT-20
+                    :engine={[ it:prod:softver=* :name=visiware ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -199,6 +200,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
+            self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
 
             nodes = await core.nodes('''[
                     risk:compromise=*
@@ -259,6 +261,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :goals=(*,)
                     :techniques=(*,)
                     :sophistication=high
+                    :merged:time = 20230111
+                    :merged:isnow = {[ risk:threat=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -272,8 +276,12 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('reporter'))
+            self.nn(nodes[0].get('merged:isnow'))
+            self.eq(1673395200000, nodes[0].get('merged:time'))
+
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
+            self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:

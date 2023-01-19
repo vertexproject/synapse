@@ -4,6 +4,295 @@
 Synapse Changelog
 *****************
 
+v2.120.0 - 2023-01-11
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Update to the ``risk`` models.
+  (`#2978 <https://github.com/vertexproject/synapse/pull/2978>`_)
+
+  ``risk:threat``
+    Add a ``merge:time`` and ``merged:isnow`` properties to track when a
+    threat cluster was merged with another threat cluster.
+
+  ``risk:alert``
+    Add an ``engine`` property to track the software engine that generated the
+    alert.
+
+- Add events for ``trigger:add``, ``trigger:del``, and ``trigger:set`` to the
+  Beholder API.
+  (`#2975 <https://github.com/vertexproject/synapse/pull/2975>`_)
+
+Bugfixes
+--------
+- Fix an infinite loop in ``synapse.tools.storm`` when using the tool in
+  an environment without write access to the history file.
+  (`#2977 <https://github.com/vertexproject/synapse/pull/2977>`_)
+
+v2.119.0 - 2023-01-09
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Updates to the  ``biz``, ``econ``, ``org``, and ``risk`` models.
+  (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
+
+  ``biz:listing``
+    Add a form to track a specific product or service listed for sale
+    at a given price by a specific seller.
+
+  ``biz:service``
+    Add a form to track a service performed by a specific organization.
+
+  ``biz:service:type``
+    Add a form to record an analyst defined taxonomy of business services.
+
+  ``biz:bundle``
+    Add a ``service`` property to record the service included in the bundle.
+
+    Deprecate the ``deal`` and ``purchase`` secondary properties in favor of
+    ``econ:receipt:item`` to represent bundles being sold.
+
+  ``biz:product``
+    Add a ``price:currency`` property to denote the currency of the prices.
+
+    Add a ``maker`` property to represent the contact information for the
+    maker of a product.
+
+    Deprecate the ``madeby:org``, ``madeby:orgname``, ``madeby:orgfqdn``
+    properties in favor of using the new ``maker`` property.
+
+  ``econ:receipt:item``
+    Add a form to represent a line item included as part of a purchase.
+
+  ``econ:acquired``
+    Deprecate the form in favor of an ``acquired`` light edge.
+
+  ``ou:campaign``
+    Add a ``budget`` property to record the budget allocated for the campaign.
+
+    Add a ``currency`` property to record the currency of the ``econ:price``
+    secondary properties.
+
+    Add a ``result:revenue`` property to record the revenue resulting from the
+    campaign.
+
+    Add a ``result:pop`` property to record the count of people affected by
+    the campaign.
+
+  ``risk:alert:verdict:taxonomy``
+    Add a form to record an analyst defined taxonomy of the origin and
+    validity of an alert.
+
+  ``risk:alert``
+    Add a ``benign`` property to record if the alert has been confirmed as
+    benign or malicious.
+
+    Add a ``verdict`` property to record the analyst verdict taxonomy about
+    why an alert is marked as benign or malicious.
+
+- Annotate the following light edges.
+  (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
+
+  ``acquired``
+    When used with an ``econ:purchase`` node, the edge indicates the purchase
+    was used to acquire the target node.
+
+  ``ipwhois``
+    When used with an ``inet:whois:iprec`` node and ``inet:ipv4`` or
+    ``inet:ipv6`` nodes, the edge indicates the source IP whois record
+    describes the target IP address.
+
+- Add a new Cell configuration option, ``limit:disk:free``. This represents
+  the minimum percentage of free disk space on the volume hosting a Synapse
+  service that is required in order to start up. This value is also
+  monitored every minute and will disable the Cell Nexus if the free space
+  drops below the specified value. This value defaults to five percent
+  ( ``5 %`` ) free disk space.
+  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+
+Improved Documentation
+----------------------
+- Add a Devops task related to configuration of the free space requirement.
+  (`#2920 <https://github.com/vertexproject/synapse/pull/2920>`_)
+
+v2.118.0 - 2023-01-06
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``inet``, ``pol``, and ``ps`` models.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+  (`#2971 <https://github.com/vertexproject/synapse/pull/2971>`_)
+
+  ``inet:tunnel``
+    Add a form to represent the specific sequence of hosts forwarding
+    connections, such as a VPN or proxy.
+
+  ``inet:tunnel:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of network tunnel types.
+
+  ``pol:country``
+    Add a ``government`` property to represent the organization for the
+    government of the country.
+
+  ``ps:contact``
+    Add a ``type`` property to record the taxonomy of the node. This may be
+    used for entity resolution.
+
+  ``ps:contact:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of contact types.
+
+- Add the following Storm commands to help with analyst generation of several
+  guid node types:
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+
+  ``gen.it.prod.soft``
+    Lift (or create) an ``it:prod:soft`` node based on the software name.
+
+  ``gen.ou.industry``
+    Lift (or create) an ``ou:industry`` node based on the industry name.
+
+  ``gen.ou.org``
+    Lift (or create) an ``ou:org`` node based on the organization name.
+
+  ``gen.ou.org.hq``
+    Lift (or create) the primary ``ps:contact`` node for the ou:org based on
+    the organization name.
+
+  ``gen.pol.country``
+    Lift (or create) a ``pol:country`` node based on the 2 letter ISO-3166
+    country code.
+
+  ``gen.pol.country.government``
+    Lift (or create) the ``ou:org`` node representing a country's government
+    based on the 2 letter ISO-3166 country code.
+
+  ``gen.ps.contact.email``
+    Lift (or create) the ``ps:contact`` node by deconflicting the email and
+    type.
+
+  ``gen.risk.threat``
+    Lift (or create) a ``risk:threat`` node based on the threat name and
+    reporter name.
+
+  ``gen.risk.tool.software``
+    Lift (or create) a ``risk:tool:software`` node based on the tool name and
+    reporter name.
+
+  ``gen.risk.vuln``
+    Lift (or create) a ``risk:vuln`` node based on the CVE.
+
+- Add ``$lib.gen.riskThreat()``, ``$lib.gen.riskToolSoftware()``,
+  ``$lib.gen.psContactByEmail()``, and ``$lib.gen.polCountryByIso2()`` Storm
+  API functions to assist in generating ``risk:threat``, ``risk:tool:software``,
+  ``ps:contact`` and ``pol:country`` nodes.
+  (`#2970 <https://github.com/vertexproject/synapse/pull/2970>`_)
+- Update the CRL bundled within Synapse to revoke the
+  ``The Vertex Project Code Signer 00`` key.
+  (`#2972 <https://github.com/vertexproject/synapse/pull/2972>`_)
+
+Bugfixes
+--------
+- Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
+  which could cause the Axon service to hang.
+  (`#2969 <https://github.com/vertexproject/synapse/pull/2969>`_)
+
+v2.117.0 - 2023-01-04
+=====================
+
+Automatic Migrations
+--------------------
+- The ``risk:tool:software:soft:names`` and ``risk:tool:software:techniques``
+  properties are migrated to being unique arrays.
+  (`#2950 <https://github.com/vertexproject/synapse/pull/2950>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the  ``risk`` model.
+  (`#2950 <https://github.com/vertexproject/synapse/pull/2950>`_)
+
+  ``risk:tool:software``
+    The ``soft:names`` and ``techniques`` properties are converted into sorted
+    and uniqued arrays.
+
+- Add support to the Cortex ``addStormPkg()`` and ``$lib.pkg.add()`` APIs to
+  load Storm Packages which have been signed to allow cryptographic signature
+  verification. Root CA and intermediate CA certificates have been embedded
+  into Synapse to allow for verification of Rapid Power-Ups signed by
+  The Vertex Project.
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+  (`#2957 <https://github.com/vertexproject/synapse/pull/2957>`_)
+  (`#2963 <https://github.com/vertexproject/synapse/pull/2963>`_)
+- Update ``synapse.tools.genpkg`` to add optional code signing to Storm packages
+  that it creates.
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+- Update ``synapse.tools.genpkg`` to require the packages it produces will be
+  JSON compatible when serialized, to avoid possible type coercion issues
+  introduced by the Python ``json`` library.
+  (`#2958 <https://github.com/vertexproject/synapse/pull/2958>`_)
+- Update ``synapse.tools.easycert`` to allow for creating code signing
+  certificates and managing certificate revocation lists (CRLs).
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+- Add the Nexus index ( ``nexsindx`` ) value to the data returned by the
+  ``getCellInfo()`` APIs.
+  (`#2949 <https://github.com/vertexproject/synapse/pull/2949>`_)
+- Allow the Storm backtick format strings to work with multiline strings.
+  (`#2956 <https://github.com/vertexproject/synapse/pull/2956>`_)
+- The Storm ``Bytes.json()`` method now raises exceptions that are ``SynErr``
+  subclasses when encountering errors. This method has been updated to add
+  optional ``encoding`` and ``errors`` arguments, to control how data is
+  deserialized.
+  (`#2945 <https://github.com/vertexproject/synapse/pull/2945>`_)
+- Add support for registering an OAuth2 provider in the Cortex and having
+  user tokens automatically refreshed in the background. These APIs are
+  exposed in Storm under the ``$lib.inet.http.oauth.v2`` library.
+  (`#2910 <https://github.com/vertexproject/synapse/pull/2910>`_)
+- STIX validation no longer caches any downloaded files it may use when
+  attempting to validate STIX objects.
+  (`#2966 <https://github.com/vertexproject/synapse/pull/2966>`_)
+- Modified the behavior of Storm emitter functions to remove the read-ahead
+  behavior.
+  (`#2953 <https://github.com/vertexproject/synapse/pull/2953>`_)
+
+Bugfixes
+--------
+- Fix some error messages in the Snap which did not properly add variables
+  to the message.
+  (`#2951 <https://github.com/vertexproject/synapse/pull/2951>`_)
+- Fix an error in the ``synapse.tools.aha.enroll`` command example.
+  (`#2948 <https://github.com/vertexproject/synapse/pull/2948>`_)
+- Fix an error with the ``merge`` command creating ``No form named None``
+  warnings in the Cortex logs.
+  (`#2952 <https://github.com/vertexproject/synapse/pull/2952>`_)
+- Fix the Storm ``storm:smtp:message`` getter and setter for the ``html``
+  property so it will correctly produce HTML formatted messages.
+  (`#2955 <https://github.com/vertexproject/synapse/pull/2955>`_)
+- Several ``certdir`` APIs previously allowed through
+  ``openssl.crypto.X509StoreContextError`` and ``openssl.crypto.Error``
+  exceptions. These now raise Synapse ``BadCertVerify`` and ``BadCertBytes``
+  exceptions.
+  (`#2940 <https://github.com/vertexproject/synapse/pull/2940>`_)
+- Fix an issue where a Storm package's ``modconf`` values were mutable.
+  (`#2964 <https://github.com/vertexproject/synapse/pull/2964>`_)
+
+Improved Documentation
+----------------------
+- Removed outdated Kubernetes related devops documentation as it is in
+  the process of being rewritten.
+  (`#2948 <https://github.com/vertexproject/synapse/pull/2948>`_)
+
+Deprecations
+------------
+- The Cortex APIs ``provStacks()`` and ``getProvStack(iden)`` and the
+  corresponding Cortex configuration option ``provenance:en`` have been marked
+  as deprecated and are planned to be removed in ``v2.122.0``.
+  (`#2682 <https://github.com/vertexproject/synapse/pull/2682>`_)
+
 v2.116.0 - 2022-12-14
 =====================
 

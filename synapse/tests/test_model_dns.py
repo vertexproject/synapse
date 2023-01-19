@@ -237,6 +237,14 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('email'), 'pennywise@vertex.link')
                 self.eq(node.get('ns'), 'ns1.vertex.link')
 
+                # inet:dns:soa properties which previously were RO are now writeable
+                await node.set('ns', 'ns2.vertex.link')
+                await node.set('fqdn', 'hehe.vertex.link')
+                await node.set('email', 'bobgrey@vertex.link')
+                self.eq(node.get('ns'), 'ns2.vertex.link')
+                self.eq(node.get('fqdn'), 'hehe.vertex.link')
+                self.eq(node.get('email'), 'bobgrey@vertex.link')
+
                 # inet:dns:txt
                 node = await snap.addNode('inet:dns:txt', ('clowns.vertex.link', 'we all float down here'))
                 self.eq(node.ndef[1], ('clowns.vertex.link', 'we all float down here'))
