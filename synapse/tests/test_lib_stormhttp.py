@@ -564,4 +564,4 @@ class StormHttpTest(s_test.SynTest):
                     'vars': {'port': port, 'proxy': 'socks5://user:pass@127.0.0.1:1'}}
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
-            self.isin('Can not connect to proxy', str(cm.exception))
+            self.isin('Could not connect to proxy', str(cm.exception))
