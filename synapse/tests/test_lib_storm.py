@@ -1269,6 +1269,26 @@ class StormTest(s_t_utils.SynTest):
             buf = stream.read()
             self.notin("No form named None", buf)
 
+            await core.nodes('[ ou:name=readonly ]', opts=altview)
+            await core.nodes('[ ou:name=readonly ]')
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("Property is read only: ou:name.created", buf)
+
+            await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 1.2.3.4) ]', opts=altview)
+            await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 5.6.7.8) ]')
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('inet:dns:answer | merge --apply', opts=altview)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.isin("Property is read only: inet:dns:answer", buf)
+
     async def test_storm_merge_opts(self):
 
         async with self.getTestCore() as core:
