@@ -1287,7 +1287,7 @@ class StormTest(s_t_utils.SynTest):
 
             stream.seek(0)
             buf = stream.read()
-            self.isin("Property is read only: inet:dns:answer", buf)
+            self.isin("Property is read only: inet:dns:answer:a", buf)
 
     async def test_storm_merge_opts(self):
 
