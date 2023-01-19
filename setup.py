@@ -87,7 +87,7 @@ setup(
         'regex>=2022.9.11',
         'PyYAML>=5.4,<6.1.0',
         'aiohttp>=3.8.1,<4.0',
-        'aiohttp-socks>=0.6.1,<0.7.0',
+        'aiohttp-socks>=0.7.1,<0.8.0',
         'aioimaplib>=1.0.1,<1.1.0',
         'aiosmtplib>=2.0.0,<2.1.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
