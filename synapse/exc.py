@@ -57,11 +57,11 @@ class SynErr(Exception):
         self._setExcMesg()
 
 class StormRaise(SynErr):
-    def __init__(self, name, mesg, info):
-        info['mesg'] = mesg
-        info['errname'] = name
+    def __init__(self, *args, **info):
         SynErr.__init__(self, **info)
-        self.errname = name
+        name = info.get('name')
+        if name:
+            self.errname = name
 
 class AuthDeny(SynErr): pass
 
