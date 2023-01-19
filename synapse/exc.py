@@ -58,7 +58,7 @@ class SynErr(Exception):
 
 class StormRaise(SynErr):
     def __init__(self, *args, **info):
-        SynErr.__init__(self, **info)
+        SynErr.__init__(self, *args, **info)
         name = info.get('name')
         if name:
             self.errname = name
