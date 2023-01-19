@@ -56,13 +56,6 @@ class SynErr(Exception):
         self.errinfo[name] = valu
         self._setExcMesg()
 
-class StormRaise(SynErr):
-    def __init__(self, *args, **info):
-        SynErr.__init__(self, *args, **info)
-        name = info.get('name')
-        if name:
-            self.errname = name
-
 class AuthDeny(SynErr): pass
 
 class BackupAlreadyRunning(SynErr):
@@ -285,6 +278,7 @@ class StepTimeout(SynErr):
     '''
     pass
 
+class StormRaise(SynErr): pass
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 

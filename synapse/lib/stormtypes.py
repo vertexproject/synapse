@@ -1540,7 +1540,9 @@ class LibBase(Lib):
 
         info['mesg'] = mesg
         info['errname'] = name
-        raise s_exc.StormRaise(**info)
+        exc = s_exc.StormRaise(**info)
+        exc.errname = name
+        raise exc
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
