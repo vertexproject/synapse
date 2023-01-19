@@ -298,6 +298,14 @@ class StormTest(s_t_utils.SynTest):
                 }
             '''))
 
+            self.eq('Foo', await core.callStorm('''
+                try {
+                    $lib.telepath.open($url).callStorm("$lib.raise(Foo, bar, hehe=haha)")
+                } catch Foo as err {
+                    return($err.name)
+                }
+            ''', opts={'vars': {'url': core.getLocalUrl()}}))
+
             msgs = await core.stormlist('''
                 [ inet:fqdn=vertex.link ]
                 try {
