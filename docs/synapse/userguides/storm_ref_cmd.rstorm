@@ -7,24 +7,39 @@
 Storm Reference - Storm Commands
 ================================
 
-Storm commands are built-in or custom commands that can be used natively within the Synapse Storm tool / Storm CLI (see :ref:`syn-tools-storm`).
+Storm commands are built-in or custom commands that can be used natively within the Synapse Storm
+tool / Storm CLI (see :ref:`syn-tools-storm`).
 
 .. NOTE::
   
-  The Storm tool / Storm CLI provides a native Storm interpreter and is the preferred tool for interacting with a Synapse Cortex from the CLI.
+  The Storm tool / Storm CLI provides a native Storm interpreter and is the preferred tool for
+  interacting with a Synapse Cortex from the CLI.
 
 
-The pipe symbol ( ``|`` ) is used to send (pipe) the output from a Storm query to any of the Storm commands, and to send the output from a Storm command back to a Storm query.
+The pipe symbol ( ``|`` ) is used to send (pipe) the output from a Storm query to any of the Storm
+commands, and to send the output from a Storm command back to a Storm query.
 
-**Built-in commands** are native to the Storm library and loaded by default within a given Cortex. Built-in commands comprise a set of helper commands that perform a variety of specialized tasks that are useful regardless of the types of data stored in the Cortex or the types of analysis performed.
+**Built-in commands** are native to the Storm library and loaded by default within a given Cortex.
+Built-in commands comprise a set of helper commands that perform a variety of specialized tasks that
+are useful regardless of the types of data stored in Synapse or the types of analysis performed.
 
-**Custom commands** are Storm commands that have been added to a Cortex to invoke the execution of dynamically loaded modules. Dynamically loaded modules are typically custom modules that have been added to Synapse to support domain-specific analysis. For example, a knowledge domain that requires tracking of IP addresses might have access to a third-party service such as Maxmind to obtain up-to-date data on the assigned Autonomous System (AS) or geographical location of a given IP address. A custom ``maxmind`` module and associated Storm command could be added to Synapse to query the Maxmind database and update the appropriate secondary properties on the associated ``inet:ipv4`` nodes directly from Storm.
+**Custom commands** are Storm commands that have been added to a Cortex to invoke the execution of
+dynamically loaded modules. Synapse **Power-Ups** (:ref:`gloss-power-up`) are examples of modules that
+may install additional Storm commands to implement additional functionality specific to that Power-Up
+(such as querying a third-party data source to automatically ingest and model the data in Synapse).
 
-The full list of storm commands (built-in and custom) available in a given Cortex can be displayed with ``storm help``.
+The full list of Storm commands (built-in and custom) available in a given instance of Synapse can
+be displayed with the ``help`` command.
 
-Help for a specific Storm command can be displayed with ``storm <command> --help``.
+Help for a specific Storm command can be displayed with ``<command> --help``.
 
-This section details the usage and syntax for built-in Storm commands. Many of the commands below, such as ``count``, ``limit``, ``max`` / ``min``, or ``delnode``, directly support analyst tasks within Storm. Other commands, such as those used to manage daemons, queues, packages, or services, may be primarily of interest to Synapse administrators or developers.
+.. TIP::
+  
+  This section details the usage and syntax for **built-in** Storm commands. Many of the commands
+  below - such as ``count``, ``limit``, ``max`` / ``min``, the various ``gen`` (generator) commands,
+  or ``delnode`` - directly support analysis tasks. Other commands, such as those used to manage
+  daemons, queues, packages, or services, are likely of greater interest to Synapse administrators
+  or developers.
 
 - `help`_
 - `auth`_
@@ -37,6 +52,7 @@ This section details the usage and syntax for built-in Storm commands. Many of t
 - `dmon`_
 - `edges`_
 - `feed`_
+- `gen`_
 - `graph`_
 - `iden`_
 - `intersect`_
@@ -74,11 +90,14 @@ This section details the usage and syntax for built-in Storm commands. Many of t
 
 See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
 
-The Storm query language is covered in detail starting with the :ref:`storm-ref-intro` section of the Synapse User Guide.
+The Storm query language is covered in detail starting with the :ref:`storm-ref-intro` section of the
+Synapse User Guide.
 
-.. NOTE::
+.. TIP::
 
-  Storm commands, including custom commands, are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cmd``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
+  Storm commands, including custom commands, are added to Synapse as **runtime nodes** ("runt nodes"
+  - see :ref:`gloss-node-runt`) of the form ``syn:cmd``. With a few restrictions, these runt nodes
+  can be lifted, filtered, and operated on similar to the way you work with other nodes.
 
 **Example**
 
@@ -89,7 +108,11 @@ Lift the ``syn:cmd`` node for the Storm ``movetag`` command:
 
 .. NOTE::
 
-  While the documentation for built-in Storm commands is relatively basic, the ``syn:cmd`` form within the data model includes additional secondary properties that can be used to make commands (particularly custom commands) more "self-documenting" to users, because detail about the command can be introspected directly within the data model from within Storm. For example, the ``:input`` and ``:output`` properties can be used to specify a list (:ref:`type-array`) of forms that can be input (submitted) to the command and a list of forms that may be created by the command, respectively.
+  The ``syn:cmd`` form within the Synapse data model includes secondary properties that can optionally be
+  used to make commands (particularly custom commands) more "self-documenting" to users, because detail
+  about the command can be introspected directly within Synapse. For example, the ``:input`` and ``:output``
+  properties can be used to specify a set (:ref:`type-array`) of forms (nodes) that can be input (submitted)
+  to the command and a list of forms (nodes) that may be created by the command, respectively.
 
 
 .. _storm-help:
@@ -97,19 +120,21 @@ Lift the ``syn:cmd`` node for the Storm ``movetag`` command:
 help
 ----
 
-The ``help`` command (``storm help``) displays the list of available built-in commands and a brief message describing each command. Help on individual commands is available via ``<command> --help``.
+The ``help`` command displays the list of available commands within the current instance of Synapse and
+a brief message describing each command. Help for individual commands is available via ``<command> --help``.
 
 **Syntax:**
 
-
 .. storm-cli:: help --help
+
 
 .. _storm-auth:
 
 auth
 ----
 
-Storm includes ``auth.*`` commands that allow you create users and roles and manage their associated permissions (rules).
+Storm includes ``auth.*`` commands that allow you create users and roles and manage their associated
+permissions (rules).
 
 - `auth.role.add`_
 - `auth.role.addrule`_
@@ -132,6 +157,7 @@ The ``auth.role.add`` command creates a role.
 
 .. storm-cli:: auth.role.add --help
 
+
 .. _storm-auth-role-addrule:
 
 auth.role.addrule
@@ -142,6 +168,7 @@ The ``auth.role.addrule`` command adds a rule (permission) to a role.
 **Syntax:**
 
 .. storm-cli:: auth.role.addrule --help
+
 
 .. _storm-auth-user-add:
 
@@ -154,6 +181,7 @@ The ``auth.user.add`` command creates a user.
 
 .. storm-cli:: auth.user.add --help
 
+
 .. _storm-auth-user-addrule:
 
 auth.user.addrule
@@ -165,49 +193,55 @@ The ``auth.user.addrule`` command adds a rule (permission) to a user.
 
 .. storm-cli:: auth.user.addrule --help
 
+
 .. _storm-background:
 
 background
 ----------
 
-The ``background`` command allows you to execute a Storm query as a background task (e.g., to free up the cmdr CLI / Storm runtime for additional queries). Use of ``background`` is a "fire-and-forget" process - any status messages (warnings or errors) are not returned to the console, and if the query is interrupted for any reason, it will not resume.
+The ``background`` command allows you to execute a Storm query as a background task (e.g., to free up
+the cmdr CLI / Storm runtime for additional queries).
+
+.. NOTE::
+  
+  Use of ``background`` is a "fire-and-forget" process - any status messages (warnings or errors) are
+  not returned to the console, and if the query is interrupted for any reason, it will not resume.
 
 See also :ref:`storm-parallel`.
 
 **Syntax:**
 
-
 .. storm-cli:: background --help
-   
+
+
 .. _storm-count:
 
 count
 -----
 
-The ``count`` command enumerates the number of nodes returned from a given Storm query and displays the final tally. The associated nodes can also be displayed with the --yield option.
+The ``count`` command enumerates the number of nodes returned from a given Storm query and displays
+the final tally. The associated nodes can optionally be displayed with the ``--yield`` switch.
 
 **Syntax:**
-
 
 .. storm-cli:: count --help
     
 
 **Examples:**
 
-- Count the number of IP address nodes reported by FireEye and associated with the threat group APT1:
+- Count the number of IP address nodes that Trend Micro reports are associated with the threat group
+  Earth Preta:
 
 
-.. storm-pre:: [inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#aka.feye.thr.apt1]
-.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | count
+.. storm-pre:: [ inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#rep.trend.earthpreta ]
+.. storm-cli:: inet:ipv4#rep.trend.earthpreta | count
 
 - Count nodes from a lift and yield the output:
 
-
-.. storm-pre:: [inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#aka.feye.thr.apt1]
-.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | count --yield
+.. storm-pre:: [ inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#rep.trend.earthpreta ]
+.. storm-cli:: inet:ipv4#rep.trend.earthpreta | count --yield
 
 - Count the number of DNS A records for the domain woot.com where the lift produces no results:
-
 
 .. storm-cli:: inet:dns:a:fqdn=woot.com | count
 
@@ -218,9 +252,12 @@ cron
 ----
 
 .. NOTE::
-  See the :ref:`storm-ref-automation` guide for additional background on cron jobs (as well as triggers and macros), including examples.
+  
+  See the :ref:`storm-ref-automation` guide for additional background on cron jobs (as well as triggers
+  and macros), including examples.
 
-Storm includes ``cron.*`` commands that allow you to create and manage scheduled :ref:`gloss-cron` jobs. Within Synapse, jobs are Storm queries that execute within a Cortex on a recurring or non-recurring (``cron.at``) basis.
+Storm includes ``cron.*`` commands that allow you to create and manage scheduled :ref:`gloss-cron` jobs.
+Within Synapse, jobs are Storm queries that execute on a recurring or one-time (``cron.at``) basis.
 
 - `cron.add`_
 - `cron.at`_
@@ -237,7 +274,12 @@ Help for individual ``cron.*`` commands can be displayed using:
 
   ``<command> --help``
 
-Cron jobs (including jobs created with ``cron.at``) are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
+.. TIP::
+  
+  Cron jobs (including jobs created with ``cron.at``) are added to Synapse as **runtime nodes** ("runt
+  nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. With a few restrictions, these runt nodes
+  can be lifted, filtered, and operated on similar to the way you work with other nodes.
+
 
 .. _storm-cron-add:
 
@@ -248,18 +290,19 @@ The ``cron.add`` command creates an individual cron job within a Cortex.
 
 **Syntax:**
 
-
 .. storm-cli:: cron.add --help
+
 
 .. _storm-cron-at:
 
 cron.at
 +++++++
 
-The ``cron.at`` command creates a non-recurring cron job within a Cortex. Note that just like standard cron jobs, jobs created with ``cron.at`` will persist (remain in the list of cron jobs and as ``syn:cron`` runt nodes) until they are explicitly removed using ``cron.del``.
+The ``cron.at`` command creates a non-recurring (one-time) cron job within a Cortex. Just like standard
+(recurring) cron jobs, jobs created with ``cron.at`` will persist (remain in the list of cron jobs and
+as ``syn:cron`` runt nodes) until they are explicitly removed using ``cron.del``.
 
 **Syntax:**
-
 
 .. storm-cli:: cron.at --help
 
@@ -273,7 +316,6 @@ The ``cron.cleanup`` command can be used to remove any one-time cron jobs ("at" 
 
 **Syntax:**
 
-
 .. storm-cli:: cron.cleanup --help
 
 
@@ -282,47 +324,52 @@ The ``cron.cleanup`` command can be used to remove any one-time cron jobs ("at" 
 cron.list
 +++++++++
 
-The ``cron.list`` command displays the set of cron jobs in the Cortex that the current user can view / modify based on their permissions.
+The ``cron.list`` command displays the set of cron jobs in the Cortex that the current user can view /
+modify based on their permissions.
 
-Cron jobs are displayed in alphanumeric order by job :ref:`gloss-iden`. Jobs are sorted upon Cortex initialization, so newly-created jobs will be displayed at the bottom of the list until the list is re-sorted the next time the Cortex is restarted.
-
-.. NOTE::
-
-  Jobs can also be viewed in runt node form as ``syn:cron`` nodes.
+Cron jobs are displayed in alphanumeric order by job :ref:`gloss-iden`. Jobs are sorted upon Cortex
+initialization, so newly-created jobs will be displayed at the bottom of the list until the list is
+re-sorted the next time the Cortex is restarted.
 
 **Syntax:**
 
-
 .. storm-cli:: cron.list --help
+
 
 .. _storm-cron-stat:
 
 cron.stat
 +++++++++
 
-The ``cron.stat`` command displays statistics for an individual cron job and provides more detail on an individual job vs. ``cron.list``, including any errors and the interval at which the job executes. To view the stats for a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+The ``cron.stat`` command displays statistics for an individual cron job and provides more detail on
+an individual job vs. ``cron.list``, including any errors and the interval at which the job executes.
+To view the stats for a job, you must provide the first portion of the job's iden (i.e., enough of the
+iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting
+the appropriate ``syn:cron`` node.
 
 **Syntax:**
 
-
 .. storm-cli:: cron.stat --help
+
 
 .. _storm-cron-mod:
 
 cron.mod
 ++++++++
 
-The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
-
+The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job,
+you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely
+identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
 
 .. NOTE::
-
-  Other aspects of the cron job, such as its schedule for execution, cannot be modified once the job has been created. To change these aspects you must delete and re-add the job.
+  
+  Other aspects of the cron job, such as its schedule for execution, cannot be modified once the job has
+  been created. To change these aspects you must delete and re-add the job.
 
 **Syntax:**
 
-
 .. storm-cli:: cron.mod --help
+
 
 .. _storm-cron-move:
 
@@ -335,31 +382,36 @@ The ``cron.move`` command moves a cron job from one :ref:`gloss-view` to another
 
 .. storm-cli:: cron.move --help
 
+
 .. _storm-cron-disable:
 
 cron.disable
 ++++++++++++
 
-The ``cron.disable`` command disables a job and prevents it from executing without removing it from the Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+The ``cron.disable`` command disables a job and prevents it from executing without removing it from the
+Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden
+that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the
+appropriate ``syn:cron`` node.
 
 **Syntax:**
 
-
 .. storm-cli:: cron.disable --help
-    
+
+
 .. _storm-cron-enable:
 
 cron.enable
 +++++++++++
 
-The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion
+of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained
+using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
 
 .. NOTE::
 
   Cron jobs, including non-recurring jobs added with ``cron.at``, are enabled by default upon creation.
 
 **Syntax:**
-
 
 .. storm-cli:: cron.enable --help
 
@@ -369,13 +421,15 @@ The ``cron.enable`` command enables a disabled cron job. To enable a job, you mu
 cron.del
 ++++++++
 
-The ``cron.del`` command permanently removes a cron job from the Cortex. To delete a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+The ``cron.del`` command permanently removes a cron job from the Cortex. To delete a job, you must provide
+the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified),
+which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
 
 **Syntax:**
 
-
 .. storm-cli:: cron.del --help
-    
+
+
 .. _storm-delnode:
 
 delnode
@@ -384,10 +438,22 @@ delnode
 The ``delnode`` command deletes a node or set of nodes from a Cortex.
 
 .. WARNING::
-  The Storm ``delnode`` command has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before piping the query to the ``delnode`` command.
+  
+  The Storm ``delnode`` command includes some limited checks (see below) to try and prevent the
+  accidental deletion of nodes that are still connected to other nodes in the knowledge graph.
+  However, these checks are not foolproof, and ``delnode`` has the potential to be destructive
+  if executed on an incorrect, badly formed, or mistyped query.
+  
+  Users are **strongly encouraged** to validate their query by first executing it on its own to
+  confirm it returns the expected nodes before piping the query to the ``delnode`` command.
+  
+  In addition, use of the ``--force`` switch with ``delnode`` will override all safety checks and
+  forcibly delete ALL nodes input to the command.
+  
+  **This parameter should be used with extreme caution as it may results in broken referneces
+  (e.g., "holes" in the graph) within Synapse.**
 
 **Syntax:**
-
 
 .. storm-cli:: delnode --help
 
@@ -396,13 +462,11 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
 
 - Delete the node for the domain woowoo.com:
 
-
 .. storm-pre:: [inet:fqdn=woowoo.com]
 .. storm-cli:: inet:fqdn=woowoo.com | delnode
 
 
 - Forcibly delete all nodes with the #testing tag:
-
 
 .. storm-cli:: #testing | delnode --force
 
@@ -410,19 +474,24 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
 **Usage Notes:**
 
 - ``delnode`` operates on the output of a previous Storm query.
-- ``delnode`` will attempt to perform some basic sanity-checking to help prevent egregious mistakes. For example, ``delnode`` will return an error if you attempt to delete a node that is still referenced by another node (such as an ``inet:fqdn`` that is referenced by an ``inet:dns:a`` node). Similarly, delnode will return an error if you attempt to delete a ``syn:tag`` node if that tag is still applied to other nodes. **However, delnode cannot prevent all mistakes.**
+- ``delnode`` performs some basic sanity-checking to help prevent egregious mistakes, and will
+  generate an error in cases such as:
   
-  - Edge / digraph nodes (such as ``edge:refs`` or ``edge:has``) are **exempt** from these "reference checks". It is possible to delete an edge node where ``n1`` and / or ``n2`` still exist and without affecting ``n1`` or ``n2``. This is generally desired behavior as the relationship between the nodes (the edge) may need to be removed without affecting the nodes themselves.
-  - However, the opposite is also true - since ``delnode`` does not check for references to edge nodes when deleting nodes, it is possible to leave "orphaned" edge nodes with a missing ``n1`` or ``n2``.
+  - attempting to delete a node (such as ``inet:fqdn=woot.com``) that is still referenced by
+    (i.e., is a secondary property of) another node (such as ``inet:dns:a=(woot.com, 1.1.1.1)``.
+  - attmpting to delete a ``syn:tag`` node where that tag still exists on other nodes.
+  
+  However, it is important to keep in mind that **delnode cannot prevent all mistakes.**
 
-- The ``--force`` parameter will forcibly delete the nodes input to the command, regardless of any sanity-checking errors or other conditions. **This parameter should be used with extreme caution as it may result in broken references within the Cortex.**
 
 .. _storm-diff:
 
 diff
 ----
 
-The ``diff`` command generates a list of nodes with changes (i.e., newly created or modified nodes) present in the top :ref:`gloss-layer` of the current :ref:`gloss-view`. The ``diff`` command may be useful before performing a :ref:`storm-merge` operation.
+The ``diff`` command generates a list of nodes with changes (i.e., newly created or modified nodes)
+present in the top :ref:`gloss-layer` of the current :ref:`gloss-view`. The ``diff`` command may be
+useful before performing a :ref:`storm-merge` operation.
 
 **Syntax:**
 
@@ -434,7 +503,8 @@ The ``diff`` command generates a list of nodes with changes (i.e., newly created
 divert
 ------
 
-The ``divert`` command allows Storm to either consume a generator or yield its results based on a conditional.
+The ``divert`` command allows Storm to either consume a generator or yield its results based on a
+conditional.
 
 **Syntax:**
 
@@ -454,6 +524,7 @@ Help for individual ``dmon.*`` commands can be displayed using:
 
   ``<command> --help``
 
+
 .. _storm-dmon-list:
 
 dmon.list
@@ -463,7 +534,6 @@ The ``dmon.list`` command displays the set of running dmon queries in the Cortex
 
 **Syntax:**
 
-
 .. storm-cli:: dmon.list --help
 
 
@@ -472,7 +542,9 @@ The ``dmon.list`` command displays the set of running dmon queries in the Cortex
 edges
 -----
 
-Storm includes ``edges.*`` commands that allow you to work with lightweight (light) edges. Also see the ``lift.byverb`` and ``model.edge.*`` commands under :ref:`storm-lift` and :ref:`storm-model` below.
+Storm includes ``edges.*`` commands that allow you to work with lightweight (light) edges. Also
+see the ``lift.byverb`` and ``model.edge.*`` commands under :ref:`storm-lift` and :ref:`storm-model`
+below.
 
 - `edges.del`_
 
@@ -480,15 +552,16 @@ Help for individual ``edge.*`` commands can be displayed using:
 
   ``<command> --help``
 
+
 .. _storm-edges-del:
 
 edges.del
 +++++++++
 
-The ``edges.del`` command is designed to delete multiple light edges to (or from) a set of nodes (contrast with using Storm edit syntax - see :ref:`light-edge-del`).
+The ``edges.del`` command is designed to delete multiple light edges to (or from) a set of nodes
+(contrast with using Storm edit syntax - see :ref:`light-edge-del`).
 
 **Syntax:**
-
 
 .. storm-cli:: edges.del --help
 
@@ -516,8 +589,174 @@ The ``feed.list`` command displays available feed functions in the Cortex.
 
 **Syntax:**
 
-
 .. storm-cli:: feed.list --help
+
+
+.. _storm-gen:
+
+gen
+---
+
+Storm includes various ``gen.*`` ("generator") commands that allow you to easily check
+for common guid-based nodes (see :ref:`gloss-form-guid`) and create the specified node if
+it does not already exist.
+
+Because guid nodes have a primary property that may be arbitrary, gen.* commands simplify
+the process of:
+
+- checking for a node that has the specified **secondary** property value(s);
+- lifting (returning) the node if it exists, or
+- creating the node if it does not.
+
+.. TIP::
+  
+  Nodes created using generator commands will have a limited subset of properties set (e.g.,
+  an organization node deconflicted based on a name will only have its ``ou:org:name``
+  property set when first created). Users can set additional property values as they see fit.
+
+
+**Example**
+
+Organization (``ou:org``) nodes are used to represent any kind of organization (companies,
+government ministries, departments, subsidiaries, teams, threat groups). The primary property
+of an organization node is a guid value. Because guids may be arbitrary values, there are
+cases where they are not useful for deconflicting nodes.
+
+For example, an analyst who wants to create an ``ou:org`` node for The Vertex Project should
+first check to see whether one already exists to avoid creating a duplicate organization
+
+Generator commands automate this manual process of "check first, then create". The command
+``gen.ou.org`` takes an organization name as input, checks for any ``ou:org`` nodes that
+have that name in either their ``:name`` or ``:names`` property, and either returns the existing
+node or creates a new one.
+
+.. TIP::
+  
+  See the :ref:`type-guid` section of the :ref:`storm-ref-type-specific` for a detailed discussion
+  of guids, guid behavior, and deconfliction considerations for guid forms.
+
+
+Help for individual ``gen.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. NOTE::
+  
+  New ``gen.*`` commands are added to Synapse on an ongoing basis as we identify new cases
+  where such commands are helpful. Use the ``help`` command for the current list of ``gen.*``
+  commands available in your instance of Synapse.
+
+
+.. _storm-gen-prodsoft:
+
+gen.it.prod.soft
+++++++++++++++++
+
+The ``gen.it.prod.soft`` command locates (lifts) or creates an ``it:prod:soft`` node based on
+the software name (``it:prod:soft:name`` and / or ``it:prod:soft:names``).
+
+.. storm-cli:: gen.it.prod.soft --help
+
+
+.. _storm-gen-industry:
+
+gen.ou.industry
++++++++++++++++
+
+The ``gen.ou.industry`` commands locates (lifts) or creates an ``ou:industry`` node based on
+the industry name (``ou:industry:name`` and / or ``ou:industry:names``).
+
+.. storm-cli:: gen.it.prod.soft --help
+
+
+.. _storm-gen-org:
+
+The ``gen.ou.org`` command locates (lifts) or creates an ``ou:org`` node based on the organization
+name (``ou:org:name`` and / or ``ou:org:names``).
+
+.. storm-cli:: gen.ou.org --help
+
+
+.. _storm-gen-orghq:
+
+gen.ou.org.hq
++++++++++++++
+
+The ``gen.ou.org.hq`` command locates (lifts) the primary ``ps:contact`` node for an organization
+(i.e., the contact set for the ``ou:org:hq`` value) or creates the node (and sets the ``ou:org:hq``
+property) if it does not exist, based on the organization name (``ou:org:name`` and / or
+``ou:org:names``).
+
+.. storm-cli:: gen.ou.org.hq --help
+
+
+.. _storm-gen-country:
+
+gen.pol.country
++++++++++++++++
+
+The ``gen.pol.country`` command locates (lifts) or creates a ``pol:country`` node based on the
+two-letter ISO-3166 country code (``pol:country:iso2``) .
+
+.. storm-cli:: gen.pol.country --help
+
+
+.. _storm-gen-country-gov:
+
+gen.pol.country.government
++++++++++++++++++++++++++++
+
+The ``gen.pol.country.government`` command locates (lifts) the ``ou:org`` node representing a
+country's government (i.e., the organization set for the ``pol:country:government`` value) or
+creates the node (and sets the ``pol:country:government`` property) if it does not exist, based
+on the two-letter ISO-3166 country code (``pol:country:iso2``).
+
+.. storm-cli:: gen.pol.country.government --help
+
+
+.. _storm-gen-contact-email:
+
+gen.ps.contact.email
+++++++++++++++++++++
+
+The ``gen.ps.contact.email`` command locates (lifts) or creates a ``ps:contact`` node using
+the contact's email address and type (``ps:contact:type``).
+
+.. storm-cli:: gen.ps.contact.email --help
+
+
+.. _storm-gen-risk-threat:
+
+gen.risk.threat
++++++++++++++++
+
+The ``gen.risk.threat`` command locates (lifts) or creates a ``risk:threat`` node using the
+name of the threat group (``risk:threat:org:name``) and the name of the entity reporting on
+the threat (``risk:threat:reporter:name``).
+
+.. storm-cli:: gen.risk.threat --help
+
+
+.. _storm-gen-risk-toolsoft:
+
+gen.risk.tool.software
+++++++++++++++++++++++
+
+The ``gen.risk.tool.software`` command locates (lifts) or creates a ``risk:tool:software``
+node using the name of the software / malware (``risk:tool:software:soft:name``) and the
+name of the entity reporting on the software / malware (``risk:tool:software:reporter:name``).
+
+.. storm-cli:: gen.risk.tool.software --help
+
+
+.. _storm-gen-risk-vuln:
+
+The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
+Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
+(``risk:vuln:cve``).
+
+.. storm-cli:: gen.risk.vuln --help
+
 
 .. _storm-graph:
 
