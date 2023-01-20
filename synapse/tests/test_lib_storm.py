@@ -1278,8 +1278,9 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoErr(await core.stormlist('diff --prop ".seen"', opts=altview))
             self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
 
-            await core.nodes('[ ou:name=readonly ]', opts=altview)
-            await core.nodes('[ ou:name=readonly ]')
+            oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
+            newn = await core.nodes('[ ou:name=readonly ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
 
             with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
@@ -1287,6 +1288,9 @@ class StormTest(s_t_utils.SynTest):
             stream.seek(0)
             buf = stream.read()
             self.notin("Property is read only: ou:name.created", buf)
+
+            newn = await core.nodes('ou:name=readonly')
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
 
             await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 1.2.3.4) ]', opts=altview)
             await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 5.6.7.8) ]')
@@ -1296,7 +1300,7 @@ class StormTest(s_t_utils.SynTest):
 
             stream.seek(0)
             buf = stream.read()
-            self.isin("Property is read only: inet:dns:answer:a", buf)
+            self.isin("Cannot merge read only property with conflicting value", buf)
 
     async def test_storm_merge_opts(self):
 

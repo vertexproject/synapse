@@ -3221,12 +3221,6 @@ class MergeCmd(Cmd):
 
                     for name, (valu, stortype) in sode.get('props', {}).items():
 
-                        if name == '.created':
-                            if any([undr.get('valu') is not None for undr in sodes[1:]]):
-                                if self.opts.apply:
-                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-                                continue
-
                         prop = node.form.prop(name)
                         if propfilter:
                             if name[0] == '.':
@@ -3235,6 +3229,21 @@ class MergeCmd(Cmd):
                             else:
                                 if propfilter(prop.full):
                                     continue
+
+                        if prop.info.get('ro'):
+                            curv = sodes[1].get('props', {}).get(name)
+                            if curv is not None and curv[0] != valu:
+                                if name == '.created':
+                                    if self.opts.apply:
+                                        if curv[0] > valu:
+                                            protonode.props['.created'] = valu
+                                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                else:
+                                    valurepr = prop.type.repr(curv[0])
+                                    mesg = f'Cannot merge read only property with conflicting ' \
+                                           f'value: {nodeiden} {form}:{name} = {valurepr}'
+                                    await runt.snap.warn(mesg)
+                                continue
 
                         if not self.opts.apply:
                             valurepr = prop.type.repr(valu)
