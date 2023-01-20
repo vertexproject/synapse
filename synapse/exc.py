@@ -57,11 +57,16 @@ class SynErr(Exception):
         self._setExcMesg()
 
 class StormRaise(SynErr):
-    def __init__(self, name, mesg, info):
-        info['mesg'] = mesg
-        info['errname'] = name
-        SynErr.__init__(self, **info)
-        self.errname = name
+    '''
+    This represents a user provided exception inside of a Storm runtime. It requires a errname key.
+    '''
+    def __init__(self, *args, **info):
+        SynErr.__init__(self, *args, **info)
+        name = info.get('errname')
+        if name is not None:
+            self.errname = name
+        else:
+            raise BadArg(mesg='StormRaise must have a key errname provided')
 
 class AuthDeny(SynErr): pass
 
