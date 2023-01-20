@@ -1295,12 +1295,8 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 1.2.3.4) ]', opts=altview)
             await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 5.6.7.8) ]')
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
-                await core.stormlist('inet:dns:answer | merge --apply', opts=altview)
-
-            stream.seek(0)
-            buf = stream.read()
-            self.isin("Cannot merge read only property with conflicting value", buf)
+            msgs = await core.stormlist('inet:dns:answer | merge', opts=altview)
+            self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
 
     async def test_storm_merge_opts(self):
 
