@@ -190,6 +190,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'founded': '2015',
                     'dissolved': '2019',
                     'techniques': teqs,
+                    'goals': (goal,),
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -207,6 +208,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+                self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))

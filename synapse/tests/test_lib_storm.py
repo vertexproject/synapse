@@ -298,6 +298,14 @@ class StormTest(s_t_utils.SynTest):
                 }
             '''))
 
+            self.eq('Foo', await core.callStorm('''
+                try {
+                    $lib.telepath.open($url).callStorm("$lib.raise(Foo, bar, hehe=haha)")
+                } catch Foo as err {
+                    return($err.name)
+                }
+            ''', opts={'vars': {'url': core.getLocalUrl()}}))
+
             msgs = await core.stormlist('''
                 [ inet:fqdn=vertex.link ]
                 try {
@@ -1268,6 +1276,15 @@ class StormTest(s_t_utils.SynTest):
             stream.seek(0)
             buf = stream.read()
             self.notin("No form named None", buf)
+
+            await core.nodes('[ ou:name=baz ]')
+            await core.nodes('ou:name=baz [ +#new.tag .seen=now ]', opts=altview)
+            await core.nodes('ou:name=baz | delnode')
+
+            self.stormHasNoErr(await core.stormlist('diff', opts=altview))
+            self.stormHasNoErr(await core.stormlist('diff --tag new.tag', opts=altview))
+            self.stormHasNoErr(await core.stormlist('diff --prop ".seen"', opts=altview))
+            self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
 
     async def test_storm_merge_opts(self):
 
