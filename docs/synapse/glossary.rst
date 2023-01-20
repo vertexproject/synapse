@@ -754,7 +754,8 @@ See :ref:`data-node` in the :ref:`data-model-terms` document for additional deta
 Node Action
 -----------
 
-In :ref:`gloss-optic`, a saved, named Storm query or command (action) that can be executed via a right-click context menu option for specified forms (nodes).
+In :ref:`gloss-optic`, a saved, named Storm query or command (action) that can be executed via a right-click
+context menu option for specified forms (nodes).
 
 .. _gloss-node-data:
 
@@ -785,6 +786,14 @@ Short for "runtime node". A runt node is a node that does not persist within a C
 a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
 elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``)
 or cron jobs (``syn:cron``).
+
+.. _gloss-node-storage:
+
+Node, Storage
+-------------
+
+A storage node ("sode") is a collection of data for a given node (i.e., the node's primary property,
+secondary / universal properties, tags, node data, etc.) that is present in a specific :ref:`gloss-layer`.
 
 .. _gloss-non-runtime-safe:
 
@@ -1071,6 +1080,13 @@ Standard Comparison Operator
 ----------------------------
 
 See :ref:`gloss-comp-op-standard`.
+
+.. _gloss-storage-node:
+
+Storage Node
+------------
+
+See :ref:`gloss-node-storage`.
 
 .. _gloss-stories-tool:
 
