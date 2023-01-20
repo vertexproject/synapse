@@ -26,12 +26,13 @@ Features and Enhancements
     removed from them.
 
   ``ou:org``
-    Add a ``goals`` property to record the assess goals of the organization.
+    Add a ``goals`` property to record the assessed goals of the organization.
 
 - Add extended permissions for Storm Macro functionality using a new
-  simplified permissions system. This allows users to opt into using CRUD
-  for their Macro's, assigning admin, read, write and deny permissions to
-  their Macros. These can be set by the Storm ``$lib.macro.grant()`` API.
+  simplified permissions system. This allows users to opt into assigning
+  users or roles the permission to read, write, administrate, or deny access
+  to their Macros. These permissions can be set by the Storm
+  ``$lib.macro.grant()`` API.
   (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
 - Add extended information about a Storm Macro, including its creation time,
   update time, and a description. The Macro name, description and Storm can
