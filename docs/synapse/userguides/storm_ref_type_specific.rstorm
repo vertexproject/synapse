@@ -383,8 +383,8 @@ The term should not be confused with the definition of GUID used by Microsoft_, 
 The ``guid`` type is used as the primary property for forms that cannot be uniquely defined by any set of specific
 properties. See the background documents on the Synapse data model for additional details on the :ref:`form-guid`.
 
-A guid value may be generated arbitrarily or in a predictable (i.e., deconflictable) manner (usually based on
-one or more secondary properties of the guid form. See below for a discussion of :ref:`guid-best-practices`.
+A guid value may be generated arbitrarily or in a predictable (i.e., repeatable) manner based on a defined set of
+inputs.
 
 See the section on :ref:`type-file` types for discussion of ``file:bytes`` as a specialized instance of a ``guid``
 type.
@@ -397,22 +397,25 @@ N/A
 Parsing
 +++++++
 
-Guids must be input using their complete 128-bit value. It is generally impractical to manually type a
-guid. For this reason guid forms are most often specified by referencing the node via a more human-friendly
-secondary property. Alternately, the guid value can be copied and pasted.
+Guids must be input using their complete 128-bit value. It is generally impractical to manually type
+a guid. For this reason guid forms are most often specified by referencing the node via a more
+human-friendly secondary property. Alternately, the guid value can be copied and pasted.
 
 Insertion
 +++++++++
 
-Guids can be generated arbitrarily or as predictable / deconflictable values.
+Guids can be generated **arbitrarily** or as **predictable** values. Each method has advantages and
+disadvantages, and the best method may depend on your use case (see also :ref:`guid-best-practices`
+below).
+
 
 Arbitrary Values
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 When creating a new guid node, the asterisk ( ``*`` ) can be specified as the primary property value of the
 new node. This will instruct Synapse to generate a unique, **arbitrary** guid for the node. For example:
 
-.. storm-cli:: [ ou:org=* :alias=yoyodyne :name="Yoyodyne Propulsion Systems" :url=https://www.yoyodyne.com/ ]
+.. storm-cli:: [ ou:org=* :alias=vertex :name="The Vertex Project" :url=https://vertex.link/ ]
 
 The query above creates a new org node with a unique guid for its primary property and the specified secondary
 properties.
@@ -423,22 +426,69 @@ properties.
   create a second ``ou:org`` node with a **new** unique guid (potentially resulting in two nodes representing
   the same organization within the same Cortex).
 
+The advantage of arbitrary values is that they are simple to generate while still guaranteed to be unique
+within your instance of Synapse. This is particularly useful for analysts who need to manually create
+guid nodes (organizations, contacts, threats) on a regular basis as part of their workflow.
 
-Deconflictable Values
-~~~~~~~~~~~~~~~~~~~~~
+The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict the nodes:
 
-A guid value can be generated in a predictable manner based on a defined set of inputs. The inputs are fed
-to the ``guid`` generator within a set of parentheses as "seed" data that is used to generate a **predictable**
-guid value. This allows guid forms to be **deconflictable** (i.e., if the same set of data is fed to the
-``guid`` generator in the same way a second time, it will calculate the **same** guid and recognize that the
-node already exists).
+- There is no easy way to prevent users from inadvertently creating duplicate nodes. Two users (or
+  two organizations using Synapse) can independently create ``ou:org`` nodes to represent "The Vertex
+  Project" with two different guids. The only way to prevent this is by convention - for example,
+  establishing internal processes where users "check first" before creating certain nodes. While this
+  may limit duplication, it is unlikely to eliminate it entirely.
+  
+- Bulk data cannot be reingested, at least not in the same way. If you load a large data set and create
+  nodes using arbitrary guids, and then try to re-ingest the same data at a later date you will get
+  a second (duplicate) set of nodes with an entirely different set of guids.
+
+Predictable Values
+~~~~~~~~~~~~~~~~~~
+
+A guid value can be generated in a predictable manner based on a defined set of inputs. The inputs are
+specified as a comma-separated list within a set of parentheses. These values are used as "seed" data
+for the guid generator to create a **predictable** guid value; the same set of seed data will always
+generate the same guid.
+
+For example:
+
+.. storlm-cli:: [ ou:org=('the vertex project',https://vertex.link) :name='the vertex project' :url=https://vertex.link ]
+
+The query above creates a new org node whose guid is generated using the company name and web site as
+as set of (presumably) unique inputs that will result in a unique (but predictable / deterministic) guid.
+
+The advantage of predictable guids is that they are re-encounterable and therefore deconflictable: if you
+ingest data using a predictable guid, the same data can be reingested without creating duplicate nodes.
+This is helpful in cases where a preliminary data set is loaded into Synapse for analysis, and subsequent
+changes (improvements to the ingest logic, additions to the Synapse data model) allow you to capture
+additional detail from the original data set.
+
+The disadvantage is that this method is more complicated for users who need to manually create guid
+nodes. Expecting a team of 20 analysts to all remember to specify the same set of inputs in the same
+order (and without typos) each time they create a guid node is unrealistic, and doesn't fully eliminate
+the need to still "check first" before creating a potentially duplicate node.
+
+In addition, while generating predictable guids may solve some data ingest and deconfliction issues
+for a single organization, it does not address different organizations that ingest the same data but
+with different inputs used to generate their respective guids. If those organizations want to share
+data at a later date, they will somehow need to deconflict their individual instances of the same
+data.
 
 .. _guid-best-practices:
 
-Guid Generation - Best Practices
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Guid Best Practices
+~~~~~~~~~~~~~~~~~~~
 
-Best practices for generating guid values differ depending on whether users are creating "one-off" guid
+In many cases, "check first, then use an arbitrary guid" can provide a number of advantages and
+relatively few down sides.
+
+This approach
+
+
+
+
+
+whether users are creating "one-off" guid
 nodes, or whether guid nodes are being generated programmatically (i.e., via an ingest script or
 :ref:`gloss-power-up`).
 
