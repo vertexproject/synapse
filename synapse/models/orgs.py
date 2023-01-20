@@ -585,6 +585,9 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                        'doc': 'The assessed goals of the organization.'
+                    }),
                 )),
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
