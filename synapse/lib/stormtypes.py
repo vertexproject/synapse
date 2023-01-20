@@ -1537,7 +1537,10 @@ class LibBase(Lib):
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
             raise ctor(mesg=mesg, **info)
-        raise s_exc.StormRaise(name, mesg, info)
+
+        info['mesg'] = mesg
+        info['errname'] = name
+        raise s_exc.StormRaise(**info)
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
