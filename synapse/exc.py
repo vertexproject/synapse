@@ -60,7 +60,7 @@ class StormRaise(SynErr):
     def __init__(self, *args, **info):
         SynErr.__init__(self, **info)
         name = info.get('errname')
-        if name:
+        if name is not None:
             self.errname = name
 
 class AuthDeny(SynErr): pass
