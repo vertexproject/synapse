@@ -963,6 +963,14 @@ class CortexTest(s_t_utils.SynTest):
                     await proxy.callStorm(q)
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
+                with self.raises(s_exc.StormRaise) as cm:
+                    await proxy.callStorm('$lib.raise(Foo, bar, hehe=haha, key=(1))')
+
+                self.eq(cm.exception.get('errname'), 'Foo')
+                self.eq(cm.exception.get('mesg'), 'bar')
+                self.eq(cm.exception.get('hehe'), 'haha')
+                self.eq(cm.exception.get('key'), 1)
+
             with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
                 async with core.getLocalProxy() as proxy:
 

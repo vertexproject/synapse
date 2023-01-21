@@ -1702,6 +1702,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
 
+            diskfree = shutil.disk_usage(self.backdirn).free
+            cellsize, _ = s_common.getDirSize(self.dirn)
+            if cellsize * 2 > diskfree:
+                mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
+                       f'({diskfree} bytes free, {cellsize * 2} required)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+
             self.backuprunning = True
             self.backlastexc = None
             self.backmonostart = time.monotonic()
