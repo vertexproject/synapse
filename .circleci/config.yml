@@ -702,7 +702,7 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only: master
+              only: /.*/
 
       - python38:
           filters:
@@ -716,8 +716,7 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only:
-                - master
+              only: /.*/
 
       - python37_replay:
           filters:
@@ -907,6 +906,7 @@ workflows:
                 - master
     jobs:
       - doctests
+      - python37
       - python38
       - python310
 
@@ -920,6 +920,6 @@ workflows:
                 - master
     jobs:
       - osx38
-      - python37
+      - python37_replay
       - python38_replay
       - python310_replay
