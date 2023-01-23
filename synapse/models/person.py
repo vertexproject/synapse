@@ -60,6 +60,10 @@ class PsModule(s_module.CoreModule):
                 ('ps:skill', ('guid', {}), {
                     'doc': 'A specific skill which a person or organization may have.'
                 }),
+                ('ps:skill:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of skill types.',
+                }),
                 ('ps:proficiency', ('guid', {}), {
                     'doc': 'The assessment that a given contact possesses a specific skill.'
                 }),
@@ -434,10 +438,10 @@ class PsModule(s_module.CoreModule):
                     }),
 
                     ('lang', ('lang:language', {}), {
-                        'doc': 'The language specified for the contact.'})
+                        'doc': 'The language specified for the contact.'}),
 
                     ('langs', ('array', {'type': 'lang:language'}), {
-                        'doc': 'An array of alterative languages specified for the contact.'})
+                        'doc': 'An array of alterative languages specified for the contact.'}),
                 )),
                 ('ps:vitals', {}, (
                     ('asof', ('time', {}), {
@@ -473,6 +477,7 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
 
+                ('ps:contact:type:taxonomy', {}, ()),
                 ('ps:skill', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {

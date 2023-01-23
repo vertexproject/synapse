@@ -74,14 +74,14 @@ class LangModule(s_module.CoreModule):
 
                     ('engine', ('it:prod:softver', {}), {
                         'doc': 'The translation engine version used.'}),
-                ))
+                )),
 
                 ('lang:name', {}, ()),
 
                 ('lang:language', {}, (
 
                     ('name', ('lang:name', {}), {
-                        'doc': 'The primary name of the language.'})
+                        'doc': 'The primary name of the language.'}),
 
                     ('names', ('array', {'type': 'lang:name'}), {
                         'doc': 'An array of alternative names for the language.'}),
@@ -92,5 +92,6 @@ class LangModule(s_module.CoreModule):
 
             ),
 
-        }
+        })
+
         return (modldef, )
