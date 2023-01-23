@@ -9,7 +9,7 @@ v2.121.1 - 2022-01-23
 
 Bugfixes
 --------
-- When creating Storm Macros using ``v1.121.0``, the creator of the Macro was
+- When creating Storm Macros using ``v2.121.0``, the creator of the Macro was
   incorrectly set to the ``root`` user. This is now set to the user that
   created the macro using the Storm ``macro.set`` command or the
   ``$lib.macro.set()`` API.
