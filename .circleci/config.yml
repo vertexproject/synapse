@@ -754,8 +754,8 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python38
             - python37
+            - python38
             - python310
             - python37_replay
             - python38_replay
