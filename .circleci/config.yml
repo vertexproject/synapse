@@ -769,11 +769,31 @@ workflows:
             branches:
               ignore: /.*/
 
+      - deploy_pypi_37:
+          requires:
+            - doctests
+            - python37
+            - python38
+            - python310
+            - python37_replay
+            - python38_replay
+            - python310_replay
+            - python_package_smoketest
+          context:
+            - PublicPypiAccess
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
+
       - deploy_pypi_38:
           requires:
             - doctests
+            - python37
             - python38
             - python310
+            - python37_replay
             - python38_replay
             - python310_replay
             - python_package_smoketest
@@ -788,8 +808,10 @@ workflows:
       - gh-release/dorelease:
           requires:
             - doctests
+            - python37
             - python38
             - python310
+            - python37_replay
             - python38_replay
             - python310_replay
             - python_package_smoketest
