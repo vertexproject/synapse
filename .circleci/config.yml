@@ -429,6 +429,23 @@ jobs:
     steps:
       - test_steps_osx
 
+  python37:
+    parallelism: 8
+    docker:
+      - image: cimg/python:3.7
+        environment:
+          PYVERS: 3.7
+          RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   python38:
     parallelism: 8
     docker:
@@ -457,6 +474,23 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
+  python37_replay:
+    parallelism: 6
+    docker:
+      - image: cimg/python:3.7
+        environment:
+          PYVERS: 3.7
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
 
@@ -511,7 +545,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.10
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
@@ -533,6 +567,19 @@ jobs:
       - deploy_pypi_tag_verify
       - deploy_pypi_wheel_build
       - deploy_pypi_sdist_build
+      - deploy_pypi_upload
+
+  deploy_pypi_37:
+    docker:
+      - image: cimg/python:3.7
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py37
+
+    steps:
+      - deploy_pypi_prologue
+      - deploy_pypi_tag_verify
+      - deploy_pypi_wheel_build
       - deploy_pypi_upload
 
   deploy_pypi_38:
@@ -650,6 +697,13 @@ workflows:
             branches:
               ignore: /.*/
 
+      - python37:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: master
+
       - python38:
           filters:
             tags:
@@ -658,6 +712,14 @@ workflows:
               only: /.*/
 
       - python310:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - master
+
+      - python37_replay:
           filters:
             tags:
               only: /.*/
@@ -693,7 +755,9 @@ workflows:
           requires:
             - doctests
             - python38
+            - python37
             - python310
+            - python37_replay
             - python38_replay
             - python310_replay
             - python_package_smoketest
@@ -741,6 +805,7 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
+            - python37
             - python38
             - python310
           filters:
@@ -769,6 +834,7 @@ workflows:
       - build_docker_tag:
           requires:
             - doctests
+            - python37
             - python38
             - python310
           filters:
@@ -832,5 +898,6 @@ workflows:
                 - master
     jobs:
       - osx38
+      - python37
       - python38_replay
       - python310_replay
