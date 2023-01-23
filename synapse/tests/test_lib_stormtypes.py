@@ -4186,20 +4186,6 @@ class StormTypesTest(s_test.SynTest):
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('graph:node:type=m1'))
 
-                # Make sure the provenance of the new splices looks right
-                splices = await alist(prox.splices(nextoffs, 1000))
-                self.gt(len(splices), 1)
-
-                aliases = [splice[1][1].get('prov') for splice in splices]
-                self.nn(aliases[0])
-                self.true(all(a == aliases[0] for a in aliases))
-                prov = await prox.getProvStack(aliases[0])
-                rootiden = prov[1][1][1]['user']
-                correct = ({}, (
-                           ('cron', {'iden': guid}),
-                           ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
-                self.eq(prov, correct)
-
                 q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)

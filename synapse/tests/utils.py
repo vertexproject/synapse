@@ -1150,7 +1150,6 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True,
                     'nexslog:en': True,
                     'layers:logedits': True,
                     }
