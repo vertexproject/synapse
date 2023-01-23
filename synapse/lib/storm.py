@@ -3236,11 +3236,11 @@ class MergeCmd(Cmd):
                                 if curv is None or curv[0] > valu:
                                     if self.opts.apply:
                                         protonode.props['.created'] = valu
+                                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
                                     else:
                                         valurepr = prop.type.repr(valu)
                                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-
-                                if self.opts.apply:
+                                elif self.opts.apply:
                                     subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
                                 continue
 
