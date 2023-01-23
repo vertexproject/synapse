@@ -3232,30 +3232,22 @@ class MergeCmd(Cmd):
 
                         if prop.info.get('ro'):
                             if name == '.created':
-                                curv = sodes[1].get('props', {}).get(name)
-                                if curv is None or curv[0] > valu:
-                                    if self.opts.apply:
-                                        protonode.props['.created'] = valu
-                                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-                                    else:
-                                        valurepr = prop.type.repr(valu)
-                                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                                elif self.opts.apply:
+                                if self.opts.apply:
+                                    protonode.props['.created'] = valu
                                     subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
                                 continue
 
-                            else:
-                                curv = sodes[1].get('props', {}).get(name)
-                                if curv is not None and curv[0] != valu:
-                                    valurepr = prop.type.repr(curv[0])
-                                    mesg = f'Cannot merge read only property with conflicting ' \
-                                           f'value: {nodeiden} {form}:{name} = {valurepr}'
-                                    await runt.snap.warn(mesg)
-                                    continue
-                                elif self.opts.apply:
-                                    protonode.props[name] = valu
-                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-                                    continue
+                            curv = sodes[1].get('props', {}).get(name)
+                            if curv is not None and curv[0] != valu:
+                                valurepr = prop.type.repr(curv[0])
+                                mesg = f'Cannot merge read only property with conflicting ' \
+                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
+                                await runt.snap.warn(mesg)
+                                continue
+                            elif self.opts.apply:
+                                protonode.props[name] = valu
+                                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                continue
 
                         if not self.opts.apply:
                             valurepr = prop.type.repr(valu)
