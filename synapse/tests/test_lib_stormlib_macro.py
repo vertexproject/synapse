@@ -148,6 +148,9 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('macro.set foo {$lib.print(woot)}')
             self.stormHasNoWarnErr(msgs)
 
+            mdef = await core.callStorm('return( $lib.macro.get(foo) )')
+            self.eq(mdef.get('creator'), core.auth.rootuser.iden)
+
             msgs = await core.stormlist('macro.list', opts=asvisi)
             self.stormIsInPrint('foo', msgs)
 
@@ -242,6 +245,12 @@ class MacroTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             self.none(await core.callStorm('return($lib.macro.get(bar))'))
+
+            msgs = await core.stormlist('macro.set vmac { $lib.print(woot) }', opts=asvisi)
+            self.stormIsInPrint('Set macro: vmac', msgs)
+
+            mdef = await core.callStorm('return( $lib.macro.get(vmac) )')
+            self.eq(mdef.get('creator'), visi.iden)
 
             opts = {'vars': {'aaaa': 'A' * 512}}
             msgs = await core.stormlist('macro.set $aaaa {$lib.print(hi)}', opts=opts)
