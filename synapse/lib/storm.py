@@ -3231,19 +3231,31 @@ class MergeCmd(Cmd):
                                     continue
 
                         if prop.info.get('ro'):
-                            curv = sodes[1].get('props', {}).get(name)
-                            if curv is not None and curv[0] != valu:
-                                if name == '.created':
+                            if name == '.created':
+                                curv = sodes[1].get('props', {}).get(name)
+                                if curv is None or curv[0] > valu:
                                     if self.opts.apply:
-                                        if curv[0] > valu:
-                                            protonode.props['.created'] = valu
-                                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
-                                else:
+                                        protonode.props['.created'] = valu
+                                    else:
+                                        valurepr = prop.type.repr(valu)
+                                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+
+                                if self.opts.apply:
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                continue
+
+                            else:
+                                curv = sodes[1].get('props', {}).get(name)
+                                if curv is not None and curv[0] != valu:
                                     valurepr = prop.type.repr(curv[0])
                                     mesg = f'Cannot merge read only property with conflicting ' \
                                            f'value: {nodeiden} {form}:{name} = {valurepr}'
                                     await runt.snap.warn(mesg)
-                                continue
+                                    continue
+                                elif self.opts.apply:
+                                    protonode.props[name] = valu
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                    continue
 
                         if not self.opts.apply:
                             valurepr = prop.type.repr(valu)
