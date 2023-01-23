@@ -1357,7 +1357,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         user.confirm(('storm', 'macro', 'add'), default=True)
 
-        mdef = self._initStormMacro(mdef)
+        mdef = self._initStormMacro(mdef, user=user)
 
         reqValidStormMacro(mdef)
 
