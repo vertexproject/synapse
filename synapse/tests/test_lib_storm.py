@@ -1300,6 +1300,26 @@ class StormTest(s_t_utils.SynTest):
             newn = await core.nodes('ou:name=readonly')
             self.eq(oldn[0].props['.created'], newn[0].props['.created'])
 
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
+
+            oldn = await core.nodes('[ ou:name=readonly2 ]', opts=altview)
+            newn = await core.nodes('[ ou:name=readonly2 ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            altview2 = {'view': viewiden2}
+            q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
+            await core.nodes(q, opts=altview2)
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview2)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("Property is read only: ou:name.created", buf)
+
+            newn = await core.nodes('ou:name=readonly2', opts=altview)
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
             await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 1.2.3.4) ]', opts=altview)
             await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 5.6.7.8) ]')
 
