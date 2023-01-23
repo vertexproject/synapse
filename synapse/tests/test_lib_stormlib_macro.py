@@ -246,12 +246,17 @@ class MacroTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.macro.get(bar))'))
 
+            # Non-admin can create / delete their own macro
             msgs = await core.stormlist('macro.set vmac { $lib.print(woot) }', opts=asvisi)
             self.stormIsInPrint('Set macro: vmac', msgs)
 
             mdef = await core.callStorm('return( $lib.macro.get(vmac) )')
             self.eq(mdef.get('creator'), visi.iden)
 
+            await core.callStorm('return ( $lib.macro.del(vmac) )', opts=asvisi)
+            self.none(await core.callStorm('return( $lib.macro.get(vmac) )', opts=asvisi))
+
+            # Invalid macro names
             opts = {'vars': {'aaaa': 'A' * 512}}
             msgs = await core.stormlist('macro.set $aaaa {$lib.print(hi)}', opts=opts)
             self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
