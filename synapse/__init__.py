@@ -7,11 +7,6 @@ import sys
 if (sys.version_info.major, sys.version_info.minor) < (3, 7):  # pragma: no cover
     raise Exception('synapse is not supported on Python versions < 3.7')
 
-if (sys.version_info.major, sys.version_info.minor) == (3, 7):  # pragma: no cover
-    import warnings
-    mesg = '''Synapse will be deprecated for 3.7 in v2.130.0'''
-    warnings.warn(mesg, DeprecationWarning)
-
 # checking maximum *signed* integer size to determine the interpreter arch
 if sys.maxsize < 9223372036854775807:  # pragma: no cover
     raise Exception('synapse is only supported on 64 bit architectures')
