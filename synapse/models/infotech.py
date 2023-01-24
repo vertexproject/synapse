@@ -560,6 +560,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
+                ('it:app:oci:image', ('guid', {}), {
+                    'doc': 'An OCI container image',
+                }),
             ),
             'interfaces': (
                 ('it:host:activity', {
@@ -1986,6 +1989,24 @@ class ItModule(s_module.CoreModule):
                     ('http:headers', ('array', {'type': 'inet:http:header'}), {
                         'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
                 )),
+                ('it:app:oci:image', {}, (
+                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Names used to refer to the image.'}),
+                    ('digest', ('hash:sha256', {}), {
+                        'doc': 'The v2 repoDigest'}),
+                    ('buildtime', ('time', {}), {
+                        'doc': 'Time the image was built'}),
+                    ('parents', ('array', {'type': 'it:app:oci:image', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Parent containers used to build this container.'}),
+                    ('repositories', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Registry URLs where the container is available.'}),
+                    ('manifest', ('data', {}), {
+                        'doc': 'The raw container manifest'}),
+                    ('softver', ('it:prod:softver', {}), {
+                        'doc': 'The softver associated with the image.'
+                     })
+                )),
+
             ),
         }
         name = 'it'

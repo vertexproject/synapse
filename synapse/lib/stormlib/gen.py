@@ -122,6 +122,15 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
+        /*
+        function imageByDigest(digest) {
+            it:app:oci:image:digest=$digest
+            return($node)
+            [ it:app:oci:image=* :digest=$digest ]
+            return($node)
+        }
+        */
+
         function riskThreat(name, reporter) {
             ou:name=$name
             tee { -> risk:threat:org:name } { -> risk:threat:org:names } |

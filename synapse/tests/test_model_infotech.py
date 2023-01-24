@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -1315,3 +1317,42 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+    async def test_infotech_image(self):
+
+        async with self.getTestCore() as core:
+
+            guid = s_common.guid()
+            digest = 64 * '0'
+            parent = s_common.guid()
+            buildtime = s_common.now()
+            softver = s_common.guid()
+            query = '''
+            [ it:app:oci:image=$guid
+            :names= $names
+            :digest= $digest
+            :buildtime= $buildtime
+            :parents= $parents
+            :manifest= $manifest
+            :repositories= $repos
+            :softver= $softver
+            ]
+            '''
+
+            nodes = await core.nodes(query, opts={'vars': {
+                'guid': guid,
+                'digest': digest,
+                'manifest': {'foo': 'bar'},
+                'names': [
+                    'vertexproject/synapse-bubblegum:v2.x.x',
+                    'vertexproject/synapse-bubblegum:v2.1.0',
+                ],
+                'softver': softver,
+                'repos': ['https://docker.io/vertexproject/synapse-bubblegum'],
+                'parents': [parent, ],
+                'buildtime': buildtime
+            }})
+            self.len(1, nodes)
+            node = nodes[0]
+            from pprint import pprint
+            pprint(node.pack(dorepr=True))
