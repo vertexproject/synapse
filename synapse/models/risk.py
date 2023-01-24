@@ -15,6 +15,10 @@ class RiskModule(s_module.CoreModule):
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity.',
                 }),
+                ('risk:threat:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of threat types.'
+                }),
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
                 }),
@@ -132,7 +136,13 @@ class RiskModule(s_module.CoreModule):
 
                     ('merged:isnow', ('risk:threat', {}), {
                         'doc': 'The threat cluster that this cluster has been merged into.'}),
+
+                    ('type', ('risk:threat:type:taxonomy', {}), {
+                        'doc': 'The type of threat.',
+                        'disp': {'hint': 'taxonomy'}
+                    })
                 )),
+                ('risk:threat:type:taxonomy', {}, ()),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (

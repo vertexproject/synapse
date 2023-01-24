@@ -263,6 +263,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :sophistication=high
                     :merged:time = 20230111
                     :merged:isnow = {[ risk:threat=* ]}
+                    :type=nation.state
                 ]
             ''')
             self.len(1, nodes)
@@ -278,6 +279,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('merged:isnow'))
             self.eq(1673395200000, nodes[0].get('merged:time'))
+            self.eq('nation.state.', nodes[0].get('type'))
 
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
