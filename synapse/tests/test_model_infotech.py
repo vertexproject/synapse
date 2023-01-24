@@ -1321,12 +1321,45 @@ class InfotechModelTest(s_t_utils.SynTest):
     async def test_infotech_image(self):
 
         async with self.getTestCore() as core:
-
             guid = s_common.guid()
             digest = 64 * '0'
             parent = s_common.guid()
             buildtime = s_common.now()
             softver = s_common.guid()
+            # The config.digest value is **not** the repository digest value; but the digest of the
+            # container.image json
+            manifest = {
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                "config": {
+                    "mediaType": "application/vnd.docker.container.image.v1+json",
+                    "size": 8982,
+                    "digest": "sha256:7f671933cced2a6a364d096411d34eccf405c13f157d1e25d96cb8a535a6f9e0"
+                },
+                "layers": [
+                    {
+                        "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                        "size": 28576882,
+                        "digest": "sha256:9444f8378e8fcfa13116da8846c0b181fff0c667dd308bf21673f7e4bea8d580"
+                    },
+                    {
+                        "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                        "size": 2124890,
+                        "digest": "sha256:11f6997b48e09e1bf3b37f8eb9d85f03900a9937475e676bbb5ce1201d9e231f"
+                    },
+                    {
+                        "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                        "size": 170,
+                        "digest": "sha256:ac7a288c5b01f7e0be8987de0e9ec4a11224aa9a998d0e933b074df3237554ab"
+                    },
+                    {
+                        "mediaType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
+                        "size": 5151903,
+                        "digest": "sha256:22611d4462b7bc9e2ad3527a2e48e1eb04d86e841d029c1662147d0369db4348"
+                    }
+                ]
+            }
+
             query = '''
             [ it:app:oci:image=$guid
             :names= $names
@@ -1342,7 +1375,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(query, opts={'vars': {
                 'guid': guid,
                 'digest': digest,
-                'manifest': {'foo': 'bar'},
+                'manifest': manifest,
                 'names': [
                     'vertexproject/synapse-bubblegum:v2.x.x',
                     'vertexproject/synapse-bubblegum:v2.1.0',
