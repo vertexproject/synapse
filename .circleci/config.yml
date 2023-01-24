@@ -597,14 +597,14 @@ jobs:
 
   build_docker_branch:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - build_docker:
           image-tag: ${CIRCLE_BRANCH}
 
   push_docker_branch:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - checkout
       - load_docker_from_workspace
@@ -613,7 +613,7 @@ jobs:
 
   push_docker_branch_ecr:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - checkout
       - load_docker_from_workspace:
@@ -624,20 +624,20 @@ jobs:
 
   delete_docker_branch:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - delete_docker_image
 
   build_docker_tag:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - build_docker:
           image-tag: ${CIRCLE_TAG}
 
   push_docker_tag:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
     environment:
@@ -654,7 +654,7 @@ jobs:
 
   push_docker_tag_ecr:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
     environment:
@@ -674,7 +674,7 @@ jobs:
 
   delete_docker_tag:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - delete_docker_image
 
@@ -833,7 +833,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_py310
 
       - push_docker_branch:
           requires:
