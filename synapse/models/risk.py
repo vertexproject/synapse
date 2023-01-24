@@ -406,8 +406,8 @@ class RiskModule(s_module.CoreModule):
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'A numeric value used to rank alerts by severity.'}),
+                    ('priority', ('int', {}), {
+                        'doc': 'A numeric value used to rank alerts by priority.'}),
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
@@ -489,6 +489,9 @@ class RiskModule(s_module.CoreModule):
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.',
                     }),
+                    ('severity', ('int', {}), {
+                        'doc': 'An integer based relative severity score for the compromise.'}),
+
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
@@ -523,6 +526,8 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.',
                     }),
+                    ('severity', ('int', {}), {
+                        'doc': 'An integer based relative severity score for the attack.'}),
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the attack.',
                     }),
