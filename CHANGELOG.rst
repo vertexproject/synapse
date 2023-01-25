@@ -4,6 +4,36 @@
 Synapse Changelog
 *****************
 
+v2.122.0 - TBD
+=====================
+
+Features and Enhancements
+-------------------------
+- Add support for Python 3.10 to Synapse.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+- Update the Synapse docker containers to be built from a Debian based image,
+  instead of an Ubuntu based image.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+
+Bugfixes
+--------
+TBD
+
+Improved Documentation
+----------------------
+TBD
+
+v2.121.1 - 2022-01-23
+=====================
+
+Bugfixes
+--------
+- When creating Storm Macros using ``v2.121.0``, the creator of the Macro was
+  incorrectly set to the ``root`` user. This is now set to the user that
+  created the macro using the Storm ``macro.set`` command or the
+  ``$lib.macro.set()`` API.
+  (`#2993 <https://github.com/vertexproject/synapse/pull/2993>`_)
+
 v2.121.0 - 2022-01-20
 =====================
 

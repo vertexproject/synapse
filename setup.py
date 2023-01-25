@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.121.0'
+VERSION = '2.121.1'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -87,9 +87,9 @@ setup(
         'regex>=2022.9.11',
         'PyYAML>=5.4,<6.1.0',
         'aiohttp>=3.8.1,<4.0',
-        'aiohttp-socks>=0.6.1,<0.7.0',
+        'aiohttp-socks>=0.7.1,<0.8.0',
         'aioimaplib>=1.0.1,<1.1.0',
-        'aiosmtplib>=1.1.7,<2.0',
+        'aiosmtplib>=2.0.0,<2.1.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark==1.1.2',
         'Pygments>=2.7.4,<2.13.0',
@@ -102,7 +102,7 @@ setup(
         'pycryptodome>=3.11.0,<3.17.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
         'scalecodec>=1.0.2,<1.0.38',  # synapse.vendor.substrateinterface req
-        'cbor2>=5.4.1,<5.4.6',
+        'cbor2>=5.4.1,<5.4.7',
         'bech32==1.2.0',
         'oauthlib>=3.2.1,<4.0.0',
         'idna==3.3',
@@ -145,6 +145,7 @@ setup(
 
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.10',
     ],
     cmdclass={
         'verify': VerifyVersionCommand,
