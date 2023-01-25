@@ -2943,7 +2943,8 @@ class DiffCmd(Cmd):
             layr = runt.snap.view.layers[0]
             async for _, buid, sode in layr.liftByTag(tagname):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
-                yield node, runt.initPath(node)
+                if node is not None:
+                    yield node, runt.initPath(node)
 
             return
 
@@ -2969,13 +2970,15 @@ class DiffCmd(Cmd):
             layr = runt.snap.view.layers[0]
             async for _, buid, sode in layr.liftByProp(liftform, liftprop):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
-                yield node, runt.initPath(node)
+                if node is not None:
+                    yield node, runt.initPath(node)
 
             return
 
         async for buid, sode in runt.snap.view.layers[0].getStorNodes():
             node = await runt.snap.getNodeByBuid(buid)
-            yield node, runt.initPath(node)
+            if node is not None:
+                yield node, runt.initPath(node)
 
 class MergeCmd(Cmd):
     '''
@@ -3149,7 +3152,8 @@ class MergeCmd(Cmd):
             async def diffgenr():
                 async for buid, sode in runt.snap.view.layers[0].getStorNodes():
                     node = await runt.snap.getNodeByBuid(buid)
-                    yield node, runt.initPath(node)
+                    if node is not None:
+                        yield node, runt.initPath(node)
 
             genr = diffgenr()
 

@@ -4,6 +4,104 @@
 Synapse Changelog
 *****************
 
+v2.122.0 - TBD
+=====================
+
+Features and Enhancements
+-------------------------
+- Add support for Python 3.10 to Synapse.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+- Update the Synapse docker containers to be built from a Debian based image,
+  instead of an Ubuntu based image.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+
+Bugfixes
+--------
+TBD
+
+Improved Documentation
+----------------------
+TBD
+
+v2.121.1 - 2022-01-23
+=====================
+
+Bugfixes
+--------
+- When creating Storm Macros using ``v2.121.0``, the creator of the Macro was
+  incorrectly set to the ``root`` user. This is now set to the user that
+  created the macro using the Storm ``macro.set`` command or the
+  ``$lib.macro.set()`` API.
+  (`#2993 <https://github.com/vertexproject/synapse/pull/2993>`_)
+
+v2.121.0 - 2022-01-20
+=====================
+
+Automatic Migrations
+--------------------
+- Storm Macros stored in the Cortex are migrated from the Hive to the Cortex
+  LMDB slab.
+  (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+
+- Updates to the  ``inet`` and  ``org`` models.
+  (`#2982 <https://github.com/vertexproject/synapse/pull/2982>`_)
+  (`#2987 <https://github.com/vertexproject/synapse/pull/2987>`_)
+
+  ``inet:dns:soa``
+    The ``fqdn``, ``ns`` and ``email`` properties had the read-only flag
+    removed from them.
+
+  ``ou:org``
+    Add a ``goals`` property to record the assessed goals of the organization.
+
+- Add extended permissions for Storm Macro functionality using a new
+  simplified permissions system. This allows users to opt into assigning
+  users or roles the permission to read, write, administrate, or deny access
+  to their Macros. These permissions can be set by the Storm
+  ``$lib.macro.grant()`` API.
+  (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
+- Add extended information about a Storm Macro, including its creation time,
+  update time, and a description. The Macro name, description and Storm can
+  now be set via the Storm ``$lib.macro.mod()`` API.
+  (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
+- Allow users and Power-Ups to store graph projection definitions in the
+  Cortex. Graph projections have the same simplified permissions system
+  applied to them as introduced for Storm Macros. Storm users can now also
+  load a stored graph projection into a running Storm query. These new
+  features are exposed via the Storm ``$lib.graph`` APIs.
+  (`#2914 <https://github.com/vertexproject/synapse/pull/2914>`_)
+- The disk space required to make the backup of a Synapse service is now
+  checked prior to a live backup being made. If there is insufficient storage
+  to make the backup on the volume storing the backup, a LowSpace exception
+  will be raised.
+  (`#2990 <https://github.com/vertexproject/synapse/pull/2990>`_)
+
+Bugfixes
+--------
+- When normalizing the ``inet:email`` type, an unclear Python ``ValueError``
+  could have been raised to a user. This is now caught and a specific
+  ``BadTypeValu`` exception is raised.
+  (`#2982 <https://github.com/vertexproject/synapse/pull/2982>`_)
+- The ``synapse.exc.StormRaise`` exception caused an error when recreating
+  the exception on the client side of a Telepath connection. This exception
+  will now raise properly on the caller side.
+  (`#2985 <https://github.com/vertexproject/synapse/pull/2985>`_)
+- When using the Storm ``diff`` command to examine a forked View, if a node
+  was deleted out from the base layer and edited in the fork, an exception
+  would be raised. This situation is now properly handled.
+  (`#2988 <https://github.com/vertexproject/synapse/pull/2988>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm User Guide section on variables for clarity.
+  (`#2968 <https://github.com/vertexproject/synapse/pull/2968>`_)
+- Correct Provenance API deprecation notice from ``v2.221.0`` to ``v2.122.0``.
+  (`#2981 <https://github.com/vertexproject/synapse/pull/2981>`_)
+
 v2.120.0 - 2023-01-11
 =====================
 

@@ -450,7 +450,7 @@ class StormHttpTest(s_test.SynTest):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
-            self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+            self.ne(-1, resp['mesg'].find('Could not connect to proxy 127.0.0.1:1'))
 
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
             code, (errname, _) = await core.callStorm(q)
@@ -488,13 +488,13 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
 
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+            self.isin('Could not connect to proxy 127.0.0.1:1', resp['mesg'])
 
             size, sha256 = await core.axon.put(b'asdf')
 
             sha256 = s_common.ehex(sha256)
             resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+            self.isin('Could not connect to proxy 127.0.0.1:1', resp['mesg'])
 
     async def test_storm_http_connect(self):
 
@@ -564,4 +564,4 @@ class StormHttpTest(s_test.SynTest):
                     'vars': {'port': port, 'proxy': 'socks5://user:pass@127.0.0.1:1'}}
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
-            self.isin('Can not connect to proxy', str(cm.exception))
+            self.isin('Could not connect to proxy', str(cm.exception))

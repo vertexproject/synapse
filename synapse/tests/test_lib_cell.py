@@ -1054,6 +1054,15 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
 
+                    _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+                    def lowspace(dirn):
+                        cellsize = s_common.getDirSize(coredirn)
+                        return _ntuple_diskusage(0, cellsize, 0)
+
+                    with mock.patch('shutil.disk_usage', lowspace):
+                        await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
     async def test_cell_tls_client(self):
 
         with self.getTestDir() as dirn:
