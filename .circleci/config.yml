@@ -548,7 +548,7 @@ jobs:
       - image: cimg/python:3.10
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py38
+          PYTHON_TAG: py310
 
     steps:
       - deploy_pypi_prologue
