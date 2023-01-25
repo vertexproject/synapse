@@ -16,8 +16,30 @@ tool / Storm CLI (see :ref:`syn-tools-storm`).
   interacting with a Synapse Cortex from the CLI.
 
 
-The pipe symbol ( ``|`` ) is used to send (pipe) the output from a Storm query to any of the Storm
-commands, and to send the output from a Storm command back to a Storm query.
+The pipe symbol ( ``|`` ) is used with Storm commands to:
+
+- Return to Storm query syntax after running a Storm command.
+- Separate individual Storm commands and their parameters (i.e., if you are "chaining" multiple
+  commands together).
+ 
+For example:
+
+::
+  
+  inet:fqdn=woot.com nettools.whois | nettools.dns --type A AAAA NS | -> inet:dns:a
+
+The query above:
+
+- lifts the FQDN ``woot.com``,
+- performs a live "whois" lookup using the Synapse-Nettools :ref:`gloss-power-up`,
+- performs a live DNS query for the FQDN's A, AAAA, and NS records, and
+- pivots from the FQDN to any associated DNS A records.
+
+The pipe is used to separate the two ``nettools.*`` commands, and to separate the ``nettools.dns``
+command and its switches from the subsequent query operation (the pivot).
+
+An additional pipe character can optionally be placed between the initial lift (``inet:fqdn=woot.com``)
+and the ``nettools.whois`` command, but is not required.
 
 **Built-in commands** are native to the Storm library and loaded by default within a given Cortex.
 Built-in commands comprise a set of helper commands that perform a variety of specialized tasks that
@@ -36,8 +58,8 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 .. TIP::
   
   This section details the usage and syntax for **built-in** Storm commands. Many of the commands
-  below - such as ``count``, ``intersect``, ``limit``, ``max`` / ``min``, the various ``gen``
-  (generator) commands, or ``delnode`` - directly support analysis tasks.
+  below - such as ``count``, ``intersect``, ``limit``, ``max`` / ``min``, ``uniq``, or the various
+  ``gen`` (generate) commands - directly support analysis tasks.
   
   Other commands, such as those used to manage daemons, queues, packages, or services, are likely
   of greater interest to Synapse administrators or developers.
@@ -106,15 +128,6 @@ Synapse User Guide.
 Lift the ``syn:cmd`` node for the Storm ``movetag`` command:
 
 .. storm-cli:: syn:cmd=movetag
-
-
-.. NOTE::
-
-  The ``syn:cmd`` form within the Synapse data model includes secondary properties that can optionally be
-  used to make commands (particularly custom commands) more "self-documenting" to users, because detail
-  about the command can be introspected directly within Synapse. For example, the ``:input`` and ``:output``
-  properties can be used to specify a set (:ref:`type-array`) of forms (nodes) that can be input (submitted)
-  to the command and a list of forms (nodes) that may be created by the command, respectively.
 
 
 .. _storm-help:
@@ -202,7 +215,7 @@ background
 ----------
 
 The ``background`` command allows you to execute a Storm query as a background task (e.g., to free up
-the cmdr CLI / Storm runtime for additional queries).
+the CLI / Storm runtime for additional queries).
 
 .. NOTE::
   
@@ -452,7 +465,7 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
   In addition, use of the ``--force`` switch with ``delnode`` will override all safety checks and
   forcibly delete ALL nodes input to the command.
   
-  **This parameter should be used with extreme caution as it may results in broken referneces
+  **This parameter should be used with extreme caution as it may result in broken references
   (e.g., "holes" in the graph) within Synapse.**
 
 **Syntax:**
@@ -599,9 +612,10 @@ The ``feed.list`` command displays available feed functions in the Cortex.
 gen
 ---
 
-Storm includes various ``gen.*`` ("generator") commands that allow you to easily query
+Storm includes various ``gen.*`` ("generate") commands that allow you to easily query
 for common guid-based nodes (see :ref:`gloss-form-guid`) based on one or more "human
-friendly" secondary properties, and create the specified node if it does not already exist.
+friendly" secondary properties, and create (generate) the specified node if it does
+not already exist.
 
 Because guid nodes have a primary property that may be arbitrary, ``gen.*`` commands simplify
 the process of **deconflicting on secondary properties** before creating certain guid nodes.
@@ -611,9 +625,9 @@ the process of **deconflicting on secondary properties** before creating certain
   See the :ref:`type-guid` section of the :ref:`storm-ref-type-specific` for a detailed
   discussion of guids, guid behavior, and deconfliction considerations for guid forms.
 
-Nodes created using generator commands will have a limited subset of properties set (e.g.,
-an organization node deconflicted and generated (created) based on a name will only have
-its ``ou:org:name`` property set). Users can set additional property values as they see fit.
+Nodes created using generate commands will have a limited subset of properties set (e.g.,
+an organization node deconflicted and created based on a name will only have its ``ou:org:name``
+property set). Users can set additional property values as they see fit.
 
 Help for individual ``gen.*`` commands can be displayed using:
 
@@ -645,7 +659,7 @@ gen.ou.industry
 The ``gen.ou.industry`` commands locates (lifts) or creates an ``ou:industry`` node based on
 the industry name (``ou:industry:name`` and / or ``ou:industry:names``).
 
-.. storm-cli:: gen.it.prod.soft --help
+.. storm-cli:: gen.ou.industry --help
 
 
 .. _storm-gen-org:
@@ -1283,15 +1297,21 @@ movenodes
 
 The ``movenodes`` command allows you to move nodes between layers (:ref:`gloss-layer`) in a Cortex.
 
-The command will move the specified storage nodes (:ref:`gloss-node-storage`) to the target layer. If
-a node is the "left hand" node (``n1``) of two nodes joined by a light edge (``n1 -(*)> n2``), then
-the edge is also moved.
+The command will move the specified storage nodes (see :ref:`gloss-node-storage`) - "sodes" for
+short - to the target layer. If a sode is the "left hand" (``n1``) of two nodes joined by a light
+edge (``n1 -(*)> n2``), then the edge is also moved.
 
-Nodes are fully removed from the source layer(s) and added to (or merged with existing nodes in)
-the target layer. If intervening layers exist between the source and target, the nodes are moved
-"through" the intervening layer. By default, as the node is moved "up", any data for that node 
-(property values, tags) in the higher layer will take precedence over (overwrite) data from a
-lower layer. This behavior can be modified with the appropriate command switches.
+Sodes are fully removed from the source layer(s) and added to (or merged with existing nodes in)
+the target layer.
+
+By default (i.e., if you do not specify a source and / or target layer), ``movenodes`` will migrate
+sodes from the bottom layer in the view, through each intervening layer (if any), and finally into
+the top layer. If you explicitly specify a source and target layer, ``movenodes`` migrates the sodes
+**directly** from the source to the target, skipping any intervening layers (if any).
+
+Similarly, by default as the node is moved "up", any data for that node (property values, tags)
+in the higher layer will take precedence over (overwrite) data from a lower layer. This precedence
+behavior can be modified with the appropriate command switch.
 
 .. NOTE::
   
@@ -1301,7 +1321,7 @@ lower layer. This behavior can be modified with the appropriate command switches
   nodes **down** from a higher layer/view to a lower/underlying one.
   
   The ``movenodes`` command allows you to move nodes between arbitrary layers and is meant to
-  be used by Synapse **administrators** in specific use cases (e.g., data that was accidentally
+  be used by Synapse **administrators** in very specific use cases (e.g., data that was accidentally
   merged into a lower layer that should not be there). It can be used to move nodes "up" from
   a lower layer to a higher one.
 
@@ -1436,8 +1456,8 @@ once
 The ``once`` command is used to ensure a given node is processed by the associated Storm command only
 once, even if the same command is executed in a different, independent Storm query. The ``once`` command
 uses :ref:`gloss-node-data` to keep track of the associated Storm command's execution, so ``once`` is
-specific to the :ref:`gloss-view` in which it is executed. The  single-execution feature of ``once`` can
-be overriden with the ``--asof`` parameter.
+specific to the :ref:`gloss-view` in which it is executed. You can override the single-execution feature
+of ``once`` with the ``--asof`` parameter.
 
 **Syntax:**
 
@@ -1476,8 +1496,7 @@ Help for individual ``pkg.*`` commands can be displayed using:
 
   ``<command> --help``
 
-Packages typically contain extended Storm commands and Storm library code used to implement a Storm
-:ref:`gloss-service`.
+Packages typically contain Storm commands and Storm library code used to implement a Storm :ref:`gloss-service`.
 
 .. _storm-pkg-list:
 
@@ -1637,9 +1656,17 @@ The ``queue.del`` command removes a queue from the Cortex.
 reindex
 -------
 
-The ``reindex`` command reindexes a given node property. This is an administrative command that is
-typically used when data model updates have been pushed to a Cortex and existing node properties
-must be migrated to the new model.
+The ``reindex`` command is currently reserved for future use.
+
+The intended purpose of this administrative command is to reindex a given node property. This may
+be necessary as part of a manual data migration.
+
+.. NOTE::
+  
+  Any changes to the Synapse data model are noted in the changelog_ for the relevant Synapse
+  release. Changes that require data migration are specifically noted and the data migration is
+  typically performed automatically when deploying the new version. See the :ref:`datamigration`
+  section of the :ref:`devopsguide` for additional detail.
 
 **Syntax:**
 
@@ -1819,6 +1846,13 @@ query and view messages and results without displaying the associated nodes.
 splice
 ------
 
+.. NOTE::
+  
+  The Synapse ``splice.*`` commands are deprecated. The use of views (:ref:`gloss-view`) and
+  layers (:ref:`gloss-layer`) - in particular, the ability to :ref:`gloss-fork` a view to create
+  a "scratch space" for changes which can then be merged or discarded - provides greater flexiblity
+  and granularity in managing data and discarding unwanted changes.
+
 Storm includes ``splice.*`` commands that allow you to work with splices (see :ref:`gloss-splice`).
 
 - `splice.list`_
@@ -1836,8 +1870,9 @@ Help for individual ``splice.*`` commands can be displayed using:
 splice.list
 +++++++++++
 
-The ``splice.list`` command allows you to list (view) splices in the splice log. By default, splices
-are displayed starting with the most recent and working backwards through the log.
+``splice.list`` is a **deprecated** command. ``splice.list``allows you to list (view) splices in the
+splice log. By default, splices are displayed starting with the most recent and working backwards
+through the log.
 
 **Syntax:**
 
@@ -1849,8 +1884,8 @@ are displayed starting with the most recent and working backwards through the lo
 splice.undo
 +++++++++++
 
-The ``splice.undo`` command allows a user with appropriate permissions to roll back or undo the
-specified set of splices (changes).
+``splice.undo`` is a **deprecated** command.. ``splice.list`` allows a user with appropriate permissions
+to roll back or undo the specified set of splices (changes).
 
 **Syntax:**
 
@@ -1988,7 +2023,7 @@ trigger.list
 ++++++++++++
 
 The ``trigger-list`` command displays the set of triggers in the Cortex that the current user can
-view / modify based on their permissions. Triggers are displayed at the cmdr CLI in tabular format,
+view / modify based on their permissions. Triggers are displayed at the Storm CLI in tabular format,
 with columns including the user who created the trigger, the :ref:`gloss-iden` of the trigger, the
 condition that fires the trigger (i.e., ``node:add``), and the Storm query associated with the trigger.
 
@@ -2252,3 +2287,5 @@ and yields ``inet:urlfile`` nodes and the retrieved content (``file:bytes``) is 
 **Syntax:**
 
 .. storm-cli:: wget --help
+
+.. _changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html

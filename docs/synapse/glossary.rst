@@ -411,7 +411,7 @@ Within Synapse, forking refers to the process of creating a new, empty, writable
 the fork's original :ref:`gloss-view`. The writable layer from the original view becomes read-only with
 respect to the fork. Any changes made within a forked view are made within the new writable layer. These
 changes can optionally be merged back into the original view, or discarded. (Note that any view-specific
-automation, such as triggers, dmons, or cron jobs, are **not** copied to the forked view. However, depending
+automation, such as triggers, dmons, or cron jobs, are **not** copied to the forked layer. However, depending
 on the automation, it may be activated if / when data is merged down into the original view.)
 
 .. _gloss-form:
@@ -793,7 +793,7 @@ Node, Storage
 -------------
 
 A storage node ("sode") is a collection of data for a given node (i.e., the node's primary property,
-secondary / universal properties, tags, node data, etc.) that is present in a specific :ref:`gloss-layer`.
+secondary / universal properties, tags, etc.) that is present in a specific :ref:`gloss-layer`.
 
 .. _gloss-non-runtime-safe:
 

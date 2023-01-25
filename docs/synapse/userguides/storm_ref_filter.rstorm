@@ -529,7 +529,7 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
   Interval syntax (e.g.,  ``:time@=<time>`` ) syntax is supported when specifying an exact time match,
   although you can simply use the equals comparator instead (e.g., ``:time=<time>`` ).
 - Because tags can have optional timestamps (min / max interval values), interval filters can also be
-  used to filter base don tag timestamps.
+  used to filter based on tag timestamps.
 - When specifying interval date/time values, Synapse allows you to use either lower resolution values
   (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum interval
   values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify
@@ -592,7 +592,7 @@ including types that are extensions of those types, such as IP addresses.
     <query> +:asof*range=(2013/11/29, 2016/06/14)
 
 
-- Filter results to include DNS requests made within 1 day of 12/01/2018:
+- Filter results to include DNS requests made within 1 day of December 1, 2018:
 
 .. storm-pre:: inet:dns:request +inet:dns:request:time*range=(2018/12/01, "+-1 day")
 ::
@@ -693,31 +693,49 @@ location (that is, nodes within a given radius of a specified latitude / longitu
 
 *Filter by proximity:*
 
-- Filter results to include only Foo Corporation offices within 1km of a specific coffee shop:
+- Filter results to include only Acme Corporation offices within 1 km of a specific coffee shop:
 
 .. storm-pre:: [geo:place="*" :latlong="37.7825315,-122.4236523"] +geo:place:latlong*near=((47.6050632,-122.3339756),1km)
 ::
-    
-    <query> +geo:place:latlong*near=((47.6050632,-122.3339756),1km)
+  
+  <query> +geo:place:latlong*near=((47.6050632,-122.3339756),1 km)
 
-
-.. storm-pre:: geo:place +:latlong*near=((47.6050632,-122.3339756),1km)
+.. storm-pre:: geo:place +:latlong*near=((47.6050632,-122.3339756),1 km)
 ::
-    
-    <query> +:latlong*near=((47.6050632,-122.3339756),1km)
+  
+  <query> +:latlong*near=((47.6050632,-122.3339756),1 km)
+
+
+- Filter results to include only Acme Corporation offices within 1 mile of a specific coffee shop:
+
+.. storm-pre:: geo:place +geo:place:latlong*near=((47.6050632,-122.3339756), 1 mile)
+::
+  
+  <query> +geo:place:latlong*near=((47.6050632,-122.3339756), 1 mile)
+
+.. storm-pre:: geo:place +:latlong*near=((47.6050632,-122.3339756), 1 mile)
+::
+  
+  <query> +:latlong*near=((47.6050632,-122.3339756), 1 mile)
 
 
 **Usage Notes:**
 
 - In the example above, the latitude and longitude of the desired location (i.e., the coffee shop) are
   explicitly specified as parameters to ``*near=``.
-- Radius can be specified in the following metric units. Values of less than 1 must be specified with a
-  leading zero (e.g., ``0.5km`` is valid; ``.5km`` is not):
+- Radius can be specified in the following units. The values in parentheses are the acceptable terms
+  for specifying a given unit:
 
-  - Kilometers (km)
-  - Meters (m)
-  - Centimeters (cm)
-  - Millimeters (mm)
+  - Kilometers (km / kilometer / kilometers)
+  - Meters (m / meter / meters)
+  - Centimeters (cm / centimeter / centimeters)
+  - Millimeters (mm / millimeter / millimters)
+  - Miles (mile / miles)
+  - Yards (yard / yards)
+  - Feet (foot / feet)
+
+- When specifying a radius, values of less than 1 must be specified with a leading zero (e.g., ``0.5 km``
+  is valid; ``.5 km`` is not).
 
 - The ``*near=`` comparator works by identifying nodes within a square bounding box centered at
   *<lat>, <long>*, then filters the nodes to be returned by ensuring that they are within the great-circle
@@ -923,10 +941,11 @@ order of precedence and clarify logical operations when evaluating the filter.
 **Usage Notes:**
 
 - Logical operators must be specified in lower case.
-- Synapse follows the standard Boolean order of operations when evaluating compound filters
-  (i.e., **not** then **and** then **or**).
-- Parentheses can be used to logically group portions of the filter statement with respect to
-  evaluation / order of operations, as well as for clarity.
+- Synapse evalutes compound filters **in order from left to right**. Depending on the specific filter,
+  left-to-right order may differ from the standard Boolean order of operations (**not** then **and**
+  then **or**).
+- Parentheses should be used to logically group portions of the filter statement if necessary to
+  clarify order of operations.
 
 
 .. _filter-subquery:
@@ -939,8 +958,8 @@ You can use Storm's subquery syntax (:ref:`storm-ref-subquery`) to create filter
 
 When nodes are passed to a subquery filter, they are evaluated against the filter's criteria:
 
-- Nodes are **excluded** ("consumed", **not** returned by the subquery) if they evaluate **false.**
-- Nodes are **included** (not "consumed", **returned** by the subquery) if they evaluate **true.**
+- Nodes are **excluded** ("consumed", discarded) if they evaluate **false.**
+- Nodes are **included** (not "consumed", retained) if they evaluate **true.**
 
 Most filter operations in Storm will modify (reduce) your current set of nodes based on some
 criteria of the **nodes themselves** (e.g., a node's form, property, or tag).
@@ -950,7 +969,7 @@ Subquery filters allow you to filter your **current** set of nodes based on some
 pivots away from your current nodes, and filter your current nodes based on the properties
 of those "nearby" nodes.
 
-The subquery pivot operation (used to "look ahead" at other nodes) is effectivley performed in
+The subquery pivot operation (used to "look ahead" at other nodes) is effectively performed in
 the background (without navigating away from your current working set), which provides a more
 powerful and efficent way to filter your data. (The alternative would be to **actually** navigate
 to the nearby nodes, filter those nodes, and then navigate **back** to the data you are interested in.)
@@ -1041,8 +1060,8 @@ assign variables - see :ref:`storm-adv-vars`).
   
   <crypto:x509:cert> $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
 
-This example assigns the set of domains in the ``crypto:x509:cert:identities:fqdns`` property to the
-user-defined variable ``$fqdns``, computes the number of domains in the set using :ref:`stormprims-set-size`,
+This example assigns the list of domains in the ``crypto:x509:cert:identities:fqdns`` property to the
+user-defined variable ``$fqdns``, computes the number of domains in the list using :ref:`stormprims-list-size`,
 and checks to see if the result is greater than 1.
 
 (See the :ref:`stormtypes_index` for additional detail on Storm types and Storm libraries.)
@@ -1120,7 +1139,7 @@ Despite its similarity to a pivot operation, embedded property syntax is commonl
 - From an initial set of IPv4 addresses, filter results to only those IPv4s registered to an Autonomous
   System (AS) whose name starts with "makonix":
 
-.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] inet:ipv4 +:asn::name^="makonix"
+.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] +:asn::name^="makonix"
 ::
 
     <inet:ipv4> +:asn::name^="makonix"
@@ -1138,7 +1157,7 @@ Note that this example of embedded property syntax is equivalent to the followin
 - From an initial set of ``it:exec:file:read`` operations, filter results to only those operations where
   the base file name of the PDB path of the file performing the read operation is ``moonclient2.pdb``:
 
-.. storm-pre:: [ ( it:exec:file:read=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 ) ( file:bytes=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 :mime:pe:pdbpath='e:/code/moon1.5/release/moonclient2.pdb' ) ] it:exec:file:read +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
+.. storm-pre:: [ ( it:exec:file:read=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 ) ( file:bytes=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 :mime:pe:pdbpath='e:/code/moon1.5/release/moonclient2.pdb' ) ] +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
 ::
 
   <it:exec:file:read> +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb

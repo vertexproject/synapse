@@ -409,7 +409,7 @@ should consider how you will **deconflict** guid-based nodes. See :ref:`guid-bes
 for additional discussion.
 
 Arbitrary Values
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 When creating a new guid node, you can specify the asterisk ( ``*`` ) as the primary property value
 of the new node. This tells Synapse to generate a unique, **arbitrary** guid for the node. For example:
@@ -425,9 +425,9 @@ and sets the specified secondary properties.
   time will create a second ``ou:org`` node with a **new** unique guid (potentially resulting in two
   nodes representing the same organization within the same Cortex).
 
-The advantage of arbitrary values is that they are simple to generate while still guaranteed to be unique
-within your instance of Synapse. This is particularly useful for analysts who need to manually create
-guid nodes (organizations, contacts, threats) on a regular basis as part of their workflow.
+The advantage of arbitrary values is that they are simple to generate. This is particularly useful
+for analysts who need to manually create guid nodes (organizations, contacts, threats) on a regular
+basis as part of their workflow.
 
 The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict
 the nodes.
@@ -453,7 +453,7 @@ For example:
 
 .. storm-cli:: [ ou:org=('the vertex project',https://vertex.link) :name='the vertex project' :url=https://vertex.link ]
 
-The above query above creates a new organization node whose guid is generated using the company name and
+The query above creates a new organization node whose guid is generated using the company name and
 web site as a set of (presumably) unique inputs that will result in a unique (but predictable /
 deterministic) guid.
 
@@ -467,7 +467,7 @@ The disadvantage is that this method is more complicated for users who need to m
 nodes. Expecting a group of users to all remember to specify the same set of inputs in the same
 order (and without typos) each time they create a guid node is unrealistic.
 
-In addition, predictable guids may not fully addres challenges associated with ingesting similar data
+In addition, predictable guids may not fully address challenges associated with ingesting similar data
 from different sources. Multiple vendors may provide similar information on the same entity. If you
 obtain data for the same object (an organization, a person, a certificate) from different sources,
 you may end up with two different nodes if the "predictable" guids are generated with different seed
@@ -509,7 +509,7 @@ node already exists is to use **secondary property deconfliction:**
   otherwise a new node for that certificate can be created using an arbitrary guid ( ``*`` ) with
   the appropriate secondary properties set.
 
-Using secondary propery deconfliction for guid nodes has the advantage of deconflicting on
+Using secondary property deconfliction for guid nodes has the advantage of deconflicting on
 meaningful properties (those likely to uniquely identify an object), without relying on knowledge
 of any specific method used to create predictable guids. (Note that "predictable guids" are often
 generated using these same secondary properties; so deconflicting on the properties directly is
@@ -558,10 +558,10 @@ deconfliction or predictable guids are more appropriate.
 Predictable Guids
 ^^^^^^^^^^^^^^^^^
 
-For some use cases, the use of predictable guids (without secondary proeprty deconfliction)
+For some use cases, the use of predictable guids (without secondary property deconfliction)
 may be reasonable. This approach may be suitable when:
 
-- You have a unique set of data (not avaialble from another data source) to ingest and want
+- You have a unique set of data (not available from another data source) to ingest and want
   the option to reingest it in the future without creating duplicate nodes.
 - The data is sufficiently unique that nodes representing the data will not already exist
   in Synapse.
@@ -602,7 +602,7 @@ specific values or variables:
 .. NOTE::
   
   The input to the ``guid`` generator is interpreted as a **structured list,** specifically, a list
-  of string values (i.e., ``(str_0, str_1, str_2...str_n)``. Deconfliction depends on the same list
+  of string values (i.e., ``(str_0, str_1, str_2...str_n)``). Deconfliction depends on the same list
   being submitted to the generator in the same order each time.
   
   The ``guid`` generator is **not** "model aware" and will not recognize items in the list as having
