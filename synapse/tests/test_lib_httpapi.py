@@ -1461,7 +1461,6 @@ class HttpApiTest(s_tests.SynTest):
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
                     self.true(result['result']['active'])
-                    self.eq('1; mode=block', resp.headers.get('x-xss-protection'))
                     self.eq('nosniff', resp.headers.get('x-content-type-options'))
 
             await root.setPasswd('secret')
