@@ -482,7 +482,7 @@ class NexsRoot(s_base.Base):
                         continue
 
                     offs, args = item
-                    if offs != self.nexslog.index():  # pragma: no cover
+                    if offs != self.nexslog.index():
                         logger.error('mirror desync')
                         await self.fini()
                         return
