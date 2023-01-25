@@ -1468,14 +1468,13 @@ stormcmds = (
         ),
         'storm': '''
             function addNoteNode(text, type) {
-                if $type { $lib.cast(meta:note:type:taxonomy, $type) }
+                if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                 [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
                 if $type {[ :type=$type ]}
                 return($node)
             }
             init {
                 $type = $lib.null
-                ($ok, $type) = $lib.trycast(meta:note:type:taxonomy, $cmdopts.type)
                 $note = $addNoteNode($cmdopts.text, $cmdopts.type)
             }
             [ <(about)+ { yield $note } ]

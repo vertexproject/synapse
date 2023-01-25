@@ -319,7 +319,7 @@ class PsModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ps:proficiency=*
                     :contact = {[ ps:contact=* :name=visi ]}
-                    :skill = {[ ps:skill=* :name="Wanting Pizza" ]}
+                    :skill = {[ ps:skill=* :type=hungry :name="Wanting Pizza" ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -327,3 +327,4 @@ class PsModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('contact'))
             self.len(1, await core.nodes('ps:proficiency -> ps:contact +:name=visi'))
             self.len(1, await core.nodes('ps:proficiency -> ps:skill +:name="wanting pizza"'))
+            self.len(1, await core.nodes('ps:proficiency -> ps:skill ps:skill:type:taxonomy'))

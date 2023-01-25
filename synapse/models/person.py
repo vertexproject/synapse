@@ -441,7 +441,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The language specified for the contact.'}),
 
                     ('langs', ('array', {'type': 'lang:language'}), {
-                        'doc': 'An array of alterative languages specified for the contact.'}),
+                        'doc': 'An array of alternative languages specified for the contact.'}),
                 )),
                 ('ps:vitals', {}, (
                     ('asof', ('time', {}), {
@@ -477,7 +477,7 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('ps:contact:type:taxonomy', {}, ()),
+                ('ps:skill:type:taxonomy', {}, ()),
                 ('ps:skill', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
