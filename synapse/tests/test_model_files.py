@@ -46,6 +46,20 @@ class FileTest(s_t_utils.SynTest):
                 opts = {'vars': {'a': 'a' * 64}}
                 await core.nodes('file:bytes [:sha256=$a]', opts=opts)
 
+            with self.raises(s_exc.BadTypeValu):
+                opts = {'vars': {'z': 'z' * 64}}
+                await core.nodes('[file:bytes=$z]', opts=opts)
+
+            with self.raises(s_exc.BadTypeValu):
+                opts = {'vars': {'z': 'z' * 64}}
+                await core.nodes('[file:bytes=`sha256:$z`]', opts=opts)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[file:bytes=base64:foo]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[file:bytes=hex:foo]')
+
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:

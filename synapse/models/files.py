@@ -97,27 +97,36 @@ class FileBytes(s_types.Str):
             return norm, {}
 
         if valu.find(':') == -1:
+            try:
+                # we're ok with un-adorned sha256s
+                if len(valu) == 64 and s_common.uhex(valu):
+                    valu = valu.lower()
+                    subs = {'sha256': valu}
+                    return f'sha256:{valu}', {'subs': subs}
 
-            # we're ok with un-adorned sha256s
-            if len(valu) == 64 and s_common.uhex(valu):
-                valu = valu.lower()
-                subs = {'sha256': valu}
-                return f'sha256:{valu}', {'subs': subs}
+                raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                        mesg='unadorned file:bytes value is not a sha256')
 
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='unadorned file:bytes value is not a sha256')
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         kind, kval = valu.split(':', 1)
 
         if kind == 'base64':
-            byts = base64.b64decode(kval)
-            return self._normPyBytes(byts)
+            try:
+                byts = base64.b64decode(kval)
+                return self._normPyBytes(byts)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         kval = kval.lower()
 
         if kind == 'hex':
-            byts = s_common.uhex(kval)
-            return self._normPyBytes(byts)
+            try:
+                byts = s_common.uhex(kval)
+                return self._normPyBytes(byts)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
         if kind == 'guid':
 
@@ -134,7 +143,10 @@ class FileBytes(s_types.Str):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                         mesg='invalid length for sha256 valu')
 
-            s_common.uhex(kval)
+            try:
+                s_common.uhex(kval)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
