@@ -26,7 +26,7 @@ Features and Enhancements
     Add a new guid form to represent a written or spoken language.
 
   ``lang:name``
-    Add a new form record the name of a language.
+    Add a new form to record the name of a language.
 
   ``meta:node``
     Add a ``type`` property to record the note type.
