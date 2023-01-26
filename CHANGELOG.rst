@@ -4,6 +4,25 @@
 Synapse Changelog
 *****************
 
+v2.122.0 - TBD
+=====================
+
+Features and Enhancements
+-------------------------
+- Add support for Python 3.10 to Synapse.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+- Update the Synapse docker containers to be built from a Debian based image,
+  instead of an Ubuntu based image.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+
+Bugfixes
+--------
+TBD
+
+Improved Documentation
+----------------------
+TBD
+
 v2.121.1 - 2022-01-23
 =====================
 

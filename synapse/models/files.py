@@ -429,6 +429,11 @@ class FileModule(s_module.CoreModule):
                     ('mime:pe:richhdr', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the rich header bytes.'}),
 
+                    ('exe:compiler', ('it:prod:softver', {}), {
+                        'doc': 'The software used to compile the file.'}),
+
+                    ('exe:packer', ('it:prod:softver', {}), {
+                        'doc': 'The packer software used to encode the file.'}),
                 )),
 
                 ('file:mime', {}, ()),

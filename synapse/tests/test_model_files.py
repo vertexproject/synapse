@@ -27,8 +27,18 @@ class FileTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, fbyts.norm, 'helo:moto')
             self.raises(s_exc.BadTypeValu, fbyts.norm, f'sha256:{s_common.guid()}')
 
-            nodes = await core.nodes('[ file:bytes=$byts ]', opts={'vars': {'byts': b'visi'}})
+            nodes = await core.nodes('''
+                [ file:bytes=$byts
+                    :exe:packer = {[ it:prod:softver=* :name="Visi Packer 31337" ]}
+                    :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
+                ]
+            ''', opts={'vars': {'byts': b'visi'}})
             pref = nodes[0].props.get('sha256')[:4]
+
+            self.nn(nodes[0].get('exe:packer'))
+            self.nn(nodes[0].get('exe:compiler'))
+            self.len(1, await core.nodes('file:bytes :exe:packer -> it:prod:softver +:name="Visi Packer 31337"'))
+            self.len(1, await core.nodes('file:bytes :exe:compiler -> it:prod:softver +:name="Visi Studio 31337"'))
 
             self.len(1, await core.nodes('file:bytes:sha256^=$pref +file:bytes:sha256^=$pref', opts={'vars': {'pref': pref}}))
 

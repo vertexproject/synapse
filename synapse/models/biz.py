@@ -201,6 +201,8 @@ class BizModule(s_module.CoreModule):
                         'doc': 'A brief summary of the service.'}),
                     ('type', ('biz:service:type:taxonomy', {}), {
                         'doc': 'A taxonomy of service types.'}),
+                    ('launched', ('time', {}), {
+                        'doc': 'The time when the operator first made the service available.'}),
                     # TODO: billing types (fixed, hourly, subscription, etc)
                 )),
                 ('biz:product', {}, (
