@@ -776,20 +776,20 @@ class AuthGrantV1(Handler):
         if body is None:
             return
 
-        user_iden = body.get('user')
-        udef = await self.cell.getUserDef(user_iden)
+        useriden = body.get('user')
+        udef = await self.cell.getUserDef(useriden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User iden {user_iden} not found.')
+            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.')
             return
 
-        role_iden = body.get('role')
-        rdef = await self.cell.getRoleDef(role_iden)
+        roleiden = body.get('role')
+        rdef = await self.cell.getRoleDef(roleiden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {role_iden} not found.')
+            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.')
             return
 
-        await self.cell.addUserRole(user_iden, role_iden)
-        self.sendRestRetn(await self.cell.getUserDef(user_iden, packroles=False))
+        await self.cell.addUserRole(useriden, roleiden)
+        self.sendRestRetn(await self.cell.getUserDef(useriden, packroles=False))
 
         return
 
@@ -809,20 +809,20 @@ class AuthRevokeV1(Handler):
         if body is None:
             return
 
-        user_iden = body.get('user')
-        udef = await self.cell.getUserDef(user_iden)
+        useriden = body.get('user')
+        udef = await self.cell.getUserDef(useriden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User iden {user_iden} not found.')
+            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.')
             return
 
-        role_iden = body.get('role')
-        rdef = await self.cell.getRoleDef(role_iden)
+        roleiden = body.get('role')
+        rdef = await self.cell.getRoleDef(roleiden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {role_iden} not found.')
+            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.')
             return
 
-        await self.cell.delUserRole(user_iden, role_iden)
-        self.sendRestRetn(await self.cell.getUserDef(user_iden, packroles=False))
+        await self.cell.delUserRole(useriden, roleiden)
+        self.sendRestRetn(await self.cell.getUserDef(useriden, packroles=False))
 
         return
 
