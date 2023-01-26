@@ -104,11 +104,11 @@ class FileBytes(s_types.Str):
                     subs = {'sha256': valu}
                     return f'sha256:{valu}', {'subs': subs}
 
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='unadorned file:bytes value is not a sha256')
-
             except Exception as e:
                 raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='unadorned file:bytes value is not a sha256')
 
         kind, kval = valu.split(':', 1)
 
