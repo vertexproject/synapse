@@ -52,7 +52,7 @@ class FileTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 opts = {'vars': {'z': 'z' * 64}}
-                await core.nodes('[file:bytes=`sha256:$z`]', opts=opts)
+                await core.nodes('[file:bytes=`sha256:{$z}`]', opts=opts)
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[file:bytes=base64:foo]')
