@@ -74,7 +74,7 @@ Features and Enhancements
   (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
 - Add an optional ``--type`` argument to the Storm ``note.add`` command.
   (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
-- Add a Storm command, ``gen.lang.language``, to lift oer generate a
+- Add a Storm command, ``gen.lang.language``, to lift or generate a
   ``lang:language`` node by name.
   (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
 - Update the allowed versions of the ``cbor2`` library; and upgrade the
