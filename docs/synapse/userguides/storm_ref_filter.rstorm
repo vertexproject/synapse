@@ -729,7 +729,7 @@ location (that is, nodes within a given radius of a specified latitude / longitu
   - Kilometers (km / kilometer / kilometers)
   - Meters (m / meter / meters)
   - Centimeters (cm / centimeter / centimeters)
-  - Millimeters (mm / millimeter / millimters)
+  - Millimeters (mm / millimeter / millimeters)
   - Miles (mile / miles)
   - Yards (yard / yards)
   - Feet (foot / feet)
@@ -1089,7 +1089,7 @@ and checks to see if the result is greater than 1.
   #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
 
 This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that
-match the specified expression (``cno.threat.*``) and :ref:`stormprims-set-size` to count the number
+match the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to count the number
 of matches.
 
 
