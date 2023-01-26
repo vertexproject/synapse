@@ -1064,6 +1064,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'minimum': 1,
             'hidecmdl': True,
         },
+        'provenance:en': {  # TODO: Remove in 3.0.0
+            'default': False,
+            'description': 'This no longer does anything.',
+            'type': 'boolean',
+            'hideconf': True,
+        },
         'modules': {
             'default': [],
             'description': 'A list of module classes to load.',
