@@ -1463,14 +1463,20 @@ stormcmds = (
         'name': 'note.add',
         'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
         'cmdargs': (
+            ('--type', {'type': 'str', 'help': 'The note type.'}),
             ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
         ),
         'storm': '''
-            function addNoteNode(text) {
+            function addNoteNode(text, type) {
+                if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                 [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                if $type {[ :type=$type ]}
                 return($node)
             }
-            init { $note = $addNoteNode($cmdopts.text) }
+            init {
+                $type = $lib.null
+                $note = $addNoteNode($cmdopts.text, $cmdopts.type)
+            }
             [ <(about)+ { yield $note } ]
         ''',
     },
