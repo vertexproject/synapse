@@ -1058,17 +1058,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
         },
-        'max:nodes': {
-            'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
-            'type': 'integer',
-            'minimum': 1,
-            'hidecmdl': True,
-        },
         'provenance:en': {  # TODO: Remove in 3.0.0
             'default': False,
             'description': 'This no longer does anything.',
             'type': 'boolean',
             'hideconf': True,
+        },
+        'max:nodes': {
+            'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
+            'type': 'integer',
+            'minimum': 1,
+            'hidecmdl': True,
         },
         'modules': {
             'default': [],
