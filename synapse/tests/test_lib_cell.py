@@ -1801,3 +1801,27 @@ class CellTest(s_t_utils.SynTest):
 
                         self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
                         self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
+
+    async def test_cell_onboot_optimize(self):
+
+        with self.getTestDir() as dirn:
+
+            aaaa = 'A' * 10_000_000
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                opts = {'vars': {'aaaa': aaaa}}
+                # await core.nodes('for $i in $lib.range(1000) { [meta:note=* :text=$aaaa ]}', opts=opts)
+                # await core.nodes('meta:note | delnode --force')
+
+            with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                conf = {'onboot:optimize': True}
+                async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                    pass
+
+                # TODO can't seem to get it to recover space without huge writes...
+                stream.seek(0)
+                text = stream.read()
+
+                print(text)
