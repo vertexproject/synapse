@@ -51,7 +51,7 @@ Features and Enhancements
     Add a form to record a taxonomy of skill types.
 
   ``ps:proficiency``
-    Add a form to record the assessment that a given contact possess a
+    Add a form to record the assessment that a given contact possesses a
     specific skill.
 
   ``risk:alert``
