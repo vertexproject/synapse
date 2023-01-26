@@ -630,11 +630,13 @@ class AuthUsersV1(Handler):
         except Exception:
             return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
 
-        if archived:
-            self.sendRestRetn([u.pack() for u in self.cell.auth.users()])
-            return
+        users = await self.cell.getUserDefs()
 
-        self.sendRestRetn([u.pack() for u in self.cell.auth.users() if not u.info.get('archived')])
+        if not archived:
+            users = [udef for udef in users if not udef.get('archived')]
+
+        self.sendRestRetn(users)
+
         return
 
 class AuthRolesV1(Handler):
@@ -644,7 +646,7 @@ class AuthRolesV1(Handler):
         if not await self.reqAuthUser():
             return
 
-        self.sendRestRetn([r.pack() for r in self.cell.auth.roles()])
+        self.sendRestRetn(await self.cell.getRoleDefs())
 
 class AuthUserV1(Handler):
 
@@ -653,12 +655,12 @@ class AuthUserV1(Handler):
         if not await self.reqAuthUser():
             return
 
-        user = self.cell.auth.user(iden)
-        if user is None:
+        udef = await self.cell.getUserDef(iden, packroles=False)
+        if udef is None:
             self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
             return
 
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(udef)
 
     async def post(self, iden):
 
@@ -666,8 +668,8 @@ class AuthUserV1(Handler):
         if not await self.reqAuthAdmin():
             return
 
-        user = self.cell.auth.user(iden)
-        if user is None:
+        udef = await self.cell.getUserDef(iden)
+        if udef is None:
             self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
             return
 
@@ -677,29 +679,29 @@ class AuthUserV1(Handler):
 
         name = body.get('name')
         if name is not None:
-            await user.setName(str(name))
+            await self.cell.setUserName(iden, name=name)
 
         email = body.get('email')
         if email is not None:
-            await user.info.set('email', email)
+            await self.cell.setUserEmail(iden, email)
 
         locked = body.get('locked')
         if locked is not None:
-            await user.setLocked(bool(locked))
+            await self.cell.setUserLocked(iden, bool(locked))
 
         rules = body.get('rules')
         if rules is not None:
-            await user.setRules(rules)
+            await self.cell.setUserRules(iden, rules, gateiden=None)
 
         admin = body.get('admin')
         if admin is not None:
-            await user.setAdmin(bool(admin))
+            await self.cell.setUserAdmin(iden, bool(admin), gateiden=None)
 
         archived = body.get('archived')
         if archived is not None:
-            await user.setArchived(bool(archived))
+            await self.cell.setUserArchived(iden, bool(archived))
 
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await self.cell.getUserDef(iden, packroles=False))
 
 class AuthUserPasswdV1(Handler):
 
@@ -709,20 +711,20 @@ class AuthUserPasswdV1(Handler):
         if body is s_common.novalu:
             return
 
-        user = self.cell.auth.user(iden)
-        if user is None:
+        udef = await self.cell.getUserDef(iden)
+        if udef is None:
             self.sendRestErr('NoSuchUser', f'User does not exist: {iden}')
             return
 
         password = body.get('passwd')
 
-        if current_user.isAdmin() or current_user.iden == user.iden:
+        if current_user.isAdmin() or current_user.iden == udef.get('iden'):
             try:
-                await user.setPasswd(password)
+                await self.cell.setUserPasswd(iden, password)
             except s_exc.BadArg as e:
                 self.sendRestErr('BadArg', e.get('mesg'))
                 return
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await self.cell.getUserDef(iden, packroles=False))
 
 class AuthRoleV1(Handler):
 
@@ -731,20 +733,20 @@ class AuthRoleV1(Handler):
         if not await self.reqAuthUser():
             return
 
-        role = self.cell.auth.role(iden)
-        if role is None:
+        rdef = await self.cell.getRoleDef(iden)
+        if rdef is None:
             self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.')
             return
 
-        self.sendRestRetn(role.pack())
+        self.sendRestRetn(rdef)
 
     async def post(self, iden):
 
         if not await self.reqAuthAdmin():
             return
 
-        role = self.cell.auth.role(iden)
-        if role is None:
+        rdef = await self.cell.getRoleDef(iden)
+        if rdef is None:
             self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.')
             return
 
@@ -754,9 +756,9 @@ class AuthRoleV1(Handler):
 
         rules = body.get('rules')
         if rules is not None:
-            await role.setRules(rules)
+            await self.cell.setRoleRules(iden, rules, gateiden=None)
 
-        self.sendRestRetn(role.pack())
+        self.sendRestRetn(await self.cell.getRoleDef(iden))
 
 class AuthGrantV1(Handler):
     '''
@@ -774,21 +776,20 @@ class AuthGrantV1(Handler):
         if body is None:
             return
 
-        iden = body.get('user')
-        user = self.cell.auth.user(iden)
-        if user is None:
-            self.sendRestErr('NoSuchUser', f'User iden {iden} not found.')
+        user_iden = body.get('user')
+        udef = await self.cell.getUserDef(user_iden)
+        if udef is None:
+            self.sendRestErr('NoSuchUser', f'User iden {user_iden} not found.')
             return
 
-        iden = body.get('role')
-        role = self.cell.auth.role(iden)
-        if role is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
+        role_iden = body.get('role')
+        rdef = await self.cell.getRoleDef(role_iden)
+        if rdef is None:
+            self.sendRestErr('NoSuchRole', f'Role iden {role_iden} not found.')
             return
 
-        await user.grant(role.iden)
-
-        self.sendRestRetn(user.pack())
+        await self.cell.addUserRole(user_iden, role_iden)
+        self.sendRestRetn(await self.cell.getUserDef(user_iden, packroles=False))
 
         return
 
@@ -808,20 +809,20 @@ class AuthRevokeV1(Handler):
         if body is None:
             return
 
-        iden = body.get('user')
-        user = self.cell.auth.user(iden)
-        if user is None:
-            self.sendRestErr('NoSuchUser', f'User iden {iden} not found.')
+        user_iden = body.get('user')
+        udef = await self.cell.getUserDef(user_iden)
+        if udef is None:
+            self.sendRestErr('NoSuchUser', f'User iden {user_iden} not found.')
             return
 
-        iden = body.get('role')
-        role = self.cell.auth.role(iden)
-        if role is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {iden} not found.')
+        role_iden = body.get('role')
+        rdef = await self.cell.getRoleDef(role_iden)
+        if rdef is None:
+            self.sendRestErr('NoSuchRole', f'Role iden {role_iden} not found.')
             return
 
-        await user.revoke(role.iden)
-        self.sendRestRetn(user.pack())
+        await self.cell.delUserRole(user_iden, role_iden)
+        self.sendRestRetn(await self.cell.getUserDef(user_iden, packroles=False))
 
         return
 
@@ -841,29 +842,32 @@ class AuthAddUserV1(Handler):
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
 
-        if await self.cell.auth.getUserByName(name) is not None:
+        if await self.cell.getUserDefByName(name) is not None:
             self.sendRestErr('DupUser', f'A user named {name} already exists.')
             return
 
-        user = await self.cell.auth.addUser(name)
+        udef = await self.cell.addUser(name=name)
+        iden = udef.get('iden')
 
         passwd = body.get('passwd', None)
         if passwd is not None:
-            await user.setPasswd(passwd)
+            await self.cell.setUserPasswd(iden, passwd)
 
         admin = body.get('admin', None)
         if admin is not None:
-            await user.setAdmin(bool(admin))
+            await self.cell.setUserAdmin(iden, bool(admin))
 
         email = body.get('email', None)
         if email is not None:
-            await user.info.set('email', email)
+            await self.cell.setUserEmail(iden, email)
 
         rules = body.get('rules')
         if rules is not None:
-            await user.setRules(rules)
+            await self.cell.setUserRules(iden, rules, gateiden=None)
 
-        self.sendRestRetn(user.pack())
+        udef = await self.cell.getUserDef(iden, packroles=False)
+
+        self.sendRestRetn(udef)
         return
 
 class AuthAddRoleV1(Handler):
@@ -886,13 +890,14 @@ class AuthAddRoleV1(Handler):
             self.sendRestErr('DupRole', f'A role named {name} already exists.')
             return
 
-        role = await self.cell.auth.addRole(name)
+        rdef = await self.cell.addRole(name)
+        iden = rdef.get('iden')
 
         rules = body.get('rules', None)
         if rules is not None:
-            await role.setRules(rules)
+            await self.cell.setRoleRules(iden, rules, gateiden=None)
 
-        self.sendRestRetn(role.pack())
+        self.sendRestRetn(await self.cell.getRoleDef(iden))
         return
 
 class AuthDelRoleV1(Handler):
@@ -911,11 +916,11 @@ class AuthDelRoleV1(Handler):
             self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
             return
 
-        role = await self.cell.auth.getRoleByName(name)
-        if role is None:
+        rdef = await self.cell.getRoleDefByName(name)
+        if rdef is None:
             return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
 
-        await self.cell.auth.delRole(role.iden)
+        await self.cell.delRole(rdef.get('iden'))
 
         self.sendRestRetn(None)
         return

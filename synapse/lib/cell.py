@@ -2213,10 +2213,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Set archive={archived} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
-    async def getUserDef(self, iden):
+    async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
         if user is not None:
-            return user.pack(packroles=True)
+            return user.pack(packroles=packroles)
 
     async def getAuthGate(self, iden):
         gate = self.auth.getAuthGate(iden)
