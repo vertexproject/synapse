@@ -62,17 +62,17 @@ Features and Enhancements
     for the compromise.
 
   ``risk:threat``
-    Add a ``type`` property to trecord the type of the threat cluster.
+    Add a ``type`` property to record the type of the threat cluster.
 
   ``risk:threat:type:taxonomy``
-    Add a form to record an taxonomy of threat types.
+    Add a form to record a taxonomy of threat types.
 
 - Add support for Python 3.10 to Synapse.
   (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
 - Update the Synapse docker containers to be built from a Debian based image,
   instead of an Ubuntu based image.
   (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
-- Add an optional ``--type`` argument to the Storm ``node.add`` command.
+- Add an optional ``--type`` argument to the Storm ``note.add`` command.
   (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
 - Add a Storm command, ``gen.lang.language``, to lift oer generate a
   ``lang:language`` node by name.
