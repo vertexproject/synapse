@@ -83,8 +83,7 @@ class StormScrapeTest(s_test.SynTest):
                         $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
                     }'''
 
-        conf = {'provenance:en': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
             self.none(core.modsbyiface.get('scrape'))
 
             mods = await core.getStormIfaces('scrape')
@@ -127,7 +126,7 @@ class StormScrapeTest(s_test.SynTest):
                             ('ps:name', 'mallory'),
                             ('inet:url', 'https://giggles.com/mallory.html')))
 
-        conf = {'provenance:en': False, 'storm:interface:scrape': False, }
+        conf = {'storm:interface:scrape': False, }
         async with self.getTestCore(conf=conf) as core:
 
             await core.loadStormPkg(pkgdef)
