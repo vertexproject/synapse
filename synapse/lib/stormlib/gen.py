@@ -180,6 +180,13 @@ class LibGen(s_stormtypes.Lib):
             [ pol:country=* :iso2=$iso2 ]
             return($node)
         }
+
+        function langByName(name) {
+            lang:name=$name -> lang:language
+            return($node)
+            [ lang:language=* :name=$name ]
+            return($node)
+        }
     '''
 
 stormcmds = (
@@ -314,5 +321,13 @@ stormcmds = (
             ('email', {'help': 'The contact email address.'}),
         ),
         'storm': 'yield $lib.gen.psContactByEmail($cmdopts.type, $cmdopts.email)',
+    },
+    {
+        'name': 'gen.lang.language',
+        'descr': 'Lift (or create) a lang:language node based on the name.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the language.'}),
+        ),
+        'storm': 'yield $lib.gen.langByName($cmdopts.name)',
     },
 )

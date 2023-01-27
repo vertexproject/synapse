@@ -44,6 +44,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('usd', nodes[0].get('currency'))
             self.eq('100', nodes[0].get('econ:gdp'))
             self.eq('usd', nodes[0].get('econ:currency'))
+            self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 
     async def test_types_iso2(self):
         async with self.getTestCore() as core:
