@@ -60,6 +60,15 @@ class FileTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[file:bytes=hex:foo]')
             self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
 
+            msgs = await core.stormlist('[file:bytes=hex:foo]')
+            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+
+            msgs = await core.stormlist('[file:bytes=guid:foo]')
+            self.stormIsInErr(f'guid is not a guid - valu=foo', msgs)
+
+            msgs = await core.stormlist('[file:bytes=newp:foo]')
+            self.stormIsInErr(f'unable to norm as file:bytes - valu=newp:foo', msgs)
+
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:

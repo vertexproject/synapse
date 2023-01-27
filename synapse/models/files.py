@@ -137,15 +137,15 @@ class FileBytes(s_types.Str):
             kval = kval.lower()
             if not s_common.isguid(kval):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='guid is not a guid')
+                                        mesg=f'guid is not a guid - valu={kval}')
 
             return f'guid:{kval}', {}
 
         if kind == 'sha256':
 
             if len(kval) != 64:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='invalid length for sha256 valu')
+                mesg = f'invalid length for sha256 value - valu={kval}'
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
             try:
                 s_common.uhex(kval)
@@ -156,8 +156,8 @@ class FileBytes(s_types.Str):
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind,
-                                mesg='unable to norm as file:bytes')
+        mesg = f'unable to norm as file:bytes - valu={valu}'
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind, mesg=mesg)
 
     def _normPyBytes(self, valu):
 
