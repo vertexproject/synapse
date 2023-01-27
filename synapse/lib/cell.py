@@ -111,42 +111,6 @@ def adminapi(log=False):
 
     return decrfunc
 
-def _log_web_request(handler: t_web.RequestHandler) -> None:
-    # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
-    if handler.get_status() < 400:
-        log_method = t_log.access_log.info
-    elif handler.get_status() < 500:
-        log_method = t_log.access_log.warning
-    else:
-        log_method = t_log.access_log.error
-
-    request_time = 1000.0 * handler.request.request_time()
-    status = handler.get_status()
-    summary = handler._request_summary()
-
-    extra = {}
-    enfo = extra.setdefault('synapse', {})
-    enfo['remoteip'] = handler.request.remote_ip
-
-    # Handle a heavy user object
-    if hasattr(handler, '_web_user') and handler._web_user is not None:
-        user = handler._web_user
-        enfo['user'] = user.iden
-        enfo['username'] = user.name
-        mesg = f'{status} {summary} user={user.name} {request_time:.2f}ms'
-
-    # Handle a heavy session
-    elif hasattr(handler, '_web_sess') and handler._web_sess is not None:
-        user = handler._web_sess.user
-        enfo['user'] = user.iden
-        enfo['username'] = user.name
-        mesg = f'{status} {summary} user={user.name} {request_time:.2f}ms'
-
-    else:
-        mesg = f'{status} {summary} {request_time:.2f}ms'
-
-    log_method(mesg, extra=extra)
-
 async def _doIterBackup(path, chunksize=1024):
     '''
     Create tarball and stream bytes.
@@ -2471,6 +2435,47 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
+    def _get_user_for_handler(self, handler: s_httpapi.Handler):
+        if hasattr(handler, '_web_user') and handler._web_user is not None:
+            user = handler._web_user
+            return (user.iden, user.name)
+
+        # Handle a heavy session
+        elif hasattr(handler, '_web_sess') and handler._web_sess is not None:
+            user = handler._web_sess.user
+            return (user.iden, user.name)
+
+        return None
+
+    def _log_web_request(self, handler: s_httpapi.Handler) -> None:
+        # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
+        if handler.get_status() < 400:
+            log_method = t_log.access_log.info
+        elif handler.get_status() < 500:
+            log_method = t_log.access_log.warning
+        else:
+            log_method = t_log.access_log.error
+
+        request_time = 1000.0 * handler.request.request_time()
+        status = handler.get_status()
+        summary = handler._request_summary()
+
+        extra = {}
+        enfo = extra.setdefault('synapse', {})
+        enfo['remoteip'] = handler.request.remote_ip
+
+        utup = self._get_user_for_handler(handler)
+
+        if utup:
+            useriden, username = utup
+            enfo['user'] = useriden
+            enfo['username'] = username
+            mesg = f'{status} {summary} user={username} {request_time:.2f}ms'
+        else:
+            mesg = f'{status} {summary} {request_time:.2f}ms'
+
+        log_method(mesg, extra=extra)
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -2494,7 +2499,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = {
             'cookie_secret': secret,
-            'log_function': _log_web_request,
+            'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
 
