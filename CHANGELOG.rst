@@ -40,7 +40,7 @@ Features and Enhancements
   ``ps:contact``
     Add a ``lang`` property to record the language specified for the contact.
 
-    Add a ``langs`` property to record the alternative langauges specified for
+    Add a ``langs`` property to record the alternative languages specified for
     the contact.
 
   ``ps:skill``
@@ -70,7 +70,8 @@ Features and Enhancements
 - Add support for Python 3.10 to Synapse.
   (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
 - Update the Synapse docker containers to be built from a Debian based image,
-  instead of an Ubuntu based image.
+  instead of an Ubuntu based image. These images now use Python 3.10 as the
+  Python runtime.
   (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
 - Add an optional ``--type`` argument to the Storm ``note.add`` command.
   (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
