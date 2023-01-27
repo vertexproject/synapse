@@ -244,7 +244,7 @@ class StormCmd(s_cli.Cmd):
         ('--hide-tags', {}),  # type: ignore
         ('--show', {'type': 'valu'}),
         ('--show-nodeedits', {}),
-        ('--show-prov', {}),
+        ('--show-prov', {}),  # TODO: remove in 3.0.0
         ('--editformat', {'type': 'enum', 'defval': 'nodeedits', 'enum:vals': editformat_enums}),
         ('--file', {'type': 'valu'}),
         ('--optsfile', {'type': 'valu'}),
@@ -268,7 +268,7 @@ class StormCmd(s_cli.Cmd):
             'err': self._onErr,
             'node:edits': self._onNodeEdits,
             'node:edits:count': self._onNodeEditsCount,
-            'prov:new': self._onProvNew,
+            'prov:new': self._onProvNew,  # TODO remove in 3.0.0
         }
         self._indented = False
 

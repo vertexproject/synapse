@@ -49,8 +49,12 @@ class RiskModule(s_module.CoreModule):
                 ('risk:tool:software', ('guid', {}), {
                     'doc': 'A software tool used in threat activity.',
                 }),
+
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
                     'doc': 'An assessment of the origin and validity of the alert.'}),
+
+                ('risk:threat:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of threat types.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -87,10 +91,17 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
             ),
             'forms': (
+
+                ('risk:threat:type:taxonomy', {}, ()),
+
                 ('risk:threat', {}, (
+
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ex': "apt1 (mandiant)",
                         'doc': 'The name of the threat cluster.'}),
+
+                    ('type', ('risk:threat:type:taxonomy', {}), {
+                        'doc': 'The type of threat cluster.'}),
 
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
@@ -395,6 +406,9 @@ class RiskModule(s_module.CoreModule):
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
+                    ('priority', ('int', {}), {
+                        'doc': 'A numeric value used to rank alerts by priority.'}),
+
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
                         'doc': 'Analyst specified verdict taxonomy about why the alert is malicious or benign.'}),
@@ -475,6 +489,9 @@ class RiskModule(s_module.CoreModule):
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.',
                     }),
+                    ('severity', ('int', {}), {
+                        'doc': 'An integer based relative severity score for the compromise.'}),
+
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
@@ -509,6 +526,8 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.',
                     }),
+                    ('severity', ('int', {}), {
+                        'doc': 'An integer based relative severity score for the attack.'}),
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the attack.',
                     }),

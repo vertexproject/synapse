@@ -409,8 +409,7 @@ class CortexTest(s_t_utils.SynTest):
             ]
         }
 
-        conf = {'provenance:en': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
 
             self.none(core.modsbyiface.get('lookup'))
 
@@ -4142,7 +4141,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         Everything still works when no nexus log is kept
         '''
         conf = {'layer:lmdb:map_async': True,
-                'provenance:en': True,
                 'nexslog:en': False,
                 'layers:logedits': True,
                 }
@@ -4156,7 +4154,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         Everything still works when no layer log is kept
         '''
         conf = {'layer:lmdb:map_async': True,
-                'provenance:en': True,
                 'nexslog:en': True,
                 'layers:logedits': False,
                 }
