@@ -2469,17 +2469,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             status = handler.get_status()
             summary = handler._request_summary()
 
+            extra = {}
+            enfo = extra.setdefault('synapse', {})
+            enfo['remoteip'] = handler.request.remote_ip
+
             # Handle a heavy user object
             if hasattr(handler, '_web_user') and handler._web_user is not None:
-                extra = {}
-                enfo = extra.setdefault('synapse', {})
                 user = handler._web_user
                 enfo['user'] = user.iden
                 enfo['username'] = user.name
                 mesg = f'{status} {summary} user={user.name} {request_time:.2f}ms'
 
             else:
-                extra = None
                 mesg = f'{status} {summary} {request_time:.2f}ms'
 
             log_method(mesg, extra=extra)
