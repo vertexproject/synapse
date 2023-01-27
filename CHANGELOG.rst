@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.122.0 - 2023-01-26
+v2.122.0 - 2023-01-27
 =====================
 
 Features and Enhancements
@@ -86,6 +86,13 @@ Features and Enhancements
   ``https:headers`` configuration option to inject that header into their
   HTTP responses.
   (`#2997 <https://github.com/vertexproject/synapse/pull/2997>`_)
+
+Bugfixes
+--------
+- Malformed hash values normalized as ``file:bytes`` raised exceptions which
+  were not properly caught, causing Storm ``?=`` syntax to fail. Malformed
+  values are now properly handled in ``file:bytes``.
+  (`#3000 <https://github.com/vertexproject/synapse/pull/3000>`_)
 
 Improved Documentation
 ----------------------
