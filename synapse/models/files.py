@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -104,11 +105,12 @@ class FileBytes(s_types.Str):
                     subs = {'sha256': valu}
                     return f'sha256:{valu}', {'subs': subs}
 
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+            except binascii.Error as e:
+                mesg = f'invalid unadorned file:bytes value: {e} - valu={valu}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='unadorned file:bytes value is not a sha256')
+            mesg = f'unadorned file:bytes value is not a sha256 - valu={valu}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
         kind, kval = valu.split(':', 1)
 
@@ -116,8 +118,9 @@ class FileBytes(s_types.Str):
             try:
                 byts = base64.b64decode(kval)
                 return self._normPyBytes(byts)
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+            except binascii.Error as e:
+                mesg = f'invalid file:bytes base64 value: {e} - valu={kval}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         kval = kval.lower()
 
@@ -125,8 +128,9 @@ class FileBytes(s_types.Str):
             try:
                 byts = s_common.uhex(kval)
                 return self._normPyBytes(byts)
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+            except binascii.Error as e:
+                mesg = f'invalid file:bytes hex value: {e} - valu={kval}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         if kind == 'guid':
 
@@ -145,8 +149,9 @@ class FileBytes(s_types.Str):
 
             try:
                 s_common.uhex(kval)
-            except Exception as e:
-                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
+            except binascii.Error as e:
+                mesg = f'invalid file:bytes sha256 value: {e} - valu={kval}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
