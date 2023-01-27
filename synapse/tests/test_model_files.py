@@ -46,6 +46,29 @@ class FileTest(s_t_utils.SynTest):
                 opts = {'vars': {'a': 'a' * 64}}
                 await core.nodes('file:bytes [:sha256=$a]', opts=opts)
 
+            badv = 'z' * 64
+            opts = {'vars': {'z': badv}}
+            msgs = await core.stormlist('[ file:bytes=$z ]', opts=opts)
+            self.stormIsInErr(f'invalid unadorned file:bytes value: Non-hexadecimal digit found - valu={badv}', msgs)
+
+            msgs = await core.stormlist('[ file:bytes=`sha256:{$z}` ]', opts=opts)
+            self.stormIsInErr(f'invalid file:bytes sha256 value: Non-hexadecimal digit found - valu={badv}', msgs)
+
+            msgs = await core.stormlist('[file:bytes=base64:foo]')
+            self.stormIsInErr(f'invalid file:bytes base64 value: Incorrect padding - valu=foo', msgs)
+
+            msgs = await core.stormlist('[file:bytes=hex:foo]')
+            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+
+            msgs = await core.stormlist('[file:bytes=hex:foo]')
+            self.stormIsInErr(f'invalid file:bytes hex value: Odd-length string - valu=foo', msgs)
+
+            msgs = await core.stormlist('[file:bytes=guid:foo]')
+            self.stormIsInErr(f'guid is not a guid - valu=foo', msgs)
+
+            msgs = await core.stormlist('[file:bytes=newp:foo]')
+            self.stormIsInErr(f'unable to norm as file:bytes - valu=newp:foo', msgs)
+
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
