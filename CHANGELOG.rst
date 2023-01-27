@@ -4,6 +4,192 @@
 Synapse Changelog
 *****************
 
+v2.122.0 - 2023-01-27
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Updates to the ``biz``, ``file``, ``lang``, ``meta``, ``pol``, and
+  ``risk`` models.
+  (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
+
+  ``biz:service``
+    Add a ``launched`` property to record when the operator first made the
+    service available.
+
+  ``file:bytes``
+    Add ``exe:compiler`` and ``exe:packer`` properties to track the software
+    used to compile and encode the file.
+
+  ``lang:language``
+    Add a new guid form to represent a written or spoken language.
+
+  ``lang:name``
+    Add a new form to record the name of a language.
+
+  ``meta:node``
+    Add a ``type`` property to record the note type.
+
+  ``meta:note:type:taxonomy``
+    Add a form to record an analyst defined taxonomy of note types.
+
+  ``pol:country``
+    Correct the ``vitals`` property type from ``ps:vitals`` to ``pol:vitals``.
+
+  ``ps:contact``
+    Add a ``lang`` property to record the language specified for the contact.
+
+    Add a ``langs`` property to record the alternative languages specified for
+    the contact.
+
+  ``ps:skill``
+    Add a form to record a specific skill which a person or organization may
+    have.
+
+  ``ps:skill:type:taxonomy``
+    Add a form to record a taxonomy of skill types.
+
+  ``ps:proficiency``
+    Add a form to record the assessment that a given contact possesses a
+    specific skill.
+
+  ``risk:alert``
+    Add a ``priority`` property that can be used to rank alerts by priority.
+
+  ``risk:compromise``
+    Add a ``severity`` property that can be used as a relative severity score
+    for the compromise.
+
+  ``risk:threat``
+    Add a ``type`` property to record the type of the threat cluster.
+
+  ``risk:threat:type:taxonomy``
+    Add a form to record a taxonomy of threat types.
+
+- Add support for Python 3.10 to Synapse.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+- Update the Synapse docker containers to be built from a Debian based image,
+  instead of an Ubuntu based image. These images now use Python 3.10 as the
+  Python runtime.
+  (`#2962 <https://github.com/vertexproject/synapse/pull/2962>`_)
+- Add an optional ``--type`` argument to the Storm ``note.add`` command.
+  (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
+- Add a Storm command, ``gen.lang.language``, to lift or generate a
+  ``lang:language`` node by name.
+  (`#2984 <https://github.com/vertexproject/synapse/pull/2984>`_)
+- Update the allowed versions of the ``cbor2`` library; and upgrade the
+  versions of ``aiostmplib`` and ``aiohttp-socks`` to their latest versions.
+  (`#2986 <https://github.com/vertexproject/synapse/pull/2986>`_)
+- The ``X-XSS-Protection`` header was removed from the default HTTP API
+  handlers. This header is non-standard and only supported by Safari browsers.
+  Service deployments which rely on this header should use the
+  ``https:headers`` configuration option to inject that header into their
+  HTTP responses.
+  (`#2997 <https://github.com/vertexproject/synapse/pull/2997>`_)
+
+Bugfixes
+--------
+- Malformed hash values normalized as ``file:bytes`` raised exceptions which
+  were not properly caught, causing Storm ``?=`` syntax to fail. Malformed
+  values are now properly handled in ``file:bytes``.
+  (`#3000 <https://github.com/vertexproject/synapse/pull/3000>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm filters user guide to include expression filters
+  (`#2997 <https://github.com/vertexproject/synapse/pull/2997>`_)
+- Update Storm type-specific behavior user guide to clarify ``guid``
+  deconfliction use cases and some associated best practices.
+  (`#2997 <https://github.com/vertexproject/synapse/pull/2997>`_)
+- Update Storm command reference user guide to document ``gen.*`` commands.
+  (`#2997 <https://github.com/vertexproject/synapse/pull/2997>`_)
+
+Deprecations
+------------
+- The Cortex APIs ``provStacks()`` and ``getProvStack(iden)`` have been
+  removed.
+  (`#2995 <https://github.com/vertexproject/synapse/pull/2995>`_)
+
+v2.121.1 - 2022-01-23
+=====================
+
+Bugfixes
+--------
+- When creating Storm Macros using ``v2.121.0``, the creator of the Macro was
+  incorrectly set to the ``root`` user. This is now set to the user that
+  created the macro using the Storm ``macro.set`` command or the
+  ``$lib.macro.set()`` API.
+  (`#2993 <https://github.com/vertexproject/synapse/pull/2993>`_)
+
+v2.121.0 - 2022-01-20
+=====================
+
+Automatic Migrations
+--------------------
+- Storm Macros stored in the Cortex are migrated from the Hive to the Cortex
+  LMDB slab.
+  (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+
+- Updates to the  ``inet`` and  ``org`` models.
+  (`#2982 <https://github.com/vertexproject/synapse/pull/2982>`_)
+  (`#2987 <https://github.com/vertexproject/synapse/pull/2987>`_)
+
+  ``inet:dns:soa``
+    The ``fqdn``, ``ns`` and ``email`` properties had the read-only flag
+    removed from them.
+
+  ``ou:org``
+    Add a ``goals`` property to record the assessed goals of the organization.
+
+- Add extended permissions for Storm Macro functionality using a new
+  simplified permissions system. This allows users to opt into assigning
+  users or roles the permission to read, write, administrate, or deny access
+  to their Macros. These permissions can be set by the Storm
+  ``$lib.macro.grant()`` API.
+  (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
+- Add extended information about a Storm Macro, including its creation time,
+  update time, and a description. The Macro name, description and Storm can
+  now be set via the Storm ``$lib.macro.mod()`` API.
+  (`#2973 <https://github.com/vertexproject/synapse/pull/2973>`_)
+- Allow users and Power-Ups to store graph projection definitions in the
+  Cortex. Graph projections have the same simplified permissions system
+  applied to them as introduced for Storm Macros. Storm users can now also
+  load a stored graph projection into a running Storm query. These new
+  features are exposed via the Storm ``$lib.graph`` APIs.
+  (`#2914 <https://github.com/vertexproject/synapse/pull/2914>`_)
+- The disk space required to make the backup of a Synapse service is now
+  checked prior to a live backup being made. If there is insufficient storage
+  to make the backup on the volume storing the backup, a LowSpace exception
+  will be raised.
+  (`#2990 <https://github.com/vertexproject/synapse/pull/2990>`_)
+
+Bugfixes
+--------
+- When normalizing the ``inet:email`` type, an unclear Python ``ValueError``
+  could have been raised to a user. This is now caught and a specific
+  ``BadTypeValu`` exception is raised.
+  (`#2982 <https://github.com/vertexproject/synapse/pull/2982>`_)
+- The ``synapse.exc.StormRaise`` exception caused an error when recreating
+  the exception on the client side of a Telepath connection. This exception
+  will now raise properly on the caller side.
+  (`#2985 <https://github.com/vertexproject/synapse/pull/2985>`_)
+- When using the Storm ``diff`` command to examine a forked View, if a node
+  was deleted out from the base layer and edited in the fork, an exception
+  would be raised. This situation is now properly handled.
+  (`#2988 <https://github.com/vertexproject/synapse/pull/2988>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm User Guide section on variables for clarity.
+  (`#2968 <https://github.com/vertexproject/synapse/pull/2968>`_)
+- Correct Provenance API deprecation notice from ``v2.221.0`` to ``v2.122.0``.
+  (`#2981 <https://github.com/vertexproject/synapse/pull/2981>`_)
+
 v2.120.0 - 2023-01-11
 =====================
 

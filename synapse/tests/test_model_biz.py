@@ -211,6 +211,7 @@ class BizModelTest(s_t_utils.SynTest):
                         :type=awesome
                         :summary="hehe haha"
                         :provider={ ps:contact:name=visi | limit 1}
+                        :launched=20230124
                     ]}
                     :current=1
                     :time=20221221
@@ -232,3 +233,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('biz:listing -> ps:contact +:name=visi'))
             self.len(1, await core.nodes('biz:listing -> biz:product +:name=wootprod'))
             self.len(1, await core.nodes('biz:listing -> biz:service +:name=wootsvc'))
+
+            nodes = await core.nodes('biz:listing -> biz:service')
+            self.len(1, nodes)
+            self.eq(1674518400000, nodes[0].get('launched'))

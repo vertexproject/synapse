@@ -1054,6 +1054,15 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
 
+                    _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+                    def lowspace(dirn):
+                        cellsize = s_common.getDirSize(coredirn)
+                        return _ntuple_diskusage(0, cellsize, 0)
+
+                    with mock.patch('shutil.disk_usage', lowspace):
+                        await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
     async def test_cell_tls_client(self):
 
         with self.getTestDir() as dirn:
@@ -1736,7 +1745,7 @@ class CellTest(s_t_utils.SynTest):
              mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
 
             async with self.getTestCore() as core:
-                self.true(core.provstor.enabled)
+
                 self.len(1, await core.nodes('[inet:fqdn=vertex.link]'))
 
                 with mock.patch('shutil.disk_usage', full_disk):
@@ -1745,12 +1754,10 @@ class CellTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
                     self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
 
-                    self.false(core.provstor.enabled)
                     revt.clear()
 
                 self.true(await asyncio.wait_for(revt.wait(), 1))
 
-                self.true(core.provstor.enabled)
                 self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
 
             with self.getTestDir() as dirn:
