@@ -1270,6 +1270,13 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('ou:name | merge --apply', opts=altview)
             self.len(1, await core.nodes('ou:name=foo -(bar)> *'))
 
+            await visi.delRule((True, ('node', 'add')), gateiden=lowriden)
+
+            self.len(1, await core.nodes('ou:name=foo [ .seen=now ]', opts=altview))
+            await core.nodes('ou:name=foo | merge --apply', opts=altview)
+
+            await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
+
             with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
@@ -1612,6 +1619,18 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
             self.stormIsInPrint('1001', msgs)
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('view', 'add')))
+
+            view2iden = await core.callStorm('return($lib.view.get().fork().iden)', opts={'user': visi.iden})
+            view2 = {'view': view2iden, 'user': visi.iden}
+
+            view3iden = await core.callStorm('return($lib.view.get().fork().iden)', opts=view2)
+            view3 = {'view': view3iden, 'user': visi.iden}
+
+            self.len(1, await core.nodes('[ou:org=(perms,) :desc=foo]', opts=view2))
+            await core.nodes('ou:org=(perms,) | movenodes --apply', opts=view3)
 
     async def test_storm_embeds(self):
 
