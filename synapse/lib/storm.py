@@ -1463,14 +1463,20 @@ stormcmds = (
         'name': 'note.add',
         'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
         'cmdargs': (
+            ('--type', {'type': 'str', 'help': 'The note type.'}),
             ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
         ),
         'storm': '''
-            function addNoteNode(text) {
+            function addNoteNode(text, type) {
+                if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                 [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                if $type {[ :type=$type ]}
                 return($node)
             }
-            init { $note = $addNoteNode($cmdopts.text) }
+            init {
+                $type = $lib.null
+                $note = $addNoteNode($cmdopts.text, $cmdopts.type)
+            }
             [ <(about)+ { yield $note } ]
         ''',
     },
@@ -3095,8 +3101,9 @@ class MergeCmd(Cmd):
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
-        runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
-        runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
+        if sode.get('valu') is not None:
+            runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+            runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
             full = node.form.prop(name).full
@@ -3359,8 +3366,9 @@ class MoveNodesCmd(Cmd):
             if layr == self.destlayr:
                 continue
 
-            self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-            self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
+            if sode.get('valu') is not None:
+                self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+                self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
             for name, (valu, stortype) in sode.get('props', {}).items():
                 full = node.form.prop(name).full

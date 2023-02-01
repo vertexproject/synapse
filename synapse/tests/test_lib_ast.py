@@ -170,8 +170,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
-        conf = {'provenance:en': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
             await core.loadStormPkg({
                 'name': 'testsearch',
                 'modules': [

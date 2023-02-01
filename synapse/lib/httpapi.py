@@ -80,7 +80,6 @@ class HandlerBase:
     def set_default_headers(self):
 
         self.clear_header('Server')
-        self.add_header('X-XSS-Protection', '1; mode=block')
         self.add_header('X-Content-Type-Options', 'nosniff')
 
         origin = self.request.headers.get('origin')

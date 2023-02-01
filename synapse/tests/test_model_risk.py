@@ -35,6 +35,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :targeted=true
                     :goal=*
                     :type=foo.bar
+                    :severity=10
                     :desc=wootwoot
                     :campaign={camp}
                     :prev={attk}
@@ -84,6 +85,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:server'), 'tcp://1.2.3.4')
             self.eq(node.get('used:software'), soft)
             self.eq(node.get('sophistication'), 40)
+            self.eq(node.get('severity'), 10)
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
@@ -207,6 +209,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
+                    :severity = 10
                     :target = {[ ps:contact=* :name=ledo ]}
                     :attacker = {[ ps:contact=* :name=visi ]}
                     :campaign = *
@@ -242,6 +245,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('99', nodes[0].get('ransom:price'))
             self.eq('1010', nodes[0].get('response:cost'))
             self.eq('usd', nodes[0].get('econ:currency'))
+            self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))

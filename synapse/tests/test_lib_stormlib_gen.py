@@ -69,3 +69,7 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('vertex.employee.', nodes00[0].get('type'))
             self.eq('visi@vertex.link', nodes00[0].get('email'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes00 = await core.nodes('gen.lang.language "English (US)" | [ :names+="Murican" ]')
+            nodes01 = await core.nodes('yield $lib.gen.langByName(Murican)')
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
