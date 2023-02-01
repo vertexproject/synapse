@@ -885,7 +885,7 @@ class AuthAddRoleV1(Handler):
             self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
             return
 
-        if await self.cell.auth.getRoleByName(name) is not None:
+        if await self.cell.getRoleDefByName(name) is not None:
             self.sendRestErr('DupRole', f'A role named {name} already exists.')
             return
 
