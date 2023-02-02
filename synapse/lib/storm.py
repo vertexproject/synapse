@@ -3246,10 +3246,12 @@ class MergeCmd(Cmd):
 
                             isset = False
                             for undr in sodes[1:]:
-                                curv = undr.get('props', {}).get(name)
-                                if curv is not None and curv[0] != valu:
-                                    isset = True
-                                    break
+                                props = undr.get('props')
+                                if props is not None:
+                                    curv = props.get(name)
+                                    if curv is not None and curv[0] != valu:
+                                        isset = True
+                                        break
 
                             if isset:
                                 valurepr = prop.type.repr(curv[0])
