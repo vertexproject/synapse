@@ -595,8 +595,8 @@ class CellApi(s_base.Base):
         raise s_exc.AuthDeny(mesg=mesg)
 
     @adminapi()
-    async def getUserDef(self, iden):
-        return await self.cell.getUserDef(iden)
+    async def getUserDef(self, iden, packroles=True):
+        return await self.cell.getUserDef(iden, packroles=packroles)
 
     @adminapi()
     async def getAuthGate(self, iden):
