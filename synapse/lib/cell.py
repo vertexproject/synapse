@@ -45,6 +45,8 @@ import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
+import synapse.lib.crypto.passwd as s_passwd
+
 import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
@@ -544,6 +546,10 @@ class CellApi(s_base.Base):
 
         self.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.cell.setUserPasswd(iden, passwd)
+
+    @adminapi()
+    async def genUserOnepass(self, iden, duration=60000):
+        return await self.cell.genUserOnepass(iden, duration)
 
     @adminapi(log=True)
     async def setUserLocked(self, useriden, locked):
@@ -2200,6 +2206,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.setPasswd(passwd)
         logger.info(f'Set password for {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+
+    async def genUserOnepass(self, iden, duration=600000):
+        user = await self.auth.reqUser(iden)
+        passwd = s_common.guid()
+        shadow = await s_passwd.getShadowV2(passwd=passwd)
+        now = s_common.now()
+        onepass = {'create': now, 'expires': s_common.now() + duration,
+                   'shadow': shadow}
+        await self.auth.setUserInfo(iden, 'onepass', onepass)
+
+        logger.info(f'Issued one time password for {user.name}',
+                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+
+        return passwd
 
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
