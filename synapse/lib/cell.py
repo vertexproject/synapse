@@ -2435,17 +2435,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
-    def _get_user_for_handler(self, handler: s_httpapi.Handler):
-        if hasattr(handler, '_web_user') and handler._web_user is not None:
-            user = handler._web_user
-            return (user.iden, user.name)
-
-        # Handle a heavy session
-        elif hasattr(handler, '_web_sess') and handler._web_sess is not None:
-            user = handler._web_sess.user
-            return (user.iden, user.name)
-
-        return None
+    def _get_user_for_handler(self, handler: s_httpapi.Handler) -> dict:
+        ret = {}
+        if hasattr(handler, '_web_useriden') and handler._web_useriden:
+            ret['user'] = handler._web_useriden
+        if hasattr(handler, '_web_username') and handler._web_username:
+            ret['username'] = handler._web_username
+        return ret
 
     def _log_web_request(self, handler: s_httpapi.Handler) -> None:
         # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
@@ -2464,12 +2460,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         enfo = extra.setdefault('synapse', {})
         enfo['remoteip'] = handler.request.remote_ip
 
-        utup = self._get_user_for_handler(handler)
-
-        if utup:
-            useriden, username = utup
-            enfo['user'] = useriden
-            enfo['username'] = username
+        unfo = self._get_user_for_handler(handler)
+        enfo.update(**unfo)
+        username = enfo.get('username')
+        if username is not None:
             mesg = f'{status} {summary} user={username} {request_time:.2f}ms'
         else:
             mesg = f'{status} {summary} {request_time:.2f}ms'

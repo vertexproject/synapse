@@ -67,6 +67,8 @@ class HandlerBase:
         self.cell = cell
         self._web_sess = None
         self._web_user = None
+        self._web_useriden = None  # The user iden at the time of authentication.
+        self._web_username = None  # The user name at the time of authentication.
 
         # this can't live in set_default_headers() due to call ordering in tornado
         headers = self.getCustomHeaders()
