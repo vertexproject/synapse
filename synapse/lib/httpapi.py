@@ -13,9 +13,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.hiveauth as s_hiveauth
-
-import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
 
@@ -1044,23 +1041,13 @@ class OnePassIssueV1(Handler):
         if body is None:
             return
 
-        useriden = body.get('user')
-        duration = body.get('duration', 600000)  # 10 mins default
-
-        user = self.cell.auth.user(useriden)
-        if user is None:
+        iden = body.get('user')
+        duration = body.get('duration', 600000)
+        authcell = self.getAuthCell()
+        try:
+            passwd = await authcell.genUserOnepass(iden, duration)
+        except s_exc.NoSuchUser:
             return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
-
-        passwd = s_common.guid()
-        shadow = await s_passwd.getShadowV2(passwd=passwd)
-        now = s_common.now()
-        onepass = {'create': now, 'expires': s_common.now() + duration,
-                   'shadow': shadow}
-
-        await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
-
-        logger.debug(f'Issued one time password for {user.name}',
-                     extra={'synapse': {'user': user.iden, 'username': user.name}})
 
         return self.sendRestRetn(passwd)
 
