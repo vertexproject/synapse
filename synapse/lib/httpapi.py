@@ -226,6 +226,11 @@ class HandlerBase:
 
             return iden
 
+        return await self._handleBasicAuth()
+
+    async def _handleBasicAuth(self):
+        authcell = self.getAuthCell()
+
         auth = self.request.headers.get('Authorization')
         if auth is None:
             return None
