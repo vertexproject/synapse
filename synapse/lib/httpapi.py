@@ -66,7 +66,6 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_user = None
         self._web_useriden = None  # The user iden at the time of authentication.
         self._web_username = None  # The user name at the time of authentication.
 
