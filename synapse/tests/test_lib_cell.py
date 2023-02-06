@@ -209,6 +209,19 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
 
+                # onepass support in the cell
+                async with await s_telepath.openurl(root_url) as proxy:
+                    onep = await proxy.genUserOnepass(visi.iden)
+
+                onep_url = f'tcp://visi:{onep}@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                    udef = await proxy.getCellUser()
+                    self.eq(visi.iden, udef.get('iden'))
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                        pass
+
                 # setRoles() allows arbitrary role ordering
                 extra_role = await echo.auth.addRole('extrarole')
                 await visi.setRoles((extra_role.iden, testrole.iden, echo.auth.allrole.iden))
