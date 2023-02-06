@@ -39,10 +39,12 @@ class Sess(s_base.Base):
         self.info[name] = valu
 
     async def login(self, user):
+        self.user = user
         await self.set('user', user)
         await self.fire('sess:login')
 
     async def logout(self):
+        self.user = None
         await self.set('user', None)
         await self.fire('sess:logout')
 
@@ -57,8 +59,9 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_useriden = None  # The user iden at the time of authentication.
-        self._web_username = None  # The user name at the time of authentication.
+        self._web_user = None  # Deprecated for new handlers
+        self.web_useriden = None  # The user iden at the time of authentication.
+        self.web_username = None  # The user name at the time of authentication.
 
         # this can't live in set_default_headers() due to call ordering in tornado
         headers = self.getCustomHeaders()
@@ -181,35 +184,72 @@ class HandlerBase:
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(iden, packroles=False)
         if not udef.get('admin'):
-            self.sendRestErr('AuthDeny', f'User {self._web_useriden} ({self._web_username}) is not an admin.')
+            self.sendRestErr('AuthDeny', f'User {self.web_useriden} ({self.web_username}) is not an admin.')
             return False
 
         return True
 
     async def sess(self, gen=True):
+        '''
+        Get the heavy Session object for the request.
+
+        Args:
+            gen (bool): If set to True, generate a new session if there is no sess cookie.
+
+        Notes:
+            This stores the identifier in the ``sess`` cookie for with a 14 day expiration, stored
+            in the Cell.
+            Valid requests with that ``sess`` cookie will resolve to the same Session object.
+
+        Returns:
+            Sess: A heavy session object. If the sess cookie is invalid or gen is false, this returns None.
+        '''
 
         if self._web_sess is None:
 
             iden = self.get_secure_cookie('sess', max_age_days=14)
 
-            if iden is None and not gen:
-                return None
-
             if iden is None:
-                iden = s_common.guid().encode()
-                opts = {'expires_days': 14, 'secure': True, 'httponly': True}
-                self.set_secure_cookie('sess', iden, **opts)
+                if gen:
+                    iden = s_common.guid().encode()
+                    opts = {'expires_days': 14, 'secure': True, 'httponly': True}
+                    self.set_secure_cookie('sess', iden, **opts)
+                else:
+                    return None
 
             self._web_sess = await self.cell.genHttpSess(iden)
 
         return self._web_sess
 
     async def user(self):
+        '''
+        Get the heavy User object from the Cell for the authenticated user.
 
+        Deprecated, use the useriden() function instead.
+        '''
+        s_common.deprecated('HandlerBase.user() - use useriden()')  # set curv?
+        iden = await self.useriden()
+        if iden is None:
+            return None
+        user = self.cell.auth.user(iden)
+        self._web_user = user
+        return user
+
+    async def useriden(self):
+        '''
+        Get the user iden of the current session user.
+
+        Note:
+            This function will pull the iden from the current session, or
+            attempt to resolve the useriden with basic authentication.
+
+        Returns:
+            str: The iden of the current session user.
+        '''
         authcell = self.getAuthCell()
 
-        if self._web_useriden is not None:
-            return self._web_useriden
+        if self.web_useriden is not None:
+            return self.web_useriden
 
         sess = await self.sess(gen=False)
         if sess is not None:
@@ -221,14 +261,24 @@ class HandlerBase:
                 logger.warning(f'Valid session without user object {self.request}')
                 return None
 
-            self._web_useriden = iden
-            self._web_username = udef.get('name')
+            self.web_useriden = iden
+            self.web_username = udef.get('name')
 
             return iden
 
-        return await self._handleBasicAuth()
+        return await self.handleBasicAuth()
 
-    async def _handleBasicAuth(self):
+    async def handleBasicAuth(self):
+        '''
+        Handle basic authentication in the handler.
+
+        Notes:
+            Implementors may override this to disable or implement their own basic auth schemes.
+            This is expected to set _web_useriden and _web_username upon successful authentication.
+
+        Returns:
+            str: The user iden of the logged in user.
+        '''
         authcell = self.getAuthCell()
 
         auth = self.request.headers.get('Authorization')
@@ -257,31 +307,23 @@ class HandlerBase:
         if not await authcell.tryUserPasswd(name, passwd):
             return None
 
-        self._web_useriden = udef.get('iden')
-        self._web_username = udef.get('name')
-        return self._web_useriden
-
-    async def useriden(self):
-        '''
-        Return the user iden of the current session user.
-
-        NOTE: APIs should migrate toward using this rather than the heavy
-              Handler.user() API to facilitate reuse of handler objects with
-              telepath references.
-        '''
-        iden = await self.user()
-        if iden is None:
-            return None
-        return iden
+        self.web_useriden = udef.get('iden')
+        self.web_username = udef.get('name')
+        return self.web_useriden
 
     async def allowed(self, perm, gateiden=None):
         '''
-        Return true if there is a logged in user with the given permissions.
+        Check if the authenticated user has the given permission.
 
-        NOTE: This API sets up HTTP response values if it returns False.
+        Args:
+            perm (tuple): The permission tuple to check.
+            gateiden (str): The gateiden to check the permission against.
 
-        NOTE: This API uses the Handler.getAuthCell() abstraction and is safe for use
-              in split-auth cells.
+        Notes:
+            This API sets up HTTP response values if it returns False.
+
+        Returns:
+            bool: True if the user
         '''
         authcell = self.getAuthCell()
 
@@ -294,21 +336,26 @@ class HandlerBase:
             return True
 
         self.set_status(403)
-        mesg = f'User ({self._web_username}) must have permission {".".join(perm)}'
+        mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
         self.sendRestErr('AuthDeny', mesg)
         return False
 
     async def authenticated(self):
+        '''
+        Check if the request has an authenticated user or not.
+
+        Returns:
+            bool: True if the request has an authenticated user, false otherwise.
+        '''
         return await self.useriden() is not None
 
     async def getUserBody(self):
         '''
         Helper function to confirm that there is a auth user and a valid JSON body in the request.
 
-        Returns:
-            (str, object): The user definition and body of the request as deserialized JSON, or a tuple of s_common.novalu
-                objects if there was no user or json body.
+        Deprecated, use the getUseridenBody() function instead.
         '''
+        s_common.deprecated('HandlerBase.getUserBody - use getUseridenBody', eolv='v2.140.0')  # set curv?
         if not await self.reqAuthUser():
             return (s_common.novalu, s_common.novalu)
 
@@ -319,6 +366,27 @@ class HandlerBase:
         user = await self.user()
         return (user, body)
 
+    async def getUseridenBody(self, validator=None):
+        '''
+        Helper function to confirm that there is a auth user and a valid JSON body in the request.
+
+        Args:
+            validator: Validator function run on the deserialized JSON body.
+
+        Returns:
+            (str, object): The user definition and body of the request as deserialized JSON,
+            or a tuple of s_common.novalu objects if there was no user or json body.
+        '''
+        if not await self.reqAuthUser():
+            return (s_common.novalu, s_common.novalu)
+
+        body = self.getJsonBody(validator=validator)
+        if body is None:
+            return (s_common.novalu, s_common.novalu)
+
+        useriden = await self.useriden()
+        return (useriden, body)
+
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
@@ -326,7 +394,7 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def _reqUserAllow(self, perm):
 
-        iden = await self.user()
+        iden = await self.useriden()
         if iden is None:
             mesg = 'Session is not authenticated.'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
@@ -395,7 +463,7 @@ class StormNodesV1(StormHandler):
 
     async def get(self):
 
-        user, body = await self.getUserBody()
+        user, body = await self.getUseridenBody()
         if body is s_common.novalu:
             return
 
@@ -523,7 +591,7 @@ class ReqValidStormV1(StormHandler):
 
     async def get(self):
 
-        _, body = await self.getUserBody()
+        _, body = await self.getUseridenBody()
         if body is s_common.novalu:
             return
 
@@ -735,7 +803,7 @@ class AuthUserPasswdV1(Handler):
 
     async def post(self, iden):
 
-        current_user, body = await self.getUserBody()
+        current_user, body = await self.getUseridenBody()
         if body is s_common.novalu:
             return
 
@@ -1122,7 +1190,7 @@ class FeedV1(Handler):
         if func is None:
             return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.')
 
-        user = self.cell.auth.user(self._web_useriden)
+        user = self.cell.auth.user(self.web_useriden)
 
         view = self.cell.getView(body.get('view'), user)
         if view is None:

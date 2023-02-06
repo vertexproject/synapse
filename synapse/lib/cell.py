@@ -2457,9 +2457,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _get_user_for_handler(self, handler: s_httpapi.Handler) -> dict:
         ret = {}
-        if hasattr(handler, '_web_useriden') and handler._web_useriden:
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
             ret['user'] = handler._web_useriden
-        if hasattr(handler, '_web_username') and handler._web_username:
+        if hasattr(handler, 'web_username') and handler.web_username:
             ret['username'] = handler._web_username
         return ret
 
