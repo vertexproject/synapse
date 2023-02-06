@@ -227,7 +227,7 @@ class HandlerBase:
 
         Deprecated, use the useriden() function instead.
         '''
-        s_common.deprecated('HandlerBase.user() - use useriden()')  # set curv?
+        s_common.deprecated('HandlerBase.user() - use useriden()', eolv='v2.140.0')  # set curv?
         iden = await self.useriden()
         if iden is None:
             return None
