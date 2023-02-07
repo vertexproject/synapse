@@ -34,6 +34,10 @@ class Sess(s_base.Base):
         self.iden = iden
         self.info = info
 
+        user = self.info.get('user')
+        if user is not None:
+            self.user = self.cell.auth.user(user)
+
     async def set(self, name, valu):
         await self.cell.setHttpSessInfo(self.iden, name, valu)
         self.info[name] = valu
