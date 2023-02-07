@@ -327,16 +327,21 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         return s_ast.VarList([k.valu for k in kids])
 
-    def operrelprop_pivot(self, kids, isjoin=False):
+    @lark.v_args(meta=True)
+    def operrelprop_pivot(self, meta, kids, isjoin=False):
         kids = self._convert_children(kids)
         relprop, rest = kids[0], kids[1:]
         if not rest:
             return s_ast.PropPivotOut(kids=kids, isjoin=isjoin)
         pval = s_ast.RelPropValue(kids=(relprop,))
-        return s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=isjoin)
+        node = s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=isjoin)
+        node.lines = (meta.line, meta.end_line)
+        node.textpos = (meta.start_pos, meta.end_pos)
+        return node
 
-    def operrelprop_join(self, kids):
-        return self.operrelprop_pivot(kids, isjoin=True)
+    @lark.v_args(meta=True)
+    def operrelprop_join(self, meta, kids):
+        return self.operrelprop_pivot(meta, kids, isjoin=True)
 
     def stormcmdargs(self, kids):
         newkids = []

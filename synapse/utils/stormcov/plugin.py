@@ -10,8 +10,8 @@ import synapse.lib.datfile as s_datfile
 class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
 
     def __init__(self, options):
-        extensions = options.get("storm_extensions", "storm")
-        self.extensions = [e.strip() for e in extensions.split(",")]
+        extensions = options.get('storm_extensions', 'storm')
+        self.extensions = [e.strip() for e in extensions.split(',')]
 
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
             grammar = larkf.read().decode()
@@ -23,15 +23,15 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         self.node_map = {}
         self.text_map = {}
         self.guid_map = {}
-        dirs = options.get("storm_dirs", ".")
+        dirs = options.get('storm_dirs', '.')
         if dirs:
-            self.stormdirs = [d.strip() for d in dirs.split(",")]
+            self.stormdirs = [d.strip() for d in dirs.split(',')]
             for dirn in self.stormdirs:
                 self.find_storm_files(dirn)
 
     def find_storm_files(self, dirn):
         for path in self.find_executable_files(dirn):
-            with open(path, "r") as f:
+            with open(path, 'r') as f:
                 source = f.read()
                 tree = self.parser.parse(source)
                 guid = s_common.guid(str(tree))
@@ -40,8 +40,13 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
             return self
+
         if filename.endswith('synapse/lib/stormctrl.py'):
             return StormCtrlTracer(self)
+
+        if filename.endswith('synapse/lib/snap.py'):
+            return PivotTracer(self)
+
         return None
 
     def file_reporter(self, filename):
@@ -58,10 +63,16 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
     def has_dynamic_source_filename(self):
         return True
 
-    PARSE_METHODS = {"compute", "once"}
+    PARSE_METHODS = {'compute', 'once', 'lift', 'getPivsOut', 'getPivsIn'}
 
     def dynamic_source_filename(self, filename, frame, force=False):
-        if frame.f_code.co_name not in self.PARSE_METHODS and not force:
+
+        if frame.f_code.co_name == 'pullgenr':
+            if frame.f_back.f_code.co_name != 'execStormCmd':
+                return None
+            frame = frame.f_back.f_back
+
+        elif frame.f_code.co_name not in self.PARSE_METHODS and not force:
             return None
 
         node = frame.f_locals.get('self')
@@ -89,6 +100,9 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         return filename
 
     def line_number_range(self, frame):
+        if frame.f_code.co_name == 'pullgenr':
+            frame = frame.f_back.f_back
+
         return frame.f_locals.get('self').lines
 
 class StormCtrlTracer(coverage.FileTracer):
@@ -100,6 +114,23 @@ class StormCtrlTracer(coverage.FileTracer):
 
     def dynamic_source_filename(self, filename, frame):
         if frame.f_code.co_name != '__init__':
+            return None
+        return self.parent.dynamic_source_filename(None, frame.f_back, force=True)
+
+    def line_number_range(self, frame):
+        return self.parent.line_number_range(frame.f_back)
+
+class PivotTracer(coverage.FileTracer):
+    def __init__(self, parent):
+        self.parent = parent
+
+    def has_dynamic_source_filename(self):
+        return True
+
+    PARSE_METHODS = {'nodesByPropValu', 'nodesByPropArray', 'nodesByTag', 'getNodeByNdef'}
+
+    def dynamic_source_filename(self, filename, frame):
+        if frame.f_code.co_name not in self.PARSE_METHODS or frame.f_back.f_code.co_name != 'run':
             return None
         return self.parent.dynamic_source_filename(None, frame.f_back, force=True)
 
@@ -127,6 +158,7 @@ TOKENS = [
     'NUMBER',
     'HEXNUMBER',
     'BOOL',
+    'EXPRTIMES',
     '_EMIT',
     '_STOP',
     '_RETURN',
@@ -142,7 +174,7 @@ class StormReporter(coverage.FileReporter):
     def source(self):
         if self._source is None:
             try:
-                with open(self.filename, "r") as f:
+                with open(self.filename, 'r') as f:
                     self._source = f.read()
 
             except (OSError, UnicodeError) as exc:
@@ -153,7 +185,7 @@ class StormReporter(coverage.FileReporter):
         source_lines = set()
 
         if SHOW_PARSING:
-            print(f"-------------- {self.filename}")
+            print(f'-------------- {self.filename}')
 
         tree = self._parser.parse(self.source())
 
@@ -162,7 +194,7 @@ class StormReporter(coverage.FileReporter):
                 continue
 
             if SHOW_PARSING:
-                print("%20s %2d: %r" % (token.type, token.line, token.value))
+                print('%20s %2d: %r' % (token.type, token.line, token.value))
 
             if token.line == token.end_line:
                 source_lines.add(token.line)
@@ -170,6 +202,6 @@ class StormReporter(coverage.FileReporter):
                 source_lines.update(range(token.line, token.end_line + 1))
 
             if SHOW_PARSING:
-                print(f"\t\t\tNow source_lines is: {source_lines!r}")
+                print(f'\t\t\tNow source_lines is: {source_lines!r}')
 
         return source_lines

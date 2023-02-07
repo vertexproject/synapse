@@ -1616,7 +1616,7 @@ class PivotToTags(PivotOper):
 
         if kid.isconst:
 
-            mval = await kid.compute(runt, None)
+            mval = kid.constval
 
             if not mval:
 
@@ -2027,7 +2027,7 @@ class PropPivot(PivotOper):
 
     async def run(self, runt, genr):
         warned = False
-        name = await self.kids[1].compute(runt, None)
+        name = self.kids[1].value()
 
         prop = runt.model.props.get(name)
         if prop is None:
