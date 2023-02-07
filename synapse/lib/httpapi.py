@@ -44,7 +44,7 @@ class Sess(s_base.Base):
 
     async def login(self, user):
         self.user = user
-        await self.set('user', user)
+        await self.set('user', user.iden)
         await self.fire('sess:login')
 
     async def logout(self):
@@ -708,7 +708,7 @@ class LoginV1(Handler):
 
         iden = udef.get('iden')
         sess = await self.sess()
-        await sess.login(iden)
+        await sess.set('user', iden)
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
 
