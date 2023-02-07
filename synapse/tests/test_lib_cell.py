@@ -4,6 +4,7 @@ import time
 import signal
 import asyncio
 import tarfile
+import collections
 import multiprocessing
 
 from unittest import mock
@@ -21,6 +22,8 @@ import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
+
+import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -205,6 +208,19 @@ class CellTest(s_t_utils.SynTest):
                     # cannot change a password for a non existent user
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
+
+                # onepass support in the cell
+                async with await s_telepath.openurl(root_url) as proxy:
+                    onep = await proxy.genUserOnepass(visi.iden)
+
+                onep_url = f'tcp://visi:{onep}@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                    udef = await proxy.getCellUser()
+                    self.eq(visi.iden, udef.get('iden'))
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                        pass
 
                 # setRoles() allows arbitrary role ordering
                 extra_role = await echo.auth.addRole('extrarole')
@@ -1051,6 +1067,15 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
 
+                    _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+                    def lowspace(dirn):
+                        cellsize = s_common.getDirSize(coredirn)
+                        return _ntuple_diskusage(0, cellsize, 0)
+
+                    with mock.patch('shutil.disk_usage', lowspace):
+                        await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
     async def test_cell_tls_client(self):
 
         with self.getTestDir() as dirn:
@@ -1710,3 +1735,82 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
                 self.false(await root.tryPasswd('root'))
                 self.true(await root.tryPasswd('supersecretpassword'))
+
+    async def test_cell_minspace(self):
+
+        with self.raises(s_exc.LowSpace):
+            conf = {'limit:disk:free': 100}
+            async with self.getTestCore(conf=conf) as core:
+                pass
+
+        _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+        def full_disk(dirn):
+            return _ntuple_diskusage(100, 96, 4)
+
+        revt = asyncio.Event()
+        orig = s_cortex.Cortex._setReadOnly
+        async def wrapReadOnly(self, valu):
+            await orig(self, valu)
+            revt.set()
+
+        with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
+             mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
+
+            async with self.getTestCore() as core:
+
+                self.len(1, await core.nodes('[inet:fqdn=vertex.link]'))
+
+                with mock.patch('shutil.disk_usage', full_disk):
+                    self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                    msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+                    self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+
+                    revt.clear()
+
+                self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
+
+            with self.getTestDir() as dirn:
+
+                path00 = s_common.gendir(dirn, 'core00')
+                path01 = s_common.gendir(dirn, 'core01')
+
+                conf = {'limit:disk:free': 0}
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+
+                    core01conf = {'mirror': core00.getLocalUrl()}
+
+                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                        await core01.sync()
+
+                        revt.clear()
+                        with mock.patch('shutil.disk_usage', full_disk):
+                            self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
+
+                            offs = await core00.getNexsIndx()
+                            self.false(await core01.waitNexsOffs(offs, 1))
+
+                            self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+                            revt.clear()
+
+                        self.true(await asyncio.wait_for(revt.wait(), 1))
+                        await core01.sync()
+
+                        self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                        self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))

@@ -12,8 +12,11 @@ class MacroTest(s_test.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 ]')
 
-            await core.callStorm('macro.set hehe ${ inet:ipv4 }')
-            await core.callStorm('macro.set hoho "+#foo"')
+            msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 }')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('macro.set hoho "+#foo"')
+            self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('macro.list')
 
@@ -53,16 +56,31 @@ class MacroTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.macro.set(hehe, ${ inet:ipv6 })', opts=asvisi)
 
+            await core.addStormMacro({'name': 'foo', 'storm': '$lib.print(woot)'})
+
+            with self.raises(s_exc.BadArg):
+                await core.addStormMacro({'name': 'foo', 'storm': '$lib.print(woot)'})
+
+            with self.raises(s_exc.DupName):
+                await core.modStormMacro('foo', {'name': 'hehe'})
+
             # Maximum size a macro name can currently be.
             name = 'v' * 491
             q = '$lib.macro.set($name, ${ help }) return ( $lib.macro.get($name) )'
             mdef = await core.callStorm(q, opts={'vars': {'name': name}})
             self.eq(mdef.get('storm'), 'help')
 
+            badname = 'v' * 492
             with self.raises(s_exc.BadArg):
-                badname = 'v' * 492
                 q = '$lib.macro.set($name, ${ help })'
                 await core.nodes(q, opts={'vars': {'name': badname}})
+
+            with self.raises(s_exc.BadArg):
+                q = '$lib.macro.get($name)'
+                await core.nodes(q, opts={'vars': {'name': badname}})
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.macro.mod(foo, bar)', opts=asvisi)
 
             msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 -:asn=30 }')
             self.stormIsInPrint('Set macro: hehe', msgs)
@@ -118,3 +136,139 @@ class MacroTest(s_test.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'data': data}})
             self.len(1, nodes)
             self.eq(('test:str', 'beef'), nodes[0].ndef)
+
+    async def test_stormlib_macro_meta_and_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            asvisi = {'user': visi.iden}
+
+            msgs = await core.stormlist('macro.set foo {$lib.print(woot)}')
+            self.stormHasNoWarnErr(msgs)
+
+            mdef = await core.callStorm('return( $lib.macro.get(foo) )')
+            self.eq(mdef.get('creator'), core.auth.rootuser.iden)
+
+            msgs = await core.stormlist('macro.list', opts=asvisi)
+            self.stormIsInPrint('foo', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, hehe, 3)')
+            self.stormIsInErr('No user with iden hehe', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, hehe, 3)')
+            self.stormIsInErr('No role with iden hehe', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, newp, hehe, 3)')
+            self.stormIsInErr('Invalid permissions scope: newp', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, hehe, 4)')
+            self.stormIsInErr('Invalid permission level: 4 (must be <= 3 and >= 0, or None)', msgs)
+
+            self.raises(s_exc.BadArg, core._hasEasyPerm, {}, 'newp', 4)
+
+            opts = {'user': visi.iden, 'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 3)', opts=opts)
+            self.stormIsInErr('User requires admin permission on macro: foo', msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(1, macros)
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 0)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(0, macros)
+
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.macro.get(foo)', opts=asvisi))
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, $lib.null)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(1, macros)
+
+            # remove global read access from the macro
+            opts = {'vars': {'allrole': core.auth.allrole.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, $allrole, 0)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(0, macros)
+
+            opts = {'vars': {'allrole': core.auth.allrole.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, roles, $allrole, $lib.null)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            macros = await core.callStorm('return($lib.macro.list())', opts=asvisi)
+            self.len(1, macros)
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"desc": "i am a macro!"}))', opts=asvisi)
+            self.stormIsInErr('User requires edit permission on macro: foo', msgs)
+
+            opts = {'vars': {'visi': visi.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(foo, users, $visi, 2)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"desc": "i am a macro!"}))', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"newp": "i am a macro!"}))', opts=asvisi)
+            self.stormIsInErr('User may not edit the field: newp', msgs)
+
+            mdef = await core.callStorm('return($lib.macro.get(foo))')
+            self.eq(mdef['desc'], 'i am a macro!')
+
+            msgs = await core.stormlist('$lib.macro.mod(foo, ({"name": "bar"}))', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod(bar, ({"storm": "$lib.print(woot)"}))', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod(bar, ({"storm": " | | | "}))', opts=asvisi)
+            self.stormIsInErr('Unexpected token', msgs)
+
+            self.nn(await core.callStorm('return($lib.macro.get(bar))'))
+            self.none(await core.callStorm('return($lib.macro.get(foo))'))
+
+            msgs = await core.stormlist('$lib.macro.del(bar)', opts=asvisi)
+            self.stormIsInErr('User requires admin permission on macro: bar', msgs)
+
+            opts = {'vars': {'allrole': core.auth.allrole.iden}}
+            msgs = await core.stormlist('$lib.macro.grant(bar, roles, $allrole, 3)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('$lib.macro.del(bar)', opts=asvisi)
+            self.stormHasNoWarnErr(msgs)
+
+            self.none(await core.callStorm('return($lib.macro.get(bar))'))
+
+            # Non-admin can create / delete their own macro
+            msgs = await core.stormlist('macro.set vmac { $lib.print(woot) }', opts=asvisi)
+            self.stormIsInPrint('Set macro: vmac', msgs)
+
+            mdef = await core.callStorm('return( $lib.macro.get(vmac) )')
+            self.eq(mdef.get('creator'), visi.iden)
+
+            await core.callStorm('return ( $lib.macro.del(vmac) )', opts=asvisi)
+            self.none(await core.callStorm('return( $lib.macro.get(vmac) )', opts=asvisi))
+
+            # Invalid macro names
+            opts = {'vars': {'aaaa': 'A' * 512}}
+            msgs = await core.stormlist('macro.set $aaaa {$lib.print(hi)}', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.del($aaaa)', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.set($aaaa, hi)', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.mod($aaaa, ({"desc": "woot"}))', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+            msgs = await core.stormlist('$lib.macro.grant($aaaa, users, woot, 10)', opts=opts)
+            self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)

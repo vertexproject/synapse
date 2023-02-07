@@ -31,3 +31,11 @@ class SmtpTest(s_test.SynTest):
                     return($message.send('smtp.gmail.com', port=465, usetls=true))
                 ''')
                 self.eq(retn, (True, {}))
+
+                isok, info = await core.callStorm('''
+                    $message = $lib.inet.smtp.message()
+                    $message.text = "HELLO WORLD"
+                    return($message.send('smtp.newp.com', port=465, usetls=$lib.true, starttls=$lib.true))
+                ''')
+                self.false(isok)
+                self.eq(info.get('err'), 'BadArg')

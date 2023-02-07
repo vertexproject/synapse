@@ -634,6 +634,9 @@ Queries = [
     '$x=({"foo": "bar", "baz": 10, })',
     'iden ssl://svcrs:27492?certname=root=bar',
     '$x=(foo bar baz, two)',
+    '''$foo=`foo
+    bar`''',
+    '$foo=(truesec.com,)',
 ]
 
 # Generated with print_parse_list below
@@ -1178,6 +1181,8 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprDict: [Const: foo, Const: bar, Const: baz, Const: 10]]]]',
     'Query: [CmdOper: [Const: iden, List: [Const: ssl://svcrs:27492?certname=root=bar]]]',
     'Query: [SetVarOper: [Const: x, List: [Const: foo bar baz, Const: two]]]',
+    'Query: [SetVarOper: [Const: foo, FormatString: [Const: foo\n    bar]]]',
+    'Query: [SetVarOper: [Const: foo, List: [Const: truesec.com]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

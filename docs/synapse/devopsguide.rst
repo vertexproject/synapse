@@ -150,7 +150,7 @@ Once completed, the previous leader will now be configured as a follower of the 
 
     If you are promoting the follower due to a catastrophic failure of the previous leader, you may use the
     command ``synapse.tools.promote --failure`` to force promotion despite not being able to carry out a graceful
-    handoff. It is **critcal that you not bring the previous leader back online** once this has been done. To regain
+    handoff. It is **critical that you not bring the previous leader back online** once this has been done. To regain
     redundancy, deploy a new mirror using the AHA provisioning process described in the :ref:`deploymentguide`.
 
 .. _devops-task-update:
@@ -291,6 +291,20 @@ log message pretty-printed log message::
       "username": "root",
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
+
+.. _devops-task-diskfree:
+
+Configure Free Space Requirement
+--------------------------------
+
+To avoid the risk of data corruption due to lack of disk space, Synapse services periodically
+check the amount of free space available and will switch to read-only mode if they are below
+a minimum threshold. This threshold can be controlled via the ``limit:disk:free`` configuration
+option, and is set to 5% free space by default.
+
+If the available free space goes below the minimum threshold, the service will continue
+the free space checks and re-enable writes if the available space returns above the
+threshold.
 
 .. _devops-task-performance:
 
@@ -908,90 +922,10 @@ Kubernetes
 ~~~~~~~~~~
 
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
-scaling and management of containerized applications. We provide examples that you can use to quickly get started
-using Kubernetes to orchestrate your Synapse deployment.  These examples include an Aha cell, an Axon, a Cortex,
-the Maxmind connector, and the Optic UI.
+scaling and management of containerized applications. Synapse does work in Kubernetes environments.
 
-Since all Telepath services connect via Aha, this allows for easy lookup of services via Aha. This allows for users to
-ignore most application awareness of port numbers. For example, the Maxmind connector can easily be added to the
-Cortex via ``service.add maxmind aha://root:demo@maxmind.aha.demo.net``.
-
-The Optic deployment uses an ``initContainers`` container to copy the TLS certificates into the service directory for
-Optic. The Traefik ``IngressRouteTCP`` directs all TLS traffic to the service to the Optic service. Since the TLS
-certificates have been put into the Cell directory for Optic, and the ``IngressRouteTCP`` acts a TLS passthrough,
-users are using TLS end to end to connect to Optic.
-
-Passwords used for doing inter-service communications are stored in Kubernetes Secrets and are interpolated from
-environment variables to form Telepath URLs when needed. To keep these examples from being too large, passwords are
-shared between services.
-
-The following examples make the following assumptions:
-
-1. A PersistentVolumeClaim provider is available. These examples use Digital Ocean block storage.
-2. Traefik is available to provide ``IngressRouteTCP`` providers. The examples here are treated as TLS passthrough
-   examples with a default websecure ``entryPoint``, which means the service must provide its own TLS endpoint. Further
-   Traefik configuration for providing TLS termination and connecting to backend services over TLS is beyond the scope
-   of this documentation.
-3. There is a ``cert-manager`` Certificate provider available to generate a Let's Encrypt TLS certificate.
-4. There is a secret ``regcred`` available which can be used to pull a Docker pull secret that can access the private
-   images.
-
-**Single Pod**
-
-This single pod example can be readily used, provided that the assumptions noted earlier are accounted for. The DNS name
-for the Certificate, IngressRouteTCP, and SYN_OPTIC_NETLOC value would need to be updated to account for your own DNS
-settings.
-
-.. literalinclude:: devguides/demo-aha-onepod.yaml
-    :language: yaml
-    :lines: 1-284
-
-**Multiple Pods**
-
-Each service can also be broken into separate pods. This example is broken down across three sections, a Cortex, an Axon,
-and other services. This lines up with three distinct Persistent Volume Claims being made to host the data for the
-services. This isolates the storage between the Cortex, Axon and other services. Each service is deployed into its own
-pods; and each Telepath-capable service reports itself into an Aha server.
-
-First, the shared Secret.
-
-.. literalinclude:: devguides/demo-aha-pods.yaml
-    :language: yaml
-    :lines: 17-27
-
-The Cortex is straightforward. It uses a PVC, it is configured via environment variables, and has its Telepath
-port exposed as a service that other Pods can connect to. This example also adds a ``startupProbe`` and
-``readinessProbe`` added to check the Cortex (and other services). This allows us to know when the services are
-available.
-
-The use of the ``readinessProbe`` is preferred over ``livenessProbe``, since that can make a pod unavailable for
-the purposes of routing traffic to it. This allows operations teams to investigate service outages without having the
-underlying container killed.
-
-.. warning::
-
-    We recommend the use of large values for the ``startupProbe.failureThreshold`` value. In our examples, we use the
-    maximum supported value of ``2147483647``.  In the event that a Synapse service needs to perform a data migration
-    or perform a backup of a service in order to deploy a mirror, this allows that to complete without the container
-    being terminated.
-
-.. literalinclude:: devguides/demo-aha-pods.yaml
-    :language: yaml
-    :lines: 37-148
-
-The Axon is very similar to the Cortex.
-
-.. literalinclude:: devguides/demo-aha-pods.yaml
-    :language: yaml
-    :lines: 156-254
-
-The last set of components shown here is the most complex. It includes the Aha server, the Maxmind connector, and the
-Optic UI.
-
-.. literalinclude:: devguides/demo-aha-pods.yaml
-    :language: yaml
-    :lines: 275-613
-
+We are in the process of updating our Kubernetes related documentation. If you need assistance with deploying to
+a Kubernetes environment, please reach out to us directly via :ref:`synapse-support`.
 
 .. _autodoc-conf-aha:
 

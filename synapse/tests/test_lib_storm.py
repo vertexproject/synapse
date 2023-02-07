@@ -146,6 +146,13 @@ class StormTest(s_t_utils.SynTest):
             self.eq("{'k': 'v'}56", retn[0])
             self.eq(retn[0], retn[1])
 
+            retn = await core.callStorm('''$foo=bar $baz=faz return(`foo={$foo}
+            baz={$baz}
+            `)''')
+            self.eq(retn, '''foo=bar
+            baz=faz
+            ''')
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''
@@ -223,6 +230,24 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('foo', nodes[0].ndef[1])
 
+            msgs = await core.stormlist('''
+                function generate() {
+                    for $i in $lib.range(3) {
+                        $lib.print(`inner {$i}`)
+                        emit $i
+                    }
+                }
+                for $i in $generate() {
+                    $lib.print(`outer {$i}`)
+                    for $_ in $lib.range(5) {}
+                    break
+                }
+            ''')
+            prnt = [m[1]['mesg'] for m in msgs if m[0] == 'print']
+            self.eq(prnt, ['inner 0', 'outer 0'])
+
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+
             # include a quick test for using stop in a node yielder
 
     async def test_lib_storm_intersect(self):
@@ -272,6 +297,14 @@ class StormTest(s_t_utils.SynTest):
                     return($err.name)
                 }
             '''))
+
+            self.eq('Foo', await core.callStorm('''
+                try {
+                    $lib.telepath.open($url).callStorm("$lib.raise(Foo, bar, hehe=haha)")
+                } catch Foo as err {
+                    return($err.name)
+                }
+            ''', opts={'vars': {'url': core.getLocalUrl()}}))
 
             msgs = await core.stormlist('''
                 [ inet:fqdn=vertex.link ]
@@ -1237,12 +1270,68 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('ou:name | merge --apply', opts=altview)
             self.len(1, await core.nodes('ou:name=foo -(bar)> *'))
 
+            await visi.delRule((True, ('node', 'add')), gateiden=lowriden)
+
+            self.len(1, await core.nodes('ou:name=foo [ .seen=now ]', opts=altview))
+            await core.nodes('ou:name=foo | merge --apply', opts=altview)
+
+            await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
+
             with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
             stream.seek(0)
             buf = stream.read()
             self.notin("No form named None", buf)
+
+            await core.nodes('[ ou:name=baz ]')
+            await core.nodes('ou:name=baz [ +#new.tag .seen=now ]', opts=altview)
+            await core.nodes('ou:name=baz | delnode')
+
+            self.stormHasNoErr(await core.stormlist('diff', opts=altview))
+            self.stormHasNoErr(await core.stormlist('diff --tag new.tag', opts=altview))
+            self.stormHasNoErr(await core.stormlist('diff --prop ".seen"', opts=altview))
+            self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
+
+            oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
+            newn = await core.nodes('[ ou:name=readonly ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("Property is read only: ou:name.created", buf)
+
+            newn = await core.nodes('ou:name=readonly')
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
+
+            oldn = await core.nodes('[ ou:name=readonly2 ]', opts=altview)
+            newn = await core.nodes('[ ou:name=readonly2 ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            altview2 = {'view': viewiden2}
+            q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
+            await core.nodes(q, opts=altview2)
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview2)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("Property is read only: ou:name.created", buf)
+
+            newn = await core.nodes('ou:name=readonly2', opts=altview)
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 1.2.3.4) ]', opts=altview)
+            await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 5.6.7.8) ]')
+
+            msgs = await core.stormlist('inet:dns:answer | merge', opts=altview)
+            self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
 
     async def test_storm_merge_opts(self):
 
@@ -1530,6 +1619,18 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
             self.stormIsInPrint('1001', msgs)
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('view', 'add')))
+
+            view2iden = await core.callStorm('return($lib.view.get().fork().iden)', opts={'user': visi.iden})
+            view2 = {'view': view2iden, 'user': visi.iden}
+
+            view3iden = await core.callStorm('return($lib.view.get().fork().iden)', opts=view2)
+            view3 = {'view': view3iden, 'user': visi.iden}
+
+            self.len(1, await core.nodes('[ou:org=(perms,) :desc=foo]', opts=view2))
+            await core.nodes('ou:org=(perms,) | movenodes --apply', opts=view3)
 
     async def test_storm_embeds(self):
 

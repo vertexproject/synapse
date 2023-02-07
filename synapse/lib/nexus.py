@@ -85,6 +85,7 @@ class NexsRoot(s_base.Base):
         self.client = None
         self.started = False
         self.celliden = self.cell.iden
+        self.readonly = False
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
@@ -263,6 +264,9 @@ class NexsRoot(s_base.Base):
         to hand me the result through a future.
         '''
         assert self.started, 'Attempt to issue before nexsroot is started'
+
+        if self.readonly:
+            raise s_exc.IsReadOnly(mesg='Unable to issue Nexus events when readonly is set')
 
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
@@ -463,6 +467,11 @@ class NexsRoot(s_base.Base):
                 genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
 
+                    if self.readonly:
+                        logger.error('Unable to consume Nexus events when readonly is set')
+                        await self.client.fini()
+                        return
+
                     if proxy.isfini:  # pragma: no cover
                         break
 
@@ -473,7 +482,7 @@ class NexsRoot(s_base.Base):
                         continue
 
                     offs, args = item
-                    if offs != self.nexslog.index():  # pragma: no cover
+                    if offs != self.nexslog.index():
                         logger.error('mirror desync')
                         await self.fini()
                         return

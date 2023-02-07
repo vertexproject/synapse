@@ -30,6 +30,8 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.graph as s_stormlib_graph
+
 logger = logging.getLogger(__name__)
 
 addtriggerdescr = '''
@@ -218,6 +220,10 @@ reqValidPkgdef = s_config.getJsValidator({
         'commands': {
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/command'},
+        },
+        'graphs': {
+            'type': ['array', 'null'],
+            'items': s_stormlib_graph.gdefSchema,
         },
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
@@ -840,9 +846,6 @@ stormcmds = (
                     $pkg = $reply.result
                 }
 
-                $pkg.url = $cmdopts.url
-                $pkg.loaded = $lib.time.now()
-
                 $pkd = $lib.pkg.add($pkg, verify=$cmdopts.verify)
 
                 $lib.print("Loaded Package: {name} @{version}", name=$pkg.name, version=$pkg.version)
@@ -1460,14 +1463,20 @@ stormcmds = (
         'name': 'note.add',
         'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
         'cmdargs': (
+            ('--type', {'type': 'str', 'help': 'The note type.'}),
             ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
         ),
         'storm': '''
-            function addNoteNode(text) {
+            function addNoteNode(text, type) {
+                if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
                 [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                if $type {[ :type=$type ]}
                 return($node)
             }
-            init { $note = $addNoteNode($cmdopts.text) }
+            init {
+                $type = $lib.null
+                $note = $addNoteNode($cmdopts.text, $cmdopts.type)
+            }
             [ <(about)+ { yield $note } ]
         ''',
     },
@@ -1791,6 +1800,7 @@ class Runtime(s_base.Base):
                     ok, item = await self.emitq.get()
                     if ok:
                         yield item
+                        self.emitevt.set()
                         continue
 
                     if not ok and item is None:
@@ -1798,10 +1808,17 @@ class Runtime(s_base.Base):
 
                     raise item
 
+        self.emitevt = asyncio.Event()
         return genr()
 
     async def emit(self, item):
+        if self.emitq is None:
+            mesg = 'Cannot emit from outside of an emitter function'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        self.emitevt.clear()
         await self.emitq.put((True, item))
+        await self.emitevt.wait()
 
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime
@@ -2021,12 +2038,41 @@ class Runtime(s_base.Base):
                     continue
                 self.runtvars[name] = isrunt
 
+    def setGraph(self, gdef):
+        if self.root is not None:
+            self.root.setGraph(gdef)
+        else:
+            self.opts['graph'] = gdef
+
+    def getGraph(self):
+        if self.root is not None:
+            return self.root.getGraph()
+        return self.opts.get('graph')
+
     async def execute(self, genr=None):
         try:
             with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
-                async for item in self.query.iterNodePaths(self, genr=genr):
+
+                nodegenr = self.query.iterNodePaths(self, genr=genr)
+                nodegenr, empty = await s_ast.pullone(nodegenr)
+
+                if empty:
+                    return
+
+                rules = self.opts.get('graph')
+                if rules not in (False, None):
+                    if rules is True:
+                        rules = {'degrees': None, 'refs': True}
+                    elif isinstance(rules, str):
+                        rules = await self.snap.core.getStormGraph(rules)
+
+                    subgraph = s_ast.SubGraph(rules)
+                    nodegenr = subgraph.run(self, nodegenr)
+
+                async for item in nodegenr:
                     self.tick()
                     yield item
+
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
             raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
@@ -2897,7 +2943,8 @@ class DiffCmd(Cmd):
             layr = runt.snap.view.layers[0]
             async for _, buid, sode in layr.liftByTag(tagname):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
-                yield node, runt.initPath(node)
+                if node is not None:
+                    yield node, runt.initPath(node)
 
             return
 
@@ -2923,13 +2970,15 @@ class DiffCmd(Cmd):
             layr = runt.snap.view.layers[0]
             async for _, buid, sode in layr.liftByProp(liftform, liftprop):
                 node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
-                yield node, runt.initPath(node)
+                if node is not None:
+                    yield node, runt.initPath(node)
 
             return
 
         async for buid, sode in runt.snap.view.layers[0].getStorNodes():
             node = await runt.snap.getNodeByBuid(buid)
-            yield node, runt.initPath(node)
+            if node is not None:
+                yield node, runt.initPath(node)
 
 class MergeCmd(Cmd):
     '''
@@ -3052,8 +3101,9 @@ class MergeCmd(Cmd):
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
-        runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
-        runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
+        if sode.get('valu') is not None:
+            runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+            runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
             full = node.form.prop(name).full
@@ -3103,7 +3153,8 @@ class MergeCmd(Cmd):
             async def diffgenr():
                 async for buid, sode in runt.snap.view.layers[0].getStorNodes():
                     node = await runt.snap.getNodeByBuid(buid)
-                    yield node, runt.initPath(node)
+                    if node is not None:
+                        yield node, runt.initPath(node)
 
             genr = diffgenr()
 
@@ -3177,17 +3228,40 @@ class MergeCmd(Cmd):
 
                     for name, (valu, stortype) in sode.get('props', {}).items():
 
-                        full = node.form.prop(name).full
+                        prop = node.form.prop(name)
                         if propfilter:
                             if name[0] == '.':
                                 if propfilter(name):
                                     continue
                             else:
-                                if propfilter(full):
+                                if propfilter(prop.full):
                                     continue
 
+                        if prop.info.get('ro'):
+                            if name == '.created':
+                                if self.opts.apply:
+                                    protonode.props['.created'] = valu
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                continue
+
+                            isset = False
+                            for undr in sodes[1:]:
+                                props = undr.get('props')
+                                if props is not None:
+                                    curv = props.get(name)
+                                    if curv is not None and curv[0] != valu:
+                                        isset = True
+                                        break
+
+                            if isset:
+                                valurepr = prop.type.repr(curv[0])
+                                mesg = f'Cannot merge read only property with conflicting ' \
+                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
+                                await runt.snap.warn(mesg)
+                                continue
+
                         if not self.opts.apply:
-                            valurepr = node.form.prop(name).type.repr(valu)
+                            valurepr = prop.type.repr(valu)
                             await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                         else:
                             await protonode.set(name, valu)
@@ -3315,8 +3389,9 @@ class MoveNodesCmd(Cmd):
             if layr == self.destlayr:
                 continue
 
-            self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-            self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
+            if sode.get('valu') is not None:
+                self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+                self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
             for name, (valu, stortype) in sode.get('props', {}).items():
                 full = node.form.prop(name).full

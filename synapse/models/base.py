@@ -29,6 +29,10 @@ class BaseModule(s_module.CoreModule):
                 ('meta:note', ('guid', {}), {
                     'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
+                ('meta:note:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'An analyst note type taxonomy.'}),
+
                 ('meta:timeline', ('guid', {}), {
                     'doc': 'A curated timeline of analytically relevant events.'}),
 
@@ -109,14 +113,22 @@ class BaseModule(s_module.CoreModule):
 
                 )),
 
+                ('meta:note:type:taxonomy', {}, ()),
                 ('meta:note', {}, (
+
+                    ('type', ('meta:note:type:taxonomy', {}), {
+                        'doc': 'The note type.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'The analyst authored note text.'}),
+
                     ('author', ('ps:contact', {}), {
                         'doc': 'The contact information of the author.'}),
+
                     ('creator', ('syn:user', {}), {
                         'doc': 'The synapse user who authored the note.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time the note was created.'}),
                 )),

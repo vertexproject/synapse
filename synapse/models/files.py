@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import binascii
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -97,50 +98,66 @@ class FileBytes(s_types.Str):
             return norm, {}
 
         if valu.find(':') == -1:
+            try:
+                # we're ok with un-adorned sha256s
+                if len(valu) == 64 and s_common.uhex(valu):
+                    valu = valu.lower()
+                    subs = {'sha256': valu}
+                    return f'sha256:{valu}', {'subs': subs}
 
-            # we're ok with un-adorned sha256s
-            if len(valu) == 64 and s_common.uhex(valu):
-                valu = valu.lower()
-                subs = {'sha256': valu}
-                return f'sha256:{valu}', {'subs': subs}
+            except binascii.Error as e:
+                mesg = f'invalid unadorned file:bytes value: {e} - valu={valu}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='unadorned file:bytes value is not a sha256')
+            mesg = f'unadorned file:bytes value is not a sha256 - valu={valu}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
         kind, kval = valu.split(':', 1)
 
         if kind == 'base64':
-            byts = base64.b64decode(kval)
-            return self._normPyBytes(byts)
+            try:
+                byts = base64.b64decode(kval)
+                return self._normPyBytes(byts)
+            except binascii.Error as e:
+                mesg = f'invalid file:bytes base64 value: {e} - valu={kval}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         kval = kval.lower()
 
         if kind == 'hex':
-            byts = s_common.uhex(kval)
-            return self._normPyBytes(byts)
+            try:
+                byts = s_common.uhex(kval)
+                return self._normPyBytes(byts)
+            except binascii.Error as e:
+                mesg = f'invalid file:bytes hex value: {e} - valu={kval}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         if kind == 'guid':
 
             kval = kval.lower()
             if not s_common.isguid(kval):
                 raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='guid is not a guid')
+                                        mesg=f'guid is not a guid - valu={kval}')
 
             return f'guid:{kval}', {}
 
         if kind == 'sha256':
 
             if len(kval) != 64:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                        mesg='invalid length for sha256 valu')
+                mesg = f'invalid length for sha256 value - valu={kval}'
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
-            s_common.uhex(kval)
+            try:
+                s_common.uhex(kval)
+            except binascii.Error as e:
+                mesg = f'invalid file:bytes sha256 value: {e} - valu={kval}'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
             subs = {'sha256': kval}
             return f'sha256:{kval}', {'subs': subs}
 
-        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind,
-                                mesg='unable to norm as file:bytes')
+        mesg = f'unable to norm as file:bytes - valu={valu}'
+        raise s_exc.BadTypeValu(name=self.name, valu=valu, kind=kind, mesg=mesg)
 
     def _normPyBytes(self, valu):
 
@@ -429,6 +446,11 @@ class FileModule(s_module.CoreModule):
                     ('mime:pe:richhdr', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the rich header bytes.'}),
 
+                    ('exe:compiler', ('it:prod:softver', {}), {
+                        'doc': 'The software used to compile the file.'}),
+
+                    ('exe:packer', ('it:prod:softver', {}), {
+                        'doc': 'The packer software used to encode the file.'}),
                 )),
 
                 ('file:mime', {}, ()),
