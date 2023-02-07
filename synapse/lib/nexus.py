@@ -417,6 +417,9 @@ class NexsRoot(s_base.Base):
 
         self.started = True
 
+    async def isNexsReady(self):
+        return self.ready.is_set()
+
     async def setNexsReady(self, status):
         logger.debug(f'setNexsReady(status={status}')
         if status:

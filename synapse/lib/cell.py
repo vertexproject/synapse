@@ -1360,14 +1360,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         runiden = await self.getCellRunId()
         ahalead = self.conf.get('aha:leader')
 
+        # If we are active, then we are ready by definition.
+        # If we are not active, then we have to check the nexsroot
+        # and see if the nexsroot is marked as ready or not. This
+        # status is set on mirrors when they have entered into the
+        # real-time change window.
+        if self.isactive:
+            ready = True
+        else:
+            ready = await self.nexsroot.isNexsReady()
+
         ahainfo = {
             'run': runiden,
             'iden': celliden,
             'leader': ahalead,
             'urlinfo': urlinfo,
-            # if we are not active, then we are not ready
-            # until we confirm we are in the real-time window.
-            'ready': self.isactive,
+            'ready': ready,
         }
 
         return ahainfo
