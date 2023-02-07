@@ -1373,10 +1373,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahainfo = ahainfo
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
+        # This inline function is going to bind ahainfo as a static
+        # value so that when we are are a mirror, upon reconnect we
+        # may tell an aha cell that we are NOT ready after we've
+        # already become ready.
+
         async def onlink(proxy):
             while not proxy.isfini:
 
                 try:
+                    logger.debug(f'addAhaSvc with {self.ahainfo}')
                     await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
