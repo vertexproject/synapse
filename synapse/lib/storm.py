@@ -3228,17 +3228,40 @@ class MergeCmd(Cmd):
 
                     for name, (valu, stortype) in sode.get('props', {}).items():
 
-                        full = node.form.prop(name).full
+                        prop = node.form.prop(name)
                         if propfilter:
                             if name[0] == '.':
                                 if propfilter(name):
                                     continue
                             else:
-                                if propfilter(full):
+                                if propfilter(prop.full):
                                     continue
 
+                        if prop.info.get('ro'):
+                            if name == '.created':
+                                if self.opts.apply:
+                                    protonode.props['.created'] = valu
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                continue
+
+                            isset = False
+                            for undr in sodes[1:]:
+                                props = undr.get('props')
+                                if props is not None:
+                                    curv = props.get(name)
+                                    if curv is not None and curv[0] != valu:
+                                        isset = True
+                                        break
+
+                            if isset:
+                                valurepr = prop.type.repr(curv[0])
+                                mesg = f'Cannot merge read only property with conflicting ' \
+                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
+                                await runt.snap.warn(mesg)
+                                continue
+
                         if not self.opts.apply:
-                            valurepr = node.form.prop(name).type.repr(valu)
+                            valurepr = prop.type.repr(valu)
                             await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                         else:
                             await protonode.set(name, valu)

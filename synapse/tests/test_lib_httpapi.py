@@ -260,17 +260,30 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('nobody@nowhere.com', item['result']['email'])
                     noobiden = item['result']['iden']
 
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}') as resp:
+                    item = await resp.json()
+                    self.eq(noobiden, item['result']['iden'])
+
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
                     self.eq('DupUser', item.get('code'))
 
-                info = {'name': 'analysts'}
+                info = {'name': 'analysts',
+                        'rules': [
+                            [True, ('foo', 'bar')],
+                            [False, ('baz',)]
+                        ]}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
                     item = await resp.json()
                     self.nn(item.get('result').get('iden'))
+                    self.eq(item.get('result').get('rules'), ((True, ('foo', 'bar')), (False, ('baz',))))
                     analystiden = item['result']['iden']
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}') as resp:
+                    item = await resp.json()
+                    self.nn(item.get('result').get('iden'), analystiden)
 
                 info = {'name': 'analysts'}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
@@ -330,6 +343,37 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', item.get('status'))
                     roles = item['result']['roles']
                     self.len(1, roles)
+
+                # Sad path coverage
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/roles') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/user/{noobiden}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/role/{analystiden}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchUser', item.get('code'))
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
+
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
 
             # lets try out session based login
 

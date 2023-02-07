@@ -557,7 +557,7 @@ class Model:
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
         })
-        self.addUnivProp('created', ('time', {}), {
+        self.addUnivProp('created', ('time', {'ismin': True}), {
             'ro': True,
             'doc': 'The time the node was created in the cortex.',
         })
