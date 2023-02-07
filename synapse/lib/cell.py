@@ -1012,6 +1012,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self.sockaddr = None  # Default value...
 
         self.conf = self._initCellConf(conf)
 
@@ -1333,12 +1334,49 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
 
+    async def _genAhaInfo(self):
+
+        # Default to static information
+        ahainfo = self.conf.get('aha:svcinfo')
+        if ahainfo is not None:
+            return ahainfo
+
+        # If we have not setup our dmon listener yet, do not generate ahainfo
+        if self.sockaddr is None:
+            return None
+
+        # If we have no dmon listener configured, do not generate ahainfo
+        turl = self.conf.get('dmon:listen')
+        if turl is None:
+            return None
+
+        # Dynamically generate the aha info based on config and runtime data.
+        urlinfo = s_telepath.chopurl(turl)
+
+        urlinfo.pop('host', None)
+        urlinfo['port'] = self.sockaddr[1]
+
+        celliden = self.getCellIden()
+        runiden = await self.getCellRunId()
+        ahalead = self.conf.get('aha:leader')
+
+        ahainfo = {
+            'run': runiden,
+            'iden': celliden,
+            'leader': ahalead,
+            'urlinfo': urlinfo,
+            # if we are not active, then we are not ready
+            # until we confirm we are in the real-time window.
+            'ready': self.isactive,
+        }
+
+        return ahainfo
+
     async def _initAhaService(self):
 
         if self.ahaclient is None:
             return
 
-        turl = self.conf.get('dmon:listen')
         ahaname = self.conf.get('aha:name')
         if ahaname is None:
             return
@@ -1346,46 +1384,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
-        runiden = await self.getCellRunId()
-        celliden = self.getCellIden()
-
-        ahainfo = self.conf.get('aha:svcinfo')
-        if ahainfo is None and turl is not None:
-
-            urlinfo = s_telepath.chopurl(turl)
-
-            urlinfo.pop('host', None)
-            urlinfo['port'] = self.sockaddr[1]
-
-            ahainfo = {
-                'run': runiden,
-                'iden': celliden,
-                'leader': ahalead,
-                'urlinfo': urlinfo,
-                # if we are not active, then we are not ready
-                # until we confirm we are in the real-time window.
-                'ready': self.isactive,
-            }
-
+        ahainfo = await self._genAhaInfo()
         if ahainfo is None:
             return
 
-        self.ahainfo = ahainfo
         self.ahasvcname = f'{ahaname}.{ahanetw}'
-
-        # This inline function is going to bind ahainfo as a static
-        # value so that when we are are a mirror, upon reconnect we
-        # may tell an aha cell that we are NOT ready after we've
-        # already become ready.
 
         async def onlink(proxy):
             while not proxy.isfini:
-
+                info = await self._genAhaInfo()
                 try:
-                    logger.debug(f'addAhaSvc with {self.ahainfo}')
-                    await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
+                    logger.debug(f'addAhaSvc with {info}')
+                    await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
+                        await proxy.addAhaSvc(ahalead, info, network=ahanetw)
 
                     return
 
@@ -1546,7 +1558,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.ahaclient is None:
             return
 
-        if self.ahainfo is None:
+        ahainfo = await self._genAhaInfo()
+        if ahainfo is None:
             return
 
         ahalead = self.conf.get('aha:leader')
@@ -1567,7 +1580,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ahanetw = self.conf.get('aha:network')
         try:
-            await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
+            logger.debug(f'Setting ahalead={ahalead} as active with {ahainfo}')
+            await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:  # pragma: no cover
