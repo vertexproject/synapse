@@ -72,7 +72,7 @@ def _rawparse(text, base=None, chop=False):
             raise s_exc.BadTypeValu(valu=otext, name='time',
                                     mesg=f'Unknown time format for {otext}')
     except ValueError as e:
-        raise s_exc.BadTypeValu(mesg=str(e), valu=otext)
+        raise s_exc.BadTypeValu(mesg=f'Error parsing time "{otext}"; {str(e)}', valu=otext)
 
     return dt, base, tlen
 
@@ -97,8 +97,8 @@ def wildrange(text):
     '''
     dttick, base, tlen = _rawparse(text)
     if tlen not in (4, 6, 8, 10, 12, 14):
-        mesg = 'Time wild card position not supported.'
-        raise s_exc.BadTypeValu(mesg=mesg)
+        mesg = f'Time wild card position not supported for {text}'
+        raise s_exc.BadTypeValu(mesg=mesg, valu=text)
 
     if tlen == 4:
         dttock = dttick + relativedelta(years=1)
@@ -138,7 +138,8 @@ def parsetz(text):
         base = rel * (onehour * int(hrs) + onemin * int(mins))
 
         if abs(base) >= oneday:
-            raise s_exc.BadTypeValu(valu=text, name='time', mesg=f'Timezone offset must be between +/- 24 hours')
+            raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
+                                    valu=text, name='time')
 
         return text.replace(tzstr, '', 1), base
 
@@ -235,22 +236,22 @@ def delta(text):
     '''
     Parse a simple time delta string and return the delta.
     '''
-    text = text.strip().lower()
+    _text = text.strip().lower()
 
-    _, offs = _noms(text, 0, ' \t\r\n')
+    _, offs = _noms(_text, 0, ' \t\r\n')
 
     sign = '+'
-    if text and text[0] in ('+', '-'):
-        sign = text[0]
+    if _text and _text[0] in ('+', '-'):
+        sign = _text[0]
         offs += 1
 
-    _, offs = _noms(text, offs, ' \t\r\n')
+    _, offs = _noms(_text, offs, ' \t\r\n')
 
-    sizetext, offs = _noms(text, offs, '0123456789')
+    sizetext, offs = _noms(_text, offs, '0123456789')
 
-    _, offs = _noms(text, offs, ' \t\r\n')
+    _, offs = _noms(_text, offs, ' \t\r\n')
 
-    unittext = text[offs:]
+    unittext = _text[offs:]
 
     size = int(sizetext, 0)
 
@@ -259,7 +260,7 @@ def delta(text):
 
     base = timeunits.get(unittext)
     if base is None:
-        mesg = f'unknown time delta units: {unittext}'
+        mesg = f'unknown time delta units: {unittext} for {text}'
         raise s_exc.BadTypeValu(name='time', valu=text, mesg=mesg)
 
     return size * base
