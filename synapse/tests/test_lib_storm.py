@@ -1327,10 +1327,10 @@ class StormTest(s_t_utils.SynTest):
             newn = await core.nodes('ou:name=readonly2', opts=altview)
             self.eq(oldn[0].props['.created'], newn[0].props['.created'])
 
-            await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 1.2.3.4) ]', opts=altview)
-            await core.nodes('[ inet:dns:answer=(bad,) :a=(vertex.link, 5.6.7.8) ]')
+            await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
+            await core.nodes('[ test:ro=bad :readable=bar ]')
 
-            msgs = await core.stormlist('inet:dns:answer | merge', opts=altview)
+            msgs = await core.stormlist('test:ro | merge', opts=altview)
             self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
 
     async def test_storm_merge_opts(self):

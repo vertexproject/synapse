@@ -483,7 +483,7 @@ class NexsRoot(s_base.Base):
 
                     offs, args = item
                     if offs != self.nexslog.index():
-                        logger.error('mirror desync')
+                        logger.error('Local Nexus offset is out of sync from remote cell! Aborting mirror sync')
                         await self.fini()
                         return
 
