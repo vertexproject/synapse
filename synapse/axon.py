@@ -34,7 +34,7 @@ MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
 class AxonHandlerMixin:
-    def axon(self):
+    def getAxon(self):
         '''
         Get a reference to the Axon interface used by the handler.
         '''
@@ -51,7 +51,7 @@ class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
-        self.upfd = await self.axon().upload()
+        self.upfd = await self.getAxon().upload()
         self.hashset = s_hashset.HashSet()
 
     async def data_received(self, chunk):
@@ -62,7 +62,7 @@ class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
 
     def on_finish(self):
         if self.upfd is not None and not self.upfd.isfini:
-            self.axon().schedCoroSafe(self.upfd.fini())
+            self.getAxon().schedCoroSafe(self.upfd.fini())
 
     def on_connection_close(self):
         self.on_finish()
@@ -95,7 +95,7 @@ class AxonHttpHasV1(AxonHandlerMixin, s_httpapi.Handler):
     async def get(self, sha256):
         if not await self.allowed(('axon', 'has')):
             return
-        resp = await self.axon().has(s_common.uhex(sha256))
+        resp = await self.getAxon().has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
 
 reqValidAxonDel = s_config.getJsValidator({
@@ -123,19 +123,23 @@ class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
 
         sha256s = body.get('sha256s')
         hashes = [s_common.uhex(s) for s in sha256s]
-        resp = await self.axon().dels(hashes)
+        resp = await self.getAxon().dels(hashes)
         return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
 class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
+    def axon(self):
+        s_common.deprecated('AxonFileHandler.axon(), use getAxon() instead', eolv='2.130.0')
+        return self.getAxon()
+
     async def getAxonInfo(self):
-        return await self.axon().getCellInfo()
+        return await self.getAxon().getCellInfo()
 
     async def _setSha256Headers(self, sha256b):
 
         self.ranges = []
 
-        self.blobsize = await self.axon().size(sha256b)
+        self.blobsize = await self.getAxon().size(sha256b)
         if self.blobsize is None:
             self.set_status(404)
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}')
@@ -207,14 +211,14 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
             size = eoff - soff
-            async for byts in self.axon().get(sha256b, soff, size):
+            async for byts in self.getAxon().get(sha256b, soff, size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
             return
 
         # standard file return
-        async for byts in self.axon().get(sha256b):
+        async for byts in self.getAxon().get(sha256b):
             self.write(byts)
             await self.flush()
             await asyncio.sleep(0)
@@ -258,12 +262,12 @@ class AxonHttpBySha256V1(AxonFileHandler):
             return
 
         sha256b = s_common.uhex(sha256)
-        if not await self.axon().has(sha256b):
+        if not await self.getAxon().has(sha256b):
             self.set_status(404)
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
             return
 
-        resp = await self.axon().del_(sha256b)
+        resp = await self.getAxon().del_(sha256b)
         return self.sendRestRetn(resp)
 
 class AxonHttpBySha256InvalidV1(AxonFileHandler):

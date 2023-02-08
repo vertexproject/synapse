@@ -225,7 +225,7 @@ class HandlerBase:
 
         return self._web_sess
 
-    async def user(self):
+    async def user(self):  # pragma: no cover
         '''
         Get the heavy User object from the Cell for the authenticated user.
 
@@ -261,8 +261,8 @@ class HandlerBase:
 
             udef = await authcell.getUserDef(iden)
             if udef is None:
-                # Odd situation - a valid session but without a corresponding User object?
-                logger.warning(f'Valid session without user object {self.request}')
+                # Odd situation - a valid session but without a user definition.
+                logger.warning(f'Valid session without corresponding user definition {self.request}')
                 return None
 
             self.web_useriden = iden
@@ -353,7 +353,7 @@ class HandlerBase:
         '''
         return await self.useriden() is not None
 
-    async def getUserBody(self):
+    async def getUserBody(self):  # pragma: no cover
         '''
         Helper function to confirm that there is a auth user and a valid JSON body in the request.
 

@@ -404,6 +404,12 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
+                await core.setUserLocked(visiiden, True)
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
+                    item = await resp.json()
+                    self.eq('NotAuthenticated', item.get('code'))
+                await core.setUserLocked(visiiden, False)
+
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
                     item = await resp.json()
                     self.eq('NotAuthenticated', item.get('code'))
