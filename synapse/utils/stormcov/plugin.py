@@ -119,7 +119,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
 
         info = self.node_map.get(nodeid, s_common.novalu)
         if info is not s_common.novalu:
-            realnode.__coverage_offs = info[1]
+            realnode._coverage_offs = info[1]
             return info[0]
 
         if not node.__class__.__name__ == 'Query':
@@ -128,7 +128,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
 
         info = self.text_map.get(node.text, s_common.novalu)
         if info is not s_common.novalu:
-            realnode.__coverage_offs = info[1]
+            realnode._coverage_offs = info[1]
             return info[0]
 
         tree = self.parser.parse(node.text)
@@ -141,7 +141,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             filename = self.guid_map.get(guid)
             offs = 0
 
-        realnode.__coverage_offs = offs
+        realnode._coverage_offs = offs
 
         self.node_map[nodeid] = (filename, offs)
         self.text_map[node.text] = (filename, offs)
@@ -152,7 +152,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             frame = frame.f_back.f_back
 
         (strt, fini) = frame.f_locals.get('self').lines
-        offs = frame.f_locals.get('self').__coverage_offs
+        offs = frame.f_locals.get('self')._coverage_offs
         return (strt + offs, fini + offs)
 
 class StormCtrlTracer(coverage.FileTracer):
