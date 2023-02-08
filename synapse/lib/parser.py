@@ -285,10 +285,6 @@ class AstConverter(lark.Transformer):
         return s_ast.Emit(kids)
 
     @lark.v_args(meta=True)
-    def stop(self, meta, kids):
-        return s_ast.Stop()
-
-    @lark.v_args(meta=True)
     def funccall(self, meta, kids):
         argkids = []
         kwargkids = []
@@ -742,6 +738,7 @@ ruleClassMap = {
     'relpropvalue': s_ast.RelPropValue,
     'setitem': s_ast.SetItemOper,
     'setvar': s_ast.SetVarOper,
+    'stop': s_ast.Stop,
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
