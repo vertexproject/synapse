@@ -236,22 +236,23 @@ def delta(text):
     '''
     Parse a simple time delta string and return the delta.
     '''
-    _text = text.strip().lower()
+    otext = text
+    text = text.strip().lower()
 
-    _, offs = _noms(_text, 0, ' \t\r\n')
+    _, offs = _noms(text, 0, ' \t\r\n')
 
     sign = '+'
-    if _text and _text[0] in ('+', '-'):
-        sign = _text[0]
+    if text and text[0] in ('+', '-'):
+        sign = text[0]
         offs += 1
 
-    _, offs = _noms(_text, offs, ' \t\r\n')
+    _, offs = _noms(text, offs, ' \t\r\n')
 
-    sizetext, offs = _noms(_text, offs, '0123456789')
+    sizetext, offs = _noms(text, offs, '0123456789')
 
-    _, offs = _noms(_text, offs, ' \t\r\n')
+    _, offs = _noms(text, offs, ' \t\r\n')
 
-    unittext = _text[offs:]
+    unittext = text[offs:]
 
     size = int(sizetext, 0)
 
@@ -260,8 +261,8 @@ def delta(text):
 
     base = timeunits.get(unittext)
     if base is None:
-        mesg = f'unknown time delta units: {unittext} for {text}'
-        raise s_exc.BadTypeValu(name='time', valu=text, mesg=mesg)
+        mesg = f'unknown time delta units: {unittext} for {otext}'
+        raise s_exc.BadTypeValu(name='time', valu=otext, mesg=mesg)
 
     return size * base
 
