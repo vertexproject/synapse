@@ -52,9 +52,9 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             line = (subq.meta.line - 1)
 
             if subg in self.subq_map:
-                (_, prev) = self.subq_map[subg]
+                (pname, pline) = self.subq_map[subg]
                 logger.warning(f'Duplicate argvquery in {path} at line {line + 1}, coverage will '
-                               f'be reported on first instance at line {prev + 1}')
+                               f'be reported on first instance in {pname} at line {pline + 1}')
                 continue
 
             self.subq_map[subg] = (path, subq.meta.line - 1)
@@ -65,9 +65,9 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
             line = (subq.meta.line - 1)
 
             if subg in self.subq_map:
-                (_, prev) = self.subq_map[subg]
+                (pname, pline) = self.subq_map[subg]
                 logger.warning(f'Duplicate embedquery in {path} at line {line + 1}, coverage will '
-                               f'be reported on first instance at line {prev + 1}')
+                               f'be reported on first instance in {pname} at line {pline + 1}')
                 continue
 
             self.subq_map[subg] = (path, subq.meta.line - 1)
