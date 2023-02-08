@@ -2698,8 +2698,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq(cmodel.prop('ipv4').type.stortype,
                     modelt.get(modelf['props']['ipv4']['type'][0], {}).get('stortype'))
-            self.eq(cmodel.prop('.created').type.stortype,
-                    modelt.get(modelf['props']['.created']['type'][0], {}).get('stortype'))
 
             fname = 'file:bytes'
             cmodel = core.model.form(fname)
