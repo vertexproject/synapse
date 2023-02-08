@@ -1,11 +1,14 @@
 import os
 import lark
 import regex
+import logging
 import coverage
 
 import synapse.common as s_common
 
 import synapse.lib.datfile as s_datfile
+
+logger = logging.getLogger(__name__)
 
 class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
 
@@ -23,6 +26,8 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         self.node_map = {}
         self.text_map = {}
         self.guid_map = {}
+        self.subq_map = {}
+
         dirs = options.get('storm_dirs', '.')
         if dirs:
             self.stormdirs = [d.strip() for d in dirs.split(',')]
@@ -32,10 +37,40 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
     def find_storm_files(self, dirn):
         for path in self.find_executable_files(dirn):
             with open(path, 'r') as f:
-                source = f.read()
-                tree = self.parser.parse(source)
+                apth = os.path.abspath(path)
+
+                tree = self.parser.parse(f.read())
+                self.find_subqueries(tree, apth)
+
                 guid = s_common.guid(str(tree))
-                self.guid_map[guid] = os.path.abspath(path)
+                self.guid_map[guid] = apth
+
+    def find_subqueries(self, tree, path):
+        for node in tree.find_data('argvquery'):
+            subq = node.children[1]
+            subg = s_common.guid(str(subq))
+            line = (subq.meta.line - 1)
+
+            if subg in self.subq_map:
+                (_, prev) = self.subq_map[subg]
+                logger.warning(f'Duplicate argvquery in {path} at line {line + 1}, coverage will '
+                               f'be reported on first instance at line {prev + 1}')
+                continue
+
+            self.subq_map[subg] = (path, subq.meta.line - 1)
+
+        for node in tree.find_data('embedquery'):
+            subq = node.children[1]
+            subg = s_common.guid(str(subq))
+            line = (subq.meta.line - 1)
+
+            if subg in self.subq_map:
+                (_, prev) = self.subq_map[subg]
+                logger.warning(f'Duplicate embedquery in {path} at line {line + 1}, coverage will '
+                               f'be reported on first instance at line {prev + 1}')
+                continue
+
+            self.subq_map[subg] = (path, subq.meta.line - 1)
 
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
@@ -75,35 +110,50 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         elif frame.f_code.co_name not in self.PARSE_METHODS and not force:
             return None
 
-        node = frame.f_locals.get('self')
+        realnode = frame.f_locals.get('self')
+        node = realnode
         while hasattr(node, 'parent'):
             node = node.parent
 
-        filename = self.node_map.get(id(node), s_common.novalu)
-        if filename is not s_common.novalu:
-            return filename
+        nodeid = id(node)
+
+        info = self.node_map.get(nodeid, s_common.novalu)
+        if info is not s_common.novalu:
+            realnode.__coverage_offs = info[1]
+            return info[0]
 
         if not node.__class__.__name__ == 'Query':
-            self.node_map[id(node)] = None
+            self.node_map[nodeid] = None
             return
 
-        filename = self.text_map.get(node.text)
-        if filename:
-            return filename
+        info = self.text_map.get(node.text, s_common.novalu)
+        if info is not s_common.novalu:
+            realnode.__coverage_offs = info[1]
+            return info[0]
 
         tree = self.parser.parse(node.text)
         guid = s_common.guid(str(tree))
-        filename = self.guid_map.get(guid)
 
-        self.node_map[id(node)] = filename
-        self.text_map[node.text] = filename
+        subq = self.subq_map.get(guid)
+        if subq is not None:
+            (filename, offs) = subq
+        else:
+            filename = self.guid_map.get(guid)
+            offs = 0
+
+        realnode.__coverage_offs = offs
+
+        self.node_map[nodeid] = (filename, offs)
+        self.text_map[node.text] = (filename, offs)
         return filename
 
     def line_number_range(self, frame):
         if frame.f_code.co_name == 'pullgenr':
             frame = frame.f_back.f_back
 
-        return frame.f_locals.get('self').lines
+        (strt, fini) = frame.f_locals.get('self').lines
+        offs = frame.f_locals.get('self').__coverage_offs
+        return (strt + offs, fini + offs)
 
 class StormCtrlTracer(coverage.FileTracer):
     def __init__(self, parent):
