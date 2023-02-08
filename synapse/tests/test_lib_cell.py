@@ -1370,7 +1370,7 @@ class CellTest(s_t_utils.SynTest):
 
                     fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadyrunning', remove=True))
                     await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
-                    task.cancel()
+                    await asyncio.wait_for(task, 5)
 
             with tarfile.open(bkuppath, 'r:gz') as tar:
                 tar.extractall(path=dirn)
