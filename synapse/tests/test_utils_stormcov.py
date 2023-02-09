@@ -26,6 +26,9 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(s_files.getAssetStr('stormcov/stormctrl.storm'), reporter.source())
         self.eq(reporter.lines(), {1, 2, 3, 6})
 
+        reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/spin.storm'))
+        self.eq(reporter.translate_lines({1, 2}), {2, 3})
+
         with self.raises(NoSource):
             reporter = plugin.file_reporter('newp')
             reporter.source()
