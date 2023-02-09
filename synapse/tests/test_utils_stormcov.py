@@ -16,7 +16,7 @@ import synapse.utils.stormcov as s_stormcov
 logger = logging.getLogger(__name__)
 
 class TestUtilsStormcov(s_utils.SynTest):
-    async def test_basic(self):
+    async def test_basics(self):
 
         opts = {"storm_dirs": "synapse/tests/files/stormcov"}
         s_stormcov.coverage_init(mock.MagicMock(), opts)
