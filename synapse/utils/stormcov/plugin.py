@@ -248,4 +248,7 @@ class StormReporter(coverage.FileReporter):
             if line.strip():
                 break
             offs += 1
-        return(set([(line + offs) for line in lines]))
+
+        if offs > 0:
+            return set([(line + offs) for line in lines])
+        return lines

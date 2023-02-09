@@ -25,6 +25,7 @@ class TestUtilsStormcov(s_utils.SynTest):
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/stormctrl.storm'))
         self.eq(s_files.getAssetStr('stormcov/stormctrl.storm'), reporter.source())
         self.eq(reporter.lines(), {1, 2, 3, 6})
+        self.eq(reporter.translate_lines({1, 2}), {1, 2})
 
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/spin.storm'))
         self.eq(reporter.translate_lines({1, 2}), {2, 3})
