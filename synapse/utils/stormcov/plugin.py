@@ -48,31 +48,23 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
                 self.guid_map[guid] = apth
 
     def find_subqueries(self, tree, path):
-        for node in tree.find_data('argvquery'):
-            subq = node.children[1]
-            subg = s_common.guid(str(subq))
-            line = (subq.meta.line - 1)
+        for rule in ('argvquery', 'embedquery'):
+            for node in tree.find_data(rule):
 
-            if subg in self.subq_map:
-                (pname, pline) = self.subq_map[subg]
-                logger.warning(f'Duplicate argvquery in {path} at line {line + 1}, coverage will '
-                               f'be reported on first instance in {pname} at line {pline + 1}')
-                continue
+                subq = node.children[1]
+                if subq.meta.empty:
+                    continue
 
-            self.subq_map[subg] = (path, subq.meta.line - 1)
+                subg = s_common.guid(str(subq))
+                line = (subq.meta.line - 1)
 
-        for node in tree.find_data('embedquery'):
-            subq = node.children[1]
-            subg = s_common.guid(str(subq))
-            line = (subq.meta.line - 1)
+                if subg in self.subq_map:
+                    (pname, pline) = self.subq_map[subg]
+                    logger.warning(f'Duplicate {rule} in {path} at line {line + 1}, coverage will '
+                                   f'be reported on first instance in {pname} at line {pline + 1}')
+                    continue
 
-            if subg in self.subq_map:
-                (pname, pline) = self.subq_map[subg]
-                logger.warning(f'Duplicate embedquery in {path} at line {line + 1}, coverage will '
-                               f'be reported on first instance in {pname} at line {pline + 1}')
-                continue
-
-            self.subq_map[subg] = (path, subq.meta.line - 1)
+                self.subq_map[subg] = (path, subq.meta.line - 1)
 
     def file_tracer(self, filename):
         if filename.endswith('synapse/lib/ast.py'):
@@ -251,4 +243,4 @@ class StormReporter(coverage.FileReporter):
 
         if offs > 0:
             return set([(line + offs) for line in lines])
-        return lines
+        return set(lines)
