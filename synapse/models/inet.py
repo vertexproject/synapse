@@ -330,29 +330,6 @@ class Fqdn(s_types.Type):
             except UnicodeError:
                 return valu
 
-class HttpCookie(s_types.Str):
-
-    def _normPyStr(self, text):
-
-        text = text.strip()
-        parts = text.split('=', 1)
-
-        name = parts[0].split(';', 1)[0].strip()
-        if len(parts) == 1:
-            return text, {'subs': {'name': name}}
-
-        valu = parts[1].split(';', 1)[0].strip()
-        return text, {'subs': {'name': name, 'value': valu}}
-
-    def getTypeVals(self, valu):
-
-        if isinstance(valu, str):
-            cookies = valu.split(';')
-            cookies = [c.strip() for c in cookies]
-            return [c for c in cookies if c]
-
-        return valu
-
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -1075,11 +1052,6 @@ class InetModule(s_module.CoreModule):
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
 
-                    ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
-                        'doc': 'An indiviaul HTTP cookie string.',
-                        'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
-                    }),
-
                 ),
 
                 'edges': (
@@ -1126,6 +1098,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
+
+                    ('inet:http:cookie', ('str', {}), {
+                        'doc': 'An HTTP cookie string.'}),
 
                     ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -1781,12 +1756,7 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-                    ('inet:http:cookie', {}, (
-                        ('name', ('str', {}), {
-                            'doc': 'The name of the cookie preceeding the equal sign.'}),
-                        ('value', ('str', {}), {
-                            'doc': 'The value of the cookie after the equal sign if present.'}),
-                    )),
+                    ('inet:http:cookie', {}, ()),
 
                     ('inet:http:request', {}, (
 
@@ -1809,9 +1779,6 @@ class InetModule(s_module.CoreModule):
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
-                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
-
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
@@ -1825,8 +1792,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:session', {}, (
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The ps:contact which owns the session.'}),
-                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of cookies used to identify this specific session.'}),
                     )),
 
                     ('inet:iface', {}, (
