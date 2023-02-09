@@ -22,6 +22,14 @@ class TestUtilsStormcov(s_utils.SynTest):
         s_stormcov.coverage_init(mock.MagicMock(), opts)
         plugin = s_stormcov.StormPlugin(opts)
 
+        reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/stormctrl.storm'))
+        self.eq(s_files.getAssetStr('stormcov/stormctrl.storm'), reporter.source())
+        self.eq(reporter.lines(), {1, 2, 3, 6})
+
+        with self.raises(NoSource):
+            reporter = plugin.file_reporter('newp')
+            reporter.source()
+
         stormtracer = plugin.file_tracer('synapse/lib/ast.py')
         self.true(stormtracer.has_dynamic_source_filename())
         self.none(stormtracer.dynamic_source_filename(None, inspect.currentframe()))
@@ -101,11 +109,3 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             with mock.patch('synapse.lib.ast.pullone', pullone):
                 await core.nodes(s_files.getAssetStr('stormcov/spin.storm'))
-
-        reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/stormctrl.storm'))
-        self.eq(s_files.getAssetStr('stormcov/stormctrl.storm'), reporter.source())
-        self.eq(reporter.lines(), {1, 2, 3, 6})
-
-        with self.raises(NoSource):
-            reporter = plugin.file_reporter('newp')
-            reporter.source()
