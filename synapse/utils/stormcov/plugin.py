@@ -4,6 +4,8 @@ import regex
 import logging
 import coverage
 
+from coverage.exceptions import NoSource
+
 import synapse.common as s_common
 
 import synapse.lib.datfile as s_datfile
@@ -187,8 +189,6 @@ class PivotTracer(coverage.FileTracer):
     def line_number_range(self, frame):
         return self.parent.line_number_range(frame.f_back)
 
-SHOW_PARSING = False
-
 TOKENS = [
     'ABSPROP',
     'ABSPROPNOUNIV',
@@ -234,24 +234,10 @@ class StormReporter(coverage.FileReporter):
     def lines(self):
         source_lines = set()
 
-        if SHOW_PARSING:
-            print(f'-------------- {self.filename}')
-
         tree = self._parser.parse(self.source())
 
         for token in tree.scan_values(lambda v: isinstance(v, lark.lexer.Token)):
-            if token.type not in TOKENS:
-                continue
-
-            if SHOW_PARSING:
-                print('%20s %2d: %r' % (token.type, token.line, token.value))
-
-            if token.line == token.end_line:
+            if token.type in TOKENS:
                 source_lines.add(token.line)
-            else:
-                source_lines.update(range(token.line, token.end_line + 1))
-
-            if SHOW_PARSING:
-                print(f'\t\t\tNow source_lines is: {source_lines!r}')
 
         return source_lines
