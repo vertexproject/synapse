@@ -611,7 +611,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
@@ -621,7 +621,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                         'sha1': <str> - The SHA1 hash of the response body.
                         'sha256': <str> - The SHA256 hash of the response body.
                         'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
                     }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
                 }
 
         Returns:
@@ -1574,6 +1580,47 @@ class Axon(s_cell.Cell):
                     'mesg': mesg,
                 }
 
+    async def _flatten_clientresponse(self,
+                                      resp: aiohttp.ClientResponse,
+                                      toplevel=True,
+                                      ) -> dict:
+        info = {
+            'ok': True,
+            'url': str(resp.url),
+            'code': resp.status,
+            'headers': dict(resp.headers),
+            'request': {
+                'url': str(resp.request_info.url),
+                'headers': dict(resp.request_info.headers),
+                'method': str(resp.request_info.method),
+            }
+        }
+
+        hashset = s_hashset.HashSet()
+
+        if toplevel:
+            async with await self.upload() as upload:
+                async for byts in resp.content.iter_chunked(CHUNK_SIZE):
+                    await upload.write(byts)
+                    hashset.update(byts)
+
+                size, _ = await upload.save()
+
+            info['size'] = size
+            info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
+
+        info['request'] = {
+            'url': str(resp.request_info.url),
+            'real_url': str(resp.request_info.real_url),
+            'headers': dict(resp.request_info.headers),
+            'method': str(resp.request_info.method),
+        }
+
+        if toplevel and resp.history:
+            info['history'] = [await self._flatten_clientresponse(hist, toplevel=False) for hist in resp.history]
+
+        return info
+
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
         '''
         Stream a file download directly into the Axon.
@@ -1597,7 +1644,7 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
@@ -1607,7 +1654,13 @@ class Axon(s_cell.Cell):
                         'sha1': <str> - The SHA1 hash of the response body.
                         'sha256': <str> - The SHA256 hash of the response body.
                         'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
                     }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
                 }
 
         Returns:
@@ -1637,29 +1690,8 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
             try:
-
                 async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
-
-                    info = {
-                        'ok': True,
-                        'url': str(resp.url),
-                        'code': resp.status,
-                        'headers': dict(resp.headers),
-                    }
-
-                    hashset = s_hashset.HashSet()
-
-                    async with await self.upload() as upload:
-
-                        async for byts in resp.content.iter_chunked(CHUNK_SIZE):
-                            await upload.write(byts)
-                            hashset.update(byts)
-
-                        size, _ = await upload.save()
-
-                    info['size'] = size
-                    info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
-
+                    info = await self._flatten_clientresponse(resp)
                     return info
 
             except asyncio.CancelledError:

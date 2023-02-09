@@ -2016,8 +2016,10 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
+        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout, **kwargs)
+        resp['original_url'] = url
+        return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
@@ -2062,27 +2064,46 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
-        url = resp.get('url')
+        now = self.runt.model.type('time').norm('now')[0]
+
+        # Account for older axon implementations
+        original_url = resp.get('original_url', resp.get('url'))
         hashes = resp.get('hashes')
         props = {
             'size': resp.get('size'),
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
             'sha256': hashes.get('sha256'),
-            '.seen': 'now',
+            '.seen': now,
         }
 
         sha256 = hashes.get('sha256')
         filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
 
         if not filenode.get('name'):
-            info = s_urlhelp.chopurl(url)
+            info = s_urlhelp.chopurl(original_url)
             base = info.get('path').strip('/').split('/')[-1]
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': 'now'}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+        props = {'.seen': now}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+
+        history = resp.get('history', ())
+        for i, info in enumerate(history):
+            headers = info.get('headers')
+            if not headers:
+                break
+            location = headers.get('Location')
+            if location is None:
+                break
+            if i == 0:
+                url = original_url
+            else:
+                url = info.get('url')
+            valu = (url, location)
+            props = {'.seen': now}
+            await self.runt.snap.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
 
