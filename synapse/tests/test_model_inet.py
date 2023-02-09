@@ -672,6 +672,18 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
+                self.eq(node.get('name'), 'HeHe')
+                self.eq(node.get('value'), 'HaHa')
+
+            nodes = await core.nodes('''
+                [ inet:http:request=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
+
+            nodes = await core.nodes('''
+                [ inet:http:session=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
 
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'

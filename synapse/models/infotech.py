@@ -296,6 +296,9 @@ class ItModule(s_module.CoreModule):
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
                 }),
+                ('it:log:event:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of log event types.',
+                }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
                     'interfaces': ('it:host:activity',),
@@ -637,16 +640,28 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The org that operates the given host.',
                     }),
                 )),
+                ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
+
                     ('mesg', ('str', {}), {
-                        'doc': 'The log messsage text.',
-                    }),
+                        'doc': 'The log messsage text.'}),
+
+                    ('type', ('it:log:event:type:taxonomy', {}), {
+                        'ex': 'windows.eventlog.securitylog',
+                        'doc': 'A taxonomy of log event types.'}),
+
                     ('severity', ('int', {'enums': loglevels}), {
-                        'doc': 'A log level integer that increases with severity.',
-                    }),
+                        'doc': 'A log level integer that increases with severity.'}),
+
                     ('data', ('data', {}), {
-                        'doc': 'A raw JSON record of the log event.',
-                    }),
+                        'doc': 'A raw JSON record of the log event.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external id that uniquely identifies this log entry.'}),
+
+                    ('product', ('it:prod:softver', {}), {
+                        'doc': 'The software which produced the log entry.'}),
+
                 )),
                 ('it:domain', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
