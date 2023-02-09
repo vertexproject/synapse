@@ -4664,7 +4664,7 @@ class TreeCmd(Cmd):
             mesg = 'tree query must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        text = self.opts.query
+        text = await s_stormtypes.tostr(self.opts.query)
 
         async def recurse(node, path):
 
