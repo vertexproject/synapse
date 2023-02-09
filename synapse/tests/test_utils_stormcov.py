@@ -109,3 +109,24 @@ class TestUtilsStormcov(s_utils.SynTest):
 
             with mock.patch('synapse.lib.ast.pullone', pullone):
                 await core.nodes(s_files.getAssetStr('stormcov/spin.storm'))
+
+            async def pullone(genr):
+                gotone = None
+                async for gotone in genr:
+                    break
+
+                async def pullgenr():
+                    frame = inspect.currentframe()
+                    assert stormtracer.dynamic_source_filename(None, frame) is None
+
+                    if gotone is None:
+                        return
+
+                    yield gotone
+                    async for item in genr:
+                        yield item
+
+                return pullgenr(), gotone is None
+
+            with mock.patch('synapse.lib.ast.pullone', pullone):
+                await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))
