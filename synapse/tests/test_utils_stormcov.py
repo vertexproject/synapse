@@ -80,6 +80,28 @@ class TestUtilsStormcov(s_utils.SynTest):
             with mock.patch('synapse.lib.snap.Snap.nodesByPropValu', nodesByPropValu):
                 await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))
 
+            async def pullone(genr):
+                gotone = None
+                async for gotone in genr:
+                    break
+
+                async def pullgenr():
+                    frame = inspect.currentframe()
+                    assert 'spin.storm' in stormtracer.dynamic_source_filename(None, frame)
+                    assert (2, 2) == stormtracer.line_number_range(frame)
+
+                    if gotone is None:
+                        return
+
+                    yield gotone
+                    async for item in genr:
+                        yield item
+
+                return pullgenr(), gotone is None
+
+            with mock.patch('synapse.lib.ast.pullone', pullone):
+                await core.nodes(s_files.getAssetStr('stormcov/spin.storm'))
+
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/stormctrl.storm'))
         self.eq(s_files.getAssetStr('stormcov/stormctrl.storm'), reporter.source())
         self.eq(reporter.lines(), {1, 2, 3, 6})
