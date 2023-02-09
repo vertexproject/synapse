@@ -5410,7 +5410,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     log01 = await alist(core01.nexsroot.nexslog.iter(0))
                     self.eq(log00, log01)
 
-                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
+                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'offset is out of sync') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
                             self.true(await stream.wait(6))
                             self.true(core02.nexsroot.isfini)
