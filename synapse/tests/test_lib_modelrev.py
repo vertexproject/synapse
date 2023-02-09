@@ -349,3 +349,9 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.len(2, nodes[0].get('soft:names'))
             self.len(2, nodes[0].get('techniques'))
+
+    async def test_modelrev_0_2_17(self):
+        async with self.getRegrCore('model-0.2.17') as core:
+
+            self.len(1, await core.nodes('risk:vuln:cvss:av=P'))
+            self.len(1, await core.nodes('risk:vuln:cvss:av=L'))

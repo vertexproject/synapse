@@ -7,6 +7,12 @@ Synapse Changelog
 NEXTVERS - YYYY-MM-DD
 =====================
 
+Automatic Migrations
+--------------------
+- If the ``risk:vuln:cvss:av`` property equals ``V`` it is migrated to ``P``.
+  (`#tbd <https://github.com/vertexproject/synapse/pull/tbd>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Features and Enhancements
 -------------------------
 - TBD
@@ -16,6 +22,8 @@ Bugfixes
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.
   (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
+- The ``risk:vuln:cvss:av`` enum incorrectly included ``V`` instead of ``P``.
+  (`#tbd <https://github.com/vertexproject/synapse/pull/tbd>`_)
 
 Improved Documentation
 ----------------------
