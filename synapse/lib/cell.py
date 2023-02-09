@@ -2482,9 +2482,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         unfo = self._get_user_for_handler(handler)
         enfo.update(**unfo)
+        user = enfo.get('user')
         username = enfo.get('username')
-        if username is not None:
-            mesg = f'{status} {summary} user={username} {request_time:.2f}ms'
+        if user:
+            mesg = f'{status} {summary} user={user} ({username}) {request_time:.2f}ms'
         else:
             mesg = f'{status} {summary} {request_time:.2f}ms'
 

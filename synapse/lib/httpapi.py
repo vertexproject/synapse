@@ -250,23 +250,16 @@ class HandlerBase:
         Returns:
             str: The iden of the current session user.
         '''
-        authcell = self.getAuthCell()
-
         if self.web_useriden is not None:
             return self.web_useriden
 
         sess = await self.sess(gen=False)
         if sess is not None:
             iden = sess.info.get('user')
-
-            udef = await authcell.getUserDef(iden)
-            if udef is None:
-                # Odd situation - a valid session but without a user definition.
-                logger.warning(f'Valid session without corresponding user definition {self.request}')
-                return None
+            name = sess.info.get('name', '<no username>')
 
             self.web_useriden = iden
-            self.web_username = udef.get('name')
+            self.web_username = name
 
             return iden
 
@@ -709,6 +702,7 @@ class LoginV1(Handler):
         iden = udef.get('iden')
         sess = await self.sess()
         await sess.set('user', iden)
+        await sess.set('username', name)
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
 
