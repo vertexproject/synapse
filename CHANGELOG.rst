@@ -9,20 +9,25 @@ NEXTVERS - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
-- The ``Axon.wget()`` and ``$lib.axon.wget()`` APIs now include information
-  about the original request and URL redirect history in their response data.
-  The Storm ``wget`` command now creates ``inet:urlredir`` nodes based on the
-  redirect history when that is present.
+- The ``Axon.wget()`` API node includes HTTP request history, which is added
+  when the API encounters redirects. The ``$lib.axon.wget()`` Storm API now
+  includes information about the original request URL. This data is now used
+  to create ``inet:urlredir`` nodes, such as when the Storm ``wget`` command
+  is used to retreive a file.
   (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 
 Bugfixes
 --------
 - The Storm ``wget`` command created ``inet:urlfile`` nodes with the ``url``
-  property of the resolved URL from ``aiohttp``. This broke made it so that
-  a user could not pivot from a ``inet:url`` node which had a URL encoded
-  parameter strin to the resulting ``inet:urlfile`` node. The
-  ``inet:urlfile`` nodes are now made with the original request URL to allow
-  that pivoting to occur.
+  property of the resolved URL from ``aiohttp``. This made it so that a user
+  could not pivot from a ``inet:url`` node which had an URL encoded  parameter
+  string to the resulting ``inet:urlfile`` node. The ``inet:urlfile`` nodes
+  are now made with the original request URL to allow that pivoting to occur.
+  (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
+- The ``Axon.wget()`` and ``$lib.axon.wget()`` APIs returned URLs in the
+  ``url`` field of their responses which did contain fragment identifiers.
+  These API responses now include the fragment identifier if it was present
+  in the resolved URL.
   (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.

@@ -1580,44 +1580,23 @@ class Axon(s_cell.Cell):
                     'mesg': mesg,
                 }
 
-    async def _flatten_clientresponse(self,
-                                      resp: aiohttp.ClientResponse,
-                                      toplevel=True,
-                                      ) -> dict:
+    def _flatten_clientresponse(self,
+                                resp: aiohttp.ClientResponse,
+                                ) -> dict:
         info = {
             'ok': True,
-            'url': str(resp.url),
+            'url': str(resp.real_url),
             'code': resp.status,
             'headers': dict(resp.headers),
             'request': {
-                'url': str(resp.request_info.url),
+                'url': str(resp.request_info.real_url),
                 'headers': dict(resp.request_info.headers),
                 'method': str(resp.request_info.method),
             }
         }
 
-        hashset = s_hashset.HashSet()
-
-        if toplevel:
-            async with await self.upload() as upload:
-                async for byts in resp.content.iter_chunked(CHUNK_SIZE):
-                    await upload.write(byts)
-                    hashset.update(byts)
-
-                size, _ = await upload.save()
-
-            info['size'] = size
-            info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
-
-        info['request'] = {
-            'url': str(resp.request_info.url),
-            'real_url': str(resp.request_info.real_url),
-            'headers': dict(resp.request_info.headers),
-            'method': str(resp.request_info.method),
-        }
-
-        if toplevel and resp.history:
-            info['history'] = [await self._flatten_clientresponse(hist, toplevel=False) for hist in resp.history]
+        if resp.history:
+            info['history'] = [self._flatten_clientresponse(hist) for hist in resp.history]
 
         return info
 
@@ -1691,7 +1670,21 @@ class Axon(s_cell.Cell):
 
             try:
                 async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
-                    return await self._flatten_clientresponse(resp)
+
+                    info = self._flatten_clientresponse(resp)
+
+                    hashset = s_hashset.HashSet()
+
+                    async with await self.upload() as upload:
+                        async for byts in resp.content.iter_chunked(CHUNK_SIZE):
+                            await upload.write(byts)
+                            hashset.update(byts)
+
+                        size, _ = await upload.save()
+
+                    info['size'] = size
+                    info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
+                    return info
 
             except asyncio.CancelledError:
                 raise
