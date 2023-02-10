@@ -9,15 +9,44 @@ NEXTVERS - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
+- Updates to the ``inet:dns`` model.
+  (`#3005 <https://github.com/vertexproject/synapse/pull/3005>`_)
+
+  ``inet:dns:answer``
+
+    Remove all read-only flags present on the secondary properties for this
+    form.
+
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
   (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
+- Clean up several references to the ``cell.auth`` object in HTTP API
+  handlers. Move the logic in ``/api/v1/auth/onepass/issue`` API handler to
+  the base Cell.
+  (`#2998 <https://github.com/vertexproject/synapse/pull/2998>`_)
+  (`#3004 <https://github.com/vertexproject/synapse/pull/3004>`_)
+- Clarify the error message encountered by a Synapse mirrored service if
+  the mirror gets desynchronized from its upstream service.
+  (`#3006 <https://github.com/vertexproject/synapse/pull/3006>`_)
+- Update how read-only properties are handled during merges. The ``.created``
+  property will always be set when merging a node down. If two nodes have
+  other conflicting read-only property valuse, those will now emit a warning
+  in the Storm runtime.
+  (`#2989 <https://github.com/vertexproject/synapse/pull/2986>`_)
 
 Bugfixes
 --------
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.
   (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
+- Remove an unnecessary permission check in the Storm ``movenodes`` command
+  which could cause the command to fail.
+  (`#3002 <https://github.com/vertexproject/synapse/pull/3002>`_)
+- When a user email address was provided to the HTTP API
+  ``/api/v1/auth/adduser``, the handler did not properly set the email using
+  change controlled APIs, so that information would not be sent to mirrored
+  cells. The email is now being set properly.
+  (`#2998 <https://github.com/vertexproject/synapse/pull/2998>`_)
 
 Improved Documentation
 ----------------------
