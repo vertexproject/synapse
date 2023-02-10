@@ -9,10 +9,21 @@ NEXTVERS - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
-- TBD
+- The ``Axon.wget()`` and ``$lib.axon.wget()`` APIs now include information
+  about the original request and URL redirect history in their response data.
+  The Storm ``wget`` command now creates ``inet:urlredir`` nodes based on the
+  redirect history when that is present.
+  (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 
 Bugfixes
 --------
+- The Storm ``wget`` command created ``inet:urlfile`` nodes with the ``url``
+  property of the resolved URL from ``aiohttp``. This broke made it so that
+  a user could not pivot from a ``inet:url`` node which had a URL encoded
+  parameter strin to the resulting ``inet:urlfile`` node. The
+  ``inet:urlfile`` nodes are now made with the original request URL to allow
+  that pivoting to occur.
+  (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.
   (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
