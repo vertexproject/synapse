@@ -1733,7 +1733,7 @@ class StormTest(s_t_utils.SynTest):
             podes = [m[1] for m in msgs if m[0] == 'node']
             self.isin(('inet:url', url), [pode[0] for pode in podes])
 
-            # Redirects still record the destination address
+            # Redirects still record the original address
             durl = f'https://127.0.0.1:{port}/api/v1/active'
             params = (('redirect', durl),)
             url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
