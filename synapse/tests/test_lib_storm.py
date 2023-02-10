@@ -1725,6 +1725,13 @@ class StormTest(s_t_utils.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
 
+            # URL fragments are preserved.
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test#fragmented-bits'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
             # URL encoded data plays nicely
             params = (('foo', 'bar'), ('baz', 'faz'))
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
