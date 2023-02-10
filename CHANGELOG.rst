@@ -9,6 +9,9 @@ NEXTVERS - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
+- Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
+  coverage of Storm files.
+  (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
 - The ``Axon.wget()`` API node includes HTTP request history, which is added
   when the API encounters redirects. The ``$lib.axon.wget()`` Storm API now
   includes information about the original request URL. This data is now used
