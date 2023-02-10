@@ -4,6 +4,27 @@
 Synapse Changelog
 *****************
 
+NEXTVERS - YYYY-MM-DD
+=====================
+
+Features and Enhancements
+-------------------------
+- TBD
+
+Bugfixes
+--------
+- The Storm ``tree`` command did not properly handle Storm query arguments
+  which were declared as ``storm:query`` types.
+  (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
+
+Improved Documentation
+----------------------
+- TBD
+
+Deprecations
+------------
+- TBD
+
 v2.122.0 - 2023-01-27
 =====================
 
