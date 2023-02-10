@@ -2066,8 +2066,7 @@ class LibAxon(Lib):
 
         now = self.runt.model.type('time').norm('now')[0]
 
-        # Account for older axon implementations
-        original_url = resp.get('original_url', resp.get('url'))
+        original_url = resp.get('original_url')
         hashes = resp.get('hashes')
         sha256 = hashes.get('sha256')
         props = {
