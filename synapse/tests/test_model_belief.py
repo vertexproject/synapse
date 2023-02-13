@@ -12,7 +12,7 @@ class BeliefModelTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'woot woot')
             self.eq(nodes[0].get('type'), 'hehe.haha.')
-            self.eq(nodes[0].get('began'), 10)
+            self.eq(nodes[0].get('began'), 1675900800000)
 
             nodes = await core.nodes('''[
                 belief:subscriber=*
@@ -25,5 +25,5 @@ class BeliefModelTest(s_test.SynTest):
             self.nn(nodes[0].get('system'))
             self.nn(nodes[0].get('contact'))
 
-            self.eq(nodes[0].get('began'), 10)
-            self.eq(nodes[0].get('ended'), 10)
+            self.eq(nodes[0].get('began'), 1675900800000)
+            self.eq(nodes[0].get('ended'), 1675987200000)

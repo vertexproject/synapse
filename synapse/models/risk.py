@@ -498,7 +498,7 @@ class RiskModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the attacker for the compromise.'}),
 
-                    ('goals', ('array': {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of assessed attacker goals for the compromise.'}),
 
                     # -(stole)> file:bytes ps:contact file:bytes

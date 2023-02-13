@@ -32,7 +32,7 @@ class BeliefModule(s_module.CoreModule):
 
                 ('belief:system', {}, (
 
-                    ('name', ('str', {'onespace': True, 'lower': true}), {
+                    ('name', ('str', {'onespace': True, 'lower': True}), {
                         'doc': 'The name of the belief system.'}),
 
                     ('type', ('belief:system:type:taxonomy', {}), {
