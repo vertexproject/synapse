@@ -1715,22 +1715,22 @@ class InetModule(s_module.CoreModule):
                         }),
 
                         ('src:ssl:cert', ('crypto:x509:cert', {}), {
-                            'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'})
+                            'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'}),
 
                         ('dst:ssl:cert', ('crypto:x509:cert', {}), {
-                            'doc': 'The x509 certificate sent by the server as part of an SSL/TLS negotiation.'})
+                            'doc': 'The x509 certificate sent by the server as part of an SSL/TLS negotiation.'}),
 
                         ('src:rdp:hostname', ('it:hostname', {}), {
-                            'doc': 'The hostname sent by the client as part of an RDP session setup.'})
+                            'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
 
                         ('src:rdp:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
-                            'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'})
+                            'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
 
                         ('src:ssh:key', ('crypto:key', {}), {
-                            'doc': 'The key sent by the client as part of an SSH session setup.'})
+                            'doc': 'The key sent by the client as part of an SSH session setup.'}),
 
                         ('dst:ssh:key', ('crypto:key', {}), {
-                            'doc': 'The key sent by the server as part of an SSH session setup.'})
+                            'doc': 'The key sent by the server as part of an SSH session setup.'}),
                     )),
 
                     ('inet:tunnel:type:taxonomy', {}, ()),
