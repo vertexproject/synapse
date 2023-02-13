@@ -21,7 +21,8 @@ Bugfixes
 
 Improved Documentation
 ----------------------
-- TBD
+- Update copyright notice to always include the current year.
+  (`#3010 <https://github.com/vertexproject/synapse/pull/3010>`_)
 
 Deprecations
 ------------
