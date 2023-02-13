@@ -675,7 +675,7 @@ class ModelRev:
 
             async for buid, propvalu in layr.iterPropRows(formname, propname, stortype=stortype, startvalu=oldvalu):
 
-                if propvalu != oldvalu:
+                if propvalu != oldvalu:  # pragma: no cover
                     break
 
                 nodeedits.append(
