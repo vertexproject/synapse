@@ -12,6 +12,9 @@ Features and Enhancements
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
   (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
+- Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
+  data with the ``time`` type includes the value in the exception message.
+  (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
 
 Bugfixes
 --------
