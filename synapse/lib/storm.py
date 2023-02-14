@@ -1,5 +1,6 @@
 import types
 import pprint
+import typing
 import asyncio
 import logging
 import argparse
@@ -3765,6 +3766,9 @@ class UniqCmd(Cmd):
                 async for node, path in genr:
 
                     valu = await s_stormtypes.toprim(self.opts.value)
+                    if not isinstance(valu, typing.Hashable):
+                        valu = await s_stormtypes.tostr(valu, noneok=True)
+
                     if valu in uniqset:
                         await asyncio.sleep(0)
                         continue
