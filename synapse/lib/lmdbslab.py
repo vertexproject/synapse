@@ -760,6 +760,7 @@ class Slab(s_base.Base):
         else:
             self._initCoXact()
 
+        self.resizecallbacks = []
         self.resizeevent = threading.Event()  # triggered when a resize event occurred
         self.lockdoneevent = asyncio.Event()  # triggered when a memory locking finished
 
@@ -917,6 +918,9 @@ class Slab(s_base.Base):
         del self.xact
         self.xact = None
 
+    def addResizeCallback(self, callback):
+        self.resizecallbacks.append(callback)
+
     def _growMapSize(self, size=None):
         mapsize = self.mapsize
 
@@ -941,6 +945,7 @@ class Slab(s_base.Base):
         self.mapsize = mapsize
 
         self.resizeevent.set()
+        [callback() for callback in self.resizecallbacks]
 
         return self.mapsize
 

@@ -2377,6 +2377,9 @@ class Layer(s_nexus.Pusher):
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
 
+        self.layrslab.addResizeCallback(self.core.checkFreeSpace)
+        self.dataslab.addResizeCallback(self.core.checkFreeSpace)
+
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
@@ -2386,6 +2389,8 @@ class Layer(s_nexus.Pusher):
 
         path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
         self.nodeeditslab = await s_lmdbslab.Slab.anit(path, **otherslabopts)
+        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
+
         self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')

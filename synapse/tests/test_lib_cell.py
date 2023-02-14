@@ -1814,3 +1814,21 @@ class CellTest(s_t_utils.SynTest):
 
                         self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
                         self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
+
+        with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 600):
+
+            async with self.getTestCore() as core:
+
+                with mock.patch.object(s_lmdbslab.Slab, 'DEFAULT_MAPSIZE', 100000):
+                    layr = await core.addLayer()
+                    layriden = layr.get('iden')
+                    view = await core.addView({'layers': (layriden,)})
+                    viewiden = view.get('iden')
+
+                    with mock.patch('shutil.disk_usage', full_disk):
+                        opts = {'view': viewiden}
+                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
+                        self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                        nodes = await core.nodes('inet:ipv4', opts=opts)
+                        self.gt(len(nodes), 0)
+                        self.lt(len(nodes), 20000)
