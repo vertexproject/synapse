@@ -3261,6 +3261,93 @@ class StormTest(s_t_utils.SynTest):
             pars = s_storm.Parser()
             pars.add_argument('--yada', type=int)
 
+        # choices - bad setup
+        pars = s_storm.Parser()
+
+        with self.raises(s_exc.BadArg) as cm:
+            pars.add_argument('--foo', action='store_true', choices=['newp'])
+        self.eq('Argument choices are not supported when action is store_true or store_false', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadArg) as cm:
+            pars.add_argument('--foo', choices='newp')
+        self.eq('Argument choices must be a list or tuple: newp', cm.exception.get('mesg'))
+
+        # choices - basics
+        pars = s_storm.Parser()
+        pars.add_argument('foo', type='int', choices=[3, 1, 2], help='foohelp')
+        pars.add_argument('--bar', choices=['baz', 'bam'], help='barhelp')
+        pars.add_argument('--cam', action='append', choices=['cat', 'cool'], help='camhelp')
+
+        opts = pars.parse_args(['1', '--bar', 'bam', '--cam', 'cat', '--cam', 'cool'])
+        self.eq(1, opts.foo)
+        self.eq('bam', opts.bar)
+        self.eq(['cat', 'cool'], opts.cam)
+
+        opts = pars.parse_args([32])
+        self.none(opts)
+        self.eq('Invalid choice for argument <foo> (choose from: 3, 1, 2): 32', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args([2, '--bar', 'newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --bar (choose from: baz, bam): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args([2, '--cam', 'cat', '--cam', 'newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --cam (choose from: cat, cool): newp', pars.exc.errinfo['mesg'])
+
+        pars.mesgs.clear()
+        pars.help()
+        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[5])
+        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[6])
+        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[10])
+
+        # choices - default does not have to be in choices
+        pars = s_storm.Parser()
+        pars.add_argument('--foo', default='def', choices=['faz'], help='foohelp')
+
+        opts = pars.parse_args([])
+        self.eq('def', opts.foo)
+
+        pars.help()
+        self.eq('  --foo <foo>                 : foohelp (default: def, choices: faz)', pars.mesgs[-1])
+
+        # choices - like defaults, choices are not normalized
+        pars = s_storm.Parser()
+        ttyp = s_datamodel.Model().type('time')
+        pars.add_argument('foo', type='time', choices=['2022', ttyp.norm('2023')[0]], help='foohelp')
+
+        opts = pars.parse_args(['2023'])
+        self.eq(ttyp.norm('2023')[0], opts.foo)
+
+        opts = pars.parse_args(['2022'])
+        self.none(opts)
+        errmesg = pars.exc.errinfo['mesg']
+        self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000): 1640995200000', errmesg)
+
+        pars.help()
+        self.eq('  <foo>                       : foohelp (choices: 2022, 1672531200000)', pars.mesgs[-1])
+
+        # choices - nargs
+        pars = s_storm.Parser()
+        pars.add_argument('foo', nargs='+', choices=['faz'])
+        pars.add_argument('--bar', nargs='?', choices=['baz'])
+        pars.add_argument('--cat', nargs=2, choices=['cam', 'cool'])
+
+        opts = pars.parse_args(['newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument <foo> (choose from: faz): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args(['faz', '--bar', 'newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --bar (choose from: baz): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args(['faz', '--cat', 'newp', 'newp2'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --cat (choose from: cam, cool): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args(['faz', '--cat', 'cam', 'cool'])
+        self.nn(opts)
+
     async def test_storm_cmd_help(self):
 
         async with self.getTestCore() as core:
