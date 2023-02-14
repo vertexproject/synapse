@@ -7,19 +7,33 @@ Synapse Changelog
 NEXTVERS - YYYY-MM-DD
 =====================
 
+Automatic Migrations
+--------------------
+- If the ``risk:vuln:cvss:av`` property equals ``V`` it is migrated to ``P``.
+  (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Features and Enhancements
 -------------------------
-- TBD
+- Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
+  coverage of Storm files.
+  (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
+- Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
+  data with the ``time`` type includes the value in the exception message.
+  (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
 
 Bugfixes
 --------
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.
   (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
+- The ``risk:vuln:cvss:av`` enum incorrectly included ``V`` instead of ``P``.
+  (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
 
 Improved Documentation
 ----------------------
-- TBD
+- Update copyright notice to always include the current year.
+  (`#3010 <https://github.com/vertexproject/synapse/pull/3010>`_)
 
 Deprecations
 ------------

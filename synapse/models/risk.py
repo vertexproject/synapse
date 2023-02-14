@@ -272,7 +272,7 @@ class RiskModule(s_module.CoreModule):
                     ('cisa:kev:duedate', ('time', {}), {
                         'doc': 'The date the action is due according to the CISA KEV database.'}),
 
-                    ('cvss:av', ('str', {'enums': 'N,A,V,L'}), {
+                    ('cvss:av', ('str', {'enums': 'N,A,P,L'}), {
                         'doc': 'The CVSS Attack Vector (AV) value.'}),
 
                     ('cvss:ac', ('str', {'enums': 'L,H'}), {

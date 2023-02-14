@@ -151,13 +151,19 @@ class AstConverter(lark.Transformer):
             return child
         tokencls = terminalClassMap.get(child.type, s_ast.Const)
         newkid = tokencls(child.value)
+        newkid.lines = (child.line, child.end_line)
+        newkid.textpos = (child.start_pos, child.end_pos)
         return newkid
 
     def __default__(self, treedata, children, treemeta):
         assert treedata in ruleClassMap, f'Unknown grammar rule: {treedata}'
         cls = ruleClassMap[treedata]
         newkids = self._convert_children(children)
-        return cls(newkids)
+        newkid = cls(newkids)
+        if not treemeta.empty:
+            newkid.lines = (treemeta.line, treemeta.line)
+            newkid.textpos = (treemeta.start_pos, treemeta.end_pos)
+        return newkid
 
     @lark.v_args(meta=True)
     def subquery(self, meta, kids):
@@ -184,12 +190,18 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
         kids = [self._parseJsonToken(meta, k) for k in kids]
-        return s_ast.ExprList(kids=kids)
+        node = s_ast.ExprList(kids=kids)
+        node.lines = (meta.line, meta.end_line)
+        node.textpos = (meta.start_pos, meta.end_pos)
+        return node
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
         kids = [self._parseJsonToken(meta, k) for k in kids]
-        return s_ast.ExprDict(kids=kids)
+        node = s_ast.ExprDict(kids=kids)
+        node.lines = (meta.line, meta.end_line)
+        node.textpos = (meta.start_pos, meta.end_pos)
+        return node
 
     @lark.v_args(meta=True)
     def trycatch(self, meta, kids):
@@ -273,10 +285,6 @@ class AstConverter(lark.Transformer):
         return s_ast.Emit(kids)
 
     @lark.v_args(meta=True)
-    def stop(self, meta, kids):
-        return s_ast.Stop()
-
-    @lark.v_args(meta=True)
     def funccall(self, meta, kids):
         argkids = []
         kwargkids = []
@@ -315,16 +323,21 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         return s_ast.VarList([k.valu for k in kids])
 
-    def operrelprop_pivot(self, kids, isjoin=False):
+    @lark.v_args(meta=True)
+    def operrelprop_pivot(self, meta, kids, isjoin=False):
         kids = self._convert_children(kids)
         relprop, rest = kids[0], kids[1:]
         if not rest:
             return s_ast.PropPivotOut(kids=kids, isjoin=isjoin)
         pval = s_ast.RelPropValue(kids=(relprop,))
-        return s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=isjoin)
+        node = s_ast.PropPivot(kids=(pval, *kids[1:]), isjoin=isjoin)
+        node.lines = (meta.line, meta.end_line)
+        node.textpos = (meta.start_pos, meta.end_pos)
+        return node
 
-    def operrelprop_join(self, kids):
-        return self.operrelprop_pivot(kids, isjoin=True)
+    @lark.v_args(meta=True)
+    def operrelprop_join(self, meta, kids):
+        return self.operrelprop_pivot(meta, kids, isjoin=True)
 
     def stormcmdargs(self, kids):
         newkids = []
@@ -725,6 +738,7 @@ ruleClassMap = {
     'relpropvalue': s_ast.RelPropValue,
     'setitem': s_ast.SetItemOper,
     'setvar': s_ast.SetVarOper,
+    'stop': s_ast.Stop,
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
