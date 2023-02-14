@@ -2465,9 +2465,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _log_web_request(self, handler: s_httpapi.Handler) -> None:
         # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
-        if handler.get_status() < 400:
+        status = handler.get_status()
+        if status < 400:
             log_method = t_log.access_log.info
-        elif handler.get_status() < 500:
+        elif status < 500:
             log_method = t_log.access_log.warning
         else:
             log_method = t_log.access_log.error
@@ -2478,6 +2479,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         extra = {}
         enfo = extra.setdefault('synapse', {})
+        enfo['http_status'] = status
+        enfo['http_path'] = handler.request.path
         enfo['remoteip'] = handler.request.remote_ip
 
         unfo = self._get_user_for_handler(handler)
