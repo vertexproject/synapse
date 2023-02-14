@@ -4017,7 +4017,7 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+            self.stormIsInErr("Expected 1 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
 
             msgs = await core.stormlist('help yield')
             self.stormIsInPrint('No commands found matching "yield"', msgs)
