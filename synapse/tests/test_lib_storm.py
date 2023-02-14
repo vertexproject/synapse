@@ -2257,6 +2257,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(3, nodes)
             nodes = await core.nodes('test:comp -> * | uniq')
             self.len(1, nodes)
+            nodes = await core.nodes('test:comp | uniq :hehe')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:comp $valu=:hehe | uniq $valu')
+            self.len(1, nodes)
 
     async def test_storm_once_cmd(self):
         async with self.getTestCore() as core:
