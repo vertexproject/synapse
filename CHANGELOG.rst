@@ -15,23 +15,53 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
+
+- Updates to the ``media`` model.
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
+
+  ``media:news``
+    Add an ``updated`` property to record last time the news item was updated.
+
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
   (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
+- The ``Axon.wget()`` API response now includes HTTP request history, which is
+  added when the API request encounters redirects. The ``$lib.axon.wget()``
+  Storm API now includes information about the original request URL. This data
+  is now used to create ``inet:urlredir`` nodes, such as when the Storm
+  ``wget`` command is used to retrieve a file.
+  (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 - Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
   data with the ``time`` type includes the value in the exception message.
   (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
 - Add a callback on Slab size expansion to trigger a free disk space check
   on the related cell.
   (`#3016 <https://github.com/vertexproject/synapse/pull/3016>`_)
+- Add an optional parameter to the Storm ``uniq`` command to allow specifying
+  a relative property or variable to operate on rather than node iden.
+  (`#3018 <https://github.com/vertexproject/synapse/pull/3018>`_)
 
 Bugfixes
 --------
+- The Storm ``wget`` command created ``inet:urlfile`` nodes with the ``url``
+  property of the resolved URL from ``aiohttp``. This made it so that a user
+  could not pivot from an ``inet:url`` node which had a URL encoded parameter
+  string to the resulting ``inet:urlfile`` node. The ``inet:urlfile`` nodes
+  are now made with the original request URL to allow that pivoting to occur.
+  (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
+- The ``Axon.wget()`` and ``$lib.axon.wget()`` APIs returned URLs in the
+  ``url`` field of their responses which did not contain fragment identifiers.
+  These API responses now include the fragment identifier if it was present in
+  the resolved URL.
+  (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.
   (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
 - The ``risk:vuln:cvss:av`` enum incorrectly included ``V`` instead of ``P``.
   (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- Fix an issue where the ``ismax`` specification on time types did not merge
+  time values correctly.
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
 
 Improved Documentation
 ----------------------

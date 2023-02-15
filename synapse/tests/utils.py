@@ -708,6 +708,12 @@ class HttpReflector(s_httpapi.Handler):
             sleep = int(sleep[0])
             await asyncio.sleep(sleep)
 
+        redirect = params.get('redirect')
+        if redirect:
+            self.add_header('Redirected', '1')
+            self.redirect(redirect[0])
+            return
+
         self.sendRestRetn(resp)
 
     async def post(self):

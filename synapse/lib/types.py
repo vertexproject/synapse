@@ -1970,6 +1970,8 @@ class Time(IntBase):
 
         if self.ismin:
             self.stortype = s_layer.STOR_TYPE_MINTIME
+        elif self.ismax:
+            self.stortype = s_layer.STOR_TYPE_MAXTIME
 
     def _liftByIval(self, cmpr, valu):
 
