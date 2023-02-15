@@ -26,6 +26,7 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -3609,7 +3610,7 @@ class MoveNodesCmd(Cmd):
         for layr, sode in sodes.items():
             for name, (valu, stortype) in sode.get('props', {}).items():
 
-                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                     or name not in movekeys) and not layr == self.destlayr:
 
                     if not self.opts.apply:
@@ -3673,7 +3674,7 @@ class MoveNodesCmd(Cmd):
         for layr, sode in sodes.items():
             for tag, tagdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in tagdict.items():
-                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
                             if not self.opts.apply:
                                 valurepr = repr(valu)
@@ -3792,10 +3793,17 @@ class UniqCmd(Cmd):
     When this is used a Storm pipeline, only the first instance of a
     given node is allowed through the pipeline.
 
+    A relative property or variable may also be specified, which will cause
+    this command to only allow through the first node with a given value for
+    that property or value rather than checking the node iden.
+
     Examples:
 
+        # Filter duplicate nodes after pivoting from inet:ipv4 nodes tagged with #badstuff
         #badstuff +inet:ipv4 ->* | uniq
 
+        # Unique inet:ipv4 nodes by their :asn property
+        #badstuff +inet:ipv4 | uniq :asn
     '''
 
     name = 'uniq'
@@ -3803,21 +3811,35 @@ class UniqCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
+        pars.add_argument('value', nargs='?', help='A relative property or variable to uniq by.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        buidset = set()
+        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as uniqset:
 
-        async for node, path in genr:
+            if len(self.argv) > 0:
+                async for node, path in genr:
 
-            if node.buid in buidset:
-                # all filters must sleep
-                await asyncio.sleep(0)
-                continue
+                    valu = await s_stormtypes.toprim(self.opts.value)
+                    valu = s_hashitem.hashitem(valu)
+                    if valu in uniqset:
+                        await asyncio.sleep(0)
+                        continue
 
-            buidset.add(node.buid)
-            yield node, path
+                    await uniqset.add(valu)
+                    yield node, path
+
+            else:
+                async for node, path in genr:
+
+                    if node.buid in uniqset:
+                        # all filters must sleep
+                        await asyncio.sleep(0)
+                        continue
+
+                    await uniqset.add(node.buid)
+                    yield node, path
 
 class MaxCmd(Cmd):
     '''
