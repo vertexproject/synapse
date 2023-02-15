@@ -344,6 +344,10 @@ reqValidPkgdef = s_config.getJsValidator({
                         'required': {'type': 'boolean'},
                         'action': {'type': 'string'},
                         'nargs': {'type': ['string', 'integer']},
+                        'choices': {
+                            'type': 'array',
+                            'uniqueItems': True,
+                        },
                         'type': {
                             'type': 'string',
                             'enum': list(s_datamodel.Model().types)
@@ -2220,14 +2224,9 @@ class Parser:
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         choices = opts.get('choices')
-        if choices is not None:
-            if opts.get('action') in ('store_true', 'store_false'):
-                mesg = f'Argument choices are not supported when action is store_true or store_false'
-                raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
-
-            if not isinstance(choices, (list, tuple)):
-                mesg = f'Argument choices must be a list or tuple: {choices}'
-                raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
+        if choices is not None and opts.get('action') in ('store_true', 'store_false'):
+            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)

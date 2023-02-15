@@ -3263,14 +3263,9 @@ class StormTest(s_t_utils.SynTest):
 
         # choices - bad setup
         pars = s_storm.Parser()
-
         with self.raises(s_exc.BadArg) as cm:
             pars.add_argument('--foo', action='store_true', choices=['newp'])
         self.eq('Argument choices are not supported when action is store_true or store_false', cm.exception.get('mesg'))
-
-        with self.raises(s_exc.BadArg) as cm:
-            pars.add_argument('--foo', choices='newp')
-        self.eq('Argument choices must be a list or tuple: newp', cm.exception.get('mesg'))
 
         # choices - basics
         pars = s_storm.Parser()

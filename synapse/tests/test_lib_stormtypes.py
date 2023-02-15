@@ -5484,6 +5484,22 @@ class StormTypesTest(s_test.SynTest):
                 },
             ],
         }
+        sadchoice = {
+            'name': 'baz',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'commands': [
+                {
+                    'name': 'test.badchoice',
+                    'cmdargs': [
+                        ('--baz', {'choices': 'newp'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.baz = hehe
+                    '''
+                },
+            ],
+        }
         async with self.getTestCore() as core:
             await core.addStormPkg(pdef)
             msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101 --choice choice00')
@@ -5501,6 +5517,9 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(sadchoice)
 
             nodes = await core.nodes('[ test:str=foo test:str=bar ] | test.runtsafety $node.repr()')
             self.len(4, nodes)
