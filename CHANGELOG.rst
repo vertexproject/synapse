@@ -12,25 +12,25 @@ Features and Enhancements
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
   (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
-- The ``Axon.wget()`` API node includes HTTP request history, which is added
-  when the API encounters redirects. The ``$lib.axon.wget()`` Storm API now
-  includes information about the original request URL. This data is now used
-  to create ``inet:urlredir`` nodes, such as when the Storm ``wget`` command
-  is used to retreive a file.
+- The ``Axon.wget()`` API response now includes HTTP request history, which is
+  added when the API request encounters redirects. The ``$lib.axon.wget()``
+  Storm API now includes information about the original request URL. This data
+  is now used to create ``inet:urlredir`` nodes, such as when the Storm
+  ``wget`` command is used to retrieve a file.
   (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 
 Bugfixes
 --------
 - The Storm ``wget`` command created ``inet:urlfile`` nodes with the ``url``
   property of the resolved URL from ``aiohttp``. This made it so that a user
-  could not pivot from a ``inet:url`` node which had an URL encoded  parameter
+  could not pivot from an ``inet:url`` node which had a URL encoded parameter
   string to the resulting ``inet:urlfile`` node. The ``inet:urlfile`` nodes
   are now made with the original request URL to allow that pivoting to occur.
   (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 - The ``Axon.wget()`` and ``$lib.axon.wget()`` APIs returned URLs in the
-  ``url`` field of their responses which did contain fragment identifiers.
-  These API responses now include the fragment identifier if it was present
-  in the resolved URL.
+  ``url`` field of their responses which did not contain fragment identifiers.
+  These API responses now include the fragment identifier if it was present in
+  the resolved URL.
   (`#3011 <https://github.com/vertexproject/synapse/pull/3011>`_)
 - The Storm ``tree`` command did not properly handle Storm query arguments
   which were declared as ``storm:query`` types.
