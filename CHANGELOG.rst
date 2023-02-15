@@ -21,6 +21,9 @@ Features and Enhancements
 - Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
   data with the ``time`` type includes the value in the exception message.
   (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
+- Add a callback on Slab size expansion to trigger a free disk space check
+  on the related cell.
+  (`#3016 <https://github.com/vertexproject/synapse/pull/3016>`_)
 
 Bugfixes
 --------
