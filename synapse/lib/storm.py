@@ -347,6 +347,7 @@ reqValidPkgdef = s_config.getJsValidator({
                         'choices': {
                             'type': 'array',
                             'uniqueItems': True,
+                            'minItems': 1,
                         },
                         'type': {
                             'type': 'string',
