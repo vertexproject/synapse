@@ -7,6 +7,12 @@ Synapse Changelog
 NEXTVERS - YYYY-MM-DD
 =====================
 
+Automatic Migrations
+--------------------
+- If the ``risk:vuln:cvss:av`` property equals ``V`` it is migrated to ``P``.
+  (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Features and Enhancements
 -------------------------
 - Updates to the ``inet:dns`` model.
@@ -33,6 +39,9 @@ Features and Enhancements
   other conflicting read-only property values, those will now emit a warning
   in the Storm runtime.
   (`#2989 <https://github.com/vertexproject/synapse/pull/2989>`_)
+- Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
+  data with the ``time`` type includes the value in the exception message.
+  (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
 
 Bugfixes
 --------
@@ -47,10 +56,13 @@ Bugfixes
   change controlled APIs, so that information would not be sent to mirrored
   cells. The email is now being set properly.
   (`#2998 <https://github.com/vertexproject/synapse/pull/2998>`_)
+- The ``risk:vuln:cvss:av`` enum incorrectly included ``V`` instead of ``P``.
+  (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
 
 Improved Documentation
 ----------------------
-- TBD
+- Update copyright notice to always include the current year.
+  (`#3010 <https://github.com/vertexproject/synapse/pull/3010>`_)
 
 Deprecations
 ------------
