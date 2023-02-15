@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 16)
+maxvers = (0, 2, 17)
 
 class ModelRev:
 
@@ -30,6 +30,7 @@ class ModelRev:
             ((0, 2, 14), self.revModel20221123),
             ((0, 2, 15), self.revModel20221212),
             ((0, 2, 16), self.revModel20221220),
+            ((0, 2, 17), self.revModel20230209),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -652,6 +653,43 @@ class ModelRev:
             'risk:tool:software:techniques'
         )
         await self._uniqSortArray(todoprops, layers)
+
+    async def revModel20230209(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop('risk:vuln:cvss:av')
+            propname = prop.name
+            formname = prop.form.name
+            stortype = prop.type.stortype
+
+            oldvalu = 'V'
+            newvalu = 'P'
+
+            async for buid, propvalu in layr.iterPropRows(formname, propname, stortype=stortype, startvalu=oldvalu):
+
+                if propvalu != oldvalu:  # pragma: no cover
+                    break
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
+                        (s_layer.EDIT_PROP_SET, (propname, newvalu, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def runStorm(self, text, opts=None):
         '''
