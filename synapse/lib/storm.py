@@ -27,6 +27,7 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -3767,7 +3768,7 @@ class UniqCmd(Cmd):
 
                     valu = await s_stormtypes.toprim(self.opts.value)
                     if not isinstance(valu, typing.Hashable):
-                        valu = await s_stormtypes.tostr(valu, noneok=True)
+                        valu = s_hashitem.hashitem(valu)
 
                     if valu in uniqset:
                         await asyncio.sleep(0)
