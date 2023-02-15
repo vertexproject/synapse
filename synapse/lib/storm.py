@@ -3554,7 +3554,7 @@ class MoveNodesCmd(Cmd):
         for layr, sode in sodes.items():
             for name, (valu, stortype) in sode.get('props', {}).items():
 
-                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                     or name not in movekeys) and not layr == self.destlayr:
 
                     if not self.opts.apply:
@@ -3618,7 +3618,7 @@ class MoveNodesCmd(Cmd):
         for layr, sode in sodes.items():
             for tag, tagdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in tagdict.items():
-                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
                             if not self.opts.apply:
                                 valurepr = repr(valu)

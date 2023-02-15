@@ -230,6 +230,8 @@ STOR_TYPE_MINTIME = 21
 STOR_TYPE_FLOAT64 = 22
 STOR_TYPE_HUGENUM = 23
 
+STOR_TYPE_MAXTIME = 24
+
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
 
@@ -1223,6 +1225,8 @@ class Layer(s_nexus.Pusher):
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
+
+            StorTypeTime(self),  # STOR_TYPE_MAXTIME
         ]
 
         await self._initLayerStorage()
@@ -3057,6 +3061,9 @@ class Layer(s_nexus.Pusher):
 
             elif stortype == STOR_TYPE_MINTIME:
                 valu = min(valu, oldv)
+
+            elif stortype == STOR_TYPE_MAXTIME:
+                valu = max(valu, oldv)
 
             if valu == oldv:
                 return ()

@@ -15,6 +15,13 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
+
+- Updates to the ``media`` model.
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
+
+  ``media:news``
+    Add an ``updated`` property to record last time the news item was updated.
+
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
   (`#2961 <https://github.com/vertexproject/synapse/pull/2961>`_)
@@ -49,6 +56,9 @@ Bugfixes
   (`#3012 <https://github.com/vertexproject/synapse/pull/3012>`_)
 - The ``risk:vuln:cvss:av`` enum incorrectly included ``V`` instead of ``P``.
   (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- Fix an issue where the ``ismax`` specification on time types did not merge
+  time values correctly.
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
 
 Improved Documentation
 ----------------------
