@@ -30,9 +30,9 @@ Features and Enhancements
   (`#3006 <https://github.com/vertexproject/synapse/pull/3006>`_)
 - Update how read-only properties are handled during merges. The ``.created``
   property will always be set when merging a node down. If two nodes have
-  other conflicting read-only property valuse, those will now emit a warning
+  other conflicting read-only property values, those will now emit a warning
   in the Storm runtime.
-  (`#2989 <https://github.com/vertexproject/synapse/pull/2986>`_)
+  (`#2989 <https://github.com/vertexproject/synapse/pull/2989>`_)
 
 Bugfixes
 --------
