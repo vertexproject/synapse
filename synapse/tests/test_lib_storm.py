@@ -2263,6 +2263,14 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
             self.len(1, nodes)
+            q = '''
+                [(graph:node=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (graph:node=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (graph:node=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                uniq :data
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
 
     async def test_storm_once_cmd(self):
         async with self.getTestCore() as core:
