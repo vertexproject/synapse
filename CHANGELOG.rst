@@ -15,13 +15,16 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``inet:dns`` model.
+- Updates to the ``inet:dns``, and ``media`` models.
   (`#3005 <https://github.com/vertexproject/synapse/pull/3005>`_)
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
 
   ``inet:dns:answer``
-
     Remove all read-only flags present on the secondary properties for this
     form.
+
+  ``media:news``
+    Add an ``updated`` property to record last time the news item was updated.
 
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
@@ -48,6 +51,9 @@ Features and Enhancements
 - Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
   data with the ``time`` type includes the value in the exception message.
   (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
+- Add an optional parameter to the Storm ``uniq`` command to allow specifying
+  a relative property or variable to operate on rather than node iden.
+  (`#3018 <https://github.com/vertexproject/synapse/pull/3018>`_)
 
 Bugfixes
 --------
@@ -75,6 +81,9 @@ Bugfixes
   (`#2998 <https://github.com/vertexproject/synapse/pull/2998>`_)
 - The ``risk:vuln:cvss:av`` enum incorrectly included ``V`` instead of ``P``.
   (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- Fix an issue where the ``ismax`` specification on time types did not merge
+  time values correctly.
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
 
 Improved Documentation
 ----------------------
