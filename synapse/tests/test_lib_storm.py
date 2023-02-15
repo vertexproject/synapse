@@ -2,6 +2,7 @@ import json
 import asyncio
 import datetime
 import itertools
+import urllib.parse as u_parse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1723,6 +1724,39 @@ class StormTest(s_t_utils.SynTest):
             resp = await _getRespFromSha(core, mesgs)
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+
+            # URL fragments are preserved.
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test#fragmented-bits'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # URL encoded data plays nicely
+            params = (('foo', 'bar'), ('baz', 'faz'))
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # Redirects still record the original address
+            durl = f'https://127.0.0.1:{port}/api/v1/active'
+            params = (('redirect', durl),)
+            url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
+            # Redirect again...
+            url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode((("redirect", url),))}'
+
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # $lib.axon.urlfile makes redirect nodes for the chain, starting from
+            # the original request URL to the final URL
+            q = 'inet:url=$url -> inet:urlredir | tree { :dst -> inet:urlredir:src }'
+            nodes = await core.nodes(q, opts={'vars': {'url': url}})
+            self.len(2, nodes)
 
     async def test_storm_vars_fini(self):
 

@@ -2016,8 +2016,10 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
+        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout, **kwargs)
+        resp['original_url'] = url
+        return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
@@ -2062,27 +2064,52 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
-        url = resp.get('url')
+        now = self.runt.model.type('time').norm('now')[0]
+
+        original_url = resp.get('original_url')
         hashes = resp.get('hashes')
+        sha256 = hashes.get('sha256')
         props = {
             'size': resp.get('size'),
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
-            'sha256': hashes.get('sha256'),
-            '.seen': 'now',
+            'sha256': sha256,
+            '.seen': now,
         }
 
-        sha256 = hashes.get('sha256')
         filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
 
         if not filenode.get('name'):
-            info = s_urlhelp.chopurl(url)
+            info = s_urlhelp.chopurl(original_url)
             base = info.get('path').strip('/').split('/')[-1]
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': 'now'}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+        props = {'.seen': now}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+
+        history = resp.get('history')
+        if history is not None:
+            redirs = []
+            src = original_url
+
+            # We skip the first entry in history, since that URL is the original URL
+            # having been redirected. The second+ history item represents the
+            # requested URL. We then capture the last part of the chain in our list.
+            # The recorded URLs after the original_url are all the resolved URLS,
+            # since Location headers may be partial paths and this avoids needing to
+            # do url introspection that has already been done by the Axon.
+
+            for info in history[1:]:
+                url = info.get('url')
+                redirs.append((src, url))
+                src = url
+
+            redirs.append((src, resp.get('url')))
+
+            for valu in redirs:
+                props = {'.seen': now}
+                await self.runt.snap.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
 
