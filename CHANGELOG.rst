@@ -21,6 +21,19 @@ Features and Enhancements
 - Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
   data with the ``time`` type includes the value in the exception message.
   (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
+- Synapse HTTP API logs now include the user iden and username when that
+  information is available. For deployments with structured logging enabled,
+  the HTTP path, HTTP status code, user iden, and username are added to
+  that log message.
+  (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
+- Synapse HTTP Handler class now has a ``web_useriden`` and ``web_username``
+  attributes added to it. These are used for HTTP request logging to populate
+  the user iden and username data. These are automatically set when a user
+  authenticates using a session token or via basic authentication.
+  The HTTP Session tracking now tracks the username at the time the session
+  was created. The ``_web_user`` value, which previously pointed to a heavy
+  HiveUser object, is no longer populated by default.
+  (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
 
 Bugfixes
 --------
