@@ -3738,7 +3738,7 @@ class UniqCmd(Cmd):
     When this is used a Storm pipeline, only the first instance of a
     given node is allowed through the pipeline.
 
-    A relative property or variable may also be specifed, which will cause
+    A relative property or variable may also be specified, which will cause
     this command to only allow through the first node with a given value for
     that property or value rather than checking the node iden.
 
