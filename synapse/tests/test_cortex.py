@@ -1256,6 +1256,13 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await core.nodes('$tag=foo $prop=score $valu=5 test:int=10 [ +#$tag:$prop=$valu ]')
                 self.eq(5, nodes[0].getTagProp('foo', 'score'))
 
+                q = '''
+                    $list=(["foo", "score", 20])
+                    [ test:int=10 +#$list.index(0):$list.index(1)=$list.index(2) ]
+                '''
+                nodes = await core.nodes(q)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
 
