@@ -256,7 +256,7 @@ class HandlerBase:
         sess = await self.sess(gen=False)
         if sess is not None:
             iden = sess.info.get('user')
-            name = sess.info.get('name', '<no username>')
+            name = sess.info.get('username', '<no username>')
 
             self.web_useriden = iden
             self.web_username = name
@@ -703,6 +703,7 @@ class LoginV1(Handler):
         sess = await self.sess()
         await sess.set('user', iden)
         await sess.set('username', name)
+        await sess.fire('sess:login')
         self.web_useriden = iden
         self.web_username = name
 
