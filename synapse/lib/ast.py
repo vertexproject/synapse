@@ -262,7 +262,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn)
+            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn, cell=runt.snap.core)
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
@@ -413,9 +413,10 @@ class SubGraph:
         todo = collections.deque()
 
         async with contextlib.AsyncExitStack() as stack:
+            core = runt.snap.core
 
-            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
-            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
             async def todogenr():
 
