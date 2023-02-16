@@ -271,7 +271,7 @@ class HandlerBase:
 
         Notes:
             Implementors may override this to disable or implement their own basic auth schemes.
-            This is expected to set _web_useriden and _web_username upon successful authentication.
+            This is expected to set web_useriden and web_username upon successful authentication.
 
         Returns:
             str: The user iden of the logged in user.
@@ -320,7 +320,7 @@ class HandlerBase:
             This API sets up HTTP response values if it returns False.
 
         Returns:
-            bool: True if the user
+            bool: True if the user has the requested permission.
         '''
         authcell = self.getAuthCell()
 
@@ -348,7 +348,7 @@ class HandlerBase:
 
     async def getUserBody(self):  # pragma: no cover
         '''
-        Helper function to confirm that there is a auth user and a valid JSON body in the request.
+        Helper function to confirm that there is an auth user and a valid JSON body in the request.
 
         Deprecated, use the getUseridenBody() function instead.
         '''
@@ -365,7 +365,7 @@ class HandlerBase:
 
     async def getUseridenBody(self, validator=None):
         '''
-        Helper function to confirm that there is a auth user and a valid JSON body in the request.
+        Helper function to confirm that there is an auth user and a valid JSON body in the request.
 
         Args:
             validator: Validator function run on the deserialized JSON body.
