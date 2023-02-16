@@ -1832,3 +1832,21 @@ class CellTest(s_t_utils.SynTest):
                         nodes = await core.nodes('inet:ipv4', opts=opts)
                         self.gt(len(nodes), 0)
                         self.lt(len(nodes), 20000)
+
+            async with self.getTestCore() as core:
+
+                def spaceexc(self):
+                    raise Exception('foo')
+
+                with mock.patch.object(s_lmdbslab.Slab, 'DEFAULT_MAPSIZE', 100000), \
+                     mock.patch.object(s_cell.Cell, 'checkFreeSpace', spaceexc):
+                    layr = await core.addLayer()
+                    layriden = layr.get('iden')
+                    view = await core.addView({'layers': (layriden,)})
+                    viewiden = view.get('iden')
+
+                    opts = {'view': viewiden}
+                    with self.getLoggerStream('synapse.lib.lmdbslab',
+                                              'Error during slab resize callback - foo') as stream:
+                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
+                        self.true(stream.wait(1))

@@ -1012,7 +1012,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
-        self._checkspace = None
+        self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
 
@@ -1210,8 +1210,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             curv = vers
 
     def checkFreeSpace(self):
-        if self._checkspace is not None:
-            self._checkspace.set()
+        self._checkspace.set()
 
     async def _runFreeSpaceLoop(self):
 
@@ -1308,7 +1307,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.setCellActive(self.conf.get('mirror') is None)
 
             if self.minfree is not None:
-                self._checkspace = s_coro.Event()
                 self.schedCoro(self._runFreeSpaceLoop())
 
     async def initServiceNetwork(self):
