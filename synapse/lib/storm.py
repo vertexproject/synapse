@@ -345,6 +345,11 @@ reqValidPkgdef = s_config.getJsValidator({
                         'required': {'type': 'boolean'},
                         'action': {'type': 'string'},
                         'nargs': {'type': ['string', 'integer']},
+                        'choices': {
+                            'type': 'array',
+                            'uniqueItems': True,
+                            'minItems': 1,
+                        },
                         'type': {
                             'type': 'string',
                             'enum': list(s_datamodel.Model().types)
@@ -2220,6 +2225,11 @@ class Parser:
             mesg = f'Argument type "{argtype}" is not a valid model type name'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
+        choices = opts.get('choices')
+        if choices is not None and opts.get('action') in ('store_true', 'store_false'):
+            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
+
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)
         self.allargs.append((names, opts))
@@ -2344,6 +2354,7 @@ class Parser:
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
         argtype = argdef.get('type')
+        choices = argdef.get('choices')
 
         vals = []
         if nargs is None:
@@ -2363,6 +2374,12 @@ class Parser:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
+            if choices is not None and valu not in choices:
+                marg = name if name.startswith('-') else f'<{name}>'
+                cstr = ', '.join(str(c) for c in choices)
+                mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                return self.help(mesg=mesg)
+
             opts[dest] = valu
             return True
 
@@ -2381,6 +2398,12 @@ class Parser:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
+                if choices is not None and valu not in choices:
+                    marg = name if name.startswith('-') else f'<{name}>'
+                    cstr = ', '.join(str(c) for c in choices)
+                    mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                    return self.help(mesg=mesg)
+
                 opts[dest] = valu
 
             return True
@@ -2398,10 +2421,16 @@ class Parser:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
+                if choices is not None and valu not in choices:
+                    marg = name if name.startswith('-') else f'<{name}>'
+                    cstr = ', '.join(str(c) for c in choices)
+                    mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                    return self.help(mesg=mesg)
+
                 vals.append(valu)
 
             if nargs == '+' and len(vals) == 0:
-                mesg = 'At least one argument is required for {name}.'
+                mesg = f'At least one argument is required for {name}.'
                 return self.help(mesg)
 
             opts[dest] = vals
@@ -2420,6 +2449,12 @@ class Parser:
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
+
+            if choices is not None and valu not in choices:
+                marg = name if name.startswith('-') else f'<{name}>'
+                cstr = ', '.join(str(c) for c in choices)
+                mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                return self.help(mesg=mesg)
 
             vals.append(valu)
 
@@ -2477,25 +2512,46 @@ class Parser:
         return False
 
     def _print_optarg(self, names, argdef):
+
         dest = self._get_dest_str(argdef)
         oact = argdef.get('action', 'store')
+
         if oact in ('store_true', 'store_false'):
             base = f'  {names[0]}'.ljust(30)
         else:
             base = f'  {names[0]} {dest}'.ljust(30)
-        helpstr = argdef.get('help', 'No help available.')
+
         defval = argdef.get('default', s_common.novalu)
+        choices = argdef.get('choices')
+        helpstr = argdef.get('help', 'No help available.')
+
         if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
             if isinstance(defval, (tuple, list, dict)):
                 defval = pprint.pformat(defval, indent=34, width=100)
                 if '\n' in defval:
                     defval = '\n' + defval
-            helpstr = f'{helpstr} (default: {defval})'
+
+            if choices is None:
+                helpstr = f'{helpstr} (default: {defval})'
+            else:
+                cstr = ', '.join(str(c) for c in choices)
+                helpstr = f'{helpstr} (default: {defval}, choices: {cstr})'
+
+        elif choices is not None:
+            cstr = ', '.join(str(c) for c in choices)
+            helpstr = f'{helpstr} (choices: {cstr})'
+
         self._printf(f'{base}: {helpstr}')
 
     def _print_posarg(self, name, argdef):
         dest = self._get_dest_str(argdef)
         helpstr = argdef.get('help', 'No help available')
+
+        choices = argdef.get('choices')
+        if choices is not None:
+            cstr = ', '.join(str(c) for c in choices)
+            helpstr = f'{helpstr} (choices: {cstr})'
+
         base = f'  {dest}'.ljust(30)
         self._printf(f'{base}: {helpstr}')
 

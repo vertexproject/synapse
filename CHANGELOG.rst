@@ -51,6 +51,8 @@ Features and Enhancements
 - Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
   data with the ``time`` type includes the value in the exception message.
   (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
+- Add support for choices in Storm command arguments.
+  (`#3019 <https://github.com/vertexproject/synapse/pull/3019>`_)
 - Add an optional parameter to the Storm ``uniq`` command to allow specifying
   a relative property or variable to operate on rather than node iden.
   (`#3018 <https://github.com/vertexproject/synapse/pull/3018>`_)
