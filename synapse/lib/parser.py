@@ -99,6 +99,7 @@ terminalEnglishMap = {
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
     '_COLONDOLLAR': ':$',
+    '_COLONNOSPACE': ':',
     '_DEREF': '*',
     '_EDGEADDN1INIT': '+(',
     '_EDGEADDN2FINI': ')+',
