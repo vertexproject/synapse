@@ -2,6 +2,7 @@ import json
 import asyncio
 import datetime
 import itertools
+import urllib.parse as u_parse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1724,6 +1725,39 @@ class StormTest(s_t_utils.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
 
+            # URL fragments are preserved.
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test#fragmented-bits'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # URL encoded data plays nicely
+            params = (('foo', 'bar'), ('baz', 'faz'))
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # Redirects still record the original address
+            durl = f'https://127.0.0.1:{port}/api/v1/active'
+            params = (('redirect', durl),)
+            url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
+            # Redirect again...
+            url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode((("redirect", url),))}'
+
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # $lib.axon.urlfile makes redirect nodes for the chain, starting from
+            # the original request URL to the final URL
+            q = 'inet:url=$url -> inet:urlredir | tree { :dst -> inet:urlredir:src }'
+            nodes = await core.nodes(q, opts={'vars': {'url': url}})
+            self.len(2, nodes)
+
     async def test_storm_vars_fini(self):
 
         async with self.getTestCore() as core:
@@ -2257,6 +2291,20 @@ class StormTest(s_t_utils.SynTest):
             self.len(3, nodes)
             nodes = await core.nodes('test:comp -> * | uniq')
             self.len(1, nodes)
+            nodes = await core.nodes('test:comp | uniq :hehe')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:comp $valu=:hehe | uniq $valu')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
+            self.len(1, nodes)
+            q = '''
+                [(graph:node=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (graph:node=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (graph:node=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                uniq :data
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
 
     async def test_storm_once_cmd(self):
         async with self.getTestCore() as core:
@@ -4013,20 +4061,20 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+            self.stormIsInErr("Expected 1 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
 
             msgs = await core.stormlist('help yield')
             self.stormIsInPrint('No commands found matching "yield"', msgs)
 
             q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
+            self.stormHasNoErr(msgs)
 
             await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments", msgs)
+            self.stormIsInErr("Expected 1 positional arguments", msgs)
 
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)
