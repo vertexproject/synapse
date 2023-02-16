@@ -59,6 +59,9 @@ Bugfixes
 - Fix an issue where the ``ismax`` specification on time types did not merge
   time values correctly.
   (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
+- Fix an issue where using a function call to specify the tag in a tagprop
+  operation would not be correctly parsed.
+  (`#3020 <https://github.com/vertexproject/synapse/pull/3020>`_)
 
 Improved Documentation
 ----------------------
