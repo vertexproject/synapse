@@ -703,6 +703,8 @@ class LoginV1(Handler):
         sess = await self.sess()
         await sess.set('user', iden)
         await sess.set('username', name)
+        self.web_useriden = iden
+        self.web_username = name
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
 

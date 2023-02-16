@@ -2455,14 +2455,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
-    def _get_user_for_handler(self, handler: s_httpapi.Handler) -> dict:
-        ret = {}
-        if hasattr(handler, 'web_useriden') and handler.web_useriden:
-            ret['user'] = handler.web_useriden
-        if hasattr(handler, 'web_username') and handler.web_username:
-            ret['username'] = handler.web_username
-        return ret
-
     def _log_web_request(self, handler: s_httpapi.Handler) -> None:
         # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
         status = handler.get_status()
@@ -2474,23 +2466,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             log_method = t_log.access_log.error
 
         request_time = 1000.0 * handler.request.request_time()
-        status = handler.get_status()
-        summary = handler._request_summary()
 
-        extra = {}
-        enfo = extra.setdefault('synapse', {})
-        enfo['http_status'] = status
-        enfo['http_path'] = handler.request.path
-        enfo['remoteip'] = handler.request.remote_ip
+        user = None
+        username = None
 
-        unfo = self._get_user_for_handler(handler)
-        enfo.update(**unfo)
-        user = enfo.get('user')
-        username = enfo.get('username')
+        uri = handler.request.uri
+        remote_ip = handler.request.remote_ip
+        enfo = {'http_status': status,
+                'uri': uri,
+                'remoteip': remote_ip,
+                }
+
+        extra = {'synapse': enfo}
+
+        # It is possible that a Cell implementor may register handlers which
+        # do not derive from our Handler class, so we have to handle that.
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
+            user = handler.web_useriden
+            enfo['user'] = user
+        if hasattr(handler, 'web_username') and handler.web_username:
+            username = handler.web_username
+            enfo['username'] = username
+
         if user:
-            mesg = f'{status} {summary} user={user} ({username}) {request_time:.2f}ms'
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
         else:
-            mesg = f'{status} {summary} {request_time:.2f}ms'
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
 
         log_method(mesg, extra=extra)
 
