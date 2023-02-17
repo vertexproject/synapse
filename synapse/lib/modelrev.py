@@ -658,6 +658,8 @@ class ModelRev:
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
+        await self._normFormSubs(layers, 'inet:http:cookie')
+
         nodeedits = []
         for layr in layers:
 
@@ -796,6 +798,73 @@ class ModelRev:
 
                 if len(nodeedits) >= 1000:  # pragma: no cover
                     await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normFormSubs(self, layers, formname):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        subprops = {}
+
+        form = self.core.model.form(formname)
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for lkey, buid, sode in layr.liftByProp(formname, None):
+
+                sodevalu = sode.get('valu')
+                if sodevalu is None:
+                    continue
+
+                formvalu = sodevalu[0]
+
+                try:
+                    norm, info = form.type.norm(formvalu)
+                except s_exc.BadTypeValu as e: # pragma: no cover
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
+                    continue
+
+                edits = []
+                subs = info.get('subs')
+                if subs is not None:
+
+                    for subname, subvalu in subs.items():
+
+                        subprop = subprops.get(subname, s_common.novalu)
+                        if subprop is s_common.novalu:
+                            subprop = subprops[subname] = self.core.model.prop(f'{formname}:{subname}')
+
+                        if subprop is None:
+                            continue
+
+                        try:
+                            subnorm, subinfo = subprop.type.norm(subvalu)
+                        except s_exc.BadTypeValu as e: # pragma: no cover
+                            oldm = e.errinfo.get('mesg')
+                            logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
+                            continue
+
+                        subcurv = sode['props'].get(subprop.name)
+                        if subcurv == subnorm:
+                            continue
+
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+
+                    if not edits:
+                        continue
+
+                    nodeedits.append((buid, formname, edits))
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
 
             if nodeedits:
                 await save()
