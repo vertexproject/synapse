@@ -1299,7 +1299,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 
@@ -1313,7 +1313,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 

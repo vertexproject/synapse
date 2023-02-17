@@ -5220,7 +5220,9 @@ class LiftByVerb(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as idenset:
+        core = self.runt.snap.core
+
+        async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as idenset:
 
             if self.runtsafe:
                 verb = await s_stormtypes.tostr(self.opts.verb)
@@ -5589,8 +5591,10 @@ class IntersectCmd(Cmd):
             mesg = 'intersect arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as counters:
-            async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as pathvars:
+        core = self.runt.snap.core
+
+        async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as counters:
+            async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as pathvars:
 
                 text = await s_stormtypes.tostr(self.opts.query)
                 query = await runt.getStormQuery(text)

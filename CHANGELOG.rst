@@ -51,6 +51,9 @@ Features and Enhancements
 - Ensure that ``BadTypeValu`` exceptions raised when normalizing invalid
   data with the ``time`` type includes the value in the exception message.
   (`#3009 <https://github.com/vertexproject/synapse/pull/3009>`_)
+- Add a callback on Slab size expansion to trigger a free disk space check
+  on the related cell.
+  (`#3016 <https://github.com/vertexproject/synapse/pull/3016>`_)
 - Add support for choices in Storm command arguments.
   (`#3019 <https://github.com/vertexproject/synapse/pull/3019>`_)
 - Add an optional parameter to the Storm ``uniq`` command to allow specifying
@@ -99,6 +102,9 @@ Bugfixes
 - Fix an issue where the ``ismax`` specification on time types did not merge
   time values correctly.
   (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
+- Fix an issue where using a function call to specify the tag in a tagprop
+  operation would not be correctly parsed.
+  (`#3020 <https://github.com/vertexproject/synapse/pull/3020>`_)
 
 Improved Documentation
 ----------------------
