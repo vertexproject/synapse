@@ -64,8 +64,8 @@ Features and Enhancements
   the HTTP path, HTTP status code, user iden, and username are added to
   that log message.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
-- Synapse HTTP Handler class has an ``web_useriden`` and ``web_username``
-  attributes added to it. These are used for HTTP request logging to populate
+- Add ``web_useriden`` and ``web_username`` attributes to the Synapse HTTP
+  Handler class. These are used for HTTP request logging to populate
   the user iden and username data. These are automatically set when a user
   authenticates using a session token or via basic authentication.
   The HTTP Session tracking now tracks the username at the time the session
@@ -114,8 +114,8 @@ Improved Documentation
 Deprecations
 ------------
 - The ``synapse.lib.httpapi.Handler.user()`` and
-  ``synapse.lib.httpapi.Handler.getUserBody()`` are marked as deprecated.
-  These methods will be removed in Synapse ``v2.130.0``.
+  ``synapse.lib.httpapi.Handler.getUserBody()`` methods are marked as
+  deprecated. These methods will be removed in Synapse ``v2.130.0``.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
 
 v2.122.0 - 2023-01-27
