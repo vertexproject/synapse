@@ -1012,6 +1012,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
 
@@ -1208,11 +1209,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    def checkFreeSpace(self):
+        self._checkspace.set()
+
     async def _runFreeSpaceLoop(self):
 
         nexsroot = self.getCellNexsRoot()
 
         while not self.isfini:
+
+            self._checkspace.clear()
+
             disk = shutil.disk_usage(self.dirn)
 
             if (disk.free / disk.total) <= self.minfree:
@@ -1234,7 +1241,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
                 logger.warning(mesg)
 
-            await asyncio.sleep(self.FREE_SPACE_CHECK_FREQ)
+            await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
 
     async def _setReadOnly(self, valu):
         # implement any behavior necessary to change the cell read-only status
@@ -2563,6 +2570,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        self.slab.addResizeCallback(self.checkFreeSpace)
+
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):

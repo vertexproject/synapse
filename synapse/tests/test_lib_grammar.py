@@ -637,6 +637,8 @@ Queries = [
     '''$foo=`foo
     bar`''',
     '$foo=(truesec.com,)',
+    '[test:str=foo +#$tag.index(0):$tag.index(1)=$tag.index(2)]',
+    'test:str#$tag.index(0):$tag.index(1)',
 ]
 
 # Generated with print_parse_list below
@@ -1183,6 +1185,8 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, List: [Const: foo bar baz, Const: two]]]',
     'Query: [SetVarOper: [Const: foo, FormatString: [Const: foo\n    bar]]]',
     'Query: [SetVarOper: [Const: foo, List: [Const: truesec.com]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagPropSet: [TagProp: [FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 0], CallKwargs: []], FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 1], CallKwargs: []]], Const: =, FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 2], CallKwargs: []]]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: test:str, FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 0], CallKwargs: []], FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 1], CallKwargs: []]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
