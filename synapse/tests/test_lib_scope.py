@@ -133,9 +133,6 @@ class ScopeTest(s_t_utils.SynTest):
         s_scope.copy(task)
         self.none(await task)
 
-        evt0.clear()
-        evt1.clear()
-
     def test_scope_copy(self):
         scope00 = s_scope.Scope()
         scope00.enter()
