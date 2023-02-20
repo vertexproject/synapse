@@ -124,6 +124,15 @@ class Scope:
     def __setitem__(self, name, valu):
         self.frames[-1][name] = valu
 
+    def copy(self):
+        '''
+        Create a shallow copy of the current Scope.
+
+        Returns:
+            Scope: A new scope which is a copy of the current scope.
+        '''
+        return self.__class__(*[frame.copy() for frame in self.frames])
+
 # set up a global scope with env vars etc...
 envr = dict(os.environ)
 globscope = Scope(envr)
@@ -144,7 +153,7 @@ def _task_scope() -> Scope:
 
     # no need to lock because it's per-task...
     if scope is None:
-        scope = Scope(globscope)
+        scope = globscope.copy()
         task._syn_scope = scope
 
     return scope
@@ -201,9 +210,11 @@ def copy(task: asyncio.Task) -> None:
         task (asyncio.Task): The task object to attach the scope too.
 
     Notes:
-        This must be run from an asynio IO loop.
+        This must be run from an asyncio IO loop.
 
         If the current task does not have a scope, we clone the default global Scope.
+
+        This will ``enter()`` the scope, and add a task callback to ``leave()`` the scope.
 
     Returns:
         None
@@ -224,16 +235,14 @@ def copy(task: asyncio.Task) -> None:
 
         parent_scope = _task_scope()
 
-    scope = Scope(parent_scope)
+    scope = parent_scope.copy()
     task._syn_scope = scope
-    # Ensure the scope is fresh to write too.
     scope.enter()
 
-    def fini(*args):
-        # Drop anything from the current scope.
+    def fini(_task):
+        # Leave the scope and drop any refs to objects
+        # on Tasks to break possible GC cycles
         scope.leave()
-
-        # Drop any refs to objects on Tasks
-        delattr(task, '_syn_scope')
+        delattr(_task, '_syn_scope')
 
     task.add_done_callback(fini)
