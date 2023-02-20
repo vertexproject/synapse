@@ -1,4 +1,3 @@
-import os
 import asyncio
 import contextlib
 
@@ -22,7 +21,6 @@ class Scope:
 
     '''
     def __init__(self, *frames, **vals):
-        self.ctors = {}
         self.frames = list(frames)
         if vals:
             self.frames.append(vals)
@@ -68,13 +66,6 @@ class Scope:
             if valu != s_common.novalu:
                 return valu
 
-        task = self.ctors.get(name)
-        if task is not None:
-            func, args, kwargs = task
-            item = func(*args, **kwargs)
-            self.frames[-1][name] = item
-            return item
-
         return defval
 
     def add(self, name, *vals):
@@ -96,19 +87,6 @@ class Scope:
             obj: The scope variable value or None
         '''
         return self.frames[-1].pop(name, None)
-
-    def ctor(self, name, func, *args, **kwargs):
-        '''
-        Add a constructor to be called when a specific property is not present.
-
-        Example:
-
-            scope.ctor('foo',FooThing)
-            ...
-            foo = scope.get('foo')
-
-        '''
-        self.ctors[name] = (func, args, kwargs)
 
     def iter(self, name):
         '''
@@ -133,9 +111,9 @@ class Scope:
         '''
         return self.__class__(*[frame.copy() for frame in self.frames])
 
-# set up a global scope with env vars etc...
-envr = dict(os.environ)
-globscope = Scope(envr)
+# set up a global scope with an empty frame
+globscope = Scope(dict())
+
 
 def _task_scope() -> Scope:
     '''
