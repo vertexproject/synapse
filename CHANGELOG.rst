@@ -59,6 +59,10 @@ Features and Enhancements
 - Add an optional parameter to the Storm ``uniq`` command to allow specifying
   a relative property or variable to operate on rather than node iden.
   (`#3018 <https://github.com/vertexproject/synapse/pull/3018>`_)
+- Add ``$lib.inet.http.codereason`` Storm API function for translating
+  HTTP status codes to reason phrases. ``storm:http:resp`` objects now
+  also have a ``reason`` value populated.
+  (`#3023 <https://github.com/vertexproject/synapse/pull/3023>`_)
 
 Bugfixes
 --------
