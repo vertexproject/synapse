@@ -15,6 +15,8 @@ import synapse.lib.base as s_base
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
+from http import HTTPStatus
+
 @s_stormtypes.registry.registerType
 class WebSocket(s_base.Base, s_stormtypes.StormType):
     '''
@@ -235,6 +237,19 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'The text string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The urldecoded string.', }}},
+        {'name': 'codereason', 'desc': '''
+            Get the reason phrase for an HTTP status code.
+
+            Examples:
+                Get the reason for a 404 status code::
+
+                    $str=$lib.inet.http.codereason(404)
+         ''',
+         'type': {'type': 'function', '_funcname': 'codereason',
+                  'args': (
+                      {'name': 'code', 'type': 'int', 'desc': 'The HTTP status code.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
     )
     _storm_lib_path = ('inet', 'http')
 
@@ -247,6 +262,7 @@ class LibHttp(s_stormtypes.Lib):
             'connect': self.inetHttpConnect,
             'urlencode': self.urlencode,
             'urldecode': self.urldecode,
+            'codereason': self.codereason,
         }
 
     def strify(self, item):
@@ -263,6 +279,13 @@ class LibHttp(s_stormtypes.Lib):
     async def urldecode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.unquote_plus(text)
+
+    async def codereason(self, code):
+        code = await s_stormtypes.toint(code)
+        try:
+            return HTTPStatus(code).phrase
+        except ValueError:
+            return f'Unknown HTTP status code {code}'
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
                             allow_redirects=False, proxy=None):
@@ -391,6 +414,7 @@ class LibHttp(s_stormtypes.Lib):
                 async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
                     info = {
                         'code': resp.status,
+                        'reason': await self.codereason(resp.status),
                         'headers': dict(resp.headers),
                         'url': str(resp.url),
                         'body': await resp.read(),
@@ -404,6 +428,7 @@ class LibHttp(s_stormtypes.Lib):
                 err = s_common.err(e)
                 info = {
                     'code': -1,
+                    'reason': 'Exception occurred during request',
                     'headers': dict(),
                     'url': url,
                     'body': b'',
@@ -419,6 +444,7 @@ class HttpResp(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'code', 'desc': 'The HTTP status code. It is -1 if an exception occurred.',
             'type': 'int', },
+        {'name': 'reason', 'desc': 'The reason phrase for the HTTP status code.', 'type': 'str'},
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tufo of the error type and information if an exception occurred.'},
@@ -442,6 +468,7 @@ class HttpResp(s_stormtypes.Prim):
         super().__init__(valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls['code'] = self.valu.get('code')
+        self.locls['reason'] = self.valu.get('reason')
         self.locls['body'] = self.valu.get('body')
         self.locls['headers'] = self.valu.get('headers')
         self.locls['err'] = self.valu.get('err', ())
