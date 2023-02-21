@@ -109,7 +109,7 @@ class Scope:
         Returns:
             Scope: A new scope which is a clone of the current scope.
         '''
-        return self.__class__(*[frame.clone() for frame in self.frames])
+        return self.__class__(*[frame.copy() for frame in self.frames])
 
 # set up a global scope with an empty frame
 globscope = Scope(dict())

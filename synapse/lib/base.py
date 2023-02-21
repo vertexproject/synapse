@@ -465,7 +465,7 @@ class Base:
 
         task = self.loop.create_task(coro)
 
-        s_scope.copy(task)
+        s_scope.clone(task)
 
         # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
         if asyncio.current_task():

@@ -116,7 +116,7 @@ class ScopeTest(s_t_utils.SynTest):
             s_scope.set('foo', 'bar')
             s_scope.set('dict', {'hehe': 'haha'})
             t2 = asyncio.create_task(func2())
-            s_scope.copy(t2)
+            s_scope.clone(t2)
             await asyncio.sleep(0)
             await asyncio.wait_for(evt0.wait(), timeout=6)
             self.eq(s_scope.get('dict').get('beep'), 'boop')
@@ -130,17 +130,17 @@ class ScopeTest(s_t_utils.SynTest):
             return
 
         task = asyncio.create_task(func1())
-        s_scope.copy(task)
+        s_scope.clone(task)
         self.none(await task)
 
-    def test_scope_copy(self):
+    def test_scope_clone(self):
         scope00 = s_scope.Scope()
         scope00.enter()
         scope00.update(vals={'key': 'valu', 'dict': {'foo': 'bar'}})
         self.eq(scope00.get('key'), 'valu')
         self.eq(scope00.get('dict'), {'foo': 'bar'})
 
-        scope01 = scope00.copy()
+        scope01 = scope00.clone()
         scope01.enter()
         self.eq(scope01.get('key'), 'valu')
         scope01.set('s1', True)
