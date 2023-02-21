@@ -22,16 +22,16 @@ Features and Enhancements
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
   ``belief:system``
-  A belief system such as an ideology, philosophy, or religion.
+    A belief system such as an ideology, philosophy, or religion.
 
   ``belief:tenet``
-  A concrete tenet potentially shared by multiple belief systems.
+    A concrete tenet potentially shared by multiple belief systems.
 
   ``belief:subscriber``
-  A contact which subscribes to a belief system.
+    A contact which subscribes to a belief system.
 
   ``belief:system:type:taxonomy``
-  A hierarchical taxonomy of belief system types.
+    A hierarchical taxonomy of belief system types.
 
 - Added declaration for ``risk:compromise -(uses)> ou:technique``
   light-weight edges.
@@ -42,16 +42,16 @@ Features and Enhancements
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
   ``:cookies``
-  An array of ``inet:http:cookie`` values associated with the node.
+    An array of ``inet:http:cookie`` values associated with the node.
 
 - Updated the ``inet:http:cookie`` form to include the following properties:
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
   ``name``
-  The name of the cookie preceding the equal sign.
+    The name of the cookie preceding the equal sign.
 
   ``value``
-  The value of the cookie after the equal sign if present.
+    The value of the cookie after the equal sign if present.
 
 - Added logic to allow constructing multiple ``inet:http:cookie``
   nodes by automatically splitting on ``;`` such as ``foo=bar; baz=faz``
@@ -61,22 +61,22 @@ Features and Enhancements
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
   ``type``
-  An ``it:log:event:type:taxonomy`` type for the log entry.
+    An ``it:log:event:type:taxonomy`` type for the log entry.
 
   ``ext:id``
-  An external ID that uniquely identifies this log entry.
+    An external ID that uniquely identifies this log entry.
 
   ``product``
-  An ``it:prod:softver`` of the product which produced the log entry.
+    An ``it:prod:softver`` of the product which produced the log entry.
 
 - Updated the ``risk:compromise`` form to include the following properties:
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
   ``goal``
-  An ``ou:goal`` node representing the assessed primary goal of the compromise.
+    An ``ou:goal`` node representing the assessed primary goal of the compromise.
 
   ``goals``
-  An array of ``ou:goal`` nodes representing additional goals of the compromise.
+    An array of ``ou:goal`` nodes representing additional goals of the compromise.
 
 - Updated ``risk:attack`` and ``risk:compromise`` forms to deprecate the ``techniques``
   property in favor of using ``-(uses)> ou:technique`` light-weight edges.
@@ -97,22 +97,22 @@ Features and Enhancements
   (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
 
   ``src:ssh:key``
-  The key sent by the client as part of an SSH session setup.
+    The key sent by the client as part of an SSH session setup.
 
   ``dst:ssh:key``
-  The key sent by the server as part of an SSH session setup.
+    The key sent by the server as part of an SSH session setup.
 
   ``src:ssl:cert``
-  The x509 certificate sent by the client as part of an SSL/TLS negotiation.
+    The x509 certificate sent by the client as part of an SSL/TLS negotiation.
 
   ``dst:ssl:cert``
-  The x509 certificate sent by the server as part of an SSL/TLS negotiation.
+    The x509 certificate sent by the server as part of an SSL/TLS negotiation.
 
   ``src:rdp:hostname``
-  The hostname sent by the client as part of an RDP session setup.
+    The hostname sent by the client as part of an RDP session setup.
 
   ``src:rdp:keyboard:layout``
-  The keyboard layout sent by the client as part of an RDP session setup.
+    The keyboard layout sent by the client as part of an RDP session setup.
 
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
