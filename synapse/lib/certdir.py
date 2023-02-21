@@ -60,10 +60,6 @@ def _initTLSServerCiphers():
 
 TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 
-# openssl X509_V_FLAG_PARTIAL_CHAIN flag. This allows a context to treat all loaded
-# certificates as trust anchors when doing verification.
-_X509_PARTIAL_CHAIN = 0x80000
-
 def _unpackContextError(e: crypto.X509StoreContextError) -> str:
     # account for backward incompatible change in pyopenssl v22.1.0
     if e.args:
@@ -119,7 +115,7 @@ class CRL:
         cacert = self.certdir.getCaCert(self.name)
         store = crypto.X509Store()
         store.add_cert(cacert)
-        store.set_flags(_X509_PARTIAL_CHAIN)
+        store.set_flags(crypto.X509StoreFlags.PARTIAL_CHAIN)
         ctx = crypto.X509StoreContext(store, cert,)
         try:
             ctx.verify_certificate()

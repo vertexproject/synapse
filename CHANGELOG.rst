@@ -76,6 +76,10 @@ Features and Enhancements
   codes to reason phrases. ``storm:http:resp`` objects now also have a
   ``reason`` value populated.
   (`#3023 <https://github.com/vertexproject/synapse/pull/3023>`_)
+- Update the minimum version of the ``cryptography`` library to ``39.0.1`` and
+  the minimum version of the ``pyopenssl`` library to ``23.0.0``.
+  (`#3022 <https://github.com/vertexproject/synapse/pull/3022>`_)
+
 
 Bugfixes
 --------
