@@ -72,9 +72,14 @@ Features and Enhancements
   was created. The ``_web_user`` value, which previously pointed to a heavy
   HiveUser object, is no longer populated by default.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
-- Update the minimum versions of the ``cryptography`` and ``pyopenssl``
-  libraries.
+- Add ``$lib.inet.http.codereason`` Storm API for translating HTTP status
+  codes to reason phrases. ``storm:http:resp`` objects now also have a
+  ``reason`` value populated.
+  (`#3023 <https://github.com/vertexproject/synapse/pull/3023>`_)
+- Update the minimum version of the ``cryptography`` library to ``39.0.1`` and
+  the minimum version of the ``pyopenssl`` to ``23.0.0``.
   (`#3022 <https://github.com/vertexproject/synapse/pull/3022>`_)
+
 
 Bugfixes
 --------
