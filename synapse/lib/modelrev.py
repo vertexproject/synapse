@@ -820,7 +820,7 @@ class ModelRev:
             async for lkey, buid, sode in layr.liftByProp(formname, None):
 
                 sodevalu = sode.get('valu')
-                if sodevalu is None:
+                if sodevalu is None: # pragma: no cover
                     continue
 
                 formvalu = sodevalu[0]
@@ -842,7 +842,7 @@ class ModelRev:
                         if subprop is s_common.novalu:
                             subprop = subprops[subname] = self.core.model.prop(f'{formname}:{subname}')
 
-                        if subprop is None:
+                        if subprop is None: # pragma: no cover
                             continue
 
                         try:
@@ -853,12 +853,12 @@ class ModelRev:
                             continue
 
                         subcurv = sode['props'].get(subprop.name)
-                        if subcurv == subnorm:
+                        if subcurv == subnorm: # pragma: no cover
                             continue
 
                         edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
 
-                    if not edits:
+                    if not edits: # pragma: no cover
                         continue
 
                     nodeedits.append((buid, formname, edits))
