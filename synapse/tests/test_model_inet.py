@@ -703,6 +703,9 @@ class InetModelTest(s_t_utils.SynTest):
             ''')
             self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
 
+            nodes = await core.nodes('[ inet:http:cookie=(lol, lul) ]')
+            self.len(2, nodes)
+
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'
         valu = ('Cool', 'Cooler')
