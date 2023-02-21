@@ -73,13 +73,16 @@ Features and Enhancements
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
   ``goal``
-    An ``ou:goal`` node representing the assessed primary goal of the compromise.
+    An ``ou:goal`` node representing the assessed primary goal of the
+    compromise.
 
   ``goals``
-    An array of ``ou:goal`` nodes representing additional goals of the compromise.
+    An array of ``ou:goal`` nodes representing additional goals of the
+    compromise.
 
-- Updated ``risk:attack`` and ``risk:compromise`` forms to deprecate the ``techniques``
-  property in favor of using ``-(uses)> ou:technique`` light-weight edges.
+- Updated ``risk:attack`` and ``risk:compromise`` forms to deprecate the
+  ``techniques`` property in favor of using ``-(uses)> ou:technique``
+  light-weight edges.
   (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 
 - Updates to the ``inet:dns``, and ``media`` models.
