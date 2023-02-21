@@ -11,10 +11,77 @@ Automatic Migrations
 --------------------
 - If the ``risk:vuln:cvss:av`` property equals ``V`` it is migrated to ``P``.
   (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- Parse ``inet:http:cookie`` nodes to populate the newly added
+  ``:name`` and ``:value`` properties.
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 - See :ref:`datamigration` for more information about automatic migrations.
 
 Features and Enhancements
 -------------------------
+- Added the ``belief`` model which includes the following new forms:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``belief:system``
+  A belief system such as an ideology, philosophy, or religion.
+
+  ``belief:tenet``
+  A concrete tenet potentially shared by multiple belief systems.
+
+  ``belief:subscriber``
+  A contact which subscribes to a belief system.
+
+  ``belief:system:type:taxonomy``
+  A hierarchical taxonomy of belief system types.
+
+- Added declaration for ``risk:compromise -(uses)> ou:technique``
+  light-weight edges.
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+- Updated ``inet:http:session`` and ``inet:http:request`` forms to
+  include the following property:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``:cookies``
+  An array of ``inet:http:cookie`` values associated with the node.
+
+- Updated the ``inet:http:cookie`` form to include the following properties:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``name``
+  The name of the cookie preceding the equal sign.
+
+  ``value``
+  The value of the cookie after the equal sign if present.
+
+- Added logic to allow constructing multiple ``inet:http:cookie``
+  nodes by automatically splitting on ``;`` such as ``foo=bar; baz=faz``
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+- Updated ``it:log:event`` to add the following properties:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``type``
+  An ``it:log:event:type:taxonomy`` type for the log entry.
+
+  ``ext:id``
+  An external ID that uniquely identifies this log entry.
+
+  ``product``
+  An ``it:prod:softver`` of the product which produced the log entry.
+
+- Updated the ``risk:compromise`` form to include the following properties:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``goal``
+  An ``ou:goal`` node representing the assessed primary goal of the compromise.
+
+  ``goals``
+  An array of ``ou:goal`` nodes representing additional goals of the compromise.
+
+- Updated ``risk:attack`` and ``risk:compromise`` forms to deprecate the ``techniques``
+  property in favor of using ``-(uses)> ou:technique`` light-weight edges.
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
 - Updates to the ``inet:dns``, and ``media`` models.
   (`#3005 <https://github.com/vertexproject/synapse/pull/3005>`_)
   (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
@@ -25,6 +92,27 @@ Features and Enhancements
 
   ``media:news``
     Add an ``updated`` property to record last time the news item was updated.
+
+- Updated ``inet:flow`` to include the following properties:
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
+
+  ``src:ssh:key``
+  The key sent by the client as part of an SSH session setup.
+
+  ``dst:ssh:key``
+  The key sent by the server as part of an SSH session setup.
+
+  ``src:ssl:cert``
+  The x509 certificate sent by the client as part of an SSL/TLS negotiation.
+
+  ``dst:ssl:cert``
+  The x509 certificate sent by the server as part of an SSL/TLS negotiation.
+
+  ``src:rdp:hostname``
+  The hostname sent by the client as part of an RDP session setup.
+
+  ``src:rdp:keyboard:layout``
+  The keyboard layout sent by the client as part of an RDP session setup.
 
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.

@@ -11,7 +11,7 @@ class BeliefModule(s_module.CoreModule):
 
                 ('belief:system:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
-                    'doc': 'A hierarchical taxonomy of belief systems.'}),
+                    'doc': 'A hierarchical taxonomy of belief system types.'}),
 
                 ('belief:tenet', ('guid', {}), {
                     'doc': 'A concrete tenet potentially shared by multiple belief systems.'}),
