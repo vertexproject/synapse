@@ -924,8 +924,80 @@ Kubernetes
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
 scaling and management of containerized applications. Synapse does work in Kubernetes environments.
 
-We are in the process of updating our Kubernetes related documentation. If you need assistance with deploying to
-a Kubernetes environment, please reach out to us directly via :ref:`synapse-support`.
+SOMETHING ABOUT AHA BEING THE BEATING HEART OF THE DEPLOYMENT
+SOMETHING ABOUT RELYING ON THE AHA SERVICE HAVING A STABLE DNS NAME
+SOMETHING ABOUT NOTHING ELSE USING DNS, EVERYTHING USES IP:PORT RESOLUTION VIA AHA.
+
+.. note::
+
+    If you are using these examples to get started with Synapse on Kubernetes, you will may need to adapt them to meet
+    operational needs for your environment.
+
+.. _orch-kubernetes-deployment:
+
+Example Deployment
+------------------
+
+The following deployment walks through deploying an example Synapse deployment ( based on LINK HERE ), but inside of an
+AWS managed Kubernetes cluster. To spin up the base cluster used in this, follow LINK HERE.
+
+Prepare the environment
++++++++++++++++++++++++
+
+Create the namespace for your Synaspe deployment.
+
+kubectl create namespace stuff
+
+Aha
++++
+
+Words about aha - inline example.
+
+JSONStor
+++++++++
+
+Words about jsonstor. Create the aha link. inline example.
+
+Axon
+++++
+
+Words about Axon. create the aha link. inline example.
+
+Cortex
+++++++
+
+Words about Cortex. create the aha link. inline example.
+
+CLI Example
++++++++++++
+
+Node-port for local resolution?
++++++++++++++++++++++++++++++++
+
+Considerations for transitioning to commercial components
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Cortex is often not exposed, or only exposed via the HTTP service.
+The Optic user interface component is commonly exposed as an http service. This is frequently done behind an
+application load balancer in practice.
+
+.. _orch-kubernetes-sysctl:
+
+Sysctl Setting in Kubernetes
+----------------------------
+
+It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
+the underlying hosts. In that scenario, apply the REFERENCE_SYSCTL_VALUES may be difficult. The following example shows
+a daemonset which can be
+
+.. _orch-kubernetes-helm:
+
+Example Helm Charts
+-------------------
+
+Vertex provides two example helm chart that an organization can use as a template for creating their own helm charts.
+
+The first helm chart is an example for the AHA service. The second helm chart is an example for the
 
 .. _autodoc-conf-aha:
 
