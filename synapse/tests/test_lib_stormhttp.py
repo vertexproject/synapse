@@ -286,7 +286,7 @@ class StormHttpTest(s_test.SynTest):
                 ("User-Agent", "Storm HTTP Stuff"),
             )
             $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
-            return ( ($resp.code, uresp.reason$resp.headers, $resp.body) )
+            return ( ($resp.code, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
             code, headers, body = resp
