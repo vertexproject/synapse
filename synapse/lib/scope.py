@@ -102,14 +102,14 @@ class Scope:
     def __setitem__(self, name, valu):
         self.frames[-1][name] = valu
 
-    def copy(self):
+    def clone(self):
         '''
         Create a shallow copy of the current Scope.
 
         Returns:
-            Scope: A new scope which is a copy of the current scope.
+            Scope: A new scope which is a clone of the current scope.
         '''
-        return self.__class__(*[frame.copy() for frame in self.frames])
+        return self.__class__(*[frame.clone() for frame in self.frames])
 
 # set up a global scope with an empty frame
 globscope = Scope(dict())
@@ -131,7 +131,7 @@ def _task_scope() -> Scope:
 
     # no need to lock because it's per-task...
     if scope is None:
-        scope = globscope.copy()
+        scope = globscope.clone()
         task._syn_scope = scope
 
     return scope
@@ -180,7 +180,7 @@ def enter(vals=None):
     finally:
         scope.leave()
 
-def copy(task: asyncio.Task) -> None:
+def clone(task: asyncio.Task) -> None:
     '''
     Clone the current task Scope onto the provided task.
 
@@ -213,14 +213,14 @@ def copy(task: asyncio.Task) -> None:
 
         parent_scope = _task_scope()
 
-    scope = parent_scope.copy()
+    scope = parent_scope.clone()
     task._syn_scope = scope
     scope.enter()
 
-    def fini(_task):
+    def taskdone(_task):
         # Leave the scope and drop any refs to objects
         # on Tasks to break possible GC cycles
         scope.leave()
         delattr(_task, '_syn_scope')
 
-    task.add_done_callback(fini)
+    task.add_done_callback(taskdone)
