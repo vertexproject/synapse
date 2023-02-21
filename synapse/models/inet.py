@@ -351,7 +351,7 @@ class HttpCookie(s_types.Str):
             cookies = [c.strip() for c in cookies]
             return [c for c in cookies if c]
 
-        return valu
+        yield valu
 
 class IPv4(s_types.Type):
     '''
