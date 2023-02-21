@@ -169,6 +169,9 @@ class StormHttpTest(s_test.SynTest):
             retn = await core.callStorm('return($lib.inet.http.codereason(404))')
             self.eq(retn, 'Not Found')
 
+            retn = await core.callStorm('return($lib.inet.http.codereason(123))')
+            self.eq(retn, 'Unknown HTTP status code 123')
+
     async def test_storm_http_inject_ca(self):
 
         with self.getTestDir() as dirn:
