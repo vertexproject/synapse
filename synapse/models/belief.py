@@ -1,13 +1,4 @@
-import asyncio
-import logging
-
-import synapse.exc as s_exc
-
-import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-import synapse.lib.version as s_version
-
-logger = logging.getLogger(__name__)
 
 class BeliefModule(s_module.CoreModule):
 
@@ -35,6 +26,10 @@ class BeliefModule(s_module.CoreModule):
                     ('name', ('str', {'onespace': True, 'lower': True}), {
                         'doc': 'The name of the belief system.'}),
 
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the belief system.'}),
+
                     ('type', ('belief:system:type:taxonomy', {}), {
                         'doc': 'A taxonometric type for the belief system.'}),
 
@@ -42,6 +37,8 @@ class BeliefModule(s_module.CoreModule):
                         'doc': 'The time that the belief system was first observed.'}),
 
                 )),
+
+                ('belief:system:type:taxonomy', {}, ()),
 
                 ('belief:tenet', {}, (
 
@@ -55,19 +52,19 @@ class BeliefModule(s_module.CoreModule):
                         'doc': 'The contact which subscribes to the belief system.'}),
 
                     ('system', ('belief:system', {}), {
-                        'doc': 'The belief ssytem to which the contact subscribes.'}),
+                        'doc': 'The belief system to which the contact subscribes.'}),
 
                     ('began', ('time', {}), {
                         'doc': 'The time that the contact began to be a subscriber to the belief system.'}),
 
                     ('ended', ('time', {}), {
-                        'doc': 'The time when the contact ceased to be a subcriber to the belief system.'}),
+                        'doc': 'The time when the contact ceased to be a subscriber to the belief system.'}),
                 )),
             ),
             'edges': (
 
                 (('belief:system', 'has', 'belief:tenet'), {
-                    'doc': 'The belief system includes the tenat.'}),
+                    'doc': 'The belief system includes the tenet.'}),
 
                 (('belief:subscriber', 'follows', 'belief:tenet'), {
                     'doc': 'The subscriber is assessed to generally adhere to the specific tenet.'}),

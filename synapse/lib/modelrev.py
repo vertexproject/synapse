@@ -656,9 +656,9 @@ class ModelRev:
 
     async def revModel20230209(self, layers):
 
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
         await self._normFormSubs(layers, 'inet:http:cookie')
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         nodeedits = []
         for layr in layers:

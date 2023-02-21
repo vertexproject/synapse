@@ -9,6 +9,7 @@ class BeliefModelTest(s_test.SynTest):
             nodes = await core.nodes('''
                 [ belief:system=*
                     :name="Woot  Woot"
+                    :desc="Lulz Gronk"
                     :type=hehe.haha
                     :began=20230209
                     +(has)> {[
@@ -19,6 +20,7 @@ class BeliefModelTest(s_test.SynTest):
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'woot woot')
+            self.eq(nodes[0].get('desc'), 'Lulz Gronk')
             self.eq(nodes[0].get('type'), 'hehe.haha.')
             self.eq(nodes[0].get('began'), 1675900800000)
 

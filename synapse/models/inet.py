@@ -1076,7 +1076,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
-                        'doc': 'An indiviaul HTTP cookie string.',
+                        'doc': 'An individual HTTP cookie string.',
                         'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
                     }),
 
@@ -1801,7 +1801,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:http:cookie', {}, (
                         ('name', ('str', {}), {
-                            'doc': 'The name of the cookie preceeding the equal sign.'}),
+                            'doc': 'The name of the cookie preceding the equal sign.'}),
                         ('value', ('str', {}), {
                             'doc': 'The value of the cookie after the equal sign if present.'}),
                     )),

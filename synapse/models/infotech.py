@@ -644,7 +644,7 @@ class ItModule(s_module.CoreModule):
                 ('it:log:event', {}, (
 
                     ('mesg', ('str', {}), {
-                        'doc': 'The log messsage text.'}),
+                        'doc': 'The log message text.'}),
 
                     ('type', ('it:log:event:type:taxonomy', {}), {
                         'ex': 'windows.eventlog.securitylog',
