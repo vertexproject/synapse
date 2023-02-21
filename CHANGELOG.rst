@@ -72,6 +72,9 @@ Features and Enhancements
   was created. The ``_web_user`` value, which previously pointed to a heavy
   HiveUser object, is no longer populated by default.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
+- Update the minimum versions of the ``cryptography`` and ``pyopenssl``
+  libraries.
+  (`#3022 <https://github.com/vertexproject/synapse/pull/3022>`_)
 
 Bugfixes
 --------
