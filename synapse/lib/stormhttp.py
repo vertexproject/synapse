@@ -247,7 +247,7 @@ class LibHttp(s_stormtypes.Lib):
          ''',
          'type': {'type': 'function', '_funcname': 'codereason',
                   'args': (
-                      {'name': 'text', 'type': 'int', 'desc': 'The HTTP status code.', },
+                      {'name': 'code', 'type': 'int', 'desc': 'The HTTP status code.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
     )
