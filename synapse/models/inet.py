@@ -348,8 +348,23 @@ class HttpCookie(s_types.Str):
 
         if isinstance(valu, str):
             cookies = valu.split(';')
-            cookies = [c.strip() for c in cookies]
-            return [c for c in cookies if c]
+            for cookie in [c.strip() for c in cookies]:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        if isinstance(valu, (list, tuple)):
+
+            for cookie in valu:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
 
         yield valu
 
