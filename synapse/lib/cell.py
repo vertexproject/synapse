@@ -16,6 +16,7 @@ import multiprocessing
 
 import aiohttp
 import tornado.web as t_web
+import tornado.log as t_log
 
 import synapse.exc as s_exc
 
@@ -594,8 +595,8 @@ class CellApi(s_base.Base):
         raise s_exc.AuthDeny(mesg=mesg)
 
     @adminapi()
-    async def getUserDef(self, iden):
-        return await self.cell.getUserDef(iden)
+    async def getUserDef(self, iden, packroles=True):
+        return await self.cell.getUserDef(iden, packroles=packroles)
 
     @adminapi()
     async def getAuthGate(self, iden):
@@ -2461,6 +2462,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
+    def _log_web_request(self, handler: s_httpapi.Handler) -> None:
+        # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
+        status = handler.get_status()
+        if status < 400:
+            log_method = t_log.access_log.info
+        elif status < 500:
+            log_method = t_log.access_log.warning
+        else:
+            log_method = t_log.access_log.error
+
+        request_time = 1000.0 * handler.request.request_time()
+
+        user = None
+        username = None
+
+        uri = handler.request.uri
+        remote_ip = handler.request.remote_ip
+        enfo = {'http_status': status,
+                'uri': uri,
+                'remoteip': remote_ip,
+                }
+
+        extra = {'synapse': enfo}
+
+        # It is possible that a Cell implementor may register handlers which
+        # do not derive from our Handler class, so we have to handle that.
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
+            user = handler.web_useriden
+            enfo['user'] = user
+        if hasattr(handler, 'web_username') and handler.web_username:
+            username = handler.web_username
+            enfo['username'] = username
+
+        if user:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
+        else:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
+
+        log_method(mesg, extra=extra)
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -2484,6 +2525,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = {
             'cookie_secret': secret,
+            'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
 

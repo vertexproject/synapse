@@ -59,6 +59,19 @@ Features and Enhancements
 - Add an optional parameter to the Storm ``uniq`` command to allow specifying
   a relative property or variable to operate on rather than node iden.
   (`#3018 <https://github.com/vertexproject/synapse/pull/3018>`_)
+- Synapse HTTP API logs now include the user iden and username when that
+  information is available. For deployments with structured logging enabled,
+  the HTTP path, HTTP status code, user iden, and username are added to
+  that log message.
+  (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
+- Add ``web_useriden`` and ``web_username`` attributes to the Synapse HTTP
+  Handler class. These are used for HTTP request logging to populate
+  the user iden and username data. These are automatically set when a user
+  authenticates using a session token or via basic authentication.
+  The HTTP Session tracking now tracks the username at the time the session
+  was created. The ``_web_user`` value, which previously pointed to a heavy
+  HiveUser object, is no longer populated by default.
+  (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
 
 Bugfixes
 --------
@@ -100,7 +113,10 @@ Improved Documentation
 
 Deprecations
 ------------
-- TBD
+- The ``synapse.lib.httpapi.Handler.user()`` and
+  ``synapse.lib.httpapi.Handler.getUserBody()`` methods are marked as
+  deprecated. These methods will be removed in Synapse ``v2.130.0``.
+  (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
 
 v2.122.0 - 2023-01-27
 =====================
