@@ -864,7 +864,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'onboot:optimize': {
             'default': False,
-            'description': 'Optimize LMDB databases during boot to increase performance. (may take a while)',
+            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. (may take a while)',
             'type': 'boolean',
         },
         'limit:disk:free': {
