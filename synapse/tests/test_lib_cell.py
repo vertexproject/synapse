@@ -209,6 +209,19 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
 
+                # onepass support in the cell
+                async with await s_telepath.openurl(root_url) as proxy:
+                    onep = await proxy.genUserOnepass(visi.iden)
+
+                onep_url = f'tcp://visi:{onep}@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                    udef = await proxy.getCellUser()
+                    self.eq(visi.iden, udef.get('iden'))
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                        pass
+
                 # setRoles() allows arbitrary role ordering
                 extra_role = await echo.auth.addRole('extrarole')
                 await visi.setRoles((extra_role.iden, testrole.iden, echo.auth.allrole.iden))
@@ -1802,17 +1815,48 @@ class CellTest(s_t_utils.SynTest):
                         self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
                         self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
 
+        with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 600):
+
+            async with self.getTestCore() as core:
+
+                with mock.patch.object(s_lmdbslab.Slab, 'DEFAULT_MAPSIZE', 100000):
+                    layr = await core.addLayer()
+                    layriden = layr.get('iden')
+                    view = await core.addView({'layers': (layriden,)})
+                    viewiden = view.get('iden')
+
+                    with mock.patch('shutil.disk_usage', full_disk):
+                        opts = {'view': viewiden}
+                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
+                        self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                        nodes = await core.nodes('inet:ipv4', opts=opts)
+                        self.gt(len(nodes), 0)
+                        self.lt(len(nodes), 20000)
+
+            async with self.getTestCore() as core:
+
+                def spaceexc(self):
+                    raise Exception('foo')
+
+                with mock.patch.object(s_lmdbslab.Slab, 'DEFAULT_MAPSIZE', 100000), \
+                     mock.patch.object(s_cell.Cell, 'checkFreeSpace', spaceexc):
+                    layr = await core.addLayer()
+                    layriden = layr.get('iden')
+                    view = await core.addView({'layers': (layriden,)})
+                    viewiden = view.get('iden')
+
+                    opts = {'view': viewiden}
+                    with self.getLoggerStream('synapse.lib.lmdbslab',
+                                              'Error during slab resize callback - foo') as stream:
+                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
+                        self.true(stream.wait(1))
+
     async def test_cell_onboot_optimize(self):
 
         with self.getTestDir() as dirn:
 
-            aaaa = 'A' * 10_000_000
-
             async with self.getTestCore(dirn=dirn) as core:
-
-                opts = {'vars': {'aaaa': aaaa}}
-                # await core.nodes('for $i in $lib.range(1000) { [meta:note=* :text=$aaaa ]}', opts=opts)
-                # await core.nodes('meta:note | delnode --force')
+                pass
 
             with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
 
@@ -1820,8 +1864,6 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(dirn=dirn, conf=conf) as core:
                     pass
 
-                # TODO can't seem to get it to recover space without huge writes...
                 stream.seek(0)
-                text = stream.read()
 
-                print(text)
+                self.isin('onboot optimization complete!', stream.read())

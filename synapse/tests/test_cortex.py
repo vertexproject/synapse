@@ -1256,6 +1256,13 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await core.nodes('$tag=foo $prop=score $valu=5 test:int=10 [ +#$tag:$prop=$valu ]')
                 self.eq(5, nodes[0].getTagProp('foo', 'score'))
 
+                q = '''
+                    $list=(["foo", "score", 20])
+                    [ test:int=10 +#$list.index(0):$list.index(1)=$list.index(2) ]
+                '''
+                nodes = await core.nodes(q)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
+
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
 
@@ -2698,8 +2705,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq(cmodel.prop('ipv4').type.stortype,
                     modelt.get(modelf['props']['ipv4']['type'][0], {}).get('stortype'))
-            self.eq(cmodel.prop('.created').type.stortype,
-                    modelt.get(modelf['props']['.created']['type'][0], {}).get('stortype'))
 
             fname = 'file:bytes'
             cmodel = core.model.form(fname)
@@ -5412,7 +5417,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     log01 = await alist(core01.nexsroot.nexslog.iter(0))
                     self.eq(log00, log01)
 
-                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
+                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'offset is out of sync') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
                             self.true(await stream.wait(6))
                             self.true(core02.nexsroot.isfini)

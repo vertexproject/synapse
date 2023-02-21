@@ -106,6 +106,8 @@ class NexsRoot(s_base.Base):
 
         self.map_async = self.cell.conf.get('nexslog:async')
         self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=self.map_async)
+        self.nexsslab.addResizeCallback(cell.checkFreeSpace)
+
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
         if fresh:
@@ -119,7 +121,7 @@ class NexsRoot(s_base.Base):
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
         slabopts = {'map_async': self.map_async}
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts)
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts, cell=cell)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
@@ -188,6 +190,8 @@ class NexsRoot(s_base.Base):
         # Open a fresh slab where the old one used to be
         logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
         self.nexsslab = await s_lmdbslab.Slab.anit(nexspath, map_async=self.map_async)
+        self.nexsslab.addResizeCallback(self.cell.checkFreeSpace)
+
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
         logger.warning('Copying nexs:indx data from migrated slab to the fresh nexslog')
@@ -483,7 +487,7 @@ class NexsRoot(s_base.Base):
 
                     offs, args = item
                     if offs != self.nexslog.index():
-                        logger.error('mirror desync')
+                        logger.error('Local Nexus offset is out of sync from remote cell! Aborting mirror sync')
                         await self.fini()
                         return
 

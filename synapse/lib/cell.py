@@ -16,6 +16,7 @@ import multiprocessing
 
 import aiohttp
 import tornado.web as t_web
+import tornado.log as t_log
 
 import synapse.exc as s_exc
 
@@ -44,6 +45,8 @@ import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+
+import synapse.lib.crypto.passwd as s_passwd
 
 import synapse.tools.backup as s_t_backup
 
@@ -545,6 +548,10 @@ class CellApi(s_base.Base):
         self.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.cell.setUserPasswd(iden, passwd)
 
+    @adminapi()
+    async def genUserOnepass(self, iden, duration=60000):
+        return await self.cell.genUserOnepass(iden, duration)
+
     @adminapi(log=True)
     async def setUserLocked(self, useriden, locked):
         return await self.cell.setUserLocked(useriden, locked)
@@ -588,8 +595,8 @@ class CellApi(s_base.Base):
         raise s_exc.AuthDeny(mesg=mesg)
 
     @adminapi()
-    async def getUserDef(self, iden):
-        return await self.cell.getUserDef(iden)
+    async def getUserDef(self, iden, packroles=True):
+        return await self.cell.getUserDef(iden, packroles=packroles)
 
     @adminapi()
     async def getAuthGate(self, iden):
@@ -1011,6 +1018,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
 
@@ -1277,11 +1285,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    def checkFreeSpace(self):
+        self._checkspace.set()
+
     async def _runFreeSpaceLoop(self):
 
         nexsroot = self.getCellNexsRoot()
 
         while not self.isfini:
+
+            self._checkspace.clear()
+
             disk = shutil.disk_usage(self.dirn)
 
             if (disk.free / disk.total) <= self.minfree:
@@ -1303,7 +1317,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
                 logger.warning(mesg)
 
-            await asyncio.sleep(self.FREE_SPACE_CHECK_FREQ)
+            await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
 
     async def _setReadOnly(self, valu):
         # implement any behavior necessary to change the cell read-only status
@@ -2276,6 +2290,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Set password for {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
+    async def genUserOnepass(self, iden, duration=600000):
+        user = await self.auth.reqUser(iden)
+        passwd = s_common.guid()
+        shadow = await s_passwd.getShadowV2(passwd=passwd)
+        now = s_common.now()
+        onepass = {'create': now, 'expires': s_common.now() + duration,
+                   'shadow': shadow}
+        await self.auth.setUserInfo(iden, 'onepass', onepass)
+
+        logger.info(f'Issued one time password for {user.name}',
+                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+
+        return passwd
+
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
@@ -2288,10 +2316,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Set archive={archived} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
-    async def getUserDef(self, iden):
+    async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
         if user is not None:
-            return user.pack(packroles=True)
+            return user.pack(packroles=packroles)
 
     async def getAuthGate(self, iden):
         gate = self.auth.getAuthGate(iden)
@@ -2515,6 +2543,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
+    def _log_web_request(self, handler: s_httpapi.Handler) -> None:
+        # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
+        status = handler.get_status()
+        if status < 400:
+            log_method = t_log.access_log.info
+        elif status < 500:
+            log_method = t_log.access_log.warning
+        else:
+            log_method = t_log.access_log.error
+
+        request_time = 1000.0 * handler.request.request_time()
+
+        user = None
+        username = None
+
+        uri = handler.request.uri
+        remote_ip = handler.request.remote_ip
+        enfo = {'http_status': status,
+                'uri': uri,
+                'remoteip': remote_ip,
+                }
+
+        extra = {'synapse': enfo}
+
+        # It is possible that a Cell implementor may register handlers which
+        # do not derive from our Handler class, so we have to handle that.
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
+            user = handler.web_useriden
+            enfo['user'] = user
+        if hasattr(handler, 'web_username') and handler.web_username:
+            username = handler.web_username
+            enfo['username'] = username
+
+        if user:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
+        else:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
+
+        log_method(mesg, extra=extra)
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -2538,6 +2606,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = {
             'cookie_secret': secret,
+            'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
 
@@ -2624,6 +2693,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        self.slab.addResizeCallback(self.checkFreeSpace)
+
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):

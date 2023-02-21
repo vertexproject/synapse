@@ -150,7 +150,7 @@ Once completed, the previous leader will now be configured as a follower of the 
 
     If you are promoting the follower due to a catastrophic failure of the previous leader, you may use the
     command ``synapse.tools.promote --failure`` to force promotion despite not being able to carry out a graceful
-    handoff. It is **critcal that you not bring the previous leader back online** once this has been done. To regain
+    handoff. It is **critical that you not bring the previous leader back online** once this has been done. To regain
     redundancy, deploy a new mirror using the AHA provisioning process described in the :ref:`deploymentguide`.
 
 .. _devops-task-update:

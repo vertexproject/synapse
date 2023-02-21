@@ -150,6 +150,13 @@ Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.axon
 
+.. note::
+
+    We strongly encourage you to use a numbered hierarchical naming convention for services where the
+    first part of the name is a 0 padded number and the second part is the service type. The above example
+    ``00.axon`` will allow you to deploy mirror instances in the future, such as ``01.axon``, where the AHA
+    name ``axon.<yournetwork>`` will automatically resolve to which ever one is the current leader.
+
 You should see output that looks similar to this::
 
     one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>

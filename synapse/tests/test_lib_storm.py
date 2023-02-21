@@ -2,6 +2,7 @@ import json
 import asyncio
 import datetime
 import itertools
+import urllib.parse as u_parse
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1270,6 +1271,13 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('ou:name | merge --apply', opts=altview)
             self.len(1, await core.nodes('ou:name=foo -(bar)> *'))
 
+            await visi.delRule((True, ('node', 'add')), gateiden=lowriden)
+
+            self.len(1, await core.nodes('ou:name=foo [ .seen=now ]', opts=altview))
+            await core.nodes('ou:name=foo | merge --apply', opts=altview)
+
+            await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
+
             with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
@@ -1285,6 +1293,46 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoErr(await core.stormlist('diff --tag new.tag', opts=altview))
             self.stormHasNoErr(await core.stormlist('diff --prop ".seen"', opts=altview))
             self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
+
+            oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
+            newn = await core.nodes('[ ou:name=readonly ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("Property is read only: ou:name.created", buf)
+
+            newn = await core.nodes('ou:name=readonly')
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
+
+            oldn = await core.nodes('[ ou:name=readonly2 ]', opts=altview)
+            newn = await core.nodes('[ ou:name=readonly2 ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            altview2 = {'view': viewiden2}
+            q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
+            await core.nodes(q, opts=altview2)
+
+            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+                await core.stormlist('ou:name | merge --apply', opts=altview2)
+
+            stream.seek(0)
+            buf = stream.read()
+            self.notin("Property is read only: ou:name.created", buf)
+
+            newn = await core.nodes('ou:name=readonly2', opts=altview)
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
+            await core.nodes('[ test:ro=bad :readable=bar ]')
+
+            msgs = await core.stormlist('test:ro | merge', opts=altview)
+            self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
 
     async def test_storm_merge_opts(self):
 
@@ -1573,6 +1621,18 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
             self.stormIsInPrint('1001', msgs)
 
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('view', 'add')))
+
+            view2iden = await core.callStorm('return($lib.view.get().fork().iden)', opts={'user': visi.iden})
+            view2 = {'view': view2iden, 'user': visi.iden}
+
+            view3iden = await core.callStorm('return($lib.view.get().fork().iden)', opts=view2)
+            view3 = {'view': view3iden, 'user': visi.iden}
+
+            self.len(1, await core.nodes('[ou:org=(perms,) :desc=foo]', opts=view2))
+            await core.nodes('ou:org=(perms,) | movenodes --apply', opts=view3)
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:
@@ -1664,6 +1724,39 @@ class StormTest(s_t_utils.SynTest):
             resp = await _getRespFromSha(core, mesgs)
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+
+            # URL fragments are preserved.
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test#fragmented-bits'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # URL encoded data plays nicely
+            params = (('foo', 'bar'), ('baz', 'faz'))
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # Redirects still record the original address
+            durl = f'https://127.0.0.1:{port}/api/v1/active'
+            params = (('redirect', durl),)
+            url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode(params)}'
+            # Redirect again...
+            url = f'https://127.0.0.1:{port}/api/v0/test?{u_parse.urlencode((("redirect", url),))}'
+
+            q = '[inet:url=$url] | wget --no-ssl-verify | -> *'
+            msgs = await core.stormlist(q, opts={'vars': {'url': url}})
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.isin(('inet:url', url), [pode[0] for pode in podes])
+
+            # $lib.axon.urlfile makes redirect nodes for the chain, starting from
+            # the original request URL to the final URL
+            q = 'inet:url=$url -> inet:urlredir | tree { :dst -> inet:urlredir:src }'
+            nodes = await core.nodes(q, opts={'vars': {'url': url}})
+            self.len(2, nodes)
 
     async def test_storm_vars_fini(self):
 
@@ -1898,7 +1991,7 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:fqdn=www.vertex.link ] | tree { :domain -> inet:fqdn }')
+            nodes = await core.nodes('[ inet:fqdn=www.vertex.link ] | tree ${ :domain -> inet:fqdn }')
             vals = [n.ndef[1] for n in nodes]
             self.eq(('www.vertex.link', 'vertex.link', 'link'), vals)
 
@@ -2198,6 +2291,20 @@ class StormTest(s_t_utils.SynTest):
             self.len(3, nodes)
             nodes = await core.nodes('test:comp -> * | uniq')
             self.len(1, nodes)
+            nodes = await core.nodes('test:comp | uniq :hehe')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:comp $valu=:hehe | uniq $valu')
+            self.len(1, nodes)
+            nodes = await core.nodes('test:comp $valu=({"foo": :hehe}) | uniq $valu')
+            self.len(1, nodes)
+            q = '''
+                [(graph:node=(n1,) :data=(({'hehe': 'haha', 'foo': 'bar'}),))
+                 (graph:node=(n2,) :data=(({'hehe': 'haha', 'foo': 'baz'}),))
+                 (graph:node=(n3,) :data=(({'foo': 'bar', 'hehe': 'haha'}),))]
+                uniq :data
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
 
     async def test_storm_once_cmd(self):
         async with self.getTestCore() as core:
@@ -3202,6 +3309,88 @@ class StormTest(s_t_utils.SynTest):
             pars = s_storm.Parser()
             pars.add_argument('--yada', type=int)
 
+        # choices - bad setup
+        pars = s_storm.Parser()
+        with self.raises(s_exc.BadArg) as cm:
+            pars.add_argument('--foo', action='store_true', choices=['newp'])
+        self.eq('Argument choices are not supported when action is store_true or store_false', cm.exception.get('mesg'))
+
+        # choices - basics
+        pars = s_storm.Parser()
+        pars.add_argument('foo', type='int', choices=[3, 1, 2], help='foohelp')
+        pars.add_argument('--bar', choices=['baz', 'bam'], help='barhelp')
+        pars.add_argument('--cam', action='append', choices=['cat', 'cool'], help='camhelp')
+
+        opts = pars.parse_args(['1', '--bar', 'bam', '--cam', 'cat', '--cam', 'cool'])
+        self.eq(1, opts.foo)
+        self.eq('bam', opts.bar)
+        self.eq(['cat', 'cool'], opts.cam)
+
+        opts = pars.parse_args([32])
+        self.none(opts)
+        self.eq('Invalid choice for argument <foo> (choose from: 3, 1, 2): 32', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args([2, '--bar', 'newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --bar (choose from: baz, bam): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args([2, '--cam', 'cat', '--cam', 'newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --cam (choose from: cat, cool): newp', pars.exc.errinfo['mesg'])
+
+        pars.mesgs.clear()
+        pars.help()
+        self.eq('  --bar <bar>                 : barhelp (choices: baz, bam)', pars.mesgs[5])
+        self.eq('  --cam <cam>                 : camhelp (choices: cat, cool)', pars.mesgs[6])
+        self.eq('  <foo>                       : foohelp (choices: 3, 1, 2)', pars.mesgs[10])
+
+        # choices - default does not have to be in choices
+        pars = s_storm.Parser()
+        pars.add_argument('--foo', default='def', choices=['faz'], help='foohelp')
+
+        opts = pars.parse_args([])
+        self.eq('def', opts.foo)
+
+        pars.help()
+        self.eq('  --foo <foo>                 : foohelp (default: def, choices: faz)', pars.mesgs[-1])
+
+        # choices - like defaults, choices are not normalized
+        pars = s_storm.Parser()
+        ttyp = s_datamodel.Model().type('time')
+        pars.add_argument('foo', type='time', choices=['2022', ttyp.norm('2023')[0]], help='foohelp')
+
+        opts = pars.parse_args(['2023'])
+        self.eq(ttyp.norm('2023')[0], opts.foo)
+
+        opts = pars.parse_args(['2022'])
+        self.none(opts)
+        errmesg = pars.exc.errinfo['mesg']
+        self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000): 1640995200000', errmesg)
+
+        pars.help()
+        self.eq('  <foo>                       : foohelp (choices: 2022, 1672531200000)', pars.mesgs[-1])
+
+        # choices - nargs
+        pars = s_storm.Parser()
+        pars.add_argument('foo', nargs='+', choices=['faz'])
+        pars.add_argument('--bar', nargs='?', choices=['baz'])
+        pars.add_argument('--cat', nargs=2, choices=['cam', 'cool'])
+
+        opts = pars.parse_args(['newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument <foo> (choose from: faz): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args(['faz', '--bar', 'newp'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --bar (choose from: baz): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args(['faz', '--cat', 'newp', 'newp2'])
+        self.none(opts)
+        self.eq('Invalid choice for argument --cat (choose from: cam, cool): newp', pars.exc.errinfo['mesg'])
+
+        opts = pars.parse_args(['faz', '--cat', 'cam', 'cool'])
+        self.nn(opts)
+
     async def test_storm_cmd_help(self):
 
         async with self.getTestCore() as core:
@@ -3954,20 +4143,20 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+            self.stormIsInErr("Expected 1 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
 
             msgs = await core.stormlist('help yield')
             self.stormIsInPrint('No commands found matching "yield"', msgs)
 
             q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
+            self.stormHasNoErr(msgs)
 
             await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
-            self.stormIsInErr("Expected 0 positional arguments", msgs)
+            self.stormIsInErr("Expected 1 positional arguments", msgs)
 
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)

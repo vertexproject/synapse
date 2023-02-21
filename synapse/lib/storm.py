@@ -26,6 +26,7 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -344,6 +345,11 @@ reqValidPkgdef = s_config.getJsValidator({
                         'required': {'type': 'boolean'},
                         'action': {'type': 'string'},
                         'nargs': {'type': ['string', 'integer']},
+                        'choices': {
+                            'type': 'array',
+                            'uniqueItems': True,
+                            'minItems': 1,
+                        },
                         'type': {
                             'type': 'string',
                             'enum': list(s_datamodel.Model().types)
@@ -2219,6 +2225,11 @@ class Parser:
             mesg = f'Argument type "{argtype}" is not a valid model type name'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
+        choices = opts.get('choices')
+        if choices is not None and opts.get('action') in ('store_true', 'store_false'):
+            mesg = f'Argument choices are not supported when action is store_true or store_false'
+            raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
+
         dest = self._get_dest(names)
         opts.setdefault('dest', dest)
         self.allargs.append((names, opts))
@@ -2343,6 +2354,7 @@ class Parser:
         dest = argdef.get('dest')
         nargs = argdef.get('nargs')
         argtype = argdef.get('type')
+        choices = argdef.get('choices')
 
         vals = []
         if nargs is None:
@@ -2362,6 +2374,12 @@ class Parser:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
 
+            if choices is not None and valu not in choices:
+                marg = name if name.startswith('-') else f'<{name}>'
+                cstr = ', '.join(str(c) for c in choices)
+                mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                return self.help(mesg=mesg)
+
             opts[dest] = valu
             return True
 
@@ -2380,6 +2398,12 @@ class Parser:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
+                if choices is not None and valu not in choices:
+                    marg = name if name.startswith('-') else f'<{name}>'
+                    cstr = ', '.join(str(c) for c in choices)
+                    mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                    return self.help(mesg=mesg)
+
                 opts[dest] = valu
 
             return True
@@ -2397,10 +2421,16 @@ class Parser:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
 
+                if choices is not None and valu not in choices:
+                    marg = name if name.startswith('-') else f'<{name}>'
+                    cstr = ', '.join(str(c) for c in choices)
+                    mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                    return self.help(mesg=mesg)
+
                 vals.append(valu)
 
             if nargs == '+' and len(vals) == 0:
-                mesg = 'At least one argument is required for {name}.'
+                mesg = f'At least one argument is required for {name}.'
                 return self.help(mesg)
 
             opts[dest] = vals
@@ -2419,6 +2449,12 @@ class Parser:
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
+
+            if choices is not None and valu not in choices:
+                marg = name if name.startswith('-') else f'<{name}>'
+                cstr = ', '.join(str(c) for c in choices)
+                mesg = f'Invalid choice for argument {marg} (choose from: {cstr}): {valu}'
+                return self.help(mesg=mesg)
 
             vals.append(valu)
 
@@ -2476,25 +2512,46 @@ class Parser:
         return False
 
     def _print_optarg(self, names, argdef):
+
         dest = self._get_dest_str(argdef)
         oact = argdef.get('action', 'store')
+
         if oact in ('store_true', 'store_false'):
             base = f'  {names[0]}'.ljust(30)
         else:
             base = f'  {names[0]} {dest}'.ljust(30)
-        helpstr = argdef.get('help', 'No help available.')
+
         defval = argdef.get('default', s_common.novalu)
+        choices = argdef.get('choices')
+        helpstr = argdef.get('help', 'No help available.')
+
         if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
             if isinstance(defval, (tuple, list, dict)):
                 defval = pprint.pformat(defval, indent=34, width=100)
                 if '\n' in defval:
                     defval = '\n' + defval
-            helpstr = f'{helpstr} (default: {defval})'
+
+            if choices is None:
+                helpstr = f'{helpstr} (default: {defval})'
+            else:
+                cstr = ', '.join(str(c) for c in choices)
+                helpstr = f'{helpstr} (default: {defval}, choices: {cstr})'
+
+        elif choices is not None:
+            cstr = ', '.join(str(c) for c in choices)
+            helpstr = f'{helpstr} (choices: {cstr})'
+
         self._printf(f'{base}: {helpstr}')
 
     def _print_posarg(self, name, argdef):
         dest = self._get_dest_str(argdef)
         helpstr = argdef.get('help', 'No help available')
+
+        choices = argdef.get('choices')
+        if choices is not None:
+            cstr = ', '.join(str(c) for c in choices)
+            helpstr = f'{helpstr} (choices: {cstr})'
+
         base = f'  {dest}'.ljust(30)
         self._printf(f'{base}: {helpstr}')
 
@@ -3101,8 +3158,9 @@ class MergeCmd(Cmd):
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
-        runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
-        runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
+        if sode.get('valu') is not None:
+            runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+            runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
             full = node.form.prop(name).full
@@ -3227,17 +3285,40 @@ class MergeCmd(Cmd):
 
                     for name, (valu, stortype) in sode.get('props', {}).items():
 
-                        full = node.form.prop(name).full
+                        prop = node.form.prop(name)
                         if propfilter:
                             if name[0] == '.':
                                 if propfilter(name):
                                     continue
                             else:
-                                if propfilter(full):
+                                if propfilter(prop.full):
                                     continue
 
+                        if prop.info.get('ro'):
+                            if name == '.created':
+                                if self.opts.apply:
+                                    protonode.props['.created'] = valu
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                                continue
+
+                            isset = False
+                            for undr in sodes[1:]:
+                                props = undr.get('props')
+                                if props is not None:
+                                    curv = props.get(name)
+                                    if curv is not None and curv[0] != valu:
+                                        isset = True
+                                        break
+
+                            if isset:
+                                valurepr = prop.type.repr(curv[0])
+                                mesg = f'Cannot merge read only property with conflicting ' \
+                                       f'value: {nodeiden} {form}:{name} = {valurepr}'
+                                await runt.snap.warn(mesg)
+                                continue
+
                         if not self.opts.apply:
-                            valurepr = node.form.prop(name).type.repr(valu)
+                            valurepr = prop.type.repr(valu)
                             await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                         else:
                             await protonode.set(name, valu)
@@ -3365,8 +3446,9 @@ class MoveNodesCmd(Cmd):
             if layr == self.destlayr:
                 continue
 
-            self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-            self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
+            if sode.get('valu') is not None:
+                self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+                self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
             for name, (valu, stortype) in sode.get('props', {}).items():
                 full = node.form.prop(name).full
@@ -3528,7 +3610,7 @@ class MoveNodesCmd(Cmd):
         for layr, sode in sodes.items():
             for name, (valu, stortype) in sode.get('props', {}).items():
 
-                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                     or name not in movekeys) and not layr == self.destlayr:
 
                     if not self.opts.apply:
@@ -3592,7 +3674,7 @@ class MoveNodesCmd(Cmd):
         for layr, sode in sodes.items():
             for tag, tagdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in tagdict.items():
-                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
                             if not self.opts.apply:
                                 valurepr = repr(valu)
@@ -3711,10 +3793,17 @@ class UniqCmd(Cmd):
     When this is used a Storm pipeline, only the first instance of a
     given node is allowed through the pipeline.
 
+    A relative property or variable may also be specified, which will cause
+    this command to only allow through the first node with a given value for
+    that property or value rather than checking the node iden.
+
     Examples:
 
+        # Filter duplicate nodes after pivoting from inet:ipv4 nodes tagged with #badstuff
         #badstuff +inet:ipv4 ->* | uniq
 
+        # Unique inet:ipv4 nodes by their :asn property
+        #badstuff +inet:ipv4 | uniq :asn
     '''
 
     name = 'uniq'
@@ -3722,21 +3811,35 @@ class UniqCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
+        pars.add_argument('value', nargs='?', help='A relative property or variable to uniq by.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        buidset = set()
+        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as uniqset:
 
-        async for node, path in genr:
+            if len(self.argv) > 0:
+                async for node, path in genr:
 
-            if node.buid in buidset:
-                # all filters must sleep
-                await asyncio.sleep(0)
-                continue
+                    valu = await s_stormtypes.toprim(self.opts.value)
+                    valu = s_hashitem.hashitem(valu)
+                    if valu in uniqset:
+                        await asyncio.sleep(0)
+                        continue
 
-            buidset.add(node.buid)
-            yield node, path
+                    await uniqset.add(valu)
+                    yield node, path
+
+            else:
+                async for node, path in genr:
+
+                    if node.buid in uniqset:
+                        # all filters must sleep
+                        await asyncio.sleep(0)
+                        continue
+
+                    await uniqset.add(node.buid)
+                    yield node, path
 
 class MaxCmd(Cmd):
     '''
@@ -4639,7 +4742,7 @@ class TreeCmd(Cmd):
             mesg = 'tree query must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        text = self.opts.query
+        text = await s_stormtypes.tostr(self.opts.query)
 
         async def recurse(node, path):
 
@@ -5117,7 +5220,9 @@ class LiftByVerb(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        async with await s_spooled.Set.anit(dirn=self.runt.snap.core.dirn) as idenset:
+        core = self.runt.snap.core
+
+        async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as idenset:
 
             if self.runtsafe:
                 verb = await s_stormtypes.tostr(self.opts.verb)
@@ -5486,8 +5591,10 @@ class IntersectCmd(Cmd):
             mesg = 'intersect arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as counters:
-            async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as pathvars:
+        core = self.runt.snap.core
+
+        async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as counters:
+            async with await s_spooled.Dict.anit(dirn=core.dirn, cell=core) as pathvars:
 
                 text = await s_stormtypes.tostr(self.opts.query)
                 query = await runt.getStormQuery(text)

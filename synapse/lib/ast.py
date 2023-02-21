@@ -39,6 +39,8 @@ class AstNode:
     def __init__(self, kids=()):
         self.kids = []
         self.hasast = {}
+        self.lines = (-1, -1)
+        self.textpos = (-1, -1)
         [self.addKid(k) for k in kids]
 
     def repr(self):
@@ -260,7 +262,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn)
+            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn, cell=runt.snap.core)
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
@@ -411,9 +413,10 @@ class SubGraph:
         todo = collections.deque()
 
         async with contextlib.AsyncExitStack() as stack:
+            core = runt.snap.core
 
-            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
-            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
             async def todogenr():
 
@@ -717,7 +720,7 @@ class ForLoop(Oper):
     async def run(self, runt, genr):
 
         subq = self.kids[2]
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
         node = None
 
         async for node, path in genr:
@@ -901,7 +904,7 @@ class CmdOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
@@ -946,7 +949,7 @@ class SetVarOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
 
         vkid = self.kids[1]
 
@@ -1023,7 +1026,7 @@ class VarListSetOper(Oper):
 
     async def run(self, runt, genr):
 
-        names = await self.kids[0].compute(runt, None)
+        names = self.kids[0].value()
         vkid = self.kids[1]
 
         async for node, path in genr:
@@ -1614,7 +1617,7 @@ class PivotToTags(PivotOper):
 
         if kid.isconst:
 
-            mval = await kid.compute(runt, None)
+            mval = kid.constval
 
             if not mval:
 
@@ -2025,7 +2028,7 @@ class PropPivot(PivotOper):
 
     async def run(self, runt, genr):
         warned = False
-        name = await self.kids[1].compute(runt, None)
+        name = self.kids[1].value()
 
         prop = runt.model.props.get(name)
         if prop is None:
