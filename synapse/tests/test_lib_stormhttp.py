@@ -128,10 +128,11 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $params=(1138)
             $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( ($resp.code, $resp.err) )
+            return ( ($resp.code, $resp.reason, $resp.err) )
             '''
-            code, (errname, _) = await core.callStorm(q, opts=opts)
+            code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
+            self.eq(reason, 'Exception occurred during request')
             self.eq('TypeError', errname)
 
             # SSL Verify enabled results in a aiohttp.ClientConnectorCertificateError
@@ -164,6 +165,9 @@ class StormHttpTest(s_test.SynTest):
             return ( $resp.json(encoding=utf8, errors=ignore) )
             '''
             self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+
+            retn = await core.callStorm('return($lib.inet.http.codereason(404))')
+            self.eq(retn, 'Not Found')
 
     async def test_storm_http_inject_ca(self):
 
@@ -236,11 +240,12 @@ class StormHttpTest(s_test.SynTest):
                     ("User-Agent", "Storm HTTP Stuff"),
             )
             $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
-            return ( ($resp.code, $resp.headers, $resp.body) )
+            return ( ($resp.code, $resp.reason, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
-            code, headers, body = resp
+            code, reason, headers, body = resp
             self.eq(code, 200)
+            self.eq(reason, 'OK')
             self.eq(b'', body)
             self.eq('0', headers.get('Content-Length'))
             self.eq('1', headers.get('Head'))
@@ -281,7 +286,7 @@ class StormHttpTest(s_test.SynTest):
                 ("User-Agent", "Storm HTTP Stuff"),
             )
             $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
-            return ( ($resp.code, $resp.headers, $resp.body) )
+            return ( ($resp.code, uresp.reason$resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
             code, headers, body = resp
