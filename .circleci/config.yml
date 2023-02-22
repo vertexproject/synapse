@@ -463,6 +463,23 @@ jobs:
     steps:
       - test_steps_python
 
+  python311:
+    parallelism: 8
+    docker:
+      - image: cimg/python:3.11
+        environment:
+          PYVERS: 3.11
+          RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   python310:
     parallelism: 8
     docker:
@@ -531,12 +548,29 @@ jobs:
     steps:
       - test_steps_python
 
+  python311_replay:
+    parallelism: 6
+    docker:
+      - image: cimg/python:3.11
+        environment:
+          PYVERS: 3.11
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   doctests:
     parallelism: 1
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.11
         environment:
-          PYVERS: 3.8
+          PYVERS: 3.11
 
     working_directory: ~/repo
 
@@ -545,10 +579,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py310
+          PYTHON_TAG: py311
 
     steps:
       - deploy_pypi_prologue
@@ -718,6 +752,13 @@ workflows:
             branches:
               only: /.*/
 
+      - python311:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
       - python37_replay:
           filters:
             tags:
@@ -741,6 +782,15 @@ workflows:
             branches:
               only:
                 - master
+
+      - python311_replay:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - master
+                - feat_python311
 
       - python_package_smoketest:
           filters:
@@ -829,10 +879,12 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
           filters:
             branches:
               only:
                 - master
+                - feat_python311
 
       - push_docker_branch:
           requires:
