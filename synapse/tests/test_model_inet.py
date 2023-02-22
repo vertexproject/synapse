@@ -406,6 +406,8 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_flow(self):
         formname = 'inet:flow'
+        srccert = s_common.guid()
+        dstcert = s_common.guid()
         input_props = {
             'time': 0,
             'duration': 1,
@@ -433,6 +435,12 @@ class InetModelTest(s_t_utils.SynTest):
             'ip:proto': 6,
             'ip:tcp:flags': 0x20,
             'sandbox:file': 'e' * 64,
+            'src:ssh:key': srccert,
+            'dst:ssh:key': dstcert,
+            'src:ssl:cert': srccert,
+            'dst:ssl:cert': dstcert,
+            'src:rdp:hostname': 'SYNCODER',
+            'src:rdp:keyboard:layout': 'AZERTY',
         }
         expected_props = {
             'time': 0,
@@ -466,13 +474,23 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
             'ip:proto': 6,
             'ip:tcp:flags': 0x20,
-            'sandbox:file': 'sha256:' + 64 * 'e'
+            'sandbox:file': 'sha256:' + 64 * 'e',
+            'src:ssh:key': srccert,
+            'dst:ssh:key': dstcert,
+            'src:ssl:cert': srccert,
+            'dst:ssl:cert': dstcert,
+            'src:rdp:hostname': 'syncoder',
+            'src:rdp:keyboard:layout': 'azerty',
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
+            self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
+            self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -672,6 +690,21 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
+                self.eq(node.get('name'), 'HeHe')
+                self.eq(node.get('value'), 'HaHa')
+
+            nodes = await core.nodes('''
+                [ inet:http:request=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
+
+            nodes = await core.nodes('''
+                [ inet:http:session=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
+
+            nodes = await core.nodes('[ inet:http:cookie=(lol, lul) ]')
+            self.len(2, nodes)
 
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'
