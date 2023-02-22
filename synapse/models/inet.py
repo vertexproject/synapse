@@ -137,9 +137,14 @@ class Cidr4(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
-        ip_str, mask_str = valu.split('/', 1)
 
-        mask_int = int(mask_str)
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
         if mask_int > 32 or mask_int < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid CIDR Mask')
@@ -193,7 +198,11 @@ class Email(s_types.Str):
 
         try:
             user, fqdn = valu.split('@', 1)
+        except ValueError:
+            mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
@@ -1045,6 +1054,13 @@ class InetModule(s_module.CoreModule):
 
                 ),
 
+                'edges': (
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv4'), {
+                        'doc': 'The source IP whois record describes the target IPv4 address.'}),
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv6'), {
+                        'doc': 'The source IP whois record describes the target IPv6 address.'}),
+                ),
+
                 'types': (
 
                     ('inet:asn', ('int', {}), {
@@ -1070,8 +1086,14 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:flow', ('guid', {}), {
-                        'doc': 'An individual network connection between a given source and destination.'
-                    }),
+                        'doc': 'An individual network connection between a given source and destination.'}),
+
+                    ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy',),
+                        'doc': 'A taxonomy of network tunnel types.'}),
+
+                    ('inet:tunnel', ('guid', {}), {
+                        'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
@@ -1648,13 +1670,13 @@ class InetModule(s_module.CoreModule):
                         ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the destination host.',
                         }),
-                        ('dst:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the destination host.',
                         }),
                         ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the source host.',
                         }),
-                        ('src:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the source host.',
                         }),
                         ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
@@ -1666,6 +1688,20 @@ class InetModule(s_module.CoreModule):
                         ('sandbox:file', ('file:bytes', {}), {
                             'doc': 'The initial sample given to a sandbox environment to analyze.'
                         }),
+                    )),
+
+                    ('inet:tunnel:type:taxonomy', {}, ()),
+                    ('inet:tunnel', {}, (
+                        ('anon', ('bool', {}), {
+                            'doc': 'Indicates that this tunnel provides anonymization.'}),
+                        ('type', ('inet:tunnel:type:taxonomy', {}), {
+                            'doc': 'The type of tunnel such as vpn or proxy.'}),
+                        ('ingress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic enters the tunnel.'}),
+                        ('egress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic leaves the tunnel.'}),
+                        ('operator', ('ps:contact', {}), {
+                            'doc': 'The contact information for the tunnel operator.'}),
                     )),
 
                     ('inet:fqdn', {}, (

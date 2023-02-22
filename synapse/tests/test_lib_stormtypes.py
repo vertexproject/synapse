@@ -542,7 +542,8 @@ class StormTypesTest(s_test.SynTest):
             'modules': [
                 {
                     'name': 'test',
-                    'storm': 'function f(a) { return ($a) }',
+                    'storm': '$valu=$modconf.valu function getvalu() { return($valu) }',
+                    'modconf': {'valu': 'foo'},
                 }
             ],
             'commands': [
@@ -655,6 +656,15 @@ class StormTypesTest(s_test.SynTest):
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'NoSuchName')
             self.eq(erfo[1][1].get('name'), 'newp')
+
+            await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
+            self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
+
+            mods = await core.getStormMods()
+            self.len(1, mods)
+            mods['test']['modconf']['valu'] = 'bar'
+            mods = await core.getStormMods()
+            self.eq('foo', mods['test']['modconf']['valu'])
 
             # lib.len()
             opts = {
@@ -1295,6 +1305,17 @@ class StormTypesTest(s_test.SynTest):
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.len(1, nodes)
                 self.eq(foo, nodes[0].props['data'])
+
+            buf = b'\xff\xfe{\x00"\x00k\x00"\x00:\x00 \x00"\x00v\x00"\x00}\x00'
+            q = '''return( $buf.json(encoding=$encoding) )'''
+            resp = await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-16'}})
+            self.eq(resp, {'k': 'v'})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
+
+            with self.raises(s_exc.BadJsonText):
+                await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
@@ -2801,6 +2822,7 @@ class StormTypesTest(s_test.SynTest):
 
             ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.false(ret)
+            self.false(await core.callStorm('return($lib.bytes.has($lib.null))'))
 
             opts = {'vars': {'bytes': asdf}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
@@ -4164,20 +4186,6 @@ class StormTypesTest(s_test.SynTest):
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('graph:node:type=m1'))
 
-                # Make sure the provenance of the new splices looks right
-                splices = await alist(prox.splices(nextoffs, 1000))
-                self.gt(len(splices), 1)
-
-                aliases = [splice[1][1].get('prov') for splice in splices]
-                self.nn(aliases[0])
-                self.true(all(a == aliases[0] for a in aliases))
-                prov = await prox.getProvStack(aliases[0])
-                rootiden = prov[1][1][1]['user']
-                correct = ({}, (
-                           ('cron', {'iden': guid}),
-                           ('storm', {'q': "[graph:node='*' :type=m1]", 'user': rootiden})))
-                self.eq(prov, correct)
-
                 q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
@@ -5421,19 +5429,22 @@ class StormTypesTest(s_test.SynTest):
                         ('foo', {}),
                         ('--bar', {'default': False, 'action': 'store_true'}),
                         ('--footime', {'default': False, 'type': 'time'}),
+                        ('--choice', {'choices': ['choice00', 'choice01']}),
                     ),
                     'storm': '''
                         $lib.print($lib.len($cmdopts))
-                        if ($lib.len($cmdopts) = 4) { $lib.print(foo) }
+                        if ($lib.len($cmdopts) = 5) { $lib.print(foo) }
 
                         $set = $lib.set()
                         for ($name, $valu) in $cmdopts { $set.add($valu) }
 
-                        if ($lib.len($set) = 4) { $lib.print(bar) }
+                        if ($lib.len($set) = 5) { $lib.print(bar) }
 
                         if $cmdopts.bar { $lib.print(baz) }
 
                         if $cmdopts.footime { $lib.print($cmdopts.footime) }
+
+                        if $cmdopts.choice { $lib.print($cmdopts.choice) }
                     '''
                 },
                 {
@@ -5473,19 +5484,42 @@ class StormTypesTest(s_test.SynTest):
                 },
             ],
         }
+        sadchoice = {
+            'name': 'baz',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'commands': [
+                {
+                    'name': 'test.badchoice',
+                    'cmdargs': [
+                        ('--baz', {'choices': 'newp'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.baz = hehe
+                    '''
+                },
+            ],
+        }
         async with self.getTestCore() as core:
             await core.addStormPkg(pdef)
-            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101')
+            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101 --choice choice00')
             self.stormIsInPrint('foo', msgs)
             self.stormIsInPrint('bar', msgs)
             self.stormIsInPrint('baz', msgs)
+            self.stormIsInPrint('choice00', msgs)
             self.stormIsInPrint('1577836800000', msgs)
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test.cmdopts hehe --choice newp')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('test.setboom hehe --bar')
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(sadchoice)
 
             nodes = await core.nodes('[ test:str=foo test:str=bar ] | test.runtsafety $node.repr()')
             self.len(4, nodes)

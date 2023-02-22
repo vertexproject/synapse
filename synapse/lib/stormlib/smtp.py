@@ -116,13 +116,13 @@ class SmtpMessage(s_stormtypes.StormType):
 
         self.gtors.update({
             'text': self._getEmailText,
-            'html': self._getEmailText,
+            'html': self._getEmailHtml,
             'sender': self._getSenderEmail,
         })
 
         self.stors.update({
             'text': self._setEmailText,
-            'html': self._setEmailText,
+            'html': self._setEmailHtml,
             'sender': self._setSenderEmail,
         })
 
@@ -162,6 +162,9 @@ class SmtpMessage(s_stormtypes.StormType):
             usetls = await s_stormtypes.tobool(usetls)
             starttls = await s_stormtypes.tobool(starttls)
 
+            if usetls and starttls:
+                raise s_exc.BadArg(mesg='usetls and starttls are mutually exclusive arguments.')
+
             timeout = await s_stormtypes.toint(timeout)
 
             user = await s_stormtypes.tostr(user, noneok=True)
@@ -181,14 +184,14 @@ class SmtpMessage(s_stormtypes.StormType):
             recipients = [await s_stormtypes.tostr(e) for e in self.recipients]
 
             futu = aiosmtplib.send(message,
-                    port=port,
-                    hostname=host,
-                    sender=self.sender,
-                    recipients=recipients,
-                    use_tls=usetls,
-                    start_tls=starttls,
-                    username=user,
-                    password=passwd)
+                                   port=port,
+                                   hostname=host,
+                                   sender=self.sender,
+                                   recipients=recipients,
+                                   use_tls=usetls,
+                                   start_tls=starttls,
+                                   username=user,
+                                   password=passwd)
 
             await asyncio.wait_for(futu, timeout=timeout)
 

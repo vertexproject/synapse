@@ -317,3 +317,41 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.13') as core:
             self.len(1, await core.nodes('risk:tool:software:taxonomy=testtype'))
             self.len(1, await core.nodes('risk:tool:software -> risk:tool:software:taxonomy'))
+
+    async def test_modelrev_0_2_14(self):
+        async with self.getRegrCore('model-0.2.14') as core:
+            self.len(1, await core.nodes('inet:flow:dst:softnames*[=foo]'))
+            self.len(1, await core.nodes('inet:flow:src:softnames*[=bar]'))
+            self.len(1, await core.nodes('inet:flow:dst:softnames=(baz, foo)'))
+            self.len(1, await core.nodes('inet:flow:src:softnames=(bar, baz)'))
+            self.len(1, await core.nodes('it:prod:softname=foo -> inet:flow:dst:softnames'))
+            self.len(1, await core.nodes('it:prod:softname=bar -> inet:flow:src:softnames'))
+
+    async def test_modelrev_0_2_15(self):
+        async with self.getRegrCore('model-0.2.15') as core:
+            nodes = await core.nodes('ou:contract:award:price=1.230')
+            self.len(1, nodes)
+            self.eq('1.23', nodes[0].props.get('award:price'))
+
+            nodes = await core.nodes('ou:contract:budget:price=4.560')
+            self.len(1, nodes)
+            self.eq('4.56', nodes[0].props.get('budget:price'))
+
+            nodes = await core.nodes('ou:contract -:award:price -:budget:price $node.data.load(migration:0_2_15)')
+            self.len(1, nodes)
+            data = nodes[0].nodedata['migration:0_2_15']
+            self.eq(data['award:price'], 'foo')
+            self.eq(data['budget:price'], 'bar')
+
+    async def test_modelrev_0_2_16(self):
+        async with self.getRegrCore('model-0.2.16') as core:
+            nodes = await core.nodes('risk:tool:software=bb1b3ecd5ff61b52ebad87e639e50276')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('soft:names'))
+            self.len(2, nodes[0].get('techniques'))
+
+    async def test_modelrev_0_2_17(self):
+        async with self.getRegrCore('model-0.2.17') as core:
+
+            self.len(1, await core.nodes('risk:vuln:cvss:av=P'))
+            self.len(1, await core.nodes('risk:vuln:cvss:av=L'))

@@ -190,6 +190,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'founded': '2015',
                     'dissolved': '2019',
                     'techniques': teqs,
+                    'goals': (goal,),
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -207,6 +208,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+                self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
@@ -612,8 +614,9 @@ class OuModelTest(s_t_utils.SynTest):
                 :type=foo.bar
                 :types="nda,grant"
                 :sponsor={iden0}
+                :currency=USD
                 :award:price=20.00
-                :budget:price=21.00
+                :budget:price=21.50
                 :parties=({iden1}, {iden2})
                 :document={file0}
                 :signed=202001
@@ -626,8 +629,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('Fullbright Scholarship', nodes[0].get('title'))
             self.eq(iden0, nodes[0].get('sponsor'))
-            self.eq('20.00', nodes[0].get('award:price'))
-            self.eq('21.00', nodes[0].get('budget:price'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq('20', nodes[0].get('award:price'))
+            self.eq('21.5', nodes[0].get('budget:price'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))

@@ -170,8 +170,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
-        conf = {'provenance:en': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
             await core.loadStormPkg({
                 'name': 'testsearch',
                 'modules': [
@@ -667,6 +666,12 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             nodes = await core.nodes('test:str=b -> test:arrayprop:strsnosplit')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:guid=* :size=2 ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
             self.len(1, nodes)
 
     async def test_ast_pivot_ndef(self):

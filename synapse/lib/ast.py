@@ -39,6 +39,8 @@ class AstNode:
     def __init__(self, kids=()):
         self.kids = []
         self.hasast = {}
+        self.lines = (-1, -1)
+        self.textpos = (-1, -1)
         [self.addKid(k) for k in kids]
 
     def repr(self):
@@ -167,15 +169,6 @@ class Query(AstNode):
     async def iterNodePaths(self, runt, genr=None):
 
         count = 0
-        subgraph = None
-
-        rules = runt.getOpt('graph')
-
-        if rules not in (False, None):
-            if rules is True:
-                rules = {'degrees': None, 'refs': True}
-
-            subgraph = SubGraph(rules)
 
         self.optimize()
         self.validate(runt)
@@ -185,9 +178,6 @@ class Query(AstNode):
             genr = runt.getInput()
 
         genr = self.run(runt, genr)
-
-        if subgraph is not None:
-            genr = subgraph.run(runt, genr)
 
         async for node, path in genr:
 
@@ -272,7 +262,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit()
+            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn, cell=runt.snap.core)
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
@@ -423,9 +413,10 @@ class SubGraph:
         todo = collections.deque()
 
         async with contextlib.AsyncExitStack() as stack:
+            core = runt.snap.core
 
-            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
-            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=runt.snap.core.dirn))
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
             async def todogenr():
 
@@ -729,7 +720,7 @@ class ForLoop(Oper):
     async def run(self, runt, genr):
 
         subq = self.kids[2]
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
         node = None
 
         async for node, path in genr:
@@ -754,6 +745,9 @@ class ForLoop(Oper):
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
 
                     for x, y in itertools.zip_longest(name, item):
                         await path.setVar(x, y)
@@ -808,6 +802,9 @@ class ForLoop(Oper):
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+
+                    if isinstance(item, s_stormtypes.Prim):
+                        item = await item.value()
 
                     for x, y in itertools.zip_longest(name, item):
                         await runt.setVar(x, y)
@@ -907,7 +904,7 @@ class CmdOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
@@ -952,7 +949,7 @@ class SetVarOper(Oper):
 
     async def run(self, runt, genr):
 
-        name = await self.kids[0].compute(runt, None)
+        name = self.kids[0].value()
 
         vkid = self.kids[1]
 
@@ -1029,7 +1026,7 @@ class VarListSetOper(Oper):
 
     async def run(self, runt, genr):
 
-        names = await self.kids[0].compute(runt, None)
+        names = self.kids[0].value()
         vkid = self.kids[1]
 
         async for node, path in genr:
@@ -1620,7 +1617,7 @@ class PivotToTags(PivotOper):
 
         if kid.isconst:
 
-            mval = await kid.compute(runt, None)
+            mval = kid.constval
 
             if not mval:
 
@@ -1700,11 +1697,11 @@ class PivotIn(PivotOper):
 
         name, valu = node.ndef
 
-        for prop in runt.model.propsbytype.get(name, ()):
+        for prop in runt.model.getPropsByType(name):
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
-        for prop in runt.model.arraysbytype.get(name, ()):
+        for prop in runt.model.getArrayPropsByType(name):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
                 yield pivo, path.fork(pivo)
 
@@ -2031,7 +2028,7 @@ class PropPivot(PivotOper):
 
     async def run(self, runt, genr):
         warned = False
-        name = await self.kids[1].compute(runt, None)
+        name = self.kids[1].value()
 
         prop = runt.model.props.get(name)
         if prop is None:
@@ -2062,7 +2059,12 @@ class PropPivot(PivotOper):
 
                     continue
 
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+                if prop.type.isarray and not srcprop.type.isarray:
+                    genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                else:
+                    genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+
+                async for pivo in genr:
                     yield pivo, path.fork(pivo)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:

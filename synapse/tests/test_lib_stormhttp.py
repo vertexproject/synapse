@@ -128,10 +128,11 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $params=(1138)
             $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( ($resp.code, $resp.err) )
+            return ( ($resp.code, $resp.reason, $resp.err) )
             '''
-            code, (errname, _) = await core.callStorm(q, opts=opts)
+            code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
+            self.eq(reason, 'Exception occurred during request')
             self.eq('TypeError', errname)
 
             # SSL Verify enabled results in a aiohttp.ClientConnectorCertificateError
@@ -164,6 +165,12 @@ class StormHttpTest(s_test.SynTest):
             return ( $resp.json(encoding=utf8, errors=ignore) )
             '''
             self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+
+            retn = await core.callStorm('return($lib.inet.http.codereason(404))')
+            self.eq(retn, 'Not Found')
+
+            retn = await core.callStorm('return($lib.inet.http.codereason(123))')
+            self.eq(retn, 'Unknown HTTP status code 123')
 
     async def test_storm_http_inject_ca(self):
 
@@ -236,11 +243,12 @@ class StormHttpTest(s_test.SynTest):
                     ("User-Agent", "Storm HTTP Stuff"),
             )
             $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
-            return ( ($resp.code, $resp.headers, $resp.body) )
+            return ( ($resp.code, $resp.reason, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
-            code, headers, body = resp
+            code, reason, headers, body = resp
             self.eq(code, 200)
+            self.eq(reason, 'OK')
             self.eq(b'', body)
             self.eq('0', headers.get('Content-Length'))
             self.eq('1', headers.get('Head'))
@@ -450,7 +458,7 @@ class StormHttpTest(s_test.SynTest):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
-            self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+            self.ne(-1, resp['mesg'].find('Could not connect to proxy 127.0.0.1:1'))
 
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
             code, (errname, _) = await core.callStorm(q)
@@ -488,13 +496,13 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
 
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+            self.isin('Could not connect to proxy 127.0.0.1:1', resp['mesg'])
 
             size, sha256 = await core.axon.put(b'asdf')
 
             sha256 = s_common.ehex(sha256)
             resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+            self.isin('Could not connect to proxy 127.0.0.1:1', resp['mesg'])
 
     async def test_storm_http_connect(self):
 
@@ -564,4 +572,4 @@ class StormHttpTest(s_test.SynTest):
                     'vars': {'port': port, 'proxy': 'socks5://user:pass@127.0.0.1:1'}}
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
-            self.isin('Can not connect to proxy', str(cm.exception))
+            self.isin('Could not connect to proxy', str(cm.exception))

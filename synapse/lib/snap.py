@@ -351,7 +351,7 @@ class SnapEditor:
 
         form = self.snap.core.model.form(formname)
         if form is None:
-            mesg = f'No form named {formname}.'
+            mesg = f'No form named {formname} for valu={valu}.'
             return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
 
         if form.isrunt:
@@ -359,7 +359,7 @@ class SnapEditor:
             return await self.snap._raiseOnStrict(s_exc.IsRuntForm, mesg)
 
         if form.locked:
-            mesg = f'Form {form.full} is locked due to deprecation.'
+            mesg = f'Form {form.full} is locked due to deprecation for valu={valu}.'
             return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
 
         if norminfo is None:
@@ -368,7 +368,7 @@ class SnapEditor:
             except s_exc.BadTypeValu as e:
                 e.errinfo['form'] = form.name
                 if self.snap.strict: raise e
-                await self.snap.warn('addNode() BadTypeValu {formname}={valu} {e}')
+                await self.snap.warn(f'addNode() BadTypeValu {formname}={valu} {e}')
                 return None
 
         protonode = await self._initProtoNode(form, valu, norminfo)
@@ -484,10 +484,6 @@ class Snap(s_base.Base):
             'time': s_common.now(),
             'user': self.user.iden
         }
-
-        providen = self.core.provstor.precommit()
-        if providen is not None:
-            meta['prov'] = providen
 
         return meta
 
@@ -872,6 +868,10 @@ class Snap(s_base.Base):
             async for node in self.nodesByPropValu(prop.full, '=', valu):
                 yield node
 
+        for prop in self.core.model.getArrayPropsByType(name):
+            async for node in self.nodesByPropArray(prop.full, '=', valu):
+                yield node
+
     async def nodesByPropArray(self, full, cmpr, valu):
 
         prop = self.core.model.prop(full)
@@ -1085,9 +1085,6 @@ class Snap(s_base.Base):
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:
-            providen, provstack = self.core.provstor.stor()
-            if providen is not None:
-                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
             await self.fire('node:edits', edits=actualedits)
 
         return saveoff, changes, nodes
@@ -1302,7 +1299,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 
@@ -1316,7 +1313,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 

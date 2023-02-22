@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 13)
+maxvers = (0, 2, 17)
 
 class ModelRev:
 
@@ -27,6 +27,10 @@ class ModelRev:
             ((0, 2, 11), self.revModel20220803),
             ((0, 2, 12), self.revModel20220901),
             ((0, 2, 13), self.revModel20221025),
+            ((0, 2, 14), self.revModel20221123),
+            ((0, 2, 15), self.revModel20221212),
+            ((0, 2, 16), self.revModel20221220),
+            ((0, 2, 17), self.revModel20230209),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -578,6 +582,114 @@ class ModelRev:
 
     async def revModel20221025(self, layers):
         await self._propToForm(layers, 'risk:tool:software:type', 'risk:tool:software:taxonomy')
+
+    async def revModel20221123(self, layers):
+        await self._normPropValu(layers, 'inet:flow:dst:softnames')
+        await self._normPropValu(layers, 'inet:flow:src:softnames')
+
+        await self._propArrayToForm(layers, 'inet:flow:dst:softnames', 'it:prod:softname')
+        await self._propArrayToForm(layers, 'inet:flow:src:softnames', 'it:prod:softname')
+
+    async def revModel20221212(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        props = [
+            'ou:contract:award:price',
+            'ou:contract:budget:price'
+        ]
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for propname in props:
+                prop = self.core.model.prop(propname)
+
+                async def movetodata(buid, valu):
+                    (retn, data) = await layr.getNodeData(buid, 'migration:0_2_15')
+                    if retn:
+                        data[prop.name] = valu
+                    else:
+                        data = {prop.name: valu}
+
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, valu, s_layer.STOR_TYPE_UTF8), ()),
+                            (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_15', data, None), ()),
+                        )),
+                    )
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
+                    try:
+                        norm, info = prop.type.norm(propvalu)
+                    except s_exc.BadTypeValu as e:
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                        await movetodata(buid, propvalu)
+                        continue
+
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, s_layer.STOR_TYPE_UTF8), ()),
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+                if nodeedits:
+                    await save()
+
+    async def revModel20221220(self, layers):
+        todoprops = (
+            'risk:tool:software:soft:names',
+            'risk:tool:software:techniques'
+        )
+        await self._uniqSortArray(todoprops, layers)
+
+    async def revModel20230209(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop('risk:vuln:cvss:av')
+            propname = prop.name
+            formname = prop.form.name
+            stortype = prop.type.stortype
+
+            oldvalu = 'V'
+            newvalu = 'P'
+
+            async for buid, propvalu in layr.iterPropRows(formname, propname, stortype=stortype, startvalu=oldvalu):
+
+                if propvalu != oldvalu:  # pragma: no cover
+                    break
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
+                        (s_layer.EDIT_PROP_SET, (propname, newvalu, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def runStorm(self, text, opts=None):
         '''

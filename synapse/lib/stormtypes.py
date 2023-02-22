@@ -544,6 +544,8 @@ class LibPkg(Lib):
          'type': {'type': 'function', '_funcname': '_libPkgAdd',
                   'args': (
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                      {'name': 'verify', 'type': 'boolean', 'default': False,
+                       'desc': 'Verify storm package signature.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
@@ -588,10 +590,11 @@ class LibPkg(Lib):
             'deps': self._libPkgDeps,
         }
 
-    async def _libPkgAdd(self, pkgdef):
+    async def _libPkgAdd(self, pkgdef, verify=False):
         self.runt.confirm(('pkg', 'add'), None)
         pkgdef = await toprim(pkgdef)
-        await self.runt.snap.core.addStormPkg(pkgdef)
+        verify = await tobool(verify)
+        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
 
     async def _libPkgGet(self, name):
         name = await tostr(name)
@@ -1534,7 +1537,10 @@ class LibBase(Lib):
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
             raise ctor(mesg=mesg, **info)
-        raise s_exc.StormRaise(name, mesg, info)
+
+        info['mesg'] = mesg
+        info['errname'] = name
+        raise s_exc.StormRaise(**info)
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
@@ -2010,8 +2016,10 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
+        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout, **kwargs)
+        resp['original_url'] = url
+        return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
@@ -2056,27 +2064,52 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
-        url = resp.get('url')
+        now = self.runt.model.type('time').norm('now')[0]
+
+        original_url = resp.get('original_url')
         hashes = resp.get('hashes')
+        sha256 = hashes.get('sha256')
         props = {
             'size': resp.get('size'),
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
-            'sha256': hashes.get('sha256'),
-            '.seen': 'now',
+            'sha256': sha256,
+            '.seen': now,
         }
 
-        sha256 = hashes.get('sha256')
         filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
 
         if not filenode.get('name'):
-            info = s_urlhelp.chopurl(url)
+            info = s_urlhelp.chopurl(original_url)
             base = info.get('path').strip('/').split('/')[-1]
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': 'now'}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+        props = {'.seen': now}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+
+        history = resp.get('history')
+        if history is not None:
+            redirs = []
+            src = original_url
+
+            # We skip the first entry in history, since that URL is the original URL
+            # having been redirected. The second+ history item represents the
+            # requested URL. We then capture the last part of the chain in our list.
+            # The recorded URLs after the original_url are all the resolved URLS,
+            # since Location headers may be partial paths and this avoids needing to
+            # do url introspection that has already been done by the Axon.
+
+            for info in history[1:]:
+                url = info.get('url')
+                redirs.append((src, url))
+                src = url
+
+            redirs.append((src, resp.get('url')))
+
+            for valu in redirs:
+                props = {'.seen': now}
+                await self.runt.snap.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
 
@@ -2212,12 +2245,17 @@ class LibBytes(Lib):
             return size, s_common.ehex(sha256)
 
     async def _libBytesHas(self, sha256):
+        sha256 = await tostr(sha256, noneok=True)
+        if sha256 is None:
+            return None
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 
     async def _libBytesSize(self, sha256):
+        sha256 = await tostr(sha256)
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2235,6 +2273,7 @@ class LibBytes(Lib):
         return (size, s_common.ehex(sha2))
 
     async def _libBytesHashset(self, sha256):
+        sha256 = await tostr(sha256)
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -3995,6 +4034,11 @@ class Bytes(Prim):
                 Load bytes to a object::
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
+                       'default': 'surrogatepass', },
+                  ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
         {'name': 'slice', 'desc': '''
@@ -4104,8 +4148,24 @@ class Bytes(Prim):
     async def _methGzip(self):
         return gzip.compress(self.valu)
 
-    async def _methJsonLoad(self):
-        return json.loads(self.valu)
+    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+        try:
+            valu = self.valu
+            errors = await tostr(errors)
+
+            if encoding is None:
+                encoding = json.detect_encoding(valu)
+            else:
+                encoding = await tostr(encoding)
+
+            return json.loads(valu.decode(encoding, errors))
+
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=valu[:1024]) from None
+
+        except json.JSONDecodeError as e:
+            mesg = f'Unable to decode bytes as json: {e.args[0]}'
+            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Dict(Prim):

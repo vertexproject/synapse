@@ -1,0 +1,5 @@
+vertex.link |
+function foo() {
+    stop
+}
+yield $foo()

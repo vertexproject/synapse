@@ -41,6 +41,10 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
             await s_genpkg.main((ymlpath,))
 
+        with self.raises(s_exc.NoSuchFile):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'newpfile.yaml')
+            await s_genpkg.main((ymlpath,))
+
         with self.raises(s_exc.BadPkgDef):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nopath.yaml')
             await s_genpkg.main((ymlpath,))
@@ -61,6 +65,10 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badcmdname.yaml')
             await s_genpkg.main((ymlpath,))
 
+        with self.raises(s_exc.BadArg):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badjsonpkg.yaml')
+            await s_genpkg.main((ymlpath,))
+
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
@@ -77,6 +85,11 @@ class GenPkgTest(s_test.SynTest):
             self.stormIsInErr('argument <foo> is required', msgs)
             msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
             self.stormIsInPrint('Imported Module testmod', msgs)
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(1, gdefs)
+            self.eq(gdefs[0]['name'], 'testgraph')
+            self.eq(gdefs[0]['power-up'], 'testpkg')
 
             pdef = s_common.yamlload(savepath)
             s_common.yamlsave(pdef, yamlpath)

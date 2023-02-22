@@ -377,6 +377,8 @@ class AhaCell(s_cell.Cell):
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
+        slab.addResizeCallback(self.checkFreeSpace)
+
         self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():

@@ -557,7 +557,7 @@ class Model:
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
         })
-        self.addUnivProp('created', ('time', {}), {
+        self.addUnivProp('created', ('time', {'ismin': True}), {
             'ro': True,
             'doc': 'The time the node was created in the cortex.',
         })
@@ -576,6 +576,10 @@ class Model:
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
+        return props
+
+    def getArrayPropsByType(self, name):
+        props = self.arraysbytype.get(name, ())
         return props
 
     def getProps(self):

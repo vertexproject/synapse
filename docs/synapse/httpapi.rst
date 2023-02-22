@@ -38,10 +38,9 @@ For additional examples, see the code examples at `HTTPAPI Examples`_.
 Authentication
 --------------
 
-While not in "insecure" mode, most Synapse HTTP APIs require an authenticated user.
-HTTP API endpoints requiring authentication may be accessed using either HTTP Basic
-authentication via the HTTP "Authorization" header or as part of an authenticated
-session.
+Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiring
+authentication may be accessed using either HTTP Basic authentication via the HTTP
+"Authorization" header or as part of an authenticated session.
 
 To create and use an authenticated session, the HTTP client library must support
 cookies.
@@ -86,7 +85,7 @@ Both of the Python examples use session managers which manage the session cookie
 
         url = 'https://localhost:4443/api/v1/login'
         info = {'user': 'visi', 'passwd': 'secret'}
-        resp = sess.post(url, json=info)
+        resp = sess.post(url, json=info, verify=ssl)
         item = resp.json()
 
         if item.get('status') != 'ok':

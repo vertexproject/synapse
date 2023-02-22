@@ -41,7 +41,8 @@ class PolModule(s_module.CoreModule):
                 'forms': (
 
                     ('pol:country', {}, (
-                        ('flag', ('file:bytes', {}), {}),
+                        ('flag', ('file:bytes', {}), {
+                            'doc': 'A thumbnail image of the flag of the country.'}),
                         ('iso2', ('pol:iso2', {}), {}),
                         ('iso3', ('pol:iso3', {}), {}),
                         ('isonum', ('pol:isonum', {}), {}),
@@ -54,13 +55,15 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The name of the country.'}),
                         ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate or localized names for the country.'}),
+                        ('government', ('ou:org', {}), {
+                            'doc': 'The ou:org node which represents the government of the country.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'A geo:place node representing the geospatial properties of the country.'}),
                         ('founded', ('time', {}), {
                             'doc': 'The date that the country was founded.'}),
                         ('dissolved', ('time', {}), {
                             'doc': 'The date that the country was dissolved.'}),
-                        ('vitals', ('ps:vitals', {}), {
+                        ('vitals', ('pol:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
                     )),
                     ('pol:vitals', {}, (

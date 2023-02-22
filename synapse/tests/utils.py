@@ -193,6 +193,7 @@ testmodel = {
 
         ('test:ival', ('ival', {}), {}),
 
+        ('test:ro', ('str', {}), {}),
         ('test:int', ('int', {}), {}),
         ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
@@ -361,6 +362,11 @@ testmodel = {
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
         )),
+
+        ('test:ro', {}, (
+            ('writeable', ('str', {}), {'doc': 'writeable property'}),
+            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+        ))
 
     ),
 }
@@ -701,6 +707,12 @@ class HttpReflector(s_httpapi.Handler):
         if sleep:
             sleep = int(sleep[0])
             await asyncio.sleep(sleep)
+
+        redirect = params.get('redirect')
+        if redirect:
+            self.add_header('Redirected', '1')
+            self.redirect(redirect[0])
+            return
 
         self.sendRestRetn(resp)
 
@@ -1144,7 +1156,6 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True,
                     'nexslog:en': True,
                     'layers:logedits': True,
                     }

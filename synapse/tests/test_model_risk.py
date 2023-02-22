@@ -35,6 +35,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :targeted=true
                     :goal=*
                     :type=foo.bar
+                    :severity=10
                     :desc=wootwoot
                     :campaign={camp}
                     :prev={attk}
@@ -84,6 +85,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:server'), 'tcp://1.2.3.4')
             self.eq(node.get('used:software'), soft)
             self.eq(node.get('sophistication'), 40)
+            self.eq(node.get('severity'), 10)
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
@@ -188,6 +190,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vuln=*
                     :url=https://vertex.link/alerts/WOOT-20
                     :ext:id=WOOT-20
+                    :engine={[ it:prod:softver=* :name=visiware ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -199,12 +202,14 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
+            self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
 
             nodes = await core.nodes('''[
                     risk:compromise=*
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
+                    :severity = 10
                     :target = {[ ps:contact=* :name=ledo ]}
                     :attacker = {[ ps:contact=* :name=visi ]}
                     :campaign = *
@@ -240,6 +245,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('99', nodes[0].get('ransom:price'))
             self.eq('1010', nodes[0].get('response:cost'))
             self.eq('usd', nodes[0].get('econ:currency'))
+            self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
@@ -259,6 +265,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :goals=(*,)
                     :techniques=(*,)
                     :sophistication=high
+                    :merged:time = 20230111
+                    :merged:isnow = {[ risk:threat=* ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -272,8 +280,12 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('reporter'))
+            self.nn(nodes[0].get('merged:isnow'))
+            self.eq(1673395200000, nodes[0].get('merged:time'))
+
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
+            self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:

@@ -109,6 +109,36 @@ def buid(valu=None):
     byts = s_msgpack.en(valu)
     return hashlib.sha256(byts).digest()
 
+def flatten(item):
+    '''
+    Normalize a primitive object for cryptographic signing.
+
+    Args:
+        item: The python primitive object to normalize.
+
+    Notes:
+        Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
+        List objects will be converted to tuples.
+        Dictionary objects must have keys which can be sorted.
+
+    Returns:
+        A new copy of the object.
+    '''
+
+    if item is None:
+        return None
+
+    if isinstance(item, (str, int, bytes)):
+        return item
+
+    if isinstance(item, (tuple, list)):
+        return tuple([flatten(i) for i in item])
+
+    if isinstance(item, dict):
+        return {flatten(k): flatten(item[k]) for k in sorted(item.keys())}
+
+    raise s_exc.BadDataValu(mesg=f'Unknown type: {type(item)}')
+
 def ehex(byts):
     '''
     Encode a bytes variable to a string using binascii.hexlify.
@@ -355,8 +385,8 @@ def genfile(*paths):
     return io.open(path, 'r+b')
 
 @contextlib.contextmanager
-def getTempDir():
-    tempdir = tempfile.mkdtemp()
+def getTempDir(dirn=None):
+    tempdir = tempfile.mkdtemp(dir=dirn)
 
     try:
         yield tempdir
@@ -942,6 +972,35 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+def reqJsonSafe(item):
+    '''
+    Require the item to be safe to serialize to JSON without type coercion issues.
+
+    Args:
+        item: The python primitive to check.
+
+    Returns:
+        None
+
+    Raise:
+        s_exc.BadArg: If the item contains invalid data.
+    '''
+    if item is None:
+        return
+    if isinstance(item, (str, int,)):
+        return
+    if isinstance(item, (list, tuple)):
+        for valu in item:
+            reqJsonSafe(valu)
+        return
+    if isinstance(item, dict):
+        for key, valu in item.items():
+            if not isinstance(key, str):
+                raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
+            reqJsonSafe(valu)
+        return
+    raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
 
 async def merggenr(genrs, cmprkey):
     '''

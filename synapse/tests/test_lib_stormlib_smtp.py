@@ -17,7 +17,7 @@ class SmtpTest(s_test.SynTest):
 
                 retn = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
-                    $message.text = HI
+                    $message.text = "HELLO WORLD"
                     $message.html = "<html><body><h1>HI!</h1></body></html>"
                     $message.sender = visi@vertex.link
                     $message.headers.Subject = woot
@@ -25,9 +25,17 @@ class SmtpTest(s_test.SynTest):
 
                     // test gtors...
                     if (not $message.sender ~= "visi") { $lib.exit() }
-                    if (not $message.text ~= "HI") { $lib.exit() }
+                    if (not $message.text ~= "HELLO") { $lib.exit() }
                     if (not $message.html ~= "HI") { $lib.exit() }
 
                     return($message.send('smtp.gmail.com', port=465, usetls=true))
                 ''')
                 self.eq(retn, (True, {}))
+
+                isok, info = await core.callStorm('''
+                    $message = $lib.inet.smtp.message()
+                    $message.text = "HELLO WORLD"
+                    return($message.send('smtp.newp.com', port=465, usetls=$lib.true, starttls=$lib.true))
+                ''')
+                self.false(isok)
+                self.eq(info.get('err'), 'BadArg')
