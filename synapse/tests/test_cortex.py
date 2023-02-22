@@ -2663,7 +2663,16 @@ class CortexTest(s_t_utils.SynTest):
             await alist(prox.storm('[ inet:ipv4=0 ]'))
             edits = await getedits(offs, 1)
             reqguid(edits[0][2].get('query'))
+            offs = edits[-1][0] + 1
 
+            await prox.callStorm('[ test:str=call ] return()')
+            edits = await getedits(offs, 1)
+            reqguid(edits[0][2].get('query'))
+            offs = edits[-1][0] + 1
+
+            await prox.count('[ test:str=count ]')
+            edits = await getedits(offs, 1)
+            reqguid(edits[0][2].get('query'))
             offs = edits[-1][0] + 1
 
             await alist(prox.storm('''
@@ -2676,7 +2685,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['test:str', 'test:int'], [e[1][0][1] for e in edits])
             reqguid(edits[0][2].get('query'))
             reqguid(edits[1][2].get('query'))
-
             offs = edits[-1][0] + 1
 
             # sync/async trigger execution gets a unique guid
@@ -2697,7 +2705,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(guid, edits[1][2].get('query'))
             reqguid(edits[2][2].get('query'))
             self.eq(trig00, edits[2][2].get('trig'))
-
             offs = edits[-1][0] + 1
 
             trig01 = await core.callStorm('''
@@ -2716,6 +2723,9 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(guid, edits[1][2].get('query'))
             reqguid(edits[2][2].get('query'))
             self.eq(trig01, edits[2][2].get('trig'))
+            offs = edits[-1][0] + 1
+
+            await asyncio.sleep(0.1)
 
             # todo: either move this into test_lib_agenda or drag the time munging over here
             # await core.nodes('cron.at --minute +1 {[inet:ipv4=1]}')

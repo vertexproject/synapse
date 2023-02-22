@@ -375,7 +375,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await self.snap(user=user) as snap:
-            with s_scope.enter(vals={'query:guid': text}):
+            with s_scope.enter(vals={'query:guid': s_common.guid()}):
                 async for node in snap.eval(text, opts=opts, user=user):
                     yield node
 
@@ -468,7 +468,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     else:
                         self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
-                        with s_scope.enter(vals={'query:guid': text}):
+                        with s_scope.enter(vals={'query:guid': s_common.guid()}):
                             async for item in snap.storm(text, opts=opts, user=user):
                                 count += 1
 
