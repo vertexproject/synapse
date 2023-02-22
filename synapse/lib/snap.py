@@ -494,6 +494,10 @@ class Snap(s_base.Base):
         if cron_guid is not None:
             meta['cron'] = cron_guid
 
+        trig_guid = s_scope.get('trig:guid')
+        if trig_guid is not None:
+            meta['trig'] = trig_guid
+
         return meta
 
     @contextlib.asynccontextmanager

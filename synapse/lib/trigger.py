@@ -9,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.cache as s_cache
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.grammar as s_grammar
 import synapse.lib.provenance as s_provenance
@@ -386,19 +387,20 @@ class Trigger:
         self.startcount += 1
 
         with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
-            try:
-                async with self.view.core.getStormRuntime(query, opts=opts) as runt:
+            with s_scope.enter(vals={'trig:guid': self.iden, 'query:guid': s_common.guid()}):
+                try:
+                    async with self.view.core.getStormRuntime(query, opts=opts) as runt:
 
-                    runt.addInput(node)
-                    await s_common.aspin(runt.execute())
+                        runt.addInput(node)
+                        await s_common.aspin(runt.execute())
 
-            except (asyncio.CancelledError, s_exc.RecursionLimitHit):
-                raise
+                except (asyncio.CancelledError, s_exc.RecursionLimitHit):
+                    raise
 
-            except Exception as e:
-                self.errcount += 1
-                self.lasterrs.append(str(e))
-                logger.exception('Trigger encountered exception running storm query %s', storm)
+                except Exception as e:
+                    self.errcount += 1
+                    self.lasterrs.append(str(e))
+                    logger.exception('Trigger encountered exception running storm query %s', storm)
 
     def pack(self):
         tdef = self.tdef.copy()

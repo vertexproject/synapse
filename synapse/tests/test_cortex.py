@@ -2651,16 +2651,18 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(size, edits)
                 return edits
 
-            def addguid(guid):
+            def reqguid(guid):
                 self.nn(guid)
                 self.notin(guid, guids)
                 guids.add(guid)
 
             offs = await core.getNexsIndx()
 
+            # basics
+
             await alist(prox.storm('[ inet:ipv4=0 ]'))
             edits = await getedits(offs, 1)
-            addguid(edits[0][2].get('query'))
+            reqguid(edits[0][2].get('query'))
 
             offs = edits[-1][0] + 1
 
@@ -2672,34 +2674,56 @@ class CortexTest(s_t_utils.SynTest):
 
             edits = await getedits(offs, 2)
             self.eq(['test:str', 'test:int'], [e[1][0][1] for e in edits])
-            addguid(edits[0][2].get('query'))
-            addguid(edits[1][2].get('query'))
+            reqguid(edits[0][2].get('query'))
+            reqguid(edits[1][2].get('query'))
 
             offs = edits[-1][0] + 1
 
-            await core.nodes('trigger.add tag:add --tag trig.sync --query {[ +#trig.sync.ran ]}')
+            # sync/async trigger execution gets a unique guid
+            # the trigger guid is also available in meta
+
+            trig00 = await core.callStorm('''
+                return($lib.trigger.add(({
+                    "cond": "tag:add",
+                    "tag": "trig.sync",
+                    "storm": "[ +#trig.sync.ran ]"
+                })).iden)
+            ''')
+
             await alist(prox.storm('[ inet:ipv4=4 +#trig.sync ]'))
             edits = await getedits(offs, 3)
             guid = edits[0][2].get('query')
-            addguid(guid)
-            self.true(guid == edits[1][2].get('query') == edits[2][2].get('query'))
-            # fixme: sync trigger should have its own guid
-            # todo: trigger guid
+            reqguid(guid)
+            self.eq(guid, edits[1][2].get('query'))
+            reqguid(edits[2][2].get('query'))
+            self.eq(trig00, edits[2][2].get('trig'))
 
             offs = edits[-1][0] + 1
 
-            await core.nodes('trigger.add tag:add --tag trig.async --query {[ +#trig.async.ran ]} --async')
+            trig01 = await core.callStorm('''
+                return($lib.trigger.add(({
+                    "cond": "tag:add",
+                    "tag": "trig.async",
+                    "storm": "[ +#trig.async.ran ]",
+                    "async": $lib.true
+                })).iden)
+            ''')
+
             await alist(prox.storm('[ inet:ipv4=5 +#trig.async ]'))
             edits = await getedits(offs, 3)
             guid = edits[0][2].get('query')
-            addguid(guid)
-            self.true(guid == edits[1][2].get('query'))
-            # addguid(edits[2][2].get('query'))
-            # fixme: async trigger needs a guid
+            reqguid(guid)
+            self.eq(guid, edits[1][2].get('query'))
+            reqguid(edits[2][2].get('query'))
+            self.eq(trig01, edits[2][2].get('trig'))
 
             # todo: either move this into test_lib_agenda or drag the time munging over here
             # await core.nodes('cron.at --minute +1 {[inet:ipv4=1]}')
             # await asyncio.sleep(61)
+
+            # todo: dmons
+
+            # todo: other top-level entrypoints
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
