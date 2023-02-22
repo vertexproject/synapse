@@ -2632,6 +2632,75 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
 
+    async def test_storm_meta_extras(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+
+            layr = core.getLayer()
+            guids = set()
+
+            async def getedits(offs0, size, timeout=2):
+                async def _run():
+                    edits = []
+                    async for offi, nodeedits, meta in layr.syncNodeEdits2(offs0, wait=True):
+                        edits.append((offi, nodeedits, meta))
+                        if len(edits) >= size:
+                            break
+                    return edits
+                edits = await asyncio.wait_for(_run(), timeout=timeout)
+                self.len(size, edits)
+                return edits
+
+            def addguid(guid):
+                self.nn(guid)
+                self.notin(guid, guids)
+                guids.add(guid)
+
+            offs = await core.getNexsIndx()
+
+            await alist(prox.storm('[ inet:ipv4=0 ]'))
+            edits = await getedits(offs, 1)
+            addguid(edits[0][2].get('query'))
+
+            offs = edits[-1][0] + 1
+
+            await alist(prox.storm('''
+                $prox = $lib.telepath.open(`cell://{$dirn}`)
+                for $m in $prox.storm("[test:str=foo]") { $lib.print($m) }
+                [ test:int=3 ]
+            ''', opts={'vars': {'dirn': core.dirn}}))
+
+            edits = await getedits(offs, 2)
+            self.eq(['test:str', 'test:int'], [e[1][0][1] for e in edits])
+            addguid(edits[0][2].get('query'))
+            addguid(edits[1][2].get('query'))
+
+            offs = edits[-1][0] + 1
+
+            await core.nodes('trigger.add tag:add --tag trig.sync --query {[ +#trig.sync.ran ]}')
+            await alist(prox.storm('[ inet:ipv4=4 +#trig.sync ]'))
+            edits = await getedits(offs, 3)
+            guid = edits[0][2].get('query')
+            addguid(guid)
+            self.true(guid == edits[1][2].get('query') == edits[2][2].get('query'))
+            # fixme: sync trigger should have its own guid
+            # todo: trigger guid
+
+            offs = edits[-1][0] + 1
+
+            await core.nodes('trigger.add tag:add --tag trig.async --query {[ +#trig.async.ran ]} --async')
+            await alist(prox.storm('[ inet:ipv4=5 +#trig.async ]'))
+            edits = await getedits(offs, 3)
+            guid = edits[0][2].get('query')
+            addguid(guid)
+            self.true(guid == edits[1][2].get('query'))
+            # addguid(edits[2][2].get('query'))
+            # fixme: async trigger needs a guid
+
+            # todo: either move this into test_lib_agenda or drag the time munging over here
+            # await core.nodes('cron.at --minute +1 {[inet:ipv4=1]}')
+            # await asyncio.sleep(61)
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed

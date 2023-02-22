@@ -16,6 +16,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
 import synapse.lib.spooled as s_spooled
@@ -484,6 +485,14 @@ class Snap(s_base.Base):
             'time': s_common.now(),
             'user': self.user.iden
         }
+
+        storm_guid = s_scope.get('query:guid')
+        if storm_guid is not None:
+            meta['query'] = storm_guid
+
+        cron_guid = s_scope.get('cron:guid')
+        if cron_guid is not None:
+            meta['cron'] = cron_guid
 
         return meta
 

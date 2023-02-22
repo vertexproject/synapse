@@ -16,6 +16,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.provenance as s_provenance
 
@@ -872,8 +873,9 @@ class Agenda(s_base.Base):
                 opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
                 opts = self.core._initStormOpts(opts)
                 view = self.core._viewFromOpts(opts)
-                async for node in view.eval(appt.query, opts=opts):
-                    count += 1
+                with s_scope.enter(vals={'cron:guid': appt.iden}):
+                    async for node in view.eval(appt.query, opts=opts):
+                        count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
                 raise
