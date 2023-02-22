@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-NEXTVERS - YYYY-MM-DD
+v2.123.0 - 2023-02-22
 =====================
 
 Automatic Migrations
@@ -170,7 +170,6 @@ Features and Enhancements
 - Update the minimum version of the ``cryptography`` library to ``39.0.1`` and
   the minimum version of the ``pyopenssl`` library to ``23.0.0``.
   (`#3022 <https://github.com/vertexproject/synapse/pull/3022>`_)
-
 
 Bugfixes
 --------
