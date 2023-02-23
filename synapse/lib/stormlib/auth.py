@@ -140,6 +140,10 @@ stormcmds = (
             $role = $lib.auth.roles.byname($cmdopts.rolename)
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
 
+            if (not $user.roles.has($role.iden)) {
+                $lib.exit(`User {$cmdopts.username} does not have role {$cmdopts.rolename}`)
+            }
+
             $lib.print(`Revoking role {$role.name} from user {$user.name}.`)
             $user.revoke($role.iden)
         ''',
