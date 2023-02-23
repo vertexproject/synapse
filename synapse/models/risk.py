@@ -445,7 +445,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
-                        'doc': 'A user-specified type for the compromise',
+                        'doc': 'A user-specified type for the compromise.',
                     }),
                     ('target', ('ps:contact', {}), {
                         'doc': 'Contact information representing the target.',
