@@ -2636,10 +2636,11 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            layr = core.getLayer()
+            layr00 = core.getLayer()
+
             guids = set()
 
-            async def getedits(offs0, size, timeout=2):
+            async def getedits(layr, offs0, size, timeout=2):
                 async def _run():
                     edits = []
                     async for offi, nodeedits, meta in layr.syncNodeEdits2(offs0, wait=True):
@@ -2661,17 +2662,17 @@ class CortexTest(s_t_utils.SynTest):
             # basics
 
             await alist(prox.storm('[ inet:ipv4=0 ]'))
-            edits = await getedits(offs, 1)
+            edits = await getedits(layr00, offs, 1)
             reqguid(edits[0][2].get('query'))
             offs = edits[-1][0] + 1
 
             await prox.callStorm('[ test:str=call ] return()')
-            edits = await getedits(offs, 1)
+            edits = await getedits(layr00, offs, 1)
             reqguid(edits[0][2].get('query'))
             offs = edits[-1][0] + 1
 
             await prox.count('[ test:str=count ]')
-            edits = await getedits(offs, 1)
+            edits = await getedits(layr00, offs, 1)
             reqguid(edits[0][2].get('query'))
             offs = edits[-1][0] + 1
 
@@ -2680,11 +2681,26 @@ class CortexTest(s_t_utils.SynTest):
                 for $m in $prox.storm("[test:str=foo]") { $lib.print($m) }
                 [ test:int=3 ]
             ''', opts={'vars': {'dirn': core.dirn}}))
-
-            edits = await getedits(offs, 2)
+            edits = await getedits(layr00, offs, 2)
             self.eq(['test:str', 'test:int'], [e[1][0][1] for e in edits])
             reqguid(edits[0][2].get('query'))
             reqguid(edits[1][2].get('query'))
+            offs = edits[-1][0] + 1
+
+            await alist(prox.storm('''
+                [ test:str=t1 ] tee --parallel {[ test:str=p1 ]} {[ test:str=p2 ]}
+            '''))
+            edits = await getedits(layr00, offs, 3)
+            guid = edits[0][2].get('query')
+            reqguid(guid)
+            self.true(guid == edits[1][2].get('query') == edits[2][2].get('query'))
+            offs = edits[-1][0] + 1
+
+            await alist(prox.storm('[ test:str=f1 ] background {[ test:str=b1 ]}'))
+            edits = await getedits(layr00, offs, 2)
+            guid = edits[0][2].get('query')
+            reqguid(guid)
+            self.eq(guid, edits[1][2].get('query'))
             offs = edits[-1][0] + 1
 
             # sync/async trigger execution gets a unique guid
@@ -2697,9 +2713,9 @@ class CortexTest(s_t_utils.SynTest):
                     "storm": "[ +#trig.sync.ran ]"
                 })).iden)
             ''')
-
+            self.nn(trig00)
             await alist(prox.storm('[ inet:ipv4=4 +#trig.sync ]'))
-            edits = await getedits(offs, 3)
+            edits = await getedits(layr00, offs, 3)
             guid = edits[0][2].get('query')
             reqguid(guid)
             self.eq(guid, edits[1][2].get('query'))
@@ -2715,9 +2731,9 @@ class CortexTest(s_t_utils.SynTest):
                     "async": $lib.true
                 })).iden)
             ''')
-
+            self.nn(trig01)
             await alist(prox.storm('[ inet:ipv4=5 +#trig.async ]'))
-            edits = await getedits(offs, 3)
+            edits = await getedits(layr00, offs, 3)
             guid = edits[0][2].get('query')
             reqguid(guid)
             self.eq(guid, edits[1][2].get('query'))
@@ -2725,13 +2741,47 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(trig01, edits[2][2].get('trig'))
             offs = edits[-1][0] + 1
 
-            await asyncio.sleep(0.1)
+            # storm dmons get a unique guid for every exeution
+            # and the dmon guid is injected into meta
 
-            # todo: either move this into test_lib_agenda or drag the time munging over here
-            # await core.nodes('cron.at --minute +1 {[inet:ipv4=1]}')
-            # await asyncio.sleep(61)
+            dmon00 = await core.callStorm('''
+                return($lib.dmon.add(${
+                    $num = $lib.globals.get(dmon:num, (42))
+                    if ($num < 44) {
+                        [ test:int=$num ]
+                        $lib.globals.set(dmon:num, ($num + 1))
+                    } else {
+                        $lib.time.sleep(1)
+                    }
+                }).iden)
+            ''')
+            self.nn(dmon00)
+            edits = await getedits(layr00, offs, 2)
+            reqguid(edits[0][2].get('query'))
+            reqguid(edits[1][2].get('query'))
+            self.true(dmon00 == edits[0][2].get('dmon') == edits[1][2].get('dmon'))
+            offs = edits[-1][0] + 1
 
-            # todo: dmons
+            # todo: move cron test into test_lib_agenda or drag the time munging over here
+
+            # query guid is the same across view.exec boundary
+            layr01 = core.getLayer(iden=(await core.addLayer())['iden'])
+            view01 = await core.addView({'layers': (layr01.iden,)})
+
+            await alist(prox.storm('''
+                [ test:str=v0 ]
+                view.exec $view01 {[ test:str=v1 ]}
+            ''', opts={'vars': {'view01': view01['iden']}}))
+            edits00 = await getedits(layr00, offs, 1)
+            edits01 = await getedits(layr01, offs, 1)
+            reqguid(edits00[0][2].get('query'))
+            self.eq(edits00[0][2].get('query'), edits01[0][2].get('query'))
+            offs = edits01[-1][0] + 1
+
+            await alist(prox.storm('$lib.view.get().wipeLayer()', opts={'view': view01['iden']}))
+            edits = await getedits(layr01, offs, 1)
+            reqguid(edits[0][2].get('query'))
+            offs = edits[-1][0] + 1
 
             # todo: other top-level entrypoints
 

@@ -486,17 +486,21 @@ class Snap(s_base.Base):
             'user': self.user.iden
         }
 
-        storm_guid = s_scope.get('query:guid')
+        storm_guid = s_scope.get('storm:query')
         if storm_guid is not None:
             meta['query'] = storm_guid
 
-        cron_guid = s_scope.get('cron:guid')
-        if cron_guid is not None:
-            meta['cron'] = cron_guid
+            cron_guid = s_scope.get('storm:cron')
+            if cron_guid is not None:
+                meta['cron'] = cron_guid
 
-        trig_guid = s_scope.get('trig:guid')
-        if trig_guid is not None:
-            meta['trig'] = trig_guid
+            trig_guid = s_scope.get('storm:trig')
+            if trig_guid is not None:
+                meta['trig'] = trig_guid
+
+            dmon_guid = s_scope.get('storm:dmon')
+            if dmon_guid is not None:
+                meta['dmon'] = dmon_guid
 
         return meta
 

@@ -387,7 +387,7 @@ class Trigger:
         self.startcount += 1
 
         with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
-            with s_scope.enter(vals={'trig:guid': self.iden, 'query:guid': s_common.guid()}):
+            with s_scope.enter(vals={'storm:trig': self.iden, 'storm:query': s_common.guid()}):
                 try:
                     async with self.view.core.getStormRuntime(query, opts=opts) as runt:
 

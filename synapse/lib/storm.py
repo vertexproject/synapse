@@ -1684,10 +1684,11 @@ class StormDmon(s_base.Base):
                     snap.on('print', dmonPrint)
                     self.err_evnt.clear()
 
-                    async for nodepath in snap.storm(text, opts=opts, user=self.user):
-                        # all storm tasks yield often to prevent latency
-                        self.count += 1
-                        await asyncio.sleep(0)
+                    with s_scope.enter(vals={'storm:query': s_common.guid()}):
+                        async for nodepath in snap.storm(text, opts=opts, user=self.user):
+                            # all storm tasks yield often to prevent latency
+                            self.count += 1
+                            await asyncio.sleep(0)
 
                     logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
 
