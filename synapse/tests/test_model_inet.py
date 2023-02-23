@@ -1690,7 +1690,7 @@ class InetModelTest(s_t_utils.SynTest):
         # rfc3986 compliant Userinfo with @ properly encoded
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
         expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
-            'proto': 'calrissian', 'path': '',
+            'proto': 'calrissian',
             'user': 'visi%40vertex.link', 'passwd': 'surround%40',
             'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
             'port': 44343,
@@ -1754,7 +1754,7 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no path.
         url = f'https://{host_port}:1234'
         expected = (f'https://{repr_host_port}:1234', {'subs': {
-            'proto': 'https', 'path': '', htype: norm_host, 'port': 1234,
+            'proto': 'https', htype: norm_host, 'port': 1234,
             'base': f'https://{repr_host_port}:1234',
             'params': '',
         }})
@@ -1763,7 +1763,7 @@ class InetModelTest(s_t_utils.SynTest):
         # URL with no path or port or default port.
         url = f'a://{host}'
         expected = (f'a://{repr_host}', {'subs': {
-            'proto': 'a', 'path': '', htype: norm_host,
+            'proto': 'a', htype: norm_host,
             'base': f'a://{repr_host}',
             'params': '',
         }})
