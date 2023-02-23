@@ -160,7 +160,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the tool.'}),
 
                     ('type', ('risk:tool:software:taxonomy', {}), {
-                        'doc': 'A type for the tool, as a taxonomy.'}),
+                        'doc': 'A type for the tool, as a taxonomy entry.'}),
 
                     ('availability', ('risk:availability', {}), {
                         'doc': 'The reporting organization\'s assessed availability of the tool.'}),
@@ -398,7 +398,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
                     ('type', ('risk:alert:taxonomy', {}), {
-                        'doc': 'A type for the alert, as a taxonomy.'}),
+                        'doc': 'A type for the alert, as a taxonomy entry.'}),
 
                     ('name', ('str', {}), {
                         'doc': 'A brief name for the alert.'}),
@@ -415,7 +415,7 @@ class RiskModule(s_module.CoreModule):
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
-                        'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy.'}),
+                        'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy entry.'}),
 
                     ('engine', ('it:prod:softver', {}), {
                         'doc': 'The software that generated the alert.'}),
@@ -446,7 +446,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
-                        'doc': 'A type for the compromise, as a taxonomy.',
+                        'doc': 'A type for the compromise, as a taxonomy entry.',
                     }),
                     ('target', ('ps:contact', {}), {
                         'doc': 'Contact information representing the target.',
@@ -517,7 +517,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('type', ('risk:attacktype', {}), {
                         'ex': 'cno.phishing',
-                        'doc': 'A type for the attack, as a taxonomy.',
+                        'doc': 'A type for the attack, as a taxonomy entry.',
                     }),
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known.',
