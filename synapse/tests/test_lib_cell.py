@@ -1856,7 +1856,14 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
-                pass
+
+                # to test run the tmp cleanup on boot logic
+                with s_common.genfile(dirn, 'tmp', 'junk.text') as fd:
+                    fd.write(b'asdf\n')
+
+                tmpd = s_common.gendir(dirn, 'tmp', 'hehe')
+                with s_common.genfile(tmpd, 'haha.text') as fd:
+                    fd.write(b'lolz\n')
 
             with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
 

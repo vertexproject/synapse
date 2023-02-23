@@ -1224,19 +1224,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     srcpath = os.path.join(lmdbpath, 'data.mdb')
                     dstpath = os.path.join(backpath, 'data.mdb')
 
-                    srcsize = os.path.getsize(srcpath)
-                    dstsize = os.path.getsize(dstpath)
-
                     os.rename(dstpath, srcpath)
-
-                    savedsize = max(srcsize - dstsize, 0)
-                    if savedsize > 0:
-                        logger.warning(f'... recovered {savedsize} bytes.')
 
             logger.warning('... onboot optimization complete!')
 
-        except Exception as e:
-
+        except Exception as e: # pragma: no cover
             logger.exc('...aborting onboot optimization and resuming boot (everything is fine).')
 
     def _delTmpFiles(self):
