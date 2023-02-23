@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 17)
+maxvers = (0, 2, 18)
 
 class ModelRev:
 
@@ -31,6 +31,7 @@ class ModelRev:
             ((0, 2, 15), self.revModel20221212),
             ((0, 2, 16), self.revModel20221220),
             ((0, 2, 17), self.revModel20230209),
+            ((0, 2, 18), self.revModel_0_2_18),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -896,6 +897,17 @@ class ModelRev:
         '''
         await self.runStorm(storm, opts=opts)
 
+    async def delEmptyStringProp(self, propname):
+        opts = {'vars': {'propname': propname}}
+        storm = '''
+            for $view in $lib.view.list(deporder=$lib.true) {
+                view.exec $view.iden {
+                    *$propname="" [ -:$propname ]
+                }
+            }
+        '''
+        await self.runStorm(storm, opts=opts)
+
     async def _propArrayToForm(self, layers, propfull, formname):
 
         propname = self.core.model.prop(propfull).name
@@ -926,3 +938,14 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
+
+    async def revModel_0_2_18(self, layers):
+
+        await self.delEmptyStringProp('inet:url:path')
+
+        storm = '''
+        for $view in $lib.view.list(deporder=$lib.true) {
+            inet:url:path [ file:path=:path ]
+        }
+        '''
+        await self.runStorm(storm)
