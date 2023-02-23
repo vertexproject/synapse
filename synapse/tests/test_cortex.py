@@ -2741,7 +2741,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(trig01, edits[2][2].get('trig'))
             offs = edits[-1][0] + 1
 
-            # storm dmons get a unique guid for every exeution
+            # storm dmons get a unique guid for every execution
             # and the dmon guid is injected into meta
 
             dmon00 = await core.callStorm('''
@@ -2762,9 +2762,26 @@ class CortexTest(s_t_utils.SynTest):
             self.true(dmon00 == edits[0][2].get('dmon') == edits[1][2].get('dmon'))
             offs = edits[-1][0] + 1
 
-            # todo: move cron test into test_lib_agenda or drag the time munging over here
+            # crons get a unique guid for every execution
+            # and the cron guid is injected into meta
+
+            cron00 = await core.callStorm('return($lib.cron.add(query="[ps:contact=*]", minute="+1").iden)')
+            self.nn(cron00)
+
+            core.agenda._addTickOff(60)
+            edits00 = await getedits(layr00, offs, 1)
+            reqguid(edits00[0][2].get('query'))
+            self.eq(cron00, edits00[0][2].get('cron'))
+            offs = edits00[-1][0] + 1
+
+            core.agenda._addTickOff(60)
+            edits01 = await getedits(layr00, offs, 1)
+            reqguid(edits01[0][2].get('query'))
+            self.eq(cron00, edits01[0][2].get('cron'))
+            offs = edits01[-1][0] + 1
 
             # query guid is the same across view.exec boundary
+
             layr01 = core.getLayer(iden=(await core.addLayer())['iden'])
             view01 = await core.addView({'layers': (layr01.iden,)})
 
@@ -2782,8 +2799,6 @@ class CortexTest(s_t_utils.SynTest):
             edits = await getedits(layr01, offs, 1)
             reqguid(edits[0][2].get('query'))
             offs = edits[-1][0] + 1
-
-            # todo: other top-level entrypoints
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
