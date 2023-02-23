@@ -13,7 +13,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
                 ('risk:threat', ('guid', {}), {
-                    'doc': 'A threat cluster or subgraph of threat activity, as described by a specific reporter.',
+                    'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 }),
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
@@ -31,15 +31,16 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A mitigation for a specific risk:vuln.',
                 }),
                 ('risk:attacktype', ('taxonomy', {}), {
-                    'doc': 'An attack type taxonomy.',
+                    'doc': 'A taxonomy of attack types.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('risk:compromisetype', ('taxonomy', {}), {
-                    'doc': 'A compromise type taxonomy.',
+                    'doc': 'A taxonomy of compromise types.',
                     'ex': 'cno.breach',
                     'interfaces': ('taxonomy',),
                 }),
                 ('risk:tool:software:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of software / tool types.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('risk:availability', ('taxonomy', {}), {
@@ -47,11 +48,11 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A taxonomy of availability status values.',
                 }),
                 ('risk:tool:software', ('guid', {}), {
-                    'doc': 'A software tool used in threat activity, as described by a specific reporter.',
+                    'doc': 'A software tool used in threat activity, as reported by a specific organization.',
                 }),
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
-                    'doc': 'An assessment of the origin and validity of the alert.'}),
+                    'doc': 'A taxonomy of verdicts for the origin and validity of the alert.'}),
 
                 ('risk:threat:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of threat types.'}),
@@ -104,7 +105,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A brief descriptive name for the threat cluster.'}),
 
                     ('type', ('risk:threat:type:taxonomy', {}), {
-                        'doc': 'A user-specified type for the threat.'}),
+                        'doc': 'A type for the threat, as a taxonomy entry.'}),
 
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
@@ -119,33 +120,33 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The name of the organization reporting on the threat cluster.'}),
 
                     ('org', ('ou:org', {}), {
-                        'doc': 'An authoritative organization for the threat cluster.'}),
+                        'doc': 'The authoritative organization for the threat cluster.'}),
 
                     ('org:loc', ('loc', {}), {
-                        'doc': 'The reporter\'s assessed location of the threat cluster.'}),
+                        'doc': 'The reporting organization\'s assessed location of the threat cluster.'}),
 
                     ('org:name', ('ou:name', {}), {
                         'ex': 'apt1',
-                        'doc': 'The reporter\'s name for the threat cluster.'}),
+                        'doc': 'The reporting organization\'s name for the threat cluster.'}),
 
                     ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of alternate names for the threat cluster, according to the reporter.'}),
+                        'doc': 'An array of alternate names for the threat cluster, according to the reporting organization.'}),
 
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The reporter\'s assessed goals of the threat cluster.'}),
+                        'doc': 'The reporting organization\'s assessed goals of the threat cluster.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
-                        'doc': 'The reporter\'s assessed sophistication of the threat cluster.'}),
+                        'doc': 'The reporting organization\'s assessed sophistication of the threat cluster.'}),
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('merged:time', ('time', {}), {
-                        'doc': 'The time that the reporter merged this threat cluster into another.'}),
+                        'doc': 'The time that the reporting organization merged this threat cluster into another.'}),
 
                     ('merged:isnow', ('risk:threat', {}), {
-                        'doc': 'The threat cluster that the reporter merged this cluster into.'}),
+                        'doc': 'The threat cluster that the reporting organization merged this cluster into.'}),
                 )),
                 ('risk:availability', {}, {}),
                 ('risk:tool:software:taxonomy', {}, ()),
@@ -159,13 +160,13 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the tool.'}),
 
                     ('type', ('risk:tool:software:taxonomy', {}), {
-                        'doc': 'A user-specified type for the tool.'}),
+                        'doc': 'A type for the tool, as a taxonomy.'}),
 
                     ('availability', ('risk:availability', {}), {
-                        'doc': 'The reporter\'s assessed availability of the tool.'}),
+                        'doc': 'The reporting organization\'s assessed availability of the tool.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
-                        'doc': 'The reporter\'s assessed sophistication of the tool.'}),
+                        'doc': 'The reporting organization\'s assessed sophistication of the tool.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the tool.'}),
@@ -174,13 +175,13 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The name of the organization reporting on the tool.'}),
 
                     ('soft', ('it:prod:soft', {}), {
-                        'doc': 'An authoritative software family for the tool.'}),
+                        'doc': 'The authoritative software family for the tool.'}),
 
                     ('soft:name', ('it:prod:softname', {}), {
-                        'doc': 'The reporter\'s name for the tool.'}),
+                        'doc': 'The reporting organization\'s name for the tool.'}),
 
                     ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of alterate names for the tool, according to the reporter.'}),
+                        'doc': 'An array of alternate names for the tool, according to the reporting organization.'}),
 
                     ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
                         'deprecated': True,
@@ -397,7 +398,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
                     ('type', ('risk:alert:taxonomy', {}), {
-                        'doc': 'A user-specified alert type.'}),
+                        'doc': 'A type for the alert, as a taxonomy.'}),
 
                     ('name', ('str', {}), {
                         'doc': 'A brief name for the alert.'}),
@@ -414,7 +415,7 @@ class RiskModule(s_module.CoreModule):
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
-                        'doc': 'A user-specified verdict about why the alert is malicious or benign.'}),
+                        'doc': 'A verdict about why the alert is malicious or benign, as a taxonomy.'}),
 
                     ('engine', ('it:prod:softver', {}), {
                         'doc': 'The software that generated the alert.'}),
@@ -445,7 +446,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
-                        'doc': 'A user-specified type for the compromise.',
+                        'doc': 'A type for the compromise, as a taxonomy.',
                     }),
                     ('target', ('ps:contact', {}), {
                         'doc': 'Contact information representing the target.',
@@ -516,7 +517,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('type', ('risk:attacktype', {}), {
                         'ex': 'cno.phishing',
-                        'doc': 'A user-specified type for the attack.',
+                        'doc': 'A type for the attack, as a taxonomy.',
                     }),
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known.',
