@@ -1,4 +1,4 @@
-pyOpenSSL>=21.0.0,<23.0.0
+pyOpenSSL>=23.0.0,<24.0.0
 msgpack>=1.0.2,<1.1.0
 xxhash>=1.4.4,<3.1.0
 lmdb>=1.2.1,<1.4.0
@@ -28,7 +28,8 @@ idna==3.3
 python-dateutil>=2.8,<3.0
 pytz>=2021.3,<2022.2
 beautifulsoup4[html5lib]>=4.11.1,<5.0.0
-# Cryptography is a pyopenssl dependency which has no maximum version pinned.
-# They have a 3 major version's policy for deprecations, so we should be safe
-# that far out.
-cryptography>=36.0.0,<39.0.0
+# Cryptography is a pyopenssl dependency which has now has a maximum version
+# pin. Cryptography also vendors a copy of OpenSSL, so it needs to be able to
+# have a minimum version bumped in the event of a OpenSSL vulnerability that
+# needs to be patched.
+cryptography>=39.0.1,<40.0.0
