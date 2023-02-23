@@ -39,6 +39,16 @@ Analytical Model
 
 See :ref:`gloss-model-analytical`.
 
+.. _gloss-authgate:
+
+Auth Gate
+---------
+
+An auth gate (short for "authorization gate", informally a "gate") is an object within a :ref:`gloss-service`
+that may have its own set of permissions.
+
+Both a :ref:`gloss-layer` and a :ref:`gloss-view` are common examples of auth gates.
+
 .. _gloss-autoadd:
 
 Autoadd
@@ -201,8 +211,9 @@ Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
 Cortex
 ------
 
-A Cortex is Synapse's implementation of an individual :ref:`gloss-hypergraph`. Cortex features include scalability,
-key/value-based node properties, and a :ref:`gloss-data-model` which facilitates normalization.
+A Cortex is a :reg:`gloss-synapse-service` that implements Synapse's primary data store (as an individual
+:ref:`gloss-hypergraph`). Cortex features include scalability, key/value-based node properties, and a
+:ref:`gloss-data-model` which facilitates normalization.
 
 .. _gloss-cron:
 
@@ -329,6 +340,23 @@ Short for :ref:`gloss-daemon`.
 E
 =
 
+.. _gloss-easy-perms:
+
+Easy Permissions
+----------------
+
+In Synapse, easy permissions ("easy perms" for short) is a simplified means to grant common sets of
+permissions for a particular object to users or roles.
+
+Easy perms specify four levels of access, each with a corresponding integer value:
+
+- Deny = 0
+- Read = 1
+- Edit = 2
+- Admin = 3
+
+Contrast with :ref:`gloss-permission`.
+
 .. _gloss-edge:
 
 Edge
@@ -361,6 +389,29 @@ Embed Column
 ------------
 
 See :ref:`gloss-col-embed`.
+
+.. _gloss-entity-res:
+
+Entity Resolution
+-----------------
+
+Entity resolution is the process of reviewing references or records and determining whether those records
+refer to the same real-world entity.
+
+A number of data model elements in Synapse are designed to support entity resolution. For example:
+
+- A `ps:contact` node can capture "a set of observed contact data" for a person (`ps:person`) or organization
+  (`ou:org`). You can link sets of contact data that you assess represent "the same" entity via their
+  `ps:contact:person` or `ps:contact:org` properties.
+
+- A `risk:threat` node can capture "a set of reported data about a threat". If you assess that multiple sources
+  are reporting on "the same" threat, you can link them to a unified threat organization via their
+  `risk:threat:org` property.
+  
+- An `ou:industryname` node can capture a term used to refer to a commercial industry. You can link variations
+  of a name (e.g., "finance", "financial", "financial services", "banking and finance") to a single `ou:industry`
+  via the `ou:industry:name` and `ou:industry:names` properties.
+
 
 .. _gloss-extended-comp-op:
 
@@ -480,6 +531,13 @@ See :ref:`gloss-know-fused`.
 G
 =
 
+.. _gloss-gate:
+
+Gate
+----
+
+See :ref:`gloss-authgate`.
+
 .. _gloss-global-workspace:
 
 Global Default Workspace
@@ -501,7 +559,7 @@ Graph
 
 A graph is a mathematical structure used to model pairwise relations between objects. Graphs consist of vertices
 (or nodes) that represent objects and edges that connect exactly two vertices in some type of relationship.
-Nodes and edges in a graph are typically represented by dots or circles conneted by lines.
+Nodes and edges in a graph are typically represented by dots or circles connected by lines.
 
 See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
@@ -838,6 +896,16 @@ service is loaded into a Cortex, the Cortex verifes that the service is legitima
 packages in order to load any extended Storm commands associated with the service and any library code used to
 implement the service.
 
+.. _gloss-permission:
+
+Permission
+----------
+
+Within Synapse, a permission is a string used to control access (e.g., ``node.add``). A permission is assigned
+(granted or revoked) using a :ref:`gloss-rule`.
+
+Access to some objects in Synapse may be controlled by :ref:`gloss-easy-perms`.
+
 .. _gloss-pivot:
 
 Pivot
@@ -854,13 +922,34 @@ See :ref:`storm-ref-pivot` for additional detail.
 Power-Up
 --------
 
-Power-Ups provide specific add-on capabilities to Synapse via Storm Packages (:ref:`gloss-package`) and Services
-(:ref:`gloss-service`). For example, Power-Ups may provide connectivity to external databases or third-party data
-sources, or enable functionality such as the ability to manage YARA rules, scans, and matches.
+Power-Ups provide specific add-on capabilities to Synapse. For example, Power-Ups may provide connectivity to
+external databases or third-party data sources, or enable functionality such as the ability to manage YARA rules,
+scans, and matches.
 
 The term Power-Up is most commonly used to refer to Vertex-developed packages and services that are available as
 part of the commercial Synapse offering (only a few Power-Ups are available with open-source Synapse). However,
 many organizations write their own custom packages and services that may also be referred to as Power-Ups.
+
+Vertex distinguishes between **Advanced Power-Ups** and **Rapid Power-Ups**.
+
+.. _gloss-pu-advanced:
+
+Power-Up, Advanced
+------------------
+
+Advanced Power-Ups are implemented as Storm services (see :ref:`gloss-svc-storm`). Vertex-developed Advanced
+Power-Ups are implemented as `Docker containers`_ and may require DevOps support and additional resources to
+deploy.
+
+.. _gloss-pu-rapid:
+
+Power-Up, Rapid
+---------------
+
+Rapid Power-Ups are implemented as Storm packages (see :ref:`gloss-package`). Because they are writtten entirely
+in Storm, 
+
+asdfasdf
 
 .. _gloss-power-ups-tool:
 
@@ -987,12 +1076,29 @@ Research Tool
 
 See :ref:`gloss-tool-research`.
 
+.. _gloss-role:
+
+Role
+----
+
+In Synapse, a role is used to "group" users with similar authorization needs. You can assign a set of rules (see
+:ref:`gloss-rule`) to a role, and grant the role to users who need to perform those actions.
+
 .. _gloss-root-tag:
 
 Root Tag
 --------
 
 See :ref:`gloss-tag-root`.
+
+.. _gloss-rule:
+
+Rule
+----
+
+Within Synapse, a rule is a structure used to assign (grant or prohibit) a specific :ref:`gloss-permission` (e.g.,
+``node.tag`` or ``!view.del``).
+
 
 .. _gloss-runt-node:
 
@@ -1035,12 +1141,34 @@ See :ref:`gloss-prop-secondary`.
 Service
 -------
 
-A Storm service is a registerable remote component that can provide packages (:ref:`gloss-package`) and additional APIs
-to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside of the Cortex. When a
-service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate and, if so,
-loads the associated :ref:`gloss-package` to implement the service. An advantage of Storm services (over, say,
-additional Python modules) is that services can be restarted to reload their service definitions and packages while
-a Cortex is still running -- thus allowing a service to be updated without having to restart the entire Cortex.
+Synapse is designed as a modular set of services. Broadly speaking, a service can be thought of as a container
+used to run an application. We may informally differentiate between **Synapse services** and **Storm services.**
+
+.. _gloss-svc-storm:
+
+Service, Storm
+--------------
+
+A **Storm service** is a registerable remote component that can provide packages (:ref:`gloss-package`) and
+additional APIs to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside
+of the Cortex.
+
+When a service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate
+and, if so, loads the associated :ref:`gloss-package` to implement the service. An advantage of Storm services
+(over, say, additional Python modules) is that services can be restarted to reload their service definitions
+and packages while a Cortex is still running -- thus allowing a service to be updated without having to restart
+the entire Cortex.
+
+
+.. _gloss-svc-synapse:
+
+Service, Synapse
+----------------
+
+**Synapse services** make up the core Synapse architecture and include the :ref:`gloss-cortex` (data store),
+:ref:`gloss-axon` (file storage), and the commercial :ref:`gloss-optic` UI. Synapse services are built on the
+:ref:`gloss-cell` object.
+
 
 .. _gloss-simple-form:
 
@@ -1114,6 +1242,13 @@ Storm Editor
 
 Also "Storm Editor Tool". See :ref:`gloss-tool-storm-editor`.
 
+.. _gloss-storm-svc:
+
+Storm Service
+-------------
+
+See :ref:`gloss-svc-storm`.
+
 .. _gloss-subquery:
 
 Subquery
@@ -1130,6 +1265,13 @@ Subquery Filter
 ---------------
 
 See :ref:`gloss-filter-subquery`.
+
+.. _gloss-synapse-svc:
+
+Synapse Service
+---------------
+
+See :ref:`gloss-svc-synapse`.
 
 
 T
@@ -1385,6 +1527,15 @@ Universal Property
 
 See :ref:`gloss-prop-universal`.
 
+.. _gloss-user:
+
+User
+----
+
+In Synapse, a user is represented by an account in the Cortex. An account is required to authenticate (log in)
+to the Cortex and is used for authorization (permissions) to access services and perform operations.
+
+
 V
 =
 
@@ -1459,3 +1610,5 @@ See :ref:`gloss-tool-workspaces`.
 
 
 .. _storm:node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#storm-node-data
+
+.. _`Docker containers`: https://www.docker.com/resources/what-container/
