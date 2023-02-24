@@ -69,9 +69,9 @@ See also the related concept :ref:`gloss-depadd`.
 Axon
 ----
 
-The Axon is an interface for providing binary / blob storage inside of the Synapse ecosystem. This indexes binaries
-based on SHA-256 hash so we do not duplicate the storage of the same set of bytes twice. The default implemenation
-stores the blobs in an LMDB :ref:`gloss-slab`.
+The Axon is a Synapse service that provides binary / blob ("file") storage within the Synapse ecosystem. An Axon indexes
+binaries based on their SHA-256 hash for deduplication. The default Axon implemenation stores the blobs in an LMDB
+:ref:`gloss-slab`.
 
 B
 =
@@ -108,7 +108,7 @@ Cell
 ----
 
 The Cell is a basic building block of Synapse services, including the Cortex. See :ref:`dev_architecture` for more
-information about what a Cell provides.
+information about the features provided by a Cell.
 
 .. _gloss-col-embed:
 
@@ -211,7 +211,7 @@ Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
 Cortex
 ------
 
-A Cortex is a :reg:`gloss-synapse-service` that implements Synapse's primary data store (as an individual
+A Cortex is a :ref:`gloss-synapse-service` that implements Synapse's primary data store (as an individual
 :ref:`gloss-hypergraph`). Cortex features include scalability, key/value-based node properties, and a
 :ref:`gloss-data-model` which facilitates normalization.
 
@@ -220,7 +220,7 @@ A Cortex is a :reg:`gloss-synapse-service` that implements Synapse's primary dat
 Cron
 ----
 
-Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be
+Within Synapse, cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be
 executed by the cron job is specified using the :ref:`gloss-storm` query language.
 
 See the Storm command reference for the :ref:`storm-cron` command and the :ref:`storm-ref-automation` document for
@@ -271,10 +271,9 @@ creation, Synapse can determine whether the node already exists within a Cortex 
 deconflicted against existing nodes). For example, on attempting to create the node ``inet:fqdn=woot.com`` Synapse can
 deconflict the node by checking whether a node of the same form with the same primary property already exists.
 
-Whether a node is deconflictable is often an issue with GUID forms. A :ref:`gloss-guid-form` whose primary property is
-an arbitrary GUID is not deconflictable. A GUID form whose primary property is generated from a defined or predictable
-set of strings (such as a subset of the form's secondary property values) may be deconflictable. See the
-:ref:`type-guid` section of the :ref:`storm-ref-type-specific` document for additional detail.
+Most primary properties are sufficiently unique to be readily deconflictable. GUID forms (see :ref:`gloss-form-guid`)
+require additional considerations for deconfliction. See the :ref:`type-guid` section of the :ref:`storm-ref-type-specific`
+document for additional detail.
 
 .. _gloss-depadd:
 
@@ -345,8 +344,8 @@ E
 Easy Permissions
 ----------------
 
-In Synapse, easy permissions ("easy perms" for short) is a simplified means to grant common sets of
-permissions for a particular object to users or roles.
+In Synapse, easy permissions ("easy perms" for short) is a simplified means to grant common sets of permissions
+for a particular object to users or roles.
 
 Easy perms specify four levels of access, each with a corresponding integer value:
 
@@ -395,8 +394,8 @@ See :ref:`gloss-col-embed`.
 Entity Resolution
 -----------------
 
-Entity resolution is the process of reviewing references or records and determining whether those records
-refer to the same real-world entity.
+Entity resolution is the process of determining whether different records or sets of data refer to the same
+real-world entity.
 
 A number of data model elements in Synapse are designed to support entity resolution. For example:
 
@@ -419,6 +418,21 @@ Extended Comparison Operator
 ----------------------------
 
 See :ref:`gloss-comp-op-extended`.
+
+.. _gloss-extended-form:
+
+Extended Form
+-------------
+
+See :ref:`gloss-form-extended`.
+
+
+.. _gloss-extended-prop:
+
+Extended Property
+-----------------
+
+See :ref:`gloss-prop-extended`.
 
 F
 =
@@ -470,10 +484,10 @@ on the automation, it may be activated if / when data is merged down into the or
 Form
 ----
 
-Within Synapse, a form is the definition of an object in the Synapse data model. A form acts as a "template" that
-specifies how to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a
-:ref:`gloss-primary-prop` and its associated :ref:`gloss-type`. Depending on the form, it may also have various
-secondary properties with associated types.
+A form is the definition of an object in the Synapse data model. A form acts as a "template" that specifies how
+to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a :ref:`gloss-primary-prop`
+and its associated :ref:`gloss-type`. Depending on the form, it may also have various secondary properties with
+associated types.
 
 See the :ref:`data-form` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -483,9 +497,8 @@ See the :ref:`data-form` section in the :ref:`data-model-terms` document for add
 Form, Composite
 ---------------
 
-In the Synpase :ref:`gloss-data-model`, a category of form whose primary property is an ordered set of two or more
-comma-separated typed values. Examples include DNS A records (``inet:dns:a``) and web-based
-accounts (``inet:web:acct``).
+A category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples
+include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
 
 .. _gloss-form-digraph:
 
@@ -496,10 +509,19 @@ See :ref:`gloss-form-edge`.
 Form, Edge
 ----------
 
-In the Synapse :ref:`gloss-data-model`, a specialized **composite form** (:ref:`gloss-form-comp`) whose primary
-property consists of two :ref:`gloss-ndef` values. Edge forms can be used to link two arbitrary forms via a 
-generic relationship where additional information needs to be captured about that relationship (i.e., via secondary
-properpties and/or tags). Contrast with :ref:`gloss-edge-light`.
+A specialized **composite form** (:ref:`gloss-form-comp`) whose primary property consists of two :ref:`gloss-ndef`
+values. Edge forms can be used to link two arbitrary forms via a generic relationship where additional information
+needs to be captured about that relationship (i.e., via secondary properpties and/or tags). Contrast with
+:ref:`gloss-edge-light`.
+
+.. _gloss-form-extended:
+
+Form, Extended
+--------------
+
+A custom form added outside of the base Synapse :ref:`gloss-data-model` to represent specialized data. Extended
+forms can be added with the :ref:`stormlibs-lib-model-ext` libraries. **Note** that it is preferable to expand
+the base Synapse data model to account for novel use cases instead of creating specialized extended forms.
 
 
 .. _gloss-form-guid:
@@ -995,6 +1017,24 @@ and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` 
 Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
 primary property. Because derived properties are based on primary property values, derived
 secondary properties are always read-only (i.e., cannot be modified once set).
+
+
+.. _gloss-prop-extended:
+
+Property, Extended
+------------------
+
+Within Synapse, an extended property is a custom property added to an existing form to capture specialized data.
+For example, extended properties may be added to the data model by a :ref:`gloss-power-up` in order to record
+vendor-specific data (such as a "risk" score).
+
+Extended properties can be added with the :ref:`stormlibs-lib-model-ext` libraries. **Note** that we strongly
+recommend that any extended properties be added within a custom namespace; specifically, that property names
+begin with an underscore and include a vendor or source name (if appropriate) as the first namespace element.
+
+An example of an extended property is the ``:_virustotal:reputation`` score added to some forms to account
+for VirusTotal-specific data returned by that Power-Up (e.g., ``inet:fqdn:_virustotal:reputation``).
+
 
 .. _gloss-prop-primary:
 
