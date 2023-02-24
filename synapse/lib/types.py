@@ -499,7 +499,7 @@ class Comp(Type):
         fields = self.opts.get('fields')
         if len(fields) != len(valu):
             raise s_exc.BadTypeValu(name=self.name, fields=fields, numitems=len(valu),
-                                    mesg='invalid number of fields given for norming')
+                                    mesg=f'invalid number of fields given for norming: {repr(valu)[:256]}')
 
         subs = {}
         adds = []
@@ -1482,7 +1482,7 @@ class Data(Type):
             if self.validator is not None:
                 self.validator(valu)
         except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:
-            raise s_exc.BadTypeValu(name=self.name, mesg=str(e)) from None
+            raise s_exc.BadTypeValu(name=self.name, mesg=f'{e}: {repr(valu)[:256]}') from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 
@@ -1501,7 +1501,8 @@ class NodeProp(Type):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(name=self.name, numitems=len(valu), mesg='Must be a 2-tuple') from None
+            mesg = f'Must be a 2-tuple: {repr(valu)[:256]}'
+            raise s_exc.BadTypeValu(name=self.name, numitems=len(valu), mesg=mesg) from None
 
         propname, propvalu = valu
 
@@ -1542,8 +1543,8 @@ class Range(Type):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
-                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            mesg = f'Must be a 2-tuple of type {self.subtype.name}: {repr(valu)[:256]}'
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name, mesg=mesg)
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
@@ -2131,10 +2132,12 @@ class Time(IntBase):
         '''
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(itemtype=type(vals), cmpr='range=')
+            mesg = f'Must be a 2-tuple: {repr(vals)[:256]}'
+            raise s_exc.BadCmprValu(itemtype=type(vals), cmpr='range=', mesg=mesg)
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(numitems=len(vals), cmpr='range=')
+            mesg = f'Must be a 2-tuple: {repr(vals)[:256]}'
+            raise s_exc.BadCmprValu(itemtype=type(vals), cmpr='range=', mesg=mesg)
 
         tick, tock = self.getTickTock(vals)
 
