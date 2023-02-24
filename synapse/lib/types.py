@@ -498,7 +498,7 @@ class Comp(Type):
 
         fields = self.opts.get('fields')
         if len(fields) != len(valu):
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+            raise s_exc.BadTypeValu(name=self.name, fields=fields, numitems=len(valu),
                                     mesg='invalid number of fields given for norming')
 
         subs = {}
@@ -1482,7 +1482,7 @@ class Data(Type):
             if self.validator is not None:
                 self.validator(valu)
         except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
+            raise s_exc.BadTypeValu(name=self.name, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
 
@@ -1500,10 +1500,10 @@ class NodeProp(Type):
         return self._normPyTuple(valu)
 
     def _normPyTuple(self, valu):
-        try:
-            propname, propvalu = valu
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
+        if len(valu) != 2:
+            raise s_exc.BadTypeValu(name=self.name, numitems=len(valu), mesg='Must be a 2-tuple') from None
+
+        propname, propvalu = valu
 
         prop = self.modl.prop(propname)
         if prop is None:
@@ -1542,7 +1542,7 @@ class Range(Type):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
                                     mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
         minv = self.subtype.norm(valu[0])[0]
@@ -2131,10 +2131,10 @@ class Time(IntBase):
         '''
 
         if not isinstance(vals, (list, tuple)):
-            raise s_exc.BadCmprValu(valu=vals, cmpr='range=')
+            raise s_exc.BadCmprValu(itemtype=type(vals), cmpr='range=')
 
         if len(vals) != 2:
-            raise s_exc.BadCmprValu(valu=vals, cmpr='range=')
+            raise s_exc.BadCmprValu(numitems=len(vals), cmpr='range=')
 
         tick, tock = self.getTickTock(vals)
 

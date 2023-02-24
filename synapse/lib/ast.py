@@ -744,7 +744,7 @@ class ForLoop(Oper):
 
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=len(item))
 
                     if isinstance(item, s_stormtypes.Prim):
                         item = await item.value()
@@ -801,7 +801,7 @@ class ForLoop(Oper):
 
                     if len(name) != len(item):
                         mesg = 'Number of items to unpack does not match the number of variables.'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
+                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=len(item))
 
                     if isinstance(item, s_stormtypes.Prim):
                         item = await item.value()
@@ -1036,7 +1036,7 @@ class VarListSetOper(Oper):
 
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
-                raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
+                raise s_exc.StormVarListError(mesg=mesg, names=names, numitems=len(item))
 
             for name, valu in zip(names, item):
                 await runt.setVar(name, valu)
@@ -1051,7 +1051,7 @@ class VarListSetOper(Oper):
 
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
-                raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
+                raise s_exc.StormVarListError(mesg=mesg, names=names, numitems=len(item))
 
             for name, valu in zip(names, item):
                 await runt.setVar(name, valu)

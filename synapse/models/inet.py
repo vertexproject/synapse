@@ -679,7 +679,7 @@ class IPv6Range(s_types.Range):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
                                     mesg=f'Must be a 2-tuple of type {self.subtype.name}')
 
         minv = self.subtype.norm(valu[0])[0]

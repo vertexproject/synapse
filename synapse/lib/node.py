@@ -278,7 +278,7 @@ class Node:
         if self.form.isrunt:
             if prop.info.get('ro'):
                 mesg = 'Cannot set read-only props on runt nodes'
-                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
+                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name)
 
             await self.snap.core.runRuntPropSet(self, prop, valu)
             return True
