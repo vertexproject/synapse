@@ -948,7 +948,7 @@ def reqjsonsafe(item):
     try:
         json.dumps(item)
     except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg={str(e)}) from None
+        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
 
 def jsonsafe_nodeedits(nodeedits):
     '''
