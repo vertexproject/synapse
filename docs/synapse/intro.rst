@@ -134,7 +134,6 @@ What's Next?
 |                      | - "Star" us on Github_                        |
 +----------------------+-----------------------------------------------+
 
-
 .. _The Vertex Project: https://vertex.link/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 
