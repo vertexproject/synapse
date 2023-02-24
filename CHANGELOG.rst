@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+NEXTVERS - 2023-XX-YY
+=====================
+
+Bugfixes
+--------
+- Fix an issue where exceptions could be raised which contained data that was
+  not JSON serializable. ``$lib.raise`` arguments must now also be JSON safe.
+  (`#3029 <https://github.com/vertexproject/synapse/pull/3029>`_)
+
 v2.123.0 - 2023-02-22
 =====================
 
