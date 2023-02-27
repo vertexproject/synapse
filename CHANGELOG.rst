@@ -17,8 +17,8 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix an issue in the Storm grammar where text could potentially be
-  incorrectly parsed as an unquoted case statement.
+- Fix an issue in the Storm grammar where part of a query could potentially
+  be incorrectly parsed as an unquoted case statement.
   (`#3032 <https://github.com/vertexproject/synapse/pull/3032>`_)
 
 v2.123.0 - 2023-02-22
