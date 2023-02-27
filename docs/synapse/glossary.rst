@@ -114,8 +114,8 @@ C
 Cell
 ----
 
-The Cell is a basic building block of Synapse services, including the Cortex. See :ref:`dev_architecture` for more
-information about the features provided by a Cell.
+The Cell is a basic building block of a :ref:`gloss-synapse-svc`, including the :ref:`gloss-cortex`. See :ref:`dev_architecture`
+for additional detail.
 
 .. _gloss-col-embed:
 
@@ -522,7 +522,7 @@ Form, Edge
 
 A specialized **composite form** (:ref:`gloss-form-comp`) whose primary property consists of two :ref:`gloss-ndef`
 values. Edge forms can be used to link two arbitrary forms via a generic relationship where additional information
-needs to be captured about that relationship (i.e., via secondary properpties and/or tags). Contrast with
+needs to be captured about that relationship (i.e., via secondary properties and/or tags). Contrast with
 :ref:`gloss-edge-light`.
 
 .. _gloss-form-extended:
@@ -1214,7 +1214,7 @@ A Storm service is a registerable remote component that can provide packages (:r
 additional APIs to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside
 of the :ref:`gloss-cortex`.
 
-When a service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate
+When the Cortex is connected to a service, the Cortex queries the endpoint to determine if the service is legitimate
 and, if so, loads the associated package to implement the service.
 
 An advantage of Storm services (over, say, additional Python modules) is that services can be restarted to reload
