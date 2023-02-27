@@ -4,6 +4,17 @@
 Synapse Changelog
 *****************
 
+NEXTVERS - 2023-XX-YY
+=====================
+
+Features and Enhancements
+-------------------------
+- Added the configuration option ``onboot:optimize`` to all services
+  to allow devops to delay service startup and allow LMDB to optimize
+  storage for both size and performance. May also be set by environment
+  variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
+  (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+
 v2.123.0 - 2023-02-22
 =====================
 
