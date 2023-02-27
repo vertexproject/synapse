@@ -390,7 +390,7 @@ class Base:
                 exit = getattr(item, '__aexit__', None)
                 if exit is not None:
                     try:
-                        await exit()
+                        await exit(None, None, None)
                     except Exception:
                         logger.exception(f'{self} {item} - context aexit failed!')
                     continue
@@ -398,7 +398,7 @@ class Base:
                 exit = getattr(item, '__exit__', None)
                 if exit is not None:
                     try:
-                        exit()
+                        exit(None, None, None)
                     except Exception:
                         logger.exception(f'{self} {item} - context exit failed!')
                     continue
