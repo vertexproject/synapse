@@ -59,11 +59,13 @@ class RiskModule(s_module.CoreModule):
             'edges': (
                 # some explicit examples...
                 (('risk:attack', 'uses', 'ou:technique'), {
-                    'doc': 'The attack used the technique.'}),
+                    'doc': 'The attackers used the technique in the attack.'}),
                 (('risk:threat', 'uses', 'ou:technique'), {
                     'doc': 'The threat cluster uses the technique.'}),
                 (('risk:tool:software', 'uses', 'ou:technique'), {
                     'doc': 'The tool uses the technique.'}),
+                (('risk:compromise', 'uses', 'ou:technique'), {
+                    'doc': 'The attackers used the technique in the compromise.'}),
 
                 (('risk:attack', 'uses', 'risk:vuln'), {
                     'doc': 'The attack used the vulnerability.'}),
@@ -76,6 +78,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The attack targeted the industry.'}),
                 (('risk:threat', 'targets', 'ou:industry'), {
                     'doc': 'The threat cluster targets the industry.'}),
+
 
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target node.'}),
@@ -492,11 +495,18 @@ class RiskModule(s_module.CoreModule):
                     ('severity', ('int', {}), {
                         'doc': 'An integer based relative severity score for the compromise.'}),
 
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The assessed primary goal of the attacker for the compromise.'}),
+
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of assessed attacker goals for the compromise.'}),
+
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed during the compromise.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
                 ('risk:attacktype', {}, ()),
                 ('risk:attack', {}, (
@@ -610,8 +620,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed during the attack.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
             ),
         }
