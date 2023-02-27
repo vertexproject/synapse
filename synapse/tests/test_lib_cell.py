@@ -1856,6 +1856,7 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
+                layriden = await core.callStorm('return($lib.layer.get().iden)')
 
                 # to test run the tmp cleanup on boot logic
                 with s_common.genfile(dirn, 'tmp', 'junk.text') as fd:
@@ -1865,6 +1866,9 @@ class CellTest(s_t_utils.SynTest):
                 with s_common.genfile(tmpd, 'haha.text') as fd:
                     fd.write(b'lolz\n')
 
+            lmdbfile = s_common.genpath(dirn, 'layers', layriden, 'layer_v2.lmdb', 'data.mdb')
+            stat00 = os.stat(lmdbfile)
+
             with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
 
                 conf = {'onboot:optimize': True}
@@ -1872,5 +1876,7 @@ class CellTest(s_t_utils.SynTest):
                     pass
 
                 stream.seek(0)
-
                 self.isin('onboot optimization complete!', stream.read())
+
+            stat01 = os.stat(lmdbfile)
+            self.ne(stat00.st_ino, stat01.st_ino)

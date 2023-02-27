@@ -1219,7 +1219,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 with self.getTempDir() as backpath:
 
-                    s_t_backup.backup(lmdbpath, backpath)
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+                        await backup.saveto(backpath)
 
                     srcpath = os.path.join(lmdbpath, 'data.mdb')
                     dstpath = os.path.join(backpath, 'data.mdb')
@@ -1229,7 +1230,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('... onboot optimization complete!')
 
         except Exception as e: # pragma: no cover
-            logger.exc('...aborting onboot optimization and resuming boot (everything is fine).')
+            logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
 
     def _delTmpFiles(self):
 
