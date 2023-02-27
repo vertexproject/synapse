@@ -1672,7 +1672,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if gdef['scope'] == 'power-up' and level > s_cell.PERM_READ:
             mesg = 'Power-up graph projections may not be modified.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         if user is not None:
             self._reqEasyPerm(gdef, user, level)
@@ -5045,10 +5045,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if useriden is None:
             return self.auth.rootuser
 
-        user = self.auth.user(useriden)
-        if user is None:
-            mesg = f'No user found with iden: {useriden}'
-            raise s_exc.NoSuchUser(mesg, iden=useriden)
+        user = self.auth.reqUser(useriden)
 
         return user
 

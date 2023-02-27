@@ -445,6 +445,12 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await prox.setCellUser(s_common.guid())
 
+            # Cannot change to a locked user
+            await cell.setUserLocked(visi.iden, True)
+            async with cell.getLocalProxy() as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.setCellUser(visi.iden)
+
     async def test_cell_hiveboot(self):
 
         with self.getTestDir() as dirn:

@@ -238,7 +238,7 @@ class CellApi(s_base.Base):
         if not await self.allowed(perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, username=self.user.name, user=self.user.iden)
 
     def getCellType(self):
         return self.cell.getCellType()
@@ -388,11 +388,14 @@ class CellApi(s_base.Base):
         '''
         if not self.user.isAdmin():
             mesg = 'setCellUser() caller must be admin.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
         user = self.cell.auth.user(iden)
         if user is None:
-            raise s_exc.NoSuchUser(mesg=f'Unable to set cell user to {iden=}', user=iden)
+            raise s_exc.NoSuchUser(mesg=f'Unable to set cell user iden to {iden}', user=iden)
+
+        if user.isLocked():
+            raise s_exc.AuthDeny(mesg=f'User ({user.name}) is locked.', user=user.iden, username=user.name)
 
         self.user = user
         self.link.get('sess').user = user
@@ -584,7 +587,7 @@ class CellApi(s_base.Base):
             return info
 
         mesg = 'getUserInfo denied for non-admin and non-self'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     async def getRoleInfo(self, name):
         role = await self.cell.auth.reqRoleByName(name)
@@ -592,7 +595,7 @@ class CellApi(s_base.Base):
             return role.pack()
 
         mesg = 'getRoleInfo denied for non-admin and non-member'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     @adminapi()
     async def getUserDef(self, iden, packroles=True):
@@ -2769,9 +2772,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if mesg is None:
             permname = permnames.get(level)
-            mesg = f'User has insufficient permissions (requires: {permname}).'
+            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}).'
 
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
     async def _setEasyPerm(self, item, scope, iden, level):
         '''
@@ -3449,14 +3452,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             anonuser = self.conf.get('auth:anon')
             if anonuser is None:
-                raise s_exc.AuthDeny(mesg='Unable to find cell user')
+                raise s_exc.AuthDeny(mesg=f'Unable to find cell user ({anonuser})')
 
             user = await self.auth.getUserByName(anonuser)
             if user is None:
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.', username=anonuser)
 
             if user.isLocked():
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.', username=anonuser,
+                                     user=anonuser.iden)
 
             return user
 
@@ -3470,7 +3474,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         passwd = info.get('passwd')
 
         if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', useruser=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
 
         return user
 
@@ -3578,8 +3582,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return True
 
         perm = '.'.join(perm)
-        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
-                             task=iden, user=str(user), perm=perm)
+        raise s_exc.AuthDeny(mesg=f'User ({user.name}) must have permission {perm} or own the task',
+                             task=iden, user=user.iden, username=user.name, perm=perm)
 
     async def getCellInfo(self):
         '''

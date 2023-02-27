@@ -70,7 +70,7 @@ class NotifyLib(s_stormtypes.Lib):
         mesg = await self.runt.snap.core.getUserNotif(indx)
         if mesg[0] != self.runt.user.iden and not self.runt.isAdmin():
             mesg = 'You may only get notifications which belong to you.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return mesg
 
     async def _del(self, indx):
@@ -78,7 +78,7 @@ class NotifyLib(s_stormtypes.Lib):
         mesg = await self.runt.snap.core.getUserNotif(indx)
         if mesg[0] != self.runt.user.iden and not self.runt.isAdmin():
             mesg = 'You may only delete notifications which belong to you.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         await self.runt.snap.core.delUserNotif(indx)
 
     async def list(self, size=None):

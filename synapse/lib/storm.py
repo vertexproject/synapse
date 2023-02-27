@@ -1850,8 +1850,8 @@ class Runtime(s_base.Base):
         if self.user.allowed(('layer', 'read'), gateiden=layriden):
             return
 
-        mesg = 'User can not read layer.'
-        raise s_exc.AuthDeny(mesg=mesg)
+        mesg = f'User ({self.user.name}) can not read layer.'
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
@@ -2740,7 +2740,7 @@ class PureCmd(Cmd):
         asroot = runt.allowed(perm)
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
@@ -2755,7 +2755,7 @@ class PureCmd(Cmd):
             if not allowed:
                 permtext = ' or '.join(('.'.join(p) for p in perms))
                 mesg = f'Command ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         text = self.cdef.get('storm')
         query = await runt.snap.core.getStormQuery(text)
@@ -3971,7 +3971,7 @@ class DelNodeCmd(Cmd):
         if self.opts.force:
             if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         async for node, path in genr:
 
@@ -5514,7 +5514,7 @@ class RunAsCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         if not runt.user.isAdmin():
             mesg = 'The runas command requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         core = runt.snap.core
 
