@@ -162,9 +162,9 @@ class Base:
             raise s_exc.IsFini(mesg=mesg)
 
         if self._context_managers is None:
-            self._context_managers = set()
+            self._context_managers = []
 
-        self._context_managers.add(item)
+        self._context_managers.append(item)
         entr = getattr(item, '__aenter__', None)
         if entr is not None:
             return await entr()
@@ -385,7 +385,7 @@ class Base:
         await self._kill_active_tasks()
 
         if self._context_managers is not None:
-            for item in self._context_managers:
+            for item in reversed(self._context_managers):
 
                 exit = getattr(item, '__aexit__', None)
                 if exit is not None:
