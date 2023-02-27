@@ -392,7 +392,7 @@ class CellApi(s_base.Base):
 
         user = self.cell.auth.user(iden)
         if user is None:
-            raise s_exc.NoSuchUser(iden=iden)
+            raise s_exc.NoSuchUser(mesg=f'Unable to set cell user to {iden=}', user=iden)
 
         self.user = user
         self.link.get('sess').user = user
@@ -2813,9 +2813,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if auth is not None:
                 name, info = auth
 
+            # By design, unix sockets can auth as any user.
             user = await self.auth.getUserByName(name)
             if user is None:
-                raise s_exc.NoSuchUser(name=name)
+                raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         else:
             user = await self._getCellUser(link, mesg)
@@ -2823,6 +2824,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.getCellApi(link, user, path)
 
     async def getCellApi(self, link, user, path):
+        '''
+        Get an instance of the telepath Client object for a given user, link and path.
+
+        Args:
+            link (s_link.Link): The link object.
+            user (s_hive.HiveUser): The heavy user object.
+            path (str): The path requested.
+
+        Notes:
+           This defaults to the self.cellapi class. Implementors may override the
+           default class attribute for cellapi to share a different interface.
+
+        Returns:
+            object: The shared object for this cell.
+        '''
         return await self.cellapi.anit(self, link, user)
 
     async def getLogExtra(self, **kwargs):
@@ -3416,13 +3432,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if hostpart == self.conf.get('aha:network'):
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
+                        if user.isLocked():
+                            raise s_exc.AuthDeny(mesg=f'User ({userpart}) is locked.', user=user.iden, username=userpart)
                         return user
 
             user = await self.auth.getUserByName(username)
             if user is not None:
+                if user.isLocked():
+                    raise s_exc.AuthDeny(mesg=f'User ({username}) is locked.', user=user.iden, username=username)
                 return user
 
-            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
+            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', username=username)
 
         auth = mesg[1].get('auth')
         if auth is None:
@@ -3444,13 +3464,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         user = await self.auth.getUserByName(name)
         if user is None:
-            raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
+            raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         # passwd None always fails...
         passwd = info.get('passwd')
 
         if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', useruser=user.name)
 
         return user
 

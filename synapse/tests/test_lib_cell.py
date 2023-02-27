@@ -1106,7 +1106,19 @@ class CellTest(s_t_utils.SynTest):
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
-                self.eq(cm.exception.get('user'), 'newp@localhost')
+                self.eq(cm.exception.get('username'), 'newp@localhost')
+
+                # add newp
+                unfo = await cryo.addUser('newp@localhost')
+                async with await s_telepath.openurl(f'ssl://newp@127.0.0.1:{port}?hostname=localhost') as proxy:
+                    self.eq(cryo.iden, await proxy.getCellIden())
+
+                # Lock newp
+                await cryo.setUserLocked(unfo.get('iden'), True)
+                with self.raises(s_exc.AuthDeny) as cm:
+                    url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
+                    async with await s_telepath.openurl(url) as proxy:
+                        pass
 
     async def test_cell_auth_ctor(self):
         conf = {
