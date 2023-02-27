@@ -15,6 +15,12 @@ Features and Enhancements
   variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
   (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
 
+Bugfixes
+--------
+- Fix an issue in the Storm grammar where text was incorrectly parsed
+  as an unquoted case statement.
+  (`#3032 <https://github.com/vertexproject/synapse/pull/3032>`_)
+
 v2.123.0 - 2023-02-22
 =====================
 
