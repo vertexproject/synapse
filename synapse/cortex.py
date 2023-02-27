@@ -5045,7 +5045,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if useriden is None:
             return self.auth.rootuser
 
-        user = self.auth.reqUser(useriden)
+        user = self.auth.user(useriden)
+        if user is None:
+            mesg = f'No user found with iden: {useriden}'
+            raise s_exc.NoSuchUser(mesg=mesg, user=useriden)
 
         return user
 
