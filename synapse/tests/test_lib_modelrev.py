@@ -355,3 +355,6 @@ class ModelRevTest(s_tests.SynTest):
 
             self.len(1, await core.nodes('risk:vuln:cvss:av=P'))
             self.len(1, await core.nodes('risk:vuln:cvss:av=L'))
+            self.len(1, await core.nodes('inet:http:cookie:name=gronk -:value'))
+            self.len(1, await core.nodes('inet:http:cookie:name=foo +:value=bar'))
+            self.len(1, await core.nodes('inet:http:cookie:name=zip +:value="zop=zap"'))
