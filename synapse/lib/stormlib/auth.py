@@ -59,9 +59,48 @@ stormcmds = (
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $user {
                 $user.addRule($rule, gateiden=$cmdopts.gate)
-                $lib.print('User ({name}) added rule: {rule}', name=$cmdopts.name, rule=$cmdopts.rule)
+                $lib.print(`Added rule {$cmdopts.rule} to user {$cmdopts.name}.`)
             } else {
                 $lib.warn('User ({name}) not found!', name=$cmdopts.name)
+            }
+        ''',
+    },
+    {
+        'name': 'auth.user.delrule',
+        'descr': '''
+            Remove a rule from a user.
+
+            Examples:
+
+                // Delete the allow rule from the user "visi" for permission "foo.bar.baz"
+                auth.user.delrule visi foo.bar.baz
+
+                // Delete the deny rule from the user "visi" for permission "foo.bar.baz"
+                auth.user.delrule visi "!foo.bar.baz"
+
+                // Delete the rule at index 5 from the user "visi"
+                auth.user.delrule visi --index  5
+        ''',
+        'cmdargs': (
+            ('name', {'type': 'str', 'help': 'The name of the user.'}),
+            ('rule', {'type': 'str', 'help': 'The rule string.'}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
+            ('--index', {'type': 'bool', 'action': 'store_true', 'default': False,
+                'help': 'Specify the rule as a 0 based index into the list of rules.'}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.name)
+            if $user {
+                if $cmdopts.index {
+                    $rule = $user.popRule($cmdopts.rule, gateiden=$cmdopts.gate)
+                } else {
+                    $rule = $lib.auth.ruleFromText($cmdopts.rule)
+                    $user.delRule($rule, gateiden=$cmdopts.gate)
+                }
+                $ruletext = $lib.auth.textFromRule($rule)
+                $lib.print(`Removed rule {$ruletext} from user {$cmdopts.name}.`)
+            } else {
+                $lib.warn(`User ({$cmdopts.name}) not found!`)
             }
         ''',
     },
@@ -88,9 +127,48 @@ stormcmds = (
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $role {
                 $role.addRule($rule, gateiden=$cmdopts.gate)
-                $lib.print('Role ({name}) added rule: {rule}', name=$cmdopts.name, rule=$cmdopts.rule)
+                $lib.print(`Added rule {$cmdopts.rule} to role {$cmdopts.name}.`)
             } else {
                 $lib.warn('Role ({name}) not found!', name=$cmdopts.name)
+            }
+        ''',
+    },
+    {
+        'name': 'auth.role.delrule',
+        'descr': '''
+            Remove a rule from a role.
+
+            Examples:
+
+                // Delete the allow rule from the role "ninjas" for permission "foo.bar.baz"
+                auth.role.delrule ninjas foo.bar.baz
+
+                // Delete the deny rule from the role "ninjas" for permission "foo.bar.baz"
+                auth.role.delrule ninjas "!foo.bar.baz"
+
+                // Delete the rule at index 5 from the role "ninjas"
+                auth.role.delrule ninjas --index  5
+        ''',
+        'cmdargs': (
+            ('name', {'type': 'str', 'help': 'The name of the role.'}),
+            ('rule', {'type': 'str', 'help': 'The rule string.'}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
+            ('--index', {'type': 'bool', 'action': 'store_true', 'default': False,
+                'help': 'Specify the rule as a 0 based index into the list of rules.'}),
+        ),
+        'storm': '''
+            $role = $lib.auth.roles.byname($cmdopts.name)
+            if $role {
+                if $cmdopts.index {
+                    $rule = $role.popRule($cmdopts.rule, gateiden=$cmdopts.gate)
+                } else {
+                    $rule = $lib.auth.ruleFromText($cmdopts.rule)
+                    $role.delRule($rule, gateiden=$cmdopts.gate)
+                }
+                $ruletext = $lib.auth.textFromRule($rule)
+                $lib.print(`Removed rule {$ruletext} from role {$cmdopts.name}.`)
+            } else {
+                $lib.warn(`Role ({$cmdopts.name}) not found!`)
             }
         ''',
     },
@@ -161,10 +239,26 @@ stormcmds = (
             ('username', {'type': 'str', 'help': 'The name of the user.'}),
         ),
         'storm': '''
-
             $user = $lib.auth.users.byname($cmdopts.username)
             if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
 
+            $lib.print(`User: {$user.name} ({$user.iden})`)
+            $lib.print("")
+            $lib.print(`  Admin: {$user.admin}`)
+            $lib.print("  Rules:")
+            for ($indx, $rule) in $lib.iters.enum($user.rules) {
+                $ruletext = $lib.auth.textFromRule($rule)
+                $lib.print(`    [{$lib.cast(str, $indx).ljust(3)}] - {$ruletext}`)
+            }
+            $lib.print("")
+            $lib.print("  Roles:")
+            for $role in $user.roles {
+                $lib.print(`    {$role.iden} - {$role.name}`)
+            }
+            $lib.print("  Gates:")
+            for $gate in $user.authgates {
+                $lib.print(`    {$gate}`)
+            }
         ''',
     },
     {
@@ -184,6 +278,14 @@ stormcmds = (
 
             $role = $lib.auth.roles.byname($cmdopts.rolename)
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
+
+            $lib.print(`Role: {$role.name} ({$role.iden})`)
+            $lib.print("")
+            $lib.print("  Rules:")
+            for ($indx, $rule) in $lib.iters.enum($role.rules) {
+                $ruletext = $lib.auth.textFromRule($rule)
+                $lib.print(`    [{$lib.cast(str, $indx).ljust(3)}] - {$ruletext}`)
+            }
 
         '''
     },

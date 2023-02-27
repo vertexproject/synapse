@@ -7214,17 +7214,31 @@ class LibAuth(Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
+        {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
+         'type': {'type': 'function', '_functname': 'textFromRule',
+                  'args': (
+                    {'name': 'rule', 'type': 'list', 'desc': 'A rule tuple.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The rule text.'}}},
     )
     _storm_lib_path = ('auth',)
 
     def getObjLocals(self):
         return {
             'ruleFromText': self.ruleFromText,
+            'textFromRule': self.textFromRule,
         }
 
     @staticmethod
     def ruleFromText(text):
         return ruleFromText(text)
+
+    async def textFromRule(self, rule):
+        rule = await toprim(rule)
+        text = '.'.join(rule[1])
+        if not rule[0]:
+            text = '!' + text
+        return text
 
 @registry.registerLib
 class LibUsers(Lib):
@@ -7905,6 +7919,13 @@ class User(Prim):
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'popRule', 'desc': 'Remove a rule by index from the User.',
+         'type': {'type': 'function', '_funcname': '_methUserPopRule',
+                  'args': (
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'setRules', 'desc': 'Replace the rules on the User with new rules.',
          'type': {'type': 'function', '_funcname': '_methUserSetRules',
                   'args': (
@@ -8016,6 +8037,7 @@ class User(Prim):
             'revoke': self._methUserRevoke,
             'addRule': self._methUserAddRule,
             'delRule': self._methUserDelRule,
+            'popRule': self._methUserPopRule,
             'setRoles': self._methUserSetRoles,
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
@@ -8101,6 +8123,23 @@ class User(Prim):
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
+    async def _methUserPopRule(self, indx, gateiden=None):
+
+        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+        gateiden = await tostr(gateiden, noneok=True)
+
+        rules = list(await self._derefGet('rules'))
+
+        if len(rules) < indx:
+            mesg = f'User {self.valu} only has {len(rules)} rules.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retn = rules.pop(indx)
+        await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
+        return retn
+
     async def _methUserSetEmail(self, email):
         email = await tostr(email)
         if self.runt.user.iden == self.valu:
@@ -8169,6 +8208,13 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }
                   }},
+        {'name': 'popRule', 'desc': 'Remove a rule by index from the Role.',
+         'type': {'type': 'function', '_funcname': '_methRolePopRule',
+                  'args': (
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'setRules', 'desc': 'Replace the rules on the Role with new rules.',
          'type': {'type': 'function', '_funcname': '_methRoleSetRules',
                   'args': (
@@ -8210,6 +8256,7 @@ class Role(Prim):
             'pack': self._methRolePack,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
+            'popRule': self._methRolePopRule,
             'setRules': self._methRoleSetRules,
         }
 
@@ -8241,6 +8288,23 @@ class Role(Prim):
     async def _methRoleDelRule(self, rule, gateiden=None):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
+
+    async def _methRolePopRule(self, indx, gateiden=None):
+
+        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+        gateiden = await tostr(gateiden, noneok=True)
+
+        rules = list(await self._derefGet('rules'))
+
+        if len(rules) < indx:
+            mesg = f'Role {self.valu} only has {len(rules)} rules.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retn = rules.pop(indx)
+        await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
+        return retn
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
@@ -9055,7 +9119,7 @@ async def toiter(valu, noneok=False):
             yield item
         return
 
-    for item in valu:
+    async for item in s_coro.agen(valu):
         yield item
 
 async def torepr(valu, usestr=False):
