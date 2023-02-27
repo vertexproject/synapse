@@ -1204,7 +1204,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
                     lmdbs.append(os.path.join(root, dirname))
 
-        if not lmdbs:
+        if not lmdbs: # pragma: no cover
             return
 
         logger.warning('Beginning onboot optimization (this could take a while)...')

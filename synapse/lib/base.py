@@ -157,7 +157,7 @@ class Base:
         Returns:
             The result of item’s own __aenter__ or __enter__() method.
         '''
-        if self.isfini:
+        if self.isfini: # pragma: no cover
             mesg = 'Cannot enter_context on a fini()d object.'
             raise s_exc.IsFini(mesg=mesg)
 
