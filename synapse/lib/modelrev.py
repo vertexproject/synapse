@@ -942,10 +942,11 @@ class ModelRev:
     async def revModel_0_2_18(self, layers):
 
         await self.delEmptyStringProp('inet:url:path')
+        await self._normPropValu(layers, 'inet:url:path')
 
         storm = '''
         for $view in $lib.view.list(deporder=$lib.true) {
-            inet:url:path [ file:path=:path ]
+            view.exec $view.iden { inet:url:path [ file:path=:path ] }
         }
         '''
         await self.runStorm(storm)
