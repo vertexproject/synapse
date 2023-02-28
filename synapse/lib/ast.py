@@ -1035,7 +1035,7 @@ class VarListSetOper(Oper):
             item = [i async for i in s_stormtypes.toiter(item)]
 
             if len(item) < len(names):
-                mesg = f'Attempting to assign more items then we have variable to assign to: {repr(item)[:256]}'
+                mesg = f'Attempting to assign more items than we have variables to assign to: {repr(item)[:256]}'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, numitems=len(item))
 
             for name, valu in zip(names, item):
@@ -1050,7 +1050,7 @@ class VarListSetOper(Oper):
             item = [i async for i in s_stormtypes.toiter(item)]
 
             if len(item) < len(names):
-                mesg = f'Attempting to assign more items then we have variable to assign to: {repr(item)[:256]}'
+                mesg = f'Attempting to assign more items than we have variables to assign to: {repr(item)[:256]}'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, numitems=len(item))
 
             for name, valu in zip(names, item):
