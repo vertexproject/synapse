@@ -14,6 +14,10 @@ Features and Enhancements
   storage for both size and performance. May also be set by environment
   variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
   (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+- Add a general use application level process pool, and update the following Storm
+  libraries to use it:  ``$lib.mime.html.totext``, ``$lib.xml.parse``,
+  ``$lib.stix.validate``, ``$lib.json.schema``.
+  (`#3033 <https://github.com/vertexproject/synapse/pull/3033>`_)
 
 v2.123.0 - 2023-02-22
 =====================
