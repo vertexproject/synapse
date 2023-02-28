@@ -104,7 +104,8 @@ class Link(s_base.Base):
 
         self.iden = s_common.guid()
 
-        writer._transport.set_write_buffer_limits(0)
+        # added in https://github.com/vertexproject/synapse/pull/2719/commits/0ab2679c39f20597068e466220775e6337c7f366
+        # writer._transport.set_write_buffer_limits(0)
 
         self.reader = reader
         self.writer = writer

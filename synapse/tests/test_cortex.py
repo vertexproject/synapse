@@ -44,7 +44,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
 
     async def test_cortex_handoff(self):
-        self.skip('3.11 iterNewBackupArchive err')
+        # self.skip('3.11 iterNewBackupArchive err')
         with self.getTestDir() as dirn:
             ahadir = s_common.genpath(dirn, 'aha00')
             coredir0 = s_common.genpath(dirn, 'core00')

@@ -1058,7 +1058,7 @@ bar baz",vv
 
     async def test_axon_mirror(self):
 
-        self.skip('3.11 iterNewBackupArchive err')
+        # self.skip('3.11 iterNewBackupArchive err')
 
         async with self.getTestAhaProv() as aha:
 
