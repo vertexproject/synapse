@@ -140,7 +140,8 @@ class Base:
         self._syn_links = []
         self._fini_funcs = []
         self._fini_atexit = False
-        self._active_tasks = set()  # the free running tasks associated with me
+        self._active_tasks = None       # the set of free running tasks associated with me
+        self._context_managers = None   # the set of context managers i must fini
 
     async def postAnit(self):
         '''
@@ -156,19 +157,20 @@ class Base:
         Returns:
             The result of item’s own __aenter__ or __enter__() method.
         '''
+        if self.isfini: # pragma: no cover
+            mesg = 'Cannot enter_context on a fini()d object.'
+            raise s_exc.IsFini(mesg=mesg)
+
+        if self._context_managers is None:
+            self._context_managers = []
+
+        self._context_managers.append(item)
         entr = getattr(item, '__aenter__', None)
         if entr is not None:
-            async def fini():
-                await item.__aexit__(None, None, None)
-            self.onfini(fini)
             return await entr()
 
         entr = getattr(item, '__enter__', None)
         assert entr is not None
-
-        async def fini():
-            item.__exit__(None, None, None)
-        self.onfini(fini)
         return entr()
 
     def onfini(self, func):
@@ -382,6 +384,25 @@ class Base:
 
         await self._kill_active_tasks()
 
+        if self._context_managers is not None:
+            for item in reversed(self._context_managers):
+
+                exit = getattr(item, '__aexit__', None)
+                if exit is not None:
+                    try:
+                        await exit(None, None, None)
+                    except Exception:
+                        logger.exception(f'{self} {item} - context aexit failed!')
+                    continue
+
+                exit = getattr(item, '__exit__', None)
+                if exit is not None:
+                    try:
+                        exit(None, None, None)
+                    except Exception:
+                        logger.exception(f'{self} {item} - context exit failed!')
+                    continue
+
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
@@ -457,6 +478,9 @@ class Base:
             assert inspect.isawaitable(coro)
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
+
+        if self._active_tasks is None:
+            self._active_tasks = set()
 
         task = self.loop.create_task(coro)
 
