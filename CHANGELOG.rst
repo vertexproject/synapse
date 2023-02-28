@@ -7,6 +7,13 @@ Synapse Changelog
 NEXTVERS - 2023-XX-YY
 =====================
 
+Automatic Migrations
+--------------------
+- The ``inet:url:path`` property was updated from a ``str`` type to
+  a ``file:path`` which requires a normalization pass to populate
+  the linked ``file:path`` forms.
+  (`#3028 <https://github.com/vertexproject/synapse/pull/3028>`_)
+
 Features and Enhancements
 -------------------------
 - Added ``--try`` option to ``gen.risk.vuln``, ``gen.pol.country``,
