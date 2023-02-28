@@ -124,3 +124,28 @@ class CoroTest(s_t_utils.SynTest):
 
         with self.raises(Exception):
             await s_coro.forked(newp)
+
+        oldpool = s_coro.forkpool
+        s_coro.forkpool = None
+
+        try:
+            self.eq(50, await s_coro.forked(spawnfunc, 20, y=30))
+        finally:
+            s_coro.forkpool = oldpool
+
+    async def test_lib_coro_parserforked(self):
+
+        self.true(await s_coro._parserforked(chkpool))
+
+        self.eq(50, await s_coro._parserforked(spawnfunc, 20, y=30))
+
+        with self.raises(FakeError):
+            await s_coro._parserforked(spawnfakeit)
+
+        self.eq(50, await s_coro._parserforked(spawnfunc, 20, y=30))
+
+        def newp():
+            return 23
+
+        with self.raises(Exception):
+            await s_coro._parserforked(newp)

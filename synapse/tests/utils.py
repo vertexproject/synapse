@@ -1041,6 +1041,7 @@ class SynTest(unittest.TestCase):
         # Since the setlogging routine is used in the forkserver initializer,
         # we need to make sure we've initialized our worker prior to mocking
         self.eq(1, await s_coro.forked(int, '1'))
+        self.eq(1, await s_coro._parserforked(int, '1'))
 
         with mock.patch('synapse.common.setlogging',
                         mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock

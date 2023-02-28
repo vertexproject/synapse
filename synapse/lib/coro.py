@@ -241,21 +241,35 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         proc.terminate()
         raise
 
-# shared process pool
-forkpool = None
+forkpool = None     # general use shared process pool
+_parserpool = None  # storm parser dedicated process pool
 if multiprocessing.current_process().name == 'MainProcess':
-    # only create the forkpool in the MainProcess...
+    # only create the forkpools in the MainProcess...
     try:
         mpctx = multiprocessing.get_context('forkserver')
-        max_workers = int(os.getenv('SYN_FORKED_WORKERS', 1))
+        _parserpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=1)
+        atexit.register(_parserpool.shutdown)
+    except OSError as e:  # pragma: no cover
+        logger.warning(f'Failed to init Storm parser forkserver pool, fallback enabled: {e}', exc_info=True)
+
+    try:
+        mpctx = multiprocessing.get_context('forkserver')
+        max_workers = int(os.getenv('SYN_FORKED_WORKERS', 0)) or None
         forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
+        logger.debug(f'Shared forkserver pool max_workers={forkpool._max_workers}')
         atexit.register(forkpool.shutdown)
     except OSError as e:  # pragma: no cover
-        logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
+        logger.warning(f'Failed to init shared forkserver pool, fallback enabled: {e}', exc_info=True)
 
+_pool_logconf = None
 def set_pool_logging(logger_, logconf):
-    # This must be called before any calls to forked()
+    # This must be called before any calls to forked() and _parserforked()
+    global _pool_logconf
+    _pool_logconf = logconf
     todo = s_common.todo(s_common.setlogging, logger_, **logconf)
+    if _parserpool is not None:
+        _parserpool._initializer = _runtodo
+        _parserpool._initargs = (todo,)
     if forkpool is not None:
         forkpool._initializer = _runtodo
         forkpool._initargs = (todo,)
@@ -265,7 +279,33 @@ def _runtodo(todo):
 
 async def forked(func, *args, **kwargs):
     '''
-    Execute a target function in the forked process pool.
+    Execute a target function in the shared forked process pool.
+
+    If the process pool is unavailable the function will be run in a spawned
+    process to avoid blocking the I/O loop.
+
+    Args:
+        func: The target function.
+        *args: Function positional arguments.
+        **kwargs: Function keyword arguments.
+
+    Returns:
+        The target function return.
+    '''
+    todo = (func, args, kwargs)
+
+    if forkpool is not None:
+        try:
+            return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
+        except concurrent.futures.process.BrokenProcessPool as e:  # pragma: no cover
+            logger.exception(f'Shared forkserver pool is broken, fallback enabled: {func}')
+
+    logger.debug(f'Shared forkserver pool using fallback: {func}')
+    return await spawn(todo, log_conf=_pool_logconf)
+
+async def _parserforked(func, *args, **kwargs):
+    '''
+    Execute a target function in the forked process pool dedicated for the Storm parser.
 
     Args:
         func: The target function.
@@ -276,12 +316,12 @@ async def forked(func, *args, **kwargs):
         The target function return.
 
     Raises:
-        The function may raise from the target function, or raise a s_exc.FatalErr in the event of a broken forked
-        process pool. The fatalerr represents a unrecoverable application state.
+        The function may raise from the target function, or raise an s_exc.FatalErr in the event of a broken forked
+        process pool. The fatalerr represents an unrecoverable application state.
     '''
     todo = (func, args, kwargs)
     try:
-        return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
-    except concurrent.futures.process.BrokenProcessPool as e:
+        return await asyncio.get_running_loop().run_in_executor(_parserpool, _runtodo, todo)
+    except concurrent.futures.process.BrokenProcessPool as e:  # pragma: no cover
         logger.exception(f'Fatal error executing forked task: {func} {args} {kwargs}')
         raise s_exc.FatalErr(mesg=f'Fatal error encountered: {e}') from None
