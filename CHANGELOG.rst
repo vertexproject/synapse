@@ -7,8 +7,25 @@ Synapse Changelog
 NEXTVERS - 2023-XX-YY
 =====================
 
+Features and Enhancements
+-------------------------
+- Added ``--try`` option to ``gen.risk.vuln``, ``gen.pol.country``,
+  ``gen.pol.country.government``, and ``gen.ps.contact.email`` commands
+  and their associated Storm functions.
+  (`#3030 <https://github.com/vertexproject/synapse/pull/3030>`_)
+- Added ``$lib.gen.orgHqByName`` and ``$lib.gen.langByName``.
+  (`#3030 <https://github.com/vertexproject/synapse/pull/3030>`_)
+- Added the configuration option ``onboot:optimize`` to all services
+  to allow devops to delay service startup and allow LMDB to optimize
+  storage for both size and performance. May also be set by environment
+  variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
+  (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+
 Bugfixes
 --------
+- Fix an issue in the Storm grammar where part of a query could potentially
+  be incorrectly parsed as an unquoted case statement.
+  (`#3032 <https://github.com/vertexproject/synapse/pull/3032>`_)
 - Fix an issue where exceptions could be raised which contained data that was
   not JSON serializable. ``$lib.raise`` arguments must now also be JSON safe.
   (`#3029 <https://github.com/vertexproject/synapse/pull/3029>`_)

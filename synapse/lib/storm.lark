@@ -94,7 +94,10 @@ subquery: [YIELD] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD.1: /yield(?=[\s\{])/
-switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" baresubquery)* "}"
+
+// Split out case subqueries to prevent invalid state merging
+casesubquery: "{" query "}" -> baresubquery
+switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" casesubquery)* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
 
