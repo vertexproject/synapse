@@ -251,12 +251,12 @@ class StormCli(s_cli.Cli):
             self.indented = False
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
-    async def runCmdLine(self, line):
+    async def runCmdLine(self, line, opts=None):
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
 
-        await self.storm(line)
+        await self.storm(line, opts=opts)
 
     async def handleErr(self, mesg):
         err = mesg[1]
