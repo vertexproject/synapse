@@ -87,8 +87,8 @@ class ScopeTest(s_t_utils.SynTest):
             self.none(s_scope.get('hehe'))
             self.eq(s_scope.get('foo'), 'bar')
 
-    async def test_lib_scope_task_shallow(self):
-        # Ensure that scopes are shallow
+    async def test_lib_task_clone(self):
+        # Ensure that scope task clones are shallow
         evt0 = asyncio.Event()
         evt1 = asyncio.Event()
 
@@ -133,14 +133,17 @@ class ScopeTest(s_t_utils.SynTest):
         s_scope.clone(task)
         self.none(await task)
 
-    def test_scope_clone(self):
+    def test_scope_copy(self):
+        # Ensure scope copies are shallow copies
+        # Scope keys do not mutate in copies.
+        # Mutable data structures stored in scopes may change.
         scope00 = s_scope.Scope()
         scope00.enter()
         scope00.update(vals={'key': 'valu', 'dict': {'foo': 'bar'}})
         self.eq(scope00.get('key'), 'valu')
         self.eq(scope00.get('dict'), {'foo': 'bar'})
 
-        scope01 = scope00.clone()
+        scope01 = scope00.copy()
         scope01.enter()
         self.eq(scope01.get('key'), 'valu')
         scope01.set('s1', True)
