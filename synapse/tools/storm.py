@@ -393,7 +393,7 @@ def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
-    pars.add_argument('--view', default=None, action='store', help='Optional view to work in.')
+    pars.add_argument('--view', default=None, help='The view iden to work in.')
     return pars
 
 async def main(argv, outp=s_output.stdout):
