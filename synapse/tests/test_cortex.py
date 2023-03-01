@@ -3254,6 +3254,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(text)
 
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
     async def test_storm_contbreak(self):
 
         async with self.getTestCore() as core:

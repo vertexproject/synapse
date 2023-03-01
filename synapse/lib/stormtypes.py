@@ -9057,7 +9057,13 @@ async def toiter(valu, noneok=False):
             yield item
         return
 
-    for item in valu:
+    try:
+        genr = iter(valu)
+    except TypeError as e:
+        mesg = f'Value is not iterable: {valu!r}'
+        raise s_exc.StormRuntimeError(mesg=mesg) from e
+
+    for item in genr:
         yield item
 
 async def torepr(valu, usestr=False):
