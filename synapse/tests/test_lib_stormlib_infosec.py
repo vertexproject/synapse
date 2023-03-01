@@ -171,6 +171,8 @@ class InfoSecTest(s_test.SynTest):
                 'cvss:ma': 'N'
             })
 
+            self.len(1, await core.nodes('[ risk:vuln=* :cvss:av=P :cvss:mav=P ]'))
+
             with self.raises(s_exc.BadArg):
                 await core.callStorm('[ risk:vuln=* ] return($lib.infosec.cvss.calculate($node, vers=1.1.1))')
 

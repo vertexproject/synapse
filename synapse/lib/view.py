@@ -108,6 +108,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
         self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab.addResizeCallback(core.checkFreeSpace)
+
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
         trignode = await node.open(('triggers',))
@@ -315,7 +317,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
 
             for layr in self.layers:
 
@@ -331,7 +333,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdges(self, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as eset:
 
             for layr in self.layers:
 
@@ -898,6 +900,8 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
         await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
+        await self.core.feedBeholder('trigger:add', trig.pack(), gates=[trig.iden])
+
         return trig.pack()
 
     async def getTrigger(self, iden):
@@ -923,6 +927,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             return
 
+        await self.core.feedBeholder('trigger:del', {'iden': trig.iden, 'view': trig.view.iden}, gates=[trig.iden])
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
@@ -932,6 +937,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
+
+        await self.core.feedBeholder('trigger:set', {'iden': trig.iden, 'view': trig.view.iden, 'name': name, 'valu': valu}, gates=[trig.iden])
 
     async def listTriggers(self):
         '''
@@ -966,7 +973,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # TODO remove addNodeEdits?
 
     async def scrapeIface(self, text, unique=False):
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as matches:  # type: s_spooled.Set
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
             for item in s_scrape.contextScrape(text, refang=True, first=False):
                 form = item.pop('form')

@@ -18,6 +18,8 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('vertex.link', nodes00[0].get('dns:mx')[0])
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
+            self.len(0, await core.nodes('yield $lib.gen.orgByFqdn("...", try=$lib.true)'))
+
             nodes00 = await core.nodes('yield $lib.gen.industryByName(intelsoftware)')
             nodes01 = await core.nodes('gen.ou.industry intelsoftware')
             self.eq('intelsoftware', nodes00[0].get('name'))
@@ -27,6 +29,8 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('yield $lib.gen.newsByUrl(https://vertex.link)')
             self.eq('https://vertex.link', nodes00[0].get('url'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            self.len(0, await core.nodes('yield $lib.gen.newsByUrl("...", try=$lib.true)'))
 
             nodes00 = await core.nodes('yield $lib.gen.softByName(synapse)')
             nodes01 = await core.nodes('gen.it.prod.soft synapse')
@@ -54,9 +58,13 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.risk.vuln CVE-2022-00001')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
+            self.len(0, await core.nodes('gen.risk.vuln newp --try'))
+
             nodes00 = await core.nodes('yield $lib.gen.polCountryByIso2(UA)')
             nodes01 = await core.nodes('gen.pol.country ua')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            self.len(0, await core.nodes('gen.pol.country newp --try'))
 
             self.len(1, await core.nodes('''
                 gen.pol.country.government ua |
@@ -64,8 +72,16 @@ class StormLibGenTest(s_test.SynTest):
                 -> pol:country +:iso2=ua
             '''))
 
+            self.len(0, await core.nodes('gen.pol.country.government newp --try'))
+
             nodes00 = await core.nodes('gen.ps.contact.email vertex.employee visi@vertex.link')
             nodes01 = await core.nodes('yield $lib.gen.psContactByEmail(vertex.employee, visi@vertex.link)')
             self.eq('vertex.employee.', nodes00[0].get('type'))
             self.eq('visi@vertex.link', nodes00[0].get('email'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            self.len(0, await core.nodes('gen.ps.contact.email vertex.employee newp --try'))
+
+            nodes00 = await core.nodes('gen.lang.language "English (US)" | [ :names+="Murican" ]')
+            nodes01 = await core.nodes('yield $lib.gen.langByName(Murican)')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)

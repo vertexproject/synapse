@@ -17,7 +17,6 @@ if sys.flags.optimize >= 2:
     import warnings
     mesg = '''Synapse components may experience degraded capabilities with sys.flags.optimize >=2.'''
     warnings.warn(mesg, RuntimeWarning)
-    # raise Exception('synapse is not supported with sys.flags.optimize >= 2')
 
 import lmdb
 if tuple([int(x) for x in lmdb.__version__.split('.')]) < (1, 0, 0):  # pragma: no cover

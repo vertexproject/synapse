@@ -409,8 +409,7 @@ class CortexTest(s_t_utils.SynTest):
             ]
         }
 
-        conf = {'provenance:en': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
 
             self.none(core.modsbyiface.get('lookup'))
 
@@ -963,6 +962,14 @@ class CortexTest(s_t_utils.SynTest):
                     await proxy.callStorm(q)
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
+                with self.raises(s_exc.StormRaise) as cm:
+                    await proxy.callStorm('$lib.raise(Foo, bar, hehe=haha, key=(1))')
+
+                self.eq(cm.exception.get('errname'), 'Foo')
+                self.eq(cm.exception.get('mesg'), 'bar')
+                self.eq(cm.exception.get('hehe'), 'haha')
+                self.eq(cm.exception.get('key'), 1)
+
             with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
                 async with core.getLocalProxy() as proxy:
 
@@ -1248,6 +1255,13 @@ class CortexTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('$tag=foo $prop=score $valu=5 test:int=10 [ +#$tag:$prop=$valu ]')
                 self.eq(5, nodes[0].getTagProp('foo', 'score'))
+
+                q = '''
+                    $list=(["foo", "score", 20])
+                    [ test:int=10 +#$list.index(0):$list.index(1)=$list.index(2) ]
+                '''
+                nodes = await core.nodes(q)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
 
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
@@ -2691,8 +2705,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq(cmodel.prop('ipv4').type.stortype,
                     modelt.get(modelf['props']['ipv4']['type'][0], {}).get('stortype'))
-            self.eq(cmodel.prop('.created').type.stortype,
-                    modelt.get(modelf['props']['.created']['type'][0], {}).get('stortype'))
 
             fname = 'file:bytes'
             cmodel = core.model.form(fname)
@@ -3371,6 +3383,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 }
             }
 
+            def checkGraph(seeds, alldefs):
+                # our TLDs should be omits
+                self.len(2, seeds)
+                self.len(4, alldefs)
+
+                self.isin(('inet:fqdn', 'woot.com'), seeds)
+                self.isin(('inet:fqdn', 'vertex.link'), seeds)
+
+                self.nn(alldefs.get(('syn:tag', 'yepr')))
+                self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
+
+                self.none(alldefs.get(('inet:asn', 20)))
+                self.none(alldefs.get(('syn:tag', 'nope')))
+                self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+
             seeds = []
             alldefs = {}
 
@@ -3382,19 +3409,72 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     alldefs[node.ndef] = path.metadata.get('edges')
 
-            # our TLDs should be omits
-            self.len(2, seeds)
-            self.len(4, alldefs)
+            checkGraph(seeds, alldefs)
 
-            self.isin(('inet:fqdn', 'woot.com'), seeds)
-            self.isin(('inet:fqdn', 'vertex.link'), seeds)
+            rules['name'] = 'foo'
+            iden = await core.callStorm('return($lib.graph.add($rules).iden)', opts={'vars': {'rules': rules}})
 
-            self.nn(alldefs.get(('syn:tag', 'yepr')))
-            self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
+            gdef = await core.addStormGraph(rules)
+            iden2 = gdef['iden']
 
-            self.none(alldefs.get(('inet:asn', 20)))
-            self.none(alldefs.get(('syn:tag', 'nope')))
-            self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+            mods = {
+                'name': 'bar',
+                'desc': 'foorules',
+                'refs': True,
+                'edges': False,
+                'forms': {},
+                'pivots': ['<- meta:seen'],
+                'degrees': 3,
+                'filters': ['+#nope'],
+                'filterinput': False,
+                'yieldfiltered': True
+            }
+
+            await core.callStorm('$lib.graph.mod($iden, $info)', opts={'vars': {'iden': iden2, 'info': mods}})
+
+            q = '$lib.graph.mod($iden, ({"iden": "foo"}))'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts={'vars': {'iden': iden2}}))
+
+            gdef['scope'] = 'power-up'
+            gdef['power-up'] = 'newp'
+            await self.asyncraises(s_exc.SynErr, core._addStormGraph(gdef))
+
+            gdef = await core.callStorm('return($lib.graph.get($iden))', opts={'vars': {'iden': iden}})
+            self.eq(gdef['name'], 'foo')
+            self.eq(gdef['creator'], core.auth.rootuser.iden)
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(2, gdefs)
+            self.eq(gdefs[0]['name'], 'bar')
+            self.eq(gdefs[0]['creator'], core.auth.rootuser.iden)
+            self.eq(gdefs[1]['name'], 'foo')
+            self.eq(gdefs[1]['creator'], core.auth.rootuser.iden)
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+
+                async for node, path in snap.storm('inet:fqdn $lib.graph.activate($iden)', opts={'vars': {'iden': iden}}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            checkGraph(seeds, alldefs)
+
+            seeds = []
+            alldefs = {}
+            async with await core.snap() as snap:
+
+                async for node, path in snap.storm('inet:fqdn', opts={'graph': iden}):
+
+                    if path.metadata.get('graph:seed'):
+                        seeds.append(node.ndef)
+
+                    alldefs[node.ndef] = path.metadata.get('edges')
+
+            checkGraph(seeds, alldefs)
 
             # now do the same options via the command...
             text = '''
@@ -3421,19 +3501,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     alldefs[node.ndef] = path.metadata.get('edges')
 
-            # our TLDs should be omits
-            self.len(2, seeds)
-            self.len(4, alldefs)
-
-            self.isin(('inet:fqdn', 'woot.com'), seeds)
-            self.isin(('inet:fqdn', 'vertex.link'), seeds)
-
-            self.nn(alldefs.get(('syn:tag', 'yepr')))
-            self.nn(alldefs.get(('inet:dns:a', ('woot.com', 0x01020304))))
-
-            self.none(alldefs.get(('inet:asn', 20)))
-            self.none(alldefs.get(('syn:tag', 'nope')))
-            self.none(alldefs.get(('inet:dns:a', ('vertex.link', 0x05050505))))
+            checkGraph(seeds, alldefs)
 
             # filterinput=false behavior
             rules['filterinput'] = False
@@ -3516,6 +3584,66 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Runtsafety test
             q = '[ test:int=1 ]  | graph --degrees $node.value()'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            opts = {'vars': {'iden': iden, 'iden2': iden2}}
+            q = '''
+            function acti() {
+                $lib.graph.activate($iden)
+                return($lib.graph.get())
+            }
+            return($acti().iden)'''
+
+            self.eq(iden, await core.callStorm(q, opts=opts))
+            self.none(await core.callStorm('return($lib.graph.get())'))
+
+            otherpkg = {
+                'name': 'graph.powerup',
+                'version': '0.0.1',
+                'graphs': [{'name': 'testgraph'}]
+            }
+            await core.addStormPkg(otherpkg)
+
+            visi = await core.auth.addUser('visi')
+            async with core.getLocalProxy(user='visi') as asvisi:
+                uopts = dict(opts)
+                uopts['user'] = visi.iden
+                opts['vars']['useriden'] = visi.iden
+
+                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+                await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+
+                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+
+            q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await core.callStorm('pkg.del graph.powerup')
+            await core.callStorm('return($lib.graph.del($iden))', opts={'vars': {'iden': iden}})
+
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(0, gdefs)
+
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.del(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.get(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.nodes('$lib.graph.activate(foo)'))
+            await self.asyncraises(s_exc.NoSuchIden, core.delStormGraph('foo'))
+
+            q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
+            await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                visi = await core.auth.addUser('visi')
+                opts = {'user': visi.iden}
+
+                await core.addStormPkg(otherpkg)
+                await core.nodes('$lib.graph.add(({"name": "foo"}))', opts=opts)
+                await core.nodes('$lib.graph.add(({"name": "bar"}))')
+                self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
@@ -4020,7 +4148,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         Everything still works when no nexus log is kept
         '''
         conf = {'layer:lmdb:map_async': True,
-                'provenance:en': True,
                 'nexslog:en': False,
                 'layers:logedits': True,
                 }
@@ -4034,7 +4161,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         Everything still works when no layer log is kept
         '''
         conf = {'layer:lmdb:map_async': True,
-                'provenance:en': True,
                 'nexslog:en': True,
                 'layers:logedits': False,
                 }
@@ -5291,7 +5417,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     log01 = await alist(core01.nexsroot.nexslog.iter(0))
                     self.eq(log00, log01)
 
-                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
+                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'offset is out of sync') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
                             self.true(await stream.wait(6))
                             self.true(core02.nexsroot.isfini)
@@ -6152,13 +6278,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
                     await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
+                    opts = {'vars': {'tdef': tdef}}
+                    trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
+                    opts = {'vars': {'trig': trig['iden']}}
+
+                    await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
+                    await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                 task = core.schedCoro(action())
+                replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
+                dlen = 7 if replay else 6
 
                 data = []
                 async for mesg in prox.behold():
                     data.append(mesg)
-                    if len(data) == 3:
+                    if len(data) == dlen:
                         break
 
                 await asyncio.wait_for(task, timeout=1)
@@ -6180,6 +6315,42 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.true(type(data[2]['info']) is dict)
                 self.true(type(data[2]['gates']) is tuple)
                 self.len(1, data[2]['gates'])
+
+                view = await core.callStorm('return($lib.view.get().iden)')
+
+                self.eq(data[3]['event'], 'trigger:add')
+                self.gt(data[3]['offset'], data[2]['offset'])
+                self.len(1, data[3]['gates'])
+                self.false(data[3]['info']['async'])
+                self.eq(data[3]['info']['cond'], 'node:add')
+                self.true(data[3]['info']['enabled'])
+                self.eq(data[3]['info']['form'], 'test:int')
+                self.eq(data[3]['info']['storm'], '[test:str="foobar"]')
+                self.eq(data[3]['info']['username'], 'root')
+                self.eq(data[3]['info']['view'], view)
+
+                self.eq(data[4]['event'], 'trigger:set')
+                self.gt(data[4]['offset'], data[3]['offset'])
+                self.len(1, data[4]['gates'])
+                self.eq(data[4]['info']['name'], 'enabled')
+                self.false(data[4]['info']['valu'])
+                self.eq(data[4]['info']['view'], view)
+
+                off = 5
+                if replay:
+                    self.eq(data[off]['event'], 'trigger:set')
+                    self.gt(data[off]['offset'], data[3]['offset'])
+                    self.len(1, data[off]['gates'])
+                    self.eq(data[off]['info']['name'], 'enabled')
+                    self.false(data[off]['info']['valu'])
+                    self.eq(data[off]['info']['view'], view)
+                    off += 1
+
+                self.eq(data[off]['event'], 'trigger:del')
+                self.gt(data[off]['offset'], data[4]['offset'])
+                self.len(1, data[off]['gates'])
+                self.nn(data[off]['info'].get('iden'))
+                self.eq(data[off]['info']['view'], view)
 
     async def test_stormpkg_sad(self):
         base_pkg = {
@@ -6798,3 +6969,21 @@ class CortexBasicTest(s_t_utils.SynTest):
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
+
+    async def test_cortex_storage_v1(self):
+
+        async with self.getRegrCore('cortex-storage-v1') as core:
+
+            mdef = await core.callStorm('return($lib.macro.get(woot))')
+            self.true(core.cellvers.get('cortex:storage') >= 1)
+
+            self.eq(core.auth.rootuser.iden, mdef['user'])
+            self.eq(core.auth.rootuser.iden, mdef['creator'])
+
+            self.eq(1673371514938, mdef['created'])
+            self.eq(1673371514938, mdef['updated'])
+            self.eq('$lib.print("hi there")', mdef['storm'])
+
+            msgs = await core.stormlist('macro.exec woot')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('hi there', msgs)

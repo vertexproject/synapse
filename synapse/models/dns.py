@@ -192,11 +192,11 @@ class DnsModule(s_module.CoreModule):
                 )),
 
                 ('inet:dns:soa', {}, (
-                    ('fqdn', ('inet:fqdn', {}), {'ro': True,
+                    ('fqdn', ('inet:fqdn', {}), {
                          'doc': 'The domain queried for its SOA record.'}),
-                    ('ns', ('inet:fqdn', {}), {'ro': True,
+                    ('ns', ('inet:fqdn', {}), {
                          'doc': 'The domain (MNAME) returned in the SOA record.'}),
-                    ('email', ('inet:email', {}), {'ro': True,
+                    ('email', ('inet:email', {}), {
                          'doc': 'The email address (RNAME) returned in the SOA record.'}),
                 )),
 
@@ -251,31 +251,31 @@ class DnsModule(s_module.CoreModule):
                     ('ttl', ('int', {}), {}),
                     ('request', ('inet:dns:request', {}), {}),
 
-                    ('a', ('inet:dns:a', {}), {'ro': True,
+                    ('a', ('inet:dns:a', {}), {
                         'doc': 'The DNS A record returned by the lookup.',
                     }),
-                    ('ns', ('inet:dns:ns', {}), {'ro': True,
+                    ('ns', ('inet:dns:ns', {}), {
                         'doc': 'The DNS NS record returned by the lookup.',
                     }),
-                    ('rev', ('inet:dns:rev', {}), {'ro': True,
+                    ('rev', ('inet:dns:rev', {}), {
                         'doc': 'The DNS PTR record returned by the lookup.',
                     }),
-                    ('aaaa', ('inet:dns:aaaa', {}), {'ro': True,
+                    ('aaaa', ('inet:dns:aaaa', {}), {
                         'doc': 'The DNS AAAA record returned by the lookup.',
                     }),
-                    ('rev6', ('inet:dns:rev6', {}), {'ro': True,
+                    ('rev6', ('inet:dns:rev6', {}), {
                         'doc': 'The DNS PTR record returned by the lookup of an IPv6 address.',
                     }),
-                    ('cname', ('inet:dns:cname', {}), {'ro': True,
+                    ('cname', ('inet:dns:cname', {}), {
                         'doc': 'The DNS CNAME record returned by the lookup.',
                     }),
-                    ('mx', ('inet:dns:mx', {}), {'ro': True,
+                    ('mx', ('inet:dns:mx', {}), {
                         'doc': 'The DNS MX record returned by the lookup.',
                     }),
-                    ('soa', ('inet:dns:soa', {}), {'ro': True,
+                    ('soa', ('inet:dns:soa', {}), {
                         'doc': 'The domain queried for its SOA record.',
                     }),
-                    ('txt', ('inet:dns:txt', {}), {'ro': True,
+                    ('txt', ('inet:dns:txt', {}), {
                         'doc': 'The DNS TXT record returned by the lookup.',
                     }),
                 )),

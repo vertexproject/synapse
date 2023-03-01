@@ -485,10 +485,6 @@ class Snap(s_base.Base):
             'user': self.user.iden
         }
 
-        providen = self.core.provstor.precommit()
-        if providen is not None:
-            meta['prov'] = providen
-
         return meta
 
     @contextlib.asynccontextmanager
@@ -1089,9 +1085,6 @@ class Snap(s_base.Base):
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:
-            providen, provstack = self.core.provstor.stor()
-            if providen is not None:
-                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
             await self.fire('node:edits', edits=actualedits)
 
         return saveoff, changes, nodes
@@ -1306,7 +1299,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 
@@ -1320,7 +1313,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 

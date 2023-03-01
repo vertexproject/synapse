@@ -302,11 +302,17 @@ class Cli(s_base.Base):
         Prompt for user input from stdin.
         '''
         if self.sess is None:
+            history = None
             histfp = s_common.getSynPath(self.histfile)
             # Ensure the file is read/writeable
-            with s_common.genfile(histfp):
-                pass
-            self.sess = PromptSession(history=FileHistory(histfp))
+            try:
+                with s_common.genfile(histfp):
+                    pass
+                history = FileHistory(histfp)
+            except OSError:  # pragma: no cover
+                logger.warning(f'Unable to create file at {histfp}, cli history will not be stored.')
+
+            self.sess = PromptSession(history=history)
 
         if text is None:
             text = self.cmdprompt

@@ -14,6 +14,7 @@
 #
 import os
 import sys
+import datetime
 sys.path.insert(0, os.path.abspath('..'))
 
 import synapse
@@ -22,7 +23,7 @@ import synapse
 # -- Project information -----------------------------------------------------
 
 project = 'Synapse'
-copyright = '2021, The Vertex Project'
+copyright = f'{datetime.datetime.now().year}, The Vertex Project, LLC'
 author = 'The Vertex Project'
 
 # The short X.Y version

@@ -16,6 +16,7 @@ import multiprocessing
 
 import aiohttp
 import tornado.web as t_web
+import tornado.log as t_log
 
 import synapse.exc as s_exc
 
@@ -45,6 +46,8 @@ import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
+import synapse.lib.crypto.passwd as s_passwd
+
 import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
@@ -54,6 +57,33 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 '''
 Base classes for the synapse "cell" microservice architecture.
 '''
+
+PERM_DENY = 0
+PERM_READ = 1
+PERM_EDIT = 2
+PERM_ADMIN = 3
+
+permnames = {
+    PERM_DENY: 'deny',
+    PERM_READ: 'read',
+    PERM_EDIT: 'edit',
+    PERM_ADMIN: 'admin',
+}
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
 
 def adminapi(log=False):
     '''
@@ -518,6 +548,10 @@ class CellApi(s_base.Base):
         self.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.cell.setUserPasswd(iden, passwd)
 
+    @adminapi()
+    async def genUserOnepass(self, iden, duration=60000):
+        return await self.cell.genUserOnepass(iden, duration)
+
     @adminapi(log=True)
     async def setUserLocked(self, useriden, locked):
         return await self.cell.setUserLocked(useriden, locked)
@@ -561,8 +595,8 @@ class CellApi(s_base.Base):
         raise s_exc.AuthDeny(mesg=mesg)
 
     @adminapi()
-    async def getUserDef(self, iden):
-        return await self.cell.getUserDef(iden)
+    async def getUserDef(self, iden, packroles=True):
+        return await self.cell.getUserDef(iden, packroles=packroles)
 
     @adminapi()
     async def getAuthGate(self, iden):
@@ -828,6 +862,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
         },
+        'onboot:optimize': {
+            'default': False,
+            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. (may take a while)',
+            'type': 'boolean',
+        },
+        'limit:disk:free': {
+            'default': 5,
+            'description': 'Minimum disk free space percentage before setting the cell read-only.',
+            'type': ['integer', 'null'],
+            'minimum': 0,
+            'maximum': 100,
+        },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
@@ -947,6 +993,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
+    FREE_SPACE_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -971,8 +1018,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
+
+        self.minfree = self.conf.get('limit:disk:free')
+        if self.minfree is not None:
+            self.minfree = self.minfree / 100
+
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= self.minfree:
+                free = disk.free / disk.total * 100
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+
+        self._delTmpFiles()
+
+        if self.conf.get('onboot:optimize'):
+            await self._onBootOptimize()
 
         await self._initCellBoot()
 
@@ -1133,15 +1196,73 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = f'Cannot start the {ctyp}, another process is already running it.'
             raise s_exc.FatalErr(mesg=mesg) from None
 
+    async def _onBootOptimize(self):
+
+        lmdbs = []
+        for (root, dirs, files) in os.walk(self.dirn):
+            for dirname in dirs:
+                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                    lmdbs.append(os.path.join(root, dirname))
+
+        if not lmdbs: # pragma: no cover
+            return
+
+        logger.warning('Beginning onboot optimization (this could take a while)...')
+
+        size = len(lmdbs)
+
+        try:
+
+            for i, lmdbpath in enumerate(lmdbs):
+
+                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+
+                with self.getTempDir() as backpath:
+
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+                        await backup.saveto(backpath)
+
+                    srcpath = os.path.join(lmdbpath, 'data.mdb')
+                    dstpath = os.path.join(backpath, 'data.mdb')
+
+                    os.rename(dstpath, srcpath)
+
+            logger.warning('... onboot optimization complete!')
+
+        except Exception as e: # pragma: no cover
+            logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
+
+    def _delTmpFiles(self):
+
+        tdir = s_common.gendir(self.dirn, 'tmp')
+
+        names = os.listdir(tdir)
+        if not names:
+            return
+
+        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+
+        for name in names:
+
+            path = os.path.join(tdir, name)
+
+            if os.path.isfile(path):
+                os.unlink(path)
+                continue
+
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+                continue
+
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
         # ( and do so using _bumpCellVers )
         pass
 
-    async def _bumpCellVers(self, name, updates):
+    async def _bumpCellVers(self, name, updates, nexs=True):
 
         if self.inaugural:
-            await self.cellvers.set(name, updates[-1][0])
+            await self.cellvers.set(name, updates[-1][0], nexs=nexs)
             return
 
         curv = self.cellvers.get(name, 0)
@@ -1153,9 +1274,47 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await callback()
 
-            await self.cellvers.set(name, vers)
+            await self.cellvers.set(name, vers, nexs=nexs)
 
             curv = vers
+
+    def checkFreeSpace(self):
+        self._checkspace.set()
+
+    async def _runFreeSpaceLoop(self):
+
+        nexsroot = self.getCellNexsRoot()
+
+        while not self.isfini:
+
+            self._checkspace.clear()
+
+            disk = shutil.disk_usage(self.dirn)
+
+            if (disk.free / disk.total) <= self.minfree:
+
+                await self._setReadOnly(True)
+                nexsroot.readonly = True
+
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
+                logger.warning(mesg)
+
+            elif nexsroot.readonly:
+
+                await self._setReadOnly(False)
+                nexsroot.readonly = False
+                await self.nexsroot.startup()
+
+                mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                logger.warning(mesg)
+
+            await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
+
+    async def _setReadOnly(self, valu):
+        # implement any behavior necessary to change the cell read-only status
+        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1215,6 +1374,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.recover()
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
+
+            if self.minfree is not None:
+                self.schedCoro(self._runFreeSpaceLoop())
 
     async def initServiceNetwork(self):
 
@@ -1621,6 +1783,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isdir(path):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
+
+            diskfree = shutil.disk_usage(self.backdirn).free
+            cellsize, _ = s_common.getDirSize(self.dirn)
+            if cellsize * 2 > diskfree:
+                mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
+                       f'({diskfree} bytes free, {cellsize * 2} required)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
             self.backuprunning = True
             self.backlastexc = None
@@ -2114,6 +2283,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Set password for {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
+    async def genUserOnepass(self, iden, duration=600000):
+        user = await self.auth.reqUser(iden)
+        passwd = s_common.guid()
+        shadow = await s_passwd.getShadowV2(passwd=passwd)
+        now = s_common.now()
+        onepass = {'create': now, 'expires': s_common.now() + duration,
+                   'shadow': shadow}
+        await self.auth.setUserInfo(iden, 'onepass', onepass)
+
+        logger.info(f'Issued one time password for {user.name}',
+                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+
+        return passwd
+
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
@@ -2126,10 +2309,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Set archive={archived} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
-    async def getUserDef(self, iden):
+    async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
         if user is not None:
-            return user.pack(packroles=True)
+            return user.pack(packroles=packroles)
 
     async def getAuthGate(self, iden):
         gate = self.auth.getAuthGate(iden)
@@ -2309,6 +2492,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @contextlib.contextmanager
+    def getTempDir(self):
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        with s_common.getTempDir(dirn=tdir) as dirn:
+            yield dirn
+
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
 
         addr = socket.gethostbyname(host)
@@ -2347,6 +2536,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
+    def _log_web_request(self, handler: s_httpapi.Handler) -> None:
+        # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
+        status = handler.get_status()
+        if status < 400:
+            log_method = t_log.access_log.info
+        elif status < 500:
+            log_method = t_log.access_log.warning
+        else:
+            log_method = t_log.access_log.error
+
+        request_time = 1000.0 * handler.request.request_time()
+
+        user = None
+        username = None
+
+        uri = handler.request.uri
+        remote_ip = handler.request.remote_ip
+        enfo = {'http_status': status,
+                'uri': uri,
+                'remoteip': remote_ip,
+                }
+
+        extra = {'synapse': enfo}
+
+        # It is possible that a Cell implementor may register handlers which
+        # do not derive from our Handler class, so we have to handle that.
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
+            user = handler.web_useriden
+            enfo['user'] = user
+        if hasattr(handler, 'web_username') and handler.web_username:
+            username = handler.web_username
+            enfo['username'] = username
+
+        if user:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
+        else:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
+
+        log_method(mesg, extra=extra)
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -2370,6 +2599,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = {
             'cookie_secret': secret,
+            'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
 
@@ -2456,6 +2686,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        self.slab.addResizeCallback(self.checkFreeSpace)
+
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
@@ -2565,6 +2797,86 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.yamlload(path)
 
         return {}
+
+    def _hasEasyPerm(self, item, user, level):
+
+        if level > PERM_ADMIN or level < PERM_DENY:
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0)')
+
+        if user.isAdmin():
+            return True
+
+        userlevel = item['permissions']['users'].get(user.iden)
+        if userlevel is not None:
+            if userlevel == 0:
+                return False
+            elif userlevel >= level:
+                return True
+
+        roleperms = item['permissions']['roles']
+        for role in user.getRoles():
+            rolelevel = roleperms.get(role.iden)
+            if rolelevel is not None:
+                if rolelevel == 0:
+                    return False
+                elif rolelevel >= level:
+                    return True
+
+        # allow read by default unless explicitly set
+        if level <= PERM_READ:
+            return True
+
+        return False
+
+    def _reqEasyPerm(self, item, user, level, mesg=None):
+        '''
+        Require the user (or an assigned role) to have the given permission
+        level on the specified item. The item must implement the "easy perm"
+        convention by having a key named "permissions" which adheres to the
+        easyPermSchema definition.
+
+        NOTE: By default a user will only be denied read access if they
+              (or an assigned role) has PERM_DENY assigned.
+        '''
+        if self._hasEasyPerm(item, user, level):
+            return
+
+        if mesg is None:
+            permname = permnames.get(level)
+            mesg = f'User has insufficient permissions (requires: {permname}).'
+
+        raise s_exc.AuthDeny(mesg=mesg)
+
+    async def _setEasyPerm(self, item, scope, iden, level):
+        '''
+        Set a user or role permission level within an object that uses the "easy perm"
+        convention. If level is None, permissions are removed.
+        '''
+        if scope not in ('users', 'roles'):
+            raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope} (must be "users" or "roles")')
+
+        if level is not None and (level > PERM_ADMIN or level < PERM_DENY):
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0, or None)')
+
+        if scope == 'users':
+            await self.auth.reqUser(iden)
+
+        elif scope == 'roles':
+            await self.auth.reqRole(iden)
+
+        perms = item['permissions'].get(scope)
+        if level is None:
+            perms.pop(iden, None)
+        else:
+            perms[iden] = level
+
+    def _initEasyPerm(self, item):
+        '''
+        Ensure that the given object has populated the "easy perm" convention.
+        '''
+        item.setdefault('permissions', {})
+        item['permissions'].setdefault('users', {})
+        item['permissions'].setdefault('roles', {})
 
     async def getTeleApi(self, link, mesg, path):
 

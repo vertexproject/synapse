@@ -150,7 +150,7 @@ Once completed, the previous leader will now be configured as a follower of the 
 
     If you are promoting the follower due to a catastrophic failure of the previous leader, you may use the
     command ``synapse.tools.promote --failure`` to force promotion despite not being able to carry out a graceful
-    handoff. It is **critcal that you not bring the previous leader back online** once this has been done. To regain
+    handoff. It is **critical that you not bring the previous leader back online** once this has been done. To regain
     redundancy, deploy a new mirror using the AHA provisioning process described in the :ref:`deploymentguide`.
 
 .. _devops-task-update:
@@ -291,6 +291,20 @@ log message pretty-printed log message::
       "username": "root",
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
+
+.. _devops-task-diskfree:
+
+Configure Free Space Requirement
+--------------------------------
+
+To avoid the risk of data corruption due to lack of disk space, Synapse services periodically
+check the amount of free space available and will switch to read-only mode if they are below
+a minimum threshold. This threshold can be controlled via the ``limit:disk:free`` configuration
+option, and is set to 5% free space by default.
+
+If the available free space goes below the minimum threshold, the service will continue
+the free space checks and re-enable writes if the available space returns above the
+threshold.
 
 .. _devops-task-performance:
 

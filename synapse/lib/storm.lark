@@ -94,7 +94,10 @@ subquery: [YIELD] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD.1: /yield(?=[\s\{])/
-switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" baresubquery)* "}"
+
+// Split out case subqueries to prevent invalid state merging
+casesubquery: "{" query "}" -> baresubquery
+switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" casesubquery)* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
 
@@ -193,9 +196,10 @@ liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: _tagmatch
 tagnamewithspace: _tagmatchwithspace -> tagname
-tagprop: tagname ":" (BASEPROP | _varvalu)
-tagpropwithspace: tagnamewithspace ":" (BASEPROP | _varvalu) -> tagprop
-formtagprop: (PROPS | UNIVNAME) tagname ":" (BASEPROP | _varvalu)
+tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
+tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
+formtagprop: (PROPS | UNIVNAME) tagname _COLONNOSPACE (BASEPROP | _varvalu)
+_COLONNOSPACE.2: /(?<!\s):/
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
@@ -287,8 +291,8 @@ _EXPRHASHSPACE.2: /(?<=\s)#/
 
 exprtagpropvalu: exprtagprop -> tagpropvalu
     | exprtagpropwithspace -> tagpropvalu
-exprtagprop: exprtagname ":" (BASEPROP | _exprvarvalu) -> tagprop
-exprtagpropwithspace: exprtagnamewithspace ":" (BASEPROP | _exprvarvalu) -> tagprop
+exprtagprop: exprtagname _COLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+exprtagpropwithspace: exprtagnamewithspace _COLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
 
 _exprvarvalu: "$" _exprvarvaluatom
 _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall

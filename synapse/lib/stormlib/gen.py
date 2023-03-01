@@ -12,10 +12,18 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'An ou:org node with the given name.'}}},
+        {'name': 'orgHqByName', 'desc': 'Returns a ps:contact node for the ou:org, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'A ps:contact node for the ou:org with the given name.'}}},
         {'name': 'orgByFqdn', 'desc': 'Returns an ou:org node by FQDN, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'fqdn', 'type': 'str', 'desc': 'The FQDN of the org.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'An ou:org node with the given FQDN.'}}},
         {'name': 'industryByName', 'desc': 'Returns an ou:industry by name, adding the node if it does not exist.',
@@ -28,6 +36,8 @@ class LibGen(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'url', 'type': 'inet:url', 'desc': 'The URL where the news is published.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A media:news node with the given URL.'}}},
         {'name': 'softByName', 'desc': 'Returns it:prod:soft node by name, adding the node if it does not exist.',
@@ -40,6 +50,8 @@ class LibGen(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'cve', 'type': 'str', 'desc': 'The CVE id.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
@@ -66,6 +78,8 @@ class LibGen(s_stormtypes.Lib):
                   'args': (
                       {'name': 'type', 'type': 'str', 'desc': 'The ps:contact:type property.'},
                       {'name': 'email', 'type': 'str', 'desc': 'The ps:contact:email property.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A ps:contact node.'}}},
 
@@ -73,8 +87,16 @@ class LibGen(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'iso2', 'type': 'str', 'desc': 'The pol:country:iso2 property.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A pol:country node.'}}},
+        {'name': 'langByName', 'desc': 'Returns a lang:language node by name, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the language.'},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'A lang:language node with the given name.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -86,10 +108,21 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function orgByFqdn(fqdn) {
+        function orgByFqdn(fqdn, try=$lib.false) {
+            if $try {
+                ($ok, $fqdn) = $lib.trycast("inet:fqdn", $fqdn)
+                if (not $ok) { return() }
+            }
             inet:fqdn=$fqdn -> ou:org
             return($node)
             [ ou:org=* :dns:mx+=$fqdn ]
+            return($node)
+        }
+
+        function orgHqByName(name) {
+            yield $lib.gen.orgByName($name)
+            { -:hq [ :hq = {[ ps:contact=* :orgname=$name ]} ] }
+            :hq -> ps:contact
             return($node)
         }
 
@@ -100,7 +133,11 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function newsByUrl(url) {
+        function newsByUrl(url, try=$lib.false) {
+            if $try {
+                ($ok, $url) = $lib.trycast("inet:url", $url)
+                if (not $ok) { return() }
+            }
             media:news:url=$url
             return($node)
             [ media:news=* :url=$url ]
@@ -115,7 +152,11 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function vulnByCve(cve) {
+        function vulnByCve(cve, try=$lib.false) {
+            if $try {
+                ($ok, $cve) = $lib.trycast("it:sec:cve", $cve)
+                if (not $ok) { return() }
+            }
             risk:vuln:cve=$cve
             return($node)
             [ risk:vuln=* :cve=$cve ]
@@ -154,7 +195,11 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function psContactByEmail(type, email) {
+        function psContactByEmail(type, email, try=$lib.false) {
+            if $try {
+                ($ok, $email) = $lib.trycast("inet:email", $email)
+                if (not $ok) { return() }
+            }
             ps:contact:email = $email
             +:type = $type
             return($node)
@@ -165,10 +210,32 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function polCountryByIso2(iso2) {
+        function polCountryByIso2(iso2, try=$lib.false) {
+            if $try {
+                ($ok, $iso2) = $lib.trycast("pol:iso2", $iso2)
+                if (not $ok) { return() }
+            }
             pol:country:iso2=$iso2
             return($node)
             [ pol:country=* :iso2=$iso2 ]
+            return($node)
+        }
+
+        function polCountryOrgByIso2(iso2, try=$lib.false) {
+            if $try {
+                ($ok, $iso2) = $lib.trycast("pol:iso2", $iso2)
+                if (not $ok) { return() }
+            }
+            yield $lib.gen.polCountryByIso2($iso2)
+            { -:government [ :government = $lib.gen.orgByName(`{$iso2} government`) ] }
+            :government -> ou:org
+            return($node)
+        }
+
+        function langByName(name) {
+            lang:name=$name -> lang:language
+            return($node)
+            [ lang:language=* :name=$name ]
             return($node)
         }
     '''
@@ -189,11 +256,7 @@ stormcmds = (
         'cmdargs': (
             ('name', {'help': 'The name of the organization.'}),
         ),
-        'storm': '''
-            yield $lib.gen.orgByName($cmdopts.name)
-            { -:hq [ :hq = {[ ps:contact=* :orgname=$cmdopts.name ]} ] }
-            :hq -> ps:contact
-        '''
+        'storm': 'yield $lib.gen.orgHqByName($cmdopts.name)',
     },
     {
         'name': 'gen.it.prod.soft',
@@ -242,8 +305,10 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('cve', {'help': 'The CVE identifier.'}),
+            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+                       'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve)',
+        'storm': 'yield $lib.gen.vulnByCve($cmdopts.cve, try=$cmdopts.try)',
     },
     {
         'name': 'gen.ou.industry',
@@ -267,8 +332,10 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('iso2', {'help': 'The 2 letter ISO-3166 country code.'}),
+            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+                       'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.polCountryByIso2($cmdopts.iso2)',
+        'storm': 'yield $lib.gen.polCountryByIso2($cmdopts.iso2, try=$cmdopts.try)',
     },
     {
         'name': 'gen.pol.country.government',
@@ -283,12 +350,10 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('iso2', {'help': 'The 2 letter ISO-3166 country code.'}),
+            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+                       'action': 'store_true'}),
         ),
-        'storm': '''
-            yield $lib.gen.polCountryByIso2($cmdopts.iso2)
-            { -:government [ :government = $lib.gen.orgByName(`{$cmdopts.iso2} government`) ] }
-            :government -> ou:org
-        ''',
+        'storm': 'yield $lib.gen.polCountryOrgByIso2($cmdopts.iso2, try=$cmdopts.try)',
     },
     {
         'name': 'gen.ps.contact.email',
@@ -303,7 +368,17 @@ stormcmds = (
         'cmdargs': (
             ('type', {'help': 'The contact type.'}),
             ('email', {'help': 'The contact email address.'}),
+            ('--try', {'help': 'Type normalization will fail silently instead of raising an exception.',
+                       'action': 'store_true'}),
         ),
-        'storm': 'yield $lib.gen.psContactByEmail($cmdopts.type, $cmdopts.email)',
+        'storm': 'yield $lib.gen.psContactByEmail($cmdopts.type, $cmdopts.email, try=$cmdopts.try)',
+    },
+    {
+        'name': 'gen.lang.language',
+        'descr': 'Lift (or create) a lang:language node based on the name.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the language.'}),
+        ),
+        'storm': 'yield $lib.gen.langByName($cmdopts.name)',
     },
 )
