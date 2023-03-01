@@ -228,6 +228,11 @@ class StormCli(s_cli.Cli):
         self.cmdprompt = 'storm> '
 
         self.stormopts = {'repr': True}
+
+        if opts is not None:
+            if opts.view:
+                self.stormopts['view'] = opts.view
+
         self.hidetags = False
         self.hideprops = False
         self._print_skips = []
@@ -246,12 +251,12 @@ class StormCli(s_cli.Cli):
             self.indented = False
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
-    async def runCmdLine(self, line, opts=None):
+    async def runCmdLine(self, line):
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
 
-        await self.storm(line, opts=opts)
+        await self.storm(line)
 
     async def handleErr(self, mesg):
         err = mesg[1]
@@ -402,12 +407,8 @@ async def main(argv, outp=s_output.stdout):
 
             async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
 
-                stormopts = {}
-                if opts.view:
-                    stormopts["view"] = opts.view
-
                 if opts.onecmd:
-                    await cli.runCmdLine(opts.onecmd, opts=stormopts)
+                    await cli.runCmdLine(opts.onecmd)
                     return
 
                 # pragma: no cover
