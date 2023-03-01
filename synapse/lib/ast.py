@@ -742,9 +742,15 @@ class ForLoop(Oper):
 
                 if isinstance(name, (list, tuple)):
 
-                    if len(name) != len(item):
+                    try:
+                        numitems = len(item)
+                    except TypeError:
                         mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=len(item))
+                        raise s_exc.StormVarListError(mesg=mesg, names=name)
+
+                    if len(name) != numitems:
+                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
 
                     if isinstance(item, s_stormtypes.Prim):
                         item = await item.value()
@@ -799,9 +805,15 @@ class ForLoop(Oper):
 
                 if isinstance(name, (list, tuple)):
 
-                    if len(name) != len(item):
+                    try:
+                        numitems = len(item)
+                    except TypeError:
                         mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=len(item))
+                        raise s_exc.StormVarListError(mesg=mesg, names=name)
+
+                    if len(name) != numitems:
+                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
 
                     if isinstance(item, s_stormtypes.Prim):
                         item = await item.value()
