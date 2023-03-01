@@ -361,7 +361,7 @@ class Cli(s_base.Base):
         '''
         return self.cmdprompt
 
-    async def runCmdLoop(self, stormopts=None):
+    async def runCmdLoop(self):
         '''
         Run commands from a user in an interactive fashion until fini() or EOFError is raised.
         '''
@@ -379,7 +379,7 @@ class Cli(s_base.Base):
                 if not line:
                     continue
 
-                coro = self.runCmdLine(line, opts=stormopts)
+                coro = self.runCmdLine(line)
                 self.cmdtask = self.schedCoro(coro)
                 await self.cmdtask
 
