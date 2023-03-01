@@ -12,7 +12,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.msgpack as s_msgpack
@@ -229,6 +228,11 @@ class StormCli(s_cli.Cli):
         self.cmdprompt = 'storm> '
 
         self.stormopts = {'repr': True}
+
+        if opts is not None:
+            if opts.view:
+                self.stormopts['view'] = opts.view
+
         self.hidetags = False
         self.hideprops = False
         self._print_skips = []
@@ -389,6 +393,7 @@ def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
+    pars.add_argument('--view', default=None, help='The view iden to work in.')
     return pars
 
 async def main(argv, outp=s_output.stdout):
