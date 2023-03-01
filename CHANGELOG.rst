@@ -9,6 +9,12 @@ NEXTVERS - 2023-XX-YY
 
 Features and Enhancements
 -------------------------
+- Added ``--try`` option to ``gen.risk.vuln``, ``gen.pol.country``,
+  ``gen.pol.country.government``, and ``gen.ps.contact.email`` commands
+  and their associated Storm functions.
+  (`#3030 <https://github.com/vertexproject/synapse/pull/3030>`_)
+- Added ``$lib.gen.orgHqByName`` and ``$lib.gen.langByName``.
+  (`#3030 <https://github.com/vertexproject/synapse/pull/3030>`_)
 - Added the configuration option ``onboot:optimize`` to all services
   to allow devops to delay service startup and allow LMDB to optimize
   storage for both size and performance. May also be set by environment
