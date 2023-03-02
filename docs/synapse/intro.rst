@@ -103,7 +103,7 @@ What's Next?
 +----------------------+-----------------------------------------------+
 | **Get Started!**     | - `Synapse Quickstart`_                       |
 |                      | - :ref:`quickstart`                           |
-|                      | - Attend `Synapse 101`_                       |
+|                      | - Watch `Synapse 101`_                        |
 |                      | - Request_ a commercial Synapse demo instance |
 +----------------------+-----------------------------------------------+
 | **Users**            | - :ref:`userguide`                            |
@@ -134,13 +134,12 @@ What's Next?
 |                      | - "Star" us on Github_                        |
 +----------------------+-----------------------------------------------+
 
-
 .. _The Vertex Project: https://vertex.link/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 
 .. _Synapse QuickStart: https://github.com/vertexproject/synapse-quickstart
-.. _Synapse 101: https://v.vtx.lk/luma
-.. _Request: https://vertex.link/contact-us
+.. _Synapse 101: https://v.vtx.lk/new-syn101
+.. _Request: https://vertex.link/request-a-demo
 
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
