@@ -2874,6 +2874,11 @@ class BatchCmd(Cmd):
     if it evaluates to false, the inbound nodes will be yielded after executing the
     batched query.
 
+    NOTE: This command is intended to facilitate use cases such as queries to external
+          APIs with aggregate node values to reduce quota consumption. As this command
+          interrupts the node stream, it should be used carefully to avoid unintended
+          slowdowns in the pipeline.
+
     Example:
 
         // Execute a query with batches of 5 nodes, then yield the inbound nodes
