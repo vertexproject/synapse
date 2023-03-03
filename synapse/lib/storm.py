@@ -2895,7 +2895,7 @@ class BatchCmd(Cmd):
             mesg = 'batch arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        size = await s_stormtypes.toint(self.opts.size, noneok=True)
+        size = await s_stormtypes.toint(self.opts.size)
         if size > 10000:
             mesg = f'Specified batch size ({size}) is above the maximum (10000).'
             raise s_exc.StormRuntimeError(mesg=mesg)
