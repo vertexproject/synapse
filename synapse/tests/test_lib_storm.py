@@ -4114,6 +4114,19 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.len(12, [m for m in msgs if m[0] == 'node'])
 
+            q = '''
+                for $i in $lib.range(12) { test:str=$i }
+                batch $lib.false --size 5 { yield $nodes }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(12, [m for m in msgs if m[0] == 'node'])
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('batch $lib.true --size 20000 {}')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:str batch $lib.true --size $node {}')
+
     async def test_storm_queries(self):
         async with self.getTestCore() as core:
 
