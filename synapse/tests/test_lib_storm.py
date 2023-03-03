@@ -4075,6 +4075,45 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.none(node.tags.get('btag'))
 
+    async def test_storm_batch(self):
+        async with self.getTestCore() as core:
+            q = '''
+                for $i in $lib.range(12) {[ test:str=$i ]}
+
+                batch $lib.true --size 5 {
+                    $vals=([])
+                    for $n in $nodes { $vals.append($n.repr()) }
+                    $lib.print($lib.str.join(',', $vals))
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInPrint('0,1,2,3,4', msgs)
+            self.stormIsInPrint('5,6,7,8,9', msgs)
+            self.stormIsInPrint('10,11', msgs)
+
+            q = '''
+                for $i in $lib.range(12) { test:str=$i }
+
+                batch $lib.false --size 5 {
+                    $vals=([])
+                    for $n in $nodes { $vals.append($n.repr()) }
+                    $lib.print($lib.str.join(',', $vals))
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(12, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInPrint('0,1,2,3,4', msgs)
+            self.stormIsInPrint('5,6,7,8,9', msgs)
+            self.stormIsInPrint('10,11', msgs)
+
+            q = '''
+                for $i in $lib.range(12) { test:str=$i }
+                batch $lib.true --size 5 { yield $nodes }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(12, [m for m in msgs if m[0] == 'node'])
+
     async def test_storm_queries(self):
         async with self.getTestCore() as core:
 
