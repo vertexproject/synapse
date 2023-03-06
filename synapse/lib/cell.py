@@ -865,6 +865,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
         },
+        'onboot:optimize': {
+            'default': False,
+            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. (may take a while)',
+            'type': 'boolean',
+        },
         'limit:disk:free': {
             'default': 5,
             'description': 'Minimum disk free space percentage before setting the cell read-only.',
@@ -1030,6 +1035,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
+        self._delTmpFiles()
+
+        if self.conf.get('onboot:optimize'):
+            await self._onBootOptimize()
+
         await self._initCellBoot()
 
         # we need to know this pretty early...
@@ -1188,6 +1198,64 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ctyp = self.getCellType()
             mesg = f'Cannot start the {ctyp}, another process is already running it.'
             raise s_exc.FatalErr(mesg=mesg) from None
+
+    async def _onBootOptimize(self):
+
+        lmdbs = []
+        for (root, dirs, files) in os.walk(self.dirn):
+            for dirname in dirs:
+                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                    lmdbs.append(os.path.join(root, dirname))
+
+        if not lmdbs: # pragma: no cover
+            return
+
+        logger.warning('Beginning onboot optimization (this could take a while)...')
+
+        size = len(lmdbs)
+
+        try:
+
+            for i, lmdbpath in enumerate(lmdbs):
+
+                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+
+                with self.getTempDir() as backpath:
+
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+                        await backup.saveto(backpath)
+
+                    srcpath = os.path.join(lmdbpath, 'data.mdb')
+                    dstpath = os.path.join(backpath, 'data.mdb')
+
+                    os.rename(dstpath, srcpath)
+
+            logger.warning('... onboot optimization complete!')
+
+        except Exception as e: # pragma: no cover
+            logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
+
+    def _delTmpFiles(self):
+
+        tdir = s_common.gendir(self.dirn, 'tmp')
+
+        names = os.listdir(tdir)
+        if not names:
+            return
+
+        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+
+        for name in names:
+
+            path = os.path.join(tdir, name)
+
+            if os.path.isfile(path):
+                os.unlink(path)
+                continue
+
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+                continue
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
@@ -2426,6 +2494,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sess = self.sessions.get(iden)
         if sess is not None:
             sess.info[name] = valu
+
+    @contextlib.contextmanager
+    def getTempDir(self):
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        with s_common.getTempDir(dirn=tdir) as dirn:
+            yield dirn
 
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
 

@@ -9,7 +9,7 @@ Learn More About Synapse
 ------------------------
 
 * Visit our website_ to learn more about Synapse. 
-* Attend a Synapse 101 training_! 
+* Watch `Synapse 101`_! 
 
 
 Installation & Documentation
@@ -38,7 +38,11 @@ Connect With Us
 .. |rtd| image:: https://readthedocs.com/projects/vertex-synapse/badge/?version=latest
 .. _rtd: https://v.vtx.lk/synapse-docs
 
-.. _slack: https://v.vtx.lk/join-slack
+.. _website: https://v.vtx.lk/vertex
+
+.. _Synapse 101: https://v.vtx.lk/new-syn101
+
+.. _pypi: https://v.vtx.lk/synapse-pypi
 
 .. _dockerhub: https://v.vtx.lk/synapse-dockerhub
 
@@ -46,14 +50,12 @@ Connect With Us
 
 .. _synapse_quickstart: https://github.com/vertexproject/synapse-quickstart
 
-.. _pypi: https://v.vtx.lk/synapse-pypi
+.. _here: https://v.vtx.lk/synapse-docs
 
-.. _website: https://v.vtx.lk/vertex
-
-.. _training: https://v.vtx.lk/luma
+.. _slack: https://v.vtx.lk/join-slack
 
 .. _Twitter: https://v.vtx.lk/twitter
 
 .. _LinkedIn: https://www.linkedin.com/company/vertexproject
 
-.. _here: https://v.vtx.lk/synapse-docs
+
