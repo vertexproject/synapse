@@ -3460,7 +3460,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if user.isLocked():
                 raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.', username=anonuser,
-                                     user=anonuser.iden)
+                                     user=user.iden)
 
             return user
 

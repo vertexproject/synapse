@@ -432,8 +432,9 @@ class CellTest(s_t_utils.SynTest):
                     await prox.setCellUser(s_common.guid())
 
                 visi = await prox.addUser('visi')
+                visiiden = visi.get('iden')
 
-                self.true(await prox.setCellUser(visi['iden']))
+                self.true(await prox.setCellUser(visiiden))
                 self.eq('visi', (await prox.getCellUser())['name'])
 
                 # setCellUser propagates his change to the Daemon Sess object.
@@ -446,10 +447,10 @@ class CellTest(s_t_utils.SynTest):
                     await prox.setCellUser(s_common.guid())
 
             # Cannot change to a locked user
-            await cell.setUserLocked(visi.iden, True)
+            await cell.setUserLocked(visiiden, True)
             async with cell.getLocalProxy() as prox:
                 with self.raises(s_exc.AuthDeny):
-                    await prox.setCellUser(visi.iden)
+                    await prox.setCellUser(visiiden)
 
     async def test_cell_hiveboot(self):
 
