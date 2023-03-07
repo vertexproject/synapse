@@ -2,213 +2,10 @@
 
 .. storm-cortex:: default
 
+.. _admin_perms:
 
-.. _adminguide:
-
-Synapse Admin Guide
-###################
-
-This guide is designed for use by Synapse Administrators ("global admins"). Synapse Admins are typically
-power-users with ``admin=true`` privileges on the :ref:`gloss-cortex` who are responsible for configuration
-and management of a production instance of Synapse.
-
-- For information on Synapse DevOps tasks, see the :ref:`devopsguide`.
-- For information on Synapse deployment tasks, see the :ref:`deploymentguide`.
-
-The Synapse Admin Guide provides important instructions and background information on topics related to
-day-to-day Synapse administrative tasks, and focuses on using :ref:`gloss-storm` to carry out those tasks.
-
-Synapse provides a number of additional methods that can be used to perform some or all of the tasks
-described below; these methods are not covered in this guide. These include:
-
-- :ref:`stormtypes-libs-header` that allow you to work with a broad range of objects in Synapse.
-- Synapse tools that can be used from the host CLI (as opposed to the Storm CLI). Tools are available in
-  the `synapse.tools`_ package of the :ref:`apidocs`. The :ref:`userguide` includes documentation on
-  some of these :ref:`userguide_tools`.
-- The :ref:`http-api`.
-
-.. TIP::
-
-  If you are a commercial Synapse user with the Synapse UI (Optic), see the `UI documentation`_ for
-  information on performing these tasks using Optic. Optic simplifies many of Synapse's administrative
-  tasks. However, we encourage you to review the information below for important background and an overview
-  of the relevant topics.
-
-.. _admin_tasks:
-
-Common Admin Tasks
-==================
-
-.. _admin_enable_powerup:
-
-Enable Synapse Power-Ups
-------------------------
-
-The Vertex Project provides a number of Power-Ups that extend the functionality of Synapse. For more
-information on configuring your Cortex to use Rapid Power-Ups, see `the blog post on Synapse Power-Ups`_.
-
-.. _admin_create_users_roles:
-
-Create and Manage Users and Roles
----------------------------------
-
-A :ref:`gloss-user` account is required to authenticate to and access Synapse. Having "a Synapse account" effectively
-means having an account in the Cortex.
-
-In Synapse, a :ref:`gloss-role` can be used to "group" users (users are **granted** specific roles). You can grant
-(or deny) **permissions** to both users and roles by assigning **rules** that specify permissions.
-
-Synapse includes the following built-in users and roles:
-
-- **Root** user. The **root** account has :ref:`admin_bkd_admin` privileges in the Cortex. The **admin**
-  status of the root account cannot be revoked, and the account cannot be locked / disabled.
-- **All** role. The **all** role has **read** access to the Cortex (specifically, to any view with
-  ``worldreadable=true``, which includes the **default** view). All user accounts are automatically granted
-  the **all** role (are part of the **all** "group"); this role cannot be revoked.
-  
-For information on creating and managing users and roles with the commercial Optic UI, see the Synapse
-`UI documentation`_.
-
-.. NOTE::
-  
-  The descriptions and examples below assume that you have deployed Synapse using native Synapse management
-  and authentication of users, roles, and permissions.
-
-
-.. _admin_add_users:
-
-Add Users
-+++++++++
-
-New users can be added from the Storm CLI with the :ref:`storm-auth-user-add` command. Newly created users
-do not have any permissions (other than those associated with the built-in **all** role).
-
-.. NOTE::
-  
-  Depending on how your users will access the Cortex, you may need to take additional steps before those
-  users can log in. For example, if users will access Synapse using the Telepath API and client-side
-  certificates, you will need to follow the steps described in the :ref:`enroll_cli_users` section of the
-  :ref:`deploymentguide`.
-
-**Example:**
-
-Add the user "Ron" with email address ``ronthecat@vertex.link``:
-
-.. storm-cli:: auth.user.add ron --email ronthecat@vertex.link
-
-
-.. TIP::
-  
-  User accounts are represented by a unique 128-bit identifier (iden). You can later change information about
-  the user (such as the username or associated email address) without affecting the underlying account or any
-  associated permissions.
-  
-.. _admin_manage_users:
-
-Manage Users
-++++++++++++
-
-Managing user accounts (aside from assigning rules to specify permissions) consists of actions such as listing
-users, viewing the details for a specific user, resetting the user's password, changing the username,
-associating an email address with the user account, locking (disabling) the account, unlocking the account, or
-deleting the account.
-
-The various Storm ``auth.user.*`` commands can be used to manage user accounts (see :ref:`storm-auth`).
-
-**Examples:**
-
-EXAMPLES GO HERE - COMMANDS ARE WIP
-
-display / update / list / lock / unlock / delete
-
-.. WARNING::
-  
-  We strongly encourage you to **lock/disable** accounts when necessary instead of deleting them. Changes to
-  data in the Cortex (such as creating nodes, setting properties, or adding tags) are associated with the user
-  account that made those changes. Deleting an account associated with past changes will prohibit you from
-  identifying the user who made those changes.
-
-
-.. _admin_add_roles:
-
-Add Roles
-+++++++++
-
-New roles can be added from the Storm CLI with the :ref:`storm-auth-role-add` command.
-
-.. NOTE::
-  
-  Newly created roles do not have any permissions or associated user accounts.
-
-
-**Example:**
-
-Add the new role "cattribution analyst":
-
-.. storm-cli:: auth.role.add "cattribution analyst"
-
-
-.. TIP::
-  
-  Roles are represented by a unique 128-bit identifier (iden). You can later change information about the role
-  (such as the role name) without affecting the underlying role or any associated permissions or users.
-
-.. _admin_manage_roles:
-
-Manage Roles
-++++++++++++
-
-Managing roles (aside from assigning rules to specify permissions to roles, and granting or revoking roles from
-users) consists of actions such as listing roles, viewing the details for a specific role, changing the name of
-a role, or deleting a role.
-
-The various Storm ``auth.role.*`` commands can be used to manage roles (see :ref:`storm-auth`).
-
-**Examples:**
-
-EXAMPLES GO HERE - COMMANDS ARE WIP
-
-display / rename / list / delete
-
-.. NOTE::
-  
-  Deleting a role has no impact on any users who have been granted the role (other than losing any permissions
-  provided by that role). The user accounts remain intact and the role is simply removed from each user's list
-  of roles.
-
-.. _admin_grant_roles:
-
-Grant or Revoke Roles
-+++++++++++++++++++++
-
-**Granting** a role to a user allows the user to inherit the role's permissions. **Revoking** a role removes the
-associated permissions from the user. It is not possible to grant a role to another role (i.e., roles cannot be
-nested).
-
-Roles can be granted or revoked using the ``auth.user.grant`` and ``auth.user.revoke`` commands. (COMMANDS ARE WIP)
-
-**Examples:**
-
-Grant the role "cattribution analyst" to the user "ron":
-
-
-Revoke the role "a-cat-emic researcher" from user "ron":
-
-
-
-.. NOTE::
-  
-  The order in which roles are granted to a user matters; when determining whether a user has permission to
-  perform an action, the permissions for each of the user's roles are checked in sequence.
-  
-  Each role granted to a user is added to the **end** of the set of roles. To "reorder" roles, you must revoke
-  them and grant them in the desired order (unless using the commercial Synapse UI, which allows drag-and-drop
-  reordering). See :ref:`admin_perms_background` for additional detail on permissions and :ref:`admin_bkd_precedence`.
-
-..  _admin_perms_background:
-
-Permissions Background
-----------------------
+Assigning and Managing Permissions
+##################################
 
 Synapse provides a highly flexible system of role-based access control (RBAC). Rules are used to assign
 permissions to users and / or roles, with a defined order of precedence for how permissions are evaluated.
@@ -220,10 +17,16 @@ specific properties, create specific edges, or apply specific tags.
 Before describing how to set and manage permissions, it is helpful to provide some terminology and an overview
 of how permissions are used within Synapse.
 
+
+..  _admin_perms_background:
+
+Permissions Background
+======================
+
 .. _admin_bkd_services:
 
 Services
-++++++++
+--------
 
 Synapse is designed as a modular set of **services.** A service can be thought of as a container used to run an
 application. **Synapse services** make up the core Synapse architecture, and include the :ref:`gloss-cortex`
@@ -244,7 +47,7 @@ From a Synapse Admin perspective, you will primarily be concerned with managing 
 .. _admin_bkd_cortex:
 
 Cortex
-++++++
+------
 
 The **Cortex** is Synapse's primary data store. Users and roles are created and managed in the Cortex, and most
 things for which users will need permissions apply to the Cortex and to the views, layers, and data (nodes, tags,
@@ -253,7 +56,7 @@ etc.) that reside there.
 .. _admin_bkd_authgate:
 
 Auth Gate
-+++++++++
+---------
 
 An **Auth Gate** (or "gate", informally) is an object within a service (such as a Cortex) that may have its own
 set of permissions. A :ref:`gloss-view` and a :ref:`gloss-layer` are both common examples of Auth Gates.
@@ -266,7 +69,7 @@ the underlying iden or associated permissions.
 .. _admin_bkd_scope:
 
 Scope
-+++++
+-----
 
 **Scope** refers to the object to which a particular permission applies. For example, permissions granted on an
 Auth Gate (such as a view) are scoped to (or **local** to) that Auth Gate. Permissions granted at the Cortex level
@@ -277,7 +80,7 @@ Scope affects the order (precedence) in which permissions are evaluated.
 .. _admin_bkd_permission:
 
 Permission
-++++++++++
+----------
 
 A **permission** is a string that is used to control access. For example:
 
@@ -340,7 +143,7 @@ For example:
 .. _admin_bkd_rule:
 
 Rule
-++++
+----
 
 A **rule** is used to grant (or prohibit) a specific permission. Rules are evaluated in a defined order
 of precedence.
@@ -359,7 +162,7 @@ is denied/false:
 .. _admin_bkd_precedence:
 
 Precedence
-++++++++++
+----------
 
 **Rules** in Synapse are evaluated in order of **precedence.** A requested action will be allowed (or
 denied) based on the **first matching rule** found for the action. If no matching rule is found, the
@@ -405,7 +208,7 @@ The same rules in the opposite order will **disallow** the creation of **any** n
 .. _admin_bkd_admin:
 
 Admin
-+++++
+-----
 
 Admin status allows a user to **bypass all permissions checks** for the **scope** where the user is
 admin.
@@ -422,7 +225,7 @@ within that view.
 .. _admin_bkd_easyperms:
 
 Easy Permissions
-++++++++++++++++
+----------------
 
 Easy permissions ("easy perms" for short) is a mechanism that simplifies granting common sets of
 permissions to users or roles for a particular object, such as a macro. Where easy perms are used, you
@@ -445,7 +248,7 @@ Easy perms apply to specific objects. Where easy perms are available, the follow
 .. _admin_bkd_views_layers:
 
 Views and Layers
-++++++++++++++++
+----------------
 
 Data in a Cortex is stored in one or more **layers** (see :ref:`gloss-layer`). The data that a user or
 a role can see is defined by a :ref:`gloss-view` that is composed of one or more ordered layers. (A
@@ -470,7 +273,7 @@ appropriate **layer.**
 .. _admin_assign_perms:
 
 Assign Permissions
-------------------
+==================
 
 You assign (allow or deny) permissions in Synapse by adding rules to (or removing rules from) roles or users.
 Recall that **order matters** when adding rules (see :ref:`admin_bkd_precedence`).
@@ -500,7 +303,7 @@ For information on assigning permissions with the commercial Optic UI, see the S
 .. admin_default_perms:
 
 Default Permissions
-+++++++++++++++++++
+-------------------
 
 Synapse includes the following default permissions:
 
@@ -526,7 +329,7 @@ Synapse assumes an implicit default ``deny all`` as the final rule evaluated whe
 .. admin_global_perms:
 
 Global (Cortex) Permissions
-+++++++++++++++++++++++++++
+---------------------------
 
 Permissions in Synapse can be assigned at the global (Cortex) level, or to a specific Auth Gate (see
 :ref:`admin_authgate_perms`). To assign permissions to an Auth Gate, you must specify its identifier (iden)
@@ -588,7 +391,7 @@ Remove a rule from a role: - COMMAND IS WIP
 .. _admin_authgate_perms:
 
 Auth Gate Permissions
-+++++++++++++++++++++
+---------------------
 
 Assigning permissions to an Auth Gate uses the same Storm commands used to assign global permissions, but
 you must specify the Auth Gate's full identifier (iden) (using the ``--gate`` option) when adding or
@@ -614,7 +417,7 @@ Remove a user-based rule from a specific AuthGate:
 .. _admin_perms_examples:
 
 Permissions Examples
-++++++++++++++++++++
+====================
 
 - Examples of common scenarios/basic configurations
 - basic global user perms
@@ -629,7 +432,7 @@ Permissions Examples
 .. _admin_axon_perms:
 
 Axon Permissions
-++++++++++++++++
+================
 
 You must specifically grant users or roles permission to access (upload, check, or retrieve) files within a
 storage Axon.
@@ -642,7 +445,7 @@ storage Axon.
 .. _admin_optic_perms:
 
 Optic Permissions
-+++++++++++++++++
+=================
 
 Commercial Synapse customers with the Optic UI must grant users or roles permission to access Optic.
 
@@ -653,7 +456,7 @@ Commercial Synapse customers with the Optic UI must grant users or roles permiss
 .. _admin_power_perms:
 
 Power-Up Permissions
-++++++++++++++++++++
+====================
 
 Synapse **Power-Ups** have their own sets of permissions that must be granted to users or roles to allow them
 to use the Power-Up and any associated Storm commands. Specific permissions are documented in the **Admin Guide**
@@ -671,7 +474,7 @@ section of the `Power-Up documentation`_ for the individual Power-Up.
 .. _admin_runtime_perms:
 
 Storm Runtime Permissions
-+++++++++++++++++++++++++
+=========================
 
 When a user runs a Storm query interactively (e.g., in the Storm CLI or via the Optic UI), the query runs
 **with the permissions of the user,** based on the applicable user and role permissions and the current scope
@@ -680,7 +483,7 @@ for the query.
 There are a few cases of Storm runtime execution where permissions may require additional considerations.
 
 Automation
-~~~~~~~~~~
+----------
 
 Synapse includes the ability to automate Storm-based tasks using triggers, cron jobs, and / or macros. These
 elements are all impacted by permissions in various ways, including:
@@ -695,7 +498,7 @@ automation in Synapse (including permissions considerations).
 
 
 Power-Ups
-~~~~~~~~~
+---------
 
 Power-Ups implement Storm packages and Storm services to provide additional functionality to Synapse.
 Power-Ups may be provided by The Vertex Project (as free or commercial offerings). Organizations may also
@@ -720,127 +523,7 @@ See the :ref:`dev_rapid_power_ups` section of the :ref:`devguide` for additional
   Power-Up developers.
 
 
-.. _admin_extend_model:
-
-Add Extended Model Elements
----------------------------
-
-The Synapse data model in a Cortex can be extended with custom forms (see :ref:`gloss-extended-form`)
-and properties (see :ref:`gloss-extended-prop`) by using the model extension Storm Library
-(:ref:`stormlibs-lib-model-ext`). Extended model forms and properties must have names beginning with an
-underscore (``_``) to avoid potential conflicts with built-in model elements.
-
-When adding a form, ``$lib.model.ext.addForm`` takes the following arguments:
-
-``formname``
-    Name of the form, must begin with an underscore (``_``) and contain at least one colon (``:``).
-
-``basetype``
-    The `Synapse data model type`_ for the form.
-
-``typeopts``
-    A dictionary of type specific options.
-
-``typeinfo``
-    A dictionary of info values for the form.
-
-To add a new form named ``_foocorp:name``, which contains string values which will be
-normalized to lowercase, with whitespace stripped from the beginning/end::
-
-    $typeopts = ({'lower': $lib.true, 'strip': $lib.true})
-    $typeinfo = ({'doc': 'Foocorp name.'})
-
-    $lib.model.ext.addForm(_foocorp:name, str, $typeopts, $typeinfo)
-
-If the form is no longer in use and there are no nodes of this form in the Cortex, it can be removed with::
-
-    $lib.model.ext.delForm(_foocorp:name)
-
-When adding properties, ``$lib.model.ext.addFormProp`` takes the following arguments:
-
-``formname``
-    Name of the form to add the property to, may be a built-in or extended model form.
-
-``propname``
-    Relative name of the property, must begin with an underscore (``_``).
-
-``typedef``
-    A tuple of (``type``, ``typeopts``) which defines the type for the property
-
-``propinfo``
-    A dictionary of info values for the property.
-
-To add a property named ``_score`` to the ``_foocorp:name`` form which contains
-int values between 0 and 100::
-
-    $typeopts = ({'min': 0, 'max': 100})
-    $propinfo = ({'doc': 'Score for this name.'})
-
-    $lib.model.ext.addFormProp(_foocorp:name, _score, (int, $typeopts), $propinfo)
-
-To add a property named ``_aliases`` to the ``_foocorp:name`` form which contains a unique array
-of ``ou:name`` values::
-
-    $typeopts = ({'type': 'ou:name', 'uniq': $lib.true})
-    $propinfo = ({'doc': 'Aliases for this name.'})
-
-    $lib.model.ext.addFormProp(_foocorp:name, _aliases, (array, $typeopts), $propinfo)
-
-Properties may also be added to existing forms, for example, to add a property named
-``_classification`` to ``inet:fqdn`` which must contain a string from a predefined set of
-values::
-
-    $typeopts = ({'enums': 'unknown,benign,malicious'})
-    $propinfo = ({'doc': 'Classification for this FQDN.'})
-
-    $lib.model.ext.addFormProp(inet:fqdn, _classification, (str, $typeopts), $propinfo)
-
-
-Similar to ``$lib.model.ext.addFormProp``, ``$lib.model.ext.addUnivProp`` takes the same
-``propname``, ``typedef``, and ``propinfo`` arguments, but applies to all forms.
-
-
-.. _admin_config_mirror:
-
-Configuring a Mirrored Layer
-----------------------------
-
-A Cortex may be configured to mirror a layer from a remote Cortex which will synchronize all edits from the remote layer
-and use write-back support to facilitate edits originating from the downstream layer.  The mirrored layer will be an exact
-copy of the layer on the remote system including all edit history and will only allow changes which are first sent to the
-upstream layer.
-
-When configuring a mirrored layer, you may choose to mirror from a remote layer *or* from the top layer of a remote view.
-If you choose to mirror from the top layer of a remote view, that view will have the opportunity to fire triggers and enforce
-model constraints on the changes being provided by the mirrored layer.
-
-To specify a remote layer as the upstream, use a Telepath URL which includes the shared object ``*/layer/<layeriden>`` such as::
-
-    aha://cortex.loop.vertex.link/*/layer/8ea600d1732f2c4ef593120b3226dea3
-
-To specify a remote view, use the shared object ``*/view/<viewiden>`` such as::
-
-     aha://cortex.loop.vertex.link/*/view/8ea600d1732f2c4ef593120b3226dea3
-
-When you specify a ``--mirror`` option to the ``layer.add`` command or within a layer definition provided to the ``$lib.layer.add()``
-Storm API the telepath URL will not be checked.  This allows configuration of a remote layer or view which is not yet provisioned
-or is currently offline.
-
-.. note::
-
-    To allow write access, the telepath URL must allow admin access to the remote Cortex due to being able to fabricate edit
-    origins. The telepath URL may use aliased names or TLS client side certs to prevent credential disclosure.
-
-Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream layer.  During
-this process, the layer will be readable but writes will hang due to needing to await the write-back to be fully caught up to
-guarantee that edits are immediately observable like a normal layer.  During that process, you may track progress by calling
-the ``getMirrorStatus()`` API on the ``storm:layer`` object within the Storm runtime.
-
-
-.. _synapse.tools: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/synapse.tools.html
 .. _UI documentation: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
-.. _the blog post on Synapse Power-Ups: https://vertex.link/blogs/synapse-power-ups/
-.. _Synapse data model type: autodocs/datamodel_types.html
 .. _Power-Up documentation: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _Rapid Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups/rapid_power_ups.html
 .. _Synapse-MISP: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
