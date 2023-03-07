@@ -2870,7 +2870,7 @@ class BatchCmd(Cmd):
     variable $nodes.
 
     This command also takes a conditional as an argument. If the conditional
-    is evaluates to true, the nodes returned by the batched query will be yielded,
+    evaluates to true, the nodes returned by the batched query will be yielded,
     if it evaluates to false, the inbound nodes will be yielded after executing the
     batched query.
 
