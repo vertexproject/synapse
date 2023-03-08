@@ -36,7 +36,7 @@ Bugfixes
 - Fix an issue where a spawned process returning a non-pickleable exception
   would not be handled properly.
   (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
-- Fix an issue where a locked user could login the a Synapse service on a TLS
+- Fix an issue where a locked user could login to a Synapse service on a TLS
   Telepath connection if the connection presented a trusted client certificate
   for the locked user.
   (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
