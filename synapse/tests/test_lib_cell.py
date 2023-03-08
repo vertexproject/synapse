@@ -167,6 +167,9 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(ratm.get('name'), 'testrole')
                     self.eq(ratm.get('iden'), testrole.iden)
 
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.getUserInfo('newp')
+
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
                     await self.asyncraises(s_exc.AuthDeny, proxy.getUserInfo('root'))
@@ -320,6 +323,11 @@ class CellTest(s_t_utils.SynTest):
                 user = await prox.getCellUser()
                 self.eq('root', user.get('name'))
                 self.true(await prox.isCellActive())
+
+            with self.raises(s_exc.NoSuchUser):
+                url = f'cell://{core.dirn}/?user=newp'
+                async with await s_telepath.openurl(url) as prox:
+                    pass
 
         # Explicit use of the unix:// handler
         async with self.getTestCore() as core:
