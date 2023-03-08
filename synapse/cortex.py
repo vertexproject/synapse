@@ -1314,6 +1314,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def _reqStormMacroPerm(self, user, name, level):
         mdef = self.reqStormMacro(name)
         mesg = f'User requires {s_cell.permnames.get(level)} permission on macro: {name}'
+
+        if level == s_cell.PERM_EDIT and (
+            user.allowed(('storm', 'macro', 'edit')) or
+            user.allowed(('storm', 'macro', 'admin'))):
+            return mdef
+
+        if level == s_cell.PERM_ADMIN and user.allowed(('storm', 'macro', 'admin')):
+            return mdef
+
         self._reqEasyPerm(mdef, user, level, mesg=mesg)
         return mdef
 
