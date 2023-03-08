@@ -272,3 +272,25 @@ class MacroTest(s_test.SynTest):
 
             msgs = await core.stormlist('$lib.macro.grant($aaaa, users, woot, 10)', opts=opts)
             self.stormIsInErr('Macro names may only be up to 491 chars.', msgs)
+
+    async def test_stormlib_macro_globalperms(self):
+
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('macro.set asdf {inet:fqdn}')
+            self.stormHasNoWarnErr(msgs)
+
+            visi = await core.auth.addUser('visi')
+            msgs = await core.stormlist('macro.set asdf {inet:ipv4}', opts={'user': visi.iden})
+            self.stormIsInErr('User requires edit permission on macro: asdf', msgs)
+
+            await visi.addRule((True, ('storm', 'macro', 'edit')))
+            msgs = await core.stormlist('macro.set asdf {inet:ipv4}', opts={'user': visi.iden})
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
+            self.stormIsInErr('User requires admin permission on macro: asdf', msgs)
+
+            await visi.addRule((True, ('storm', 'macro', 'admin')))
+            msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
+            self.stormHasNoWarnErr(msgs)

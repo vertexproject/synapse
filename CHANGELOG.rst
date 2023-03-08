@@ -29,6 +29,10 @@ Bugfixes
 - Fix an issue where exceptions could be raised which contained data that was
   not JSON serializable. ``$lib.raise`` arguments must now also be JSON safe.
   (`#3029 <https://github.com/vertexproject/synapse/pull/3029>`_)
+- Fix an issue where a spawned process returning a non-pickleable exception
+  would not be handled properly.
+  (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
+
 
 v2.123.0 - 2023-02-22
 =====================

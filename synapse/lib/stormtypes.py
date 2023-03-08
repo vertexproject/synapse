@@ -7279,14 +7279,17 @@ class LibUsers(Lib):
             'byname': self._methUsersByName,
         }
 
+    @stormfunc(readonly=True)
     async def _methUsersList(self):
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
+    @stormfunc(readonly=True)
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
+    @stormfunc(readonly=True)
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
         if udef is not None:
@@ -7352,14 +7355,17 @@ class LibRoles(Lib):
             'byname': self._methRolesByName,
         }
 
+    @stormfunc(readonly=True)
     async def _methRolesList(self):
         return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
 
+    @stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
         rdef = await self.runt.snap.core.getRoleDef(iden)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
+    @stormfunc(readonly=True)
     async def _methRolesByName(self, name):
         rdef = await self.runt.snap.core.getRoleDefByName(name)
         if rdef is not None:
@@ -7399,11 +7405,13 @@ class LibGates(Lib):
             'list': self._methGatesList,
         }
 
+    @stormfunc(readonly=True)
     async def _methGatesList(self):
         todo = s_common.todo('getAuthGates')
         gates = await self.runt.coreDynCall(todo)
         return [Gate(self.runt, g) for g in gates]
 
+    @stormfunc(readonly=True)
     async def _methGatesGet(self, iden):
         iden = await toprim(iden)
         todo = s_common.todo('getAuthGate', iden)
