@@ -1534,6 +1534,8 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
+        s_common.reqjsonsafe(info)
+
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
             raise ctor(mesg=mesg, **info)
@@ -3584,8 +3586,8 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64encode(valu).decode('ascii')
             return base64.b64encode(valu).decode('ascii')
         except TypeError as e:
-            mesg = f'Error during base64 encoding - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+            mesg = f'Error during base64 encoding - {str(e)}: {repr(valu)[:256]}'
+            raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
     async def _decode(self, valu, urlsafe=True):
         try:
@@ -3593,8 +3595,8 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
         except binascii.Error as e:
-            mesg = f'Error during base64 decoding - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+            mesg = f'Error during base64 decoding - {str(e)}: {repr(valu)[:256]}'
+            raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
 @functools.total_ordering
 class Prim(StormType):
@@ -3921,7 +3923,7 @@ class Str(Prim):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
@@ -4134,7 +4136,7 @@ class Bytes(Prim):
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -4161,7 +4163,7 @@ class Bytes(Prim):
             return json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
 
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode bytes as json: {e.args[0]}'
@@ -9063,7 +9065,13 @@ async def toiter(valu, noneok=False):
             yield item
         return
 
-    for item in valu:
+    try:
+        genr = iter(valu)
+    except TypeError as e:
+        mesg = f'Value is not iterable: {valu!r}'
+        raise s_exc.StormRuntimeError(mesg=mesg) from e
+
+    for item in genr:
         yield item
 
 async def torepr(valu, usestr=False):

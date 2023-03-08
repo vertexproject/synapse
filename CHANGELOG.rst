@@ -30,6 +30,9 @@ Bugfixes
 - Fix an issue in the Storm grammar where part of a query could potentially
   be incorrectly parsed as an unquoted case statement.
   (`#3032 <https://github.com/vertexproject/synapse/pull/3032>`_)
+- Fix an issue where exceptions could be raised which contained data that was
+  not JSON serializable. ``$lib.raise`` arguments must now also be JSON safe.
+  (`#3029 <https://github.com/vertexproject/synapse/pull/3029>`_)
 - Fix an issue where a spawned process returning a non-pickleable exception
   would not be handled properly.
   (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
@@ -37,6 +40,7 @@ Bugfixes
   Telepath connection if the connection presented a trusted client certificate
   for the locked user.
   (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+
 
 v2.123.0 - 2023-02-22
 =====================

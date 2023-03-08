@@ -943,12 +943,13 @@ def deprecated(name, curv='2.x', eolv='3.0.0'):
 
 def reqjsonsafe(item):
     '''
-    Returns None if item is json serializable, otherwise raises an exception
+    Returns None if item is json serializable, otherwise raises an exception.
+    Uses default type coercion from built-in json.dumps.
     '''
     try:
         json.dumps(item)
     except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg={str(e)}) from None
+        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
 
 def jsonsafe_nodeedits(nodeedits):
     '''
@@ -973,7 +974,7 @@ def unjsonsafe_nodeedits(nodeedits):
 
     return retn
 
-def reqJsonSafe(item):
+def reqJsonSafeStrict(item):
     '''
     Require the item to be safe to serialize to JSON without type coercion issues.
 
@@ -992,13 +993,13 @@ def reqJsonSafe(item):
         return
     if isinstance(item, (list, tuple)):
         for valu in item:
-            reqJsonSafe(valu)
+            reqJsonSafeStrict(valu)
         return
     if isinstance(item, dict):
         for key, valu in item.items():
             if not isinstance(key, str):
                 raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
-            reqJsonSafe(valu)
+            reqJsonSafeStrict(valu)
         return
     raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
 

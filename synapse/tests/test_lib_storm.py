@@ -430,7 +430,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormNotInPrint('caught bar', msgs)
             self.stormNotInPrint('fin', msgs)
 
-            # The items in the catch list must be a a str or list of iterables.
+            # The items in the catch list must be a str or list of iterables.
             # Anything else raises a Storm runtime error
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('''
@@ -459,6 +459,10 @@ class StormTest(s_t_utils.SynTest):
             }
             ''')
             self.stormIsInPrint('caught err=', msgs)
+
+            # info must be json safe
+            with self.raises(s_exc.MustBeJsonSafe):
+                await core.callStorm('$x="foo" $x=$x.encode() $lib.raise(foo, test, bar=$x)')
 
     async def test_storm_ifcond_fix(self):
 
