@@ -36,7 +36,7 @@ Features and Enhancements
 - Add global permissions, ```storm.macro.admin`` and ``storm.macro.edit``, to
   allow users to administer or edit macros.
   (`#3037 <https://github.com/vertexproject/synapse/pull/3037>`_)
-- Marth the following Storm APIs as safe to execute in read-only queries:
+- Mark the following Storm APIs as safe to execute in read-only queries:
   ``$lib.auth.users.get()``, ``$lib.auth.users.list()``,
   ``$lib.auth.users.byname()``, ``$lib.auth.roles.get()``,
   ``$lib.auth.roles.list()``, ``$lib.auth.roles.byname()``,
