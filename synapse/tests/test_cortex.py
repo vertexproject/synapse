@@ -3238,6 +3238,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormVarListError):
                 await core.nodes(text, opts)
 
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
     async def test_storm_contbreak(self):
 
         async with self.getTestCore() as core:
