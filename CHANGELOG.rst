@@ -46,6 +46,9 @@ Features and Enhancements
   ``$lib.auth.roles.list()``, ``$lib.auth.roles.byname()``,
   ``$lib.auth.gates.get()`` and ``$lib.auth.gates.list()``.
   (`#3038 <https://github.com/vertexproject/synapse/pull/3038>`_)
+- Added ``uplink`` key to ``getCellInfo()``, which indicates whether
+  the Cell is currently connected to an upstream mirror.
+  (`#3041 <https://github.com/vertexproject/synapse/pull/3041>`_)
 
 Bugfixes
 --------
