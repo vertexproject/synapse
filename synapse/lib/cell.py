@@ -3135,7 +3135,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_common.genfile(tarpath) as fd:
-                async with aiohttp.client.ClientSession() as sess:
+                timeout = aiohttp.client.ClientTimeout()  # Disable timeouts when pulling the data down.
+                async with aiohttp.client.ClientSession(timeout=timeout) as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
 

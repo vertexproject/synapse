@@ -32,7 +32,9 @@ Bugfixes
 - Fix an issue where a spawned process returning a non-pickleable exception
   would not be handled properly.
   (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
-
+- Default timeout values of 5 minutes could cause restoring a service via the
+  ``SYN_RESTORE_HTTPS_URL`` environment variable to timeout. These timeouts
+  have been disabled.
 
 v2.123.0 - 2023-02-22
 =====================
