@@ -66,7 +66,8 @@ Bugfixes
   when the context manager was exited.
   (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
 - Restoring a service via the ``SYN_RESTORE_HTTPS_URL`` environment variable
-  could timeout when downloading the file. These timeouts have been disabled.
+  could timeout when downloading the file. The total timeout for this process
+  has been disabled.
   (`#3042 <https://github.com/vertexproject/synapse/pull/3042>`_)
 
 Improved Documentation

@@ -3154,7 +3154,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_common.genfile(tarpath) as fd:
-                timeout = aiohttp.client.ClientTimeout()  # Disable timeouts when pulling the data down.
+                # Leave a 60 second timeout check for the connection.
+                # Leave 300 second timeouts for other values.
+                timeout = aiohttp.client.ClientTimeout(
+                    total=None,
+                    connect=60,
+                    sock_read=60 * 5,
+                    sock_connect=60 * 5
+                )
                 async with aiohttp.client.ClientSession(timeout=timeout) as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
