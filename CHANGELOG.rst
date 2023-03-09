@@ -20,6 +20,32 @@ Features and Enhancements
   storage for both size and performance. May also be set by environment
   variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
   (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+- Ensure that ``AuthDeny`` exceptions include the user iden in the ``user``
+  key, and the name in the ``username`` field. Previously the ``AuthDeny``
+  exceptions had multiple identifiers for these fields.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+- Add an optional ``--view`` argument to the ``synapse.tools.storm`` CLI
+  tool. This allows a user to specify their working View for the Storm CLI.
+  This was contributed by captainGeech42.
+  (`#2937 <https://github.com/vertexproject/synapse/pull/2937>`_)
+- Updates to ``synapse.lib.scope`` and the ``Scope`` class. A ``Scope.copy()``
+  method has been added to create a shallow copy of a ``Scope``. A module
+  level ``clone(task)`` function has been added which clones the current task
+  scope to the target ``task``.  Async Tasks created with ``Base.schedCoro()``
+  calls now get a shallow copy of the parent task scope.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
+- Add a new Storm command, ``batch``, to assist in processing nodes in batched
+  sets.
+  (`#3034 <https://github.com/vertexproject/synapse/pull/3034>`_)
+- Add global permissions, ```storm.macro.admin`` and ``storm.macro.edit``, to
+  allow users to administer or edit macros.
+  (`#3037 <https://github.com/vertexproject/synapse/pull/3037>`_)
+- Mark the following Storm APIs as safe to execute in read-only queries:
+  ``$lib.auth.users.get()``, ``$lib.auth.users.list()``,
+  ``$lib.auth.users.byname()``, ``$lib.auth.roles.get()``,
+  ``$lib.auth.roles.list()``, ``$lib.auth.roles.byname()``,
+  ``$lib.auth.gates.get()`` and ``$lib.auth.gates.list()``.
+  (`#3038 <https://github.com/vertexproject/synapse/pull/3038>`_)
 - Added ``uplink`` key to ``getCellInfo()``, which indicates whether
   the Cell is currently connected to an upstream mirror.
   (`#3041 <https://github.com/vertexproject/synapse/pull/3041>`_)
@@ -35,7 +61,26 @@ Bugfixes
 - Fix an issue where a spawned process returning a non-pickleable exception
   would not be handled properly.
   (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
+- Fix an issue where a locked user could login to a Synapse service on a TLS
+  Telepath connection if the connection presented a trusted client certificate
+  for the locked user.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+- Fix a bug in ``Scope.enter()`` where the added scope frame was not removed
+  when the context manager was exited.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
 
+Improved Documentation
+----------------------
+- Update the Synapse glossary to add terms related to the permissions system.
+  (`#3031 <https://github.com/vertexproject/synapse/pull/3031>`_)
+- Update the model docstrings for the ``risk`` model.
+  (`#3027 <https://github.com/vertexproject/synapse/pull/3027>`_)
+
+Deprecations
+------------
+- The ``ctor`` support in ``Scope`` has been removed. The population of the
+  global default scope with environment variables has been removed.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
 
 v2.123.0 - 2023-02-22
 =====================

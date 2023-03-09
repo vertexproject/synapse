@@ -213,6 +213,8 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.get(foo))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.has(foo))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.set(foo, bar))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.del(foo))', opts=asvisi)
