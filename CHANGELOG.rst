@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-NEXTVERS - 2023-XX-YY
+v2.124.0 - 2023-03-09
 =====================
 
 Features and Enhancements
