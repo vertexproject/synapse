@@ -1908,3 +1908,11 @@ class CellTest(s_t_utils.SynTest):
 
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
+
+    async def test_cell_gc(self):
+        async with self.getTestCore() as core:
+            async with core.getLocalProxy() as proxy:
+                self.nn(await proxy.runGcCollect())
+                info = await proxy.getGcInfo()
+                self.nn(info['stats'])
+                self.nn(info['threshold'])

@@ -1,3 +1,4 @@
+import gc
 import os
 import copy
 import time
@@ -784,6 +785,27 @@ class CellApi(s_base.Base):
     async def getDiagInfo(self):
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
+        }
+
+    @adminapi()
+    async def runGcCollect(self, generation=2):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return gc.collect(generation=generation)
+
+    @adminapi()
+    async def getGcInfo(self):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return {
+            'stats': gc.get_stats(),
+            'threshold': gc.get_threshold(),
         }
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
