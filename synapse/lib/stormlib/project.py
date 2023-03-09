@@ -437,7 +437,7 @@ class ProjectTicket(s_stormtypes.Prim):
         udef = await self.proj.runt.snap.core.getUserDefByName(strvalu)
         if udef is None:
             mesg = f'No user found by the name {strvalu}'
-            raise s_exc.NoSuchUser(mesg=mesg)
+            raise s_exc.NoSuchUser(mesg=mesg, username=strvalu)
         await self.node.set('assignee', udef['iden'])
         await self.node.set('updated', s_common.now())
 
