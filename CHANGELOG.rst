@@ -20,6 +20,10 @@ Features and Enhancements
   storage for both size and performance. May also be set by environment
   variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
   (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+- Ensure that ``AuthDeny`` exceptions include the user iden in the ``user``
+  key, and the name in the ``username`` field. Previously the ``AuthDeny``
+  exceptions had multiple identifiers for these fields.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
 
 Bugfixes
 --------
@@ -32,6 +36,10 @@ Bugfixes
 - Fix an issue where a spawned process returning a non-pickleable exception
   would not be handled properly.
   (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
+- Fix an issue where a locked user could login to a Synapse service on a TLS
+  Telepath connection if the connection presented a trusted client certificate
+  for the locked user.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
 
 
 v2.123.0 - 2023-02-22

@@ -167,6 +167,9 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(ratm.get('name'), 'testrole')
                     self.eq(ratm.get('iden'), testrole.iden)
 
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.getUserInfo('newp')
+
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
                     await self.asyncraises(s_exc.AuthDeny, proxy.getUserInfo('root'))
@@ -321,6 +324,11 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('root', user.get('name'))
                 self.true(await prox.isCellActive())
 
+            with self.raises(s_exc.NoSuchUser):
+                url = f'cell://{core.dirn}/?user=newp'
+                async with await s_telepath.openurl(url) as prox:
+                    pass
+
         # Explicit use of the unix:// handler
         async with self.getTestCore() as core:
             dirn = core.dirn
@@ -432,8 +440,9 @@ class CellTest(s_t_utils.SynTest):
                     await prox.setCellUser(s_common.guid())
 
                 visi = await prox.addUser('visi')
+                visiiden = visi.get('iden')
 
-                self.true(await prox.setCellUser(visi['iden']))
+                self.true(await prox.setCellUser(visiiden))
                 self.eq('visi', (await prox.getCellUser())['name'])
 
                 # setCellUser propagates his change to the Daemon Sess object.
@@ -444,6 +453,12 @@ class CellTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await prox.setCellUser(s_common.guid())
+
+            # Cannot change to a locked user
+            await cell.setUserLocked(visiiden, True)
+            async with cell.getLocalProxy() as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.setCellUser(visiiden)
 
     async def test_cell_hiveboot(self):
 
@@ -1106,7 +1121,19 @@ class CellTest(s_t_utils.SynTest):
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
-                self.eq(cm.exception.get('user'), 'newp@localhost')
+                self.eq(cm.exception.get('username'), 'newp@localhost')
+
+                # add newp
+                unfo = await cryo.addUser('newp@localhost')
+                async with await s_telepath.openurl(f'ssl://newp@127.0.0.1:{port}?hostname=localhost') as proxy:
+                    self.eq(cryo.iden, await proxy.getCellIden())
+
+                # Lock newp
+                await cryo.setUserLocked(unfo.get('iden'), True)
+                with self.raises(s_exc.AuthDeny) as cm:
+                    url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
+                    async with await s_telepath.openurl(url) as proxy:
+                        pass
 
     async def test_cell_auth_ctor(self):
         conf = {
