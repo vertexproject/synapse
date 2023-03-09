@@ -20,6 +20,9 @@ Features and Enhancements
   storage for both size and performance. May also be set by environment
   variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
   (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+- Added ``uplink`` key to ``getCellInfo()``, which indicates whether
+  the Cell is currently connected to an upstream mirror.
+  (`#3041 <https://github.com/vertexproject/synapse/pull/3041>`_)
 
 Bugfixes
 --------
