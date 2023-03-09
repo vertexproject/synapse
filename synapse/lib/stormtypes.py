@@ -1358,7 +1358,7 @@ class LibBase(Lib):
             if not asroot:
                 permtext = ' or '.join(('.'.join(p) for p in rootperms))
                 mesg = f'Module ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
@@ -1366,7 +1366,7 @@ class LibBase(Lib):
 
             if mdef.get('asroot', False) and not asroot:
                 mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1994,7 +1994,7 @@ class LibAxon(Lib):
         self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         url = await tostr(url)
         method = await tostr(method)
@@ -2028,7 +2028,7 @@ class LibAxon(Lib):
         self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -6282,7 +6282,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layr.addPull() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
@@ -6307,7 +6307,7 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layr.delPull() requires admin privs on the top layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         todo = s_common.todo('delLayrPull', layriden, iden)
         await self.runt.dyncall('cortex', todo)
@@ -6321,7 +6321,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layer.addPush() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
@@ -6346,7 +6346,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layer.delPush() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         todo = s_common.todo('delLayrPush', layriden, iden)
         await self.runt.dyncall('cortex', todo)
@@ -6802,8 +6802,8 @@ class View(Prim):
                 self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
 
             if not self.runt.isAdmin(gateiden=view.iden):
-                mesg = 'You must be an admin of the view to set the layers.'
-                raise s_exc.AuthDeny(mesg=mesg)
+                mesg = 'User must be an admin of the view to set the layers.'
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
             await view.setLayers(layers)
             self.valu['layers'] = layers
@@ -7521,7 +7521,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.has() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         if isinstance(path, str):
@@ -7534,7 +7534,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.get() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         prop = await toprim(prop)
@@ -7553,7 +7553,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.set() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         valu = await toprim(valu)
@@ -7574,7 +7574,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.del() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         prop = await toprim(prop)
@@ -7594,7 +7594,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.iter() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
 
@@ -7611,7 +7611,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheget() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         key = await toprim(key)
         path = await toprim(path)
@@ -7640,7 +7640,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheset() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         key = await toprim(key)
         path = await toprim(path)
@@ -8050,7 +8050,7 @@ class User(Prim):
         mesgdata = await toprim(mesgdata)
         if not self.runt.isAdmin():
             mesg = '$user.notify() method requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _storUserName(self, name):

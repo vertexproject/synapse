@@ -419,7 +419,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
         # passwd None always fails...
         passwd = info.get('passwd')
         if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', user=user.iden, username=user.name)
 
         return await HiveApi.anit(self, user)
 
