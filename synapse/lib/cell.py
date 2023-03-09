@@ -3702,6 +3702,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
+                'uplink': self.nexsroot.miruplink.is_set(),
             },
             'features': {
                 'tellready': True,
