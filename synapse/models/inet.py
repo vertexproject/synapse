@@ -330,6 +330,44 @@ class Fqdn(s_types.Type):
             except UnicodeError:
                 return valu
 
+class HttpCookie(s_types.Str):
+
+    def _normPyStr(self, text):
+
+        text = text.strip()
+        parts = text.split('=', 1)
+
+        name = parts[0].split(';', 1)[0].strip()
+        if len(parts) == 1:
+            return text, {'subs': {'name': name}}
+
+        valu = parts[1].split(';', 1)[0].strip()
+        return text, {'subs': {'name': name, 'value': valu}}
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+            cookies = valu.split(';')
+            for cookie in [c.strip() for c in cookies]:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        if isinstance(valu, (list, tuple)):
+
+            for cookie in valu:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        yield valu
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -641,8 +679,8 @@ class IPv6Range(s_types.Range):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}: {repr(valu)[:256]}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
@@ -1052,6 +1090,11 @@ class InetModule(s_module.CoreModule):
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
 
+                    ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
+                        'doc': 'An individual HTTP cookie string.',
+                        'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
+                    }),
+
                 ),
 
                 'edges': (
@@ -1098,9 +1141,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
-
-                    ('inet:http:cookie', ('str', {}), {
-                        'doc': 'An HTTP cookie string.'}),
 
                     ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -1688,6 +1728,24 @@ class InetModule(s_module.CoreModule):
                         ('sandbox:file', ('file:bytes', {}), {
                             'doc': 'The initial sample given to a sandbox environment to analyze.'
                         }),
+
+                        ('src:ssl:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'}),
+
+                        ('dst:ssl:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the server as part of an SSL/TLS negotiation.'}),
+
+                        ('src:rdp:hostname', ('it:hostname', {}), {
+                            'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
+
+                        ('src:rdp:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
+
+                        ('src:ssh:key', ('crypto:key', {}), {
+                            'doc': 'The key sent by the client as part of an SSH session setup.'}),
+
+                        ('dst:ssh:key', ('crypto:key', {}), {
+                            'doc': 'The key sent by the server as part of an SSH session setup.'}),
                     )),
 
                     ('inet:tunnel:type:taxonomy', {}, ()),
@@ -1756,7 +1814,12 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-                    ('inet:http:cookie', {}, ()),
+                    ('inet:http:cookie', {}, (
+                        ('name', ('str', {}), {
+                            'doc': 'The name of the cookie preceding the equal sign.'}),
+                        ('value', ('str', {}), {
+                            'doc': 'The value of the cookie after the equal sign if present.'}),
+                    )),
 
                     ('inet:http:request', {}, (
 
@@ -1779,6 +1842,9 @@ class InetModule(s_module.CoreModule):
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
+                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
+
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
@@ -1792,6 +1858,8 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:session', {}, (
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The ps:contact which owns the session.'}),
+                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of cookies used to identify this specific session.'}),
                     )),
 
                     ('inet:iface', {}, (

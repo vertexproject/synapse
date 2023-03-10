@@ -4,17 +4,169 @@
 Synapse Changelog
 *****************
 
-NEXTVERS - YYYY-MM-DD
+v2.124.0 - 2023-03-09
+=====================
+
+Features and Enhancements
+-------------------------
+- Added ``--try`` option to ``gen.risk.vuln``, ``gen.pol.country``,
+  ``gen.pol.country.government``, and ``gen.ps.contact.email`` commands
+  and their associated Storm functions.
+  (`#3030 <https://github.com/vertexproject/synapse/pull/3030>`_)
+- Added ``$lib.gen.orgHqByName`` and ``$lib.gen.langByName``.
+  (`#3030 <https://github.com/vertexproject/synapse/pull/3030>`_)
+- Added the configuration option ``onboot:optimize`` to all services
+  to allow devops to delay service startup and allow LMDB to optimize
+  storage for both size and performance. May also be set by environment
+  variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
+  (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+- Ensure that ``AuthDeny`` exceptions include the user iden in the ``user``
+  key, and the name in the ``username`` field. Previously the ``AuthDeny``
+  exceptions had multiple identifiers for these fields.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+- Add an optional ``--view`` argument to the ``synapse.tools.storm`` CLI
+  tool. This allows a user to specify their working View for the Storm CLI.
+  This was contributed by captainGeech42.
+  (`#2937 <https://github.com/vertexproject/synapse/pull/2937>`_)
+- Updates to ``synapse.lib.scope`` and the ``Scope`` class. A ``Scope.copy()``
+  method has been added to create a shallow copy of a ``Scope``. A module
+  level ``clone(task)`` function has been added which clones the current task
+  scope to the target ``task``.  Async Tasks created with ``Base.schedCoro()``
+  calls now get a shallow copy of the parent task scope.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
+- Add a new Storm command, ``batch``, to assist in processing nodes in batched
+  sets.
+  (`#3034 <https://github.com/vertexproject/synapse/pull/3034>`_)
+- Add global permissions, ```storm.macro.admin`` and ``storm.macro.edit``, to
+  allow users to administer or edit macros.
+  (`#3037 <https://github.com/vertexproject/synapse/pull/3037>`_)
+- Mark the following Storm APIs as safe to execute in read-only queries:
+  ``$lib.auth.users.get()``, ``$lib.auth.users.list()``,
+  ``$lib.auth.users.byname()``, ``$lib.auth.roles.get()``,
+  ``$lib.auth.roles.list()``, ``$lib.auth.roles.byname()``,
+  ``$lib.auth.gates.get()`` and ``$lib.auth.gates.list()``.
+  (`#3038 <https://github.com/vertexproject/synapse/pull/3038>`_)
+- Added ``uplink`` key to ``getCellInfo()``, which indicates whether
+  the Cell is currently connected to an upstream mirror.
+  (`#3041 <https://github.com/vertexproject/synapse/pull/3041>`_)
+
+Bugfixes
+--------
+- Fix an issue in the Storm grammar where part of a query could potentially
+  be incorrectly parsed as an unquoted case statement.
+  (`#3032 <https://github.com/vertexproject/synapse/pull/3032>`_)
+- Fix an issue where exceptions could be raised which contained data that was
+  not JSON serializable. ``$lib.raise`` arguments must now also be JSON safe.
+  (`#3029 <https://github.com/vertexproject/synapse/pull/3029>`_)
+- Fix an issue where a spawned process returning a non-pickleable exception
+  would not be handled properly.
+  (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
+- Fix an issue where a locked user could login to a Synapse service on a TLS
+  Telepath connection if the connection presented a trusted client certificate
+  for the locked user.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+- Fix a bug in ``Scope.enter()`` where the added scope frame was not removed
+  when the context manager was exited.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
+- Restoring a service via the ``SYN_RESTORE_HTTPS_URL`` environment variable
+  could timeout when downloading the file. The total timeout for this process
+  has been disabled.
+  (`#3042 <https://github.com/vertexproject/synapse/pull/3042>`_)
+
+Improved Documentation
+----------------------
+- Update the Synapse glossary to add terms related to the permissions system.
+  (`#3031 <https://github.com/vertexproject/synapse/pull/3031>`_)
+- Update the model docstrings for the ``risk`` model.
+  (`#3027 <https://github.com/vertexproject/synapse/pull/3027>`_)
+
+Deprecations
+------------
+- The ``ctor`` support in ``Scope`` has been removed. The population of the
+  global default scope with environment variables has been removed.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
+
+v2.123.0 - 2023-02-22
 =====================
 
 Automatic Migrations
 --------------------
 - If the ``risk:vuln:cvss:av`` property equals ``V`` it is migrated to ``P``.
   (`#3013 <https://github.com/vertexproject/synapse/pull/3013>`_)
+- Parse ``inet:http:cookie`` nodes to populate the newly added
+  ``:name`` and ``:value`` properties.
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
 - See :ref:`datamigration` for more information about automatic migrations.
 
 Features and Enhancements
 -------------------------
+- Added the ``belief`` model which includes the following new forms:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``belief:system``
+    A belief system such as an ideology, philosophy, or religion.
+
+  ``belief:tenet``
+    A concrete tenet potentially shared by multiple belief systems.
+
+  ``belief:subscriber``
+    A contact which subscribes to a belief system.
+
+  ``belief:system:type:taxonomy``
+    A hierarchical taxonomy of belief system types.
+
+- Added declaration for ``risk:compromise -(uses)> ou:technique``
+  light-weight edges.
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+- Updated ``inet:http:session`` and ``inet:http:request`` forms to
+  include the following property:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``:cookies``
+    An array of ``inet:http:cookie`` values associated with the node.
+
+- Updated the ``inet:http:cookie`` form to include the following properties:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``name``
+    The name of the cookie preceding the equal sign.
+
+  ``value``
+    The value of the cookie after the equal sign if present.
+
+- Added logic to allow constructing multiple ``inet:http:cookie``
+  nodes by automatically splitting on ``;`` such as ``foo=bar; baz=faz``
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+- Updated ``it:log:event`` to add the following properties:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``type``
+    An ``it:log:event:type:taxonomy`` type for the log entry.
+
+  ``ext:id``
+    An external ID that uniquely identifies this log entry.
+
+  ``product``
+    An ``it:prod:softver`` of the product which produced the log entry.
+
+- Updated the ``risk:compromise`` form to include the following properties:
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
+  ``goal``
+    An ``ou:goal`` node representing the assessed primary goal of the
+    compromise.
+
+  ``goals``
+    An array of ``ou:goal`` nodes representing additional goals of the
+    compromise.
+
+- Updated ``risk:attack`` and ``risk:compromise`` forms to deprecate the
+  ``techniques`` property in favor of using ``-(uses)> ou:technique``
+  light-weight edges.
+  (`#3015 <https://github.com/vertexproject/synapse/pull/3015>`_)
+
 - Updates to the ``inet:dns``, and ``media`` models.
   (`#3005 <https://github.com/vertexproject/synapse/pull/3005>`_)
   (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
@@ -25,6 +177,27 @@ Features and Enhancements
 
   ``media:news``
     Add an ``updated`` property to record last time the news item was updated.
+
+- Updated ``inet:flow`` to include the following properties:
+  (`#3017 <https://github.com/vertexproject/synapse/pull/3017>`_)
+
+  ``src:ssh:key``
+    The key sent by the client as part of an SSH session setup.
+
+  ``dst:ssh:key``
+    The key sent by the server as part of an SSH session setup.
+
+  ``src:ssl:cert``
+    The x509 certificate sent by the client as part of an SSL/TLS negotiation.
+
+  ``dst:ssl:cert``
+    The x509 certificate sent by the server as part of an SSL/TLS negotiation.
+
+  ``src:rdp:hostname``
+    The hostname sent by the client as part of an RDP session setup.
+
+  ``src:rdp:keyboard:layout``
+    The keyboard layout sent by the client as part of an RDP session setup.
 
 - Add ``synapse.utils.stormcov``, a Coverage.py plugin for measuring code
   coverage of Storm files.
@@ -72,6 +245,13 @@ Features and Enhancements
   was created. The ``_web_user`` value, which previously pointed to a heavy
   HiveUser object, is no longer populated by default.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
+- Add ``$lib.inet.http.codereason`` Storm API for translating HTTP status
+  codes to reason phrases. ``storm:http:resp`` objects now also have a
+  ``reason`` value populated.
+  (`#3023 <https://github.com/vertexproject/synapse/pull/3023>`_)
+- Update the minimum version of the ``cryptography`` library to ``39.0.1`` and
+  the minimum version of the ``pyopenssl`` library to ``23.0.0``.
+  (`#3022 <https://github.com/vertexproject/synapse/pull/3022>`_)
 
 Bugfixes
 --------
