@@ -179,9 +179,16 @@ def _exectodo(que, todo, logconf):
     try:
         ret = func(*args, **kwargs)
         que.put(ret)
-    except Exception as e:
+    except s_exc.SynErr as e:
         logger.exception(f'Error executing spawn function {func}')
         que.put(e)
+    except Exception as e:
+        # exceptions could be non-pickleable so wrap in SynErr
+        logger.exception(f'Error executing spawn function {func}')
+        name, info = s_common.err(e)
+        mesg = f'Error executing spawn function: {name}: {info.get("mesg")}'
+        exc = s_exc.SynErr(mesg=mesg, name=name, info=info)
+        que.put(exc)
 
 async def spawn(todo, timeout=None, ctx=None, log_conf=None):
     '''

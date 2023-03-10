@@ -9,6 +9,7 @@ import synapse.exc as s_exc
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.scope as s_scope
 
 import synapse.tests.utils as s_t_utils
 
@@ -487,3 +488,56 @@ class BaseTest(s_t_utils.SynTest):
             self.true(await s_coro.event_wait(event, 3.0))
 
         await self.asyncraises(asyncio.CancelledError, task)
+
+    async def test_lib_base_scope(self):
+
+        # Simple test with a single scope stack.
+
+        data = {}
+
+        async def func1(key):
+            valu = s_scope.get(key, defval=None)
+            data[key] = valu
+            # Get / set in our scope works fine
+            s_scope.set('hehe', 'newp')
+            self.eq(s_scope.get('hehe'), 'newp')
+
+        async with await s_base.Base.anit() as base:
+            vals = {'foo': 'bar'}
+            with s_scope.enter(vals=vals):  # Ensure we have a known value in the scope
+                task = base.schedCoro(func1('foo'))
+                await task
+
+        # The scoped data was accessible in the task
+        self.eq(data.get('foo'), 'bar')
+
+        # The scope data set in the task is not present outside of it.
+        self.none(s_scope.get('hehe'))
+
+        # Nested scopes across multiple tasks
+        data = {}
+
+        async def func2(key):
+            valu = s_scope.get(key, defval=None)
+            data[key] = valu
+            # Get / set in our scope works fine
+            s_scope.set('hehe', 'newp')
+            self.eq(s_scope.get('hehe'), 'newp')
+
+        async def func3(bobj, key, valu):
+            s_scope.set(key, valu)
+            task = bobj.schedCoro(func2(key))
+            await task
+            self.none(s_scope.get('hehe'))
+
+        async with await s_base.Base.anit() as base:
+            vals = {'foo': 'bar'}
+            with s_scope.enter(vals=vals):  # Ensure we have a known value in the scope
+                task = base.schedCoro(func3(base, 'beep', 'boop'))
+                await task
+
+        # The scoped data was accessible in the task
+        self.eq(data.get('beep'), 'boop')
+
+        # The scope data set in the task is not present outside of it.
+        self.none(s_scope.get('hehe'))

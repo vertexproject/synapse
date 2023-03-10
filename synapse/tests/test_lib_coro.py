@@ -26,6 +26,13 @@ def spawnexit():
 def chkpool():
     return s_coro.forkpool is None
 
+def synerr():
+    raise s_exc.SynErr(mesg='fail')
+
+def nopickle():
+    class Bar: pass
+    return Bar()
+
 class CoroTest(s_t_utils.SynTest):
 
     async def test_coro_event(self):
@@ -101,12 +108,27 @@ class CoroTest(s_t_utils.SynTest):
             await s_coro.spawn(todo, timeout=0.1)
 
         todo = (spawnfakeit, (), {})
-        with self.raises(FakeError):
+        with self.raises(s_exc.SynErr) as cm:
             await s_coro.spawn(todo)
+        self.eq('FakeError', cm.exception.get('name'))
+        self.isin('Error executing spawn function: FakeError', cm.exception.get('mesg'))
 
         todo = (spawnexit, (), {})
         with self.raises(s_exc.SpawnExit):
             await s_coro.spawn(todo)
+
+        todo = (synerr, (), {})
+        with self.raises(s_exc.SynErr) as cm:
+            await s_coro.spawn(todo)
+        self.eq('fail', cm.exception.get('mesg'))
+
+        # by convention spawn functions should
+        # never return non-pickleable results
+        todo = (nopickle, (), {})
+        with self.raises(s_exc.SpawnExit) as cm:
+            await s_coro.spawn(todo)
+        self.eq(0, cm.exception.get('code'))
+        self.isin('without a result', cm.exception.get('mesg'))
 
     async def test_lib_coro_forked(self):
 
