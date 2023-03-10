@@ -971,6 +971,13 @@ Words about Cortex. create the aha link. inline example.
 CLI Example
 +++++++++++
 
+Example for UI?
+
+Optic
++++++
+
+Service for Optic
+
 Node-port for local resolution?
 +++++++++++++++++++++++++++++++
 
@@ -983,12 +990,16 @@ application load balancer in practice.
 
 .. _orch-kubernetes-sysctl:
 
-Sysctl Setting in Kubernetes
-----------------------------
+Performance Tuning in Kubernetes
+--------------------------------
 
 It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
-the underlying hosts. In that scenario, apply the REFERENCE_SYSCTL_VALUES may be difficult. The following example shows
-a daemonset which can be
+the underlying hosts. In that scenario, applying the system configurations detailed in :ref:`devops-task-performance`
+may be difficult. The following example shows a DaemonSet which can be applied to set the ``sysctl`` values. You may
+need to modify this to meet any requirements which are specific to your deployment.
+
+.. literalinclude:: ./kubernetes/sysctl_daemonset.yaml
+    :language: yaml
 
 .. _orch-kubernetes-helm:
 

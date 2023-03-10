@@ -1,0 +1,29 @@
+apiVersion: "apps/v1"
+kind: "DaemonSet"
+metadata:
+  name: "setsysctl"
+  namespace: "kube-system"
+spec:
+  selector:
+    matchLabels:
+      app: setsysctl
+  template:
+    metadata:
+      labels:
+        app: "setsysctl"
+    spec:
+      containers:
+      - name: "apply-sysctl"
+        image: "busybox:glibc"  # Latest glibc based busybox
+        securityContext:
+          privileged: true
+        command:
+        - "/bin/sh"
+        - "-c"
+        - |
+          set -o errexit
+          set -o xtrace
+          while sysctl -w vm.swappiness=10 vm.dirty_expire_centisecs=20 vm.dirty_writeback_centisecs=20 vm.dirty_background_ratio=2 vm.dirty_ratio=4
+          do
+            sleep 600s
+          done
