@@ -73,7 +73,6 @@ class StormLibStixTest(s_test.SynTest):
                 'prodsoft': 'a120b6d58329662bc5cabec03ef72ffa',
 
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
-                'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
             self.len(22, await core.nodes('''[

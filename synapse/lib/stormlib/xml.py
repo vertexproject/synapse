@@ -92,7 +92,5 @@ class LibXml(s_stormtypes.Lib):
         try:
             root = await s_coro.forked(xml_et.fromstring, valu)
             return XmlElement(self.runt, root)
-        except s_exc.SynErr as e:
-            if e.get('name') == 'ParseError':
-                raise s_exc.BadArg(mesg=f'Invalid XML text: {e.get("mesg")}')
-            raise e
+        except xml_et.ParseError as e:
+            raise s_exc.BadArg(mesg=f'Invalid XML text: {str(e)}')
