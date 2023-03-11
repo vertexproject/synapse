@@ -924,49 +924,107 @@ Kubernetes
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
 scaling and management of containerized applications. Synapse does work in Kubernetes environments.
 
+When deploying Synapse a Kubernetes environment, the application relies on a constant DNS resolution for the Aha
+service. This is done
+
+You may see AHA services listed wi
+
 SOMETHING ABOUT AHA BEING THE BEATING HEART OF THE DEPLOYMENT
 SOMETHING ABOUT RELYING ON THE AHA SERVICE HAVING A STABLE DNS NAME
 SOMETHING ABOUT NOTHING ELSE USING DNS, EVERYTHING USES IP:PORT RESOLUTION VIA AHA.
 
+
+
+
+
+
 .. note::
 
-    If you are using these examples to get started with Synapse on Kubernetes, you will may need to adapt them to meet
+    If you are using these examples to get started with Synapse on Kubernetes, you may need to adapt them to meet
     operational needs for your environment.
 
 .. _orch-kubernetes-deployment:
 
 Example Deployment
-------------------
+~~~~~~~~~~~~~~~~~~
 
-The following deployment walks through deploying an example Synapse deployment ( based on LINK HERE ), but inside of an
-AWS managed Kubernetes cluster. To spin up the base cluster used in this, follow LINK HERE.
+The following deployment walks through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
+inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
 
-Prepare the environment
-+++++++++++++++++++++++
+  ``namespace``
+    These examples uses the ``default`` namespace.
 
-Create the namespace for your Synaspe deployment.
+  ``PersistentVolumeClaim``
+    This example uses the ``StorageClass`` named ``do-block-storage``. You may need to alter these examples to provide
+    a ``storageClassName`` that is appropriate for your environment.
 
-kubectl create namespace stuff
+    This example uses relatively small volume claim sizes for demonstration purposes
+
+  Aha naming
+    Since we rely on the default naming behavior for services to find the Aha service via DNS, our Aha name and network
+    should match the internal naming for services in the cluster. The ``aha:network`` value is
+    ``<namespace>.<cluster dns root>``. This DNS root value is normally ``svc.cluster.local``, so the resulting DNS
+    label for the Aha service is ``aha.default.svc.cluster.local``. Similarly, the Aha service is configured to listen
+    on ``0.0.0.0``, since we cannot bind the DNS label provided by kubernetes prior to the Pod running Aha being
+    available.
+
+  Log aggregation
+    Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
+    aggregation solution can parse JSON formatted container logs, you can set the ``SYN_LOG_STRUCT`` environment
+    variable to ``true`` enable structured log output. See :ref:`devops-task-logging` for more information about that
+    option.
 
 Aha
 +++
 
-Words about aha - inline example.
+The following ``.yaml`` can be used to get
 
-JSONStor
-++++++++
+.. literalinclude:: ./kubernetes/aha.yaml
+    :language: yaml
+    :name: words about aha
 
-Words about jsonstor. Create the aha link. inline example.
+Words
+
+Words
+
 
 Axon
 ++++
 
 Words about Axon. create the aha link. inline example.
 
+.. literalinclude:: ./kubernetes/axon.yaml
+    :language: yaml
+
+Words
+
+Words
+
+JSONStor
+++++++++
+
+Words about jsonstor. Create the aha link. inline example.
+
+.. literalinclude:: ./kubernetes/jsonstor.yaml
+    :language: yaml
+
+Words
+
+Words
+
+
 Cortex
 ++++++
 
 Words about Cortex. create the aha link. inline example.
+
+.. literalinclude:: ./kubernetes/cortex.yaml
+    :language: yaml
+
+Words
+
+Words
+
 
 CLI Example
 +++++++++++
@@ -976,7 +1034,22 @@ Example for UI?
 Optic
 +++++
 
+
+.. note::
+
+    The Synapse User Interface, Optic, is available as a commercial offering. This section assumes that the operator
+    has provided a valid ``imagePullSecret`` named ``regcred`` which can access the commerciall images.
+
+
+
 Service for Optic
+
+.. literalinclude:: ./kubernetes/optic.yaml
+    :language: yaml
+
+Words
+
+Words
 
 Node-port for local resolution?
 +++++++++++++++++++++++++++++++
@@ -991,7 +1064,7 @@ application load balancer in practice.
 .. _orch-kubernetes-sysctl:
 
 Performance Tuning in Kubernetes
---------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
 the underlying hosts. In that scenario, applying the system configurations detailed in :ref:`devops-task-performance`
@@ -1004,7 +1077,7 @@ need to modify this to meet any requirements which are specific to your deployme
 .. _orch-kubernetes-helm:
 
 Example Helm Charts
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 Vertex provides two example helm chart that an organization can use as a template for creating their own helm charts.
 

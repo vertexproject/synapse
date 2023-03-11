@@ -6,10 +6,12 @@ metadata:
 spec:
   selector:
     matchLabels:
+      # FIXME Apply correct labels
       app: setsysctl
   template:
     metadata:
       labels:
+        # FIXME Apply correct labels
         app: "setsysctl"
     spec:
       containers:

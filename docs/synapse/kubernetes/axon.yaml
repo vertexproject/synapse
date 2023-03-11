@@ -72,7 +72,7 @@ spec:
             value: "false"
           - name: SYN_AXON_AHA_PROVISION
             # This has to be replaced by the user.
-            value: "ssl://aha.default.svc.cluster.local:27272/..."
+            value: "ssl://aha.default.svc.cluster.local:27272/...
           - name: SYN_AXON_HTTPS_PORT
             value: null
         volumeMounts:

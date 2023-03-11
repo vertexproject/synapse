@@ -16,7 +16,6 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  # You will need to use an appropriate storageClassName for your cluster.
   storageClassName: do-block-storage
 ---
 apiVersion: apps/v1
@@ -67,23 +66,17 @@ spec:
           - name: SYN_LOG_LEVEL
             value: DEBUG
           - name: SYN_LOG_STRUCT
-            # If you are doing log aggregation with a service that is aware of structured JSON logs
-            # you can set this value to "true"
             value: "false"
           - name: SYN_AHA_AHA_NAME
             value: aha
           - name: SYN_AHA_AHA_NETWORK
-            # This value is namespace.<cluster dns root> - it is used as CA
+            # This is <namespace>.<cluster dns root> - it is used as Certificate Authority name
             value: default.svc.cluster.local
           - name: SYN_AHA_DMON_LISTEN
-            # This is <aha name>.<namespace>.<cluster dns root> and the ca name from above
-            # It binds to 0.0.0.0 to avoid issues with the bind address not being available
-            # prior to the service coming online.
+            # This is <aha name>.<namespace>.<cluster dns root> and the CA name from above
             value: "ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local"
           - name: SYN_AHA_PROVISION_LISTEN
             # This is <aha name>.<namespace>.<cluster dns root>
-            # It binds to 0.0.0.0 to avoid issues with the bind address not being available
-            # prior to the service coming online.
             value: "ssl://0.0.0.0:27272?hostname=aha.default.svc.cluster.local"
           - name: SYN_AHA_HTTPS_PORT
             value: null

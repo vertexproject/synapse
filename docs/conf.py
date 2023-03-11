@@ -297,6 +297,7 @@ def convert_rstorm(_):
 
 def setup(app):
     app.connect('builder-inited', run_apidoc)
+    return
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
     app.connect('builder-inited', convert_ipynb)
