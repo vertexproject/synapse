@@ -229,7 +229,7 @@ stormcmds = (
     {
         'name': 'auth.user.show',
         'descr': '''
-            Display details for a given user.
+            Display details for a given user by name.
 
             Examples:
                 // Display details about the user "visi"
@@ -250,14 +250,22 @@ stormcmds = (
                 $ruletext = $lib.auth.textFromRule($rule)
                 $lib.print(`    [{$lib.cast(str, $indx).ljust(3)}] - {$ruletext}`)
             }
+
             $lib.print("")
             $lib.print("  Roles:")
-            for $role in $user.roles {
+            for $role in $user.roles() {
                 $lib.print(`    {$role.iden} - {$role.name}`)
             }
+
+            $lib.print("")
             $lib.print("  Gates:")
-            for $gate in $user.authgates {
-                $lib.print(`    {$gate}`)
+            for $gate in $user.gates() {
+                $lib.print(`    {$gate.iden} - ({$gate.type})`)
+                for ($indx, $rule) in $lib.iters.enum($user.getRules(gateiden=$gate.iden)) {
+                    $ruletext = $lib.auth.textFromRule($rule)
+                    $indxtext = $lib.cast(str, $indx).ljust(3)
+                    $lib.print(`      [{$indxtext}] - {$ruletext}`)
+                }
             }
         ''',
     },
@@ -265,7 +273,7 @@ stormcmds = (
         'name': 'auth.role.show',
         'descr': '''
 
-            Display details for a given role.
+            Display details for a given role by name.
 
             Examples:
                 // Display details about the role "ninjas"
@@ -280,13 +288,25 @@ stormcmds = (
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
 
             $lib.print(`Role: {$role.name} ({$role.iden})`)
+
             $lib.print("")
             $lib.print("  Rules:")
             for ($indx, $rule) in $lib.iters.enum($role.rules) {
                 $ruletext = $lib.auth.textFromRule($rule)
-                $lib.print(`    [{$lib.cast(str, $indx).ljust(3)}] - {$ruletext}`)
+                $indxtext = $lib.cast(str, $indx).ljust(3)
+                $lib.print(`    [{$indxtext}] - {$ruletext}`)
             }
 
+            $lib.print("")
+            $lib.print("  Gates:")
+            for $gate in $role.gates() {
+                $lib.print(`    {$gate.iden} - ({$gate.type})`)
+                for ($indx, $rule) in $lib.iters.enum($role.getRules(gateiden=$gate.iden)) {
+                    $ruletext = $lib.auth.textFromRule($rule)
+                    $indxtext = $lib.cast(str, $indx).ljust(3)
+                    $lib.print(`      [{$indxtext}] - {$ruletext}`)
+                }
+            }
         '''
     },
     {
@@ -308,24 +328,33 @@ stormcmds = (
         'storm': '''
 
             $gate = $lib.auth.gates.get($cmdopts.gateiden)
-            if (not $gate) { $lib.exit(`No auth gate found for iden: {$cmdopts.iden}.`) }
+            if (not $gate) { $lib.exit(`No auth gate found for iden: {$cmdopts.gateiden}.`) }
 
-            $lib.print('  Auth Gate Users:')
+            $lib.print("Auth Gate Users:")
             for $gateuser in $gate.users {
                 $user = $lib.auth.users.get($gateuser.iden)
-                $lib.print(`    {$user.iden} - {$user.name}`)
-                $lib.print(`        admin: {$gateuser.admin}`)
-                $lib.print(`        rules:`)
-                for $rule in $gateuser.rules {
-                    $allow = "deny "
-                    if $rule.0 { $status = allow }
-                    $lib.print(`        rules:`)
+                $lib.print(`  {$user.iden} - {$user.name}`)
+                $lib.print(`    Admin: {$gateuser.admin}`)
+                $lib.print(`    Rules:`)
+                for ($indx, $rule) in $lib.iters.enum($gateuser.rules) {
+                    $ruletext = $lib.auth.textFromRule($rule)
+                    $indxtext = $lib.cast(str, $indx).ljust(3)
+                    $lib.print(`     [{$indxtext}] - {$ruletext}`)
                 }
             }
 
+            $lib.print("")
+            $lib.print("Auth Gate Roles:")
             for $gaterole in $gate.roles {
+                $role = $lib.auth.roles.get($gaterole.iden)
+                $lib.print(`  {$role.iden} - {$role.name}`)
+                $lib.print(`    Rules:`)
+                for ($indx, $rule) in $lib.iters.enum($gaterole.rules) {
+                    $ruletext = $lib.auth.textFromRule($rule)
+                    $indxtext = $lib.cast(str, $indx).ljust(3)
+                    $lib.print(`      [{$indxtext}] - {$ruletext}`)
+                }
             }
-
         '''
     }
     # TODO auth.user/role.set
