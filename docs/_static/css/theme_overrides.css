@@ -35,3 +35,10 @@
 .wy-menu-vertical header, .wy-menu-vertical p.caption {
     color: #00A000;
 }
+
+/* Hide "On GitHub" section from versions menu
+   4 is a magic number - see https://docs.readthedocs.io/en/stable/guides/remove-edit-buttons.html
+   for more information */
+div.rst-versions > div.rst-other-versions > div.injected > dl:nth-child(4) {
+    display: none;
+}
