@@ -4,6 +4,17 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Features and Enhancements
+-------------------------
+- Update the minimum version of the ``aio-socks`` library to ``0.8.0``.
+  Update some unittests related to SOCKS proxy support to account for
+  multiple versions of the ``python-socks`` library.
+  (`#3044 <https://github.com/vertexproject/synapse/pull/3044>`_)
+
+
 v2.124.0 - 2023-03-09
 =====================
 
