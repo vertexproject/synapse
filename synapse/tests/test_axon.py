@@ -901,7 +901,8 @@ bar baz",vv
         async with self.getTestAxon(conf=conf) as axon:
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.wget('http://vertex.link')
-                self.isin('Could not connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
     async def test_axon_wput(self):
 
@@ -963,8 +964,8 @@ bar baz",vv
         async with self.getTestAxon(conf=conf) as axon:
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
-                self.false(resp['ok'])
-                self.isin('Could not connect to proxy 127.0.0.1:1', resp.get('err', ''))
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
 
     async def test_axon_tlscapath(self):
 
