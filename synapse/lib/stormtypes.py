@@ -7217,7 +7217,7 @@ class LibAuth(Lib):
                   ),
                   'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
         {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
-         'type': {'type': 'function', '_functname': 'textFromRule',
+         'type': {'type': 'function', '_funcname': 'textFromRule',
                   'args': (
                     {'name': 'rule', 'type': 'list', 'desc': 'A rule tuple.'},
                   ),
@@ -7948,7 +7948,7 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': 'getRules',
                   'args': (
                       {'name': 'gateiden', 'type': 'str',
-                       'desc': 'The gate iden used for the rules.', 'default': None, }
+                       'desc': 'The gate iden used for the rules.', 'default': None},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of rules.'}}},
         {'name': 'setAdmin', 'desc': 'Set the Admin flag for the user.',
@@ -8264,7 +8264,7 @@ class Role(Prim):
          'type': {'type': 'function', '_funcname': 'getRules',
                   'args': (
                       {'name': 'gateiden', 'type': 'str',
-                       'desc': 'The gate iden used for the rules.', 'default': None, }
+                       'desc': 'The gate iden used for the rules.', 'default': None},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of rules.'}}},
         {'name': 'setRules', 'desc': 'Replace the rules on the Role with new rules.',
