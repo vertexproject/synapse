@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.125.0 - YYYY-MM-DD
+=====================
 
 Features and Enhancements
 -------------------------
