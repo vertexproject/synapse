@@ -99,3 +99,24 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
       restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex
+  labels:
+    app.kubernetes.io/name: "cortex"
+    app.kubernetes.io/instance: "cortex00"
+    app.kubernetes.io/version: "v2.x.x"
+    app.kubernetes.io/component: "cortex"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: cortex00
+    environment: "dev"
+  ports:
+    - port: 27492
+      protocol: TCP
+      name: telepath

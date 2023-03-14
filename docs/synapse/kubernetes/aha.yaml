@@ -113,7 +113,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: aha
+    app.kubernetes.io/instance: aha
     environment: "dev"
   ports:
     - port: 27492

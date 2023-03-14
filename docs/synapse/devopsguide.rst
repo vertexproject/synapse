@@ -1021,7 +1021,7 @@ following:
     Your AHA provisioning URLS will have different identifiers and certhash values than these examples. If you use
     the example URLs shown here, you will get ``NoSuchName`` errors during service provisioning.
 
-This can be deployed via ``kubectl apply``:
+This can then be deployed via ``kubectl apply``:
 
 ::
 
@@ -1077,11 +1077,20 @@ following:
     - name: SYN_JSONSTOR_AHA_PROVISION
       value: "ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
 
+
+This can then be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f jsonstor.yaml
+    persistentvolumeclaim/example-jsonstor00 created
+    deployment.apps/jsonstor00 created
+
 You can see the JSONStor logs as well. These show provisioning and listening for traffic:
 
 ::
 
-    $ kubectl logs -l app.kubernetes.io/instance=axon00
+    $ kubectl logs -l app.kubernetes.io/instance=jsonstor00
     2023-03-08 17:29:15,137 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
     2023-03-08 17:29:15,137 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
     2023-03-08 17:29:15,138 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
@@ -1096,20 +1105,133 @@ You can see the JSONStor logs as well. These show provisioning and listening for
 Cortex
 ++++++
 
-Words about Cortex. create the aha link. inline example.
+The following ``cortex.yaml`` can be used as the basis to deploy the Cortex.
 
 .. literalinclude:: ./kubernetes/cortex.yaml
     :language: yaml
 
-Words
 
-Words
+Before we deploy that, we need to create the Aha provisioning URL. This uses a fixed listening port for the Cortex, so
+that we can later use port-forwarding to access the Cortex service. We do this via ``kubectl exec``. That should look
+like the following:
+
+::
+
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block look like the
+following:
+
+::
+
+    - name: SYN_CORTEX_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
 
 
-CLI Example
-+++++++++++
+This can then be deployed via ``kubectl apply``:
 
-Example for UI?
+::
+
+    $ kubectl apply -f cortex.yaml
+    persistentvolumeclaim/example-cortex00 created
+    deployment.apps/cortex00 created
+    service/cortex created
+
+
+You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connecting being
+made to the Axon and JSONStor services:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=cortex00
+    2023-03-08 17:29:16,892 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:29:16,893 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,893 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,896 [INFO] Provisioning cortex from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:17,008 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,009 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,009 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,010 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,010 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:20,356 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:21,077 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:29:21,078 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:29:21,078 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:29:21,082 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
+    2023-03-08 17:29:21,174 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
+
+
+
+CLI Tooling Example
++++++++++++++++++++
+
+Synapse services and tooling assumes that IP and Port combinations registered with the AHA service are reachable.
+This example shows a way to connect to the Cortex from **outside** of the Kubernetes cluster without resolving service
+information via Aha. Communication inside of the cluster does not need to go through these steps. It does assume that
+your local environment has the Python synapse package available.
+
+First add a user to the Cortex:
+
+::
+
+    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add --admin true visi
+    Adding user: visi
+    ...setting admin: true
+
+Then we need to generate a user provisioning URL:
+
+::
+
+    $ kubectl exec -it deployment/aha -- python -m synapse.tools.aha.provision.user visi
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
+
+Port-forward the AHA provisioning service to your local environment:
+
+::
+
+    kubectl port-forward service/aha 27272:provisioning
+
+Run the enroll tool to create a user certificate pair and have it signed by the Aha service. We replace the service DNS
+name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
+
+::
+
+    $ python -m synapse.tools.aha.enroll ssl://:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
+    Saved CA certificate: /home/visi/.syn/certs/cas/default.svc.cluster.local.crt
+    Saved user certificate: /home/visi/.syn/certs/users/visi@default.svc.cluster.local.crt
+    Updating known AHA servers
+
+The Aha service port-forward can be disabled, and replaced with a port forward for the Cortex service:
+
+::
+
+    kubectl port-forward service/cortex 27492:telepath
+
+Then connect to the cortex via the Storm CLI, using the URL
+``ssl://localhost:27492/?certname=visi@default.svc.cluster.local&hostname=00.cortex.default.svc.cluster.local``.
+
+::
+
+    $ python -m synapse.tools.storm "ssl://localhost:27492/?certname=visi@default.svc.cluster.local&hostname=00.cortex.default.svc.cluster.local"
+
+    Welcome to the Storm interpreter!
+
+    Local interpreter (non-storm) commands may be executed with a ! prefix:
+        Use !quit to exit.
+        Use !help to see local interpreter commands.
+
+    storm>
+
+The Storm CLI tool can then be used to run Storm commands.
+
+$ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add testUser --admin true --passwd secretPassword
+Adding user: testUser
+...setting admin: true
+...setting passwd: secretPassword
 
 Optic
 +++++
@@ -1118,8 +1240,7 @@ Optic
 .. note::
 
     The Synapse User Interface, Optic, is available as a commercial offering. This section assumes that the operator
-    has provided a valid ``imagePullSecret`` named ``regcred`` which can access the commerciall images.
-
+    has provided a valid ``imagePullSecret`` named ``regcred`` which can access commercial images.
 
 
 Service for Optic
