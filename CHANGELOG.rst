@@ -4,16 +4,21 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.125.0 - YYYY-MM-DD
+=====================
 
 Features and Enhancements
 -------------------------
+- Add a ``size()`` method on the STIX bundle object.
+  (`#3043 <https://github.com/vertexproject/synapse/pull/3043>`_)
 - Update the minimum version of the ``aio-socks`` library to ``0.8.0``.
   Update some unittests related to SOCKS proxy support to account for
   multiple versions of the ``python-socks`` library.
   (`#3044 <https://github.com/vertexproject/synapse/pull/3044>`_)
 
+Improved Documentation
+----------------------
+- Update the Synapse documentation to add PDF and HTMLZip formats.
 
 v2.124.0 - 2023-03-09
 =====================
