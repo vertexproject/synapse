@@ -1492,24 +1492,45 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         permdefs = [
             {'perm': ('node',), 'gate': 'layer',
                 'desc': 'Controls all node edits in a layer.'},
-            {'perm': ('node', 'add'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'add'), 'gate': 'layer',
                 'desc': 'Controls adding any form of node in a layer.'},
-            {'perm': ('node', 'del'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'del'), 'gate': 'layer',
                 'desc': 'Controls removing any form of node in a layer.'},
+
+            {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
+                'ex': 'node.add.inet:ipv4',
+                'desc': 'Controls adding any form of node in a layer.'},
+            {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
+                'desc': 'Controls removing a specific form of node in a layer.'},
 
             {'perm': ('node', 'tag'), 'gate': 'layer',
                 'desc': 'Controls editing any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'add'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
                 'desc': 'Controls adding any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
                 'desc': 'Controls removing any tag on any node in a layer.'},
+
+            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
+                'ex': 'node.tag.add.cno.mal.redtree',
+                'desc': 'Controls adding a specific tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
+                'ex': 'node.tag.del.cno.mal.redtree',
+                'desc': 'Controls removing a specific tag on any node in a layer.'},
 
             {'perm': ('node', 'prop'), 'gate': 'layer',
                 'desc': 'Controls editing any prop on any node in the layer.'},
-            {'perm': ('node', 'prop', 'set'), 'gate': 'layer', 'expand': True,
+
+            {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
                 'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'del'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
+                'ex': 'node.prop.set.inet:ipv4:asn',
+                'desc': 'Controls setting a specific property on a node in a layer.'},
+
+            {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
                 'desc': 'Controls removing any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
+                'ex': 'node.prop.del.inet:ipv4:asn',
+                'desc': 'Controls removing a specific property from a node in a layer.'},
         ]
 
         for spkg in await self.getStormPkgs():
