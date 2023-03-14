@@ -990,7 +990,6 @@ You can see the startup logs as well:
     2023-03-08 04:22:08,882 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 
-
 Axon
 ++++
 
@@ -1110,7 +1109,6 @@ The following ``cortex.yaml`` can be used as the basis to deploy the Cortex.
 .. literalinclude:: ./kubernetes/cortex.yaml
     :language: yaml
 
-
 Before we deploy that, we need to create the Aha provisioning URL. This uses a fixed listening port for the Cortex, so
 that we can later use port-forwarding to access the Cortex service. We do this via ``kubectl exec``. That should look
 like the following:
@@ -1165,14 +1163,13 @@ made to the Axon and JSONStor services:
     2023-03-08 17:29:21,174 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
 
 
-
 CLI Tooling Example
 +++++++++++++++++++
 
 Synapse services and tooling assumes that IP and Port combinations registered with the AHA service are reachable.
 This example shows a way to connect to the Cortex from **outside** of the Kubernetes cluster without resolving service
-information via Aha. Communication inside of the cluster does not need to go through these steps. It does assume that
-your local environment has the Python synapse package available.
+information via Aha. Communication between services inside of the cluster does not need to go through these steps.
+These does assume that your local environment has the Python synapse package available.
 
 First add a user to the Cortex:
 
@@ -1228,37 +1225,110 @@ Then connect to the cortex via the Storm CLI, using the URL
 
 The Storm CLI tool can then be used to run Storm commands.
 
-$ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add testUser --admin true --passwd secretPassword
-Adding user: testUser
-...setting admin: true
-...setting passwd: secretPassword
-
 Optic
 +++++
 
+Optic, the Synapse User Interface, is a common service deployed in Kubernetes cluster. This enables users to interact
+with Synapse via a web browser, instead of using the CLI tools. This shows a quick example of deploying Optic and
+accessing it via a port-forward. This example does not contain the full configuration settings you will need for a
+production deployment of Optic, please see :ref:`synapse-ui` for more information.
 
 .. note::
 
-    The Synapse User Interface, Optic, is available as a commercial offering. This section assumes that the operator
-    has provided a valid ``imagePullSecret`` named ``regcred`` which can access commercial images.
+    Optic is available as a **commercial** offering. This example assumes that the Kubernetes cluster has a valid
+    ``imagePullSecret`` named ``regcred`` which can access commercial images.
 
-
-Service for Optic
+The following ``optic.yaml`` can be used as the basis to deploy Optic.
 
 .. literalinclude:: ./kubernetes/optic.yaml
     :language: yaml
 
-Words
+Before we deploy that, we need to create the Aha provisioning URL. We do this via ``kubectl exec``. That should look
+like the following:
 
-Words
+::
 
-Node-port for local resolution?
-+++++++++++++++++++++++++++++++
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block look like the
+following:
+
+::
+
+    - name: SYN_OPTIC_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+
+This can then be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f optic.yaml
+    persistentvolumeclaim/example-optic00 created
+    deployment.apps/optic00 created
+    service/optic created
+
+You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connecting being
+made to the Axon, Cortx and JSONSTor services:
+
+::
+
+    $ kubectl logs --tail 30 -l app.kubernetes.io/instance=optic00
+    2023-03-08 17:32:40,149 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:32:40,150 [DEBUG] Set config valu from envar: [SYN_OPTIC_CORTEX] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,150 [DEBUG] Set config valu from envar: [SYN_OPTIC_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,151 [DEBUG] Set config valu from envar: [SYN_OPTIC_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,151 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,152 [DEBUG] Set config valu from envar: [SYN_OPTIC_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,153 [INFO] Provisioning optic from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:32:40,264 [DEBUG] Set config valu from envar: [SYN_OPTIC_CORTEX] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,266 [DEBUG] Set config valu from envar: [SYN_OPTIC_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:45,181 [INFO] Done provisioning optic AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:32:45,247 [INFO] optic wwwroot: /usr/local/lib/python3.10/dist-packages/optic/site [app.py:initServiceStorage:MainThread:MainProcess]
+    2023-03-08 17:32:45,248 [WARNING] Waiting for remote jsonstor... [app.py:initJsonStor:MainThread:MainProcess]
+    2023-03-08 17:32:45,502 [INFO] Connected to JsonStor at [aha://jsonstor...] [app.py:initJsonStor:MainThread:MainProcess]
+    2023-03-08 17:32:45,504 [INFO] Waiting for connection to Cortex [app.py:_initOpticCortex:MainThread:MainProcess]
+    2023-03-08 17:32:45,599 [INFO] Connected to Cortex at [aha://cortex...] [app.py:_initOpticCortex:MainThread:MainProcess]
+    2023-03-08 17:32:45,930 [INFO] Connected to Axon at [aha://axon...] [app.py:onaxonlink:MainThread:MainProcess]
+    2023-03-08 17:32:45,937 [DEBUG] Email settings/server not configured or invalid. [app.py:initEmailApis:asyncio_0:MainProcess]
+    2023-03-08 17:32:45,975 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.optic.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:32:45,976 [WARNING] NO CERTIFICATE FOUND! generating self-signed certificate. [cell.py:addHttpsPort:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] https listening: 4443 [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] ...optic API (telepath): ssl://0.0.0.0:0?hostname=00.optic.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] ...optic API (https): 4443 [cell.py:initFromArgv:MainThread:MainProcess]
+
+Once Optic is connected, we will need to set a password for the user we previously created in order to log in. This can
+be done via ``kubectl exec``, setting the password for the user on the Cortex:
+
+::
+
+    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --passwd secretPassword visi
+    Modifying user: visi
+    ...setting passwd: secretPassword
+
+Enable a port-forward to connect to the Optic service:
+
+::
+
+    $ kubectl port-forward service/optic 4443:https
+
+You can then use a Chrome browser to navigate to ``https://localhost:4443`` and you should be prompted with an Optic
+login screen. You can enter your username and password ( ``visi`` and ``secretPassword`` ) in order to login to Optic.
 
 Practical Considerations
 ++++++++++++++++++++++++
 
 The following items should be considered for Kubernetes deployments intended for production use cases:
+
+  Healthchecks
+    These examples use large ``startupProbe`` failure values. Vertex recommends these large values, since service
+    updates may have automatic data migrations which they perform at startup. These will be performed before a service
+    has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
+    terminated prior to a long running data migration completing.
 
   Log aggregation
     Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
@@ -1275,12 +1345,6 @@ The following items should be considered for Kubernetes deployments intended for
     The previous examples used relatively small volume claim sizes for demonstration purposes. A ``storageClass``
     which can be dynamically resized will be helpful in the event of needing to grow the storage used by a deployment.
     This is a common feature for managed Kubernetes instances.
-
-  Healthchecks
-    These examples use large ``startupProbe`` failure values. Vertex recommends these large values, since service
-    updates may have automatic data migrations which they perform at startup. These will be performed before a service
-    has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
-    terminated prior to a long running data migration completing.
 
 Considerations for transitioning to commercial components
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++

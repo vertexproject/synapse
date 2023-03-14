@@ -51,7 +51,6 @@ spec:
         app.kubernetes.io/part-of: "synapse"
         environment: "dev"
     spec:
-      # Do not run as root
       securityContext:
         runAsUser: 999
         runAsGroup: 999
@@ -69,11 +68,8 @@ spec:
           - name: SYN_LOG_LEVEL
             value: DEBUG
           - name: SYN_LOG_STRUCT
-            # If you are doing log aggregation with a service that is aware of structured JSON logs
-            # you can set this value to "true"
             value: "false"
           - name: SYN_OPTIC_AHA_PROVISION
-            # This has to be replaced by the user.
             value: "ssl://aha.default.svc.cluster.local:27272/..."
           - name: SYN_OPTIC_HTTPS_PORT
             value: "4443"
@@ -83,7 +79,6 @@ spec:
             value: "aha://cortex..."
           - name: SYN_OPTIC_JSONSTOR
             value: "aha://jsonstor..."
-          # This example does not include any feature flags
         volumeMounts:
           - mountPath: /vertex/storage
             name: data
@@ -102,10 +97,6 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
       restartPolicy: Always
-      # The Optic image is a commercial image. This assumes a image pull secret named
-      # regcred that allows the image to be pulled. Different kubernetes environments
-      # may handle private images differently. This may need to be filled in by the user
-      # or the image reference altered appropriately.
       imagePullSecrets:
         - name: "regcred"
 ---

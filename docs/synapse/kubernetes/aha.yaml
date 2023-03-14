@@ -50,7 +50,6 @@ spec:
         app.kubernetes.io/part-of: "synapse"
         environment: "dev"
     spec:
-      # Do not run as root
       securityContext:
         runAsUser: 999
         runAsGroup: 999

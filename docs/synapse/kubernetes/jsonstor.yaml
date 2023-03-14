@@ -16,7 +16,6 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  # You will need to use an appropriate storageClassName for your cluster.
   storageClassName: do-block-storage
 ---
 apiVersion: apps/v1
@@ -51,7 +50,6 @@ spec:
         app.kubernetes.io/part-of: "synapse"
         environment: "dev"
     spec:
-      # Do not run as root
       securityContext:
         runAsUser: 999
         runAsGroup: 999
@@ -67,11 +65,8 @@ spec:
           - name: SYN_LOG_LEVEL
             value: DEBUG
           - name: SYN_LOG_STRUCT
-            # If you are doing log aggregation with a service that is aware of structured JSON logs
-            # you can set this value to "true"
             value: "false"
           - name: SYN_JSONSTOR_AHA_PROVISION
-            # This has to be replaced by the user.
             value: "ssl://aha.default.svc.cluster.local:27272/..."
           - name: SYN_JSONSTOR_HTTPS_PORT
             value: null
