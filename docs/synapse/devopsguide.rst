@@ -924,20 +924,6 @@ Kubernetes
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
 scaling and management of containerized applications. Synapse does work in Kubernetes environments.
 
-When deploying Synapse a Kubernetes environment, the application relies on a constant DNS resolution for the Aha
-service. This is done
-
-You may see AHA services listed wi
-
-SOMETHING ABOUT AHA BEING THE BEATING HEART OF THE DEPLOYMENT
-SOMETHING ABOUT RELYING ON THE AHA SERVICE HAVING A STABLE DNS NAME
-SOMETHING ABOUT NOTHING ELSE USING DNS, EVERYTHING USES IP:PORT RESOLUTION VIA AHA.
-
-
-
-
-
-
 .. note::
 
     If you are using these examples to get started with Synapse on Kubernetes, you may need to adapt them to meet
@@ -954,64 +940,158 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
   ``namespace``
     These examples uses the ``default`` namespace.
 
-  ``PersistentVolumeClaim``
-    This example uses the ``StorageClass`` named ``do-block-storage``. You may need to alter these examples to provide
-    a ``storageClassName`` that is appropriate for your environment.
-
-    This example uses relatively small volume claim sizes for demonstration purposes
+  PersistentVolumeClaim
+    These examples use PersistetVolumeClaim (PVC) to create a persistent storage location. All Synaspe services assume
+    they have some persistent storage to read and write too.  This example uses the ``storageClass`` of
+    ``do-block-storage``. You may need to alter these examples to provide a ``storageClass`` that is appropriate
+    for your environment.
 
   Aha naming
     Since we rely on the default naming behavior for services to find the Aha service via DNS, our Aha name and network
     should match the internal naming for services in the cluster. The ``aha:network`` value is
     ``<namespace>.<cluster dns root>``. This DNS root value is normally ``svc.cluster.local``, so the resulting DNS
     label for the Aha service is ``aha.default.svc.cluster.local``. Similarly, the Aha service is configured to listen
-    on ``0.0.0.0``, since we cannot bind the DNS label provided by kubernetes prior to the Pod running Aha being
+    on ``0.0.0.0``, since we cannot bind the DNS label provided by Kubernetes prior to the Pod running Aha being
     available.
 
-  Log aggregation
-    Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
-    aggregation solution can parse JSON formatted container logs, you can set the ``SYN_LOG_STRUCT`` environment
-    variable to ``true`` enable structured log output. See :ref:`devops-task-logging` for more information about that
-    option.
 
 Aha
 +++
 
-The following ``.yaml`` can be used to get
+The following ``aha.yaml`` can be used to deploy an Aha service.
 
 .. literalinclude:: ./kubernetes/aha.yaml
     :language: yaml
     :name: words about aha
 
-Words
+This can be deployed via ``kubectl apply``. That will create the PVC, deployment, and service.
 
-Words
+::
+
+    $ kubectl apply -f aha.yaml
+    persistentvolumeclaim/example-aha created
+    deployment.apps/aha created
+    service/aha created
+
+You can see the startup logs as well:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=aha
+    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_DMON_LISTEN] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NAME] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,569 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,651 [INFO] Adding CA certificate for default.svc.cluster.local [aha.py:initServiceRuntime:MainThread:MainProcess]
+    2023-03-08 04:22:02,651 [INFO] Generating CA certificate for default.svc.cluster.local [aha.py:genCaCert:MainThread:MainProcess]
+    2023-03-08 04:22:06,401 [INFO] Adding server certificate for aha.default.svc.cluster.local [aha.py:initServiceRuntime:MainThread:MainProcess]
+    2023-03-08 04:22:08,879 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 04:22:08,882 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 04:22:08,882 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
 
 
 Axon
 ++++
 
-Words about Axon. create the aha link. inline example.
+
+The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
 
 .. literalinclude:: ./kubernetes/axon.yaml
     :language: yaml
 
-Words
+Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
+like the following:
 
-Words
+::
+
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.axon
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block look like the
+following:
+
+::
+
+    - name: SYN_AXON_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+.. warning::
+
+    Your AHA provisioning URLS will have different identifiers and certhash values than these examples. If you use
+    the example URLs shown here, you will get ``NoSuchName`` errors during service provisioning.
+
+This can be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f axon.yaml
+    persistentvolumeclaim/example-axon00 unchanged
+    deployment.apps/axon00 created
+
+You can see the Axon logs as well. These show provisioning and listening for traffic:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=axon00
+    2023-03-08 17:27:44,721 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:27:44,722 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:44,722 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:44,723 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:27:44,833 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:44,833 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:51,649 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:27:51,898 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:27:51,899 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:27:51,899 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
+
+.. note::
+
+    The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is a
+    internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
+    name that it uses to register with the Aha service.
+
 
 JSONStor
 ++++++++
 
-Words about jsonstor. Create the aha link. inline example.
+The following ``jsonstor.yaml`` can be used as the basis to deploy an JSONStor service.
 
 .. literalinclude:: ./kubernetes/jsonstor.yaml
     :language: yaml
 
-Words
+Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
+like the following:
 
-Words
+::
 
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block look like the
+following:
+
+::
+
+    - name: SYN_JSONSTOR_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+You can see the JSONStor logs as well. These show provisioning and listening for traffic:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=axon00
+    2023-03-08 17:29:15,137 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:29:15,137 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:15,138 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:15,140 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:15,261 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:15,261 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:19,325 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:19,966 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 Cortex
 ++++++
@@ -1053,6 +1133,33 @@ Words
 
 Node-port for local resolution?
 +++++++++++++++++++++++++++++++
+
+Practical Considerations
+++++++++++++++++++++++++
+
+The following items should be considered for Kubernetes deployments intended for production use cases:
+
+  Log aggregation
+    Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
+    aggregation solution can parse JSON formatted container logs, you can set the ``SYN_LOG_STRUCT`` environment
+    variable to ``true`` enable structured log output. See :ref:`devops-task-logging` for more information about that
+    option.
+
+  Node Selectors
+    These examples do not use any node selectors to bind pods to specific nodes or node types. Node selectors on the
+    podspec can be used to constrain differnet services ot different types of nodes. For example, they can be used to
+    ensure the Cortex is deployed to a node which has been provisioned as a high memory node for that purpose.
+
+  PVC
+    The previous examples used relatively small volume claim sizes for demonstration purposes. A ``storageClass``
+    which can be dynamically resized will be helpful in the event of needing to grow the storage used by a deployment.
+    This is a common feature for managed Kubernetes instances.
+
+  Healthchecks
+    These examples use large ``startupProbe`` failure values. Vertex recommends these large values, since service
+    updates may have automatic data migrations which they perform at startup. These will be performed before a service
+    has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
+    terminated prior to a long running data migration completing.
 
 Considerations for transitioning to commercial components
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
