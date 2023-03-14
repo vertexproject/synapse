@@ -1235,8 +1235,8 @@ production deployment of Optic, please see :ref:`synapse-ui` for more informatio
 
 .. note::
 
-    Optic is available as a **commercial** offering. This example assumes that the Kubernetes cluster has a valid
-    ``imagePullSecret`` named ``regcred`` which can access commercial images.
+    Optic is available as a part of the **Synapse Enterprise** commercial offering. This example assumes that the
+    Kubernetes cluster has a valid ``imagePullSecret`` named ``regcred`` which can access commercial images.
 
 The following ``optic.yaml`` can be used as the basis to deploy Optic.
 
