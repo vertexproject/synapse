@@ -163,7 +163,7 @@ class Auth(s_nexus.Pusher):
         user = self.user(iden)
         if user is None:
             mesg = f'No user with iden {iden}.'
-            raise s_exc.NoSuchUser(mesg=mesg)
+            raise s_exc.NoSuchUser(mesg=mesg, user=iden)
         return user
 
     async def reqRole(self, iden):
@@ -178,7 +178,7 @@ class Auth(s_nexus.Pusher):
         user = await self.getUserByName(name)
         if user is None:
             mesg = f'No user named {name}.'
-            raise s_exc.NoSuchUser(mesg=mesg)
+            raise s_exc.NoSuchUser(mesg=mesg, username=name)
         return user
 
     async def reqUserByNameOrIden(self, name):
@@ -922,11 +922,11 @@ class HiveUser(HiveRuler):
         perm = '.'.join(perm)
         if gateiden is None:
             mesg = f'User {self.name!r} ({self.iden}) must have permission {perm}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.iden, username=self.name)
 
         gate = self.auth.reqAuthGate(gateiden)
         mesg = f'User {self.name!r} ({self.iden}) must have permission {perm} on object {gate.iden} ({gate.type}).'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.name)
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.iden, username=self.name)
 
     def getRoles(self):
         for iden in self.info.get('roles', ()):
