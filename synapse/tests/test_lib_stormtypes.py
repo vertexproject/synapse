@@ -4743,9 +4743,9 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInWarn('Role (hehe) not found!', msgs)
 
             msgs = await core.stormlist('auth.user.addrule visi wootwoot')
-            self.stormIsInPrint('User (visi) added rule: wootwoot', msgs)
+            self.stormIsInPrint('Added rule wootwoot to user visi.', msgs)
             msgs = await core.stormlist('auth.role.addrule ninjas wootwoot')
-            self.stormIsInPrint('Role (ninjas) added rule: wootwoot', msgs)
+            self.stormIsInPrint('Added rule wootwoot to role ninjas.', msgs)
 
             msgs = await core.stormlist('authtest.asuser', opts=asvisi)
             self.stormIsInPrint('hithere', msgs)
