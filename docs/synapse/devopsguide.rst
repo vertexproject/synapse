@@ -1212,11 +1212,11 @@ The Aha service port-forward can be disabled, and replaced with a port forward f
     kubectl port-forward service/cortex 27492:telepath
 
 Then connect to the cortex via the Storm CLI, using the URL
-``ssl://localhost:27492/?certname=visi@default.svc.cluster.local&hostname=00.cortex.default.svc.cluster.local``.
+``ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local``.
 
 ::
 
-    $ python -m synapse.tools.storm "ssl://localhost:27492/?certname=visi@default.svc.cluster.local&hostname=00.cortex.default.svc.cluster.local"
+    $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local"
 
     Welcome to the Storm interpreter!
 
