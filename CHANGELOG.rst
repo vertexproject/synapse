@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.125.0 - YYYY-MM-DD
+v2.125.0 - 2023-03-14
 =====================
 
 Features and Enhancements
