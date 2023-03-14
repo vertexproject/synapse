@@ -7,6 +7,14 @@ Synapse Changelog
 v2.125.0 - YYYY-MM-DD
 =====================
 
+Automatic Migrations
+--------------------
+- The ``inet:url:path`` property was updated from a ``str`` type to
+  a ``file:path`` which requires a normalization pass to populate
+  the linked ``file:path`` nodes.
+  (`#3028 <https://github.com/vertexproject/synapse/pull/3028>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Features and Enhancements
 -------------------------
 - Add a ``size()`` method on the STIX bundle object.
@@ -22,13 +30,6 @@ Improved Documentation
 
 v2.124.0 - 2023-03-09
 =====================
-
-Automatic Migrations
---------------------
-- The ``inet:url:path`` property was updated from a ``str`` type to
-  a ``file:path`` which requires a normalization pass to populate
-  the linked ``file:path`` nodes.
-  (`#3028 <https://github.com/vertexproject/synapse/pull/3028>`_)
 
 Features and Enhancements
 -------------------------
