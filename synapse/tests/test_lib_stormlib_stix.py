@@ -166,6 +166,13 @@ class StormLibStixTest(s_test.SynTest):
 
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
+            self.eq(2, await core.callStorm('''
+                $bund = $lib.stix.export.bundle()
+                [ inet:asn=42 inet:asn=31337 ]
+                $bund.add($node)
+                fini{ return($bund.size()) }
+            '''))
+
             resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bund}})
             self.true(resp.get('ok'))
             result = resp.get('result')

@@ -5,6 +5,10 @@ build:
   tools:
     python: "3.10"
 
+formats:
+  - pdf
+  - htmlzip
+
 sphinx:
   configuration: docs/conf.py
 

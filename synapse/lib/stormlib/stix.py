@@ -1165,6 +1165,11 @@ class StixBundle(s_stormtypes.Prim):
                   'args': (),
                   'returns': {'type': 'dict', }}},
 
+        {'name': 'size', 'desc': 'Return the number of STIX objects currently in the bundle.',
+         'type': {'type': 'function', '_funcname': 'size',
+                  'args': (),
+                  'returns': {'type': 'int', }}},
+
     )
 
     def __init__(self, libstix, runt, config, path=None):
@@ -1185,6 +1190,7 @@ class StixBundle(s_stormtypes.Prim):
         return {
             'add': self.add,
             'pack': self.pack,
+            'size': self.size,
         }
 
     # TODO config modification helpers
@@ -1305,6 +1311,9 @@ class StixBundle(s_stormtypes.Prim):
             'objects': objects
         }
         return bundle
+
+    def size(self):
+        return len(self.objs)
 
     async def _callStorm(self, text, node):
 
