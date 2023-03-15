@@ -72,6 +72,8 @@ class CortexTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
+                    self.false((await core00.getCellInfo())['cell']['uplink'])
+
                     provinfo = {'mirror': '00.cortex'}
                     provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
 
@@ -92,12 +94,20 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(core00.isactive)
                         self.false(core01.isactive)
 
+                        self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
+                        self.false((await core00.getCellInfo())['cell']['uplink'])
+                        self.true((await core01.getCellInfo())['cell']['uplink'])
+
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
                         await s_tools_promote.main(argv, outp=outp)
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
+
+                        self.true(await s_coro.event_wait(core00.nexsroot.miruplink, timeout=2))
+                        self.true((await core00.getCellInfo())['cell']['uplink'])
+                        self.false((await core01.getCellInfo())['cell']['uplink'])
 
                         mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
@@ -130,6 +140,10 @@ class CortexTest(s_t_utils.SynTest):
                             self.sorteq(exp, await core00.getMirrorUrls())
                             self.sorteq(exp, await core01.getMirrorUrls())
                             self.sorteq(exp, await core02.getMirrorUrls())
+                            self.true(await s_coro.event_wait(core02.nexsroot.miruplink, timeout=2))
+                            self.true((await core00.getCellInfo())['cell']['uplink'])
+                            self.false((await core01.getCellInfo())['cell']['uplink'])
+                            self.true((await core02.getCellInfo())['cell']['uplink'])
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
@@ -1255,6 +1269,13 @@ class CortexTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('$tag=foo $prop=score $valu=5 test:int=10 [ +#$tag:$prop=$valu ]')
                 self.eq(5, nodes[0].getTagProp('foo', 'score'))
+
+                q = '''
+                    $list=(["foo", "score", 20])
+                    [ test:int=10 +#$list.index(0):$list.index(1)=$list.index(2) ]
+                '''
+                nodes = await core.nodes(q)
+                self.eq(20, nodes[0].getTagProp('foo', 'score'))
 
                 nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
                 self.false(nodes[0].hasTagProp('foo', 'score'))
@@ -3230,6 +3251,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             text = '($foo, $bar, $baz) = $blob'
             with self.raises(s_exc.StormVarListError):
                 await core.nodes(text, opts)
+
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
 
     async def test_storm_contbreak(self):
 
@@ -5410,7 +5451,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     log01 = await alist(core01.nexsroot.nexslog.iter(0))
                     self.eq(log00, log01)
 
-                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
+                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'offset is out of sync') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
                             self.true(await stream.wait(6))
                             self.true(core02.nexsroot.isfini)

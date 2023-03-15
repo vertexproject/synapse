@@ -108,6 +108,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
         self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab.addResizeCallback(core.checkFreeSpace)
+
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
         trignode = await node.open(('triggers',))
@@ -315,7 +317,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
 
             for layr in self.layers:
 
@@ -331,7 +333,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdges(self, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as eset:
 
             for layr in self.layers:
 
@@ -746,8 +748,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+        mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
 
     async def mergeAllowed(self, user=None, force=False):
         '''
@@ -971,7 +973,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # TODO remove addNodeEdits?
 
     async def scrapeIface(self, text, unique=False):
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as matches:  # type: s_spooled.Set
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
             for item in s_scrape.contextScrape(text, refang=True, first=False):
                 form = item.pop('form')

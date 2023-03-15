@@ -1314,6 +1314,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def _reqStormMacroPerm(self, user, name, level):
         mdef = self.reqStormMacro(name)
         mesg = f'User requires {s_cell.permnames.get(level)} permission on macro: {name}'
+
+        if level == s_cell.PERM_EDIT and (
+            user.allowed(('storm', 'macro', 'edit')) or
+            user.allowed(('storm', 'macro', 'admin'))):
+            return mdef
+
+        if level == s_cell.PERM_ADMIN and user.allowed(('storm', 'macro', 'admin')):
+            return mdef
+
         self._reqEasyPerm(mdef, user, level, mesg=mesg)
         return mdef
 
@@ -1672,7 +1681,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if gdef['scope'] == 'power-up' and level > s_cell.PERM_READ:
             mesg = 'Power-up graph projections may not be modified.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
         if user is not None:
             self._reqEasyPerm(gdef, user, level)
@@ -3744,6 +3753,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
+        self.addStormCmd(s_storm.BatchCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
@@ -5048,7 +5058,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = self.auth.user(useriden)
         if user is None:
             mesg = f'No user found with iden: {useriden}'
-            raise s_exc.NoSuchUser(mesg, iden=useriden)
+            raise s_exc.NoSuchUser(mesg=mesg, user=useriden)
 
         return user
 
@@ -5087,7 +5097,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        spooldict = await s_spooled.Dict.anit(dirn=self.dirn)
+        spooldict = await s_spooled.Dict.anit(dirn=self.dirn, cell=self)
         async with await self.snap(user=user, view=view) as snap:
 
             async for pode in snap.iterStormPodes(text, opts=opts):

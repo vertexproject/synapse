@@ -213,6 +213,8 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.get(foo))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.has(foo))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.set(foo, bar))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.del(foo))', opts=asvisi)
@@ -2344,6 +2346,8 @@ class StormTypesTest(s_test.SynTest):
             return ($parsed)'''
             ret = await core.callStorm(query)
             self.none(ret)
+
+            self.none(await core.callStorm('return($lib.time.parse($lib.true, "%m/%d/%Y", errok=$lib.true))'))
 
             query = '''[test:str=1234 :tick=20190917]
             $lib.print($lib.time.format(:tick, "%Y-%d-%m"))
@@ -5429,19 +5433,22 @@ class StormTypesTest(s_test.SynTest):
                         ('foo', {}),
                         ('--bar', {'default': False, 'action': 'store_true'}),
                         ('--footime', {'default': False, 'type': 'time'}),
+                        ('--choice', {'choices': ['choice00', 'choice01']}),
                     ),
                     'storm': '''
                         $lib.print($lib.len($cmdopts))
-                        if ($lib.len($cmdopts) = 4) { $lib.print(foo) }
+                        if ($lib.len($cmdopts) = 5) { $lib.print(foo) }
 
                         $set = $lib.set()
                         for ($name, $valu) in $cmdopts { $set.add($valu) }
 
-                        if ($lib.len($set) = 4) { $lib.print(bar) }
+                        if ($lib.len($set) = 5) { $lib.print(bar) }
 
                         if $cmdopts.bar { $lib.print(baz) }
 
                         if $cmdopts.footime { $lib.print($cmdopts.footime) }
+
+                        if $cmdopts.choice { $lib.print($cmdopts.choice) }
                     '''
                 },
                 {
@@ -5481,19 +5488,42 @@ class StormTypesTest(s_test.SynTest):
                 },
             ],
         }
+        sadchoice = {
+            'name': 'baz',
+            'desc': 'test',
+            'version': (0, 0, 1),
+            'commands': [
+                {
+                    'name': 'test.badchoice',
+                    'cmdargs': [
+                        ('--baz', {'choices': 'newp'}),
+                    ],
+                    'storm': '''
+                        $cmdopts.baz = hehe
+                    '''
+                },
+            ],
+        }
         async with self.getTestCore() as core:
             await core.addStormPkg(pdef)
-            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101')
+            msgs = await core.stormlist('test.cmdopts hehe --bar --footime 20200101 --choice choice00')
             self.stormIsInPrint('foo', msgs)
             self.stormIsInPrint('bar', msgs)
             self.stormIsInPrint('baz', msgs)
+            self.stormIsInPrint('choice00', msgs)
             self.stormIsInPrint('1577836800000', msgs)
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('test.cmdopts hehe --choice newp')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('test.setboom hehe --bar')
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addStormPkg(sadchoice)
 
             nodes = await core.nodes('[ test:str=foo test:str=bar ] | test.runtsafety $node.repr()')
             self.len(4, nodes)

@@ -1,3 +1,4 @@
+import gc
 import os
 import copy
 import time
@@ -16,6 +17,7 @@ import multiprocessing
 
 import aiohttp
 import tornado.web as t_web
+import tornado.log as t_log
 
 import synapse.exc as s_exc
 
@@ -237,7 +239,7 @@ class CellApi(s_base.Base):
         if not await self.allowed(perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, username=self.user.name, user=self.user.iden)
 
     def getCellType(self):
         return self.cell.getCellType()
@@ -387,11 +389,14 @@ class CellApi(s_base.Base):
         '''
         if not self.user.isAdmin():
             mesg = 'setCellUser() caller must be admin.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
         user = self.cell.auth.user(iden)
         if user is None:
-            raise s_exc.NoSuchUser(iden=iden)
+            raise s_exc.NoSuchUser(mesg=f'Unable to set cell user iden to {iden}', user=iden)
+
+        if user.isLocked():
+            raise s_exc.AuthDeny(mesg=f'User ({user.name}) is locked.', user=user.iden, username=user.name)
 
         self.user = user
         self.link.get('sess').user = user
@@ -583,7 +588,7 @@ class CellApi(s_base.Base):
             return info
 
         mesg = 'getUserInfo denied for non-admin and non-self'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     async def getRoleInfo(self, name):
         role = await self.cell.auth.reqRoleByName(name)
@@ -591,11 +596,11 @@ class CellApi(s_base.Base):
             return role.pack()
 
         mesg = 'getRoleInfo denied for non-admin and non-member'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     @adminapi()
-    async def getUserDef(self, iden):
-        return await self.cell.getUserDef(iden)
+    async def getUserDef(self, iden, packroles=True):
+        return await self.cell.getUserDef(iden, packroles=packroles)
 
     @adminapi()
     async def getAuthGate(self, iden):
@@ -782,6 +787,27 @@ class CellApi(s_base.Base):
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
         }
 
+    @adminapi()
+    async def runGcCollect(self, generation=2):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return gc.collect(generation=generation)
+
+    @adminapi()
+    async def getGcInfo(self):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return {
+            'stats': gc.get_stats(),
+            'threshold': gc.get_threshold(),
+        }
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -860,6 +886,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
+        },
+        'onboot:optimize': {
+            'default': False,
+            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. (may take a while)',
+            'type': 'boolean',
         },
         'limit:disk:free': {
             'default': 5,
@@ -1013,6 +1044,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
+        self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
 
@@ -1025,6 +1057,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 free = disk.free / disk.total * 100
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+
+        self._delTmpFiles()
+
+        if self.conf.get('onboot:optimize'):
+            await self._onBootOptimize()
 
         await self._initCellBoot()
 
@@ -1185,6 +1222,64 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = f'Cannot start the {ctyp}, another process is already running it.'
             raise s_exc.FatalErr(mesg=mesg) from None
 
+    async def _onBootOptimize(self):
+
+        lmdbs = []
+        for (root, dirs, files) in os.walk(self.dirn):
+            for dirname in dirs:
+                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                    lmdbs.append(os.path.join(root, dirname))
+
+        if not lmdbs: # pragma: no cover
+            return
+
+        logger.warning('Beginning onboot optimization (this could take a while)...')
+
+        size = len(lmdbs)
+
+        try:
+
+            for i, lmdbpath in enumerate(lmdbs):
+
+                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+
+                with self.getTempDir() as backpath:
+
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+                        await backup.saveto(backpath)
+
+                    srcpath = os.path.join(lmdbpath, 'data.mdb')
+                    dstpath = os.path.join(backpath, 'data.mdb')
+
+                    os.rename(dstpath, srcpath)
+
+            logger.warning('... onboot optimization complete!')
+
+        except Exception as e: # pragma: no cover
+            logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
+
+    def _delTmpFiles(self):
+
+        tdir = s_common.gendir(self.dirn, 'tmp')
+
+        names = os.listdir(tdir)
+        if not names:
+            return
+
+        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+
+        for name in names:
+
+            path = os.path.join(tdir, name)
+
+            if os.path.isfile(path):
+                os.unlink(path)
+                continue
+
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+                continue
+
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
         # ( and do so using _bumpCellVers )
@@ -1209,11 +1304,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    def checkFreeSpace(self):
+        self._checkspace.set()
+
     async def _runFreeSpaceLoop(self):
 
         nexsroot = self.getCellNexsRoot()
 
         while not self.isfini:
+
+            self._checkspace.clear()
+
             disk = shutil.disk_usage(self.dirn)
 
             if (disk.free / disk.total) <= self.minfree:
@@ -1235,7 +1336,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
                 logger.warning(mesg)
 
-            await asyncio.sleep(self.FREE_SPACE_CHECK_FREQ)
+            await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
 
     async def _setReadOnly(self, valu):
         # implement any behavior necessary to change the cell read-only status
@@ -2444,6 +2545,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @contextlib.contextmanager
+    def getTempDir(self):
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        with s_common.getTempDir(dirn=tdir) as dirn:
+            yield dirn
+
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
 
         addr = socket.gethostbyname(host)
@@ -2482,6 +2589,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
+    def _log_web_request(self, handler: s_httpapi.Handler) -> None:
+        # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
+        status = handler.get_status()
+        if status < 400:
+            log_method = t_log.access_log.info
+        elif status < 500:
+            log_method = t_log.access_log.warning
+        else:
+            log_method = t_log.access_log.error
+
+        request_time = 1000.0 * handler.request.request_time()
+
+        user = None
+        username = None
+
+        uri = handler.request.uri
+        remote_ip = handler.request.remote_ip
+        enfo = {'http_status': status,
+                'uri': uri,
+                'remoteip': remote_ip,
+                }
+
+        extra = {'synapse': enfo}
+
+        # It is possible that a Cell implementor may register handlers which
+        # do not derive from our Handler class, so we have to handle that.
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
+            user = handler.web_useriden
+            enfo['user'] = user
+        if hasattr(handler, 'web_username') and handler.web_username:
+            username = handler.web_username
+            enfo['username'] = username
+
+        if user:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
+        else:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
+
+        log_method(mesg, extra=extra)
+
     async def _initCellHttp(self):
 
         self.httpds = []
@@ -2505,6 +2652,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = {
             'cookie_secret': secret,
+            'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
 
@@ -2591,6 +2739,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        self.slab.addResizeCallback(self.checkFreeSpace)
+
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
@@ -2746,9 +2896,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if mesg is None:
             permname = permnames.get(level)
-            mesg = f'User has insufficient permissions (requires: {permname}).'
+            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}).'
 
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
     async def _setEasyPerm(self, item, scope, iden, level):
         '''
@@ -2790,9 +2940,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if auth is not None:
                 name, info = auth
 
+            # By design, unix sockets can auth as any user.
             user = await self.auth.getUserByName(name)
             if user is None:
-                raise s_exc.NoSuchUser(name=name)
+                raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         else:
             user = await self._getCellUser(link, mesg)
@@ -2800,6 +2951,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.getCellApi(link, user, path)
 
     async def getCellApi(self, link, user, path):
+        '''
+        Get an instance of the telepath Client object for a given user, link and path.
+
+        Args:
+            link (s_link.Link): The link object.
+            user (s_hive.HiveUser): The heavy user object.
+            path (str): The path requested.
+
+        Notes:
+           This defaults to the self.cellapi class. Implementors may override the
+           default class attribute for cellapi to share a different interface.
+
+        Returns:
+            object: The shared object for this cell.
+        '''
         return await self.cellapi.anit(self, link, user)
 
     async def getLogExtra(self, **kwargs):
@@ -3038,7 +3204,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_common.genfile(tarpath) as fd:
-                async with aiohttp.client.ClientSession() as sess:
+                # Leave a 60 second timeout check for the connection and reads.
+                # Disable total timeout
+                timeout = aiohttp.client.ClientTimeout(
+                    total=None,
+                    connect=60,
+                    sock_read=60,
+                    sock_connect=60,
+                )
+                async with aiohttp.client.ClientSession(timeout=timeout) as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
 
@@ -3393,27 +3567,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if hostpart == self.conf.get('aha:network'):
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
+                        if user.isLocked():
+                            raise s_exc.AuthDeny(mesg=f'User ({userpart}) is locked.', user=user.iden, username=userpart)
                         return user
 
             user = await self.auth.getUserByName(username)
             if user is not None:
+                if user.isLocked():
+                    raise s_exc.AuthDeny(mesg=f'User ({username}) is locked.', user=user.iden, username=username)
                 return user
 
-            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
+            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', username=username)
 
         auth = mesg[1].get('auth')
         if auth is None:
 
             anonuser = self.conf.get('auth:anon')
             if anonuser is None:
-                raise s_exc.AuthDeny(mesg='Unable to find cell user')
+                raise s_exc.AuthDeny(mesg=f'Unable to find cell user ({anonuser})')
 
             user = await self.auth.getUserByName(anonuser)
             if user is None:
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.', username=anonuser)
 
             if user.isLocked():
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.', username=anonuser,
+                                     user=user.iden)
 
             return user
 
@@ -3421,13 +3600,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         user = await self.auth.getUserByName(name)
         if user is None:
-            raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
+            raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         # passwd None always fails...
         passwd = info.get('passwd')
 
         if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
 
         return user
 
@@ -3535,8 +3714,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return True
 
         perm = '.'.join(perm)
-        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
-                             task=iden, user=str(user), perm=perm)
+        raise s_exc.AuthDeny(mesg=f'User ({user.name}) must have permission {perm} or own the task',
+                             task=iden, user=user.iden, username=user.name, perm=perm)
 
     async def getCellInfo(self):
         '''
@@ -3573,6 +3752,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
+                'uplink': self.nexsroot.miruplink.is_set(),
             },
             'features': {
                 'tellready': True,

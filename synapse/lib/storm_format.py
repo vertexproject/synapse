@@ -83,6 +83,7 @@ TerminalPygMap = {
     'YIELD': p_t.Keyword,
     '_ARRAYCONDSTART': p_t.Punctuation,
     '_COLONDOLLAR': p_t.Punctuation,
+    '_COLONNOSPACE': p_t.Punctuation,
     '_DEREF': p_t.Punctuation,
     '_EDGEADDN1FINI': p_t.Punctuation,
     '_EDGEADDN2FINI': p_t.Punctuation,

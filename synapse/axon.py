@@ -33,7 +33,14 @@ CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
-class AxonHttpUploadV1(s_httpapi.StreamHandler):
+class AxonHandlerMixin:
+    def getAxon(self):
+        '''
+        Get a reference to the Axon interface used by the handler.
+        '''
+        return self.cell
+
+class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
 
     async def prepare(self):
         self.upfd = None
@@ -44,7 +51,7 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
-        self.upfd = await self.cell.upload()
+        self.upfd = await self.getAxon().upload()
         self.hashset = s_hashset.HashSet()
 
     async def data_received(self, chunk):
@@ -55,7 +62,7 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
 
     def on_finish(self):
         if self.upfd is not None and not self.upfd.isfini:
-            self.cell.schedCoroSafe(self.upfd.fini())
+            self.getAxon().schedCoroSafe(self.upfd.fini())
 
     def on_connection_close(self):
         self.on_finish()
@@ -83,12 +90,12 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         await self._save()
         return
 
-class AxonHttpHasV1(s_httpapi.Handler):
+class AxonHttpHasV1(AxonHandlerMixin, s_httpapi.Handler):
 
     async def get(self, sha256):
         if not await self.allowed(('axon', 'has')):
             return
-        resp = await self.cell.has(s_common.uhex(sha256))
+        resp = await self.getAxon().has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
 
 reqValidAxonDel = s_config.getJsValidator({
@@ -103,7 +110,7 @@ reqValidAxonDel = s_config.getJsValidator({
     'required': ['sha256s'],
 })
 
-class AxonHttpDelV1(s_httpapi.Handler):
+class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
 
     async def post(self):
 
@@ -116,22 +123,23 @@ class AxonHttpDelV1(s_httpapi.Handler):
 
         sha256s = body.get('sha256s')
         hashes = [s_common.uhex(s) for s in sha256s]
-        resp = await self.cell.dels(hashes)
+        resp = await self.getAxon().dels(hashes)
         return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
-class AxonFileHandler(s_httpapi.Handler):
+class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
     def axon(self):
-        return self.cell
+        s_common.deprecated('AxonFileHandler.axon(), use getAxon() instead', eolv='2.130.0')
+        return self.getAxon()
 
     async def getAxonInfo(self):
-        return await self.axon().getCellInfo()
+        return await self.getAxon().getCellInfo()
 
     async def _setSha256Headers(self, sha256b):
 
         self.ranges = []
 
-        self.blobsize = await self.axon().size(sha256b)
+        self.blobsize = await self.getAxon().size(sha256b)
         if self.blobsize is None:
             self.set_status(404)
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}')
@@ -203,14 +211,14 @@ class AxonFileHandler(s_httpapi.Handler):
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
             size = eoff - soff
-            async for byts in self.axon().get(sha256b, soff, size):
+            async for byts in self.getAxon().get(sha256b, soff, size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
             return
 
         # standard file return
-        async for byts in self.axon().get(sha256b):
+        async for byts in self.getAxon().get(sha256b):
             self.write(byts)
             await self.flush()
             await asyncio.sleep(0)
@@ -254,12 +262,12 @@ class AxonHttpBySha256V1(AxonFileHandler):
             return
 
         sha256b = s_common.uhex(sha256)
-        if not await self.cell.has(sha256b):
+        if not await self.getAxon().has(sha256b):
             self.set_status(404)
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
             return
 
-        resp = await self.cell.del_(sha256b)
+        resp = await self.getAxon().del_(sha256b)
         return self.sendRestRetn(resp)
 
 class AxonHttpBySha256InvalidV1(AxonFileHandler):
@@ -611,7 +619,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
@@ -621,7 +629,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                         'sha1': <str> - The SHA1 hash of the response body.
                         'sha256': <str> - The SHA256 hash of the response body.
                         'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
                     }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
                 }
 
         Returns:
@@ -1574,6 +1588,26 @@ class Axon(s_cell.Cell):
                     'mesg': mesg,
                 }
 
+    def _flatten_clientresponse(self,
+                                resp: aiohttp.ClientResponse,
+                                ) -> dict:
+        info = {
+            'ok': True,
+            'url': str(resp.real_url),
+            'code': resp.status,
+            'headers': dict(resp.headers),
+            'request': {
+                'url': str(resp.request_info.real_url),
+                'headers': dict(resp.request_info.headers),
+                'method': str(resp.request_info.method),
+            }
+        }
+
+        if resp.history:
+            info['history'] = [self._flatten_clientresponse(hist) for hist in resp.history]
+
+        return info
+
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
         '''
         Stream a file download directly into the Axon.
@@ -1597,7 +1631,7 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
@@ -1607,7 +1641,13 @@ class Axon(s_cell.Cell):
                         'sha1': <str> - The SHA1 hash of the response body.
                         'sha256': <str> - The SHA256 hash of the response body.
                         'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
                     }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
                 }
 
         Returns:
@@ -1637,20 +1677,13 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
             try:
-
                 async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
 
-                    info = {
-                        'ok': True,
-                        'url': str(resp.url),
-                        'code': resp.status,
-                        'headers': dict(resp.headers),
-                    }
+                    info = self._flatten_clientresponse(resp)
 
                     hashset = s_hashset.HashSet()
 
                     async with await self.upload() as upload:
-
                         async for byts in resp.content.iter_chunked(CHUNK_SIZE):
                             await upload.write(byts)
                             hashset.update(byts)
@@ -1659,7 +1692,6 @@ class Axon(s_cell.Cell):
 
                     info['size'] = size
                     info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
-
                     return info
 
             except asyncio.CancelledError:

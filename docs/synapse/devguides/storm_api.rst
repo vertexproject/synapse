@@ -522,7 +522,7 @@ Examples:
 
     .. code:: python3
 
-        opts = {'readonly': 'count'}
+        opts = {'readonly': True}
 
 repr
 ----
