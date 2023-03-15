@@ -1360,20 +1360,14 @@ Performance Tuning in Kubernetes
 
 It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
 the underlying hosts. In that scenario, applying the system configurations detailed in :ref:`devops-task-performance`
-may be difficult. The following example shows a DaemonSet which can be applied to set the ``sysctl`` values. You may
-need to modify this to meet any requirements which are specific to your deployment.
+may be difficult. The following example shows a DaemonSet which runs a privileged pod, that ensures that that the
+desired ``sysctl`` values are set on the host. You may need to modify this to meet any requirements which are specific
+to your deployment.
 
 .. literalinclude:: ./kubernetes/sysctl_daemonset.yaml
     :language: yaml
 
-.. _orch-kubernetes-helm:
 
-Example Helm Charts
-~~~~~~~~~~~~~~~~~~~
-
-Vertex provides two example helm chart that an organization can use as a template for creating their own helm charts.
-
-The first helm chart is an example for the AHA service. The second helm chart is an example for the
 
 .. _autodoc-conf-aha:
 

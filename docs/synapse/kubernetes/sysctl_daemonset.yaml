@@ -2,21 +2,35 @@ apiVersion: "apps/v1"
 kind: "DaemonSet"
 metadata:
   name: "setsysctl"
-  namespace: "kube-system"
+  labels:
+    app.kubernetes.io/name: "sysctl"
+    app.kubernetes.io/instance: "sysctl"
+    app.kubernetes.io/version: "1.36.0-glibc"
+    app.kubernetes.io/component: "sysctl"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
 spec:
   selector:
     matchLabels:
-      # FIXME Apply correct labels
-      app: setsysctl
+      app.kubernetes.io/name: "sysctl"
+      app.kubernetes.io/instance: "sysctl"
+      app.kubernetes.io/version: "1.36.0-glibc"
+      app.kubernetes.io/component: "sysctl"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
   template:
     metadata:
       labels:
-        # FIXME Apply correct labels
-        app: "setsysctl"
+        app.kubernetes.io/name: "sysctl"
+        app.kubernetes.io/instance: "sysctl"
+        app.kubernetes.io/version: "1.36.0-glibc"
+        app.kubernetes.io/component: "sysctl"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
     spec:
       containers:
       - name: "apply-sysctl"
-        image: "busybox:glibc"  # Latest glibc based busybox
+        image: "busybox:1.36.0-glibc"  # Latest glibc based busybox
         securityContext:
           privileged: true
         command:
