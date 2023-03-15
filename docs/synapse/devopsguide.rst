@@ -937,8 +937,11 @@ Example Deployment
 The following deployment walks through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
 inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
 
-  ``namespace``
-    These examples uses the ``default`` namespace.
+  Synapse Deployment Guide
+    This guide assumes a familiarity with the Synapse deployment guide. Concepts covered there are not repeated here.
+
+  namespace
+    These examples uses the Kubernetes ``default`` namespace.
 
   PersistentVolumeClaim
     These examples use PersistetVolumeClaim (PVC) to create a persistent storage location. All Synaspe services assume
@@ -947,13 +950,12 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
     for your environment.
 
   Aha naming
-    Since we rely on the default naming behavior for services to find the Aha service via DNS, our Aha name and network
-    should match the internal naming for services in the cluster. The ``aha:network`` value is
+    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS, our Aha name
+    and network should match the internal naming for services in the cluster. The ``aha:network`` value is
     ``<namespace>.<cluster dns root>``. This DNS root value is normally ``svc.cluster.local``, so the resulting DNS
     label for the Aha service is ``aha.default.svc.cluster.local``. Similarly, the Aha service is configured to listen
     on ``0.0.0.0``, since we cannot bind the DNS label provided by Kubernetes prior to the Pod running Aha being
     available.
-
 
 Aha
 +++
@@ -1015,11 +1017,6 @@ following:
     - name: SYN_AXON_AHA_PROVISION
       value: "ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
 
-.. warning::
-
-    Your AHA provisioning URLS will have different identifiers and certhash values than these examples. If you use
-    the example URLs shown here, you will get ``NoSuchName`` errors during service provisioning.
-
 This can then be deployed via ``kubectl apply``:
 
 ::
@@ -1044,12 +1041,9 @@ You can see the Axon logs as well. These show provisioning and listening for tra
     2023-03-08 17:27:51,899 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
     2023-03-08 17:27:51,899 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
-
-.. note::
-
-    The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is a
-    internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
-    name that it uses to register with the Aha service.
+The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is a
+internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
+name that it uses to register with the Aha service.
 
 
 JSONStor
@@ -1330,6 +1324,11 @@ The following items should be considered for Kubernetes deployments intended for
     has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
     terminated prior to a long running data migration completing.
 
+  Ingress and Load Balancing
+    The use of ``kubectl port-forward`` may not sustainable in a production environment. It is common to use a form of
+    ingress controller or load balancer for external services to reach services such as the Cortex or Optic
+    applications.
+
   Log aggregation
     Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
     aggregation solution can parse JSON formatted container logs, you can set the ``SYN_LOG_STRUCT`` environment
@@ -1364,9 +1363,25 @@ may be difficult. The following example shows a DaemonSet which runs a privilege
 desired ``sysctl`` values are set on the host. You may need to modify this to meet any requirements which are specific
 to your deployment.
 
-.. literalinclude:: ./kubernetes/sysctl_daemonset.yaml
+
+The following ``sysctl.yaml`` can be used as the basis to deploy these modifications.
+
+.. literalinclude:: ./kubernetes/sysctl.yaml
     :language: yaml
 
+
+This can be deployed via ``kubectl apply``. That will create the DaemonSet for you..
+
+::
+
+    $ kubectl apply -f sysctl_dset.yaml
+    daemonset.apps/setsysctl created
+
+You can see the sysctl pods by running the following command:
+
+::
+
+    $ kubectl get pods -l app.kubernetes.io/component=sysctl -o wide
 
 
 .. _autodoc-conf-aha:
