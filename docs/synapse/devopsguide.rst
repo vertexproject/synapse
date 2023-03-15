@@ -1219,13 +1219,14 @@ Then connect to the cortex via the Storm CLI, using the URL
 
 The Storm CLI tool can then be used to run Storm commands.
 
-Optic
-+++++
+Commercial Components
++++++++++++++++++++++
 
-Optic, the Synapse User Interface, is a common service deployed in Kubernetes cluster. This enables users to interact
-with Synapse via a web browser, instead of using the CLI tools. This shows a quick example of deploying Optic and
-accessing it via a port-forward. This example does not contain the full configuration settings you will need for a
-production deployment of Optic, please see :ref:`synapse-ui` for more information.
+For Synapse-Enterprise users, deploying commercial components can follow a similar pattern. The following is an example
+of deploying Optic, the Synapse User Interface, as it is a common part of a Synapse deployment. This enables users to
+interact with Synapse via a web browser, instead of using the CLI tools. This example shows accessing the service via
+a port-forward. This example does not contain the full configuration settings you will need for a production deployment
+of Optic, please see :ref:`synapse-ui` for more information.
 
 .. note::
 
