@@ -2619,6 +2619,7 @@ class LibTime(Lib):
         return ret
 
     async def _parse(self, valu, format, errok=False):
+        valu = await tostr(valu)
         errok = await tobool(errok)
         try:
             dt = datetime.datetime.strptime(valu, format)
