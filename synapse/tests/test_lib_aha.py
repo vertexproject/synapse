@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from unittest import mock
 
@@ -8,6 +9,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.output as s_output
 
@@ -911,3 +913,108 @@ class AhaTest(s_test.SynTest):
                                             provinfo={'mirror': 'cell'}) as cell01:  # type: s_cell.Cell
                     await cell01.sync()
                     # This should teardown cleanly.
+
+    async def test_aha_restart(self):
+        with self.withNexusReplay():
+
+            with self.getTestDir() as dirn:
+                ahadirn = s_common.gendir(dirn, 'aha')
+                svc0dirn = s_common.gendir(dirn, 'svc00')
+                svc1dirn = s_common.gendir(dirn, 'svc01')
+                async with await s_base.Base.anit() as cm:
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': 'loop.vertex.link',
+                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
+                    }
+                    name = aconf.get('aha:name')
+                    netw = aconf.get('aha:network')
+                    dnsname = f'{name}.{netw}'
+
+                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    addr, port = aha.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
+                    await cm.enter_context(svc0)
+
+                    # Make a few changes that would get mirrored
+                    unfo = await svc0.addUser('user')
+                    await svc0.addUserRule(unfo.get('iden'), (True, ('foo', 'bar')))
+                    await svc0.addUserRule(unfo.get('iden'), (False, ('baz', 'faz')))
+
+                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
+                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
+                    await cm.enter_context(svc1)
+
+                    # svc0 and svc1 share an ahaclient! This is weird but a separate issue.
+                    self.true(svc0.ahaclient is svc1.ahaclient)
+
+                    # Ensure that services have connected
+                    await svc1.sync()
+
+                    # Get Aha services
+
+                    await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
+
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    self.true(ready)
+
+                    # Fini the Aha service.
+
+                    print('Tearing down Aha')
+
+                    await aha.fini()
+
+                    await asyncio.sleep(0.1)
+
+                    # Reuse our listening port we just deployed services with
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': 'loop.vertex.link',
+                        'provision:listen': 'ssl://aha.loop.vertex.link:0',  # we do not care about provisioning
+                        'dmon:listen': f'ssl://{dnsname}:{ahaport}?hostname={dnsname}&ca={netw}'
+                    }
+
+                    print('Restarting Aha')
+
+                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    print('Getting svcs')
+
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    online = svcinfo.get('online')
+                    self.none(online)
+                    self.true(ready)  # Ready is not cleared upon restart
+
+                    await asyncio.sleep(3)  # Let the mirror reconnect
+
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    online = svcinfo.get('online')
+                    self.nn(online)
+                    # Ready is set from a static value which doesn't reflect
+                    # that the mirror was in realtime change window as far
+                    # as it knew. That value defaults to false for svcs
+                    # that are non-leader.
+                    self.true(ready)
+
+                    print('Done with test!')
