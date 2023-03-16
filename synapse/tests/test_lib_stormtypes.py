@@ -2347,6 +2347,8 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm(query)
             self.none(ret)
 
+            self.none(await core.callStorm('return($lib.time.parse($lib.true, "%m/%d/%Y", errok=$lib.true))'))
+
             query = '''[test:str=1234 :tick=20190917]
             $lib.print($lib.time.format(:tick, "%Y-%d-%m"))
             '''
