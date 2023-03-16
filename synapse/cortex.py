@@ -1163,9 +1163,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
-        self.permdefs = None
-        self.permlook = None
-
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
@@ -1476,18 +1473,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface[name] = tuple(mods)
         return mods
 
-    async def getPermDef(self, perm):
-        if self.permlook is None:
-            permdefs = await self.getPermDefs()
-            self.permlook = {p['perm']: p for p in permdefs}
-        return self.permlook.get(tuple(perm))
-
     async def getPermDefs(self):
-        if self.permdefs is None:
-            self.permdefs = await self._getPermDefs()
-        return self.permdefs
-
-    async def _getPermDefs(self):
 
         permdefs = [
             {'perm': ('node',), 'gate': 'layer',
@@ -1532,6 +1518,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 'ex': 'node.prop.del.inet:ipv4:asn',
                 'desc': 'Controls removing a specific property from a node in a layer.'},
         ]
+
+        # TODO declare perm defs in storm libraries and include them here...
 
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
@@ -2757,10 +2745,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
-
-        if pkgdef.get('perms'):
-            self.permdefs = None
-            self.permlook = None
 
         # now actually load...
         self.stormpkgs[name] = pkgdef

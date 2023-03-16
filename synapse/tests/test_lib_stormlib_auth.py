@@ -105,7 +105,7 @@ class StormLibAuthTest(s_test.SynTest):
             self.eq([(True, ('node',))], await core.callStorm('''
                 return($lib.auth.roles.byname(ninjas).getRules(gateiden=$lib.view.get().layers.0.iden))'''))
 
-            self.ge(1, len(await core.callStorm('return($lib.auth.gates.list())')))
+            self.ge(len(await core.callStorm('return($lib.auth.gates.list())')), 1)
 
             gates = await core.callStorm('return($lib.auth.users.byname(visi).gates())')
             self.eq(gates[0]['type'], 'layer')
@@ -146,3 +146,8 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('auth.role.delrule ninjas --index 0')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Removed rule !baz.faz from role ninjas.', msgs)
+
+            defs = await core.callStorm('return($lib.auth.getPermDefs())')
+            self.ge(len(defs), 10)
+            self.nn(defs[0].get('perm'))
+            self.nn(defs[0].get('desc'))

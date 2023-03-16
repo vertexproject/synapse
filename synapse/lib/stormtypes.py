@@ -7223,11 +7223,16 @@ class LibAuth(Lib):
                     {'name': 'rule', 'type': 'list', 'desc': 'A rule tuple.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The rule text.'}}},
+        {'name': 'getPermDefs', 'desc': 'Return a list of permission definitions.',
+         'type': {'type': 'function', '_funcname': 'getPermDefs',
+                  'args': (),
+                  'returns': {'type': 'list', 'desc': 'The list of permission definitions.'}}},
     )
     _storm_lib_path = ('auth',)
 
     def getObjLocals(self):
         return {
+            'getPermDefs': self.runt.snap.core.getPermDefs,
             'ruleFromText': self.ruleFromText,
             'textFromRule': self.textFromRule,
         }
