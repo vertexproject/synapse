@@ -1475,7 +1475,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface[name] = tuple(mods)
         return mods
 
-    async def getPermDefs(self):
+    async def _getPermDefs(self):
 
         permdefs = [
             {'perm': ('view',), 'gate': 'view',
@@ -2520,6 +2520,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
 
+        self._clearPermDefs()
+
         gates = []
         perms = []
         pkgperms = pkgdef.get('perms')
@@ -2546,6 +2548,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         await self._dropStormPkg(pkgdef)
+
+        self._clearPermDefs()
 
         gates = []
         perms = []

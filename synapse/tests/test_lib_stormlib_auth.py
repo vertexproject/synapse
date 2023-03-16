@@ -147,6 +147,9 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Removed rule !baz.faz from role ninjas.', msgs)
 
+            self.nn(await core.callStorm('return($lib.auth.getPermDef((node,)))'))
+            self.none(await core.callStorm('return($lib.auth.getPermDef((foo, bar)))'))
+
             defs = await core.callStorm('return($lib.auth.getPermDefs())')
             self.ge(len(defs), 10)
             self.nn(defs[0].get('perm'))

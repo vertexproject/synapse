@@ -256,6 +256,12 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
+    async def getPermDef(self, perm):
+        '''
+        Return a specific permission definition.
+        '''
+        return await self.cell.getPermDef(perm)
+
     async def getPermDefs(self):
         '''
         Return a non-comprehensive list of perm definitions.
@@ -1167,6 +1173,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initServiceStorage
         self.cellupdaters = ()
 
+        self.permdefs = None
+        self.permlook = None
+
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -1193,8 +1202,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
+    async def getPermDef(self, perm):
+        if self.permlook is None:
+            self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
+        return self.permlook.get(perm)
+
     async def getPermDefs(self):
+        if self.permdefs is None:
+            self.permdefs = await self._getPermDefs()
+        return self.permdefs
+
+    async def _getPermDefs(self):
         return ()
+
+    def _clearPermDefs(self):
+        self.permdefs = None
+        self.permlook = None
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''

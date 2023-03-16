@@ -7247,11 +7247,18 @@ class LibAuth(Lib):
          'type': {'type': 'function', '_funcname': 'getPermDefs',
                   'args': (),
                   'returns': {'type': 'list', 'desc': 'The list of permission definitions.'}}},
+        {'name': 'getPermDef', 'desc': 'Return a list of permission definitions.',
+         'type': {'type': 'function', '_funcname': 'getPermDef',
+                  'args': (
+                    {'name': 'perm', 'type': 'list', 'desc': 'A permission tuple.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A permissions definition or null.'}}},
     )
     _storm_lib_path = ('auth',)
 
     def getObjLocals(self):
         return {
+            'getPermDef': self.getPermDef,
             'getPermDefs': self.getPermDefs,
             'ruleFromText': self.ruleFromText,
             'textFromRule': self.textFromRule,
@@ -7270,6 +7277,10 @@ class LibAuth(Lib):
 
     async def getPermDefs(self):
         return await self.runt.snap.core.getPermDefs()
+
+    async def getPermDef(self, perm):
+        perm = await toprim(perm)
+        return await self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):
