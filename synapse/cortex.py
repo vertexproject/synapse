@@ -1478,6 +1478,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getPermDefs(self):
 
         permdefs = [
+            {'perm': ('view',), 'gate': 'view',
+                'desc': 'Used to control all view permissions.'},
+            {'perm': ('view', 'read'), 'gate': 'view',
+                'desc': 'Used to control read access to a view.'},
+
             {'perm': ('node',), 'gate': 'layer',
                 'desc': 'Controls all node edits in a layer.'},
             {'perm': ('node', 'add'), 'gate': 'layer',
