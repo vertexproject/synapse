@@ -1166,6 +1166,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
+        self.stormlibs = []
+
         self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
@@ -1523,6 +1525,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
+
+        for (path, ctor) in self.stormlibs:
+            permdefs.extend(getattr(ctor, '_storm_lib_perms', ()))
 
         return tuple(permdefs)
 
@@ -4829,6 +4834,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.stormdmons.getDmonRunlog(iden)
 
     def addStormLib(self, path, ctor):
+
+        self.stormlibs.append((path, ctor))
 
         root = self.libroot
         # (name, {kids}, {funcs})

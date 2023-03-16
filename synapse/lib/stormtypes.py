@@ -478,6 +478,7 @@ class Lib(StormType):
     _ismutable = False
     _storm_query = None
     _storm_typename = 'storm:lib'
+    _storm_lib_perms = ()
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -4861,6 +4862,25 @@ class LibGlobals(Lib):
                               'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
+    _storm_lib_perms = (
+        {'perm': ('globals',),
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'),
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<name>'),
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'),
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<name>'),
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'pop'),
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'pop', '<name>'),
+            'desc': 'Used to control delete access to a specific global variable.'},
+    )
 
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)

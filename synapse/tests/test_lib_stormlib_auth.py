@@ -151,3 +151,6 @@ class StormLibAuthTest(s_test.SynTest):
             self.ge(len(defs), 10)
             self.nn(defs[0].get('perm'))
             self.nn(defs[0].get('desc'))
+            # make sure lib perms are getting added
+            perms = [d['perm'] for d in defs]
+            self.isin(('globals', 'get'), perms)

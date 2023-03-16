@@ -356,6 +356,5 @@ stormcmds = (
                 }
             }
         '''
-    }
-    # TODO auth.user/role.set
+    },
 )
