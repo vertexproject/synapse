@@ -256,12 +256,6 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
-    async def getPermDef(self, perm):
-        '''
-        Return a perm definition if it is present in getPermDefs() output, otherwise None.
-        '''
-        return await self.cell.getPermDef(perm)
-
     async def getPermDefs(self):
         '''
         Return a non-comprehensive list of perm definitions.
@@ -1043,7 +1037,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
-        self.permdefs = {}
         self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
@@ -1200,11 +1193,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
-    async def addPermDef(self, perm, info):
-        self.permdefs[perm] = info
-
     async def getPermDefs(self):
-        return self.permdefs.copy()
+        return ()
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
@@ -2385,12 +2375,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
-
-    async def getPermDef(self, perm): # pragma: no cover
-        return
-
-    async def getPermDefs(self): # pragma: no cover
-        return []
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
