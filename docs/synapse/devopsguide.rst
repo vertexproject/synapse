@@ -934,24 +934,24 @@ scaling and management of containerized applications. Synapse does work in Kuber
 Example Deployment
 ~~~~~~~~~~~~~~~~~~
 
-The following deployment walks through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
+The following examples walks through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
 inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
 
   Synapse Deployment Guide
     This guide assumes a familiarity with the Synapse deployment guide. Concepts covered there are not repeated here.
 
   namespace
-    These examples uses the Kubernetes ``default`` namespace.
+    These examples use the Kubernetes ``default`` namespace.
 
   PersistentVolumeClaim
-    These examples use PersistetVolumeClaim (PVC) to create a persistent storage location. All Synaspe services assume
-    they have some persistent storage to read and write too.  This example uses the ``storageClass`` of
+    These examples use PersistentVolumeClaim (PVC) to create a persistent storage location. All Synapse services assume
+    they have some persistent storage to read and write to.  This example uses the ``storageClass`` of
     ``do-block-storage``. You may need to alter these examples to provide a ``storageClass`` that is appropriate
     for your environment.
 
   Aha naming
-    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS, our Aha name
-    and network should match the internal naming for services in the cluster. The ``aha:network`` value is
+    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS, so our Aha name
+    and Aha network should match the internal naming for services in the cluster. The ``aha:network`` value is
     ``<namespace>.<cluster dns root>``. This DNS root value is normally ``svc.cluster.local``, so the resulting DNS
     label for the Aha service is ``aha.default.svc.cluster.local``. Similarly, the Aha service is configured to listen
     on ``0.0.0.0``, since we cannot bind the DNS label provided by Kubernetes prior to the Pod running Aha being
@@ -964,7 +964,6 @@ The following ``aha.yaml`` can be used to deploy an Aha service.
 
 .. literalinclude:: ./kubernetes/aha.yaml
     :language: yaml
-    :name: words about aha
 
 This can be deployed via ``kubectl apply``. That will create the PVC, deployment, and service.
 
@@ -1009,7 +1008,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.axon
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block look like the
+We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
 ::
@@ -1041,7 +1040,7 @@ You can see the Axon logs as well. These show provisioning and listening for tra
     2023-03-08 17:27:51,899 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
     2023-03-08 17:27:51,899 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
-The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is a
+The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
 name that it uses to register with the Aha service.
 
@@ -1049,7 +1048,7 @@ name that it uses to register with the Aha service.
 JSONStor
 ++++++++
 
-The following ``jsonstor.yaml`` can be used as the basis to deploy an JSONStor service.
+The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor service.
 
 .. literalinclude:: ./kubernetes/jsonstor.yaml
     :language: yaml
@@ -1062,7 +1061,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block look like the
+We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block lookslike the
 following:
 
 ::
@@ -1112,7 +1111,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block look like the
+We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block lookslike the
 following:
 
 ::
@@ -1131,7 +1130,7 @@ This can then be deployed via ``kubectl apply``:
     service/cortex created
 
 
-You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connecting being
+You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connection being
 made to the Axon and JSONStor services:
 
 ::
@@ -1163,7 +1162,7 @@ CLI Tooling Example
 Synapse services and tooling assumes that IP and Port combinations registered with the AHA service are reachable.
 This example shows a way to connect to the Cortex from **outside** of the Kubernetes cluster without resolving service
 information via Aha. Communication between services inside of the cluster does not need to go through these steps.
-These does assume that your local environment has the Python synapse package available.
+This does assume that your local environment has the Python synapse package available.
 
 First add a user to the Cortex:
 
@@ -1191,18 +1190,18 @@ name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
 
 ::
 
-    $ python -m synapse.tools.aha.enroll ssl://:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
+    $ python -m synapse.tools.aha.enroll ssl://localhost:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
     Saved CA certificate: /home/visi/.syn/certs/cas/default.svc.cluster.local.crt
     Saved user certificate: /home/visi/.syn/certs/users/visi@default.svc.cluster.local.crt
     Updating known AHA servers
 
-The Aha service port-forward can be disabled, and replaced with a port forward for the Cortex service:
+The Aha service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
 
 ::
 
     kubectl port-forward service/cortex 27492:telepath
 
-Then connect to the cortex via the Storm CLI, using the URL
+Then connect to the Cortex via the Storm CLI, using the URL
 ``ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local``.
 
 ::
@@ -1246,7 +1245,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block look like the
+We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block lookslike the
 following:
 
 ::
@@ -1264,8 +1263,8 @@ This can then be deployed via ``kubectl apply``:
     deployment.apps/optic00 created
     service/optic created
 
-You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connecting being
-made to the Axon, Cortx and JSONSTor services:
+You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connection being
+made to the Axon, Cortex, and JSONStor services:
 
 ::
 
@@ -1326,19 +1325,19 @@ The following items should be considered for Kubernetes deployments intended for
     terminated prior to a long running data migration completing.
 
   Ingress and Load Balancing
-    The use of ``kubectl port-forward`` may not sustainable in a production environment. It is common to use a form of
-    ingress controller or load balancer for external services to reach services such as the Cortex or Optic
+    The use of ``kubectl port-forward`` may not be sustainable in a production environment. It is common to use a form
+    of ingress controller or load balancer for external services to reach services such as the Cortex or Optic
     applications.
 
   Log aggregation
     Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
     aggregation solution can parse JSON formatted container logs, you can set the ``SYN_LOG_STRUCT`` environment
-    variable to ``true`` enable structured log output. See :ref:`devops-task-logging` for more information about that
+    variable to ``"true"`` to enable structured log output. See :ref:`devops-task-logging` for more information about that
     option.
 
   Node Selectors
     These examples do not use any node selectors to bind pods to specific nodes or node types. Node selectors on the
-    podspec can be used to constrain differnet services ot different types of nodes. For example, they can be used to
+    podspec can be used to constrain different services to different types of nodes. For example, they can be used to
     ensure the Cortex is deployed to a node which has been provisioned as a high memory node for that purpose.
 
   PVC
@@ -1360,10 +1359,9 @@ Performance Tuning in Kubernetes
 
 It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
 the underlying hosts. In that scenario, applying the system configurations detailed in :ref:`devops-task-performance`
-may be difficult. The following example shows a DaemonSet which runs a privileged pod, that ensures that that the
-desired ``sysctl`` values are set on the host. You may need to modify this to meet any requirements which are specific
-to your deployment.
-
+may be difficult. The following example shows a DaemonSet which runs a privileged pod, that ensures that the desired
+``sysctl`` values are set on the host. You may need to modify this to meet any requirements which are specific to
+your deployment.
 
 The following ``sysctl.yaml`` can be used as the basis to deploy these modifications.
 
