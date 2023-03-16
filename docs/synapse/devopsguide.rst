@@ -1061,7 +1061,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block lookslike the
+We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
 ::
@@ -1111,7 +1111,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block lookslike the
+We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
 ::
@@ -1245,7 +1245,7 @@ like the following:
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
     one-time use URL: ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block lookslike the
+We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
 ::
