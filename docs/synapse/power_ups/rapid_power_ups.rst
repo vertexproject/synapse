@@ -69,6 +69,9 @@ directly from the UI.
 
 Alternatively, one can use the `storm`_ tool to get started with Rapid Power-Ups in their Cortex.
 
+See our `blog article <https://vertex.link/blogs/synapse-power-ups/>`_ for a step-by step guide to registering your
+Cortex to install the free ``synapse-mitre-attack`` and ``synapse-tor`` Power-Ups.
+
 First load the ``vertex`` package.
 
 ::
@@ -98,14 +101,3 @@ For additional details run ``vertex.pkg.install --help``.
 ::
 
     storm> vertex.pkg.install <pkgname>
-
-
-Configuration
--------------
-
-For Power-Ups that require an API key, the ``<pkgname>.setup.apikey`` command can be used
-to set the key globally or for the current user, with the latter taking precedence.
-
-Other configuration requirements are detailed in the individual package documentation.
-
-.. _storm: https://synapse.docs.vertex.link/en/latest/synapse/userguides/syn_tools_storm.html
