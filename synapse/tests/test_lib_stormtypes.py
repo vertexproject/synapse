@@ -4671,7 +4671,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             async with core.getLocalProxy() as proxy:
-                self.ge(10, len(await proxy.getPermDefs()))
+                self.ge(len(await proxy.getPermDefs()), 10)
                 pdef = await proxy.getPermDef(('node', 'add'))
                 self.eq('Controls adding any form of node in a layer.', pdef['desc'])
 
