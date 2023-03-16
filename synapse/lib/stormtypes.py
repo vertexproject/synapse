@@ -8171,9 +8171,9 @@ class User(Prim):
         indx = await toint(indx)
         gateiden = await tostr(gateiden, noneok=True)
 
-        rules = list(await self._derefGet('rules'))
+        rules = list(await self.getRules(gateiden=gateiden))
 
-        if len(rules) < indx:
+        if len(rules) <= indx:
             mesg = f'User {self.valu} only has {len(rules)} rules.'
             raise s_exc.BadArg(mesg=mesg)
 
@@ -8367,9 +8367,9 @@ class Role(Prim):
 
         indx = await toint(indx)
 
-        rules = list(await self._derefGet('rules'))
+        rules = list(await self.getRules(gateiden=gateiden))
 
-        if len(rules) < indx:
+        if len(rules) <= indx:
             mesg = f'Role {self.valu} only has {len(rules)} rules.'
             raise s_exc.BadArg(mesg=mesg)
 

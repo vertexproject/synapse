@@ -4812,6 +4812,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
             self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
+            self.eq('foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.true, (foo, bar))))'))
+            self.eq('!foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.false, (foo, bar))))'))
 
             rdef = await core.callStorm('return($lib.auth.roles.add(admins))')
             opts = {'vars': {'roleiden': rdef.get('iden')}}
