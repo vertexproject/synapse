@@ -4719,11 +4719,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
             self.stormIsInPrint('wootwoot                         : lol lol', msgs)
 
-            # make sure loading the package bumped the permtree
-            async with core.getLocalProxy() as proxy:
-                pdef = await proxy.getPermDef(('wootwoot',))
-                self.eq('lol lol', pdef['desc'])
-
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
 

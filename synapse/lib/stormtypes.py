@@ -7252,7 +7252,7 @@ class LibAuth(Lib):
 
     def getObjLocals(self):
         return {
-            'getPermDefs': self.runt.snap.core.getPermDefs,
+            'getPermDefs': self.getPermDefs,
             'ruleFromText': self.ruleFromText,
             'textFromRule': self.textFromRule,
         }
@@ -7267,6 +7267,9 @@ class LibAuth(Lib):
         if not rule[0]:
             text = '!' + text
         return text
+
+    async def getPermDefs(self):
+        return await self.runt.snap.core.getPermDefs()
 
 @registry.registerLib
 class LibUsers(Lib):
