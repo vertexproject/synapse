@@ -62,31 +62,6 @@ Add the user "Ron" with email address ``ronthecat@vertex.link``:
   the user (such as the username or associated email address) without affecting the underlying account or any
   associated permissions.
   
-.. _admin_manage_users:
-
-Manage Users
-============
-
-Managing user accounts (aside from assigning rules to specify permissions) consists of actions such as listing
-users, viewing the details for a specific user, resetting the user's password, changing the username,
-associating an email address with the user account, locking (disabling) the account, unlocking the account, or
-deleting the account.
-
-The various Storm ``auth.user.*`` commands can be used to manage user accounts (see :ref:`storm-auth`).
-
-**Examples:**
-
-EXAMPLES GO HERE - COMMANDS ARE WIP
-
-display / update / list / lock / unlock / delete
-
-.. WARNING::
-  
-  We strongly encourage you to **lock/disable** accounts when necessary instead of deleting them. Changes to
-  data in the Cortex (such as creating nodes, setting properties, or adding tags) are associated with the user
-  account that made those changes. Deleting an account associated with past changes will prohibit you from
-  identifying the user who made those changes.
-
 
 .. _admin_add_roles:
 
@@ -112,28 +87,6 @@ Add the new role "cattribution analyst":
   Roles are represented by a unique 128-bit identifier (iden). You can later change information about the role
   (such as the role name) without affecting the underlying role or any associated permissions or users.
 
-.. _admin_manage_roles:
-
-Manage Roles
-============
-
-Managing roles (aside from assigning rules to specify permissions to roles, and granting or revoking roles from
-users) consists of actions such as listing roles, viewing the details for a specific role, changing the name of
-a role, or deleting a role.
-
-The various Storm ``auth.role.*`` commands can be used to manage roles (see :ref:`storm-auth`).
-
-**Examples:**
-
-EXAMPLES GO HERE - COMMANDS ARE WIP
-
-display / rename / list / delete
-
-.. NOTE::
-  
-  Deleting a role has no impact on any users who have been granted the role (other than losing any permissions
-  provided by that role). The user accounts remain intact and the role is simply removed from each user's list
-  of roles.
 
 .. _admin_grant_roles:
 
@@ -144,17 +97,20 @@ Grant or Revoke Roles
 associated permissions from the user. It is not possible to grant a role to another role (i.e., roles cannot be
 nested).
 
-Roles can be granted or revoked using the ``auth.user.grant`` and ``auth.user.revoke`` commands. (COMMANDS ARE WIP)
+Roles can be granted or revoked using the :ref:`storm-auth-user-grant` and :ref:`storm-auth-user-revoke`` commands.
 
 **Examples:**
 
 Grant the role "cattribution analyst" to the user "ron":
 
-EXAMPLE GOES HERE
+**STORM:** auth.user.grant ron "cattribution analyst"
 
 Revoke the role "a-cat-emic researcher" from user "ron":
 
-EXAMPLE GOES HERE
+.. storm-pre:: auth.role.add "a-cat-emic researcher"
+
+**STORM:** auth.user.revoke ron "a-cat-emic researcher"
+
 
 .. NOTE::
   

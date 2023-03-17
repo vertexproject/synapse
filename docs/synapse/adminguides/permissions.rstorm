@@ -130,6 +130,22 @@ For example:
 | **Only** add and remove tags in the "mytag" tag tree            | ``node.tag.add.mytag``          |
 |                                                                 | ``node.tag.del.mytag``          |
 +-----------------------------------------------------------------+---------------------------------+
+| Add or remove **any** edge                                      |                                 |
+|                                                                 | ``node.edge``                   |
+| (Note that adding or removing edges allows creating edges       |                                 |
+|                                                                 |                                 |
+| between **any** nodes; there are no model constraints on the    |                                 |
+|                                                                 |                                 |
+| kinds of nodes that can be joined. It also allows the creation  |                                 |
+|                                                                 |                                 |
+| of new / arbitrarily named edges.)                              |                                 |
++-----------------------------------------------------------------+---------------------------------+
+| **Only** add edges                                              | ``node.edge.add``               |
+|                                                                 |                                 |
++-----------------------------------------------------------------+---------------------------------+
+| **Only** add ``refs`` edges                                     | ``node.edge.add.refs``          |
+|                                                                 |                                 |
++-----------------------------------------------------------------+---------------------------------+
 
 .. TIP::
   
@@ -285,7 +301,8 @@ From a Synapse Admin perspective, managing permissions within Synapse commonly i
 - Assigning rules to users and roles to allow or deny access to additional services, such as an Axon or
   various Power-Ups.
 
-Permissions in Synapse are managed using the Storm ``auth.role.*`` and ``auth.user.*`` commands.
+Permissions in Synapse are managed using the Storm ``auth.role.*`` and ``auth.user.*`` commands (see
+:ref:`storm-auth`).
 
 .. TIP::
   
@@ -375,11 +392,21 @@ Allow the role "malware analysts" to add tags in the "code capabilities" tag tre
 
 
 
+
+
+FIGURE OUT WHERE TO PUT THIS
+
+
 View information about a user (does/will this include assigned rules?) - COMMAND IS WIP
 ``auth.user.show``
 
 View information about a role (does/will this include assigned rules?) - COMMAND IS WIP
 ``auth.role.show``
+
+
+
+
+
 
 Remove a rule from a user: - COMMAND IS WIP
 ``auth.user.delrule``
@@ -405,14 +432,15 @@ if any. Once the iden has been retrieved, you can use it to add (or remove) a ru
 
 EXAMPLES GO HERE - COMMANDS ARE WIP
 
-Display information about a specific AuthGate:
+Display information about a specific Auth Gate:
 ``auth.gate.show...``
 
-Add a role-based rule to a specific AuthGate:
+Add a role-based rule to a specific Auth Gate:
 ``auth.role.addrule...``
 
-Remove a user-based rule from a specific AuthGate:
+Remove a user-based rule from a specific Auth  Gate:
 ``auth.user.delrule...``
+
 
 .. _admin_perms_examples:
 

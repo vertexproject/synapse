@@ -151,14 +151,33 @@ auth
 Storm includes ``auth.*`` commands that allow you create users and roles and manage their associated
 permissions (rules).
 
+- `auth.gate.show`_
 - `auth.role.add`_
 - `auth.role.addrule`_
+- `auth.role.delrule`_
+- `auth.role.show`_
 - `auth.user.add`_
 - `auth.user.addrule`_
+- `auth.user.delrule`_
+- `auth.user.grant`_
+- `auth.user.revoke`_
+- `auth.user.show`_
 
 Help for individual ``auth.*`` commands can be displayed using:
 
   ``<command> --help``
+
+.. _storm-auth-gate-show:
+
+auth.gate.show
+++++++++++++++
+
+The ``auth.gate.show`` command displays the user, roles, and permissions assocaited with the specified
+:ref:`gloss-authgate`.
+
+**Syntax**
+
+**EXAMPLE GOES HERE**
 
 
 .. _storm-auth-role-add:
@@ -185,6 +204,30 @@ The ``auth.role.addrule`` command adds a rule (permission) to a role.
 .. storm-cli:: auth.role.addrule --help
 
 
+.. _storm-auth-role-delrule:
+
+auth.role.delrule
++++++++++++++++++
+
+The ``auth.role.delrule`` command removes a rule (permission) from a role.
+
+**Syntax:**
+
+**EXAMPLE GOES HERE**
+
+
+.. _storm-auth-role-show:
+
+auth.role.show
+++++++++++++++
+
+The ``auth.role.show`` displays the details for a given role.
+
+**Syntax:**
+
+**EXAMPLE GOES HERE**
+
+
 .. _storm-auth-user-add:
 
 auth.user.add
@@ -207,6 +250,54 @@ The ``auth.user.addrule`` command adds a rule (permission) to a user.
 **Syntax:**
 
 .. storm-cli:: auth.user.addrule --help
+
+
+.. _storm-auth-user-delrule:
+
+auth.user.delrule
++++++++++++++++++
+
+The ``auth.user.delrule`` command removes a rule (permission) from a user.
+
+**Syntax:**
+
+**EXAMPLE GOES HERE**
+
+
+.. _storm-auth-user-grant:
+
+auth.user.grant
++++++++++++++++++
+
+The ``auth.user.grant`` command grants a role (and its associated permissions) to a user.
+
+**Syntax:**
+
+**EXAMPLE GOES HERE**
+
+
+.. _storm-auth-user-revoke:
+
+auth.user.revoke
++++++++++++++++++
+
+The ``auth.user.revoke`` command revokes a role (and its associated permissions) from a user.
+
+**Syntax:**
+
+**EXAMPLE GOES HERE**
+
+
+.. _storm-auth-user-show:
+
+auth.user.show
+++++++++++++++
+
+The ``auth.user.show`` command displays information for a specific user.
+
+**Syntax:**
+
+**EXAMPLE GOES HERE**
 
 
 .. _storm-background:
@@ -651,6 +742,17 @@ the software name (``it:prod:soft:name`` and / or ``it:prod:soft:names``).
 .. storm-cli:: gen.it.prod.soft --help
 
 
+.. _storm-gen-lang:
+
+gen.lang.language
++++++++++++++++++
+
+The ``gen.lang.language`` command locates (lifts) or creates a ``lang:language`` node based on
+the language name (``lang:language:name`` and / or ``lang:language:names``).
+
+.. storm-cli:: gen.lang.language --help
+
+
 .. _storm-gen-industry:
 
 gen.ou.industry
@@ -746,6 +848,9 @@ name of the entity reporting on the software / malware (``risk:tool:software:rep
 
 
 .. _storm-gen-risk-vuln:
+
+gen.risk.vuln
++++++++++++++
 
 The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
