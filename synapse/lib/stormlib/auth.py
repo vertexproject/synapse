@@ -120,7 +120,7 @@ stormcmds = (
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate id to add the rule to.', 'default': None}),
         ),
         'storm': '''
             $role = $lib.auth.roles.byname($cmdopts.name)
@@ -152,7 +152,7 @@ stormcmds = (
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate id to remove the rule from.', 'default': None}),
             ('--index', {'type': 'bool', 'action': 'store_true', 'default': False,
                 'help': 'Specify the rule as a 0 based index into the list of rules.'}),
         ),
@@ -178,6 +178,7 @@ stormcmds = (
             Grant a role to a user.
 
             Examples:
+
                 // Grant the role "ninjas" to the user "visi"
                 auth.user.grant visi ninjas
 
@@ -203,8 +204,9 @@ stormcmds = (
             Revoke a role from a user.
 
             Examples:
+
                 // Revoke the role "ninjas" from the user "visi"
-                auth.user.grant visi ninjas
+                auth.user.revoke visi ninjas
 
         ''',
         'cmdargs': (
@@ -232,6 +234,7 @@ stormcmds = (
             Display details for a given user by name.
 
             Examples:
+
                 // Display details about the user "visi"
                 auth.user.show visi
         ''',
@@ -276,6 +279,7 @@ stormcmds = (
             Display details for a given role by name.
 
             Examples:
+
                 // Display details about the role "ninjas"
                 auth.role.show ninjas
         ''',
@@ -330,6 +334,9 @@ stormcmds = (
             $gate = $lib.auth.gates.get($cmdopts.gateiden)
             if (not $gate) { $lib.exit(`No auth gate found for iden: {$cmdopts.gateiden}.`) }
 
+            $lib.print(`Gate Type: {$gate.type}`)
+
+            $lib.print("")
             $lib.print("Auth Gate Users:")
             for $gateuser in $gate.users {
                 $user = $lib.auth.users.get($gateuser.iden)

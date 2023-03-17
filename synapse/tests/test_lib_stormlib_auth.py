@@ -32,6 +32,8 @@ Role: ninjas (3c5318903adb4bbd67e100331d37961d)
 '''.strip()
 
 gateshow = '''
+Gate Type: layer
+
 Auth Gate Users:
   b1d8d5b4c946399113a25ebed44f490b - root
     Admin: True
