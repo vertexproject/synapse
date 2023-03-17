@@ -12,6 +12,9 @@ Bugfixes
 - Fix an issue where passing a non-string value to ``$lib.time.parse``
   with ``errok=$lib.true`` would still raise an exception.
   (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
+- Fix an issue where Aha dmons running on non-default ports would not
+  have that port included in the default Aha URLs.
+  (`#3049 <https://github.com/vertexproject/synapse/pull/3049>`_)
 
 v2.125.0 - 2023-03-14
 =====================
