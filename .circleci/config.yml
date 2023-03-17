@@ -833,7 +833,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_aha_logging
 
       - push_docker_branch:
           requires:

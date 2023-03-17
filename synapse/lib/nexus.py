@@ -488,7 +488,7 @@ class NexsRoot(s_base.Base):
 
                     # with tellready we move to ready=true when we get a None
                     if item is None:
-                        logger.info(f'Item is None, caling setNexsReady(True)')
+                        logger.info(f'Entering realtime change window for syncing data at offset={offs}')
                         await self.setNexsReady(True)
                         self._mirready.set()
                         continue
@@ -525,6 +525,14 @@ class NexsRoot(s_base.Base):
 
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
+
+            # finally:
+            #     # If we've left the mirror loop for some reason, we no longer know if we
+            #     # will be in the realtime window or not. So we should try to set the ready
+            #     # value to false and clear our internal flag.
+            #     if not self.isfini:
+            #         await self.setNexsReady(False)
+            #         self._mirready.clear()
 
     async def _tellAhaReady(self, status):
 
