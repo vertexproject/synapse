@@ -728,6 +728,8 @@ class AhaCell(s_cell.Cell):
     def _getAhaUrls(self):
         urls = self.conf.get('aha:urls')
         if urls is not None:
+            if isinstance(urls, str):
+                return (urls,)
             return urls
 
         ahaname = self.conf.get('aha:name')
@@ -738,8 +740,15 @@ class AhaCell(s_cell.Cell):
         if ahanetw is None:
             return None
 
+        urls = []
+        for serv in self.dmon.listenservers:
+            addr = serv.sockets[0].getsockname()
+            if isinstance(addr, tuple):
+                urls.append(f'ssl://{ahaname}.{ahanetw}:{addr[1]}')
+
         # TODO this could eventually enumerate others via itself
-        return f'ssl://{ahaname}.{ahanetw}'
+        if urls:
+            return tuple(urls)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -796,9 +805,6 @@ class AhaCell(s_cell.Cell):
 
         if peer:
             conf.setdefault('aha:leader', leader)
-
-        if isinstance(ahaurls, str):
-            ahaurls = (ahaurls,)
 
         # allow user to win over leader
         ahauser = conf.get('aha:user')

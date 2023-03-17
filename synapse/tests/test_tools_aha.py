@@ -1,9 +1,15 @@
+import os
+import shutil
+
+import synapse.common as s_common
 import synapse.lib.cell as s_cell
 
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.aha.list as s_a_list
+import synapse.tools.aha.enroll as s_a_enroll
 import synapse.tools.aha.easycert as s_a_easycert
+import synapse.tools.aha.provision.user as s_a_provision_user
 
 class AhaToolsTest(s_t_utils.SynTest):
 
@@ -76,3 +82,67 @@ class AhaToolsTest(s_t_utils.SynTest):
                 outp.expect('users/mallory@demo.net.key')
                 outp.expect('crt saved')
                 outp.expect('users/mallory@demo.net.crt')
+
+    async def test_aha_enroll(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'aha:name': 'aha',
+                'aha:network': 'loop.vertex.link',
+                'provision:listen': 'ssl://aha.loop.vertex.link:0'
+            }
+            async with self.getTestAha(dirn=dirn, conf=conf) as aha:
+
+                addr, port = aha.provdmon.addr
+                aha.conf['provision:listen'] = f'ssl://aha.loop.vertex.link:{port}'
+
+                host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
+
+                self.eq(aha._getAhaUrls(), [f'ssl://aha.loop.vertex.link:{ahaport}'])
+
+                argv = ['--url', aha.getLocalUrl(), 'visi']
+                retn, outp = await self.execToolMain(s_a_provision_user.main, argv)
+                self.isin('one-time use URL:', str(outp))
+
+                provurl = str(outp).split(':', 1)[1].strip()
+                with self.getTestSynDir() as syndir:
+
+                    capath = s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')
+                    crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')
+                    keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')
+
+                    for path in (capath, crtpath, keypath):
+                        s_common.genfile(path)
+
+                    retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
+
+                    for path in (capath, crtpath, keypath):
+                        self.gt(os.path.getsize(path), 0)
+
+                    teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
+                    self.eq(teleyaml.get('version'), 1)
+                    self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
+
+                    shutil.rmtree(s_common.genpath(syndir, 'certs'))
+
+                    host, ahaport2 = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
+
+                    ahaurls = [f'ssl://aha.loop.vertex.link:{ahaport}',
+                               f'ssl://aha.loop.vertex.link:{ahaport2}']
+
+                    self.sorteq(aha._getAhaUrls(), ahaurls)
+
+                    argv = ['--again', '--url', aha.getLocalUrl(), 'visi']
+                    retn, outp = await self.execToolMain(s_a_provision_user.main, argv)
+                    self.isin('one-time use URL:', str(outp))
+
+                    provurl = str(outp).split(':', 1)[1].strip()
+
+                    retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
+
+                    servers = [f'ssl://visi@aha.loop.vertex.link:{ahaport}',
+                               f'ssl://visi@aha.loop.vertex.link:{ahaport2}']
+
+                    teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
+                    self.sorteq(teleyaml.get('aha:servers'), servers)
