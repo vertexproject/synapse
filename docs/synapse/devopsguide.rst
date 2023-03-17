@@ -934,7 +934,7 @@ scaling and management of containerized applications. Synapse does work in Kuber
 Example Deployment
 ~~~~~~~~~~~~~~~~~~
 
-The following examples walks through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
+The following examples walk through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
 inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
 
   Synapse Deployment Guide
