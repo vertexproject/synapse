@@ -1503,7 +1503,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             while not proxy.isfini:
                 info = await self._genAhaInfo()
                 try:
-                    logger.debug(f'addAhaSvc with {info}')
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, info, network=ahanetw)
@@ -1689,7 +1688,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ahanetw = self.conf.get('aha:network')
         try:
-            logger.debug(f'Setting ahalead={ahalead} as active with {ahainfo}')
             await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
         except asyncio.CancelledError:  # pragma: no cover
             raise

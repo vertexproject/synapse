@@ -426,7 +426,7 @@ class NexsRoot(s_base.Base):
         return self.ready.is_set()
 
     async def setNexsReady(self, status):
-        logger.debug(f'setNexsReady(status={status}')
+
         if status:
             self.ready.set()
         else:
@@ -474,9 +474,6 @@ class NexsRoot(s_base.Base):
                 opts = {}
                 if cellvers >= (2, 95, 0):
                     opts['tellready'] = True
-                    logger.debug('Setting tellready=True')
-
-                logger.debug(f'Starting getNexusChanges from offs={offs}')
 
                 genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
@@ -532,7 +529,6 @@ class NexsRoot(s_base.Base):
     async def _tellAhaReady(self, status):
 
         if self.cell.ahaclient is None:
-            logger.info('No aha client to tell ready!')
             return
 
         try:
@@ -541,7 +537,6 @@ class NexsRoot(s_base.Base):
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
                 await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': True})
-                logger.debug(f'Told Aha I am ready!')
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
