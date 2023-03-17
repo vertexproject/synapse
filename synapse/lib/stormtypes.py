@@ -4868,17 +4868,17 @@ class LibGlobals(Lib):
 
         {'perm': ('globals', 'get'), 'gate': 'cortex',
             'desc': 'Used to control read access to all global variables.'},
-        {'perm': ('globals', 'get', '<name>'),
+        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
             'desc': 'Used to control read access to a specific global variable.'},
 
         {'perm': ('globals', 'set'), 'gate': 'cortex',
             'desc': 'Used to control edit access to all global variables.'},
-        {'perm': ('globals', 'set', '<name>'),
+        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
             'desc': 'Used to control edit access to a specific global variable.'},
 
         {'perm': ('globals', 'pop'), 'gate': 'cortex',
             'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'pop', '<name>'),
+        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
             'desc': 'Used to control delete access to a specific global variable.'},
     )
 

@@ -1477,7 +1477,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _getPermDefs(self):
 
-        permdefs = [
+        permdefs = list(await s_cell.Cell._getPermDefs(self))
+        permdefs.extend((
             {'perm': ('view',), 'gate': 'view',
                 'desc': 'Used to control all view permissions.'},
             {'perm': ('view', 'read'), 'gate': 'view',
@@ -1524,7 +1525,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
                 'ex': 'node.prop.del.inet:ipv4:asn',
                 'desc': 'Controls removing a specific property from a node in a layer.'},
-        ]
+        ))
 
         # TODO declare perm defs in storm libraries and include them here...
 
