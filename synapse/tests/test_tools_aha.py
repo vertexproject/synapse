@@ -115,6 +115,9 @@ class AhaToolsTest(s_t_utils.SynTest):
                     for path in (capath, crtpath, keypath):
                         s_common.genfile(path)
 
+                    yamlpath = s_common.genpath(syndir, 'telepath.yaml')
+                    s_common.yamlsave({'aha:servers': 'cell://aha'}, yamlpath)
+
                     retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
 
                     for path in (capath, crtpath, keypath):
@@ -122,7 +125,7 @@ class AhaToolsTest(s_t_utils.SynTest):
 
                     teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                     self.eq(teleyaml.get('version'), 1)
-                    self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
+                    self.eq(teleyaml.get('aha:servers'), ('cell://aha', f'ssl://visi@aha.loop.vertex.link:{ahaport}'))
 
                     shutil.rmtree(s_common.genpath(syndir, 'certs'))
 
@@ -141,7 +144,8 @@ class AhaToolsTest(s_t_utils.SynTest):
 
                     retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
 
-                    servers = [f'ssl://visi@aha.loop.vertex.link:{ahaport}',
+                    servers = ['cell://aha',
+                               f'ssl://visi@aha.loop.vertex.link:{ahaport}',
                                f'ssl://visi@aha.loop.vertex.link:{ahaport2}']
 
                     teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
