@@ -1493,7 +1493,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
                 'ex': 'node.add.inet:ipv4',
-                'desc': 'Controls adding any form of node in a layer.'},
+                'desc': 'Controls adding a specific form of node in a layer.'},
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
                 'desc': 'Controls removing a specific form of node in a layer.'},
 
