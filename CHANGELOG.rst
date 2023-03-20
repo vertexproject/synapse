@@ -14,7 +14,7 @@ Features and Enhancements
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 
   ``auth.gate.show``
-    Shows show the definition for an AuthGate.
+    Shows the definition for an AuthGate.
 
   ``auth.role.delrule``
     Used to delete a rule from a Role.
@@ -26,12 +26,12 @@ Features and Enhancements
     Used to delete a rule from a User.
 
   ``auth.user.grant``
-    Used to a Role to a User.
+    Used to grant a Role to a User.
 
   ``auth.user.revoke``
     Used to revoke a Role from a User.
 
-  * ``auth.user.show``
+  ``auth.user.show``
     Shows the definition of a User.
 
 - Update some of the auth related objects in Storm:
@@ -50,7 +50,7 @@ Features and Enhancements
   with permissions.
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 - Add a new Storm library function, ``$lib.iters.enum()``, to assist with
-  enumerating a iterable object in Storm.
+  enumerating an iterable object in Storm.
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 - Update the ``NoSuchName`` exceptions which can be raised by Aha during
   service provisioning to clarify they are likely caused by re-using the
