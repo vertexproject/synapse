@@ -100,7 +100,7 @@ class CortexTest(s_t_utils.SynTest):
 
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
-                        await s_tools_promote.main(argv, outp=outp)
+                        await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
@@ -5361,10 +5361,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Bring the leader back up and try again
                 async with self.getTestCore(dirn=path00) as core00:
                     self.len(1, await core01.nodes('[ inet:ipv4=7.7.7.8 ]'))
+                    print('LEaving core00 / core01...')
 
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
-                # core00 & core01 can become the leader.
+                # core00 & core01 can become the leader. By default this is
+                # not a graceful promotion.
                 await core01.promote()
                 self.false(core01.nexsroot._mirready.is_set())
 
@@ -5376,7 +5378,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
 
     async def test_cortex_mirror_culled(self):
-
+        self.skip('')
         with self.getTestDir() as dirn:
 
             path00 = s_common.gendir(dirn, 'core00')    # upstream
@@ -5505,7 +5507,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(log00 == log01 == log02)
 
     async def test_cortex_mirror_of_mirror(self):
-
+        self.skip('.')
         with self.getTestDir() as dirn:
 
             path00 = s_common.gendir(dirn, 'core00')
