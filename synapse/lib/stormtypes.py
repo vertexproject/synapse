@@ -7247,12 +7247,12 @@ class LibAuth(Lib):
          'type': {'type': 'function', '_funcname': 'getPermDefs',
                   'args': (),
                   'returns': {'type': 'list', 'desc': 'The list of permission definitions.'}}},
-        {'name': 'getPermDef', 'desc': 'Return a list of permission definitions.',
+        {'name': 'getPermDef', 'desc': 'Return a single permission definition.',
          'type': {'type': 'function', '_funcname': 'getPermDef',
                   'args': (
                     {'name': 'perm', 'type': 'list', 'desc': 'A permission tuple.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A permissions definition or null.'}}},
+                  'returns': {'type': 'dict', 'desc': 'A permission definition or null.'}}},
     )
     _storm_lib_path = ('auth',)
 
@@ -7975,7 +7975,7 @@ class User(Prim):
                       {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'list', 'desc': 'The rule which was removed.'}}},
         {'name': 'setRules', 'desc': 'Replace the rules on the User with new rules.',
          'type': {'type': 'function', '_funcname': '_methUserSetRules',
                   'args': (
@@ -8299,7 +8299,7 @@ class Role(Prim):
                       {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'list', 'desc': 'The rule which was removed.'}}},
         {'name': 'getRules', 'desc': 'Get the rules for the role and optional auth gate.',
          'type': {'type': 'function', '_funcname': 'getRules',
                   'args': (
