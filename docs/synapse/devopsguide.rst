@@ -932,7 +932,7 @@ scaling and management of containerized applications. Synapse does work in Kuber
 .. _orch-kubernetes-deployment:
 
 Example Deployment
-~~~~~~~~~~~~~~~~~~
+++++++++++++++++++
 
 The following examples walk through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
 inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
@@ -958,7 +958,7 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
     available.
 
 Aha
-+++
+^^^
 
 The following ``aha.yaml`` can be used to deploy an Aha service.
 
@@ -992,8 +992,7 @@ You can see the startup logs as well:
 
 
 Axon
-++++
-
+^^^^
 
 The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
 
@@ -1046,7 +1045,7 @@ name that it uses to register with the Aha service.
 
 
 JSONStor
-++++++++
+^^^^^^^^
 
 The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor service.
 
@@ -1095,7 +1094,7 @@ You can see the JSONStor logs as well. These show provisioning and listening for
     2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 Cortex
-++++++
+^^^^^^
 
 The following ``cortex.yaml`` can be used as the basis to deploy the Cortex.
 
@@ -1157,7 +1156,7 @@ made to the Axon and JSONStor services:
 
 
 CLI Tooling Example
-+++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^
 
 Synapse services and tooling assumes that IP and Port combinations registered with the AHA service are reachable.
 This example shows a way to connect to the Cortex from **outside** of the Kubernetes cluster without resolving service
@@ -1219,7 +1218,7 @@ Then connect to the Cortex via the Storm CLI, using the URL
 The Storm CLI tool can then be used to run Storm commands.
 
 Commercial Components
-+++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^
 
 For Synapse-Enterprise users, deploying commercial components can follow a similar pattern. The following is an example
 of deploying Optic, the Synapse User Interface, as it is a common part of a Synapse deployment. This enables users to
@@ -1327,7 +1326,8 @@ The following items should be considered for Kubernetes deployments intended for
   Ingress and Load Balancing
     The use of ``kubectl port-forward`` may not be sustainable in a production environment. It is common to use a form
     of ingress controller or load balancer for external services to reach services such as the Cortex or Optic
-    applications.
+    applications. It is common in for the Optic UI or the Cortex HTTP API to be exposed to end users since that often
+    has a simpler networking configuration than exposing Telepath services on Aha and the Cortex.
 
   Log aggregation
     Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
@@ -1345,17 +1345,10 @@ The following items should be considered for Kubernetes deployments intended for
     which can be dynamically resized will be helpful in the event of needing to grow the storage used by a deployment.
     This is a common feature for managed Kubernetes instances.
 
-Considerations for transitioning to commercial components
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Cortex is often not exposed, or only exposed via the HTTP service.
-The Optic user interface component is commonly exposed as an http service. This is frequently done behind an
-application load balancer in practice.
-
 .. _orch-kubernetes-sysctl:
 
 Performance Tuning in Kubernetes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+++++++++++++++++++++++++++++++++
 
 It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
 the underlying hosts. In that scenario, applying the system configurations detailed in :ref:`devops-task-performance`
