@@ -1,4 +1,7 @@
 import os
+import shutil
+
+from unittest import mock
 
 import synapse.common as s_common
 import synapse.lib.cell as s_cell
@@ -125,3 +128,25 @@ class AhaToolsTest(s_t_utils.SynTest):
                     teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                     self.eq(teleyaml.get('version'), 1)
                     self.eq(teleyaml.get('aha:servers'), ('cell://aha', f'ssl://visi@aha.loop.vertex.link:{ahaport}'))
+
+                    shutil.rmtree(s_common.genpath(syndir, 'certs'))
+
+                    def _strUrl(self):
+                        return 'ssl://aha.loop.vertex.link'
+
+                    with mock.patch('synapse.lib.aha.AhaCell._getAhaUrls', _strUrl):
+
+                        argv = ['--again', '--url', aha.getLocalUrl(), 'visi']
+                        retn, outp = await self.execToolMain(s_a_provision_user.main, argv)
+                        self.isin('one-time use URL:', str(outp))
+
+                        provurl = str(outp).split(':', 1)[1].strip()
+
+                        retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
+
+                        servers = ['cell://aha',
+                                   'ssl://visi@aha.loop.vertex.link',
+                                   f'ssl://visi@aha.loop.vertex.link:{ahaport}']
+
+                        teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
+                        self.sorteq(teleyaml.get('aha:servers'), servers)
