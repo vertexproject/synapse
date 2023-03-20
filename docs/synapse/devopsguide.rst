@@ -1326,8 +1326,8 @@ The following items should be considered for Kubernetes deployments intended for
   Ingress and Load Balancing
     The use of ``kubectl port-forward`` may not be sustainable in a production environment. It is common to use a form
     of ingress controller or load balancer for external services to reach services such as the Cortex or Optic
-    applications. It is common in for the Optic UI or the Cortex HTTP API to be exposed to end users since that often
-    has a simpler networking configuration than exposing Telepath services on Aha and the Cortex.
+    applications. It is common for the Optic UI or the Cortex HTTP API to be exposed to end users since that often has
+    a simpler networking configuration than exposing Telepath services on Aha and the Cortex.
 
   Log aggregation
     Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
