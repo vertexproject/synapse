@@ -1,5 +1,4 @@
 import os
-import shutil
 
 import synapse.common as s_common
 import synapse.lib.cell as s_cell

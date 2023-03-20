@@ -317,12 +317,14 @@ class AhaTest(s_test.SynTest):
                 uinfo = aha.ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'unix')
                 self.none(uinfo.get('port'))
+                self.none(aha._getAhaUrls())
 
             conf['dmon:listen'] = 'tcp://0.0.0.0:0/'
             async with self.getTestAha(conf=conf) as aha:
                 uinfo = aha.ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'tcp')
                 self.gt(uinfo.get('port'), 0)
+                self.nn(aha._getAhaUrls())
 
     async def test_lib_aha_loadenv(self):
 
@@ -509,7 +511,6 @@ class AhaTest(s_test.SynTest):
 
                 # do this config ex-post-facto due to port binding...
                 host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
-
                 aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
 
                 url = aha.getLocalUrl()
