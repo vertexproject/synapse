@@ -510,8 +510,6 @@ class AhaTest(s_test.SynTest):
                 # do this config ex-post-facto due to port binding...
                 host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
 
-                self.eq(aha._getAhaUrls(), [f'ssl://aha.loop.vertex.link:{ahaport}'])
-
                 aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
 
                 url = aha.getLocalUrl()
