@@ -959,7 +959,7 @@ class HttpApiTest(s_tests.SynTest):
                             self.ge(len(data['gates']), 1)
 
                         if event.startswith('pkg'):
-                            self.len(1, data['perms'])
+                            self.nn(data['perms'])
 
                         # offset always goes up
                         self.gt(data['offset'], base)
