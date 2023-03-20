@@ -1043,6 +1043,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self.sockaddr = None # Default value...
         self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
@@ -1456,7 +1457,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             urlinfo = s_telepath.chopurl(turl)
 
             urlinfo.pop('host', None)
-            urlinfo['port'] = self.sockaddr[1]
+            if isinstance(self.sockaddr, tuple):
+                urlinfo['port'] = self.sockaddr[1]
 
             ahainfo = {
                 'run': runiden,

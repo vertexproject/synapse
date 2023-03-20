@@ -305,6 +305,25 @@ class AhaTest(s_test.SynTest):
                 aurls = await ahaproxy.getAhaUrls()
                 self.eq(urls, aurls)
 
+        with self.getTestDir() as dirn:
+            conf = {
+                'aha:name': '0.test',
+                'aha:leader': 'test',
+                'aha:network': 'foo',
+                'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
+                'dmon:listen': f'unix://{dirn}/sock'
+            }
+            async with self.getTestAha(conf=conf) as aha:
+                uinfo = aha.ahainfo.get('urlinfo', {})
+                self.eq(uinfo.get('scheme'), 'unix')
+                self.none(uinfo.get('port'))
+
+            conf['dmon:listen'] = 'tcp://0.0.0.0:0/'
+            async with self.getTestAha(conf=conf) as aha:
+                uinfo = aha.ahainfo.get('urlinfo', {})
+                self.eq(uinfo.get('scheme'), 'tcp')
+                self.gt(uinfo.get('port'), 0)
+
     async def test_lib_aha_loadenv(self):
 
         with self.getTestDir() as dirn:

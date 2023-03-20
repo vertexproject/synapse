@@ -740,15 +740,11 @@ class AhaCell(s_cell.Cell):
         if ahanetw is None:
             return None
 
-        urls = []
-        for serv in self.dmon.listenservers:
-            addr = serv.sockets[0].getsockname()
-            if isinstance(addr, tuple):
-                urls.append(f'ssl://{ahaname}.{ahanetw}:{addr[1]}')
+        if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
+            return None
 
         # TODO this could eventually enumerate others via itself
-        if urls:
-            return tuple(urls)
+        return (f'ssl://{ahaname}.{ahanetw}:{self.sockaddr[1]}',)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
