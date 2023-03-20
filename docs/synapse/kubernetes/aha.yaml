@@ -1,0 +1,123 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-aha
+  labels:
+    app.kubernetes.io/name: "aha"
+    app.kubernetes.io/instance: "aha"
+    app.kubernetes.io/version: "v2.x.x"
+    app.kubernetes.io/component: "aha"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aha
+  labels:
+    app.kubernetes.io/name: "aha"
+    app.kubernetes.io/instance: "aha"
+    app.kubernetes.io/version: "v2.x.x"
+    app.kubernetes.io/component: "aha"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "aha"
+      app.kubernetes.io/instance: "aha"
+      app.kubernetes.io/version: "v2.x.x"
+      app.kubernetes.io/component: "aha"
+      app.kubernetes.io/part-of: "synapse"
+      environment: "dev"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "aha"
+        app.kubernetes.io/instance: "aha"
+        app.kubernetes.io/version: "v2.x.x"
+        app.kubernetes.io/component: "aha"
+        app.kubernetes.io/part-of: "synapse"
+        environment: "dev"
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: example-aha
+      containers:
+      - name: aha
+        image: vertexproject/synapse-aha:v2.x.x
+        env:
+          - name: SYN_LOG_LEVEL
+            value: DEBUG
+          - name: SYN_LOG_STRUCT
+            value: "false"
+          - name: SYN_AHA_AHA_NAME
+            value: aha
+          - name: SYN_AHA_AHA_NETWORK
+            # This is <namespace>.<cluster dns root> - it is used as Certificate Authority name
+            value: default.svc.cluster.local
+          - name: SYN_AHA_DMON_LISTEN
+            # This is <aha name>.<namespace>.<cluster dns root> and the CA name from above
+            value: "ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local"
+          - name: SYN_AHA_PROVISION_LISTEN
+            # This is <aha name>.<namespace>.<cluster dns root>
+            value: "ssl://0.0.0.0:27272?hostname=aha.default.svc.cluster.local"
+          - name: SYN_AHA_HTTPS_PORT
+            value: null
+        volumeMounts:
+          - mountPath: /vertex/storage
+            name: data
+        imagePullPolicy: Always
+        startupProbe:
+          failureThreshold: 2147483647
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
+        readinessProbe:
+          failureThreshold: 2
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 20
+          exec:
+            command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aha
+  labels:
+    app.kubernetes.io/name: "aha"
+    app.kubernetes.io/instance: "aha"
+    app.kubernetes.io/version: "v2.x.x"
+    app.kubernetes.io/component: "aha"
+    app.kubernetes.io/part-of: "synapse"
+    environment: "dev"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: aha
+    environment: "dev"
+  ports:
+    - port: 27492
+      protocol: TCP
+      name: telepath
+    - port: 27272
+      protocol: TCP
+      name: provisioning
