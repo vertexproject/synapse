@@ -4673,9 +4673,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             async with core.getLocalProxy() as proxy:
-                self.ge(10, len(await proxy.getPermDefs()))
-                pdef = await proxy.getPermDef(('node', 'add'))
-                self.eq('Controls adding any form of node in a layer.', pdef['desc'])
+                self.ge(len(await proxy.getPermDefs()), 10)
 
             stormpkg = {
                 'name': 'authtest',
@@ -4721,11 +4719,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
             self.stormIsInPrint('wootwoot                         : lol lol', msgs)
 
-            # make sure loading the package bumped the permtree
-            async with core.getLocalProxy() as proxy:
-                pdef = await proxy.getPermDef(('wootwoot',))
-                self.eq('lol lol', pdef['desc'])
-
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
 
@@ -4745,9 +4738,9 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInWarn('Role (hehe) not found!', msgs)
 
             msgs = await core.stormlist('auth.user.addrule visi wootwoot')
-            self.stormIsInPrint('User (visi) added rule: wootwoot', msgs)
+            self.stormIsInPrint('Added rule wootwoot to user visi.', msgs)
             msgs = await core.stormlist('auth.role.addrule ninjas wootwoot')
-            self.stormIsInPrint('Role (ninjas) added rule: wootwoot', msgs)
+            self.stormIsInPrint('Added rule wootwoot to role ninjas.', msgs)
 
             msgs = await core.stormlist('authtest.asuser', opts=asvisi)
             self.stormIsInPrint('hithere', msgs)
@@ -4812,6 +4805,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
             self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
+            self.eq('foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.true, (foo, bar))))'))
+            self.eq('!foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.false, (foo, bar))))'))
 
             rdef = await core.callStorm('return($lib.auth.roles.add(admins))')
             opts = {'vars': {'roleiden': rdef.get('iden')}}
