@@ -9,22 +9,31 @@ NEXTVERS - 2023-XX-YY
 
 Features and Enhancements
 -------------------------
-- Add new Storm commands to assist with managing Users and Roles in the
-  Cortex.
+- Add additional Storm commands to assist with managing Users and Roles in
+  the Cortex.
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 
-  * ``auth:gate.show``
-  * ``auth.role.delrule``
-  * ``auth.role.show``
-  * ``auth.user.delrule``
-  * ``auth.user.grant``
-  * ``auth.user.revoke``
+  ``auth.gate.show``
+    Shows show the definition for an AuthGate.
+
+  ``auth.role.delrule``
+    Used to delete a rule from a Role.
+
+  ``auth.role.show``
+    Shows the definition for a Role.
+
+  ``auth.user.delrule``
+    Used to delete a rule from a User.
+
+  ``auth.user.grant``
+    Used to a Role to a User.
+
+  ``auth.user.revoke``
+    Used to revoke a Role from a User.
+
   * ``auth.user.show``
+    Shows the definition of a User.
 
-- Add ``$lib.auth.textFromRule()``, ``$lib.auth.getPermDefs()`` and
-  ``$lib.auth.getPermDef()`` Storm library APIs to assist with working
-  with permissions.
-  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 - Update some of the auth related objects in Storm:
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 
@@ -36,6 +45,10 @@ Features and Enhancements
     Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
     accessor to get all of the AuthGates associated with a user.
 
+- Add ``$lib.auth.textFromRule()``, ``$lib.auth.getPermDefs()`` and
+  ``$lib.auth.getPermDef()`` Storm library APIs to assist with working
+  with permissions.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 - Add a new Storm library function, ``$lib.iters.enum()``, to assist with
   enumerating a iterable object in Storm.
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
@@ -48,7 +61,7 @@ Bugfixes
 --------
 - Fix an issue where passing a non-string value to ``$lib.time.parse``
   with ``errok=$lib.true`` would still raise an exception.
- (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
+  (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
 
 Improved Documentation
 ----------------------
