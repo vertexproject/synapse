@@ -6,23 +6,23 @@
 Getting Started
 ###############
 
-So you've looked over our :ref:`intro` to Synapse and it sounds cool! What do you do next?
+So you've looked over our :ref:`intro` to Synapse and want to try it out! What do you do next?
 
-Both open-source Synapse and demo versions of commercial Synapse (Synapse Enterprise) are available for
-you to deploy and test. **Both** versions include the **same key features,** including Synapse's core
+Open-source Synapse and demo versions of commercial Synapse (Synapse Enterprise) are both available for
+you to deploy and test. Both versions include the **same key features,** including Synapse's core
 architecture and functionality, our extensive data model, and the full capabilities of the Storm query
 language and libraries.
 
 Open-source versions of Synapse provide a **command-line interface** (the `Storm CLI`_) to interact with
-Synapse and its data. You can download :ref:`syn-open` our Github repository or use :ref:`syn-quick` to
+Synapse and its data. You can download :ref:`syn-open` from our Github repository or use :ref:`syn-quick` to
 easily load a basic instance of Synapse.
 
 Demo instances of Synapse Enterprise include Synapse's **web-based UI**, also known as **Optic.**
 
-If you want to get started with Synapse as quickly as possible, then a :ref:`syn-demo` or :ref:`syn-quick`
-are right for you.
+- If you want to get started with Synapse as quickly as possible, then a :ref:`syn-demo` or :ref:`syn-quick`
+  are right for you.
 
-If you're interested in deploying your own test or production environment, then take a look at :ref:`syn-open`.
+- If you're interested in deploying your own test or production environment, then take a look at :ref:`syn-open`.
 
 We'll explain the differences in these options in more detail below.
 
@@ -42,7 +42,7 @@ You can find the instructions to download and install Synapse Quickstart here_.
 - Individual users.
 - Users who want to test Synapse without the need for a formal deployment.
 - Users who are most interested in learning about Synapse's data and analytical models and the Storm query
-  langauge.
+  langauge (vs. deployment or development tasks).
 - Users who want to test or use Synapse with proprietary or sensitive data that must be hosted locally.
 
 Synapse Quickstart is **not** pre-loaded with any data.
@@ -57,7 +57,7 @@ deploying a test or production envirionment are available in the :ref:`deploymen
 
 **Open-source Synapse** is best for:
 
-- Users who want to test or develop using a full version of Synapse.
+- Users who want to work with or try out a full version of Synapse.
 - Supporting multiple users and / or networked users, including the (optional) ability to configure 
   roles and permissions.
 - Developers who want to build on or integrate with Synapse.
@@ -81,20 +81,20 @@ get started - all you need is a web browser (we recommend Chrome).
 
 .. NOTE::
   
-  Synapse Enterprise can be deployed on premises or in the cloud. Only the demo instances are
+  Synapse Enterprise can be deployed either on premises or in the cloud. Only the demo instances are
   cloud-only.
 
 You can request a demo instance from our `web site`_.
 
-Demo instances provide access to all of Synapse's `Rapid Power-Ups`_, both open-source and commercial
-(i.e., Power-Ups only available with Synapse Enterprise). Any Rapid Power-Up can be installed in your
-demo instance (although some Power-Ups may reqiure API keys and / or paid subscriptions from the
-associated third-party).
+Demo instances provide access to all of Synapse's `Rapid Power-Ups`_, both open-source and commercial.
+Any Rapid Power-Up can be installed in your demo instance (although some Power-Ups may reqiure API keys
+and / or paid subscriptions from the associated third-party).
 
-Demo instances are updated weekly with any new releases of Synapse and Optic (updated automatically),
-as well as any newly released or updated Rapid Power-Ups (can be updated from the Power-Ups Tool).
+Demo instances are updated automatically each week with any new releases of Synapse and Optic. Similarly,
+any new or updated Rapid Power-Ups are made available each week and can be updated manually from the
+Power-Ups Tool.
 
-In addition, demo instances are **pre-loaded** with some data and tags (just under 300,000 objects).
+In addition, demo instances are **pre-loaded** with sample data and tags (just under 300,000 objects).
 You can explore the data on your own, or use our `APT1 Scavenger Hunt`_ as a guided way to learn
 about the Synapse UI and Storm query language.
 
@@ -105,7 +105,7 @@ A **demo instance** is best for:
 - Supporting multiple users and / or networked users, including the (optional) ability to configure 
   roles and permissions.
 - Simple deployment - no hardware/software needed (other than a web browser).
-- Developers who want to build on or integrate with Synapse, inclduing developing Power-Ups or Workflows.
+- Developers who want insight into developing Power-Ups or Workflows.
 - Users and developers who want access to the "latest and greatest" releases and features during testing.
 - Users who want to take advantage of all of Synapse's features (including built-in Help for Synapse's
   data model, Storm auto-complete, etc.) while learning - even if you ultimately deploy an open-source
