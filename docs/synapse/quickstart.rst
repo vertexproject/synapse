@@ -132,4 +132,4 @@ A **demo instance** is best for:
 
 .. _`web site`: https://vertex.link/request-a-demo
 .. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html#rapid-power-ups
-.. _`APT1 Scavenger Hunt`: https://docsend.com/view/76di35ysrpkhrkmj
+.. _`APT1 Scavenger Hunt`: https://v.vtx.lk/scavenger-hunt
