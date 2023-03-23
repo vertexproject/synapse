@@ -7,6 +7,11 @@ Synapse Changelog
 NEXTVERS - 2023-XX-YY
 =====================
 
+Features and Enhancements
+-------------------------
+- Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
+  (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
+
 Bugfixes
 --------
 - Fix an issue where passing a non-string value to ``$lib.time.parse``
