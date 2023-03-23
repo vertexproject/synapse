@@ -18,6 +18,11 @@ Bugfixes
   with ``errok=$lib.true`` would still raise an exception.
   (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
 
+Improved Documentation
+----------------------
+- Fix link to Storm tool in Synapse Power-Ups section.
+  (`#3053 <https://github.com/vertexproject/synapse/pull/3053>`_)
+
 v2.125.0 - 2023-03-14
 =====================
 
