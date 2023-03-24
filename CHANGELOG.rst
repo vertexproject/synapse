@@ -56,6 +56,8 @@ Features and Enhancements
   service provisioning to clarify they are likely caused by re-using the
   one-time use URL.
   (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
+- Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
+  (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
 
 Bugfixes
 --------
