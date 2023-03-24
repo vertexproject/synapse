@@ -1447,6 +1447,12 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
             self.true(await layr.hasTagProp('score'))
 
+            iden = s_common.guid()
+            with self.raises(ValueError) as cm:
+                with layr.getIdenFutu(iden=iden):
+                    raise ValueError('oops')
+            self.none(layr.futures.get(iden))
+
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)
 
