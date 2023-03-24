@@ -1839,7 +1839,7 @@ class ItModule(s_module.CoreModule):
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A brief discruption of the snort rule.'}),
+                        'doc': 'A brief description of the snort rule.'}),
 
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),

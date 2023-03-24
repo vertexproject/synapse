@@ -375,7 +375,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A terse name for the goal.'}),
 
                     ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of alterate names for the goal. Used to merge/resolve goals.'}),
+                        'doc': 'An array of alternate names for the goal. Used to merge/resolve goals.'}),
 
                     ('type', ('ou:goal:type:taxonomy', {}), {
                         'doc': 'A taxonomy entry for the goal.'}),
