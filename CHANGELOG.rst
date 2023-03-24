@@ -64,6 +64,9 @@ Bugfixes
 - Fix an issue where passing a non-string value to ``$lib.time.parse``
   with ``errok=$lib.true`` would still raise an exception.
   (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
+- Fix an issue where context managers could potentially not release
+  resources after exiting.
+  (`#3055 <https://github.com/vertexproject/synapse/pull/3055>`_)
 
 Improved Documentation
 ----------------------
