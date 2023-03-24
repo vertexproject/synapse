@@ -50,6 +50,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
                 }),
+                ('ou:industry:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'An industry type taxonomy.',
+                }),
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
@@ -129,6 +133,13 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
+                }),
+                ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A goal name.',
+                }),
+                ('ou:goal:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of goal types.',
                 }),
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
                     'deprecated': True,
@@ -357,20 +368,25 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The date/time that the id number was updated.',
                     }),
                 )),
+                ('ou:goalname', {}, ()),
                 ('ou:goal', {}, (
-                    ('name', ('str', {}), {
-                        'doc': 'A terse name for the goal.',
-                    }),
-                    ('type', ('str', {}), {
-                        'doc': 'A user specified goal type.',
-                    }),
+
+                    ('name', ('ou:goalname', {}), {
+                        'doc': 'A terse name for the goal.'}),
+
+                    ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alterate names for the goal. Used to merge/resolve goals.'}),
+
+                    ('type', ('ou:goal:type:taxonomy', {}), {
+                        'doc': 'A taxonomy entry for the goal.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the goal.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the goal.'}),
+
                     ('prev', ('ou:goal', {}), {
-                        'doc': 'The previous/parent goal in a list or hierarchy.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:goal:type taxonomy.'}),
                 )),
                 ('ou:hasgoal', {}, (
                     ('org', ('ou:org', {}), {
@@ -649,22 +665,31 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry', {}, (
+
                     ('name', ('ou:industryname', {}), {
                         'doc': 'The name of the industry.'}),
+
+                    ('type', ('ou:industry:type:taxonomy', {}), {
+                        'doc': 'An taxonomy entry for the industry.'}),
+
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
+
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of sub-industries.'}),
+                        'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),
+
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
+
                     ('naics', ('array', {'type': 'ou:naics', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
+
                     ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of ISIC codes that map to the industry.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the industry.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the industry.'}),
                 )),
                 ('ou:industryname', {}, ()),
                 ('ou:hasalias', {}, (

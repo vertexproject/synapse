@@ -1829,12 +1829,18 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:snort:rule', {}, (
+
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The snort rule text.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief discruption of the snort rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
                 )),

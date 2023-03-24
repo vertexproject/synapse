@@ -427,7 +427,7 @@ class FileModule(s_module.CoreModule):
                     ('mime:pe:size', ('int', {}), {
                         'doc': 'The size of the executable file according to the PE file header.'}),
 
-                    ('mime:pe:imphash', ('guid', {}), {
+                    ('mime:pe:imphash', ('hash:md5', {}), {
                         'doc': 'The PE import hash of the file as calculated by pefile; '
                                'https://github.com/erocarrera/pefile .'}),
 

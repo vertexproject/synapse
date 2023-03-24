@@ -466,6 +466,9 @@ class RiskModule(s_module.CoreModule):
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the compromise.',
                     }),
+                    ('detected', ('time', {}), {
+                        'doc': 'The first confirmed detection time of the compromise.',
+                    }),
                     ('loss:pii', ('int', {}), {
                         'doc': 'The number of records compromised which contain PII.',
                     }),
@@ -521,6 +524,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known.',
+                    }),
+                    ('detected', ('time', {}), {
+                        'doc': 'The first confirmed detection time of the attack.',
                     }),
                     ('success', ('bool', {}), {
                         'doc': 'Set if the attack was known to have succeeded or not.',
@@ -623,6 +629,12 @@ class RiskModule(s_module.CoreModule):
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external unique ID for the attack.'}),
+
+                    ('ext:url', ('url', {}), {
+                        'doc': 'An external URL which documents the attack.'}),
                 )),
             ),
         }
