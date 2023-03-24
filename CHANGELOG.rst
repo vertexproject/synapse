@@ -9,6 +9,53 @@ NEXTVERS - 2023-XX-YY
 
 Features and Enhancements
 -------------------------
+- Add additional Storm commands to assist with managing Users and Roles in
+  the Cortex.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+
+  ``auth.gate.show``
+    Shows the definition for an AuthGate.
+
+  ``auth.role.delrule``
+    Used to delete a rule from a Role.
+
+  ``auth.role.show``
+    Shows the definition for a Role.
+
+  ``auth.user.delrule``
+    Used to delete a rule from a User.
+
+  ``auth.user.grant``
+    Used to grant a Role to a User.
+
+  ``auth.user.revoke``
+    Used to revoke a Role from a User.
+
+  ``auth.user.show``
+    Shows the definition of a User.
+
+- Update some of the auth related objects in Storm:
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+
+  ``storm:auth:role``
+    Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
+    accessor to get all of the AuthGates associated with a role.
+
+  ``storm:auth:user``
+    Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
+    accessor to get all of the AuthGates associated with a user.
+
+- Add ``$lib.auth.textFromRule()``, ``$lib.auth.getPermDefs()`` and
+  ``$lib.auth.getPermDef()`` Storm library APIs to assist with working
+  with permissions.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+- Add a new Storm library function, ``$lib.iters.enum()``, to assist with
+  enumerating an iterable object in Storm.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+- Update the ``NoSuchName`` exceptions which can be raised by Aha during
+  service provisioning to clarify they are likely caused by re-using the
+  one-time use URL.
+  (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
 - Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
   (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
 
@@ -17,6 +64,13 @@ Bugfixes
 - Fix an issue where passing a non-string value to ``$lib.time.parse``
   with ``errok=$lib.true`` would still raise an exception.
   (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
+
+Improved Documentation
+----------------------
+- Add Kubernetes deployment examples, which show deploying Synapse services
+  with Aha based provisioning. Add an example showing one mechanism to set
+  ``sysctl``'s in a managed Kubernetes deployment.
+  (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
 
 v2.125.0 - 2023-03-14
 =====================
