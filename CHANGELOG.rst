@@ -70,6 +70,8 @@ Bugfixes
 
 Improved Documentation
 ----------------------
+- Fix link to Storm tool in Synapse Power-Ups section.
+  (`#3053 <https://github.com/vertexproject/synapse/pull/3053>`_)
 - Add Kubernetes deployment examples, which show deploying Synapse services
   with Aha based provisioning. Add an example showing one mechanism to set
   ``sysctl``'s in a managed Kubernetes deployment.
