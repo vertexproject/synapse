@@ -109,7 +109,7 @@ scrape_types = [  # type: ignore
      {'callback': s_coin.substrate_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(DdzFF|Ae2td)[a-zA-HJ-NP-Z0-9]{54,99})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.cardano_byron_check}),
-    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>addr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{53})(?:[^A-Za-z0-9]|$))',
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>addr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{53,})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.cardano_shelly_check}),
 ]
 
