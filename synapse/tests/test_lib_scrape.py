@@ -558,6 +558,22 @@ class ScrapeTest(s_t_utils.SynTest):
         refanged = 'http://foo.faz.com:12312/bam'
         self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = 'http[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'https[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxp[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxps[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
         defanged = 'hxxp://foo.faz.edu/'
         refanged = 'http://foo.faz.edu/'
         self.eq({refanged, 'foo.faz.edu'}, {n[1] for n in s_scrape.scrape(defanged)})
