@@ -24,7 +24,7 @@ Demo instances of Synapse Enterprise include Synapse's **web-based UI**, also kn
 
 - If you're interested in deploying your own test or production environment, then take a look at :ref:`syn-open`.
 
-We'll explain the differences in these options in more detail below.
+We'll explain each option in more detail below.
 
 .. _syn-quick:
 
@@ -79,20 +79,19 @@ Commercial Synapse (Synapse Enterprise) and our commercial demo instances includ
 UI (Optic). **Demo instances** are **cloud-hosted,** so there is nothing for you configure or deploy to
 get started - all you need is a web browser (we recommend Chrome).
 
+You can request a demo instance from our `web site`_.
+
 .. NOTE::
   
   Synapse Enterprise can be deployed either on premises or in the cloud. Only the demo instances are
   cloud-only.
 
-You can request a demo instance from our `web site`_.
-
 Demo instances provide access to all of Synapse's `Rapid Power-Ups`_, both open-source and commercial.
 Any Rapid Power-Up can be installed in your demo instance (although some Power-Ups may reqiure API keys
 and / or paid subscriptions from the associated third-party).
 
-Demo instances are updated automatically each week with any new releases of Synapse and Optic. Similarly,
-any new or updated Rapid Power-Ups are made available each week and can be updated manually from the
-Power-Ups Tool.
+Demo instances are updated automatically each week with any new releases of Synapse and Optic. New or
+updated Rapid Power-Ups are available upon release and can be updated manually from the Power-Ups Tool.
 
 In addition, demo instances are **pre-loaded** with sample data and tags (just under 300,000 objects).
 You can explore the data on your own, or use our `APT1 Scavenger Hunt`_ as a guided way to learn
@@ -113,7 +112,7 @@ A **demo instance** is best for:
 
 .. NOTE::
   
-  Because demo instances are cloud-based, they are **not suitable** for hosting any senstive or
+  Because demo instances are cloud-based, they are **not suitable** for hosting any sensitive or
   proprietary data.
 
 
