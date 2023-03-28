@@ -53,7 +53,7 @@ Open-Source Synapse
 ===================
 
 The full open-source version of Synapse is available from our `Github repository`_. Instructions for
-deploying a test or production envirionment are available in the :ref:`deploymentguide`.
+deploying a test or production environment are available in the :ref:`deploymentguide`.
 
 **Open-source Synapse** is best for:
 
