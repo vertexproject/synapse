@@ -11,16 +11,12 @@ class PolModule(s_module.CoreModule):
                     ('pol:country', ('guid', {}), {
                         'doc': 'A GUID for a country.'}),
 
-                    ('pol:immigration', ('guid', {}), {
+                    ('pol:immigration:status', ('guid', {}), {
                         'doc': 'A node which tracks the immigration status of a contact.'}),
 
-                    ('pol:immigration:type:taxonomy', ('taxonomy', {}), {
+                    ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('taxonomy',),
                         'doc': 'A taxonomy of immigration types.'}),
-
-                    ('pol:immigration:status:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('taxonomy',),
-                        'doc': 'A taxonomy of immigration statuses.'}),
 
                     ('pol:vitals', ('guid', {}), {
                         'doc': 'A set of vital statistics about a country.'}),
@@ -93,9 +89,8 @@ class PolModule(s_module.CoreModule):
                         ('vitals', ('pol:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
                     )),
-                    ('pol:immigration:type:taxonomy', {}, ()),
-                    ('pol:immigration:status:taxonomy', {}, ()),
-                    ('pol:immigration', {}, (
+                    ('pol:immigration:status:type:taxonomy', {}, ()),
+                    ('pol:immigration:status', {}, (
 
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The contact information for the immigration status record.'}),
@@ -103,13 +98,12 @@ class PolModule(s_module.CoreModule):
                         ('country', ('pol:country', {}), {
                             'doc': 'The country that the contact is/has immigrated to.'}),
 
-                        ('type', ('pol:immigration:type:taxonomy', {}), {
+                        ('type', ('pol:immigration:status:type:taxonomy', {}), {
                             'ex': 'citizen.naturalized',
-                            'doc': 'A taxonomy entry for the immigration type.'}),
+                            'doc': 'A taxonomy entry for the immigration status type.'}),
 
-                        ('status', ('pol:immigration:status:taxonomy', {}), {
-                            'ex': 'active',
-                            'doc': 'A taxonomy entry for the immigration status.'}),
+                        ('state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
+                            'doc': 'The state of the immigration status.'}),
 
                         ('began', ('time', {}), {
                             'doc': 'The time when the status was granted to the contact.'}),
