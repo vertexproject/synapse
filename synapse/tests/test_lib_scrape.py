@@ -282,6 +282,8 @@ DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du
 # shelly era
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w
 addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4
+addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k
+addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve
 
 # Newp
 Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAX
@@ -290,6 +292,7 @@ Ae2tdPWUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi
 DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTX
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80X
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
+DdzFFzCqrht9wkicvUx4Hc4W9gjCbx1sjsWAie5zLHo2K2R42y2zvA7W9S9dM9bCHE7xtpNriy1EpE5xwv7
 '''
 
 class ScrapeTest(s_t_utils.SynTest):
@@ -450,7 +453,7 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
 
         nodes = list(s_scrape.scrape(cardano_addresses))
-        self.len(7, nodes)
+        self.len(9, nodes)
         nodes.remove(('crypto:currency:address',
                       ('ada', 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
         nodes.remove(('crypto:currency:address',
@@ -467,6 +470,10 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ada', 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
+        nodes.remove(('crypto:currency:address',
+                      ('ada', 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
+        nodes.remove(('crypto:currency:address',
+                      ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
@@ -535,6 +542,10 @@ class ScrapeTest(s_t_utils.SynTest):
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = '10.]0[.0[.]1'
+        refanged = '10.0.0.1'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
         defanged = '10\\.0\\.0\\.1'
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
@@ -545,6 +556,22 @@ class ScrapeTest(s_t_utils.SynTest):
 
         defanged = 'http[:]//foo.faz.com[:]12312/bam'
         refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'http[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'https[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxp[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxps[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
         self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
         defanged = 'hxxp://foo.faz.edu/'
