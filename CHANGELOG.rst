@@ -80,9 +80,14 @@ Bugfixes
 - Fix an issue where passing a non-string value to ``$lib.time.parse``
   with ``errok=$lib.true`` would still raise an exception.
   (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
+- Fix an issue where context managers could potentially not release
+  resources after exiting.
+  (`#3055 <https://github.com/vertexproject/synapse/pull/3055>`_)
 
 Improved Documentation
 ----------------------
+- Fix link to Storm tool in Synapse Power-Ups section.
+  (`#3053 <https://github.com/vertexproject/synapse/pull/3053>`_)
 - Add Kubernetes deployment examples, which show deploying Synapse services
   with Aha based provisioning. Add an example showing one mechanism to set
   ``sysctl``'s in a managed Kubernetes deployment.

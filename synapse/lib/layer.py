@@ -1272,9 +1272,10 @@ class Layer(s_nexus.Pusher):
         futu = self.loop.create_future()
         self.futures[iden] = futu
 
-        yield iden, futu
-
-        self.futures.pop(iden, None)
+        try:
+            yield iden, futu
+        finally:
+            self.futures.pop(iden, None)
 
     async def getMirrorStatus(self):
         # TODO plumb back to upstream on not self.core.isactive
