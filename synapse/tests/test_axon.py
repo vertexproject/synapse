@@ -477,6 +477,11 @@ bar baz",vv
             self.eq(bbufretn, await axon.put(bbuf))
             self.true(await axon.has(bbufhash))
 
+            with self.raises(ValueError) as cm:
+                async with axon.holdHashLock(bbufhash):
+                    raise ValueError('oops')
+            self.none(axon.hashlocks.get(bbufhash))
+
             def emptygen():
                 if False:
                     yield None
