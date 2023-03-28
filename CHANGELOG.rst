@@ -67,6 +67,9 @@ Bugfixes
 - Fix an issue where context managers could potentially not release
   resources after exiting.
   (`#3055 <https://github.com/vertexproject/synapse/pull/3055>`_)
+- Fix an issue where variables with non-string names could be passed
+  into Storm runtimes.
+  (`#3059 <https://github.com/vertexproject/synapse/pull/3059>`_)
 
 Improved Documentation
 ----------------------
