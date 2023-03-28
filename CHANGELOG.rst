@@ -58,6 +58,8 @@ Features and Enhancements
   (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
 - Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
   (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
+- Add an ``optional`` flag for Storm package dependencies.
+  (`#3058 <https://github.com/vertexproject/synapse/pull/3058>`_)
 
 Bugfixes
 --------
