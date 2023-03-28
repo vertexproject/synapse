@@ -12,6 +12,7 @@ Features and Enhancements
 - Add additional Storm commands to assist with managing Users and Roles in
   the Cortex.
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+  (`#3054 <https://github.com/vertexproject/synapse/pull/3054>`_)
 
   ``auth.gate.show``
     Shows the definition for an AuthGate.
@@ -19,8 +20,17 @@ Features and Enhancements
   ``auth.role.delrule``
     Used to delete a rule from a Role.
 
+  ``auth.role.mod``
+    Used to modify properties of a Role.
+
+  ``auth.role.del``
+    Used to delete a Role.
+
   ``auth.role.show``
     Shows the definition for a Role.
+
+  ``auth.role.list``
+    List all Roles.
 
   ``auth.user.delrule``
     Used to delete a rule from a User.
@@ -31,8 +41,14 @@ Features and Enhancements
   ``auth.user.revoke``
     Used to revoke a Role from a User.
 
+  ``auth.role.mod``
+    Used to modify properties of a User.
+
   ``auth.user.show``
     Shows the definition of a User.
+
+  ``auth.user.list``
+    List all Users.
 
 - Update some of the auth related objects in Storm:
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
@@ -58,6 +74,10 @@ Features and Enhancements
   (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
 - Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
   (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
+- Add ``.]``, ``[.``, ``http[:``, ``https[:``, ``hxxp[:`` and ``hxxps[:``
+  to the list of known defanging strategies which are identified and
+  replaced during text scraping.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
 
 Bugfixes
 --------
@@ -70,6 +90,11 @@ Bugfixes
 - Fix an issue where variables with non-string names could be passed
   into Storm runtimes.
   (`#3059 <https://github.com/vertexproject/synapse/pull/3059>`_)
+- Fix an issue with the Cardano regex used for scraping addresses.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
+- Fix an issue where scraping a partial Cardano address could raise
+  an error.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
 
 Improved Documentation
 ----------------------
