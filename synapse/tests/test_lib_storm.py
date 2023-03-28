@@ -1072,7 +1072,7 @@ class StormTest(s_t_utils.SynTest):
                 'version': '2.2.2',
                 'depends': {
                     'requires': (
-                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
+                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
                     ),
                 }
             }
@@ -1082,7 +1082,8 @@ class StormTest(s_t_utils.SynTest):
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None, 'ok': False, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None,
+                     'ok': False, 'actual': '1.2.3', 'optional': True},
                 ),
                 'conflicts': ()
             }, deps)
