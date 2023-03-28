@@ -74,6 +74,10 @@ Features and Enhancements
   (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
 - Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
   (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
+- Add ``.]``, ``[.``, ``http[:``, ``https[:``, ``hxxp[:`` and ``hxxps[:``
+  to the list of known defanging strategies which are identified and
+  replaced during text scraping.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
 
 Bugfixes
 --------
@@ -83,6 +87,11 @@ Bugfixes
 - Fix an issue where context managers could potentially not release
   resources after exiting.
   (`#3055 <https://github.com/vertexproject/synapse/pull/3055>`_)
+- Fix an issue with the Cardano regex used for scraping addresses.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
+- Fix an issue where scraping a partial Cardano address could raise
+  an error.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
 
 Improved Documentation
 ----------------------
