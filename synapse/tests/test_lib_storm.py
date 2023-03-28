@@ -1072,12 +1072,28 @@ class StormTest(s_t_utils.SynTest):
                 'version': '2.2.2',
                 'depends': {
                     'requires': (
+                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
+                    ),
+                }
+            }
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+                await core.addStormPkg(pkgdef)
+                self.true(await stream.wait(timeout=1))
+
+            pkgdef = {
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'requires': (
                         {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
                     ),
                 }
             }
 
-            await core.addStormPkg(pkgdef)
+            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+                await core.addStormPkg(pkgdef)
+                self.true(await stream.wait(timeout=1))
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
