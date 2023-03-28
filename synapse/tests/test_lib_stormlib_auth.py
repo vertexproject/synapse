@@ -6,7 +6,9 @@ import synapse.tests.utils as s_test
 visishow = '''
 User: visi (8d19302a671c3d5c8eeaccde305413a0)
 
+  Locked: False
   Admin: False
+  Email: visi@vertex.link
   Rules:
     [0  ] - foo.bar
     [1  ] - !baz.faz
@@ -51,6 +53,37 @@ Auth Gate Roles:
   9e9ad4a26a7ccfef6416d142f276b357 - ninjas
     Rules:
       [0  ] - node
+'''.strip()
+
+coolshow = '''
+User: cool (8d19302a671c3d5c8eeaccde305413a0)
+
+  Locked: False
+  Admin: True
+  Email: foo@bar.com
+  Rules:
+
+  Roles:
+    878e79f585e74258d2a33ccdf817a47f - all
+    1284e1976e8a4ad139a976482adb1588 - ninjas
+
+  Gates:
+    14aaa84884773c7791a388e48ca93029 - (layer)
+      [0  ] - node
+'''.strip()
+
+userlist = '''
+Users:
+  root
+
+Locked Users:
+  cool
+'''.strip()
+
+rolelist = '''
+Roles:
+  all
+  ninjas
 '''.strip()
 
 class StormLibAuthTest(s_test.SynTest):
@@ -163,3 +196,45 @@ class StormLibAuthTest(s_test.SynTest):
             # make sure lib perms are getting added
             perms = [d['perm'] for d in defs]
             self.isin(('globals', 'get'), perms)
+
+            msgs = await core.stormlist('auth.user.mod visi --name cool --locked $lib.true')
+            self.stormIsInPrint('User (visi) renamed to cool.', msgs)
+            self.stormIsInPrint('User (visi) locked status set to True.', msgs)
+
+            msgs = await core.stormlist('auth.user.list')
+            self.stormIsInPrint(userlist, msgs)
+
+            opts = {'vars': {'pass': 'bar'}}
+            q = '''
+            auth.user.mod cool
+                --email "foo@bar.com"
+                --locked $lib.false
+                --passwd $pass
+                --admin $lib.true
+            '''
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInPrint('User (cool) email address set to foo@bar.com.', msgs)
+            self.stormIsInPrint('User (cool) password updated.', msgs)
+            self.stormIsInPrint('User (cool) locked status set to False.', msgs)
+            self.stormIsInPrint('User (cool) admin status set to True.', msgs)
+
+            self.nn(await core.tryUserPasswd('cool', 'bar'))
+
+            msgs = await core.stormlist('auth.user.show cool')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint(coolshow, msgs, deguid=True)
+
+            msgs = await core.stormlist('auth.role.list')
+            self.stormIsInPrint(rolelist, msgs)
+
+            msgs = await core.stormlist('auth.role.mod ninjas --name admins')
+            self.stormIsInPrint('Role (ninjas) renamed to admins.', msgs)
+
+            msgs = await core.stormlist('auth.role.mod ninjas --name admins')
+            self.stormIsInWarn('Role (ninjas) not found!', msgs)
+
+            msgs = await core.stormlist('auth.role.del admins')
+            self.stormIsInPrint('Role (admins) deleted.', msgs)
+
+            msgs = await core.stormlist('auth.role.del admins')
+            self.stormIsInWarn('Role (admins) not found!', msgs)
