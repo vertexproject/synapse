@@ -633,7 +633,7 @@ class RiskModule(s_module.CoreModule):
                     ('ext:id', ('str', {}), {
                         'doc': 'An external unique ID for the attack.'}),
 
-                    ('ext:url', ('url', {}), {
+                    ('ext:url', ('inet:url', {}), {
                         'doc': 'An external URL which documents the attack.'}),
                 )),
             ),

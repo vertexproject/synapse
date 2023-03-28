@@ -14,6 +14,14 @@ class PolModule(s_module.CoreModule):
                     ('pol:immigration', ('guid', {}), {
                         'doc': 'A node which tracks the immigration status of a contact.'}),
 
+                    ('pol:immigration:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy',),
+                        'doc': 'A taxonomy of immigration types.'}),
+
+                    ('pol:immigration:status:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy',),
+                        'doc': 'A taxonomy of immigration statuses.'}),
+
                     ('pol:vitals', ('guid', {}), {
                         'doc': 'A set of vital statistics about a country.'}),
 
@@ -85,6 +93,8 @@ class PolModule(s_module.CoreModule):
                         ('vitals', ('pol:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
                     )),
+                    ('pol:immigration:type:taxonomy', {}, ()),
+                    ('pol:immigration:status:taxonomy', {}, ()),
                     ('pol:immigration', {}, (
 
                         ('contact', ('ps:contact', {}), {
