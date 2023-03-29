@@ -378,7 +378,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of alternate names for the goal. Used to merge/resolve goals.'}),
 
                     ('type', ('ou:goal:type:taxonomy', {}), {
-                        'doc': 'A taxonomy entry for the goal.'}),
+                        'doc': 'A type taxonomy entry for the goal.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
