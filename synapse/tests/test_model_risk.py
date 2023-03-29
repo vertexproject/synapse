@@ -31,6 +31,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     risk:attack={attk}
 
                     :time=20200202
+                    :detected = 20210203
                     :success=true
                     :targeted=true
                     :goal=*
@@ -62,6 +63,7 @@ class RiskModelTest(s_t_utils.SynTest):
             ]''')
             self.eq(node.ndef, ('risk:attack', attk))
             self.eq(node.get('time'), 1580601600000)
+            self.eq(node.get('detected'), 1612310400000)
             self.eq(node.get('desc'), 'wootwoot')
             self.eq(node.get('type'), 'foo.bar.')
             self.eq(node.get('success'), True)
@@ -214,6 +216,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :attacker = {[ ps:contact=* :name=visi ]}
                     :campaign = *
                     :time = 20210202
+                    :detected = 20210203
                     :lasttime = 20210204
                     :duration = 2D
                     :loss:pii = 400
@@ -234,6 +237,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('attacker'))
             self.nn(nodes[0].get('campaign'))
             self.eq(1612224000000, nodes[0].get('time'))
+            self.eq(1612310400000, nodes[0].get('detected'))
             self.eq(1612396800000, nodes[0].get('lasttime'))
             self.eq(172800000, nodes[0].get('duration'))
             self.eq(400, nodes[0].get('loss:pii'))
