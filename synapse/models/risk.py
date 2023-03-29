@@ -630,11 +630,12 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the attack.'}),
+
                     ('ext:id', ('str', {}), {
                         'doc': 'An external unique ID for the attack.'}),
 
-                    ('ext:url', ('inet:url', {}), {
-                        'doc': 'An external URL which documents the attack.'}),
                 )),
             ),
         }

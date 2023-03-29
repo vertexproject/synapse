@@ -60,6 +60,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :used:server=tcp://1.2.3.4/
                     :used:software={soft}
                     :sophistication=high
+                    :url=https://vertex.link
+                    :ext:id=CASE-2022-03
             ]''')
             self.eq(node.ndef, ('risk:attack', attk))
             self.eq(node.get('time'), 1580601600000)
@@ -88,6 +90,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:software'), soft)
             self.eq(node.get('sophistication'), 40)
             self.eq(node.get('severity'), 10)
+            self.eq(node.get('url'), 'https://vertex.link')
+            self.eq(node.get('ext:id'), 'CASE-2022-03')
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
