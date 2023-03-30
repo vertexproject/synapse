@@ -6671,7 +6671,7 @@ class View(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
                       {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A serialized copy of node which was added to the view.', }}},
+                  'returns': {'type': 'dict', 'desc': 'The storm:node if the view is the current view, otherwise null.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -6748,8 +6748,8 @@ class View(Prim):
                 self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
         node = await view.addNode(form, valu, props=props, user=self.runt.user)
-        if node is not None:
-            return node.pack()
+        if viewiden == self.runt.snap.view.iden:
+            return node
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
