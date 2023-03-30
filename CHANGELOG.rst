@@ -92,6 +92,10 @@ Bugfixes
 - Fix an issue where scraping a partial Cardano address could raise
   an error.
   (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
+- Fix an issue where the Storm API ``view.addNode()`` checked permissions
+  against the incorrect authgate. This API now only returns a node if the
+  View object is the same as the View the Storm query is executing in.
+  (`#3060 <https://github.com/vertexproject/synapse/pull/3060>`_)
 
 Improved Documentation
 ----------------------
