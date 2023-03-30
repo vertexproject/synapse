@@ -6671,7 +6671,7 @@ class View(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
                       {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The storm:node if the view is the current view, otherwise null.', }}},
+                  'returns': {'type': 'storm:node', 'desc': 'The storm:node if the view is the current view, otherwise null.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
