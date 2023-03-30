@@ -784,7 +784,7 @@ class ViewTest(s_t_utils.SynTest):
             msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true}))', opts=opts)
             self.stormIsInErr('must have permission node.prop.set.inet:fqdn:issuffix', msgs)
 
-            await visi.addRule((True, ('node', 'prop' 'set', 'inet:fqdn:issuffix')), gateiden=layr)
+            await visi.addRule((True, ('node', 'prop', 'set', 'inet:fqdn:issuffix')), gateiden=layr)
             msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true}))', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
