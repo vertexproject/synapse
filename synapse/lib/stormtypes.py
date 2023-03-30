@@ -6671,7 +6671,7 @@ class View(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
                       {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'The node which may have been just constructed.', }}},
+                  'returns': {'type': 'dict', 'desc': 'A serialized copy of node which was added to the view.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -6735,14 +6735,17 @@ class View(Prim):
         viewiden = self.valu.get('iden')
 
         view = self.runt.snap.core.getView(viewiden)
+        layriden = view.layers[0].iden
 
-        self.runt.layerConfirm(('node', 'add', form))
+        self.runt.confirm(('node', 'add', form), gateiden=layriden)
+        if props is not None:
+            for propname in props.keys():
+                fullname = f'{form}:{propname}'
+                self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        for propname in props.keys():
-            fullname = f'{form}:{propname}'
-            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
-
-        return await self.runt.snap.addNode(form, valu, props=props)
+        node = await view.addNode(form, valu, props=props, user=self.runt.user)
+        if node is not None:
+            return node.pack()
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden

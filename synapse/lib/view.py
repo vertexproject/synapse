@@ -957,6 +957,10 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.node.pop()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
+    async def addNode(self, form, valu, props=None, user=None):
+        async with await self.snap(user=user) as snap:
+            return await snap.addNode(form, valu, props=props)
+
     async def addNodeEdits(self, edits, meta):
         '''
         A telepath compatible way to apply node edits to a view.

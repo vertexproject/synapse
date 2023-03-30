@@ -759,3 +759,30 @@ class ViewTest(s_t_utils.SynTest):
             self.nn(nodes[0].tagprops.get('seen'))
             self.nn(nodes[0].tagprops['seen'].get('score'))
             self.nn(nodes[0].nodedata.get('foo'))
+
+    async def test_lib_view_addnode(self):
+
+        async with self.getTestCore() as core:
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            visi = await core.auth.addUser('visi')
+
+            await visi.addRule((True, ('view', 'read')), gateiden=fork)
+
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link)', opts=opts)
+            self.stormIsInErr('must have permission node.add.inet:fqdn', msgs)
+
+            layr = core.getView(fork).layers[0].iden
+            await visi.addRule((True, ('node', 'add', 'inet:fqdn')), gateiden=layr)
+
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true}))', opts=opts)
+            self.stormIsInErr('must have permission node.prop.set.inet:fqdn:issuffix', msgs)
+
+            await visi.addRule((True, ('node', 'prop' 'set', 'inet:fqdn:issuffix')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true}))', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            self.len(0, await core.nodes('inet:fqdn=vertex.link'))
+            self.len(1, await core.nodes('inet:fqdn=vertex.link +:issuffix=1', opts={'view': fork}))
