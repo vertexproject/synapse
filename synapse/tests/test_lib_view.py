@@ -767,6 +767,10 @@ class ViewTest(s_t_utils.SynTest):
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
             visi = await core.auth.addUser('visi')
 
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link)', opts=opts)
+            self.stormIsInErr('must have permission view.read', msgs)
+
             await visi.addRule((True, ('view', 'read')), gateiden=fork)
 
             opts = {'user': visi.iden, 'vars': {'fork': fork}}

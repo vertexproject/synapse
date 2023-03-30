@@ -6737,6 +6737,10 @@ class View(Prim):
         view = self.runt.snap.core.getView(viewiden)
         layriden = view.layers[0].iden
 
+        # check that the user can read from the view
+        # ( to emulate perms check for being able to run storm at all )
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+
         self.runt.confirm(('node', 'add', form), gateiden=layriden)
         if props is not None:
             for propname in props.keys():
