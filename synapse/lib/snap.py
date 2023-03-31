@@ -337,6 +337,11 @@ class SnapEditor:
         self.protonodes = {}
         self.maxnodes = snap.core.maxnodes
 
+    async def getNodeByBuid(self, buid):
+        node = await self.snap.getNodeByBuid(buid)
+        if node:
+            return self.loadNode(node)
+
     def getNodeEdits(self):
         nodeedits = []
         for protonode in self.protonodes.values():

@@ -4379,3 +4379,41 @@ class StormTest(s_t_utils.SynTest):
             q = 'media:news:org#test.*.bar:score'
             msgs = await core.stormlist(q)
             self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+    async def test_storm_copyto(self):
+
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            layr = await core.callStorm('return($lib.layer.add().iden)')
+
+            opts = {'vars': {'layers': (layr,)}}
+            view = await core.callStorm('return($lib.view.add(layers=$layers).iden)', opts=opts)
+
+            msgs = await core.stormlist('''
+                [ media:news=* :title=vertex :url=https://vertex.link
+                    +(refs)> { [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 ] }
+                    <(bars)+ { [ inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 ] }
+                    +#foo.bar:score=10
+                ]
+            ''')
+            self.stormHasNoWarnErr(msgs)
+
+            opts = {'view': view}
+            msgs = await core.stormlist('[ inet:ipv4=1.1.1.1 inet:ipv4=5.5.5.5 ]', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            opts = {'vars': {'view': view}}
+            msgs = await core.stormlist('media:news | copyto $view', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            opts = {'view': view}
+            self.len(1, await core.nodes('media:news +#foo.bar:score>1'))
+            self.len(1, await core.nodes('media:news +:title=vertex :url -> inet:url', opts=opts))
+            nodes = await core.nodes('media:news +:title=vertex -(refs)> inet:ipv4', opts=opts)
+            self.len(1, nodes)
+            self.eq(('inet:ipv4', 0x01010101), nodes[0].ndef)
+
+            nodes = await core.nodes('media:news +:title=vertex <(bars)- inet:ipv4', opts=opts)
+            self.len(1, nodes)
+            self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
