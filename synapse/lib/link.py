@@ -105,7 +105,7 @@ class Link(s_base.Base):
         self.iden = s_common.guid()
 
         # added in https://github.com/vertexproject/synapse/pull/2719/commits/0ab2679c39f20597068e466220775e6337c7f366
-        # writer._transport.set_write_buffer_limits(0)
+        writer.transport.set_write_buffer_limits(high=1)
 
         self.reader = reader
         self.writer = writer
@@ -232,9 +232,7 @@ class Link(s_base.Base):
 
     async def send(self, byts):
         self.writer.write(byts)
-        # Avoid Python bug.  See https://bugs.python.org/issue29930
-        async with self._drain_lock:
-            await self.writer.drain()
+        await self.writer.drain()
 
     async def tx(self, mesg):
         '''
@@ -247,10 +245,7 @@ class Link(s_base.Base):
         try:
 
             self.writer.write(byts)
-
-            # Avoid Python bug.  See https://bugs.python.org/issue29930
-            async with self._drain_lock:
-                await self.writer.drain()
+            await self.writer.drain()
 
         except (asyncio.CancelledError, Exception) as e:
 
