@@ -1,3 +1,4 @@
+import sys
 import socket
 import asyncio
 import logging
@@ -105,7 +106,10 @@ class Link(s_base.Base):
         self.iden = s_common.guid()
 
         # added in https://github.com/vertexproject/synapse/pull/2719/commits/0ab2679c39f20597068e466220775e6337c7f366
-        writer.transport.set_write_buffer_limits(high=1)
+        if sys.version_info.major >= 3 and sys.version_info.minor >= 11:
+            writer.transport.set_write_buffer_limits(high=1)
+        else:
+            writer._transport.set_write_buffer_limits(0)
 
         self.reader = reader
         self.writer = writer
