@@ -2668,7 +2668,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if require['ok']:
                 continue
 
-            mesg = f'Storm package {name} requirement {require.get("name")}{require.get("version")} is currently unmet.'
+            option = ' '
+            if require.get('optional'):
+                option = ' optional '
+
+            mesg = f'Storm package {name}{option}requirement {require.get("name")}{require.get("version")} is currently unmet.'
             logger.debug(mesg)
 
         for conflict in deps['conflicts']:
