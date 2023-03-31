@@ -232,7 +232,10 @@ class Link(s_base.Base):
 
     async def send(self, byts):
         self.writer.write(byts)
-        await self.writer.drain()
+        # Avoid Python bug.  See https://github.com/python/cpython/issues/74116
+        # TODO Remove drain lock in 3.10+
+        async with self._drain_lock:
+            await self.writer.drain()
 
     async def tx(self, mesg):
         '''
@@ -245,7 +248,10 @@ class Link(s_base.Base):
         try:
 
             self.writer.write(byts)
-            await self.writer.drain()
+            # Avoid Python bug.  See https://github.com/python/cpython/issues/74116
+            # TODO Remove drain lock in 3.10+
+            async with self._drain_lock:
+                await self.writer.drain()
 
         except (asyncio.CancelledError, Exception) as e:
 

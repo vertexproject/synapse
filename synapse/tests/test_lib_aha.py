@@ -474,7 +474,7 @@ class AhaTest(s_test.SynTest):
             await aha.addAhaSvcProv('hehe')
 
     async def test_lib_aha_provision(self):
-        # self.skip('3.11 iterNewBackupArchive err')
+
         with self.getTestDir() as dirn:
 
             conf = {
@@ -884,7 +884,7 @@ class AhaTest(s_test.SynTest):
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
 
     async def test_aha_util_helpers(self):
-        # self.skip('3.11 iterNewBackupArchive err')
+
         # Mainly for test helper coverage.
 
         async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell

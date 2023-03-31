@@ -75,7 +75,7 @@ class StormCellTest(s_test.SynTest):
             self.lt(resp['uptime'], s_const.minute)
 
     async def test_stormlib_cell_getmirrors(self):
-        # self.skip('3.11 iterNewBackupArchive err')
+
         conf = {
             'aha:name': 'aha',
             'aha:network': 'mynet',
