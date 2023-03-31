@@ -101,10 +101,13 @@ What's Next?
 ============
 
 +----------------------+-----------------------------------------------+
-| **Get Started!**     | - `Synapse Quickstart`_                       |
-|                      | - :ref:`quickstart`                           |
-|                      | - Attend `Synapse 101`_                       |
-|                      | - Request_ a commercial Synapse demo instance |
+| **Get Started!**     | - There are several options for you to deploy |
+|                      |   and start using Synapse! See our            |
+|                      |   :ref:`quickstart` guide to see which one is |
+|                      |   right for you.                              |
+|                      |                                               | 
+|                      | - Watch `Synapse 101`_                        |
+|                      |                                               |
 +----------------------+-----------------------------------------------+
 | **Users**            | - :ref:`userguide`                            |
 |                      | - :ref:`userguide_storm_ref`                  |
@@ -112,6 +115,7 @@ What's Next?
 |                      | - Ask a question in Slack_                    |
 +----------------------+-----------------------------------------------+
 | **DevOps**           | - :ref:`devopsguide`                          |
+|                      | - :ref:`deploymentguide`                      |
 |                      | - Synapse `sizing guide`_                     |
 +----------------------+-----------------------------------------------+
 | **Developers**       | - :ref:`devguide`                             |
@@ -120,7 +124,9 @@ What's Next?
 |                      | - :ref:`dm-index`                             |
 |                      | - :ref:`stormtypes_index`                     |
 +----------------------+-----------------------------------------------+
-| **Synapse UI**       | - `Synapse UI`_                               |
+| **Admins**           | - :ref:`adminguide`                           |
++----------------------+-----------------------------------------------+
+| **Synapse UI**       | - `Synapse UI`_ ("Optic") documentation       |
 | (commercial)         |   (includes guides for users, devops, and     |
 |                      |   developers)                                 |
 +----------------------+-----------------------------------------------+
@@ -134,20 +140,17 @@ What's Next?
 |                      | - "Star" us on Github_                        |
 +----------------------+-----------------------------------------------+
 
-
-.. _The Vertex Project: https://vertex.link/
+.. _`The Vertex Project`: https://vertex.link/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 
-.. _Synapse QuickStart: https://github.com/vertexproject/synapse-quickstart
-.. _Synapse 101: https://v.vtx.lk/luma
-.. _Request: https://vertex.link/contact-us
+.. _`Synapse 101`: https://v.vtx.lk/new-syn101
 
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
 
-.. _sizing guide: https://docsend.com/view/kmbkkq9pjhtjsbmk
+.. _`sizing guide`: https://docsend.com/view/kmbkkq9pjhtjsbmk
 
-.. _Synapse UI: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _`Synapse UI`: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 
 .. _Webinars: https://v.vtx.lk/luma
 .. _Library: https://v.vtx.lk/youtube

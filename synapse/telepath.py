@@ -261,7 +261,8 @@ async def loadTeleCell(dirn):
     ahaurl = None
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
-        ahaurl = conf.get('aha:registry')
+        if conf is not None:
+            ahaurl = conf.get('aha:registry')
 
     if usecerts:
         s_certdir.addCertPath(certpath)

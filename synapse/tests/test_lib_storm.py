@@ -430,7 +430,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormNotInPrint('caught bar', msgs)
             self.stormNotInPrint('fin', msgs)
 
-            # The items in the catch list must be a a str or list of iterables.
+            # The items in the catch list must be a str or list of iterables.
             # Anything else raises a Storm runtime error
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('''
@@ -459,6 +459,10 @@ class StormTest(s_t_utils.SynTest):
             }
             ''')
             self.stormIsInPrint('caught err=', msgs)
+
+            # info must be json safe
+            with self.raises(s_exc.MustBeJsonSafe):
+                await core.callStorm('$x="foo" $x=$x.encode() $lib.raise(foo, test, bar=$x)')
 
     async def test_storm_ifcond_fix(self):
 
@@ -490,6 +494,9 @@ class StormTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('inet:ipv4=$ipv4')
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.print(newp)', opts={'vars': {123: 'newp'}})
 
             # test that runtsafe vars stay runtsafe
             msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value() }')
@@ -1073,12 +1080,29 @@ class StormTest(s_t_utils.SynTest):
                 }
             }
 
-            await core.addStormPkg(pkgdef)
+            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+                await core.addStormPkg(pkgdef)
+                self.true(await stream.wait(timeout=1))
+
+            pkgdef = {
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'requires': (
+                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
+                    ),
+                }
+            }
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+                await core.addStormPkg(pkgdef)
+                self.true(await stream.wait(timeout=1))
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None, 'ok': False, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None,
+                     'ok': False, 'actual': '1.2.3', 'optional': True},
                 ),
                 'conflicts': ()
             }, deps)
@@ -4074,6 +4098,58 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+    async def test_storm_batch(self):
+        async with self.getTestCore() as core:
+            q = '''
+                for $i in $lib.range(12) {[ test:str=$i ]}
+
+                batch $lib.true --size 5 {
+                    $vals=([])
+                    for $n in $nodes { $vals.append($n.repr()) }
+                    $lib.print($lib.str.join(',', $vals))
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInPrint('0,1,2,3,4', msgs)
+            self.stormIsInPrint('5,6,7,8,9', msgs)
+            self.stormIsInPrint('10,11', msgs)
+
+            q = '''
+                for $i in $lib.range(12) { test:str=$i }
+
+                batch $lib.false --size 5 {
+                    $vals=([])
+                    for $n in $nodes { $vals.append($n.repr()) }
+                    $lib.print($lib.str.join(',', $vals))
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(12, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInPrint('0,1,2,3,4', msgs)
+            self.stormIsInPrint('5,6,7,8,9', msgs)
+            self.stormIsInPrint('10,11', msgs)
+
+            q = '''
+                for $i in $lib.range(12) { test:str=$i }
+                batch $lib.true --size 5 { yield $nodes }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(12, [m for m in msgs if m[0] == 'node'])
+
+            q = '''
+                for $i in $lib.range(12) { test:str=$i }
+                batch $lib.false --size 5 { yield $nodes }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(12, [m for m in msgs if m[0] == 'node'])
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('batch $lib.true --size 20000 {}')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('test:str batch $lib.true --size $node {}')
 
     async def test_storm_queries(self):
         async with self.getTestCore() as core:
