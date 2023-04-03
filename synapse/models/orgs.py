@@ -369,6 +369,7 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:goalname', {}, ()),
+                ('ou:goal:type:taxonomy', {}, ()),
                 ('ou:goal', {}, (
 
                     ('name', ('ou:goalname', {}), {
