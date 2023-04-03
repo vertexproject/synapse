@@ -41,7 +41,7 @@ Vertex maintains a package repository which allows for loading public and privat
 
 If you are a :ref:`synapse-ui` user, you can navigate to the **Power-Ups Tool** to register your Cortex and configure packages.
 
-Alternatively, one can use the `storm`_ tool to get started with Rapid Power-Ups in their Cortex.
+Alternatively, one can use the :ref:`syn-tools-storm` tool to get started with Rapid Power-Ups in their Cortex.
 
 See our `blog article <https://vertex.link/blogs/synapse-power-ups/>`_ for a step-by step guide to registering your
 Cortex to install the free ``synapse-misp``, ``synapse-mitre-attack``, and ``synapse-tor`` Power-Ups.
