@@ -807,7 +807,6 @@ class Url(s_types.Str):
 
         # Resource Path
         parts = valu.split('/', 1)
-        subs['path'] = ''
         if len(parts) == 2:
             valu, pathpart = parts
             if local:
@@ -2091,7 +2090,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'
                         }),
-                        ('path', ('str', {}), {
+                        ('path', ('file:path', {}), {
                             'ro': True,
                             'doc': 'The path in the URL w/o parameters.'
                         }),

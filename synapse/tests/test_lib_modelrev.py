@@ -358,3 +358,7 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('inet:http:cookie:name=gronk -:value'))
             self.len(1, await core.nodes('inet:http:cookie:name=foo +:value=bar'))
             self.len(1, await core.nodes('inet:http:cookie:name=zip +:value="zop=zap"'))
+
+    async def test_modelrev_0_2_18(self):
+        async with self.getRegrCore('model-0.2.6') as core:
+            self.len(1, await core.nodes('inet:url="https://charlie.com/woot" -> file:path'))
