@@ -3153,7 +3153,7 @@ class CopyToCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if not self.runtsafe:
-            mesg = 'copyto arguments must be runtsafe.'
+            mesg = 'copyto parameters must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         iden = await s_stormtypes.tostr(self.opts.view)

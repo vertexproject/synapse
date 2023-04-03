@@ -4385,6 +4385,12 @@ class StormTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
 
+            msgs = await core.stormlist('[ inet:user=visi ] | copyto $node.repr()')
+            self.stormIsInErr('copyto parameters must be runtsafe', msgs)
+
+            msgs = await core.stormlist('[ inet:user=visi ] | copyto newp')
+            self.stormIsInErr('No such view:', msgs)
+
             layr = await core.callStorm('return($lib.layer.add().iden)')
 
             opts = {'vars': {'layers': (layr,)}}
