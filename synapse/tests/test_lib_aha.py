@@ -324,7 +324,7 @@ class AhaTest(s_test.SynTest):
                 uinfo = aha.ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'tcp')
                 self.gt(uinfo.get('port'), 0)
-                self.nn(aha._getAhaUrls())
+                self.eq(aha._getAhaUrls()[0], f'ssl://0.test.foo:{aha.sockaddr[1]}')
 
     async def test_lib_aha_loadenv(self):
 
