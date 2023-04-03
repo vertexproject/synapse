@@ -699,6 +699,9 @@ class ModelRev:
         await self._normPropValu(layers, 'ou:goal:type')
         await self._propToForm(layers, 'ou:goal:type', 'ou:goal:type:taxonomy')
 
+        await self._normPropValu(layers, 'ou:goal:name')
+        await self._propToForm(layers, 'ou:goal:name', 'ou:goalname')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.

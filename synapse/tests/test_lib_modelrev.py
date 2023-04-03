@@ -363,10 +363,11 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.18') as core:
 
-            nodes = await core.nodes('ou:goal:name=woot')
+            nodes = await core.nodes('ou:goal:name="woot woot"')
             self.len(1, nodes)
             self.eq('foo.bar.baz.', nodes[0].get('type'))
-            self.len(1, await core.nodes('ou:goal:name=woot -> ou:goal:type:taxonomy'))
+            self.len(1, await core.nodes('ou:goal:name="woot woot" -> ou:goalname'))
+            self.len(1, await core.nodes('ou:goal:name="woot woot" -> ou:goal:type:taxonomy'))
 
             nodes = await core.nodes('file:bytes:mime:pe:imphash -> hash:md5')
             self.len(1, nodes)
