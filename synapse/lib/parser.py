@@ -142,6 +142,17 @@ class AstConverter(lark.Transformer):
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
 
+    def raiseBadSyntax(self, mesg, meta):
+        raise s_exc.BadSyntax(mesg=mesg,
+            # keep around for backward compatiblity
+            at=meta.start_pos,
+            line=meta.line,
+            column=meta.column,
+            highlight={
+                'lines': (meta.line, meta.end_line),
+                'offsets': (meta.start_pos, meta.end_pos),
+            })
+
     @classmethod
     def _convert_children(cls, children):
         return [cls._convert_child(k) for k in children]
@@ -181,8 +192,7 @@ class AstConverter(lark.Transformer):
             try:
                 valu = float(valu) if '.' in valu else int(valu, 0)
             except ValueError as e:
-                mesg = f"Unexpected unquoted string in JSON expression at line {meta.line} col {meta.column}"
-                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+                self.raiseBadSyntax('Unexpected unquoted string in JSON expression', meta)
 
             return s_ast.Const(valu)
         else:
@@ -305,15 +315,13 @@ class AstConverter(lark.Transformer):
             if isinstance(kid, s_ast.CallKwarg):
                 name = kid.kids[0].valu
                 if name in kwnames:
-                    mesg = f"Duplicate keyword argument '{name}' in function call at line {meta.line} col {meta.column}"
-                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+                    self.raiseBadSyntax(f'Duplicate keyword argument "{name}" in function call', meta)
 
                 kwnames.add(name)
                 kwargkids.append(kid)
             else:
                 if kwargkids:
-                    mesg = f'Positional argument follows keyword argument in function call at line {meta.line} col {meta.column}'
-                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+                    self.raiseBadSyntax('Positional argument follows keyword argument in function call', meta)
                 argkids.append(kid)
 
         args = s_ast.CallArgs(kids=argkids)
@@ -380,18 +388,19 @@ class AstConverter(lark.Transformer):
                 name = kid.valu
                 # Make sure no positional follows a kwarg
                 if kwfound:
-                    mesg = f"Positional parameter '{name}' follows keyword parameter in definition at line {meta.line} col {meta.column}"
-                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+                    mesg = f"Positional parameter '{name}' follows keyword parameter in definition."
+                    self.raiseBadSyntax(mesg, meta)
 
             if name in names:
-                mesg = f"Duplicate parameter '{name}' in function definition at line {meta.line} col {meta.column}"
-                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+                mesg = f"Duplicate parameter '{name}' in function definition."
+                self.raiseBadSyntax(mesg, meta)
 
             names.add(name)
 
         return s_ast.FuncArgs(newkids)
 
-    def cmdrargs(self, kids):
+    @lark.v_args(meta=True)
+    def cmdrargs(self, meta, kids):
         argv = []
         indx = 0
 
@@ -432,7 +441,7 @@ class AstConverter(lark.Transformer):
 
             # pragma: no cover
             mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
-            raise s_exc.BadSyntax(mesg=mesg)
+            self.raiseBadSyntax(mesg, meta)
 
         return argv
 
@@ -455,7 +464,8 @@ class AstConverter(lark.Transformer):
             newkid = self._convert_child(kids[2])
         return s_ast.VarDeref(kids=(kids[0], newkid))
 
-    def tagname(self, kids):
+    @lark.v_args(meta=True)
+    def tagname(self, meta, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
         if not isinstance(kid, lark.lexer.Token):
@@ -464,7 +474,7 @@ class AstConverter(lark.Transformer):
         valu = kid.value
         if '*' in valu:
             mesg = f"Invalid wildcard usage in tag {valu}"
-            raise s_exc.BadSyntax(mesg=mesg, tag=valu)
+            self.raiseBadSyntax(mesg, meta)
 
         kids = self._tagsplit(valu)
         return s_ast.TagName(kids=kids)

@@ -2371,3 +2371,24 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.RecursionLimitHit) as err:
                 msgs = await core.nodes(q)
+
+    async def test_ast_highlight(self):
+
+        async with self.getTestCore() as core:
+            text = '[ ps:contact=* :name=$visi ]'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('visi', text[off:end])
+
+            text = '[ ps:contact=* :foo:bar=haha ]'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq(':foo:bar', text[off:end])
+
+            text = 'init { $foo = :bar }'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq(':bar', text[off:end])
