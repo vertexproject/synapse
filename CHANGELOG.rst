@@ -4,6 +4,18 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Automatic Migrations
+--------------------
+- The ``inet:url:path`` property was updated from a ``str`` type to
+  a ``file:path`` which requires a normalization pass to populate
+  the linked ``file:path`` nodes.
+  (`#3028 <https://github.com/vertexproject/synapse/pull/3028>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+
 v2.126.0 - 2023-03-30
 =====================
 
@@ -113,14 +125,6 @@ Improved Documentation
 
 v2.125.0 - 2023-03-14
 =====================
-
-Automatic Migrations
---------------------
-- The ``inet:url:path`` property was updated from a ``str`` type to
-  a ``file:path`` which requires a normalization pass to populate
-  the linked ``file:path`` nodes.
-  (`#3028 <https://github.com/vertexproject/synapse/pull/3028>`_)
-- See :ref:`datamigration` for more information about automatic migrations.
 
 Features and Enhancements
 -------------------------
