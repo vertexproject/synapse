@@ -9,9 +9,19 @@ class StormLibGenTest(s_test.SynTest):
             nodes01 = await core.nodes('gen.ou.org vertex')
             self.eq('vertex', nodes00[0].get('name'))
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            vtxguid = nodes00[0].ndef[1]
 
             nodes00 = await core.nodes('gen.ou.org.hq vertex')
             self.eq('vertex', nodes00[0].get('orgname'))
+            self.eq(vtxguid, nodes00[0].get('org'))
+
+            await core.nodes('ps:contact:orgname=vertex [ -:org ]')
+            nodes00 = await core.nodes('gen.ou.org.hq vertex')
+            self.eq(vtxguid, nodes00[0].get('org'))
+
+            await core.nodes('ps:contact:orgname=vertex [ :org=$lib.guid() ]')
+            nodes00 = await core.nodes('gen.ou.org.hq vertex')
+            self.ne(vtxguid, nodes00[0].get('org'))
 
             nodes00 = await core.nodes('yield $lib.gen.orgByFqdn(vertex.link)')
             nodes01 = await core.nodes('yield $lib.gen.orgByFqdn(vertex.link)')

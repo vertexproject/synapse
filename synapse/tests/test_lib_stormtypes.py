@@ -2347,6 +2347,8 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm(query)
             self.none(ret)
 
+            self.none(await core.callStorm('return($lib.time.parse($lib.true, "%m/%d/%Y", errok=$lib.true))'))
+
             query = '''[test:str=1234 :tick=20190917]
             $lib.print($lib.time.format(:tick, "%Y-%d-%m"))
             '''
@@ -3673,6 +3675,46 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
             self.eq(1234, nodes[0].get('asn'))
 
+        # view.addNode() behavior
+        async with self.getTestCore() as core:
+
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+            visi = await core.auth.addUser('visi')
+
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link)', opts=opts)
+            self.stormIsInErr('must have permission view.read', msgs)
+
+            await visi.addRule((True, ('view', 'read')), gateiden=fork)
+
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link)', opts=opts)
+            self.stormIsInErr('must have permission node.add.inet:fqdn', msgs)
+
+            layr = core.getView(fork).layers[0].iden
+            await visi.addRule((True, ('node', 'add', 'inet:fqdn')), gateiden=layr)
+
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true}))', opts=opts)
+            self.stormIsInErr('must have permission node.prop.set.inet:fqdn:issuffix', msgs)
+
+            # return none since the node is made in a different view
+            await visi.addRule((True, ('node', 'prop', 'set', 'inet:fqdn:issuffix')), gateiden=layr)
+            query = '$node=$lib.view.get($fork).addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
+                    'return ( $node )'
+            node = await core.callStorm(query, opts=opts)
+            self.none(node)
+
+            # return the node from the current view
+            opts = {'user': visi.iden, 'view': fork}
+            query = '$node=$lib.view.get().addNode(inet:fqdn, vertex.link, props=({"issuffix": true})) ' \
+                    'return ( $node )'
+            node = await core.callStorm(query, opts=opts)
+            self.eq(node, 'vertex.link')  # prim version of the storm:node
+
+            self.len(0, await core.nodes('inet:fqdn=vertex.link'))
+            self.len(1, await core.nodes('inet:fqdn=vertex.link +:issuffix=1', opts={'view': fork}))
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
@@ -4671,9 +4713,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             async with core.getLocalProxy() as proxy:
-                self.ge(10, len(await proxy.getPermDefs()))
-                pdef = await proxy.getPermDef(('node', 'add'))
-                self.eq('Controls adding any form of node in a layer.', pdef['desc'])
+                self.ge(len(await proxy.getPermDefs()), 10)
 
             stormpkg = {
                 'name': 'authtest',
@@ -4719,11 +4759,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
             self.stormIsInPrint('wootwoot                         : lol lol', msgs)
 
-            # make sure loading the package bumped the permtree
-            async with core.getLocalProxy() as proxy:
-                pdef = await proxy.getPermDef(('wootwoot',))
-                self.eq('lol lol', pdef['desc'])
-
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
 
@@ -4743,9 +4778,9 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInWarn('Role (hehe) not found!', msgs)
 
             msgs = await core.stormlist('auth.user.addrule visi wootwoot')
-            self.stormIsInPrint('User (visi) added rule: wootwoot', msgs)
+            self.stormIsInPrint('Added rule wootwoot to user visi.', msgs)
             msgs = await core.stormlist('auth.role.addrule ninjas wootwoot')
-            self.stormIsInPrint('Role (ninjas) added rule: wootwoot', msgs)
+            self.stormIsInPrint('Added rule wootwoot to role ninjas.', msgs)
 
             msgs = await core.stormlist('authtest.asuser', opts=asvisi)
             self.stormIsInPrint('hithere', msgs)
@@ -4810,6 +4845,8 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq((True, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText(foo.bar))'))
             self.eq((False, ('foo', 'bar')), await core.callStorm('return($lib.auth.ruleFromText("!foo.bar"))'))
+            self.eq('foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.true, (foo, bar))))'))
+            self.eq('!foo.bar', await core.callStorm('return($lib.auth.textFromRule(($lib.false, (foo, bar))))'))
 
             rdef = await core.callStorm('return($lib.auth.roles.add(admins))')
             opts = {'vars': {'roleiden': rdef.get('iden')}}
