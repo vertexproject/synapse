@@ -874,8 +874,8 @@ class Agenda(s_base.Base):
                 view = self.core._viewFromOpts(opts)
                 # Yes, this isn't technically on the bottom half of a nexus transaction
                 # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
-                # and be relatively okay
-                # The nexus offset won't correspond to anything thoug
+                # and be relatively okay. The only catch is that the nexus offset will correspond to the
+                # last nexus transaction, and not the start/stop
                 await self.core.feedBeholder('cron:start', {'iden': appt.iden})
                 async for node in view.eval(appt.query, opts=opts):
                     count += 1
