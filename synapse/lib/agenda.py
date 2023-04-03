@@ -891,7 +891,8 @@ class Agenda(s_base.Base):
                 success = True
                 result = f'finished successfully with {count} nodes'
             finally:
-                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+                if not self.isfini:
+                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
                 finishtime = self._getNowTick()
                 if not success:
                     appt.errcount += 1
