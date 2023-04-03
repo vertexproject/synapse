@@ -765,7 +765,6 @@ class AgendaTest(s_t_utils.SynTest):
 
                 core01conf = {'mirror': url}
 
-
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                     core00.agenda._addTickOff(55)
 
@@ -792,4 +791,3 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
-
