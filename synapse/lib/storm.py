@@ -416,6 +416,7 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
+                'optional': {'type': 'boolean'},
             },
             'additionalItems': True,
             'required': ('name', 'version'),
