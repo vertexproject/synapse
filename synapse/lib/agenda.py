@@ -872,6 +872,11 @@ class Agenda(s_base.Base):
                 opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
                 opts = self.core._initStormOpts(opts)
                 view = self.core._viewFromOpts(opts)
+                # Yes, this isn't technically on the bottom half of a nexus transaction
+                # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
+                # and be relatively okay
+                # The nexus offset won't correspond to anything thoug
+                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
                 async for node in view.eval(appt.query, opts=opts):
                     count += 1
             except asyncio.CancelledError:
@@ -886,6 +891,7 @@ class Agenda(s_base.Base):
                 success = True
                 result = f'finished successfully with {count} nodes'
             finally:
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
                 finishtime = self._getNowTick()
                 if not success:
                     appt.errcount += 1
