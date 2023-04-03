@@ -4386,7 +4386,7 @@ class StormTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             msgs = await core.stormlist('[ inet:user=visi ] | copyto $node.repr()')
-            self.stormIsInErr('copyto parameters must be runtsafe', msgs)
+            self.stormIsInErr('copyto arguments must be runtsafe', msgs)
 
             msgs = await core.stormlist('[ inet:user=visi ] | copyto newp')
             self.stormIsInErr('No such view:', msgs)
