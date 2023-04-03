@@ -14,7 +14,6 @@ _json_output = '''[
 class CmdHiveTest(s_t_utils.SynTest):
 
     async def test_hive(self):
-
         with self.getTestDir() as dirn:
 
             async with self.getTestCoreAndProxy() as (realcore, core):
