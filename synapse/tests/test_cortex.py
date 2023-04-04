@@ -1187,6 +1187,8 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
+                self.len(1, await core.nodes('$form=test:int $tag=foo.bar *$form#$tag'))
+                self.len(1, await core.nodes('$form=test:int $tag=foo.bar $prop=score *$form#$tag:$prop'))
 
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
@@ -3345,6 +3347,24 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 20)
+
+            text = '''
+            $a=({'foo': 'bar'})
+            $b=({'baz': 'foo'})
+            [ test:str=$a.`{$b.baz}` ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'bar')
+
+            text = '''
+            $a=({'foo': 'cool'})
+            $b=({'baz': 'foo'})
+            [ test:str=$a.($b.baz) ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'cool')
 
     async def test_storm_varlist_compute(self):
 
