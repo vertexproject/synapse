@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Features and Enhancements
+-------------------------
+- Set ``Link`` high water mark to one byte in preparation for Python 3.11
+  support.
+  (`#3064 <https://github.com/vertexproject/synapse/pull/3064>`_)
+
 v2.126.0 - 2023-03-30
 =====================
 

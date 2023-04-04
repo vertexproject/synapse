@@ -10,6 +10,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.hive as s_hive
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
@@ -723,7 +724,7 @@ class AgendaTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:int=97', opts={'view': newview})
             self.len(0, nodes)
 
-    async def test_agenda_custom_view(self):
+    async def test_agenda_edit_creator(self):
 
         async with self.getTestCore() as core:
 
@@ -743,3 +744,50 @@ class AgendaTest(s_t_utils.SynTest):
             async with core.getLocalProxy(user='derp') as proxy:
                 with self.raises(s_exc.AuthDeny):
                     await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
+
+    async def test_agenda_mirror_realtime(self):
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                await core00.callStorm('cron.add --minute +1 { $lib.time.sleep(5) }')
+
+                url = core00.getLocalUrl()
+
+                core01conf = {'mirror': url}
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+                    core00.agenda._addTickOff(55)
+
+                    mesgs = []
+                    async for mesg in core00.behold():
+                        mesgs.append(mesg)
+                        core00.agenda._addTickOff(30)
+                        if len(mesgs) == 2:
+                            break
+
+                    cron00 = await core00.callStorm('return($lib.cron.list())')
+                    cron01 = await core01.callStorm('return($lib.cron.list())')
+                    # both should have the job, but only one should have run
+                    self.len(1, cron00)
+                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
+                    self.len(1, cron01)
+                    self.none(cron01[0]['lastresult'])
+
+                    start = mesgs[0]
+                    stop = mesgs[1]
+
+                    self.eq(start['event'], 'cron:start')
+                    self.eq(stop['event'], 'cron:stop')
+
+                    self.eq(start['info']['iden'], cron00[0]['iden'])
+                    self.eq(stop['info']['iden'], cron00[0]['iden'])
