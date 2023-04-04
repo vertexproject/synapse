@@ -3715,6 +3715,30 @@ class StormTypesTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:fqdn=vertex.link +:issuffix=1', opts={'view': fork}))
 
+            # retun the node edits for an updated node in the current view
+            guid = 'c7e4640767de30a5ac4ff192a9d56dfa'
+            opts['vars'] = {'fork': fork, 'guid': guid}
+            await visi.addRule((True, ('node', 'add', 'media:news')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid)', opts=opts)
+            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            self.len(1, edits)
+            opts['vars']['props'] = {
+                'title': 'foobar',
+                'summary': 'bizbaz',
+            }
+            await visi.addRule((True, ('node', 'prop', 'set', 'media:news:title')), gateiden=layr)
+            await visi.addRule((True, ('node', 'prop', 'set', 'media:news:summary')), gateiden=layr)
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid, $props)', opts=opts)
+            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            self.len(1, edits)
+            self.len(2, edits[0][1]['edits'][0][2])
+
+            # don't get any node edits for a different view
+            opts = {'user': visi.iden, 'vars': {'fork': fork}}
+            msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, *)', opts=opts)
+            edits = [ne for ne in msgs if ne[0] == 'node:edits']
+            self.len(0, edits)
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
