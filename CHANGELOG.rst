@@ -18,7 +18,7 @@ Features and Enhancements
 - Allow using deref syntax (``*$form``) when lifting by form with tag
   (``*$form#tag``) and form with tagprop (``*$form#tag:tagprop``).
   (`#3065 <https://github.com/vertexproject/synapse/pull/3065>`_)
-- Add ``cron:start`` and ``cron:stop`` events to the events emitted by the
+- Add ``cron:start`` and ``cron:stop`` messages to the events emitted by the
   ``behold()`` API on the Cortex. These events are only emitted by the leader.
   (`#3062 <https://github.com/vertexproject/synapse/pull/3062>`_)
 
