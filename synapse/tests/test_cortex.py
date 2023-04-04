@@ -3366,6 +3366,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'cool')
 
+            text = '''
+            $foo = ({})
+            $bar=({'baz': 'buzz'})
+            $foo.`{$bar.baz}` = fuzz
+            [ test:str=$foo.buzz ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'fuzz')
+
+            text = '''
+            $foo = ({})
+            $bar=({'baz': 'fuzz'})
+            $foo.($bar.baz) = buzz
+            [ test:str=$foo.fuzz ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'buzz')
+
     async def test_storm_varlist_compute(self):
 
         async with self.getTestCore() as core:

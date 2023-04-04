@@ -86,7 +86,7 @@ vareval: _varvalu
 
 // A variable assignment
 setvar: "$" VARTOKN "=" _valu
-setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring) "=" _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring | dollarexpr) (EQSPACE | EQNOSPACE) _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
