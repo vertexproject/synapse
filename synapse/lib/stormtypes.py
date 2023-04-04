@@ -6747,9 +6747,10 @@ class View(Prim):
                 fullname = f'{form}:{propname}'
                 self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        node = await view.addNode(form, valu, props=props, user=self.runt.user)
         if viewiden == self.runt.snap.view.iden:
-            return node
+            return await self.runt.snap.addNode(form, valu, props=props)
+        else:
+            await view.addNode(form, valu, props=props, user=self.runt.user)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
