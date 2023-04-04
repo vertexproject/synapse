@@ -4,9 +4,15 @@
 Synapse Changelog
 *****************
 
-NEXTVERS - 2023-XX-YY
-=====================
+Unreleased - YYYY-MM-DD
+=======================
 
+Features and Enhancements
+-------------------------
+- Set ``Link`` high water mark to one byte in preparation for Python 3.11
+  support.
+  (`#3064 <https://github.com/vertexproject/synapse/pull/3064>`_)
+  
 Bugfixes
 --------
 - Fix an issue where an Aha service running on a non-default port would
