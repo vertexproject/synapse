@@ -71,13 +71,24 @@ async def main(argv, outp=s_output.stdout):
             crtpath = certdir.saveUserCertByts(byts)
             outp.printf(f'Saved user certificate: {crtpath}')
 
-            ahaurls = s_telepath.modurl(ahaurls, user=ahauser)
-            if ahaurls not in teleyaml.get('aha:servers'):
-                outp.printf('Updating known AHA servers')
-                servers = list(teleyaml.get('aha:servers'))
-                servers.append(ahaurls)
-                teleyaml['aha:servers'] = servers
-                s_common.yamlsave(teleyaml, yamlpath)
+            if ahaurls is not None:
+                if isinstance(ahaurls, str):
+                    ahaurls = (ahaurls,)
+
+                ahaurls = set(s_telepath.modurl(ahaurls, user=ahauser))
+                servers = teleyaml.get('aha:servers')
+
+                if isinstance(servers, str):
+                    servers = [servers]
+                else:
+                    servers = list(servers)
+
+                newurls = ahaurls - set(servers)
+                if newurls:
+                    outp.printf('Updating known AHA servers')
+                    servers.extend(newurls)
+                    teleyaml['aha:servers'] = servers
+                    s_common.yamlsave(teleyaml, yamlpath)
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
