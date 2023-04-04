@@ -2765,7 +2765,7 @@ class StormTest(s_t_utils.SynTest):
                 ('inet:ipv4', 0x01020304),
                 ('inet:fqdn', 'woot.com'),
             ]
-            self.eq(exp, [x.ndef for x in nodes])
+            self.sorteq(exp, [x.ndef for x in nodes])
 
             # A fatal execption is fatal to the runtime
             q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=newp] }'
