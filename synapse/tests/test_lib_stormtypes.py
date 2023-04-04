@@ -3717,7 +3717,7 @@ class StormTypesTest(s_test.SynTest):
 
             # retun the node edits for an updated node in the current view
             guid = 'c7e4640767de30a5ac4ff192a9d56dfa'
-            opts['vars'] = {'fork': fork, 'guid': guid}
+            opts = {'user': visi.iden, 'view': fork, 'vars': {'fork': fork, 'guid': guid}}
             await visi.addRule((True, ('node', 'add', 'media:news')), gateiden=layr)
             msgs = await core.stormlist('$lib.view.get($fork).addNode(media:news, $guid)', opts=opts)
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
