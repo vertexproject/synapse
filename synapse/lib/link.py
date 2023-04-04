@@ -1,4 +1,3 @@
-import sys
 import socket
 import asyncio
 import logging
