@@ -2756,7 +2756,7 @@ class StormTest(s_t_utils.SynTest):
 
             # --parallel allows out of order execution. This test demonstrates that but controls the output by time
 
-            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("1") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.5") inet:fqdn=$foo <- * | sleep 2} { [inet:asn=1234] }'
             nodes = await core.nodes(q)
             self.len(4, nodes)
             exp = [

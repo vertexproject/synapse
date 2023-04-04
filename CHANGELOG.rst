@@ -18,6 +18,12 @@ Bugfixes
 - Fix an issue where an Aha service running on a non-default port would
   not have that port included in the default Aha URLs.
   (`#3049 <https://github.com/vertexproject/synapse/pull/3049>`_)
+- Allow specifying dictionary keys in Storm with expressions and backtick
+  format strings.
+  (`#3065 <https://github.com/vertexproject/synapse/pull/3065>`_)
+- Allow using deref syntax (``*$form``) when lifting by form with tag
+  (``*$form#tag``) and form with tagprop (``*$form#tag:tagprop``).
+  (`#3065 <https://github.com/vertexproject/synapse/pull/3065>`_)
 
 v2.126.0 - 2023-03-30
 =====================
