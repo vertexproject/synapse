@@ -27,11 +27,11 @@ Bugfixes
 - Fix an issue where an Aha service running on a non-default port would
   not have that port included in the default Aha URLs.
   (`#3049 <https://github.com/vertexproject/synapse/pull/3049>`_)
-- Retstore the ``view.addNode()`` Storm API behavior where making a node on
+- Restore the ``view.addNode()`` Storm API behavior where making a node on
   a View object that corresponds to the currently executing view re-used the
   current Snap object. This allows nodeedits to be emitted from the Storm
   message stream.
-  (`#30466tps://github.com/vertexproject/synapse/pull/3066>`_)
+  (`#3066 <https://github.com/vertexproject/synapse/pull/3066>`_)
 
 v2.126.0 - 2023-03-30
 =====================
