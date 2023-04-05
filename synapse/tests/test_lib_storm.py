@@ -495,6 +495,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('inet:ipv4=$ipv4')
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.print(newp)', opts={'vars': {123: 'newp'}})
+
             # test that runtsafe vars stay runtsafe
             msgs = await core.stormlist('$foo=bar $lib.print($foo) if $node { $foo=$node.value() }')
             self.stormIsInPrint('bar', msgs)
@@ -1077,12 +1080,29 @@ class StormTest(s_t_utils.SynTest):
                 }
             }
 
-            await core.addStormPkg(pkgdef)
+            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+                await core.addStormPkg(pkgdef)
+                self.true(await stream.wait(timeout=1))
+
+            pkgdef = {
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'requires': (
+                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'optional': True},
+                    ),
+                }
+            }
+
+            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+                await core.addStormPkg(pkgdef)
+                self.true(await stream.wait(timeout=1))
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None, 'ok': False, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None,
+                     'ok': False, 'actual': '1.2.3', 'optional': True},
                 ),
                 'conflicts': ()
             }, deps)
@@ -2736,7 +2756,7 @@ class StormTest(s_t_utils.SynTest):
 
             # --parallel allows out of order execution. This test demonstrates that but controls the output by time
 
-            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("1") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.5") inet:fqdn=$foo <- * | sleep 2} { [inet:asn=1234] }'
             nodes = await core.nodes(q)
             self.len(4, nodes)
             exp = [

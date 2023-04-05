@@ -258,7 +258,7 @@ class CellApi(s_base.Base):
 
     async def getPermDef(self, perm):
         '''
-        Return a perm definition if it is present in getPermDefs() output, otherwise None.
+        Return a specific permission definition.
         '''
         return await self.cell.getPermDef(perm)
 
@@ -1043,6 +1043,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self.sockaddr = None # Default value...
         self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
@@ -1173,6 +1174,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initServiceStorage
         self.cellupdaters = ()
 
+        self.permdefs = None
+        self.permlook = None
+
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -1198,6 +1202,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def getPermDef(self, perm):
+        if self.permlook is None:
+            self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
+        return self.permlook.get(perm)
+
+    async def getPermDefs(self):
+        if self.permdefs is None:
+            self.permdefs = await self._getPermDefs()
+        return self.permdefs
+
+    async def _getPermDefs(self):
+        return ()
+
+    def _clearPermDefs(self):
+        self.permdefs = None
+        self.permlook = None
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
@@ -1456,7 +1477,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             urlinfo = s_telepath.chopurl(turl)
 
             urlinfo.pop('host', None)
-            urlinfo['port'] = self.sockaddr[1]
+            if isinstance(self.sockaddr, tuple):
+                urlinfo['port'] = self.sockaddr[1]
 
             ahainfo = {
                 'run': runiden,
@@ -2378,12 +2400,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
-
-    async def getPermDef(self, perm): # pragma: no cover
-        return
-
-    async def getPermDefs(self): # pragma: no cover
-        return []
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''

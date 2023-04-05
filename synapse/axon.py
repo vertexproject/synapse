@@ -818,13 +818,15 @@ class Axon(s_cell.Cell):
             self.hashlocks[hashbyts] = item = [0, asyncio.Lock()]
 
         item[0] += 1
-        async with item[1]:
-            yield
+        try:
+            async with item[1]:
+                yield
 
-        item[0] -= 1
+        finally:
+            item[0] -= 1
 
-        if item[0] == 0:
-            self.hashlocks.pop(hashbyts, None)
+            if item[0] == 0:
+                self.hashlocks.pop(hashbyts, None)
 
     def _reqBelowLimit(self):
 

@@ -174,6 +174,19 @@ Examples:
     wget https://vertex.link https://vtx.lk
 '''
 
+permdef_schema = {
+    'type': 'object',
+    'properties': {
+        'perm': {'type': 'array', 'items': {'type': 'string'}},
+        'desc': {'type': 'string'},
+        'gate': {'type': 'string'},
+        'workflowconfig': {'type': 'boolean'},
+    },
+    'required': ['perm', 'desc', 'gate'],
+}
+
+reqValidPermDef = s_config.getJsValidator(permdef_schema)
+
 reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
@@ -246,16 +259,7 @@ reqValidPkgdef = s_config.getJsValidator({
         },
         'perms': {
             'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'perm': {'type': 'array', 'items': {'type': 'string'}},
-                    'desc': {'type': 'string'},
-                    'gate': {'type': 'string'},
-                    'workflowconfig': {'type': 'boolean'},
-                },
-                'required': ['perm', 'desc', 'gate'],
-            },
+            'items': permdef_schema,
         },
         'configvars': {
             'type': 'array',
@@ -412,6 +416,7 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
+                'optional': {'type': 'boolean'},
             },
             'additionalItems': True,
             'required': ('name', 'version'),

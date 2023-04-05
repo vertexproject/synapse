@@ -37,6 +37,7 @@ import collections
 import unittest.mock as mock
 
 import vcr
+import regex
 import aiohttp
 
 from prompt_toolkit.formatted_text import FormattedText
@@ -89,6 +90,9 @@ def norm(z):
     if isinstance(z, dict):
         return {norm(k): norm(v) for (k, v) in z.items()}
     return z
+
+def deguidify(x):
+    return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
 class LibTst(s_stormtypes.Lib):
     '''
@@ -1999,7 +2003,7 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
-    def stormIsInPrint(self, mesg, mesgs):
+    def stormIsInPrint(self, mesg, mesgs, deguid=False):
         '''
         Check if a string is present in all of the print messages from a stream of storm messages.
 
@@ -2007,7 +2011,14 @@ class SynTest(unittest.TestCase):
             mesg (str): A string to check.
             mesgs (list): A list of storm messages.
         '''
+        if deguid:
+            mesg = deguidify(mesg)
+
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+
+        if deguid:
+            print_str = deguidify(print_str)
+
         self.isin(mesg, print_str)
 
     def stormNotInPrint(self, mesg, mesgs):
