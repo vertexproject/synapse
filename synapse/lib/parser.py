@@ -737,7 +737,7 @@ ruleClassMap = {
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': lambda kids: s_ast.RelPropValue([s_ast.Const(k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
-    'setitem': s_ast.SetItemOper,
+    'setitem': lambda kids: s_ast.SetItemOper([kids[0], kids[1], kids[3]]),
     'setvar': s_ast.SetVarOper,
     'stop': s_ast.Stop,
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
