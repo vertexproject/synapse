@@ -36,18 +36,20 @@ class AstNode:
     '''
     Base class for all nodes in the Storm abstract syntax tree.
     '''
-    def __init__(self, kids=()):
+    def __init__(self, meta, kids=()):
         self.kids = []
+        self.meta = meta
         self.hasast = {}
-        self.lines = (-1, -1)
-        self.textpos = (-1, -1)
         [self.addKid(k) for k in kids]
 
-    def addExcInfo(self, exc):
-        exc.errinfo['highlight'] = {
-            'lines': self.lines,
-            'offsets': self.textpos,
+    def getPosInfo(self):
+        return {
+            'lines': (self.meta.line, self.meta.end_line),
+            'offsets': (self.meta.start_pos, self.meta.end_pos),
         }
+
+    def addExcInfo(self, exc):
+        exc.errinfo['highlight'] = self.getPosInfo()
         return exc
 
     def repr(self):
@@ -169,9 +171,9 @@ class LookList(AstNode): pass
 
 class Query(AstNode):
 
-    def __init__(self, kids=()):
+    def __init__(self, meta, kids=()):
 
-        AstNode.__init__(self, kids=kids)
+        AstNode.__init__(self, meta, kids=kids)
 
         self.text = ''
 
@@ -217,8 +219,8 @@ class Lookup(Query):
     '''
     When storm input mode is "lookup"
     '''
-    def __init__(self, kids, autoadd=False):
-        Query.__init__(self, kids=kids)
+    def __init__(self, meta, kids, autoadd=False):
+        Query.__init__(self, meta, kids=kids)
         self.autoadd = autoadd
 
     async def run(self, runt, genr):
@@ -505,8 +507,8 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
-    def __init__(self, kids=()):
-        Oper.__init__(self, kids)
+    def __init__(self, meta, kids=()):
+        Oper.__init__(self, meta, kids)
         self.hasyield = False
         self.hasretn = self.hasAstClass(Return)
 
@@ -1525,8 +1527,8 @@ class LiftPropBy(LiftOper):
 
 class PivotOper(Oper):
 
-    def __init__(self, kids=(), isjoin=False):
-        Oper.__init__(self, kids=kids)
+    def __init__(self, meta, kids=(), isjoin=False):
+        Oper.__init__(self, meta, kids=kids)
         self.isjoin = isjoin
 
     def repr(self):
@@ -2117,8 +2119,8 @@ class Value(AstNode):
     The base class for all values and value expressions.
     '''
 
-    def __init__(self, kids=()):
-        AstNode.__init__(self, kids=kids)
+    def __init__(self, meta, kids=()):
+        AstNode.__init__(self, meta, kids=kids)
 
     def __repr__(self):
         return self.repr()
@@ -2152,8 +2154,8 @@ class Cond(Value):
 
 class SubqCond(Cond):
 
-    def __init__(self, kids=()):
-        Cond.__init__(self, kids=kids)
+    def __init__(self, meta, kids=()):
+        Cond.__init__(self, meta, kids=kids)
         self.funcs = {
             '=': self._subqCondEq,
             '>': self._subqCondGt,
@@ -2877,11 +2879,11 @@ class VarValue(Value):
         if runt.isRuntVar(self.name):
             exc = s_exc.NoSuchVar(mesg=f'Runtsafe variable used before assignment: {self.name}',
                                   name=self.name, runtsafe=True)
-            raise self.addExcInfo(exc)
         else:
             exc = s_exc.NoSuchVar(mesg=f'Non-runtsafe variable used before assignment: {self.name}',
                                   name=self.name, runtsafe=False)
-            raise self.addExcInfo(exc)
+
+        raise self.addExcInfo(exc)
 
 class VarDeref(Value):
 
@@ -3066,8 +3068,8 @@ class TagMatch(TagName):
 
 class Const(Value):
 
-    def __init__(self, valu, kids=()):
-        Value.__init__(self, kids=kids)
+    def __init__(self, meta, valu, kids=()):
+        Value.__init__(self, meta, kids=kids)
         self.valu = valu
 
     def repr(self):
@@ -3603,8 +3605,8 @@ class N2Walk(N1Walk):
 
 class EditEdgeAdd(Edit):
 
-    def __init__(self, kids=(), n2=False):
-        Edit.__init__(self, kids=kids)
+    def __init__(self, meta, kids=(), n2=False):
+        Edit.__init__(self, meta, kids=kids)
         self.n2 = n2
 
     async def run(self, runt, genr):
@@ -3652,8 +3654,8 @@ class EditEdgeAdd(Edit):
 
 class EditEdgeDel(Edit):
 
-    def __init__(self, kids=(), n2=False):
-        Edit.__init__(self, kids=kids)
+    def __init__(self, meta, kids=(), n2=False):
+        Edit.__init__(self, meta, kids=kids)
         self.n2 = n2
 
     async def run(self, runt, genr):

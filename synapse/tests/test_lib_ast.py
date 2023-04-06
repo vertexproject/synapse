@@ -2310,6 +2310,7 @@ class AstTest(s_test.SynTest):
                     $pipe.put(burrito)
                 })
 
+                $lib.time.sleep(1)
                 for $items in $pipe.slices(size=2) {
                     for $thingy in $items {
                         $lib.print($thingy)
@@ -2317,6 +2318,7 @@ class AstTest(s_test.SynTest):
                 }
             '''
             mesgs = await core.stormlist(q)
+            [print(repr(m)) for m in mesgs]
             self.stormIsInPrint('neato', mesgs)
             self.stormIsInPrint('burrito', mesgs)
 

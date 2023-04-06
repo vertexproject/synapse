@@ -435,6 +435,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
+        import hashlib
+        texthash = hashlib.md5(text.encode()).hexdigest()
+
         async def runStorm():
             cancelled = False
             tick = s_common.now()
@@ -442,7 +445,8 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
 
                 # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
+                await chan.put(('init', {'tick': tick, 'text': text,
+                                         'hash': texthash, 'task': synt.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
