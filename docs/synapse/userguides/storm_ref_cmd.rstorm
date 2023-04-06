@@ -148,7 +148,7 @@ a brief message describing each command. Help for individual commands is availab
 auth
 ----
 
-Storm includes ``auth.*`` commands that allow you create users and roles and manage their associated
+Storm includes ``auth.*`` commands that allow you create and manage users and roles, and manage their associated
 permissions (rules).
 
 - `auth.gate.show`_

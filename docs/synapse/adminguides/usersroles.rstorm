@@ -7,11 +7,14 @@
 Create and Manage Users and Roles
 #################################
 
-A :ref:`gloss-user` account is required to authenticate to and access Synapse. Having "a Synapse account" effectively
-means having an account in the Cortex.
+A :ref:`gloss-user` account is required to authenticate to and access Synapse. Having "a Synapse account"
+effectively means having an account in the Cortex.
 
-In Synapse, a :ref:`gloss-role` can be used to "group" users (users are **granted** specific roles). You can grant
-(or deny) **permissions** to both users and roles by assigning **rules** that specify permissions.
+In Synapse, a :ref:`gloss-role` can be used to "group" users with similar responsibilities (and related
+permissions requirements). You can **grant** or **revoke** one or more roles from a user.
+
+You grant (or deny) **permissions** to both users and roles by assigning **rules** that specify those
+permissions (see :ref:`admin_perms`).
 
 Synapse includes the following built-in users and roles:
 
@@ -24,6 +27,12 @@ Synapse includes the following built-in users and roles:
 For information on creating and managing users and roles with the commercial Optic UI, see the Synapse
 `UI documentation`_.
 
+.. TIP::
+  
+  The set of Storm :ref:`storm-auth` commands are collectively used to manage users, roles, and permissions
+  from Storm.
+
+
 .. NOTE::
   
   The descriptions and examples below assume that you have deployed Synapse using native Synapse management
@@ -34,20 +43,21 @@ For information on creating and managing users and roles with the commercial Opt
   is in production.
 
 
-.. _admin_add_users:
+.. _admin_users:
 
-Add Users
-=========
+Working with Users
+==================
 
-New users can be added from the Storm CLI with the :ref:`storm-auth-user-add` command. Newly created users
-do not have any permissions (other than those associated with the built-in **all** role).
+Storm ``auth.user.*`` commands are used to work with users in Synapse.
 
-.. NOTE::
-  
-  Depending on how your users will access the Cortex, you may need to take additional steps before those
-  users can log in. For example, if users will access Synapse using the Telepath API and client-side
-  certificates, you will need to follow the steps described in the :ref:`enroll_cli_users` section of the
-  :ref:`deploymentguide`.
+
+.. _admin_user_add:
+
+Add a User
+----------
+
+The :ref:`storm-auth-user-add` command creates a new user. Newly created users do not have any permissions
+(other than those associated with the built-in **all** role). 
 
 **Example:**
 
@@ -55,18 +65,87 @@ Add the user "Ron" with email address ``ronthecat@vertex.link``:
 
 .. storm-cli:: auth.user.add ron --email ronthecat@vertex.link
 
-
 .. TIP::
   
-  User accounts are represented by a unique 128-bit identifier (iden). You can later change information about
-  the user (such as the username or associated email address) without affecting the underlying account or any
-  associated permissions.
+  Users are represented by a unique 128-bit identifier (iden). This allows you to modify information about
+  the user account without affecting the underlying identifier or any associated roles or permissions.
+
+.. _admin_user_show:
+
+Display a User
+--------------
+
+The :ref:`storm-auth-user-show` command displays information about a user, including any assigned roles or
+rules (permissions) and their order.
+
+**Example:**
+
+Display information for user "Ron":
+
+.. storm-cli:: auth.user.show ron
+
+
+.. _admin_user_mod:
+
+Modify a User
+-------------
+
+The :ref:`storm-auth-user-mod` command modifies a user account. Use the command to:
+
+- Change the username or the email address associated with the user.
+- Set / reset the user's password.
+- Assign (or remove) **admin** status for the user.
+- Lock (or unlock) the account.
+
+**Examples:**
+
+Update the email address for user "Ron":
+
+.. storm-cli:: auth.user.mod ron --email ron@vertex.link
+
+Assign **admin** status to the user "ron_admin":
+
+.. storm-pre:: auth.user.add ron_admin
+.. storm-cli:: auth.user.mod ron_admin --admin $lib.true
+
+Remove **admin** statuus from user "ron_admin":
+
+.. storm-cli:: auth.user.mod ron_admin --admin $lib.false
+
+Lock the user account "ron_admin":
+
+.. storm-cli:: auth.user.mod ron_admin --locked $lib.true
+
+.. WARNING::
+  
+  We strongly encourage you to **lock** unused or revoked accounts (instead of deleteing them). Changes
+  made to the Synapse data store are linked to the iden of the user who made them. Deleting an account
+  will prevent you from determining the user (username) associated with an iden responsible for those
+  changes.
+  
+  User accounts can be deleted using the :ref:`stormlibs-lib-auth-users-del` library, but there is no
+  equivalent Storm command.
+
+
+.. _admin_user_list:
+
+List All Users
+--------------
+
+The :ref:`storm-auth-user-list` command lists all users in the Cortex.
+
+**Example:**
+
+List all users:
+
+.. storm-cli:: auth.user.list
   
 
-.. _admin_add_roles:
 
-Add Roles
-=========
+.. _admin_roles:
+
+Working with Roles
+==================
 
 New roles can be added from the Storm CLI with the :ref:`storm-auth-role-add` command.
 
@@ -103,13 +182,14 @@ Roles can be granted or revoked using the :ref:`storm-auth-user-grant` and :ref:
 
 Grant the role "cattribution analyst" to the user "ron":
 
-**STORM:** auth.user.grant ron "cattribution analyst"
+.. storm-cli:: auth.user.grant ron "cattribution analyst"
 
 Revoke the role "a-cat-emic researcher" from user "ron":
 
 .. storm-pre:: auth.role.add "a-cat-emic researcher"
+.. storm-pre:: auth.user.grant ron "a-cat-emic researcher"
 
-**STORM:** auth.user.revoke ron "a-cat-emic researcher"
+.. storm-cli:: auth.user.revoke ron "a-cat-emic researcher"
 
 
 .. NOTE::
