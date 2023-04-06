@@ -748,8 +748,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+        mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
 
     async def mergeAllowed(self, user=None, force=False):
         '''
@@ -956,6 +956,10 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.fini()
         await self.node.pop()
         shutil.rmtree(self.dirn, ignore_errors=True)
+
+    async def addNode(self, form, valu, props=None, user=None):
+        async with await self.snap(user=user) as snap:
+            return await snap.addNode(form, valu, props=props)
 
     async def addNodeEdits(self, edits, meta):
         '''

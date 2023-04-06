@@ -72,6 +72,8 @@ class CortexTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
+                    self.false((await core00.getCellInfo())['cell']['uplink'])
+
                     provinfo = {'mirror': '00.cortex'}
                     provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
 
@@ -92,12 +94,20 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(core00.isactive)
                         self.false(core01.isactive)
 
+                        self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
+                        self.false((await core00.getCellInfo())['cell']['uplink'])
+                        self.true((await core01.getCellInfo())['cell']['uplink'])
+
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
                         await s_tools_promote.main(argv, outp=outp)
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
+
+                        self.true(await s_coro.event_wait(core00.nexsroot.miruplink, timeout=2))
+                        self.true((await core00.getCellInfo())['cell']['uplink'])
+                        self.false((await core01.getCellInfo())['cell']['uplink'])
 
                         mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
@@ -130,6 +140,10 @@ class CortexTest(s_t_utils.SynTest):
                             self.sorteq(exp, await core00.getMirrorUrls())
                             self.sorteq(exp, await core01.getMirrorUrls())
                             self.sorteq(exp, await core02.getMirrorUrls())
+                            self.true(await s_coro.event_wait(core02.nexsroot.miruplink, timeout=2))
+                            self.true((await core00.getCellInfo())['cell']['uplink'])
+                            self.false((await core01.getCellInfo())['cell']['uplink'])
+                            self.true((await core02.getCellInfo())['cell']['uplink'])
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
@@ -1173,6 +1187,8 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
+                self.len(1, await core.nodes('$form=test:int $tag=foo.bar *$form#$tag'))
+                self.len(1, await core.nodes('$form=test:int $tag=foo.bar $prop=score *$form#$tag:$prop'))
 
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
@@ -3238,6 +3254,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormVarListError):
                 await core.nodes(text, opts)
 
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
     async def test_storm_contbreak(self):
 
         async with self.getTestCore() as core:
@@ -3311,6 +3347,44 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 20)
+
+            text = '''
+            $a=({'foo': 'bar'})
+            $b=({'baz': 'foo'})
+            [ test:str=$a.`{$b.baz}` ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'bar')
+
+            text = '''
+            $a=({'foo': 'cool'})
+            $b=({'baz': 'foo'})
+            [ test:str=$a.($b.baz) ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'cool')
+
+            text = '''
+            $foo = ({})
+            $bar=({'baz': 'buzz'})
+            $foo.`{$bar.baz}` = fuzz
+            [ test:str=$foo.buzz ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'fuzz')
+
+            text = '''
+            $foo = ({})
+            $bar=({'baz': 'fuzz'})
+            $foo.($bar.baz) = buzz
+            [ test:str=$foo.fuzz ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'buzz')
 
     async def test_storm_varlist_compute(self):
 

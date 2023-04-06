@@ -104,7 +104,7 @@ class Link(s_base.Base):
 
         self.iden = s_common.guid()
 
-        writer._transport.set_write_buffer_limits(0)
+        writer.transport.set_write_buffer_limits(high=1)
 
         self.reader = reader
         self.writer = writer
@@ -231,7 +231,8 @@ class Link(s_base.Base):
 
     async def send(self, byts):
         self.writer.write(byts)
-        # Avoid Python bug.  See https://bugs.python.org/issue29930
+        # Avoid Python bug.  See https://github.com/python/cpython/issues/74116
+        # TODO Remove drain lock in 3.10+
         async with self._drain_lock:
             await self.writer.drain()
 
@@ -246,8 +247,8 @@ class Link(s_base.Base):
         try:
 
             self.writer.write(byts)
-
-            # Avoid Python bug.  See https://bugs.python.org/issue29930
+            # Avoid Python bug.  See https://github.com/python/cpython/issues/74116
+            # TODO Remove drain lock in 3.10+
             async with self._drain_lock:
                 await self.writer.drain()
 

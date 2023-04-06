@@ -1,3 +1,4 @@
+import gc
 import os
 import copy
 import time
@@ -238,7 +239,7 @@ class CellApi(s_base.Base):
         if not await self.allowed(perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, username=self.user.name, user=self.user.iden)
 
     def getCellType(self):
         return self.cell.getCellType()
@@ -257,7 +258,7 @@ class CellApi(s_base.Base):
 
     async def getPermDef(self, perm):
         '''
-        Return a perm definition if it is present in getPermDefs() output, otherwise None.
+        Return a specific permission definition.
         '''
         return await self.cell.getPermDef(perm)
 
@@ -388,11 +389,14 @@ class CellApi(s_base.Base):
         '''
         if not self.user.isAdmin():
             mesg = 'setCellUser() caller must be admin.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
         user = self.cell.auth.user(iden)
         if user is None:
-            raise s_exc.NoSuchUser(iden=iden)
+            raise s_exc.NoSuchUser(mesg=f'Unable to set cell user iden to {iden}', user=iden)
+
+        if user.isLocked():
+            raise s_exc.AuthDeny(mesg=f'User ({user.name}) is locked.', user=user.iden, username=user.name)
 
         self.user = user
         self.link.get('sess').user = user
@@ -584,7 +588,7 @@ class CellApi(s_base.Base):
             return info
 
         mesg = 'getUserInfo denied for non-admin and non-self'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     async def getRoleInfo(self, name):
         role = await self.cell.auth.reqRoleByName(name)
@@ -592,7 +596,7 @@ class CellApi(s_base.Base):
             return role.pack()
 
         mesg = 'getRoleInfo denied for non-admin and non-member'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     @adminapi()
     async def getUserDef(self, iden, packroles=True):
@@ -781,6 +785,27 @@ class CellApi(s_base.Base):
     async def getDiagInfo(self):
         return {
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
+        }
+
+    @adminapi()
+    async def runGcCollect(self, generation=2):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return gc.collect(generation=generation)
+
+    @adminapi()
+    async def getGcInfo(self):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return {
+            'stats': gc.get_stats(),
+            'threshold': gc.get_threshold(),
         }
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
@@ -1018,6 +1043,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self.sockaddr = None # Default value...
         self._checkspace = s_coro.Event()
 
         self.conf = self._initCellConf(conf)
@@ -1148,6 +1174,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initServiceStorage
         self.cellupdaters = ()
 
+        self.permdefs = None
+        self.permlook = None
+
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -1173,6 +1202,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def getPermDef(self, perm):
+        if self.permlook is None:
+            self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
+        return self.permlook.get(perm)
+
+    async def getPermDefs(self):
+        if self.permdefs is None:
+            self.permdefs = await self._getPermDefs()
+        return self.permdefs
+
+    async def _getPermDefs(self):
+        return ()
+
+    def _clearPermDefs(self):
+        self.permdefs = None
+        self.permlook = None
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
@@ -1431,7 +1477,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             urlinfo = s_telepath.chopurl(turl)
 
             urlinfo.pop('host', None)
-            urlinfo['port'] = self.sockaddr[1]
+            if isinstance(self.sockaddr, tuple):
+                urlinfo['port'] = self.sockaddr[1]
 
             ahainfo = {
                 'run': runiden,
@@ -2354,12 +2401,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
-    async def getPermDef(self, perm): # pragma: no cover
-        return
-
-    async def getPermDefs(self): # pragma: no cover
-        return []
-
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
         Feed a named event onto the ``cell:beholder`` message bus that will sent to any listeners.
@@ -2843,9 +2884,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if mesg is None:
             permname = permnames.get(level)
-            mesg = f'User has insufficient permissions (requires: {permname}).'
+            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}).'
 
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
 
     async def _setEasyPerm(self, item, scope, iden, level):
         '''
@@ -2887,9 +2928,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if auth is not None:
                 name, info = auth
 
+            # By design, unix sockets can auth as any user.
             user = await self.auth.getUserByName(name)
             if user is None:
-                raise s_exc.NoSuchUser(name=name)
+                raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         else:
             user = await self._getCellUser(link, mesg)
@@ -2897,6 +2939,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.getCellApi(link, user, path)
 
     async def getCellApi(self, link, user, path):
+        '''
+        Get an instance of the telepath Client object for a given user, link and path.
+
+        Args:
+            link (s_link.Link): The link object.
+            user (s_hive.HiveUser): The heavy user object.
+            path (str): The path requested.
+
+        Notes:
+           This defaults to the self.cellapi class. Implementors may override the
+           default class attribute for cellapi to share a different interface.
+
+        Returns:
+            object: The shared object for this cell.
+        '''
         return await self.cellapi.anit(self, link, user)
 
     async def getLogExtra(self, **kwargs):
@@ -3135,7 +3192,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_common.genfile(tarpath) as fd:
-                async with aiohttp.client.ClientSession() as sess:
+                # Leave a 60 second timeout check for the connection and reads.
+                # Disable total timeout
+                timeout = aiohttp.client.ClientTimeout(
+                    total=None,
+                    connect=60,
+                    sock_read=60,
+                    sock_connect=60,
+                )
+                async with aiohttp.client.ClientSession(timeout=timeout) as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
 
@@ -3490,27 +3555,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if hostpart == self.conf.get('aha:network'):
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
+                        if user.isLocked():
+                            raise s_exc.AuthDeny(mesg=f'User ({userpart}) is locked.', user=user.iden, username=userpart)
                         return user
 
             user = await self.auth.getUserByName(username)
             if user is not None:
+                if user.isLocked():
+                    raise s_exc.AuthDeny(mesg=f'User ({username}) is locked.', user=user.iden, username=username)
                 return user
 
-            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
+            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', username=username)
 
         auth = mesg[1].get('auth')
         if auth is None:
 
             anonuser = self.conf.get('auth:anon')
             if anonuser is None:
-                raise s_exc.AuthDeny(mesg='Unable to find cell user')
+                raise s_exc.AuthDeny(mesg=f'Unable to find cell user ({anonuser})')
 
             user = await self.auth.getUserByName(anonuser)
             if user is None:
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.', username=anonuser)
 
             if user.isLocked():
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.', username=anonuser,
+                                     user=user.iden)
 
             return user
 
@@ -3518,13 +3588,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         user = await self.auth.getUserByName(name)
         if user is None:
-            raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
+            raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         # passwd None always fails...
         passwd = info.get('passwd')
 
         if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
 
         return user
 
@@ -3632,8 +3702,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return True
 
         perm = '.'.join(perm)
-        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
-                             task=iden, user=str(user), perm=perm)
+        raise s_exc.AuthDeny(mesg=f'User ({user.name}) must have permission {perm} or own the task',
+                             task=iden, user=user.iden, username=user.name, perm=perm)
 
     async def getCellInfo(self):
         '''
@@ -3670,6 +3740,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
+                'uplink': self.nexsroot.miruplink.is_set(),
             },
             'features': {
                 'tellready': True,

@@ -4,7 +4,159 @@
 Synapse Changelog
 *****************
 
-NEXTVERS - 2023-XX-YY
+v2.127.0 - 2023-04-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Set ``Link`` high water mark to one byte in preparation for Python 3.11
+  support.
+  (`#3064 <https://github.com/vertexproject/synapse/pull/3064>`_)
+- Allow specifying dictionary keys in Storm with expressions and backtick
+  format strings.
+  (`#3065 <https://github.com/vertexproject/synapse/pull/3065>`_)
+- Allow using deref syntax (``*$form``) when lifting by form with tag
+  (``*$form#tag``) and form with tagprop (``*$form#tag:tagprop``).
+  (`#3065 <https://github.com/vertexproject/synapse/pull/3065>`_)
+- Add ``cron:start`` and ``cron:stop`` messages to the events emitted by the
+  ``behold()`` API on the Cortex. These events are only emitted by the leader.
+  (`#3062 <https://github.com/vertexproject/synapse/pull/3062>`_)
+
+Bugfixes
+--------
+- Fix an issue where an Aha service running on a non-default port would
+  not have that port included in the default Aha URLs.
+  (`#3049 <https://github.com/vertexproject/synapse/pull/3049>`_)
+- Restore the ``view.addNode()`` Storm API behavior where making a node on
+  a View object that corresponds to the currently executing view re-used the
+  current Snap object. This allows nodeedits to be emitted from the Storm
+  message stream.
+  (`#3066 <https://github.com/vertexproject/synapse/pull/3066>`_)
+
+v2.126.0 - 2023-03-30
+=====================
+
+Features and Enhancements
+-------------------------
+- Add additional Storm commands to assist with managing Users and Roles in
+  the Cortex.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+  (`#3054 <https://github.com/vertexproject/synapse/pull/3054>`_)
+
+  ``auth.gate.show``
+    Shows the definition for an AuthGate.
+
+  ``auth.role.delrule``
+    Used to delete a rule from a Role.
+
+  ``auth.role.mod``
+    Used to modify properties of a Role.
+
+  ``auth.role.del``
+    Used to delete a Role.
+
+  ``auth.role.show``
+    Shows the definition for a Role.
+
+  ``auth.role.list``
+    List all Roles.
+
+  ``auth.user.delrule``
+    Used to delete a rule from a User.
+
+  ``auth.user.grant``
+    Used to grant a Role to a User.
+
+  ``auth.user.revoke``
+    Used to revoke a Role from a User.
+
+  ``auth.role.mod``
+    Used to modify properties of a User.
+
+  ``auth.user.show``
+    Shows the definition of a User.
+
+  ``auth.user.list``
+    List all Users.
+
+- Update some of the auth related objects in Storm:
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+
+  ``storm:auth:role``
+    Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
+    accessor to get all of the AuthGates associated with a role.
+
+  ``storm:auth:user``
+    Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
+    accessor to get all of the AuthGates associated with a user.
+
+- Add ``$lib.auth.textFromRule()``, ``$lib.auth.getPermDefs()`` and
+  ``$lib.auth.getPermDef()`` Storm library APIs to assist with working
+  with permissions.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+- Add a new Storm library function, ``$lib.iters.enum()``, to assist with
+  enumerating an iterable object in Storm.
+  (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
+- Update the ``NoSuchName`` exceptions which can be raised by Aha during
+  service provisioning to clarify they are likely caused by re-using the
+  one-time use URL.
+  (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
+- Update ``gen.ou.org.hq`` command to set ``ps:contact:org`` if unset.
+  (`#3052 <https://github.com/vertexproject/synapse/pull/3052>`_)
+- Add an ``optional`` flag for Storm package dependencies.
+  (`#3058 <https://github.com/vertexproject/synapse/pull/3058>`_)
+- Add ``.]``, ``[.``, ``http[:``, ``https[:``, ``hxxp[:`` and ``hxxps[:``
+  to the list of known defanging strategies which are identified and
+  replaced during text scraping.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
+
+Bugfixes
+--------
+- Fix an issue where passing a non-string value to ``$lib.time.parse``
+  with ``errok=$lib.true`` would still raise an exception.
+  (`#3046 <https://github.com/vertexproject/synapse/pull/3046>`_)
+- Fix an issue where context managers could potentially not release
+  resources after exiting.
+  (`#3055 <https://github.com/vertexproject/synapse/pull/3055>`_)
+- Fix an issue where variables with non-string names could be passed
+  into Storm runtimes.
+  (`#3059 <https://github.com/vertexproject/synapse/pull/3059>`_)
+- Fix an issue with the Cardano regex used for scraping addresses.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
+- Fix an issue where scraping a partial Cardano address could raise
+  an error.
+  (`#3057 <https://github.com/vertexproject/synapse/pull/3057>`_)
+- Fix an issue where the Storm API ``view.addNode()`` checked permissions
+  against the incorrect authgate. This API now only returns a node if the
+  View object is the same as the View the Storm query is executing in.
+  (`#3060 <https://github.com/vertexproject/synapse/pull/3060>`_)
+
+Improved Documentation
+----------------------
+- Fix link to Storm tool in Synapse Power-Ups section.
+  (`#3053 <https://github.com/vertexproject/synapse/pull/3053>`_)
+- Add Kubernetes deployment examples, which show deploying Synapse services
+  with Aha based provisioning. Add an example showing one mechanism to set
+  ``sysctl``'s in a managed Kubernetes deployment.
+  (`#3047 <https://github.com/vertexproject/synapse/pull/3047>`_)
+
+v2.125.0 - 2023-03-14
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a ``size()`` method on the STIX bundle object.
+  (`#3043 <https://github.com/vertexproject/synapse/pull/3043>`_)
+- Update the minimum version of the ``aio-socks`` library to ``0.8.0``.
+  Update some unittests related to SOCKS proxy support to account for
+  multiple versions of the ``python-socks`` library.
+  (`#3044 <https://github.com/vertexproject/synapse/pull/3044>`_)
+
+Improved Documentation
+----------------------
+- Update the Synapse documentation to add PDF and HTMLZip formats.
+
+v2.124.0 - 2023-03-09
 =====================
 
 Features and Enhancements
@@ -20,12 +172,71 @@ Features and Enhancements
   storage for both size and performance. May also be set by environment
   variable ``SYN_<SERVICE>_ONBOOT_OPTIMIZE=1``
   (`#3001 <https://github.com/vertexproject/synapse/pull/3001>`_)
+- Ensure that ``AuthDeny`` exceptions include the user iden in the ``user``
+  key, and the name in the ``username`` field. Previously the ``AuthDeny``
+  exceptions had multiple identifiers for these fields.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+- Add an optional ``--view`` argument to the ``synapse.tools.storm`` CLI
+  tool. This allows a user to specify their working View for the Storm CLI.
+  This was contributed by captainGeech42.
+  (`#2937 <https://github.com/vertexproject/synapse/pull/2937>`_)
+- Updates to ``synapse.lib.scope`` and the ``Scope`` class. A ``Scope.copy()``
+  method has been added to create a shallow copy of a ``Scope``. A module
+  level ``clone(task)`` function has been added which clones the current task
+  scope to the target ``task``.  Async Tasks created with ``Base.schedCoro()``
+  calls now get a shallow copy of the parent task scope.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
+- Add a new Storm command, ``batch``, to assist in processing nodes in batched
+  sets.
+  (`#3034 <https://github.com/vertexproject/synapse/pull/3034>`_)
+- Add global permissions, ```storm.macro.admin`` and ``storm.macro.edit``, to
+  allow users to administer or edit macros.
+  (`#3037 <https://github.com/vertexproject/synapse/pull/3037>`_)
+- Mark the following Storm APIs as safe to execute in read-only queries:
+  ``$lib.auth.users.get()``, ``$lib.auth.users.list()``,
+  ``$lib.auth.users.byname()``, ``$lib.auth.roles.get()``,
+  ``$lib.auth.roles.list()``, ``$lib.auth.roles.byname()``,
+  ``$lib.auth.gates.get()`` and ``$lib.auth.gates.list()``.
+  (`#3038 <https://github.com/vertexproject/synapse/pull/3038>`_)
+- Added ``uplink`` key to ``getCellInfo()``, which indicates whether
+  the Cell is currently connected to an upstream mirror.
+  (`#3041 <https://github.com/vertexproject/synapse/pull/3041>`_)
 
 Bugfixes
 --------
 - Fix an issue in the Storm grammar where part of a query could potentially
   be incorrectly parsed as an unquoted case statement.
   (`#3032 <https://github.com/vertexproject/synapse/pull/3032>`_)
+- Fix an issue where exceptions could be raised which contained data that was
+  not JSON serializable. ``$lib.raise`` arguments must now also be JSON safe.
+  (`#3029 <https://github.com/vertexproject/synapse/pull/3029>`_)
+- Fix an issue where a spawned process returning a non-pickleable exception
+  would not be handled properly.
+  (`#3036 <https://github.com/vertexproject/synapse/pull/3036>`_)
+- Fix an issue where a locked user could login to a Synapse service on a TLS
+  Telepath connection if the connection presented a trusted client certificate
+  for the locked user.
+  (`#3035 <https://github.com/vertexproject/synapse/pull/3035>`_)
+- Fix a bug in ``Scope.enter()`` where the added scope frame was not removed
+  when the context manager was exited.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
+- Restoring a service via the ``SYN_RESTORE_HTTPS_URL`` environment variable
+  could timeout when downloading the file. The total timeout for this process
+  has been disabled.
+  (`#3042 <https://github.com/vertexproject/synapse/pull/3042>`_)
+
+Improved Documentation
+----------------------
+- Update the Synapse glossary to add terms related to the permissions system.
+  (`#3031 <https://github.com/vertexproject/synapse/pull/3031>`_)
+- Update the model docstrings for the ``risk`` model.
+  (`#3027 <https://github.com/vertexproject/synapse/pull/3027>`_)
+
+Deprecations
+------------
+- The ``ctor`` support in ``Scope`` has been removed. The population of the
+  global default scope with environment variables has been removed.
+  (`#3021 <https://github.com/vertexproject/synapse/pull/3021>`_)
 
 v2.123.0 - 2023-02-22
 =====================

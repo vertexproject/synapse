@@ -305,6 +305,27 @@ class AhaTest(s_test.SynTest):
                 aurls = await ahaproxy.getAhaUrls()
                 self.eq(urls, aurls)
 
+        with self.getTestDir() as dirn:
+            conf = {
+                'aha:name': '0.test',
+                'aha:leader': 'test',
+                'aha:network': 'foo',
+                'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
+                'dmon:listen': f'unix://{dirn}/sock'
+            }
+            async with self.getTestAha(conf=conf) as aha:
+                uinfo = aha.ahainfo.get('urlinfo', {})
+                self.eq(uinfo.get('scheme'), 'unix')
+                self.none(uinfo.get('port'))
+                self.none(aha._getAhaUrls())
+
+            conf['dmon:listen'] = 'tcp://0.0.0.0:0/'
+            async with self.getTestAha(conf=conf) as aha:
+                uinfo = aha.ahainfo.get('urlinfo', {})
+                self.eq(uinfo.get('scheme'), 'tcp')
+                self.gt(uinfo.get('port'), 0)
+                self.eq(aha._getAhaUrls()[0], f'ssl://0.test.foo:{aha.sockaddr[1]}')
+
     async def test_lib_aha_loadenv(self):
 
         with self.getTestDir() as dirn:
@@ -572,7 +593,7 @@ class AhaTest(s_test.SynTest):
                     self.eq((f'ssl://root@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
 
-                    await axon.addUser('visi')
+                    unfo = await axon.addUser('visi')
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
@@ -597,6 +618,18 @@ class AhaTest(s_test.SynTest):
                         teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                         self.eq(teleyaml.get('version'), 1)
                         self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
+
+                        certdir = s_telepath.s_certdir.CertDir(os.path.join(syndir, 'certs'))
+                        async with await s_telepath.openurl('aha://visi@axon...', certdir=certdir) as prox:
+                            self.eq(axon.iden, await prox.getCellIden())
+
+                        # Lock the user
+                        await axon.setUserLocked(unfo.get('iden'), True)
+
+                        with self.raises(s_exc.AuthDeny) as cm:
+                            async with await s_telepath.openurl('aha://visi@axon...', certdir=certdir) as prox:
+                                self.eq(axon.iden, await prox.getCellIden())
+                        self.isin('locked', cm.exception.get('mesg'))
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)

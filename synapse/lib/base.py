@@ -16,6 +16,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
+import synapse.lib.scope as s_scope
 
 logger = logging.getLogger(__name__)
 
@@ -465,8 +466,12 @@ class Base:
         Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
         It does not pend on coroutine completion.
 
-        Precondition:
-            This function is *not* threadsafe and must be run on the Base's event loop
+        Args:
+            coro: The coroutine to schedule.
+
+        Notes:
+            This function is *not* threadsafe and must be run on the Base's event loop.
+            Tasks created by this function do inherit the synapse.lib.scope Scope from the current task.
 
         Returns:
             asyncio.Task: An asyncio.Task object.
@@ -483,6 +488,8 @@ class Base:
             self._active_tasks = set()
 
         task = self.loop.create_task(coro)
+
+        s_scope.clone(task)
 
         # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
         if asyncio.current_task():
@@ -516,6 +523,7 @@ class Base:
 
         Notes:
             This method may be called from outside of the event loop on a different thread.
+            This function will break any task scoping done with synapse.lib.scope.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual function execution.
@@ -532,6 +540,7 @@ class Base:
 
         Notes:
             This method may be run outside the event loop on a different thread.
+            This function will break any task scoping done with synapse.lib.scope.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual coroutine execution.

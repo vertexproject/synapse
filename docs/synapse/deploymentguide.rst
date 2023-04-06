@@ -153,6 +153,12 @@ Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.axon
 
+These one-time use URLs are used to connect to the Aha service, retrieve configuration data, and provision SSL
+certificates for the service. When this is done, the service records that the URL has been used in its persistent
+storage, and will not attempt to perform the provisioning process again unless the URL changes. If the provisioning URL
+is reused, services will encounter **NoSuchName** errors and fail to start up - this indicates a service has attempted
+to re-use the one-time use URL!
+
 .. note::
 
     We strongly encourage you to use a numbered hierarchical naming convention for services where the

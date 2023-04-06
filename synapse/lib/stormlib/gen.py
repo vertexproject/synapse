@@ -121,8 +121,10 @@ class LibGen(s_stormtypes.Lib):
 
         function orgHqByName(name) {
             yield $lib.gen.orgByName($name)
+            $org=$node
             { -:hq [ :hq = {[ ps:contact=* :orgname=$name ]} ] }
             :hq -> ps:contact
+            { -:org [ :org=$org ] }
             return($node)
         }
 
