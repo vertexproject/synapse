@@ -4,7 +4,6 @@
 Synapse Changelog
 *****************
 
-
 Unreleased - YYYY-MM-DD
 =======================
 
