@@ -4,6 +4,21 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Features and Enhancements
+-------------------------
+- Add the current View iden to the structured log output of a Cortex executing
+  a Storm query.
+  (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
+
+Bugfixes
+--------
+- Fix an issue which prevented the ``auth.user.revoke`` Storm command from
+  executing.
+  (`#3069 <https://github.com/vertexproject/synapse/pull/3069>`_)
+
 v2.127.0 - 2023-04-05
 =====================
 
