@@ -67,8 +67,9 @@ Add the user "Ron" with email address ``ronthecat@vertex.link``:
 
 .. TIP::
   
-  Users are represented by a unique 128-bit identifier (iden). This allows you to modify information about
-  the user account without affecting the underlying identifier or any associated roles or permissions.
+  Users are represented by a unique 128-bit identifier (iden). You can modify information about the user
+  account (such as the username or associated email address) without affecting the underlying identifier
+  or any associated roles or permissions.
 
 .. _admin_user_show:
 
@@ -92,8 +93,8 @@ Modify a User
 
 The :ref:`storm-auth-user-mod` command modifies a user account. Use the command to:
 
-- Change the username or the email address associated with the user.
-- Set / reset the user's password.
+- Change the username or email address associated with the user.
+- Set or reset the user's password.
 - Assign (or remove) **admin** status for the user.
 - Lock (or unlock) the account.
 
@@ -108,7 +109,7 @@ Assign **admin** status to the user "ron_admin":
 .. storm-pre:: auth.user.add ron_admin
 .. storm-cli:: auth.user.mod ron_admin --admin $lib.true
 
-Remove **admin** statuus from user "ron_admin":
+Remove **admin** status from user "ron_admin":
 
 .. storm-cli:: auth.user.mod ron_admin --admin $lib.false
 
@@ -118,13 +119,13 @@ Lock the user account "ron_admin":
 
 .. WARNING::
   
-  We strongly encourage you to **lock** unused or revoked accounts (instead of deleteing them). Changes
-  made to the Synapse data store are linked to the iden of the user who made them. Deleting an account
-  will prevent you from determining the user (username) associated with an iden responsible for those
-  changes.
+  We strongly encourage you to **lock** (disable) accounts when necessary instead of deleting them. Changes
+  to data in the Cortex (such as creating nodes, setting properties, or adding tags) are associated with the
+  user account that made those changes. Deleting an account associated with past changes will prohibit you
+  from identifying the user who made those changes.
   
-  User accounts can be deleted using the :ref:`stormlibs-lib-auth-users-del` library, but there is no
-  equivalent Storm command.
+  If necesssary, user accounts can be deleted using the :ref:`stormlibs-lib-auth-users-del` library, but there
+  is no equivalent Storm command.
 
 
 .. _admin_user_list:
@@ -141,18 +142,21 @@ List all users:
 .. storm-cli:: auth.user.list
   
 
-
 .. _admin_roles:
 
 Working with Roles
 ==================
 
-New roles can be added from the Storm CLI with the :ref:`storm-auth-role-add` command.
+Storm ``auth.role.*`` commands are used to work with roles in Synapse.
 
-.. NOTE::
-  
-  Newly created roles do not have any permissions or associated user accounts.
 
+.. _admin_role_add:
+
+Add a Role
+----------
+
+The :ref:`storm-auth-role-add` command creates a new role. Newly created roles do not have any permissions
+or associated user accounts.
 
 **Example:**
 
@@ -160,11 +164,76 @@ Add the new role "cattribution analyst":
 
 .. storm-cli:: auth.role.add "cattribution analyst"
 
-
 .. TIP::
   
   Roles are represented by a unique 128-bit identifier (iden). You can later change information about the role
   (such as the role name) without affecting the underlying role or any associated permissions or users.
+
+
+.. _admin_role_show:
+
+Display a Role
+--------------
+
+The :ref:`storm-auth-role-show` command displays information about a role, including any assigned rules
+(permissions) and their associated objects.
+
+**Example:**
+
+Display information for the "all" role:
+
+.. storm-cli:: auth.role.show all
+
+
+.. _admin_role_mod:
+
+Modify a Role
+-------------
+
+The :ref:`storm-auth-role-mod` command modifies a role. The command can be used to change the name of the
+role.
+
+**Example:**
+
+Change the name of the role "cattribution analyst" to "meow-ware analyst":
+
+.. storm-cli:: auth.role.mod "cattribution analyst" --name "meow-ware analyst"
+
+
+.. _admin_role_list:
+
+List all Roles
+--------------
+
+The :ref:`storm-auth-role-list` command lists all roles in the Cortex.
+
+**Example:**
+
+List all roles:
+
+.. storm-pre:: auth.role.add "a-cat-emic researcher"
+.. storm-pre:: auth.role.add "cattribution analyst"
+.. storm-cli:: auth.role.list
+
+
+.. _admin_role_del:
+
+Delete a Role
+-------------
+
+The :ref:`storm-auth-role-del` command deletes a role.
+
+**Example:**
+
+Delete the role "meow-ware analyst":
+
+.. storm-cli:: auth.role.del "meow-ware analyst"
+
+.. NOTE::
+  
+  Deleting a role has no impact on any users who have been granted the role (other than losing any permissions
+  provided by that role). The user accounts remain intact and the role is simply removed from each user's list
+  of roles.
 
 
 .. _admin_grant_roles:
@@ -186,7 +255,6 @@ Grant the role "cattribution analyst" to the user "ron":
 
 Revoke the role "a-cat-emic researcher" from user "ron":
 
-.. storm-pre:: auth.role.add "a-cat-emic researcher"
 .. storm-pre:: auth.user.grant ron "a-cat-emic researcher"
 
 .. storm-cli:: auth.user.revoke ron "a-cat-emic researcher"

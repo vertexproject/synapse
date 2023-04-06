@@ -245,6 +245,8 @@ The ``auth.role.list`` lists all roles in the Cortex.
 .. storm-cli:: auth.role.list --help
 
 
+.. _storm-auth-role-mod:
+
 auth.role.mod
 +++++++++++++
 
