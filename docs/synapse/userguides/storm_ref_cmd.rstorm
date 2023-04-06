@@ -154,12 +154,17 @@ permissions (rules).
 - `auth.gate.show`_
 - `auth.role.add`_
 - `auth.role.addrule`_
+- `auth.role.del`_
 - `auth.role.delrule`_
+- `auth.role.list`_
+- `auth.role.mod`_
 - `auth.role.show`_
 - `auth.user.add`_
 - `auth.user.addrule`_
 - `auth.user.delrule`_
 - `auth.user.grant`_
+- `auth.user.list`_
+- `auth.user.mod`_
 - `auth.user.revoke`_
 - `auth.user.show`_
 
@@ -177,7 +182,7 @@ The ``auth.gate.show`` command displays the user, roles, and permissions assocai
 
 **Syntax**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.gate.show --help
 
 
 .. _storm-auth-role-add:
@@ -204,6 +209,18 @@ The ``auth.role.addrule`` command adds a rule (permission) to a role.
 .. storm-cli:: auth.role.addrule --help
 
 
+.. _storm-auth-role-del:
+
+auth.role.del
++++++++++++++
+
+The ``auth.role.del`` command deletes a role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.del --help
+
+
 .. _storm-auth-role-delrule:
 
 auth.role.delrule
@@ -213,7 +230,29 @@ The ``auth.role.delrule`` command removes a rule (permission) from a role.
 
 **Syntax:**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.role.delrule --help
+
+
+.. _storm-auth-role-list:
+
+auth.role.list
+++++++++++++++
+
+The ``auth.role.list`` lists all roles in the Cortex.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.list --help
+
+
+auth.role.mod
++++++++++++++
+
+The ``auth.role.mod`` modifies an existing role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.mod --help
 
 
 .. _storm-auth-role-show:
@@ -225,7 +264,7 @@ The ``auth.role.show`` displays the details for a given role.
 
 **Syntax:**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.role.show --help
 
 
 .. _storm-auth-user-add:
@@ -261,19 +300,43 @@ The ``auth.user.delrule`` command removes a rule (permission) from a user.
 
 **Syntax:**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.user.delrule --help
 
 
 .. _storm-auth-user-grant:
 
 auth.user.grant
-+++++++++++++++++
++++++++++++++++
 
 The ``auth.user.grant`` command grants a role (and its associated permissions) to a user.
 
 **Syntax:**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.user.grant --help
+
+
+.. _storm-auth-user-list:
+
+auth.user.list
+++++++++++++++
+
+The ``auth.user.list`` command displays all users in the Cortex.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.list --help
+
+
+.. _storm-auth-user-mod:
+
+auth.user.mod
++++++++++++++
+
+The ``auth.user.mod`` command modifies a user account.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.mod --help
 
 
 .. _storm-auth-user-revoke:
@@ -285,7 +348,7 @@ The ``auth.user.revoke`` command revokes a role (and its associated permissions)
 
 **Syntax:**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.user.revoke --help
 
 
 .. _storm-auth-user-show:
@@ -297,7 +360,7 @@ The ``auth.user.show`` command displays information for a specific user.
 
 **Syntax:**
 
-**EXAMPLE GOES HERE**
+.. storm-cli:: auth.user.show --help
 
 
 .. _storm-background:

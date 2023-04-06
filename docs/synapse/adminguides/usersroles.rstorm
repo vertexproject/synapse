@@ -29,7 +29,7 @@ For information on creating and managing users and roles with the commercial Opt
   The descriptions and examples below assume that you have deployed Synapse using native Synapse management
   and authentication of users, roles, and permissions.
   
-  The :ref:`devops` includes information on provisioning **initial** users when Synapse is first deployed
+  The :ref:`devopsguide` includes information on provisioning **initial** users when Synapse is first deployed
   (see :ref:`devops-task-users`). This guide focuses on ongoing management of users and roles once Synapse
   is in production.
 
@@ -97,7 +97,7 @@ Grant or Revoke Roles
 associated permissions from the user. It is not possible to grant a role to another role (i.e., roles cannot be
 nested).
 
-Roles can be granted or revoked using the :ref:`storm-auth-user-grant` and :ref:`storm-auth-user-revoke`` commands.
+Roles can be granted or revoked using the :ref:`storm-auth-user-grant` and :ref:`storm-auth-user-revoke` commands.
 
 **Examples:**
 
