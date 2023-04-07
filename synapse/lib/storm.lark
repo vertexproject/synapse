@@ -86,7 +86,7 @@ vareval: _varvalu
 
 // A variable assignment
 setvar: "$" VARTOKN "=" _valu
-setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring | dollarexpr) (EQSPACE | EQNOSPACE) _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring | _derefexpr) (EQSPACE | EQNOSPACE) _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
@@ -272,7 +272,8 @@ _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | expr
 _innerdollarexprs: "$"? innerdollaroper
 ?!innerdollaroper: innerdollarexpr
     | innerdollaroper _exprcallargs -> funccall
-    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | innerdollarexpr) -> varderef
+    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerderefexpr) -> varderef
+_innerderefexpr: "$"? innerdollarexpr
 innerdollarexpr: "(" expror ")" -> dollarexpr
 
 exprrelpropvalu: EXPRRELNAME -> relpropvalu
@@ -343,7 +344,6 @@ _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 !varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr)
-_derefexpr: "$"? dollarexpr
 
 funccall: _varvaluatom _callargs
 _callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
@@ -419,7 +419,8 @@ _dollarexprs: "$"? dollaroper
 
 ?!dollaroper: dollarexpr
     | dollaroper _callargs -> funccall
-    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | dollarexpr) -> varderef
+    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+_derefexpr: "$"? dollarexpr
 dollarexpr: "(" expror ")"
 
 // A dollar expression with a required dollar

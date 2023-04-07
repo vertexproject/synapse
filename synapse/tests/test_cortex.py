@@ -3386,6 +3386,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'buzz')
 
+            self.eq('BAZ', await core.callStorm("$foo=({'bar': 'baz'}) return($foo.('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("$foo=({'bar': 'baz'}) return($foo.$('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("return(({'bar': 'baz'}).('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("return(({'bar': 'baz'}).$('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).('bar').upper()))"))
+            self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).$('bar').upper()))"))
+
     async def test_storm_varlist_compute(self):
 
         async with self.getTestCore() as core:
