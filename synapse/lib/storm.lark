@@ -273,7 +273,7 @@ innerdollarexpr: "$"? innerdollaroper -> dollarexpr
 ?!innerdollaroper: _innerdollaratom
     | innerdollaroper _exprcallargs -> funccall
     | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerdollaratom) -> varderef
-_innerdollaratom.1: "(" expror ")"
+_innerdollaratom: "(" expror ")"
 
 exprrelpropvalu: EXPRRELNAME -> relpropvalu
     | _COLONDOLLAR _exprvarvaluatom -> relpropvalu
@@ -308,8 +308,10 @@ EXPRVARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 exprfunccall: _exprvarvaluatom _exprcallargs -> funccall
 _exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 
-?listvalu: _basevalu | LISTTOKN | _exprvarvalu | exprrelpropvalu
+?listvalu: LISTTOKN | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu
+    | baresubquery | valulist | embedquery | TRIPLEQUOTEDSTRING
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | innerdollarexpr
 
 LISTTOKN.1: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
