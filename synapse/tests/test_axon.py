@@ -387,8 +387,12 @@ bar baz",vv
             rows = [row async for row in axon.csvrows(bin256)]
             self.eq(rows, (('/$A\x00_v4\x1b',),))
 
-            # FIXME: Make a python 3.11+ test case to break for csvrows?
-            logger.warning(f'Add a bad CSV test case for {sys.version} ?')
+            # From CPython 3.11 Test_Csv.test_read_eof
+            eofbuf = '"a,'.encode()
+            size, sha256 = await axon.put(eofbuf)
+            with self.raises(s_exc.BadDataValu) as cm:
+                rows = [row async for row in axon.csvrows(sha256, strict=True)]
+            self.isin('unexpected end of data', cm.exception.get('mesg'))
 
         else:
 
