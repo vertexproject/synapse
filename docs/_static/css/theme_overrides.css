@@ -1,3 +1,8 @@
+/* Set the page width to 90% of the users screen. */
+.wy-nav-content {
+    max-width: 90%;
+}
+
 /* Set search window background color to VTX GRAY1 */
 .wy-side-nav-search {
     background-color: #333F48;
@@ -29,4 +34,11 @@
 /* Set the caption headers to vertex green */
 .wy-menu-vertical header, .wy-menu-vertical p.caption {
     color: #00A000;
+}
+
+/* Hide "On GitHub" section from versions menu - 3 is a magic number, see the following for details
+   https://docs.readthedocs.io/en/stable/guides/remove-edit-buttons.html
+*/
+div.rst-versions > div.rst-other-versions > div.injected > dl:nth-child(3) {
+    display: none;
 }

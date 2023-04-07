@@ -91,6 +91,7 @@ class NexsRoot(s_base.Base):
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
 
+        self.miruplink = asyncio.Event()
         self._mirready = asyncio.Event()  # for testing
 
         self._mirrors: List[ChangeDist] = []
@@ -441,6 +442,8 @@ class NexsRoot(s_base.Base):
         await self.startup()
 
     async def _onTeleLink(self, proxy):
+        self.miruplink.set()
+        proxy.onfini(self.miruplink.clear)
         proxy.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):

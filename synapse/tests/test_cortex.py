@@ -72,6 +72,8 @@ class CortexTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
+                    self.false((await core00.getCellInfo())['cell']['uplink'])
+
                     provinfo = {'mirror': '00.cortex'}
                     provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
 
@@ -92,12 +94,20 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(core00.isactive)
                         self.false(core01.isactive)
 
+                        self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
+                        self.false((await core00.getCellInfo())['cell']['uplink'])
+                        self.true((await core01.getCellInfo())['cell']['uplink'])
+
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
                         await s_tools_promote.main(argv, outp=outp)
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
+
+                        self.true(await s_coro.event_wait(core00.nexsroot.miruplink, timeout=2))
+                        self.true((await core00.getCellInfo())['cell']['uplink'])
+                        self.false((await core01.getCellInfo())['cell']['uplink'])
 
                         mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
@@ -130,6 +140,10 @@ class CortexTest(s_t_utils.SynTest):
                             self.sorteq(exp, await core00.getMirrorUrls())
                             self.sorteq(exp, await core01.getMirrorUrls())
                             self.sorteq(exp, await core02.getMirrorUrls())
+                            self.true(await s_coro.event_wait(core02.nexsroot.miruplink, timeout=2))
+                            self.true((await core00.getCellInfo())['cell']['uplink'])
+                            self.false((await core01.getCellInfo())['cell']['uplink'])
+                            self.true((await core02.getCellInfo())['cell']['uplink'])
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
@@ -1173,6 +1187,8 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(1, await core.nodes('test:int#foo.bar:score'))
                 self.len(1, await core.nodes('test:int#foo.bar:score=20'))
+                self.len(1, await core.nodes('$form=test:int $tag=foo.bar *$form#$tag'))
+                self.len(1, await core.nodes('$form=test:int $tag=foo.bar $prop=score *$form#$tag:$prop'))
 
                 self.len(1, await core.nodes('test:int +#foo.bar'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score'))
@@ -1795,6 +1811,16 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes(' | | ')
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('[-test:str]')
+
+            # Bad syntax in messge stream
+            mesgs = await alist(core.storm(' | | | '))
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+            # Lark sensitive test
+            self.stormIsInErr("Unexpected token '|'", mesgs)
+            errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
+            self.eq(errs[0][0], 'BadSyntax')
+
             # Scrape is not a default behavior
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('pennywise@vertex.link')
@@ -3271,29 +3297,29 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await node.delTag('glob.faz')
                 self.eq(tags['glob.faz'], (1, 2))
 
-    async def test_remote_storm(self):
-
-        # Remote storm test paths
+    async def test_storm_logging(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
+            view = await core.callStorm('return( $lib.view.get().iden )')
+            self.nn(view)
+
             # Storm logging
             with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help ask} as [root]') \
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
 
-            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help foo} as [root]') \
-                    as stream:
+            mesg = 'Executing storm query {help foo} as [root]'
+            with self.getAsyncLoggerStream('synapse.storm', mesg) as stream:
                 await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
                 self.true(await stream.wait(4))
 
-            # Bad syntax
-            mesgs = await alist(core.storm(' | | | '))
-            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
-            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
-            # Lark sensitive test
-            self.stormIsInErr("Unexpected token '|'", mesgs)
-            errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
-            self.eq(errs[0][0], 'BadSyntax')
+            with self.getStructuredAsyncLoggerStream('synapse.storm', mesg) as stream:
+                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
+                self.true(await stream.wait(4))
+
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg.get('view'), view)
 
     async def test_strict(self):
 
@@ -3406,6 +3432,26 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormVarListError):
                 await core.nodes(text, opts)
 
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
     async def test_storm_contbreak(self):
 
         async with self.getTestCore() as core:
@@ -3479,6 +3525,44 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 20)
+
+            text = '''
+            $a=({'foo': 'bar'})
+            $b=({'baz': 'foo'})
+            [ test:str=$a.`{$b.baz}` ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'bar')
+
+            text = '''
+            $a=({'foo': 'cool'})
+            $b=({'baz': 'foo'})
+            [ test:str=$a.($b.baz) ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'cool')
+
+            text = '''
+            $foo = ({})
+            $bar=({'baz': 'buzz'})
+            $foo.`{$bar.baz}` = fuzz
+            [ test:str=$foo.buzz ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'fuzz')
+
+            text = '''
+            $foo = ({})
+            $bar=({'baz': 'fuzz'})
+            $foo.($bar.baz) = buzz
+            [ test:str=$foo.fuzz ]
+            '''
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'buzz')
 
     async def test_storm_varlist_compute(self):
 

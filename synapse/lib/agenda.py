@@ -873,6 +873,11 @@ class Agenda(s_base.Base):
                 opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
                 opts = self.core._initStormOpts(opts)
                 view = self.core._viewFromOpts(opts)
+                # Yes, this isn't technically on the bottom half of a nexus transaction
+                # But because the scheduling loop only runs on non-mirrors, we can kinda skirt by all that
+                # and be relatively okay. The only catch is that the nexus offset will correspond to the
+                # last nexus transaction, and not the start/stop
+                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
                 with s_scope.enter(vals={'storm:cron': appt.iden}):
                     async for node in view.eval(appt.query, opts=opts):
                         count += 1
@@ -902,3 +907,4 @@ class Agenda(s_base.Base):
                 appt.lastresult = result
                 if not self.isfini:
                     await self._storeAppt(appt, nexs=True)
+                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})

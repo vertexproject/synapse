@@ -32,6 +32,23 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
+class LmdbBackup(s_base.Base):
+
+    async def __anit__(self, path):
+        await s_base.Base.__anit__(self)
+        self.path = s_common.genpath(path)
+        self.datafile = os.path.join(self.path, 'data.mdb')
+
+        stat = os.stat(self.datafile)
+
+        self.lenv = await self.enter_context(
+            lmdb.open(self.path, map_size=stat.st_size, max_dbs=16384, create=False, readonly=True)
+        )
+        self.ltxn = await self.enter_context(self.lenv.begin())
+
+    async def saveto(self, dstdir):
+        self.lenv.copy(dstdir, compact=True, txn=self.ltxn)
+
 class Hist:
     '''
     A class for storing items in a slab by time.

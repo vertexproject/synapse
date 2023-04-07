@@ -368,7 +368,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
 
         taskiden = opts.get('task')
         taskinfo = {'query': text}
@@ -467,7 +467,7 @@ class View(s_nexus.Pusher):  # type: ignore
                                 count += 1
 
                     else:
-                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
                         with s_scope.enter(vals={'storm:query': s_common.guid()}):
                             async for item in snap.storm(text, opts=opts, user=user):
                                 count += 1
@@ -752,8 +752,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+        mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
 
     async def mergeAllowed(self, user=None, force=False):
         '''
@@ -960,6 +960,10 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.fini()
         await self.node.pop()
         shutil.rmtree(self.dirn, ignore_errors=True)
+
+    async def addNode(self, form, valu, props=None, user=None):
+        async with await self.snap(user=user) as snap:
+            return await snap.addNode(form, valu, props=props)
 
     async def addNodeEdits(self, edits, meta):
         '''

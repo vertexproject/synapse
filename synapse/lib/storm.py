@@ -174,6 +174,19 @@ Examples:
     wget https://vertex.link https://vtx.lk
 '''
 
+permdef_schema = {
+    'type': 'object',
+    'properties': {
+        'perm': {'type': 'array', 'items': {'type': 'string'}},
+        'desc': {'type': 'string'},
+        'gate': {'type': 'string'},
+        'workflowconfig': {'type': 'boolean'},
+    },
+    'required': ['perm', 'desc', 'gate'],
+}
+
+reqValidPermDef = s_config.getJsValidator(permdef_schema)
+
 reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
@@ -246,16 +259,7 @@ reqValidPkgdef = s_config.getJsValidator({
         },
         'perms': {
             'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'perm': {'type': 'array', 'items': {'type': 'string'}},
-                    'desc': {'type': 'string'},
-                    'gate': {'type': 'string'},
-                    'workflowconfig': {'type': 'boolean'},
-                },
-                'required': ['perm', 'desc', 'gate'],
-            },
+            'items': permdef_schema,
         },
         'configvars': {
             'type': 'array',
@@ -412,6 +416,7 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
+                'optional': {'type': 'boolean'},
             },
             'additionalItems': True,
             'required': ('name', 'version'),
@@ -1851,8 +1856,8 @@ class Runtime(s_base.Base):
         if self.user.allowed(('layer', 'read'), gateiden=layriden):
             return
 
-        mesg = 'User can not read layer.'
-        raise s_exc.AuthDeny(mesg=mesg)
+        mesg = f'User ({self.user.name}) can not read layer.'
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
@@ -2741,7 +2746,7 @@ class PureCmd(Cmd):
         asroot = runt.allowed(perm)
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
         # ( used to create more intuitive perm boundaries )
@@ -2756,7 +2761,7 @@ class PureCmd(Cmd):
             if not allowed:
                 permtext = ' or '.join(('.'.join(p) for p in perms))
                 mesg = f'Command ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         text = self.cdef.get('storm')
         query = await runt.snap.core.getStormQuery(text)
@@ -2862,6 +2867,95 @@ class DivertCmd(Cmd):
         if empty:
             async for runitem in run(None):
                 yield runitem
+
+class BatchCmd(Cmd):
+    '''
+    Run a query with batched sets of nodes.
+
+    The batched query will have the set of inbound nodes available in the
+    variable $nodes.
+
+    This command also takes a conditional as an argument. If the conditional
+    evaluates to true, the nodes returned by the batched query will be yielded,
+    if it evaluates to false, the inbound nodes will be yielded after executing the
+    batched query.
+
+    NOTE: This command is intended to facilitate use cases such as queries to external
+          APIs with aggregate node values to reduce quota consumption. As this command
+          interrupts the node stream, it should be used carefully to avoid unintended
+          slowdowns in the pipeline.
+
+    Example:
+
+        // Execute a query with batches of 5 nodes, then yield the inbound nodes
+        batch $lib.false --size 5 { $lib.print($nodes) }
+    '''
+    name = 'batch'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('cond', help='The conditional value for the yield option.')
+        pars.add_argument('query', help='The query to execute with batched nodes.')
+        pars.add_argument('--size', default=10,
+                          help='The number of nodes to collect before running the batched query (max 10000).')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'batch arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        size = await s_stormtypes.toint(self.opts.size)
+        if size > 10000:
+            mesg = f'Specified batch size ({size}) is above the maximum (10000).'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        query = await runt.getStormQuery(self.opts.query)
+        doyield = await s_stormtypes.tobool(self.opts.cond)
+
+        async with runt.getSubRuntime(query, opts={'vars': {'nodes': []}}) as subr:
+
+            nodeset = []
+            pathset = []
+
+            async for node, path in genr:
+
+                nodeset.append(node)
+                pathset.append(path)
+
+                if len(nodeset) >= size:
+                    await subr.setVar('nodes', nodeset)
+                    subp = None
+                    async for subp in subr.execute():
+                        await asyncio.sleep(0)
+                        if doyield:
+                            yield subp
+
+                    if not doyield:
+                        for item in zip(nodeset, pathset):
+                            await asyncio.sleep(0)
+                            if subp is not None:
+                                item[1].vars.update(subp[1].vars)
+                            yield item
+
+                    nodeset.clear()
+                    pathset.clear()
+
+            if len(nodeset) > 0:
+                await subr.setVar('nodes', nodeset)
+                subp = None
+                async for subp in subr.execute():
+                    await asyncio.sleep(0)
+                    if doyield:
+                        yield subp
+
+                if not doyield:
+                    for item in zip(nodeset, pathset):
+                        await asyncio.sleep(0)
+                        if subp is not None:
+                            item[1].vars.update(subp[1].vars)
+                        yield item
 
 class HelpCmd(Cmd):
     '''
@@ -3972,7 +4066,7 @@ class DelNodeCmd(Cmd):
         if self.opts.force:
             if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         async for node, path in genr:
 
@@ -5515,7 +5609,7 @@ class RunAsCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         if not runt.user.isAdmin():
             mesg = 'The runas command requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         core = runt.snap.core
 

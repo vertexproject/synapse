@@ -509,6 +509,14 @@ class Snap(s_base.Base):
         if user is None:
             user = self.user
 
+        if opts is not None:
+            varz = opts.get('vars')
+            if varz is not None:
+                for valu in varz.keys():
+                    if not isinstance(valu, str):
+                        mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
+                        raise s_exc.BadArg(mesg=mesg)
+
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
             yield runt
 
@@ -532,7 +540,7 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.view.iden)
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')

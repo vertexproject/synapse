@@ -639,6 +639,15 @@ Queries = [
     '$foo=(truesec.com,)',
     '[test:str=foo +#$tag.index(0):$tag.index(1)=$tag.index(2)]',
     'test:str#$tag.index(0):$tag.index(1)',
+    'if $lib.true { } $lib.print(`User: {$lib.true}`)',
+    '$foo.`{$bar.baz}`=$bar',
+    '$foo.`{$bar.baz}` = $bar',
+    '$foo.($bar.baz)=$bar',
+    '$foo.($bar.baz) = $bar',
+    '$lib.print($foo.`{$bar.baz}`)',
+    '$lib.print($foo.($bar.baz))',
+    '*$form#$tag',
+    '*$form#$tag:$prop',
 ]
 
 # Generated with print_parse_list below
@@ -1187,6 +1196,15 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, List: [Const: truesec.com]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditTagPropSet: [TagProp: [FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 0], CallKwargs: []], FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 1], CallKwargs: []]], Const: =, FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 2], CallKwargs: []]]]',
     'Query: [LiftFormTagProp: [FormTagProp: [Const: test:str, FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 0], CallKwargs: []], FuncCall: [VarDeref: [VarValue: [Const: tag], Const: index], CallArgs: [Const: 1], CallKwargs: []]]]]',
+    'Query: [IfStmt: [IfClause: [VarDeref: [VarValue: [Const: lib], Const: true], SubQuery: [Query: []]]], VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [FormatString: [Const: User: , VarDeref: [VarValue: [Const: lib], Const: true]]], CallKwargs: []]]]',
+    'Query: [SetItemOper: [VarValue: [Const: foo], FormatString: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
+    'Query: [SetItemOper: [VarValue: [Const: foo], FormatString: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
+    'Query: [SetItemOper: [VarValue: [Const: foo], DollarExpr: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
+    'Query: [SetItemOper: [VarValue: [Const: foo], DollarExpr: [VarDeref: [VarValue: [Const: bar], Const: baz]], VarValue: [Const: bar]]]',
+    'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [VarDeref: [VarValue: [Const: foo], FormatString: [VarDeref: [VarValue: [Const: bar], Const: baz]]]], CallKwargs: []]]]',
+    'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [VarDeref: [VarValue: [Const: foo], DollarExpr: [VarDeref: [VarValue: [Const: bar], Const: baz]]]], CallKwargs: []]]]',
+    'Query: [LiftFormTag: [VarValue: [Const: form], VarValue: [Const: tag]]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [VarValue: [Const: form], VarValue: [Const: tag], VarValue: [Const: prop]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
