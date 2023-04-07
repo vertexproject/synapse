@@ -276,7 +276,7 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def embedquery(self, meta, kids):
         assert len(kids) == 1
-        text = self.text[meta.start_pos + 2:meta.end_pos - 1].strip()
+        text = kids[0].text
         ast = s_ast.EmbedQuery(text, kids)
         return ast
 
@@ -666,7 +666,6 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
-    'reqdollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
     'edgedeln1': s_ast.EditEdgeDel,
     'edgeaddn2': lambda kids: s_ast.EditEdgeAdd(kids, n2=True),

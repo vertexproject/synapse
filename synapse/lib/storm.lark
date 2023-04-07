@@ -249,7 +249,7 @@ CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _dollarexprs
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -266,14 +266,14 @@ exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | formatstring | innerdollarexpr
+    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
 // Expr versions of rules to avoid invalid state merges
-innerdollarexpr: "$"? innerdollaroper -> dollarexpr
-?!innerdollaroper: _innerdollaratom
+_innerdollarexprs: "$"? innerdollaroper
+?!innerdollaroper: innerdollarexpr
     | innerdollaroper _exprcallargs -> funccall
-    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerdollaratom) -> varderef
-_innerdollaratom: "(" expror ")"
+    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | innerdollarexpr) -> varderef
+innerdollarexpr: "(" expror ")" -> dollarexpr
 
 exprrelpropvalu: EXPRRELNAME -> relpropvalu
     | _COLONDOLLAR _exprvarvaluatom -> relpropvalu
@@ -303,7 +303,7 @@ _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
 exprvarvalue: EXPRVARTOKN -> varvalue
 EXPRVARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
-!exprvarderef: _exprvarvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | dollarexpr) -> varderef
+!exprvarderef: _exprvarvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
 
 exprfunccall: _exprvarvaluatom _exprcallargs -> funccall
 _exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
@@ -311,7 +311,7 @@ _exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPAC
 ?listvalu: LISTTOKN | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu
     | baresubquery | valulist | embedquery | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | innerdollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
 LISTTOKN.1: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
@@ -342,7 +342,8 @@ _varvalu: "$" _varvaluatom
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
-!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | dollarexpr)
+!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr)
+_derefexpr: "$"? dollarexpr
 
 funccall: _varvaluatom _callargs
 _callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
@@ -360,7 +361,7 @@ _cond: notcond | "(" _condexpr ")"
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq | arraycond
-    | _varvalu | reqdollarexpr
+    | _varvalu | _reqdollarexprs
 
 notcond: "not" _cond
 
@@ -414,15 +415,15 @@ RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
-dollarexpr: "$"? dollaroper
+_dollarexprs: "$"? dollaroper
 
-?!dollaroper: _dollaratom
+?!dollaroper: dollarexpr
     | dollaroper _callargs -> funccall
-    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | _dollaratom) -> varderef
-_dollaratom: "(" expror ")"
+    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | dollarexpr) -> varderef
+dollarexpr: "(" expror ")"
 
 // A dollar expression with a required dollar
-reqdollarexpr: "$" dollaroper
+_reqdollarexprs: "$" dollaroper
 EXPRPLUS.2: "+"
 EXPRMINUS.2: /(?<!-)-/
 EXPRNEG.2: /-(?![^$:.#(\-]|(?>(?<EXPRNEGRECUR>\(((?>[^()"'`]+|(?&EXPRNEGRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
