@@ -269,7 +269,11 @@ _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | expr
     | SINGLEQUOTEDSTRING | formatstring | innerdollarexpr
 
 // Expr versions of rules to avoid invalid state merges
-innerdollarexpr: "$"? "(" expror ")" -> dollarexpr
+innerdollarexpr: "$"? innerdollaroper -> dollarexpr
+?!innerdollaroper: _innerdollaratom
+    | innerdollaroper _exprcallargs -> funccall
+    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerdollaratom) -> varderef
+_innerdollaratom.1: "(" expror ")"
 
 exprrelpropvalu: EXPRRELNAME -> relpropvalu
     | _COLONDOLLAR _exprvarvaluatom -> relpropvalu
@@ -408,9 +412,15 @@ RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
-dollarexpr: "$"? "(" expror ")"
+dollarexpr: "$"? dollaroper
+
+?!dollaroper: _dollaratom
+    | dollaroper _callargs -> funccall
+    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | _dollaratom) -> varderef
+_dollaratom: "(" expror ")"
+
 // A dollar expression with a required dollar
-reqdollarexpr: "$" "(" expror ")"
+reqdollarexpr: "$" dollaroper
 EXPRPLUS.2: "+"
 EXPRMINUS.2: /(?<!-)-/
 EXPRNEG.2: /-(?![^$:.#(\-]|(?>(?<EXPRNEGRECUR>\(((?>[^()"'`]+|(?&EXPRNEGRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/

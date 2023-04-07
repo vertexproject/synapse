@@ -276,7 +276,7 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def embedquery(self, meta, kids):
         assert len(kids) == 1
-        text = kids[0].text
+        text = self.text[meta.start_pos + 2:meta.end_pos - 1].strip()
         ast = s_ast.EmbedQuery(text, kids)
         return ast
 
