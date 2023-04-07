@@ -568,9 +568,9 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.10
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.10
 
     working_directory: ~/repo
 
@@ -579,10 +579,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.10
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py310
 
     steps:
       - deploy_pypi_prologue
@@ -790,7 +790,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_python311
 
       - python_package_smoketest:
           filters:
@@ -884,7 +883,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_python311
 
       - push_docker_branch:
           requires:
