@@ -9,6 +9,21 @@ Unreleased - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
+- Add the current View iden to the structured log output of a Cortex executing
+  a Storm query.
+  (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
+
+Bugfixes
+--------
+- Fix an issue which prevented the ``auth.user.revoke`` Storm command from
+  executing.
+  (`#3069 <https://github.com/vertexproject/synapse/pull/3069>`_)
+
+v2.127.0 - 2023-04-05
+=====================
+
+Features and Enhancements
+-------------------------
 - Set ``Link`` high water mark to one byte in preparation for Python 3.11
   support.
   (`#3064 <https://github.com/vertexproject/synapse/pull/3064>`_)
@@ -18,6 +33,20 @@ Features and Enhancements
 - Allow using deref syntax (``*$form``) when lifting by form with tag
   (``*$form#tag``) and form with tagprop (``*$form#tag:tagprop``).
   (`#3065 <https://github.com/vertexproject/synapse/pull/3065>`_)
+- Add ``cron:start`` and ``cron:stop`` messages to the events emitted by the
+  ``behold()`` API on the Cortex. These events are only emitted by the leader.
+  (`#3062 <https://github.com/vertexproject/synapse/pull/3062>`_)
+
+Bugfixes
+--------
+- Fix an issue where an Aha service running on a non-default port would
+  not have that port included in the default Aha URLs.
+  (`#3049 <https://github.com/vertexproject/synapse/pull/3049>`_)
+- Restore the ``view.addNode()`` Storm API behavior where making a node on
+  a View object that corresponds to the currently executing view re-used the
+  current Snap object. This allows nodeedits to be emitted from the Storm
+  message stream.
+  (`#3066 <https://github.com/vertexproject/synapse/pull/3066>`_)
 
 v2.126.0 - 2023-03-30
 =====================
