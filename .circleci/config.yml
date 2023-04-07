@@ -878,7 +878,6 @@ workflows:
             - python37
             - python38
             - python310
-            - python311
           filters:
             branches:
               only:
