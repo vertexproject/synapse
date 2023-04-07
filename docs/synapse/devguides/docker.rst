@@ -71,3 +71,16 @@ The bare image with only Synapse installed on it can be built like the following
         # Example of building directly with the tag mytag
 
         $ docker build --pull -t vertexproject/synapse:mytag -f docker/images/synapse/Dockerfile .
+
+Working with Synapse Images
+---------------------------
+
+Developers working with Synapse images should consider the following items:
+
+* The Synapse images are not locked to a specific Python version. The
+  underlying Python minor version or base distribution may change. If they do
+  change, that will be noted in the Synapse changelog. If you are building
+  containers off of a floating tag such as ``vertexproject/synapse:v2.x.x``,
+  make sure you are reviewing our :ref:`changelog` for items which may affect
+  your use cases. Python patch level updates will not be included in
+  the changelogs.

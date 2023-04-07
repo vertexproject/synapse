@@ -12,12 +12,24 @@ Features and Enhancements
 - Add the current View iden to the structured log output of a Cortex executing
   a Storm query.
   (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
+- Update the allowed versions of the ``lmdb``, ``msgpack``, ``tornado`` and
+  ``xxhash`` libraries.
+  (`#3070 <https://github.com/vertexproject/synapse/pull/3070>`_)
+- Add Python 3.11 tests to the CircleCI configuration. Update some unit tests
+  to account for Python 3.11 related changes.
+  (`#3070 <https://github.com/vertexproject/synapse/pull/3070>`_)
 
 Bugfixes
 --------
 - Fix an issue which prevented the ``auth.user.revoke`` Storm command from
   executing.
   (`#3069 <https://github.com/vertexproject/synapse/pull/3069>`_)
+
+Improved Documentation
+----------------------
+- Update the Developer guide to note that the underlying Python runtime in
+  Synapse images may change between releases.
+  (`#3070 <https://github.com/vertexproject/synapse/pull/3070>`_)
 
 v2.127.0 - 2023-04-05
 =====================
