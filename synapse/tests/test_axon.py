@@ -1,6 +1,7 @@
 import io
 import os
 import csv
+import sys
 import base64
 import shutil
 import asyncio
@@ -379,9 +380,25 @@ bar baz",vv
         with self.raises(s_exc.BadArg) as cm:
             rows = [row async for row in axon.csvrows(sha256, newp='newp')]
 
-        # data that isn't a text file
+        # From CPython Test_Csv.test_read_eof
+        eofbuf = '"a,'.encode()
+        size, eofsha256 = await axon.put(eofbuf)
         with self.raises(s_exc.BadDataValu) as cm:
+            rows = [row async for row in axon.csvrows(eofsha256, strict=True)]
+        self.isin('unexpected end of data', cm.exception.get('mesg'))
+
+        # Python 3.11+ - csv handles null bytes in an acceptable fashion.
+        # See https://github.com/python/cpython/issues/71767 for discussion
+        if sys.version_info.major >= 3 and sys.version_info.minor >= 11:
+
             rows = [row async for row in axon.csvrows(bin256)]
+            self.eq(rows, (('/$A\x00_v4\x1b',),))
+
+        else:
+
+            # data that has null bytes is not handled by cpython csv < 3.11
+            with self.raises(s_exc.BadDataValu) as cm:
+                rows = [row async for row in axon.csvrows(bin256)]
 
         with self.raises(s_exc.NoSuchFile):
             lines = [item async for item in axon.csvrows(newphash)]
