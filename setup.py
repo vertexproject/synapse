@@ -80,10 +80,10 @@ setup(
     install_requires=[
         'pyOpenSSL>=23.0.0,<27.0.0',
         'cryptography>=39.0.1,<40.0.0',
-        'msgpack>=1.0.2,<1.1.0',
-        'xxhash>=1.4.4,<3.1.0',
-        'lmdb>=1.2.1,<1.4.0',
-        'tornado>=6.1.0,<7.0.0',
+        'msgpack>=1.0.5,<1.1.0',
+        'xxhash>=1.4.4,<3.3.0',
+        'lmdb>=1.2.1,<1.5.0',
+        'tornado>=6.2.0,<7.0.0',
         'regex>=2022.9.11',
         'PyYAML>=5.4,<6.1.0',
         'aiohttp>=3.8.1,<4.0',
@@ -146,6 +146,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
     cmdclass={
         'verify': VerifyVersionCommand,

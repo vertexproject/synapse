@@ -1284,11 +1284,11 @@ class TeleTest(s_t_utils.SynTest):
                 self.eq(30, await prox.bar(10, 20))
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
-            with self.raises(ssl.SSLError):
+            with self.raises((ssl.SSLError, ConnectionResetError)):
                 link = await s_link.connect(hostname, port=port, ssl=sslctx)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_1)
-            with self.raises(ssl.SSLError):
+            with self.raises((ssl.SSLError, ConnectionResetError)):
                 link = await s_link.connect(hostname, port=port, ssl=sslctx)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
