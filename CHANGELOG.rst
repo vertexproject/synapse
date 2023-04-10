@@ -7,8 +7,76 @@ Synapse Changelog
 Unreleased - YYYY-MM-DD
 =======================
 
+Automatic Migrations
+--------------------
+- Migrate the ``file:bytes:mime:pe:imphash`` from a ``guid`` to a ``hash:md5``
+  type and create the ``hash:md5`` nodes as needed.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+- Migrate the ``ou:goal:name`` property from a ``str`` to a ``ou:goalname``
+  type and create the ``ou:goalname`` nodes as needed.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+- Migrate the ``ou:goal:type`` property from a ``str`` to a
+  ``ou:goal:type:taxonomy`` type and create the ``ou:goal:type:taxonomy``
+  nodes as needed.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
 Features and Enhancements
 -------------------------
+- Updates to the ``biz``, ``file``, ``lang``, ``it``, ``meta``, ``ou``,
+  ``pol``, and ``risk`` models.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+
+- Updates to the ``belief``, ``file``, ``inet``,  ``pol``,
+
+  ``belief:tenet``
+    Add a ``desc`` property to record the description of the tenet.
+
+  ``file:bytes``
+    Change the type of the ``mime:pe:imphash`` from ``guid`` to ``hash:md5``.
+
+  ``inet:flow``
+    Add a ``raw`` property which may be used to store additional protocol
+    data about the flow.
+
+  ``it:app:snort:rule``
+    Add a ``desc`` property to record a brief description of the snort rule.
+
+  ``ou:goal``
+    Change the type of ``name`` from ``str`` to ``ou:goalname``.
+    Add a ``names`` array to record alternative names for the goal.
+    Deprecate the ``prev`` property in favor of types.
+
+  ``ou:goalname``
+    Add a form to record the name of a goal.
+
+  ``ou:goalname:type:taxonomy``
+    Add a taxonomy of goal types.
+
+  ``ou:industry``
+    Add a ``type`` property to record the industry taxonomy.
+
+  ``ou:industry:type:taxonomy``
+    Add a taxonomy to record industry types.
+
+  ``pol:immigration:status``
+    Add a form to track the immigration status of a contact.
+
+  ``pol:immigration:status:type:taxonomy``
+    Add a taxononmy of immigration types.
+
+  ``risk:attack``
+    Add a ``detected`` property to record the first confirmed detection time
+    of the attack.
+    Add a ``url`` property to record a URL that documents the attack.
+    Add a ``ext:id`` property to record an external identifier for hte attack.
+
+  ``risk:compromise``
+    Add a ``detected`` property to record the first confirmed detection time
+    of the compromise.
+
+
+
 - Add the current View iden to the structured log output of a Cortex executing
   a Storm query.
   (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
