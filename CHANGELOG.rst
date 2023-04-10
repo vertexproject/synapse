@@ -75,8 +75,6 @@ Features and Enhancements
     Add a ``detected`` property to record the first confirmed detection time
     of the compromise.
 
-
-
 - Add the current View iden to the structured log output of a Cortex executing
   a Storm query.
   (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
