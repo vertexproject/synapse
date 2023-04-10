@@ -44,6 +44,7 @@ Features and Enhancements
 
   ``ou:goal``
     Change the type of ``name`` from ``str`` to ``ou:goalname``.
+    Change the type of ``type`` from ``str`` to ``ou:goal:type:taxonomy``.
     Add a ``names`` array to record alternative names for the goal.
     Deprecate the ``prev`` property in favor of types.
 
