@@ -72,8 +72,8 @@ The bare image with only Synapse installed on it can be built like the following
 
         $ docker build --pull -t vertexproject/synapse:mytag -f docker/images/synapse/Dockerfile .
 
-Work with Synapse Images
-------------------------
+Working with Synapse Images
+---------------------------
 
 Developers working with Synapse images should consider the following items:
 
