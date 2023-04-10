@@ -23,9 +23,6 @@ Synapse includes the following built-in users and roles:
 - **All** role. The **all** role has **read** access to the Cortex (specifically, to any view with
   ``worldreadable=true``, which includes the **default** view). All user accounts are automatically granted
   the **all** role (are part of the **all** "group"); this role cannot be revoked.
-  
-For information on creating and managing users and roles with the commercial Optic UI, see the Synapse
-`UI documentation`_.
 
 .. TIP::
   

@@ -23,6 +23,10 @@ of how permissions are used within Synapse.
 Permissions Background
 ======================
 
+Before describing how to assign and manage permissions in Synapse, it is helpful to define some key components
+of Synapse and the permissions ecosystem.
+
+
 .. _admin_bkd_services:
 
 Services
@@ -226,12 +230,12 @@ The same rules in the opposite order will **disallow** the creation of **any** n
 Admin
 -----
 
-Admin status allows a user to **bypass all permissions checks** for the **scope** where the user is
-admin.
+Admin status allows a user to **bypass all permissions checks** for the **scope** where the user is admin.
+For example, a Synapse (Cortex) admin user can bypass all Cortex permissions checks (can "do anything"
+within the Cortex).
 
-A Synapse (Cortex) admin user can bypass all Cortex permissions checks (can "do anything" within the
-Cortex); a user who is admin for a view that they fork can bypass all permissions checks ("do anything")
-within that view.
+Users are generally **admin** of objects that they create. A user who forks a view is **admin** for the view
+that they fork, and can bypass all permissions checks ("do anything") within the forked view.
 
 .. NOTE::
   
@@ -275,7 +279,7 @@ standard installation of Synapse consists of the default view, which contains on
 The ability to see (read) data in a view is "all or nothing" - you cannot allow users to see some nodes in
 a view but not others. If you need to segregate data (based on sensitivity or other criteria), you can use
 multiple layers to do this. The layers can be composed into different views, allowing different users to see
-(read) only the data in the layer(s) they should have access to.
+(read) only the data in the view(s) they should have access to.
 
 Views act as a **read** boundary for the data a user or role can **see.** Granting the ``view.read`` permission
 on a view allows users to see (read) data in any of the view's layers; you do not need to explicitly grant
@@ -335,10 +339,10 @@ Synapse assumes an implicit default ``deny all`` as the final rule evaluated whe
 
 .. NOTE::
   
-  Edge cases where a specific permission assumes a **default allow** instead of a **default deny** are
-  uncommon. They are highly use case-specific, and usually arise in cases where a **new** permission has been
-  implemented. That is, an action that was not originally subject to a permissions check now has one (usually
-  because of a need to explicitly **deny** that action to particular users or roles).
+  There are a few edge cases where a specific permission assumes a **default allow** instead of a **default deny,**
+  but these are uncommon. These cases are highly specific, and usually arise in cases where a **new** permission
+  has been implemented. That is, an action that was not originally subject to a permissions check now has one
+  (usually because of a need to explicitly **deny** that action to particular users or roles).
   
   If a previously unchecked action were added with "default deny", it would potentially break existing Synapse
   deployments by suddenly blocking an action that had been previously allowed (ungated). In these circumstances
@@ -459,8 +463,9 @@ Viewing a Gate's Permissions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``auth.gate.show`` command is used to display permissions information about a particular Auth Gate (e.g.,
-a view or layer). You can provide the specific iden for an Auth Gate, or use the :ref:`stormlibs-lib-view-get` or
-:ref:`stormlibs-lib-layer-get` to retrieve information for the current view or layer.
+a view or layer). You can provide the specific iden for an Auth Gate, or use the syntax below to retrieve
+information for the **current** view or layer. (Viewing information for the "current layer" will return
+information for the top layer of the current view.)
 
 **Example:**
 
@@ -497,6 +502,12 @@ UI tools (such as Spotlight).
 - See the `Optic Deployment Guide`_ for information on Optic deployment.
 - See the `Optic DevOps Guide`_ for information on Optic permissions and other features.
 
+.. TIP::
+  
+  You do not need to explicitly grant permissions to Optic itself. If you are creating and managing Synapse
+  ("Cortex") users and roles via Optic, they have permission to access Optic by default. (New users will be
+  emailed a "magic link" to log into Optic for the first time and set their password.) 
+
 
 .. _admin_power_perms:
 
@@ -521,11 +532,13 @@ section of the `Power-Up documentation`_ for the individual Power-Up.
 Storm Runtime Permissions
 =========================
 
-When a user runs a Storm query interactively (e.g., in the Storm CLI or via the Optic UI), the query runs
+When a user runs a Storm query **interactively** (e.g., in the Storm CLI or via the Optic Query Bar), or
+performs an action in the Optic UI (such as accessing a menu option), the query or action executes
 **with the permissions of the user,** based on the applicable user and role permissions and the current scope
-for the query.
+for the query or action.
 
-There are a few cases of Storm runtime execution where permissions may require additional considerations.
+There are a few cases of Storm runtime execution where different permissions are used and which may require
+additional considerations.
 
 Automation
 ----------
