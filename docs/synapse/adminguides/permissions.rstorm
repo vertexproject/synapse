@@ -7,7 +7,7 @@
 Assigning and Managing Permissions
 ##################################
 
-Synapse provides a highly flexible system of role-based access control (RBAC). Rules are used to assign
+Synapse provides a highly flexible system of role-based access control (RBAC). **Rules** are used to assign
 permissions to users and / or roles, with a defined order of precedence for how permissions are evaluated.
 
 Permissions can be assigned very broadly, such as allowing a user (or role) to create / modify / delete any node.
@@ -73,7 +73,7 @@ Scope
 
 **Scope** refers to the object to which a particular permission applies. For example, permissions granted on an
 Auth Gate (such as a view) are scoped to (or **local** to) that Auth Gate. Permissions granted at the Cortex level
-(to users or roles) are **global** with respect to the Cortex.
+are **global** with respect to the Cortex.
 
 Scope affects the order (precedence) in which permissions are evaluated.
 
@@ -194,7 +194,7 @@ in the following order:
 
 **Roles** (granted to a user) and **rules** (assigned to a user or role) are **also ordered:**
 
-- When granting multiple roles to a user, each new role is added to the **end** of the list of roles.
+- When granting roles to a user, each new role is added to the **end** of the list of roles.
 - When assigning rules to a role or user, each new rule is added to the **end** of the list of rules.
 
 Rules and roles are evaluated in the following order:
@@ -243,10 +243,9 @@ within that view.
 Easy Permissions
 ----------------
 
-Easy permissions ("easy perms" for short) is a mechanism that simplifies granting common sets of
-permissions to users or roles for a particular object, such as a macro. Where easy perms are used, you
-can specify four levels of access: **deny, read, edit,** and **admin.** These access levels have
-corresponding integer values:
+Easy permissions ("easy perms" for short) is a mechanism that simplifies granting common sets of permissions
+to users or roles for a particular object. Where easy perms are used, you can specify four levels of access:
+**deny, read, edit,** and **admin.** These access levels have corresponding integer values:
 
 - Deny = 0
 - Read = 1
@@ -260,6 +259,9 @@ Easy perms apply to specific objects. Where easy perms are available, the follow
   access).
 - Admin privileges are required to **delete** the object (i.e., **edit** permissions do not include **delete**).
 
+.. TIP::
+  
+  `$lib.macro.grant`_ library is an example of where easy permissions can be used to assign permissions.
 
 .. _admin_bkd_views_layers:
 
@@ -301,22 +303,22 @@ From a Synapse Admin perspective, managing permissions within Synapse commonly i
 - Assigning rules to users and roles to allow or deny access to additional services, such as an Axon or
   various Power-Ups.
 
-Permissions in Synapse are managed using the Storm ``auth.role.*`` and ``auth.user.*`` commands (see
-:ref:`storm-auth`).
+Permissions in Synapse are managed using the Storm :ref:`storm-auth` commands.
+
+In the commercial Optic UI, permissions can also be managed through the **Admin Tool** and through dialogs
+associated with various objects (such as Views or Stories), in addition to the Storm commands.
 
 .. TIP::
   
-  A list of Synapse permissions is available at <magic list of all available permissions>. If a user attempts
-  an action that they do not have permissions to perform, Synapse will return an ``AuthDeny`` error that lists
-  the specific permission that is required.
-
-For information on assigning permissions with the commercial Optic UI, see the Synapse `UI documentation`_.
+  If a user attempts an action that they do not have permissions to perform, Synapse will return an ``AuthDeny``
+  error that lists the specific permission that is required.
 
 .. NOTE::
   
   The descriptions and examples below assume that you have deployed Synapse using native Synapse management
   and authentication of users, roles, and permissions.
-  
+
+
 .. admin_default_perms:
 
 Default Permissions
@@ -336,12 +338,12 @@ Synapse assumes an implicit default ``deny all`` as the final rule evaluated whe
   Edge cases where a specific permission assumes a **default allow** instead of a **default deny** are
   uncommon. They are highly use case-specific, and usually arise in cases where a **new** permission has been
   implemented. That is, an action that was not originally subject to a permissions check now has one (usually
-  because of a need to explicitly deny that action to particular users or roles).
+  because of a need to explicitly **deny** that action to particular users or roles).
   
   If a previously unchecked action were added with "default deny", it would potentially break existing Synapse
   deployments by suddenly blocking an action that had been previously allowed (ungated). In these circumstances
-  the new permission is given a "default allow" that can then be specifically denied if necessary. These edge
-  cases are noted in the <magic list of all available permissions>.
+  the new permission is given a "default allow" that can then be specifically denied if necessary.
+
 
 .. admin_global_perms:
 
@@ -372,10 +374,17 @@ Specifying rules at the global (Cortex) level may be sufficient for many basic S
   to a user or role, and rules are evaluated in order of precedence. To reorder rules, you must remove and
   re-add them in the new order (unless using the commercial Synapse UI, which allows drag-and-drop reordering).
 
+Assign Permissions
+~~~~~~~~~~~~~~~~~~
+
+Permissions rules (allow or deny) are assigned using the :ref:`storm-auth-user-addrule` and :ref:`storm-auth-role-addrule`
+commands.
+
 **Examples:**
 
 Prevent the user "ron" from setting tag descriptions (setting the ``syn:tag:desc`` property):
 
+.. storm-pre:: auth.user.add ron --email ronthecat@vertex.link
 .. storm-cli:: auth.user.addrule ron "!node.prop.set.syn:tag:desc"
 
 .. TIP::
@@ -384,35 +393,39 @@ Prevent the user "ron" from setting tag descriptions (setting the ``syn:tag:desc
   a symbol ( ! ).
 
 
-Allow the role "malware analysts" to add tags in the "code capabilities" tag tree (``cno.code.capa``):
+Allow the role "senior analysts" to add tags in threat attribution (``cno.threat``) tag tree:
 
-.. storm-pre:: auth.role.add "malware analysts"
+.. storm-pre:: auth.role.add "senior analysts"
+.. storm-cli:: auth.role.addrule "senior analysts" node.tag.add.cno.threat
 
-.. storm-cli:: auth.role.addrule "malware analysts" node.tag.add.cno.code.capa
+Prevent the "all" role from deleting nodes:
 
+.. storm-cli:: auth.role.addrule all "!node.del"
 
-
-
-
-FIGURE OUT WHERE TO PUT THIS
-
-
-View information about a user (does/will this include assigned rules?) - COMMAND IS WIP
-``auth.user.show``
-
-View information about a role (does/will this include assigned rules?) - COMMAND IS WIP
-``auth.role.show``
+.. TIP::
+  
+  You can view information about a user or role (including associated roles and / or rules) with the
+  :ref:`storm-auth-user-show` and :ref:`storm-auth-role-show` commands.
 
 
+Revoke Permissions
+~~~~~~~~~~~~~~~~~~
+
+Permissions rules are revoked using the ``auth.user.delrule`` and ``auth.role.delrule`` commands.
+
+**Examples:**
+
+Revoke the rule that prevents user "ron" from setting tag descriptions:
+
+.. storm-cli:: auth.user.delrule ron "!node.prop.set.syn:tag:desc"
 
 
+Revoke the rule that allows "junior analysts" to apply tags in the ``cno.threat`` tag tree:
 
+.. storm-pre:: auth.role.add "junior analysts"
+.. storm-pre:: auth.role.addrule "junior analysts" node.tag.cno.threat
 
-Remove a rule from a user: - COMMAND IS WIP
-``auth.user.delrule``
-
-Remove a rule from a role: - COMMAND IS WIP
-``auth.role.delrule``
+.. storm-cli:: auth.role.delrule "junior analysts" node.tag.cno.threat
 
 
 .. _admin_authgate_perms:
@@ -420,41 +433,44 @@ Remove a rule from a role: - COMMAND IS WIP
 Auth Gate Permissions
 ---------------------
 
-Assigning permissions to an Auth Gate uses the same Storm commands used to assign global permissions, but
+To assign permissions for an Auth Gate, you use the same Storm commands used to assign global permissions, but
 you must specify the Auth Gate's full identifier (iden) (using the ``--gate`` option) when adding or
 removing the rule.
 
-The ``auth.gate.show`` command is used to display information about a particular Auth Gate (e.g., a view
-or layer), including its iden and the current Auth Gate-specific permissions (users, roles, and rules),
-if any. Once the iden has been retrieved, you can use it to add (or remove) a rule from the Auth Gate.
+Obtain a Gate's Iden
+~~~~~~~~~~~~~~~~~~~~
 
-**Examples:**
+The Storm :ref:`storm-view` and :ref:`storm-layer` commands can be used to manage views and layers, respectively.
+In particular, the following commands are useful for displaying all views or layers (including their idens), or
+displaying a specific view or layer:
 
-EXAMPLES GO HERE - COMMANDS ARE WIP
+- :ref:`storm-view-list`
+- :ref:`storm-view-get`
+- :ref:`storm-layer-list`
+- :ref:`storm-layer-get`
 
-Display information about a specific Auth Gate:
-``auth.gate.show...``
+**Example:**
 
-Add a role-based rule to a specific Auth Gate:
-``auth.role.addrule...``
+Display all views:
 
-Remove a user-based rule from a specific Auth  Gate:
-``auth.user.delrule...``
+.. storm-cli:: view.list
 
+Viewing a Gate's Permissions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. _admin_perms_examples:
+The ``auth.gate.show`` command is used to display permissions information about a particular Auth Gate (e.g.,
+a view or layer). You can provide the specific iden for an Auth Gate, or use the :ref:`stormlibs-lib-view-get` or
+:ref:`stormlibs-lib-layer-get` to retrieve information for the current view or layer.
 
-Permissions Examples
-====================
+**Example:**
 
-- Examples of common scenarios/basic configurations
-- basic global user perms
-- do stuff to nodes but not delete nodes
-- only add certain tags
-- only create certain edges
-- fork a view but not merge
-- add perms explicitly to a view/layer
-- other?
+Display information for the current view:
+
+.. storm-cli:: auth.gate.show $lib.view.get().iden
+
+Display informatiton for the current layer:
+
+.. storm-cli:: auth.gate.show $lib.layer.get().iden
 
 
 .. _admin_axon_perms:
@@ -475,7 +491,8 @@ storage Axon.
 Optic Permissions
 =================
 
-Commercial Synapse customers with the Optic UI must grant users or roles permission to access Optic.
+Commercial Synapse customers with the Optic UI may need to explicitly grant users or roles permission to some
+UI tools (such as Spotlight).
 
 - See the `Optic Deployment Guide`_ for information on Optic deployment.
 - See the `Optic DevOps Guide`_ for information on Optic permissions and other features.
@@ -550,12 +567,11 @@ See the :ref:`dev_rapid_power_ups` section of the :ref:`devguide` for additional
   separation within a Power-Up as a best practice, implementation of privilege separation is left to
   Power-Up developers.
 
-
-.. _UI documentation: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
-.. _Power-Up documentation: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
-.. _Rapid Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups/rapid_power_ups.html
-.. _Synapse-MISP: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
-.. _Synapse-MITRE-ATT&CK: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html
-.. _Synapse-TOR: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html
-.. _Optic Deployment Guide: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/deploymentguide.html
-.. _Optic DevOps Guide: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/devopsguide.html
+.. _`$lib.macro.grant`: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-macro-grant-name-scope-iden-level
+.. _`Power-Up documentation`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
+.. _`Rapid Power-Ups`: https://synapse.docs.vertex.link/en/latest/synapse/power_ups/rapid_power_ups.html
+.. _`Optic Deployment Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/deploymentguide.html
+.. _`Optic DevOps Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/devopsguide.html
+.. _`Synapse-MISP`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
+.. _`Synapse-MITRE-ATT&CK`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html
+.. _`Synapse-TOR`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html

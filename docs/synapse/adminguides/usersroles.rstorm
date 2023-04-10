@@ -13,8 +13,8 @@ effectively means having an account in the Cortex.
 In Synapse, a :ref:`gloss-role` can be used to "group" users with similar responsibilities (and related
 permissions requirements). You can **grant** or **revoke** one or more roles from a user.
 
-You grant (or deny) **permissions** to both users and roles by assigning **rules** that specify those
-permissions (see :ref:`admin_perms`).
+You grant (or deny) **permissions** to users or roles by assigning **rules** that specify those permissions
+(see :ref:`admin_perms`).
 
 Synapse includes the following built-in users and roles:
 
@@ -31,6 +31,10 @@ For information on creating and managing users and roles with the commercial Opt
   
   The set of Storm :ref:`storm-auth` commands are collectively used to manage users, roles, and permissions
   from Storm.
+  
+  In the commercial Optic UI, users, roles, and permissions can be managed through the **Admin Tool** and
+  through dialogs associated with various objects (such as Views or Stories), in addition to the Storm
+  commands.
 
 
 .. NOTE::
@@ -47,9 +51,6 @@ For information on creating and managing users and roles with the commercial Opt
 
 Working with Users
 ==================
-
-Storm ``auth.user.*`` commands are used to work with users in Synapse.
-
 
 .. _admin_user_add:
 
@@ -146,9 +147,6 @@ List all users:
 
 Working with Roles
 ==================
-
-Storm ``auth.role.*`` commands are used to work with roles in Synapse.
-
 
 .. _admin_role_add:
 
