@@ -971,7 +971,7 @@ class LibTags(Lib):
     async def prefix(self, names, prefix, ispart=False):
 
         prefix = await tostr(prefix)
-        part = await tobool(part)
+        ispart = await tobool(ispart)
         tagpart = self.runt.snap.core.model.type('syn:tag:part')
 
         retn = []
