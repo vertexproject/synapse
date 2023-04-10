@@ -44,6 +44,10 @@ class BeliefModule(s_module.CoreModule):
 
                     ('name', ('str', {'onespace': True, 'lower': True}), {
                         'doc': 'The name of the tenet.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the tenet.'}),
                 )),
 
                 ('belief:subscriber', {}, (

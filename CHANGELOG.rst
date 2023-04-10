@@ -18,6 +18,8 @@ Features and Enhancements
 - Add Python 3.11 tests to the CircleCI configuration. Update some unit tests
   to account for Python 3.11 related changes.
   (`#3070 <https://github.com/vertexproject/synapse/pull/3070>`_)
+- Allow dereferencing from Storm expressions.
+  (`#3071 <https://github.com/vertexproject/synapse/pull/3071>`_)
 
 Bugfixes
 --------

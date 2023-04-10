@@ -441,6 +441,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:ssl:cert': dstcert,
             'src:rdp:hostname': 'SYNCODER',
             'src:rdp:keyboard:layout': 'AZERTY',
+            'raw': (10, 20),
         }
         expected_props = {
             'time': 0,
@@ -481,6 +482,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:ssl:cert': dstcert,
             'src:rdp:hostname': 'syncoder',
             'src:rdp:keyboard:layout': 'azerty',
+            'raw': (10, 20),
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
