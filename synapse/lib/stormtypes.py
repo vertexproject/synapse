@@ -957,6 +957,8 @@ class LibTags(Lib):
                   'args': (
                       {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                      {'name': 'ispart', 'type': 'boolean', 'default': False,
+                       'desc': 'Whether the names have already been normalized. Normalization will be skipped if set to true.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
     )
@@ -966,18 +968,22 @@ class LibTags(Lib):
             'prefix': self.prefix,
         }
 
-    async def prefix(self, names, prefix):
+    async def prefix(self, names, prefix, ispart=False):
 
         prefix = await tostr(prefix)
+        part = await tobool(part)
         tagpart = self.runt.snap.core.model.type('syn:tag:part')
 
         retn = []
         async for part in toiter(names):
-            try:
-                partnorm = tagpart.norm(part)[0]
-                retn.append(f'{prefix}.{partnorm}')
-            except s_exc.BadTypeValu:
-                pass
+            if not ispart:
+                try:
+                    partnorm = tagpart.norm(part)[0]
+                    retn.append(f'{prefix}.{partnorm}')
+                except s_exc.BadTypeValu:
+                    pass
+            else:
+                retn.append(f'{prefix}.{part}')
 
         return retn
 
