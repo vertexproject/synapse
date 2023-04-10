@@ -27,8 +27,6 @@ Features and Enhancements
   ``pol``, and ``risk`` models.
   (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
 
-- Updates to the ``belief``, ``file``, ``inet``,  ``pol``,
-
   ``belief:tenet``
     Add a ``desc`` property to record the description of the tenet.
 
