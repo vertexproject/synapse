@@ -39,13 +39,15 @@ class OuModelTest(s_t_utils.SynTest):
 
                 props = {
                     'name': 'MyGoal',
-                    'type': 'MyType',
+                    'names': ['Foo Goal', 'Bar Goal', 'Bar Goal'],
+                    'type': 'foo.bar',
                     'desc': 'MyDesc',
                     'prev': goal,
                 }
                 node = await snap.addNode('ou:goal', goal, props=props)
-                self.eq(node.get('name'), 'MyGoal')
-                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('name'), 'mygoal')
+                self.eq(node.get('names'), ('bar goal', 'foo goal'))
+                self.eq(node.get('type'), 'foo.bar.')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('prev'), goal)
 
