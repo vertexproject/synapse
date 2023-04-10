@@ -1811,6 +1811,16 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes(' | | ')
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('[-test:str]')
+
+            # Bad syntax in messge stream
+            mesgs = await alist(core.storm(' | | | '))
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
+            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+            # Lark sensitive test
+            self.stormIsInErr("Unexpected token '|'", mesgs)
+            errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
+            self.eq(errs[0][0], 'BadSyntax')
+
             # Scrape is not a default behavior
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('pennywise@vertex.link')
@@ -3119,29 +3129,29 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await node.delTag('glob.faz')
                 self.eq(tags['glob.faz'], (1, 2))
 
-    async def test_remote_storm(self):
-
-        # Remote storm test paths
+    async def test_storm_logging(self):
         async with self.getTestCoreAndProxy() as (realcore, core):
+            view = await core.callStorm('return( $lib.view.get().iden )')
+            self.nn(view)
+
             # Storm logging
             with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help ask} as [root]') \
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
 
-            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help foo} as [root]') \
-                    as stream:
+            mesg = 'Executing storm query {help foo} as [root]'
+            with self.getAsyncLoggerStream('synapse.storm', mesg) as stream:
                 await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
                 self.true(await stream.wait(4))
 
-            # Bad syntax
-            mesgs = await alist(core.storm(' | | | '))
-            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
-            self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
-            # Lark sensitive test
-            self.stormIsInErr("Unexpected token '|'", mesgs)
-            errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
-            self.eq(errs[0][0], 'BadSyntax')
+            with self.getStructuredAsyncLoggerStream('synapse.storm', mesg) as stream:
+                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
+                self.true(await stream.wait(4))
+
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg.get('view'), view)
 
     async def test_strict(self):
 
@@ -3385,6 +3395,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'buzz')
+
+            self.eq('BAZ', await core.callStorm("$foo=({'bar': 'baz'}) return($foo.('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("$foo=({'bar': 'baz'}) return($foo.$('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("return(({'bar': 'baz'}).('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("return(({'bar': 'baz'}).$('bar').upper())"))
+            self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).('bar').upper()))"))
+            self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).$('bar').upper()))"))
 
     async def test_storm_varlist_compute(self):
 
