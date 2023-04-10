@@ -4402,6 +4402,7 @@ class StormTest(s_t_utils.SynTest):
                     <(bars)+ { [ inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 ] }
                     +#foo.bar:score=10
                 ]
+                $node.data.set(foo, bar)
             ''')
             self.stormHasNoWarnErr(msgs)
 
@@ -4423,3 +4424,4 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('media:news +:title=vertex <(bars)- inet:ipv4', opts=opts)
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
+            self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))

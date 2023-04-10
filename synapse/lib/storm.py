@@ -3145,8 +3145,8 @@ class CopyToCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--full', default=False, action='store_true',
-                          help='Make a full copy of the node in the top layer of the view.')
+        pars.add_argument('--no-data', default=False, action='store_true',
+                          help='Do not copy node data to the destination view.')
         pars.add_argument('view', help='The destination view ID to copy the nodes to.')
         return pars
 
@@ -3179,6 +3179,10 @@ class CopyToCmd(Cmd):
                 for tag in node.tags.keys():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
 
+                if not self.opts.no_data:
+                    async for name in node.iterDataKeys():
+                        runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
+
                 async with snap.getEditor() as editor:
 
                     proto = await editor.addNode(node.ndef[0], node.ndef[1], props=node.props)
@@ -3188,6 +3192,10 @@ class CopyToCmd(Cmd):
                     for tagname, tagprops in node.tagprops.items():
                         for propname, valu in tagprops.items():
                             await proto.setTagProp(tagname, propname, valu)
+
+                    if not self.opts.no_data:
+                        async for name, valu in node.iterData():
+                            await proto.setData(name, valu)
 
                     verbs = {}
                     async for (verb, n2iden) in node.iterEdgesN1():
