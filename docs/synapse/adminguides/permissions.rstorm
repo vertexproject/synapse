@@ -4,8 +4,8 @@
 
 .. _admin_perms:
 
-Assigning and Managing Permissions
-##################################
+Assign and Manage Permissions
+#############################
 
 Synapse provides a highly flexible system of role-based access control (RBAC). **Rules** are used to assign
 permissions to users and / or roles, with a defined order of precedence for how permissions are evaluated.

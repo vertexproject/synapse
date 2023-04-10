@@ -265,6 +265,4 @@ Revoke the role "a-cat-emic researcher" from user "ron":
   reordering). See :ref:`admin_perms_background` for additional detail on permissions and :ref:`admin_bkd_precedence`.
 
 
-.. _UI documentation: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
-
   

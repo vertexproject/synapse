@@ -67,6 +67,7 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `help`_
 - `auth`_
 - `background`_
+- `batch`_
 - `count`_
 - `cron`_
 - `delnode`_
@@ -383,6 +384,22 @@ See also :ref:`storm-parallel`.
 **Syntax:**
 
 .. storm-cli:: background --help
+
+
+.. _storm-batch:
+
+batch
+-----
+
+The ``batch`` command allows you to run a Storm query with batched sets of nodes. 
+
+Note that in most cases, Storm queries are meant to operate in a "streaming" manner on individual nodes.
+This command is intended to be used in cases such as querying external APIs that support aggregate queries
+(i.e., an API that allows you to query 100 objects in a single API call as part of the API's quota system).
+
+**Syntax:**
+
+.. storm-cli:: batch --help
 
 
 .. _storm-count:
@@ -2040,7 +2057,7 @@ Help for individual ``splice.*`` commands can be displayed using:
 splice.list
 +++++++++++
 
-``splice.list`` is a **deprecated** command. ``splice.list``allows you to list (view) splices in the
+``splice.list`` is a **deprecated** command. ``splice.list`` allows you to list (view) splices in the
 splice log. By default, splices are displayed starting with the most recent and working backwards
 through the log.
 
@@ -2054,7 +2071,7 @@ through the log.
 splice.undo
 +++++++++++
 
-``splice.undo`` is a **deprecated** command.. ``splice.list`` allows a user with appropriate permissions
+``splice.undo`` is a **deprecated** command.. ``splice.undo`` allows a user with appropriate permissions
 to roll back or undo the specified set of splices (changes).
 
 **Syntax:**
