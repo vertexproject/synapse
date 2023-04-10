@@ -36,16 +36,20 @@ class AstNode:
     '''
     Base class for all nodes in the Storm abstract syntax tree.
     '''
-    def __init__(self, meta, kids=()):
+    def __init__(self, astinfo, kids=()):
         self.kids = []
-        self.meta = meta
+        self.astinfo = astinfo
         self.hasast = {}
         [self.addKid(k) for k in kids]
 
+    def getAstText(self):
+        return self.astinfo.text[self.astinfo.soff:self.astinfo.eoff]
+
     def getPosInfo(self):
         return {
-            'lines': (self.meta.line, self.meta.end_line),
-            'offsets': (self.meta.start_pos, self.meta.end_pos),
+            'lines': (self.astinfo.sline, self.astinfo.eline),
+            'columns': (self.astinfo.scol, self.astinfo.ecol),
+            'offsets': (self.astinfo.soff, self.astinfo.eoff),
         }
 
     def addExcInfo(self, exc):
@@ -171,14 +175,13 @@ class LookList(AstNode): pass
 
 class Query(AstNode):
 
-    def __init__(self, meta, kids=()):
+    def __init__(self, astinfo, kids=()):
 
-        AstNode.__init__(self, meta, kids=kids)
-
-        self.text = ''
+        AstNode.__init__(self, astinfo, kids=kids)
 
         # for options parsed from the query itself
         self.opts = {}
+        self.text = self.getAstText()
 
     async def run(self, runt, genr):
 
@@ -219,8 +222,8 @@ class Lookup(Query):
     '''
     When storm input mode is "lookup"
     '''
-    def __init__(self, meta, kids, autoadd=False):
-        Query.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, kids, autoadd=False):
+        Query.__init__(self, astinfo, kids=kids)
         self.autoadd = autoadd
 
     async def run(self, runt, genr):
@@ -507,10 +510,14 @@ class Oper(AstNode):
 
 class SubQuery(Oper):
 
-    def __init__(self, meta, kids=()):
-        Oper.__init__(self, meta, kids)
+    def __init__(self, astinfo, kids=()):
+        Oper.__init__(self, astinfo, kids)
         self.hasyield = False
         self.hasretn = self.hasAstClass(Return)
+
+        self.text = ''
+        if len(kids):
+            self.text = kids[0].getAstText()
 
     async def run(self, runt, genr):
 
@@ -1358,7 +1365,7 @@ class LiftFormTagProp(LiftOper):
         form, tag, prop = await self.kids[0].compute(runt, path)
 
         if not runt.model.form(form):
-            raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
+            raise self.kids[0][0].addExcInfo(s_exc.NoSuchForm(form))
 
         if len(self.kids) == 3:
 
@@ -1423,7 +1430,7 @@ class LiftFormTag(LiftOper):
 
         form = await self.kids[0].compute(runt, path)
         if not runt.model.form(form):
-            raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
+            raise self.kids[0].addExcInfo(s_exc.NoSuchForm(form))
 
         tag = await tostr(await self.kids[1].compute(runt, path))
 
@@ -1527,8 +1534,8 @@ class LiftPropBy(LiftOper):
 
 class PivotOper(Oper):
 
-    def __init__(self, meta, kids=(), isjoin=False):
-        Oper.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, kids=(), isjoin=False):
+        Oper.__init__(self, astinfo, kids=kids)
         self.isjoin = isjoin
 
     def repr(self):
@@ -1768,7 +1775,7 @@ class PivotInFrom(PivotOper):
 
         form = runt.model.forms.get(name)
         if form is None:
-            raise s_exc.NoSuchForm(name=name)
+            raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name))
 
         # <- edge
         if isinstance(form.type, s_types.Edge):
@@ -2119,8 +2126,8 @@ class Value(AstNode):
     The base class for all values and value expressions.
     '''
 
-    def __init__(self, meta, kids=()):
-        AstNode.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, kids=()):
+        AstNode.__init__(self, astinfo, kids=kids)
 
     def __repr__(self):
         return self.repr()
@@ -2154,8 +2161,8 @@ class Cond(Value):
 
 class SubqCond(Cond):
 
-    def __init__(self, meta, kids=()):
-        Cond.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, kids=()):
+        Cond.__init__(self, astinfo, kids=kids)
         self.funcs = {
             '=': self._subqCondEq,
             '>': self._subqCondGt,
@@ -2441,7 +2448,7 @@ class HasRelPropCond(Cond):
             form = runt.model.forms.get(prop.type.name)
             if form is None:
                 mesg = f'No form {prop.type.name}'
-                raise s_exc.NoSuchForm(mesg=mesg, name=prop.type.name)
+                raise self.addExcInfo(_exc.NoSuchForm(prop.type.name))
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -2785,7 +2792,7 @@ class PropValue(Value):
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
-                raise s_exc.NoSuchForm(name=prop.type.name)
+                raise self.addExcInfo(s_exc.NoSuchForm(prop.type.name))
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -2907,7 +2914,7 @@ class FuncCall(Value):
         func = await self.kids[0].compute(runt, path)
         if runt.readonly and not getattr(func, '_storm_readonly', False):
             mesg = f'Function ({func.__name__}) is not marked readonly safe.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         argv = await self.kids[1].compute(runt, path)
         kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
@@ -3052,7 +3059,7 @@ class TagName(Value):
             part = await kid.compute(runt, path)
             if part is None:
                 mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
-                raise s_exc.BadTypeValu(mesg=mesg)
+                raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
             vals.append(await tostr(part))
 
         return '.'.join(vals)
@@ -3068,8 +3075,8 @@ class TagMatch(TagName):
 
 class Const(Value):
 
-    def __init__(self, meta, valu, kids=()):
-        Value.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, valu, kids=()):
+        Value.__init__(self, astinfo, kids=kids)
         self.valu = valu
 
     def repr(self):
@@ -3203,7 +3210,7 @@ class EditParens(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
@@ -3298,7 +3305,7 @@ class EditNodeAdd(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         runtsafe = self.isRuntSafe(runt)
 
@@ -3315,7 +3322,7 @@ class EditNodeAdd(Edit):
 
                     form = runt.model.form(formname)
                     if form is None:
-                        raise s_exc.NoSuchForm(name=formname)
+                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm(formname))
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -3331,7 +3338,7 @@ class EditNodeAdd(Edit):
 
                 form = runt.model.form(formname)
                 if form is None:
-                    raise s_exc.NoSuchForm(name=formname)
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm(formname))
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -3605,8 +3612,8 @@ class N2Walk(N1Walk):
 
 class EditEdgeAdd(Edit):
 
-    def __init__(self, meta, kids=(), n2=False):
-        Edit.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, kids=(), n2=False):
+        Edit.__init__(self, astinfo, kids=kids)
         self.n2 = n2
 
     async def run(self, runt, genr):
@@ -3654,8 +3661,8 @@ class EditEdgeAdd(Edit):
 
 class EditEdgeDel(Edit):
 
-    def __init__(self, meta, kids=(), n2=False):
-        Edit.__init__(self, meta, kids=kids)
+    def __init__(self, astinfo, kids=(), n2=False):
+        Edit.__init__(self, astinfo, kids=kids)
         self.n2 = n2
 
     async def run(self, runt, genr):

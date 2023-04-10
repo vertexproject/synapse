@@ -217,6 +217,11 @@ class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
 class NotMsgpackSafe(SynErr): pass
 
+class NoSuchForm(SynErr):
+    def __init__(self, name):
+        mesg = f'No form named: {name}'
+        SynErr.__init__(self, mesg=mesg, name=name)
+
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
@@ -230,7 +235,6 @@ class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 class NoSuchFile(SynErr): pass
-class NoSuchForm(SynErr): pass
 class NoSuchFunc(SynErr): pass
 class NoSuchIden(SynErr): pass
 class NoSuchImpl(SynErr): pass

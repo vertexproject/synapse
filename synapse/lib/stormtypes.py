@@ -3044,6 +3044,7 @@ class LibPipe(Lib):
                 raise
 
             except Exception as e:
+                import traceback; traceback.print_exc()
                 await self.runt.warn(f'pipe filler error: {e}', log=False)
 
             await pipe.close()

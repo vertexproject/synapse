@@ -2318,7 +2318,6 @@ class AstTest(s_test.SynTest):
                 }
             '''
             mesgs = await core.stormlist(q)
-            [print(repr(m)) for m in mesgs]
             self.stormIsInPrint('neato', mesgs)
             self.stormIsInPrint('burrito', mesgs)
 
