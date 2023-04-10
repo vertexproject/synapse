@@ -109,9 +109,21 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Role (ninjas) added with iden: ', msgs)
 
+            msgs = await core.stormlist('auth.role.add test')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Role (test) added with iden: ', msgs)
+
             msgs = await core.stormlist('auth.user.grant visi ninjas')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Granting role ninjas to user visi.', msgs)
+
+            msgs = await core.stormlist('auth.user.grant visi test')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Granting role test to user visi.', msgs)
+
+            msgs = await core.stormlist('auth.user.revoke visi test')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Revoking role test from user visi.', msgs)
 
             msgs = await core.stormlist('auth.user.addrule visi foo.bar')
             self.stormHasNoWarnErr(msgs)
@@ -126,6 +138,9 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('auth.role.addrule ninjas "!baz.faz"')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule !baz.faz to role ninjas.', msgs)
+
+            msgs = await core.stormlist('auth.user.revoke visi test')
+            self.stormIsInWarn('User visi does not have role test', msgs)
 
             msgs = await core.stormlist('auth.user.delrule visi --index 10')
             self.stormIsInErr('only has 2 rules', msgs)

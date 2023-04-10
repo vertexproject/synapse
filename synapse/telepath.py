@@ -12,8 +12,6 @@ import logging
 import contextlib
 import collections
 
-import aiohttp
-
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
