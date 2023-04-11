@@ -6194,13 +6194,28 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'storm:node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'getEdges', 'desc': '''
+            Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
+
+            Example:
+
+                for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
+                    $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdges',
+                  'args': (),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
+
         {'name': 'getEdgesByN1', 'desc': '''
             Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
 
             Example:
 
                 for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
-                    $lib.print(`-({$verb})> $n2iden`)
+                    $lib.print(`-({$verb})> {$n2iden}`)
                 }
 
             ''',
@@ -6216,8 +6231,8 @@ class Layer(Prim):
 
             Example:
 
-                for ($verb, $n2iden) in $layer.getEdgesByN2($node.iden()) {
-                    $lib.print(`-({$verb})> $n2iden`)
+                for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
+                    $lib.print(`-({$verb})> {$n1iden}`)
                 }
 
             ''',
@@ -6268,6 +6283,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
@@ -6478,6 +6494,13 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
         async for item in layr.getStorNodes():
+            yield item
+
+    async def getEdges(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getEdges():
             yield item
 
     async def getEdgesByN1(self, nodeid):

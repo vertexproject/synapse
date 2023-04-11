@@ -845,6 +845,15 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.eq([('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')], edges)
 
+            edges = await core.callStorm('''
+                $edges = ([])
+                for $i in $lib.layer.get().getEdges() { $edges.append($i) }
+                return($edges)
+            ''')
+            self.isin(('ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528',
+                       'refs',
+                       '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
