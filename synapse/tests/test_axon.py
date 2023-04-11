@@ -993,6 +993,14 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
 
+            resp = await proxy.wput(sha256, 'vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+
+            resp = await proxy.postfiles(fields, 'vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+
     async def test_axon_tlscapath(self):
 
         with self.getTestDir() as dirn:

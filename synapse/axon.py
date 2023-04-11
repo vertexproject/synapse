@@ -1523,8 +1523,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
@@ -1581,8 +1583,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
