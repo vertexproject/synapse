@@ -926,6 +926,10 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
+            resp = await proxy.wget('vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+
     async def test_axon_wput(self):
 
         async with self.getTestCore() as core:

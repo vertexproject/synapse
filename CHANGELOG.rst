@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Features and Enhancements
+-------------------------
+- Update Axon.wget error messages to include more helpful information.
+  (`#3077 <https://github.com/vertexproject/synapse/pull/3077>`_)
+
 v2.128.0 - 2023-04-11
 =====================
 
