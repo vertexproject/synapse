@@ -9,8 +9,8 @@ Unreleased - YYYY-MM-DD
 
 Automatic Migrations
 --------------------
-- Migrate the ``file:bytes:mime:pe:imphash`` from a ``guid`` to a ``hash:md5``
-  type and create the ``hash:md5`` nodes as needed.
+- Migrate the ``file:bytes:mime:pe:imphash`` property from a ``guid`` to a
+  ``hash:md5`` type and create the ``hash:md5`` nodes as needed.
   (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
 - Migrate the ``ou:goal:name`` property from a ``str`` to a ``ou:goalname``
   type and create the ``ou:goalname`` nodes as needed.
@@ -23,7 +23,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``biz``, ``file``, ``lang``, ``it``, ``meta``, ``ou``,
+- Updates to the ``belief``, ``file``, ``lang``, ``it``, ``meta``, ``ou``,
   ``pol``, and ``risk`` models.
   (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
 
@@ -62,13 +62,13 @@ Features and Enhancements
     Add a form to track the immigration status of a contact.
 
   ``pol:immigration:status:type:taxonomy``
-    Add a taxononmy of immigration types.
+    Add a taxononomy of immigration types.
 
   ``risk:attack``
     Add a ``detected`` property to record the first confirmed detection time
     of the attack.
     Add a ``url`` property to record a URL that documents the attack.
-    Add a ``ext:id`` property to record an external identifier for hte attack.
+    Add a ``ext:id`` property to record an external identifier for the attack.
 
   ``risk:compromise``
     Add a ``detected`` property to record the first confirmed detection time
