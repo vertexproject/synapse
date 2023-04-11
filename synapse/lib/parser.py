@@ -194,8 +194,7 @@ class AstConverter(lark.Transformer):
 
         return kid
 
-    def _parseJsonToken(self, meta, tokn):
-        astinfo = self.metaToAstInfo(meta)
+    def _parseJsonToken(self, tokn):
         if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
             valu = tokn.value
             try:
@@ -203,19 +202,20 @@ class AstConverter(lark.Transformer):
             except ValueError as e:
                 self.raiseBadSyntax('Unexpected unquoted string in JSON expression', astinfo)
 
+            astinfo = self.metaToAstInfo(tokn)
             return s_ast.Const(astinfo, valu)
         else:
             return self._convert_child(tokn)
 
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
-        kids = [self._parseJsonToken(k.info, k) for k in kids]
+        kids = [self._parseJsonToken(k) for k in kids]
         astinfo = self.metaToAstInfo(meta)
         return s_ast.ExprList(astinfo, kids=kids)
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
-        kids = [self._parseJsonToken(meta, k) for k in kids]
+        kids = [self._parseJsonToken(k) for k in kids]
         astinfo = self.metaToAstInfo(meta)
         return s_ast.ExprDict(astinfo, kids=kids)
 
@@ -347,8 +347,7 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def operrelprop_join(self, meta, kids):
-        astinfo = self.metaToAstInfo(meta)
-        return self.operrelprop_pivot(astinfo, kids, isjoin=True)
+        return self.operrelprop_pivot(meta, kids, isjoin=True)
 
     @lark.v_args(meta=True)
     def stormcmdargs(self, meta, kids):

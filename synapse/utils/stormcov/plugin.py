@@ -145,7 +145,8 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         if frame.f_code.co_name == 'pullgenr':
             frame = frame.f_back.f_back
 
-        (strt, fini) = frame.f_locals.get('self').lines
+        strt = frame.f_locals.get('self').astinfo.sline
+        fini = frame.f_locals.get('self').astinfo.eline
         offs = frame.f_locals.get('self')._coverage_offs
         return (strt + offs, fini + offs)
 

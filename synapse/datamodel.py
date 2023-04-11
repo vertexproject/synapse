@@ -749,8 +749,7 @@ class Model:
     def _reqFormName(self, name):
         form = self.forms.get(name)
         if form is None:
-            mesg = f'No form named {name}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm(name)
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):

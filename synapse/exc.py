@@ -218,8 +218,9 @@ class MustBeJsonSafe(SynErr): pass
 class NotMsgpackSafe(SynErr): pass
 
 class NoSuchForm(SynErr):
-    def __init__(self, name):
-        mesg = f'No form named: {name}'
+    def __init__(self, name, mesg=None):
+        if mesg is None:
+            mesg = f'No form named: {name}'
         SynErr.__init__(self, mesg=mesg, name=name)
 
 class NoSuchAbrv(SynErr): pass

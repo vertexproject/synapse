@@ -2448,7 +2448,7 @@ class HasRelPropCond(Cond):
             form = runt.model.forms.get(prop.type.name)
             if form is None:
                 mesg = f'No form {prop.type.name}'
-                raise self.addExcInfo(_exc.NoSuchForm(prop.type.name))
+                raise self.addExcInfo(s_exc.NoSuchForm(prop.type.name))
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
