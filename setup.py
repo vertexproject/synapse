@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.127.0'
+VERSION = '2.128.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
