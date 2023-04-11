@@ -1746,6 +1746,9 @@ class InetModule(s_module.CoreModule):
 
                         ('dst:ssh:key', ('crypto:key', {}), {
                             'doc': 'The key sent by the server as part of an SSH session setup.'}),
+
+                        ('raw', ('data', {}), {
+                            'doc': 'A raw record used to create the flow which may contain additional protocol details.'}),
                     )),
 
                     ('inet:tunnel:type:taxonomy', {}, ()),

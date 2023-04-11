@@ -4,11 +4,79 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.128.0 - 2023-04-11
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate the ``file:bytes:mime:pe:imphash`` property from a ``guid`` to a
+  ``hash:md5`` type and create the ``hash:md5`` nodes as needed.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+- Migrate the ``ou:goal:name`` property from a ``str`` to a ``ou:goalname``
+  type and create the ``ou:goalname`` nodes as needed.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+- Migrate the ``ou:goal:type`` property from a ``str`` to a
+  ``ou:goal:type:taxonomy`` type and create the ``ou:goal:type:taxonomy``
+  nodes as needed.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
 
 Features and Enhancements
 -------------------------
+- Updates to the ``belief``, ``file``, ``lang``, ``it``, ``meta``, ``ou``,
+  ``pol``, and ``risk`` models.
+  (`#3056 <https://github.com/vertexproject/synapse/pull/3056>`_)
+
+  ``belief:tenet``
+    Add a ``desc`` property to record the description of the tenet.
+
+  ``file:bytes``
+    Change the type of the ``mime:pe:imphash`` from ``guid`` to ``hash:md5``.
+
+  ``inet:flow``
+    Add a ``raw`` property which may be used to store additional protocol
+    data about the flow.
+
+  ``it:app:snort:rule``
+    Add a ``desc`` property to record a brief description of the snort rule.
+
+  ``ou:goal``
+    Change the type of ``name`` from ``str`` to ``ou:goalname``.
+    Change the type of ``type`` from ``str`` to ``ou:goal:type:taxonomy``.
+    Add a ``names`` array to record alternative names for the goal.
+    Deprecate the ``prev`` property in favor of types.
+
+  ``ou:goalname``
+    Add a form to record the name of a goal.
+
+  ``ou:goalname:type:taxonomy``
+    Add a taxonomy of goal types.
+
+  ``ou:industry``
+    Add a ``type`` property to record the industry taxonomy.
+
+  ``ou:industry:type:taxonomy``
+    Add a taxonomy to record industry types.
+
+  ``pol:immigration:status``
+    Add a form to track the immigration status of a contact.
+
+  ``pol:immigration:status:type:taxonomy``
+    Add a taxonomy of immigration types.
+
+  ``risk:attack``
+    Add a ``detected`` property to record the first confirmed detection time
+    of the attack.
+    Add a ``url`` property to record a URL that documents the attack.
+    Add a ``ext:id`` property to record an external identifier for the attack.
+
+  ``risk:compromise``
+    Add a ``detected`` property to record the first confirmed detection time
+    of the compromise.
+
+- Add a Storm command ``copyto`` that can be used to create a copy of a node
+  from the current view to a different view.
+  (`#3061 <https://github.com/vertexproject/synapse/pull/3061>`_)
 - Add the current View iden to the structured log output of a Cortex executing
   a Storm query.
   (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
@@ -18,12 +86,24 @@ Features and Enhancements
 - Add Python 3.11 tests to the CircleCI configuration. Update some unit tests
   to account for Python 3.11 related changes.
   (`#3070 <https://github.com/vertexproject/synapse/pull/3070>`_)
+- Allow dereferencing from Storm expressions.
+  (`#3071 <https://github.com/vertexproject/synapse/pull/3071>`_)
+- Add an ``ispart`` parameter to ``$lib.tags.prefix`` to skip ``syn:tag:part``
+  normalization of tag names.
+  (`#3074 <https://github.com/vertexproject/synapse/pull/3074>`_)
+- Add ``getEdges()``, ``getEdgesByN1()``, and ``getEdgesByN2()`` APIs to the
+  ``storm:layer`` object.
+  (`#3076 <https://github.com/vertexproject/synapse/pull/3076>`_)
 
 Bugfixes
 --------
 - Fix an issue which prevented the ``auth.user.revoke`` Storm command from
   executing.
   (`#3069 <https://github.com/vertexproject/synapse/pull/3069>`_)
+- Fix an issue where ``$node.data.list()`` only returned the node data from
+  the topmost layer containing node data. It now returns all the node data
+  accessible for the node from the current view.
+  (`#3061 <https://github.com/vertexproject/synapse/pull/3061>`_)
 
 Improved Documentation
 ----------------------
