@@ -91,6 +91,9 @@ Features and Enhancements
 - Add an ``ispart`` parameter to ``$lib.tags.prefix`` to skip ``syn:tag:part``
   normalization of tag names.
   (`#3074 <https://github.com/vertexproject/synapse/pull/3074>`_)
+- Add ``getEdges()``, ``getEdgesByN1()``, and ``getEdgesByN2()`` APIs to the
+  ``storm:layer`` object.
+  (`#3076 <https://github.com/vertexproject/synapse/pull/3076>`_)
 
 Bugfixes
 --------
