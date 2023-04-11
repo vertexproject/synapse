@@ -3168,8 +3168,6 @@ class CopyToCmd(Cmd):
 
         async with await view.snap(user=runt.user) as snap:
 
-            meta = await snap.getSnapMeta()
-
             async for node, path in genr:
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
