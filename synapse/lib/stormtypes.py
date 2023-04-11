@@ -6198,6 +6198,8 @@ class Layer(Prim):
             Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
 
             Example:
+                Iterate the light edges in ``$layer``::
+
 
                 for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
                     $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
@@ -6213,10 +6215,11 @@ class Layer(Prim):
             Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
 
             Example:
+                Iterate the N1 edges for ``$node``::
 
-                for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
-                    $lib.print(`-({$verb})> {$n2iden}`)
-                }
+                    for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
+                        $lib.print(`-({$verb})> {$n2iden}`)
+                    }
 
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
@@ -6230,11 +6233,11 @@ class Layer(Prim):
             Yield (verb, n2iden) tuples for any light edges in the layer for the target node id.
 
             Example:
+                Iterate the N2 edges for ``$node``::
 
-                for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
-                    $lib.print(`-({$verb})> {$n1iden}`)
-                }
-
+                    for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
+                        $lib.print(`-({$verb})> {$n1iden}`)
+                    }
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
