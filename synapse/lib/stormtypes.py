@@ -6200,10 +6200,9 @@ class Layer(Prim):
             Example:
                 Iterate the light edges in ``$layer``::
 
-
-                for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
-                    $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
-                }
+                    for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
+                        $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                    }
 
             ''',
          'type': {'type': 'function', '_funcname': 'getEdges',
