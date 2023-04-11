@@ -702,6 +702,10 @@ class Node:
         async for item in self.snap.iterNodeData(self.buid):
             yield item
 
+    async def iterDataKeys(self):
+        async for name in self.snap.iterNodeDataKeys(self.buid):
+            yield name
+
 class Path:
     '''
     A path context tracked through the storm runtime.

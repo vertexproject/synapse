@@ -88,6 +88,9 @@ Features and Enhancements
   (`#3070 <https://github.com/vertexproject/synapse/pull/3070>`_)
 - Allow dereferencing from Storm expressions.
   (`#3071 <https://github.com/vertexproject/synapse/pull/3071>`_)
+- Add an ``ispart`` parameter to ``$lib.tags.prefix`` to skip ``syn:tag:part``
+  normalization of tag names.
+  (`#3074 <https://github.com/vertexproject/synapse/pull/3074>`_)
 
 Bugfixes
 --------
