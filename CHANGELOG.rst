@@ -74,6 +74,9 @@ Features and Enhancements
     Add a ``detected`` property to record the first confirmed detection time
     of the compromise.
 
+- Add a Storm command ``copyto`` that can be used to create a copy of a node
+  from the current view to a different view.
+  (`#3061 <https://github.com/vertexproject/synapse/pull/3061>`_)
 - Add the current View iden to the structured log output of a Cortex executing
   a Storm query.
   (`#3068 <https://github.com/vertexproject/synapse/pull/3068>`_)
@@ -91,6 +94,10 @@ Bugfixes
 - Fix an issue which prevented the ``auth.user.revoke`` Storm command from
   executing.
   (`#3069 <https://github.com/vertexproject/synapse/pull/3069>`_)
+- Fix an issue where ``$node.data.list()`` only returned the node data from
+  the topmost layer containing node data. It now returns all the node data
+  accessible for the node from the current view.
+  (`#3061 <https://github.com/vertexproject/synapse/pull/3061>`_)
 
 Improved Documentation
 ----------------------
