@@ -2666,6 +2666,13 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'foo'))
 
+            # list() exposes data from all layers from top-down
+            fork = await core.callStorm('return ( $lib.view.get().fork().iden )')
+            await core.nodes('test:int=10 $node.data.set(bar, newp)')
+            await core.nodes('test:int=10 $node.data.set(bar, baz)', opts={'view': fork})
+            data = await core.callStorm('test:int=10 return( $node.data.list() )', opts={'view': fork})
+            self.eq(data, (('bar', 'baz'), ('foo', 'hehe')))
+
             # delete and remake the node to confirm data wipe
             nodes = await core.nodes('test:int=10 | delnode')
             nodes = await core.nodes('test:int=10')
