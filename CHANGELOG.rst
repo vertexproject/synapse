@@ -62,7 +62,7 @@ Features and Enhancements
     Add a form to track the immigration status of a contact.
 
   ``pol:immigration:status:type:taxonomy``
-    Add a taxononomy of immigration types.
+    Add a taxonomy of immigration types.
 
   ``risk:attack``
     Add a ``detected`` property to record the first confirmed detection time
