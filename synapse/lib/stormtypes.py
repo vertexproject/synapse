@@ -6230,7 +6230,7 @@ class Layer(Prim):
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN2', 'desc': '''
-            Yield (verb, n2iden) tuples for any light edges in the layer for the target node id.
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
 
             Example:
                 Iterate the N2 edges for ``$node``::
@@ -6244,7 +6244,7 @@ class Layer(Prim):
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
+                              'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
