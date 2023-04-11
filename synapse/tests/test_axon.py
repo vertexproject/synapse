@@ -999,7 +999,7 @@ bar baz",vv
 
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+            self.isin('InvalidURL: vertex.link', resp.get('err', ''))
 
     async def test_axon_tlscapath(self):
 
