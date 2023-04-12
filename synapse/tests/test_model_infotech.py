@@ -609,7 +609,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.none(node.get('semver'))
 
                 with self.getLoggerStream('synapse.models.infotech',
-                                          'Unable to brute force version parts out of the string') as stream:
+                                          'Unable to parse string as a semver') as stream:
 
                     node = await snap.addNode('it:prod:softver', '*', {'vers': 'Alpha'})
                     self.none(node.get('semver'))
@@ -716,7 +716,23 @@ class InfotechModelTest(s_t_utils.SynTest):
                 (0xFFFFF, (0xFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFF})),
                 (0xFFFFF + 1, (0xFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0})),
                 (0xdeadb33f1337133, (0xdeadb33f1337133, {'major': 0xdeadb, 'minor': 0x33f13, 'patch': 0x37133})),
-                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF}))
+                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF})),
+                # Brute forced strings
+                ('1', (1099511627776, {'major': 1})),
+                ('1.2', (1099513724928, {'major': 1, 'minor': 2})),
+                ('2.0A1', (2199023255552, {'major': 2})),
+                ('0.18rc2', (0, {'major': 0})),
+                ('0.0.00001', (1, {'major': 0, 'minor': 0, 'patch': 1})),
+                ('2016-03-01', (2216615444742145, {'major': 2016, 'minor': 3, 'patch': 1})),
+                ('v2.4.0.0-1', (2199027449856, {'major': 2, 'minor': 4, 'patch': 0})),
+                ('1.3a2.dev12', (1099511627776, {'major': 1})),
+                ('OpenSSL_1_0_2l', (1099511627776, {'major': 1, 'minor': 0})),
+                ('1.2.windows-RC1', (1099513724928, {'major': 1, 'minor': 2})),
+                ('v2.4.1.0-0.3.rc1', (2199027449857, {'major': 2, 'minor': 4, 'patch': 1})),
+                ('1.2.3-alpha.foo..+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha.foo.001+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah...', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah.*iggy', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3}))
             )
 
             for v, e in testvectors:
@@ -727,26 +743,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(subs, es)
 
             testvectors_bad = (
-                # Invalid strings
-                '1',
-                '1.2',
-                '2.0A1',
-                '0.18rc2',
-                '0.0.00001',
-                '2016-03-01',
-                'v2.4.0.0-1',
-                '1.3a2.dev12',
-                'OpenSSL_1_0_2l',
-                '1.2.windows-RC1',
-                'v2.4.1.0-0.3.rc1',
                 # invalid ints
                 -1,
                 0xFFFFFFFFFFFFFFFFFFFFFFFF + 1,
-                # Invalid build and prerelease values
-                '1.2.3-alpha.foo..+001',
-                '1.2.3-alpha.foo.001+001',
-                '1.2.3-alpha+001.blahblahblah...',
-                '1.2.3-alpha+001.blahblahblah.*iggy',
                 # Just bad input
                 '   ',
                 ' alpha ',
