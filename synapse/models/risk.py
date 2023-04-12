@@ -535,10 +535,10 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A type for the attack, as a taxonomy entry.'}),
 
                     ('reporter', ('ou:org', {}), {
-                        'doc': 'The organization reporting on the compromise.'}),
+                        'doc': 'The organization reporting on the attack.'}),
 
                     ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the compromise.'}),
+                        'doc': 'The name of the organization reporting on the attack.'}),
 
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known.'}),
