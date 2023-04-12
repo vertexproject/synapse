@@ -593,6 +593,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     ('0.18rc2', 0, {'major': 0, 'minor': 0, 'patch': 0}),
                     ('OpenSSL_1_0_2l', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
                 ]
+                itmod = core.getCoreMod('synapse.models.infotech.ItModule')
+
                 for tv, te, subs in testvectors:
                     props = {
                         'vers': tv
@@ -602,6 +604,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.eq(node.get('semver:major'), subs.get('major'))
                     self.eq(node.get('semver:minor'), subs.get('minor'))
                     self.eq(node.get('semver:patch'), subs.get('patch'))
+
+                    self.eq(itmod.bruteVersionStr(tv), (te, subs))
 
                 node = await snap.addNode('it:prod:softver', '*', {'vers': ''})
                 self.eq(node.get('vers'), '')

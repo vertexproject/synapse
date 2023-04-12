@@ -3,6 +3,8 @@ import logging
 
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
