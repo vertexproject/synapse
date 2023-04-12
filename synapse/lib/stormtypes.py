@@ -510,6 +510,9 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+        if name.startswith('__'):
+            raise s_exc.AuthDeny(mesg=f'Cannot dereference private value [{name}]', name=name)
+
         try:
             return await StormType.deref(self, name)
         except s_exc.NoSuchName:

@@ -4,6 +4,16 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Features and Enhancements
+-------------------------
+- Add support for private values in Storm modules, which are specified
+  by beginning the name with a double underscore ``__``. These values
+  cannot be dereferenced outside of the module they are declared in.
+  (`#3079 <https://github.com/vertexproject/synapse/pull/3079>`_)
+
 v2.128.0 - 2023-04-11
 =====================
 
