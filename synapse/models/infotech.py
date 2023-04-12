@@ -543,7 +543,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
                 ('it:app:snort:rule', ('guid', {}), {
-                    'doc': 'A snort rule unique identifier.',
+                    'doc': 'A snort rule.',
                 }),
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
@@ -1841,8 +1841,26 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A brief description of the snort rule.'}),
 
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact info for the author of the rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the rule.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was initially created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for snort evaluation engines.'}),
+
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:snort:hit', {}, (

@@ -252,32 +252,34 @@ class DnsModule(s_module.CoreModule):
                     ('request', ('inet:dns:request', {}), {}),
 
                     ('a', ('inet:dns:a', {}), {
-                        'doc': 'The DNS A record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS A record returned by the lookup.'}),
+
                     ('ns', ('inet:dns:ns', {}), {
-                        'doc': 'The DNS NS record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS NS record returned by the lookup.'}),
+
                     ('rev', ('inet:dns:rev', {}), {
-                        'doc': 'The DNS PTR record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS PTR record returned by the lookup.'}),
+
                     ('aaaa', ('inet:dns:aaaa', {}), {
-                        'doc': 'The DNS AAAA record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS AAAA record returned by the lookup.'}),
+
                     ('rev6', ('inet:dns:rev6', {}), {
-                        'doc': 'The DNS PTR record returned by the lookup of an IPv6 address.',
-                    }),
+                        'doc': 'The DNS PTR record returned by the lookup of an IPv6 address.'}),
+
                     ('cname', ('inet:dns:cname', {}), {
-                        'doc': 'The DNS CNAME record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS CNAME record returned by the lookup.'}),
+
                     ('mx', ('inet:dns:mx', {}), {
-                        'doc': 'The DNS MX record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS MX record returned by the lookup.'}),
+
+                    ('mx:priority', ('int', {}), {
+                        'doc': 'The DNS MX record priority.'}),
+
                     ('soa', ('inet:dns:soa', {}), {
-                        'doc': 'The domain queried for its SOA record.',
-                    }),
+                        'doc': 'The domain queried for its SOA record.'}),
+
                     ('txt', ('inet:dns:txt', {}), {
-                        'doc': 'The DNS TXT record returned by the lookup.',
-                    }),
+                        'doc': 'The DNS TXT record returned by the lookup.'}),
                 )),
 
                 ('inet:dns:wild:a', {}, (

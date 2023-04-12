@@ -7,8 +7,15 @@ class RiskModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('risk:vuln', ('guid', {}), {
-                    'doc': 'A unique vulnerability.',
-                }),
+                    'doc': 'A unique vulnerability.'}),
+
+                ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of vulnerability types.'}),
+
+                ('risk:vuln:soft:range', ('guid', {}), {
+                    'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
+
                 ('risk:hasvuln', ('guid', {}), {
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
@@ -113,11 +120,20 @@ class RiskModule(s_module.CoreModule):
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are associated with the threat cluster.'}),
 
+                    ('active', ('ival', {}), {
+                        'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the threat cluster.'}),
+
+                    ('reporter:discovered', ('time', {}), {
+                        'doc': 'The time that the reporting organization first discovered the threat cluster.'}),
+
+                    ('reporter:published', ('time', {}), {
+                        'doc': 'The time that the reporting organization first publicly disclosed the threat cluster.'}),
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The authoritative organization for the threat cluster.'}),
@@ -162,6 +178,9 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('risk:tool:software:taxonomy', {}), {
                         'doc': 'A type for the tool, as a taxonomy entry.'}),
 
+                    ('used', ('ival', {}), {
+                        'doc': 'An interval for when the tool is assessed to have been deployed.'}),
+
                     ('availability', ('risk:availability', {}), {
                         'doc': 'The reporting organization\'s assessed availability of the tool.'}),
 
@@ -173,6 +192,13 @@ class RiskModule(s_module.CoreModule):
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the tool.'}),
+
+                    ('reporter:discovered', ('time', {}), {
+                        'doc': 'The time that the reporting organization first discovered the tool.'}),
+
+                    ('reporter:published', ('time', {}), {
+                        'doc': 'The time that the reporting organization first publicly disclosed the tool.'}),
+
 
                     ('soft', ('it:prod:soft', {}), {
                         'doc': 'The authoritative software family for the tool.'}),
@@ -201,12 +227,13 @@ class RiskModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
                 )),
+                ('risk:vuln:type:taxonomy', {}, ()),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.'}),
 
-                    ('type', ('str', {}), {
-                        'doc': 'A user specified type for the vulnerability.'}),
+                    ('type', ('risk:vuln:type:taxonomy', {}), {
+                        'doc': 'A taxonomy type entry for the vulnerability.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -362,6 +389,15 @@ class RiskModule(s_module.CoreModule):
 
                     ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MITRE CWE values that apply to the vulnerability.'}),
+                )),
+
+                ('risk:vuln:soft:range', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability present in this software version range.'}),
+                    ('version:min', ('it:prod:softver', {}), {
+                        'doc': 'The minimum version which is vulnerable in this range.'})
+                    ('version:max', ('it:prod:softver', {}), {
+                        'doc': 'The maximum version which is vulnerable in this range.'})
                 )),
 
                 ('risk:hasvuln', {}, (

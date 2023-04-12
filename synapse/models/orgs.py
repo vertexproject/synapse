@@ -428,8 +428,12 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Records the success/failure status of the campaign if known.',
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'A terse name of the campaign.',
-                    }),
+                        'ex': 'Operation Overlord',
+                        'doc': 'A terse name of the campaign.'}),
+
+                    ('names', ('array', {'type': 'str'}), {
+                        'doc': 'An array of alternate names for the campaign.'}),
+
                     ('type', ('str', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Use the :camptype taxonomy.',

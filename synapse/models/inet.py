@@ -1191,6 +1191,10 @@ class InetModule(s_module.CoreModule):
                         'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
                     }),
 
+                    ('inet:ssl:certificate', ('guid', {}), {
+                        'doc': 'An x509 certificate presented by the server during an SSL handshake.',
+                    }),
+
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
                         'ex': '80'
@@ -1250,6 +1254,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
                         'doc': 'A file posted by a web account.'
                     }),
+
+                    ('inet:web:upload', ('guid', {}), {
+                        'doc': 'An instance of a file being sent to a web service by an account.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
@@ -2375,18 +2382,57 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the file owned by or associated with the account.'
                         }),
                         ('posted', ('time', {}), {
-                            'doc': 'The date and time the file was posted / submitted.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+
                         ('client', ('inet:client', {}), {
-                            'doc': 'The source client address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+
                         ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+
                         ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
                     )),
+
+                    ('inet:web:upload', {}, (
+
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that uploaded the file.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was sent.'}),
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the file at the time it was sent.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the file was sent.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address which initiated the upload.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address of the client that initiated the upload.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address of the client that initiated the upload.'}),
+
+                        ('loc', ('loc', {}), {
+                            'doc': 'The geopolitical location that the file was sent from.'),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place the file was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The reported name of the place that the file was sent from.'}),
+
+                        # ('type', ('inet:web:upload:type:taxonomy', {}), {
+                            # 'doc': 'The name of the file at the time it was sent.'}),
+                    ))
 
                     ('inet:web:follows', {}, (
                         ('follower', ('inet:web:acct', {}), {
