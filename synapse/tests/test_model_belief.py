@@ -13,8 +13,8 @@ class BeliefModelTest(s_test.SynTest):
                     :type=hehe.haha
                     :began=20230209
                     +(has)> {[
-                        (belief:tenet=* :name="Zip  Zop")
-                        (belief:tenet=* :name="Blah Blah")
+                        (belief:tenet=* :name="Zip  Zop" :desc=Lol)
+                        (belief:tenet=* :name="Blah Blah" :desc=Lol)
                     ]}
                 ]
             ''')
@@ -24,7 +24,7 @@ class BeliefModelTest(s_test.SynTest):
             self.eq(nodes[0].get('type'), 'hehe.haha.')
             self.eq(nodes[0].get('began'), 1675900800000)
 
-            self.len(2, await core.nodes('belief:system -(has)> belief:tenet'))
+            self.len(2, await core.nodes('belief:system -(has)> belief:tenet +:desc=Lol'))
 
             nodes = await core.nodes('''[
                 belief:subscriber=*

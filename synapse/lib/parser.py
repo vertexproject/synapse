@@ -666,7 +666,6 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
-    'reqdollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
     'edgedeln1': s_ast.EditEdgeDel,
     'edgeaddn2': lambda kids: s_ast.EditEdgeAdd(kids, n2=True),
