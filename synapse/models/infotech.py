@@ -172,9 +172,10 @@ class SemVer(s_types.Int):
                 raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                         mesg='Unable to parse string as a semver.')
 
-        valu = s_version.packVersion(subs.get('major'),
-                                     subs.get('minor', 0),
-                                     subs.get('patch', 0))
+        subs.setdefault('minor', 0)
+        subs.setdefault('patch', 0)
+        valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
+
         return valu, {'subs': subs}
 
     def _normPyInt(self, valu):
