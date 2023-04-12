@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Features and Enhancements
+-------------------------
+- Add leader status to the ``synapse.tools.aha.list`` tool output. 
+  (`#3078 <https://github.com/vertexproject/synapse/pull/3078>`_)
+
 v2.128.0 - 2023-04-11
 =====================
 
