@@ -41,9 +41,9 @@ class AhaToolsTest(s_t_utils.SynTest):
                     argv = [ahaurl]
                     retn, outp = await self.execToolMain(s_a_list._main, argv)
                     self.eq(retn, 0)
-                    outp.expect('Service              network')
-                    outp.expect('cell0                demo.net')
-                    outp.expect('cell1                example.net')
+                    outp.expect('Service              network                        leader')
+                    outp.expect('cell0                demo.net                       None')
+                    outp.expect('cell1                example.net                    None')
 
                     argv = [ahaurl, 'demo.net']
                     retn, outp = await self.execToolMain(s_a_list._main, argv)
