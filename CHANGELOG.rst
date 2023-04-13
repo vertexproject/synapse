@@ -9,7 +9,9 @@ Unreleased - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
-- Add leader status to the ``synapse.tools.aha.list`` tool output. 
+- Add leader status to the ``synapse.tools.aha.list`` tool output.
+  This will only be available if a leader has been registered for
+  the service.
   (`#3078 <https://github.com/vertexproject/synapse/pull/3078>`_)
 - Update error messages for Axon.wget, Axon.wput, and Axon.postfiles
   to include more helpful information.
