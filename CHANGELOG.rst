@@ -11,6 +11,9 @@ Features and Enhancements
 -------------------------
 - Add leader status to the ``synapse.tools.aha.list`` tool output. 
   (`#3078 <https://github.com/vertexproject/synapse/pull/3078>`_)
+- Update ``it:semver`` string normalization to attempt parsing
+  improperly formatted semver values.
+  (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
 
 v2.128.0 - 2023-04-11
 =====================
