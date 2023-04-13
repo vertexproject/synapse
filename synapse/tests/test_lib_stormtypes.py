@@ -380,6 +380,7 @@ class StormTypesTest(s_test.SynTest):
                         $pub = 'foo'
                         $_pub = 'bar'
                         $__priv = 'baz'
+                        $___priv = 'baz'
                         function pubFunc() { return($__priv) }
                         function __privFunc() { return($__priv) }
                         function _pubFunc() { return($__privFunc()) }
@@ -394,6 +395,9 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.import(hehe).__priv)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).___priv)')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.import(hehe).__privFunc())')
