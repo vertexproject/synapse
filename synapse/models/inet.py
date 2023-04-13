@@ -1191,10 +1191,6 @@ class InetModule(s_module.CoreModule):
                         'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
                     }),
 
-                    ('inet:ssl:certificate', ('guid', {}), {
-                        'doc': 'An x509 certificate presented by the server during an SSL handshake.',
-                    }),
-
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
                         'ex': '80'
