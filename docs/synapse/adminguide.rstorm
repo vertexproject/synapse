@@ -308,7 +308,7 @@ Revoke the role "a-cat-emic researcher" from user "ron":
   
   - revoke the roles and grant them in the desired order;
   - use :ref:`stormprims-storm-auth-user-setRoles` to replace the user's roles with a new list of roles.
-  - use the commercial Synapse UI (Optic) to redorder the roles using drag-and drop.
+  - use the commercial Synapse UI (Optic) to reorder the roles using drag-and drop.
   
   See :ref:`admin_perms_background` for additional detail on permissions and :ref:`admin_bkd_precedence`.
 
@@ -708,7 +708,7 @@ Prevent the user "ron" from setting tag descriptions (setting the ``syn:tag:desc
 .. TIP::
   
   Deny rules specified with Storm must be enclosed in quotes (single or double) because they begin with
-  a symbol ( ! ).
+  a symbol ( ``!`` ).
 
 
 Allow the role "senior analysts" to add tags in threat attribution (``cno.threat``) tag tree:
@@ -787,7 +787,7 @@ Display information for the current view:
 
 .. storm-cli:: auth.gate.show $lib.view.get().iden
 
-Display informatiton for the current layer:
+Display information for the current layer:
 
 .. storm-cli:: auth.gate.show $lib.layer.get().iden
 
@@ -838,6 +838,7 @@ section of the `Power-Up documentation`_ for the individual Power-Up.
   
   - `Synapse-MISP`_
   - `Synapse-MITRE-ATT&CK`_
+  - `Synapse-PSL`- (FQDN public suffix list)
   - `Synapse-TOR`_
 
 .. _admin_runtime_perms:
@@ -850,7 +851,7 @@ performs an action in the Optic UI (such as accessing a menu option), the query 
 **with the permissions of the user,** based on the applicable user and role permissions and the current scope
 for the query or action.
 
-There are a few cases of Storm runtime execution where different permissions are used and which may require
+There are a few cases of Storm runtime execution where different permissions are used that may require
 additional considerations.
 
 Automation
@@ -1032,6 +1033,7 @@ you may track progress by calling the ``getMirrorStatus()`` API on the ``storm:l
 .. _`Optic DevOps Guide`: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/devopsguide.html
 .. _`Synapse-MISP`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html
 .. _`Synapse-MITRE-ATT&CK`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html
+.. _`Synapse-PSL`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-psl/index.html
 .. _`Synapse-TOR`: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html
 
 .. _`forms`: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#form-extended

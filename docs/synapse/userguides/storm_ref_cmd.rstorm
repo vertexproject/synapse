@@ -178,7 +178,7 @@ Help for individual ``auth.*`` commands can be displayed using:
 auth.gate.show
 ++++++++++++++
 
-The ``auth.gate.show`` command displays the user, roles, and permissions assocaited with the specified
+The ``auth.gate.show`` command displays the user, roles, and permissions associated with the specified
 :ref:`gloss-authgate`.
 
 **Syntax**
