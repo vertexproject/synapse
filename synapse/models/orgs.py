@@ -407,26 +407,26 @@ class OuModule(s_module.CoreModule):
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org carrying out the campaign.',
-                    }),
+                        'doc': 'The org carrying out the campaign.'}),
+
                     ('org:name', ('ou:name', {}), {
-                        'doc': 'The name of the org responsible for the campaign. Used for entity resolution.',
-                    }),
+                        'doc': 'The name of the org responsible for the campaign. Used for entity resolution.'}),
+
                     ('org:fqdn', ('inet:fqdn', {}), {
-                        'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.',
-                    }),
+                        'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.'}),
+
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The assessed primary goal of the campaign.',
-                    }),
+                        'doc': 'The assessed primary goal of the campaign.'}),
+
                     ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Actors who participated in the campaign.',
-                    }),
+                        'doc': 'Actors who participated in the campaign.'}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Additional assessed goals of the campaign.',
-                    }),
+                        'doc': 'Additional assessed goals of the campaign.'}),
+
                     ('success', ('bool', {}), {
-                        'doc': 'Records the success/failure status of the campaign if known.',
-                    }),
+                        'doc': 'Records the success/failure status of the campaign if known.'}),
+
                     ('name', ('str', {}), {
                         'ex': 'Operation Overlord',
                         'doc': 'A terse name of the campaign.'}),
@@ -434,10 +434,16 @@ class OuModule(s_module.CoreModule):
                     ('names', ('array', {'type': 'str'}), {
                         'doc': 'An array of alternate names for the campaign.'}),
 
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the campaign.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the campaign.'}),
+
                     ('type', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Use the :camptype taxonomy.',
-                    }),
+                        'doc': 'Deprecated. Use the :camptype taxonomy.', }),
+
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
