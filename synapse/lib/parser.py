@@ -195,14 +195,17 @@ class AstConverter(lark.Transformer):
         return kid
 
     def _parseJsonToken(self, tokn):
+
         if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
+
             valu = tokn.value
+            astinfo = self.metaToAstInfo(tokn)
+
             try:
                 valu = float(valu) if '.' in valu else int(valu, 0)
             except ValueError as e:
                 self.raiseBadSyntax('Unexpected unquoted string in JSON expression', astinfo)
 
-            astinfo = self.metaToAstInfo(tokn)
             return s_ast.Const(astinfo, valu)
         else:
             return self._convert_child(tokn)
@@ -377,6 +380,12 @@ class AstConverter(lark.Transformer):
 
             kid = todo.popleft()
 
+            if kid.valu in kwnames:
+                mesg = f'Duplicate parameter "{kid.valu}" in function definition'
+                self.raiseBadSyntax(mesg, kid.astinfo)
+
+            kwnames.add(kid.valu)
+
             # look ahead for name = <default> kwarg decls
             if len(todo) >= 2:
 
@@ -385,12 +394,7 @@ class AstConverter(lark.Transformer):
                     todo.popleft()
                     valukid = todo.popleft()
 
-                    if kid.valu in kwnames:
-                        mesg = f'Duplicate parameter "{kid.valu}" in function definition'
-                        self.raiseBadSyntax(mesg, kid.astinfo)
-
                     kwfound = True
-                    kwnames.add(kid.valu)
 
                     newkids.append(s_ast.CallKwarg(kid.astinfo, (kid, valukid)))
                     continue
@@ -768,7 +772,7 @@ ruleClassMap = {
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': lambda astinfo, kids: s_ast.RelPropValue(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
-    'setitem': lambda kids: s_ast.SetItemOper([kids[0], kids[1], kids[3]]),
+    'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
     'setvar': s_ast.SetVarOper,
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
