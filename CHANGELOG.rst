@@ -9,6 +9,9 @@ Unreleased - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
+- Update error messages for Axon.wget, Axon.wput, and Axon.postfiles
+  to include more helpful information.
+  (`#3077 <https://github.com/vertexproject/synapse/pull/3077>`_)
 - Update ``it:semver`` string normalization to attempt parsing
   improperly formatted semver values.
   (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
