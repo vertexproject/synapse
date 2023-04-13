@@ -732,6 +732,8 @@ class AhaCell(s_cell.Cell):
     def _getAhaUrls(self):
         urls = self.conf.get('aha:urls')
         if urls is not None:
+            if isinstance(urls, str):
+                return (urls,)
             return urls
 
         ahaname = self.conf.get('aha:name')
@@ -742,8 +744,11 @@ class AhaCell(s_cell.Cell):
         if ahanetw is None:
             return None
 
+        if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
+            return None
+
         # TODO this could eventually enumerate others via itself
-        return f'ssl://{ahaname}.{ahanetw}'
+        return (f'ssl://{ahaname}.{ahanetw}:{self.sockaddr[1]}',)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -800,9 +805,6 @@ class AhaCell(s_cell.Cell):
 
         if peer:
             conf.setdefault('aha:leader', leader)
-
-        if isinstance(ahaurls, str):
-            ahaurls = (ahaurls,)
 
         # allow user to win over leader
         ahauser = conf.get('aha:user')

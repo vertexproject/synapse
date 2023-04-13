@@ -39,13 +39,15 @@ class OuModelTest(s_t_utils.SynTest):
 
                 props = {
                     'name': 'MyGoal',
-                    'type': 'MyType',
+                    'names': ['Foo Goal', 'Bar Goal', 'Bar Goal'],
+                    'type': 'foo.bar',
                     'desc': 'MyDesc',
                     'prev': goal,
                 }
                 node = await snap.addNode('ou:goal', goal, props=props)
-                self.eq(node.get('name'), 'MyGoal')
-                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('name'), 'mygoal')
+                self.eq(node.get('names'), ('bar goal', 'foo goal'))
+                self.eq(node.get('type'), 'foo.bar.')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('prev'), goal)
 
@@ -71,6 +73,8 @@ class OuModelTest(s_t_utils.SynTest):
                     'success': 1,
                     'techniques': teqs,
                     'sophistication': 'high',
+                    'reporter': '*',
+                    'reporter:name': 'vertex',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('org'), org0)
@@ -84,6 +88,9 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('sophistication'), 40)
                 self.eq(node.get('camptype'), 'get.pizza.')
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+
+                self.nn(node.get('reporter'))
+                self.eq(node.get('reporter:name'), 'vertex')
 
             # type norming first
             # ou:name
@@ -214,7 +221,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')
-                self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
+                self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
 
                 nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)

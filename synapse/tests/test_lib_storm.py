@@ -2756,7 +2756,7 @@ class StormTest(s_t_utils.SynTest):
 
             # --parallel allows out of order execution. This test demonstrates that but controls the output by time
 
-            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("1") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.5") inet:fqdn=$foo <- * | sleep 2} { [inet:asn=1234] }'
             nodes = await core.nodes(q)
             self.len(4, nodes)
             exp = [
@@ -4379,3 +4379,49 @@ class StormTest(s_t_utils.SynTest):
             q = 'media:news:org#test.*.bar:score'
             msgs = await core.stormlist(q)
             self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+    async def test_storm_copyto(self):
+
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            msgs = await core.stormlist('[ inet:user=visi ] | copyto $node.repr()')
+            self.stormIsInErr('copyto arguments must be runtsafe', msgs)
+
+            msgs = await core.stormlist('[ inet:user=visi ] | copyto newp')
+            self.stormIsInErr('No such view:', msgs)
+
+            layr = await core.callStorm('return($lib.layer.add().iden)')
+
+            opts = {'vars': {'layers': (layr,)}}
+            view = await core.callStorm('return($lib.view.add(layers=$layers).iden)', opts=opts)
+
+            msgs = await core.stormlist('''
+                [ media:news=* :title=vertex :url=https://vertex.link
+                    +(refs)> { [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 ] }
+                    <(bars)+ { [ inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 ] }
+                    +#foo.bar:score=10
+                ]
+                $node.data.set(foo, bar)
+            ''')
+            self.stormHasNoWarnErr(msgs)
+
+            opts = {'view': view}
+            msgs = await core.stormlist('[ inet:ipv4=1.1.1.1 inet:ipv4=5.5.5.5 ]', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            opts = {'vars': {'view': view}}
+            msgs = await core.stormlist('media:news | copyto $view', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            opts = {'view': view}
+            self.len(1, await core.nodes('media:news +#foo.bar:score>1'))
+            self.len(1, await core.nodes('media:news +:title=vertex :url -> inet:url', opts=opts))
+            nodes = await core.nodes('media:news +:title=vertex -(refs)> inet:ipv4', opts=opts)
+            self.len(1, nodes)
+            self.eq(('inet:ipv4', 0x01010101), nodes[0].ndef)
+
+            nodes = await core.nodes('media:news +:title=vertex <(bars)- inet:ipv4', opts=opts)
+            self.len(1, nodes)
+            self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
+            self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))

@@ -358,3 +358,17 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('inet:http:cookie:name=gronk -:value'))
             self.len(1, await core.nodes('inet:http:cookie:name=foo +:value=bar'))
             self.len(1, await core.nodes('inet:http:cookie:name=zip +:value="zop=zap"'))
+
+    async def test_modelrev_0_2_18(self):
+
+        async with self.getRegrCore('model-0.2.18') as core:
+
+            nodes = await core.nodes('ou:goal:name="woot woot"')
+            self.len(1, nodes)
+            self.eq('foo.bar.baz.', nodes[0].get('type'))
+            self.len(1, await core.nodes('ou:goal:name="woot woot" -> ou:goalname'))
+            self.len(1, await core.nodes('ou:goal:name="woot woot" -> ou:goal:type:taxonomy'))
+
+            nodes = await core.nodes('file:bytes:mime:pe:imphash -> hash:md5')
+            self.len(1, nodes)
+            self.eq(('hash:md5', 'c734c107793b4222ee690fed85e2ad4d'), nodes[0].ndef)

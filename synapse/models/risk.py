@@ -212,6 +212,12 @@ class RiskModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the vulnerability.'}),
 
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the vulnerability.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the vulnerability.'}),
+
                     ('mitigated', ('bool', {}), {
                         'doc': 'Set to true if a mitigation/fix is available for the vulnerability.'}),
 
@@ -438,61 +444,70 @@ class RiskModule(s_module.CoreModule):
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A brief name for the compromise event.',
-                    }),
+                        'doc': 'A brief name for the compromise event.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A prose description of the compromise event.',
-                    }),
+                        'doc': 'A prose description of the compromise event.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the compromise.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the compromise.'}),
+
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
-                        'doc': 'A type for the compromise, as a taxonomy entry.',
-                    }),
+                        'doc': 'A type for the compromise, as a taxonomy entry.'}),
+
                     ('target', ('ps:contact', {}), {
-                        'doc': 'Contact information representing the target.',
-                    }),
+                        'doc': 'Contact information representing the target.'}),
+
                     ('attacker', ('ps:contact', {}), {
-                        'doc': 'Contact information representing the attacker.',
-                    }),
+                        'doc': 'Contact information representing the attacker.'}),
+
                     ('campaign', ('ou:campaign', {}), {
-                        'doc': 'The campaign that this compromise is part of.',
-                    }),
+                        'doc': 'The campaign that this compromise is part of.'}),
+
                     ('time', ('time', {}), {
-                        'doc': 'Earliest known evidence of compromise.',
-                    }),
+                        'doc': 'Earliest known evidence of compromise.'}),
+
                     ('lasttime', ('time', {}), {
-                        'doc': 'Last known evidence of compromise.',
-                    }),
+                        'doc': 'Last known evidence of compromise.'}),
+
                     ('duration', ('duration', {}), {
-                        'doc': 'The duration of the compromise.',
-                    }),
+                        'doc': 'The duration of the compromise.'}),
+
+                    ('detected', ('time', {}), {
+                        'doc': 'The first confirmed detection time of the compromise.'}),
+
                     ('loss:pii', ('int', {}), {
-                        'doc': 'The number of records compromised which contain PII.',
-                    }),
+                        'doc': 'The number of records compromised which contain PII.'}),
+
                     ('loss:econ', ('econ:price', {}), {
-                        'doc': 'The total economic cost of the compromise.',
-                    }),
+                        'doc': 'The total economic cost of the compromise.'}),
+
                     ('loss:life', ('int', {}), {
-                        'doc': 'The total loss of life due to the compromise.',
-                    }),
+                        'doc': 'The total loss of life due to the compromise.'}),
+
                     ('loss:bytes', ('int', {}), {
-                        'doc': 'An estimate of the volume of data compromised.',
-                    }),
+                        'doc': 'An estimate of the volume of data compromised.'}),
+
                     ('ransom:paid', ('econ:price', {}), {
-                        'doc': 'The value of the ransom paid by the target.',
-                    }),
+                        'doc': 'The value of the ransom paid by the target.'}),
+
                     ('ransom:price', ('econ:price', {}), {
-                        'doc': 'The value of the ransom demanded by the attacker.',
-                    }),
+                        'doc': 'The value of the ransom demanded by the attacker.'}),
+
                     ('response:cost', ('econ:price', {}), {
-                        'doc': 'The economic cost of the response and mitigation efforts.',
-                    }),
+                        'doc': 'The economic cost of the response and mitigation efforts.'}),
+
                     ('theft:price', ('econ:price', {}), {
-                        'doc': 'The total value of the theft of assets.',
-                    }),
+                        'doc': 'The total value of the theft of assets.'}),
+
                     ('econ:currency', ('econ:currency', {}), {
-                        'doc': 'The currency type for the econ:price fields.',
-                    }),
+                        'doc': 'The currency type for the econ:price fields.'}),
+
                     ('severity', ('int', {}), {
                         'doc': 'An integer based relative severity score for the compromise.'}),
 
@@ -517,112 +532,129 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('type', ('risk:attacktype', {}), {
                         'ex': 'cno.phishing',
-                        'doc': 'A type for the attack, as a taxonomy entry.',
-                    }),
+                        'doc': 'A type for the attack, as a taxonomy entry.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the attack.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the attack.'}),
+
                     ('time', ('time', {}), {
-                        'doc': 'Set if the time of the attack is known.',
-                    }),
+                        'doc': 'Set if the time of the attack is known.'}),
+
+                    ('detected', ('time', {}), {
+                        'doc': 'The first confirmed detection time of the attack.'}),
+
                     ('success', ('bool', {}), {
-                        'doc': 'Set if the attack was known to have succeeded or not.',
-                    }),
+                        'doc': 'Set if the attack was known to have succeeded or not.'}),
+
                     ('targeted', ('bool', {}), {
-                        'doc': 'Set if the attack was assessed to be targeted or not.',
-                    }),
+                        'doc': 'Set if the attack was assessed to be targeted or not.'}),
+
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The tactical goal of this specific attack.',
-                    }),
+                        'doc': 'The tactical goal of this specific attack.'}),
+
                     ('campaign', ('ou:campaign', {}), {
-                        'doc': 'Set if the attack was part of a larger campaign.',
-                    }),
+                        'doc': 'Set if the attack was part of a larger campaign.'}),
+
                     ('compromise', ('risk:compromise', {}), {
-                        'doc': 'A compromise that this attack contributed to.',
-                    }),
+                        'doc': 'A compromise that this attack contributed to.'}),
+
                     ('severity', ('int', {}), {
                         'doc': 'An integer based relative severity score for the attack.'}),
+
                     ('sophistication', ('meta:sophistication', {}), {
-                        'doc': 'The assessed sophistication of the attack.',
-                    }),
+                        'doc': 'The assessed sophistication of the attack.'}),
+
                     ('prev', ('risk:attack', {}), {
-                        'doc': 'The previous/parent attack in a list or hierarchy.',
-                    }),
+                        'doc': 'The previous/parent attack in a list or hierarchy.'}),
+
                     ('actor:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.',
-                    }),
+                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
+
                     ('actor:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.',
-                    }),
+                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
+
                     ('attacker', ('ps:contact', {}), {
-                        'doc': 'Contact information representing the attacker.',
-                    }),
+                        'doc': 'Contact information representing the attacker.'}),
+
                     ('target', ('ps:contact', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+
                     ('target:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+
                     ('target:host', ('it:host', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+
                     ('target:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+
                     ('target:place', ('geo:place', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
+
                     ('via:ipv4', ('inet:ipv4', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('via:ipv6', ('inet:ipv6', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('via:email', ('inet:email', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('via:phone', ('tel:phone', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:vuln', ('risk:vuln', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:url', ('inet:url', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:host', ('it:host', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:email', ('inet:email', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:file', ('file:bytes', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:server', ('inet:server', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('used:software', ('it:prod:softver', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
-                    }),
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the attack.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external unique ID for the attack.'}),
+
                 )),
             ),
         }
