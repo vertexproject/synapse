@@ -392,10 +392,10 @@ class StormTypesTest(s_test.SynTest):
             self.eq('baz', await core.callStorm('return($lib.import(hehe).pubFunc())'))
             self.eq('baz', await core.callStorm('return($lib.import(hehe)._pubFunc())'))
 
-            with self.raises(s_exc.AuthDeny):
+            with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.import(hehe).__priv)')
 
-            with self.raises(s_exc.AuthDeny):
+            with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.import(hehe).__privFunc())')
 
     async def test_stormtypes_gates(self):

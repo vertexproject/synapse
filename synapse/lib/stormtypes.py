@@ -511,7 +511,7 @@ class Lib(StormType):
 
     async def deref(self, name):
         if name.startswith('__'):
-            raise s_exc.AuthDeny(mesg=f'Cannot dereference private value [{name}]', name=name)
+            raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
 
         try:
             return await StormType.deref(self, name)
