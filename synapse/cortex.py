@@ -3785,6 +3785,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MergeCmd)
         self.addStormCmd(s_storm.RunAsCmd)
         self.addStormCmd(s_storm.SleepCmd)
+        self.addStormCmd(s_storm.CopyToCmd)
         self.addStormCmd(s_storm.DivertCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
         self.addStormCmd(s_storm.DelNodeCmd)

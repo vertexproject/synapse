@@ -41,6 +41,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
@@ -3801,3 +3802,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
 
         return retn
+
+    @contextlib.asynccontextmanager
+    async def getSpooledSet(self):
+        async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
+            yield sset

@@ -369,6 +369,39 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.debug = (1) hehe.haha')
             self.stormIsInPrint('hehe.haha', msgs)
 
+    async def test_storm_private(self):
+        async with self.getTestCore() as core:
+            await core.addStormPkg({
+                'name': 'hehe',
+                'version': '1.1.1',
+                'modules': [
+                    {'name': 'hehe',
+                     'storm': '''
+                        $pub = 'foo'
+                        $_pub = 'bar'
+                        $__priv = 'baz'
+                        $___priv = 'baz'
+                        function pubFunc() { return($__priv) }
+                        function __privFunc() { return($__priv) }
+                        function _pubFunc() { return($__privFunc()) }
+                     '''},
+                ]
+            })
+
+            self.eq('foo', await core.callStorm('return($lib.import(hehe).pub)'))
+            self.eq('bar', await core.callStorm('return($lib.import(hehe)._pub)'))
+            self.eq('baz', await core.callStorm('return($lib.import(hehe).pubFunc())'))
+            self.eq('baz', await core.callStorm('return($lib.import(hehe)._pubFunc())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).__priv)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).___priv)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).__privFunc())')
+
     async def test_stormtypes_gates(self):
 
         async with self.getTestCore() as core:
@@ -827,6 +860,32 @@ class StormTypesTest(s_test.SynTest):
             opts = {'view': iden}
             await core.nodes('[ ou:org=* ou:org=* ]', opts=opts)
             self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
+
+            await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            edges = await core.callStorm('''
+                $edges = ([])
+                media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
+                for $i in $lib.layer.get().getEdgesByN1($node.iden()) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq([('refs', '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f')], edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                inet:ipv4=1.2.3.4
+                for $i in $lib.layer.get().getEdgesByN2($node.iden()) { $edges.append($i) }
+                fini { return($edges) }
+            ''')
+            self.eq([('refs', 'ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528')], edges)
+
+            edges = await core.callStorm('''
+                $edges = ([])
+                for $i in $lib.layer.get().getEdges() { $edges.append($i) }
+                return($edges)
+            ''')
+            self.isin(('ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528',
+                       'refs',
+                       '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
 
     async def test_storm_lib_ps(self):
 
@@ -2665,6 +2724,13 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            # list() exposes data from all layers from top-down
+            fork = await core.callStorm('return ( $lib.view.get().fork().iden )')
+            await core.nodes('test:int=10 $node.data.set(bar, newp)')
+            await core.nodes('test:int=10 $node.data.set(bar, baz)', opts={'view': fork})
+            data = await core.callStorm('test:int=10 return( $node.data.list() )', opts={'view': fork})
+            self.eq(data, (('bar', 'baz'), ('foo', 'hehe')))
 
             # delete and remake the node to confirm data wipe
             nodes = await core.nodes('test:int=10 | delnode')
