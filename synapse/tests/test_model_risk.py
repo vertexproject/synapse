@@ -30,6 +30,8 @@ class RiskModelTest(s_t_utils.SynTest):
             node = await addNode(f'''[
                     risk:attack={attk}
 
+                    :reporter=*
+                    :reporter:name=vertex
                     :time=20200202
                     :detected = 20210203
                     :success=true
@@ -78,6 +80,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('target:host'), host)
             self.eq(node.get('target:place'), plac)
             self.eq(node.get('target:person'), pers)
+            self.eq(node.get('reporter:name'), 'vertex')
             self.eq(node.get('via:ipv4'), 0x01020304)
             self.eq(node.get('via:ipv6'), 'ff::1')
             self.eq(node.get('via:email'), 'visi@vertex.link')
@@ -96,6 +99,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
             self.nn(node.get('attacker'))
+            self.nn(node.get('reporter'))
 
             self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
 
@@ -107,6 +111,9 @@ class RiskModelTest(s_t_utils.SynTest):
 
                     :exploited=$lib.true
                     :mitigated=$lib.false
+
+                    :reporter=*
+                    :reporter:name=vertex
 
                     :timeline:exploited=2020-01-14
                     :timeline:discovered=2020-01-14
@@ -138,6 +145,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('exploited'), True)
             self.eq(node.get('mitigated'), False)
 
+            self.nn(node.get('reporter'))
+            self.eq(node.get('reporter:name'), 'vertex')
             self.eq(node.get('timeline:exploited'), 1578960000000)
             self.eq(node.get('timeline:discovered'), 1578960000000)
             self.eq(node.get('timeline:vendor:notified'), 1578960000000)
@@ -215,6 +224,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
+                    :reporter = *
+                    :reporter:name = vertex
                     :severity = 10
                     :target = {[ ps:contact=* :name=ledo ]}
                     :attacker = {[ ps:contact=* :name=visi ]}
@@ -237,9 +248,11 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('visi wants pizza', nodes[0].get('name'))
             self.eq('Visi wants a pepperoni and mushroom pizza', nodes[0].get('desc'))
             self.eq('when.noms.attack.', nodes[0].get('type'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.nn(nodes[0].get('target'))
             self.nn(nodes[0].get('attacker'))
             self.nn(nodes[0].get('campaign'))
+            self.nn(nodes[0].get('reporter'))
             self.eq(1612224000000, nodes[0].get('time'))
             self.eq(1612310400000, nodes[0].get('detected'))
             self.eq(1612396800000, nodes[0].get('lasttime'))
