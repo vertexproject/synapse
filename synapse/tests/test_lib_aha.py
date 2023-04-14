@@ -317,14 +317,16 @@ class AhaTest(s_test.SynTest):
                 'dmon:listen': f'unix://{dirn}/sock'
             }
             async with self.getTestAha(conf=conf) as aha:
-                uinfo = aha.ahainfo.get('urlinfo', {})
+                ahainfo = await aha._genAhaInfo()
+                uinfo = ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'unix')
                 self.none(uinfo.get('port'))
                 self.none(aha._getAhaUrls())
 
             conf['dmon:listen'] = 'tcp://0.0.0.0:0/'
             async with self.getTestAha(conf=conf) as aha:
-                uinfo = aha.ahainfo.get('urlinfo', {})
+                ahainfo = await aha._genAhaInfo()
+                uinfo = ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'tcp')
                 self.gt(uinfo.get('port'), 0)
                 self.eq(aha._getAhaUrls()[0], f'ssl://0.test.foo:{aha.sockaddr[1]}')
