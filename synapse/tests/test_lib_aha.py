@@ -1,4 +1,3 @@
-import logging
 import os
 
 from unittest import mock
@@ -196,7 +195,6 @@ class AhaTest(s_test.SynTest):
                 waiter = aha.waiter(1, 'aha:svcadd')
                 proxy = await cryo.ahaclient.proxy(timeout=2)
                 await proxy.fini()
-                # This relies on global state from the service
                 self.nn(await waiter.wait(timeout=6))
 
                 async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
