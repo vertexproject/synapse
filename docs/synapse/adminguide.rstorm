@@ -325,9 +325,6 @@ Permissions can be assigned very broadly, such as allowing a user (or role) to c
 Permissions can also be very fine-grained, restricting users so that they can **only** create specific nodes, set
 specific properties, create specific edges, or apply specific tags.
 
-Before describing how to set and manage permissions, it is helpful to provide some terminology and an overview
-of how permissions are used within Synapse.
-
 
 ..  _admin_perms_background:
 
@@ -722,7 +719,7 @@ Prevent the "all" role from deleting nodes:
 
 .. TIP::
   
-  Recall that you can :ref:`admin-user-show` or :ref:`admin-role-show` with the :ref:`storm-auth-user-show`
+  Recall that you can :ref:`admin_user_show` or :ref:`admin_role_show` with the :ref:`storm-auth-user-show`
   and :ref:`storm-auth-role-show` commands.
 
 
@@ -838,7 +835,7 @@ section of the `Power-Up documentation`_ for the individual Power-Up.
   
   - `Synapse-MISP`_
   - `Synapse-MITRE-ATT&CK`_
-  - `Synapse-PSL`- (FQDN public suffix list)
+  - `Synapse-PSL`_ (FQDN public suffix list)
   - `Synapse-TOR`_
 
 .. _admin_runtime_perms:
