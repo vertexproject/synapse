@@ -510,6 +510,9 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+        if name.startswith('__'):
+            raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
+
         try:
             return await StormType.deref(self, name)
         except s_exc.NoSuchName:
@@ -957,6 +960,8 @@ class LibTags(Lib):
                   'args': (
                       {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                      {'name': 'ispart', 'type': 'boolean', 'default': False,
+                       'desc': 'Whether the names have already been normalized. Normalization will be skipped if set to true.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
     )
@@ -966,18 +971,22 @@ class LibTags(Lib):
             'prefix': self.prefix,
         }
 
-    async def prefix(self, names, prefix):
+    async def prefix(self, names, prefix, ispart=False):
 
         prefix = await tostr(prefix)
+        ispart = await tobool(ispart)
         tagpart = self.runt.snap.core.model.type('syn:tag:part')
 
         retn = []
         async for part in toiter(names):
-            try:
-                partnorm = tagpart.norm(part)[0]
-                retn.append(f'{prefix}.{partnorm}')
-            except s_exc.BadTypeValu:
-                pass
+            if not ispart:
+                try:
+                    partnorm = tagpart.norm(part)[0]
+                    retn.append(f'{prefix}.{partnorm}')
+                except s_exc.BadTypeValu:
+                    pass
+            else:
+                retn.append(f'{prefix}.{part}')
 
         return retn
 
@@ -6187,6 +6196,57 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'storm:node',
                               'desc': 'Yields nodes.', }}},
+
+        {'name': 'getEdges', 'desc': '''
+            Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
+
+            Example:
+                Iterate the light edges in ``$layer``::
+
+                    for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
+                        $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                    }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdges',
+                  'args': (),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
+
+        {'name': 'getEdgesByN1', 'desc': '''
+            Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
+
+            Example:
+                Iterate the N1 edges for ``$node``::
+
+                    for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
+                        $lib.print(`-({$verb})> {$n2iden}`)
+                    }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgesByN1',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
+
+        {'name': 'getEdgesByN2', 'desc': '''
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
+
+            Example:
+                Iterate the N2 edges for ``$node``::
+
+                    for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
+                        $lib.print(`-({$verb})> {$n1iden}`)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgesByN2',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -6228,6 +6288,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
@@ -6235,6 +6296,8 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
+            'getEdgesByN1': self.getEdgesByN1,
+            'getEdgesByN2': self.getEdgesByN2,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -6436,6 +6499,29 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
         async for item in layr.getStorNodes():
+            yield item
+
+    async def getEdges(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getEdges():
+            yield item
+
+    async def getEdgesByN1(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
+            yield item
+
+    async def getEdgesByN2(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
             yield item
 
     async def _methLayerGet(self, name, defv=None):
@@ -6671,7 +6757,7 @@ class View(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
                       {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'The node which may have been just constructed.', }}},
+                  'returns': {'type': 'storm:node', 'desc': 'The storm:node if the view is the current view, otherwise null.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -6735,14 +6821,22 @@ class View(Prim):
         viewiden = self.valu.get('iden')
 
         view = self.runt.snap.core.getView(viewiden)
+        layriden = view.layers[0].iden
 
-        self.runt.layerConfirm(('node', 'add', form))
+        # check that the user can read from the view
+        # ( to emulate perms check for being able to run storm at all )
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
 
-        for propname in props.keys():
-            fullname = f'{form}:{propname}'
-            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
+        self.runt.confirm(('node', 'add', form), gateiden=layriden)
+        if props is not None:
+            for propname in props.keys():
+                fullname = f'{form}:{propname}'
+                self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        return await self.runt.snap.addNode(form, valu, props=props)
+        if viewiden == self.runt.snap.view.iden:
+            return await self.runt.snap.addNode(form, valu, props=props)
+        else:
+            await view.addNode(form, valu, props=props, user=self.runt.user)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden

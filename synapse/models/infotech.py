@@ -3,6 +3,8 @@ import logging
 
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -167,9 +169,15 @@ class SemVer(s_types.Int):
 
         subs = s_version.parseSemver(valu)
         if subs is None:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Unable to parse string as a semver.')
+            subs = s_version.parseVersionParts(valu)
+            if subs is None:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Unable to parse string as a semver.')
+
+        subs.setdefault('minor', 0)
+        subs.setdefault('patch', 0)
         valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
+
         return valu, {'subs': subs}
 
     def _normPyInt(self, valu):
@@ -213,6 +221,8 @@ class ItModule(s_module.CoreModule):
 
     def bruteVersionStr(self, valu):
         '''
+        This API is deprecated.
+
         Brute force the version out of a string.
 
         Args:
@@ -225,21 +235,11 @@ class ItModule(s_module.CoreModule):
         Returns:
             int, dict: The system normalized version integer and a subs dictionary.
         '''
-        try:
-            valu, info = self.core.model.type('it:semver').norm(valu)
-            subs = info.get('subs')
-            return valu, subs
-        except s_exc.BadTypeValu:
-            # Try doing version part extraction by noming through the string
-            subs = s_version.parseVersionParts(valu)
-            if subs is None:
-                raise s_exc.BadTypeValu(valu=valu, name='bruteVersionStr',
-                                        mesg='Unable to brute force version parts out of the string')
-            if subs:
-                valu = s_version.packVersion(subs.get('major'),
-                                             subs.get('minor', 0),
-                                             subs.get('patch', 0))
-                return valu, subs
+        s_common.deprecated('ItModule.bruteVersionStr')
+
+        valu, info = self.core.model.type('it:semver').norm(valu)
+        subs = info.get('subs')
+        return valu, subs
 
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
@@ -267,7 +267,8 @@ class ItModule(s_module.CoreModule):
 
         # form the semver properly or bruteforce parts
         try:
-            valu, subs = self.bruteVersionStr(prop)
+            valu, info = self.core.model.type('it:semver').norm(prop)
+            subs = info.get('subs')
             await node.set('semver', valu)
             for k, v in subs.items():
                 await node.set(f'semver:{k}', v)
@@ -1829,12 +1830,18 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:snort:rule', {}, (
+
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The snort rule text.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the snort rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
                 )),

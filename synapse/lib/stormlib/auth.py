@@ -19,6 +19,88 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'auth.user.list',
+        'descr': '''
+            List all users.
+
+            Examples:
+
+                // Display the list of all users
+                auth.user.list
+        ''',
+        'storm': '''
+            $users = ([])
+            $locked = ([])
+            for $user in $lib.auth.users.list() {
+                if $user.locked { $locked.append($user.name) }
+                else { $users.append($user.name) }
+            }
+
+            $lib.print("Users:")
+            for $user in $lib.sorted($users) {
+                $lib.print(`  {$user}`)
+            }
+
+            $lib.print("")
+            $lib.print("Locked Users:")
+            for $user in $lib.sorted($locked) {
+                $lib.print(`  {$user}`)
+            }
+        ''',
+    },
+    {
+        'name': 'auth.user.mod',
+        'descr': '''
+            Modify properties of a user.
+
+            Examples:
+
+                // Rename the user "foo" to "bar"
+                auth.user.mod foo --name bar
+
+                // Make the user "visi" an admin
+                auth.user.mod visi --admin $lib.true
+
+                // Unlock the user "visi" and set their email to "visi@vertex.link"
+                auth.user.mod visi --locked $lib.false --email visi@vertex.link
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+            ('--name', {'type': 'str', 'help': 'The new name for the user.'}),
+            ('--email', {'type': 'str', 'help': 'The email address to set for the user.'}),
+            ('--passwd', {'type': 'str', 'help': 'The new password for the user. This is best passed into the runtime as a variable.'}),
+            ('--admin', {'type': 'bool', 'help': 'True to make the user and admin, false to remove their remove their admin status.'}),
+            ('--locked', {'type': 'bool', 'help': 'True to lock the user, false to unlock them.'}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if $user {
+                if $cmdopts.name {
+                    $user.name = $cmdopts.name
+                    $lib.print(`User ({$cmdopts.username}) renamed to {$cmdopts.name}.`)
+                }
+                if $cmdopts.email {
+                    $user.email = $cmdopts.email
+                    $lib.print(`User ({$cmdopts.username}) email address set to {$cmdopts.email}.`)
+                }
+                if $cmdopts.passwd {
+                    $user.setPasswd($cmdopts.passwd)
+                    $lib.print(`User ({$cmdopts.username}) password updated.`)
+                }
+                if ($cmdopts.locked != $lib.null) {
+                    $user.setLocked($cmdopts.locked)
+                    $lib.print(`User ({$cmdopts.username}) locked status set to {$cmdopts.locked=1}.`)
+                }
+                if ($cmdopts.admin != $lib.null) {
+                    $user.setAdmin($cmdopts.admin)
+                    $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1}.`)
+                }
+            } else {
+                $lib.warn(`User ({$cmdopts.username}) not found!`)
+            }
+        ''',
+    },
+    {
         'name': 'auth.role.add',
         'descr': '''
             Add a role.
@@ -34,6 +116,77 @@ stormcmds = (
         'storm': '''
             $role = $lib.auth.roles.add($cmdopts.name)
             $lib.print('Role ({name}) added with iden: {iden}', name=$role.name, iden=$role.iden)
+        ''',
+    },
+    {
+        'name': 'auth.role.list',
+        'descr': '''
+            List all roles.
+
+            Examples:
+
+                // Display the list of all roles
+                auth.role.list
+        ''',
+        'storm': '''
+            $roles = ([])
+            for $role in $lib.auth.roles.list() {
+                $roles.append($role.name)
+            }
+
+            $lib.print("Roles:")
+            for $role in $lib.sorted($roles) {
+                $lib.print(`  {$role}`)
+            }
+        ''',
+    },
+    {
+        'name': 'auth.role.del',
+        'descr': '''
+            Delete a role.
+
+            Examples:
+
+                // Delete a role named "ninjas"
+                auth.role.del ninjas
+        ''',
+        'cmdargs': (
+            ('name', {'type': 'str', 'help': 'The name of the role.'}),
+        ),
+        'storm': '''
+            $role = $lib.auth.roles.byname($cmdopts.name)
+            if $role {
+                $lib.auth.roles.del($role.iden)
+                $lib.print(`Role ({$cmdopts.name}) deleted.`)
+            } else {
+                $lib.warn(`Role ({$cmdopts.name}) not found!`)
+            }
+        ''',
+    },
+    {
+        'name': 'auth.role.mod',
+        'descr': '''
+            Modify properties of a role.
+
+            Examples:
+
+                // Rename the "ninjas" role to "admins"
+                auth.role.mod ninjas --name admins
+        ''',
+        'cmdargs': (
+            ('rolename', {'type': 'str', 'help': 'The name of the role.'}),
+            ('--name', {'type': 'str', 'help': 'The new name for the role.'}),
+        ),
+        'storm': '''
+            $role = $lib.auth.roles.byname($cmdopts.rolename)
+            if $role {
+                if $cmdopts.name {
+                    $role.name = $cmdopts.name
+                    $lib.print(`Role ({$cmdopts.rolename}) renamed to {$cmdopts.name}.`)
+                }
+            } else {
+                $lib.warn(`Role ({$cmdopts.rolename}) not found!`)
+            }
         ''',
     },
     {
@@ -220,7 +373,7 @@ stormcmds = (
             $role = $lib.auth.roles.byname($cmdopts.rolename)
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
 
-            if (not $user.roles.has($role.iden)) {
+            if (not $user.roles().has($role)) {
                 $lib.exit(`User {$cmdopts.username} does not have role {$cmdopts.rolename}`)
             }
 
@@ -247,7 +400,9 @@ stormcmds = (
 
             $lib.print(`User: {$user.name} ({$user.iden})`)
             $lib.print("")
+            $lib.print(`  Locked: {$user.locked}`)
             $lib.print(`  Admin: {$user.admin}`)
+            $lib.print(`  Email: {$user.email}`)
             $lib.print("  Rules:")
             for ($indx, $rule) in $lib.iters.enum($user.rules) {
                 $ruletext = $lib.auth.textFromRule($rule)

@@ -818,13 +818,15 @@ class Axon(s_cell.Cell):
             self.hashlocks[hashbyts] = item = [0, asyncio.Lock()]
 
         item[0] += 1
-        async with item[1]:
-            yield
+        try:
+            async with item[1]:
+                yield
 
-        item[0] -= 1
+        finally:
+            item[0] -= 1
 
-        if item[0] == 0:
-            self.hashlocks.pop(hashbyts, None)
+            if item[0] == 0:
+                self.hashlocks.pop(hashbyts, None)
 
     def _reqBelowLimit(self):
 
@@ -1521,8 +1523,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
@@ -1579,8 +1583,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
@@ -1700,8 +1706,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {

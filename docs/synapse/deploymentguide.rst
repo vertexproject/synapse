@@ -136,6 +136,9 @@ directory on the *host*. This will be necessary for some of the additional provi
 
     docker-compose exec aha /bin/bash
 
+
+.. _deploy_axon:
+
 Deploy Axon Service
 ===================
 
@@ -348,6 +351,8 @@ Start the container::
 
     If you are deploying a mirror from an existing large Cortex, this startup may take a while to complete
     initialization.
+
+.. _enroll_cli_users:
 
 Enroll CLI Users
 ================

@@ -416,6 +416,7 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'version': {'type': 'string'},
                 'desc': {'type': 'string'},
+                'optional': {'type': 'boolean'},
             },
             'additionalItems': True,
             'required': ('name', 'version'),
@@ -3129,6 +3130,96 @@ class DiffCmd(Cmd):
             node = await runt.snap.getNodeByBuid(buid)
             if node is not None:
                 yield node, runt.initPath(node)
+
+class CopyToCmd(Cmd):
+    '''
+    Copy nodes from the current view into another view.
+
+    Examples:
+
+        // Copy all nodes tagged with #cno.mal.redtree to the target view.
+
+        #cno.mal.redtree | copyto 33c971ac77943da91392dadd0eec0571
+    '''
+    name = 'copyto'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--no-data', default=False, action='store_true',
+                          help='Do not copy node data to the destination view.')
+        pars.add_argument('view', help='The destination view ID to copy the nodes to.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'copyto arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        iden = await s_stormtypes.tostr(self.opts.view)
+
+        view = runt.snap.core.getView(iden)
+        if view is None:
+            raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
+
+        runt.confirm(('view', 'read'), gateiden=view.iden)
+
+        layriden = view.layers[0].iden
+
+        async with await view.snap(user=runt.user) as snap:
+
+            async for node, path in genr:
+
+                runt.confirm(node.form.addperm, gateiden=layriden)
+                for name in node.props.keys():
+                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+
+                for tag in node.tags.keys():
+                    runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
+
+                if not self.opts.no_data:
+                    async for name in node.iterDataKeys():
+                        runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
+
+                async with snap.getEditor() as editor:
+
+                    proto = await editor.addNode(node.ndef[0], node.ndef[1], props=node.props)
+                    for name, valu in node.tags.items():
+                        await proto.addTag(name, valu=valu)
+
+                    for tagname, tagprops in node.tagprops.items():
+                        for propname, valu in tagprops.items():
+                            await proto.setTagProp(tagname, propname, valu)
+
+                    if not self.opts.no_data:
+                        async for name, valu in node.iterData():
+                            await proto.setData(name, valu)
+
+                    verbs = {}
+                    async for (verb, n2iden) in node.iterEdgesN1():
+
+                        if not verbs.get(verb):
+                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                            verbs[verb] = True
+
+                        n2node = await snap.getNodeByBuid(s_common.uhex(n2iden))
+                        if n2node is None:
+                            continue
+
+                        await proto.addEdge(verb, n2iden)
+
+                    # for the reverse edges, we'll need to make edits to the n1 node
+                    async for (verb, n1iden) in node.iterEdgesN2():
+
+                        if not verbs.get(verb):
+                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                            verbs[verb] = True
+
+                        n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+                        if n1proto is not None:
+                            await n1proto.addEdge(verb, s_common.ehex(node.buid))
+
+                yield node, path
 
 class MergeCmd(Cmd):
     '''
