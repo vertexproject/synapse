@@ -1,3 +1,4 @@
+import logging
 import os
 
 from unittest import mock
@@ -192,18 +193,24 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 # force a reconnect...
+                waiter = aha.waiter(1, 'aha:svcadd')
                 proxy = await cryo.ahaclient.proxy(timeout=2)
                 await proxy.fini()
+                # This relies on global state from the service
+                self.nn(await waiter.wait(timeout=6))
 
                 async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
+                waiter = aha.waiter(1, 'aha:svcadd')
                 # force the service into passive mode...
                 await cryo.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
                     async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                         pass
+
+                self.nn(await waiter.wait(timeout=6))
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
