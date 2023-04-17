@@ -36,6 +36,10 @@ class AstNode:
     '''
     Base class for all nodes in the Storm abstract syntax tree.
     '''
+    # set to True if recursive runt-safety checks should *not* recurse
+    # into children of this node.
+    runtopaque = False
+
     def __init__(self, astinfo, kids=()):
         self.kids = []
         self.astinfo = astinfo
@@ -158,13 +162,17 @@ class AstNode:
 
     def reqRuntSafe(self, runt, mesg):
 
+        todo = collections.deque([self])
+
         # depth first search for an non-runtsafe atom.
-        todo = collections.deque(self.kids)
         while todo:
 
             nkid = todo.popleft()
             if not nkid.isRuntSafeAtom(runt):
                 raise nkid.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+
+            if nkid.runtopaque:
+                continue
 
             todo.extend(nkid.kids)
 
@@ -1365,7 +1373,7 @@ class LiftFormTagProp(LiftOper):
         form, tag, prop = await self.kids[0].compute(runt, path)
 
         if not runt.model.form(form):
-            raise self.kids[0][0].addExcInfo(s_exc.NoSuchForm(form))
+            raise self.kids[0].kids[0].addExcInfo(s_exc.NoSuchForm.init(form))
 
         if len(self.kids) == 3:
 
@@ -1430,7 +1438,7 @@ class LiftFormTag(LiftOper):
 
         form = await self.kids[0].compute(runt, path)
         if not runt.model.form(form):
-            raise self.kids[0].addExcInfo(s_exc.NoSuchForm(form))
+            raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(form))
 
         tag = await tostr(await self.kids[1].compute(runt, path))
 
@@ -1775,7 +1783,7 @@ class PivotInFrom(PivotOper):
 
         form = runt.model.forms.get(name)
         if form is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name))
+            raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(name))
 
         # <- edge
         if isinstance(form.type, s_types.Edge):
@@ -2448,7 +2456,7 @@ class HasRelPropCond(Cond):
             form = runt.model.forms.get(prop.type.name)
             if form is None:
                 mesg = f'No form {prop.type.name}'
-                raise self.addExcInfo(s_exc.NoSuchForm(prop.type.name))
+                raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -2733,6 +2741,8 @@ class FiltByArray(FiltOper):
 
 class ArgvQuery(Value):
 
+    runtopaque = True
+
     def isRuntSafe(self, runt):
         # an argv query is really just a string, so it's runtsafe.
         return True
@@ -2792,7 +2802,7 @@ class PropValue(Value):
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
-                raise self.addExcInfo(s_exc.NoSuchForm(prop.type.name))
+                raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -3147,6 +3157,8 @@ class Bool(Const):
 
 class EmbedQuery(Const):
 
+    runtopaque = True
+
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
         pass
@@ -3322,7 +3334,7 @@ class EditNodeAdd(Edit):
 
                     form = runt.model.form(formname)
                     if form is None:
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm(formname))
+                        raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
 
                     # must use/resolve all variables from path before yield
                     async for item in self.addFromPath(form, runt, path):
@@ -3338,7 +3350,7 @@ class EditNodeAdd(Edit):
 
                 form = runt.model.form(formname)
                 if form is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm(formname))
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
 
                 valu = await self.kids[2].compute(runt, None)
                 valu = await s_stormtypes.tostor(valu)
@@ -4033,6 +4045,7 @@ class Function(AstNode):
 
     $foo = $bar(10, v=20)
     '''
+    runtopaque = True
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()

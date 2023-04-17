@@ -672,7 +672,6 @@ Examples:
         # TODO: retrieve time from cortex in case of wrong cmdr time
         now = time.time()
 
-        size = len(opts.args)
         query = opts.args[-1]
         for pos, arg in enumerate(opts.args[:-1]):
             try:
@@ -682,7 +681,7 @@ Examples:
 
                 if arg.startswith('+'):
                     if arg[-1].isdigit():
-                        if pos == len(opts.args) - 1:
+                        if pos == len(opts.args) - 2:
                             self.printf('Time delta missing unit')
                             return
                         arg = f'{arg} {opts.args[pos + 1]}'

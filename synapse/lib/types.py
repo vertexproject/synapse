@@ -1349,7 +1349,7 @@ class Ndef(Type):
 
         form = self.modl.form(formname)
         if form is None:
-            raise s_exc.NoSuchForm(formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
@@ -1363,7 +1363,7 @@ class Ndef(Type):
         formname, formvalu = norm
         form = self.modl.form(formname)
         if form is None:
-            raise s_exc.NoSuchForm(formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         repv = form.type.repr(formvalu)
         return (formname, repv)

@@ -1640,7 +1640,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for form, rule in gdef.get('forms', {}).items():
             if form != '*' and self.model.form(form) is None:
-                raise s_exc.NoSuchForm(form)
+                raise s_exc.NoSuchForm.init(form)
 
             for filt in rule.get('filters', ()):
                 await self.getStormQuery(filt)
@@ -3173,7 +3173,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
 
         if self.model.form(formname) is None:
-            raise s_exc.NoSuchForm(formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         return await self._push('model:form:del', formname)
 
@@ -3197,7 +3197,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         _form = self.model.form(form)
         if _form is None:
-            raise s_exc.NoSuchForm(form)
+            raise s_exc.NoSuchForm.init(form)
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
@@ -5304,7 +5304,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         form = self.model.forms.get(name)
         if form is None:
-            raise s_exc.NoSuchForm(name)
+            raise s_exc.NoSuchForm.init(name)
 
         norm, info = form.type.norm(valu)
 

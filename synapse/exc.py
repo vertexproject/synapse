@@ -218,10 +218,16 @@ class MustBeJsonSafe(SynErr): pass
 class NotMsgpackSafe(SynErr): pass
 
 class NoSuchForm(SynErr):
-    def __init__(self, name, mesg=None):
+
+    # new convention where exceptions with an init() class
+    # method may be called to enforce normalization of message
+    # contents based on variables that are relevant to the
+    # exception type...
+    @classmethod
+    def init(cls, name, mesg=None):
         if mesg is None:
-            mesg = f'No form named: {name}'
-        SynErr.__init__(self, mesg=mesg, name=name)
+            mesg = f'No form named {name}'
+        return NoSuchForm(mesg=mesg, name=name)
 
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
