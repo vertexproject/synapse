@@ -24,6 +24,12 @@ Features and Enhancements
   improperly formatted semver values.
   (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
 
+Bugfixes
+--------
+- Add missing ``toprim()`` calls on arguments to some ``storm:auth:user``
+  and ``storm:auth:role`` APIs.
+  (`#3086 <https://github.com/vertexproject/synapse/pull/3086>`_)
+
 v2.128.0 - 2023-04-11
 =====================
 
