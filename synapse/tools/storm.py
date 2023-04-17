@@ -201,10 +201,9 @@ class ExportCmd(StormCliCmd):
             queryopts['scrub'] = {'include': {'tags': []}}
 
         try:
-            query = opts.query[1:-1]
             with s_common.genfile(opts.filepath) as fd:
                 cnt = 0
-                async for pode in self._cmd_cli.item.exportStorm(query, opts=queryopts):
+                async for pode in self._cmd_cli.item.exportStorm(opts.query, opts=queryopts):
                     byts = fd.write(s_msgpack.en(pode))
                     cnt += 1
 
