@@ -14,19 +14,19 @@ Features and Enhancements
 
   ``ou:campaign``
     Add a ``names`` property to record alternative names for the campaign.
-    Add a ``reporter`` and ``reporter:name`` properties to record information
+    Add ``reporter`` and ``reporter:name`` properties to record information
     about a reporter of the campaign.
 
   ``risk:attack``
-    Add a ``reporter`` and ``reporter:name`` properties to record information
+    Add ``reporter`` and ``reporter:name`` properties to record information
     about a reporter of the attack.
 
   ``risk:compromise``
-    Add a ``reporter`` and ``reporter:name`` properties to record information
+    Add ``reporter`` and ``reporter:name`` properties to record information
     about a reporter of the compromise.
 
   ``risk:vuln``
-    Add a ``reporter`` and ``reporter:name`` properties to record information
+    Add ``reporter`` and ``reporter:name`` properties to record information
     about a reporter of the vulnerability.
 
 - Add leader status to the ``synapse.tools.aha.list`` tool output.
