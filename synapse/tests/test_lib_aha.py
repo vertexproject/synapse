@@ -11,6 +11,7 @@ import synapse.lib.aha as s_aha
 import synapse.lib.cell as s_cell
 import synapse.lib.output as s_output
 
+import synapse.tools.aha.list as s_a_list
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tools.aha.enroll as s_tools_enroll
@@ -754,6 +755,14 @@ class AhaTest(s_test.SynTest):
                         self.true(axon.isactive)
                         self.false(axon3.isactive)
                         self.eq('aha://root@axon.loop.vertex.link', axon03.conf.get('mirror'))
+
+                        retn, outp = await self.execToolMain(s_a_list._main, [aha.getLocalUrl()])
+                        self.eq(retn, 0)
+                        outp.expect('Service              network                        leader')
+                        outp.expect('00.axon              loop.vertex.link               True')
+                        outp.expect('01.axon              loop.vertex.link               False')
+                        outp.expect('02.axon              loop.vertex.link               False')
+                        outp.expect('axon                 loop.vertex.link               True')
 
                 # Ensure we can provision a service on a given listening ports
                 with self.raises(AssertionError):

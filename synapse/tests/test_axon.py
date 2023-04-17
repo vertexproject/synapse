@@ -446,8 +446,9 @@ bar baz",vv
                 yield b'qwer'
                 yield b'zxcv'
 
-            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-            await axon.save(sha256, genr())
+            asdfbyts = b'asdfqwerzxcv'
+            sha256 = hashlib.sha256(asdfbyts).digest()
+            await axon.save(sha256, genr(), size=len(asdfbyts))
 
             bytslist = [b async for b in axon.get(sha256, 0, size=2)]
             self.eq(b'as', b''.join(bytslist))
@@ -504,7 +505,7 @@ bar baz",vv
                     yield None
                 return
 
-            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen()))
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
@@ -739,8 +740,9 @@ bar baz",vv
                     yield b'qwer'
                     yield b'zxcv'
 
-                sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-                await axon.save(sha256, genr())
+                asdfbyts = b'asdfqwerzxcv'
+                sha256 = hashlib.sha256(asdfbyts).digest()
+                await axon.save(sha256, genr(), size=len(asdfbyts))
                 shatext = s_common.ehex(sha256)
 
                 headers = {'range': 'bytes=2-4'}
@@ -926,6 +928,10 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
+            resp = await proxy.wget('vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+
     async def test_axon_wput(self):
 
         async with self.getTestCore() as core:
@@ -988,6 +994,14 @@ bar baz",vv
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+
+            resp = await proxy.wput(sha256, 'vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+
+            resp = await proxy.postfiles(fields, 'vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('err', ''))
 
     async def test_axon_tlscapath(self):
 

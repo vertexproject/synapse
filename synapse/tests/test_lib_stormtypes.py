@@ -369,6 +369,39 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.debug = (1) hehe.haha')
             self.stormIsInPrint('hehe.haha', msgs)
 
+    async def test_storm_private(self):
+        async with self.getTestCore() as core:
+            await core.addStormPkg({
+                'name': 'hehe',
+                'version': '1.1.1',
+                'modules': [
+                    {'name': 'hehe',
+                     'storm': '''
+                        $pub = 'foo'
+                        $_pub = 'bar'
+                        $__priv = 'baz'
+                        $___priv = 'baz'
+                        function pubFunc() { return($__priv) }
+                        function __privFunc() { return($__priv) }
+                        function _pubFunc() { return($__privFunc()) }
+                     '''},
+                ]
+            })
+
+            self.eq('foo', await core.callStorm('return($lib.import(hehe).pub)'))
+            self.eq('bar', await core.callStorm('return($lib.import(hehe)._pub)'))
+            self.eq('baz', await core.callStorm('return($lib.import(hehe).pubFunc())'))
+            self.eq('baz', await core.callStorm('return($lib.import(hehe)._pubFunc())'))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).__priv)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).___priv)')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.import(hehe).__privFunc())')
+
     async def test_stormtypes_gates(self):
 
         async with self.getTestCore() as core:
@@ -5010,6 +5043,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
             visi = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(hehe.haha)
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setRules($lib.list($rule))
+                return($visi)
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), visi['rules'])
+
+            visi = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.addRule($rule)
@@ -5040,6 +5081,14 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(($rule,))
+                return($ninjas)
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
+
+            ninjas = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(hehe.haha)
+                $ninjas = $lib.auth.roles.byname(ninjas)
+                $ninjas.setRules($lib.list($rule))
                 return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])

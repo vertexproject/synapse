@@ -510,6 +510,9 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+        if name.startswith('__'):
+            raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
+
         try:
             return await StormType.deref(self, name)
         except s_exc.NoSuchName:
@@ -8205,19 +8208,19 @@ class User(Prim):
         return await self.value()
 
     async def _methUserTell(self, text):
+        self.runt.confirm(('tell', self.valu), default=True)
         mesgdata = {
             'text': await tostr(text),
             'from': self.runt.user.iden,
         }
-        self.runt.confirm(('tell', self.valu), default=True)
         return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
 
     async def _methUserNotify(self, mesgtype, mesgdata):
-        mesgtype = await tostr(mesgtype)
-        mesgdata = await toprim(mesgdata)
         if not self.runt.isAdmin():
             mesg = '$user.notify() method requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        mesgtype = await tostr(mesgtype)
+        mesgdata = await toprim(mesgdata)
         return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _storUserName(self, name):
@@ -8275,6 +8278,7 @@ class User(Prim):
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
@@ -8285,22 +8289,23 @@ class User(Prim):
         return user.getRules(gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserPopRule(self, indx, gateiden=None):
 
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
 
         indx = await toint(indx)
-        gateiden = await tostr(gateiden, noneok=True)
-
         rules = list(await self.getRules(gateiden=gateiden))
 
         if len(rules) <= indx:
@@ -8322,14 +8327,15 @@ class User(Prim):
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
+        passwd = await tostr(passwd, noneok=True)
         if self.runt.user.iden == self.valu:
-            passwd = await tostr(passwd, noneok=True)
             self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
@@ -8450,9 +8456,8 @@ class Role(Prim):
         return rdef.get(name, s_common.novalu)
 
     async def _setRoleName(self, name):
-        name = await tostr(name)
-
         self.runt.confirm(('auth', 'role', 'set', 'name'))
+        name = await tostr(name)
         await self.runt.snap.core.setRoleName(self.valu, name)
 
     async def _methRoleGet(self, name):
@@ -8476,16 +8481,19 @@ class Role(Prim):
         return role.getRules(gateiden=gateiden)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
