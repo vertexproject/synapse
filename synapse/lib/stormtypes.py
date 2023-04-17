@@ -8302,12 +8302,11 @@ class User(Prim):
 
     async def _methUserPopRule(self, indx, gateiden=None):
 
-        indx = await toint(indx)
         gateiden = await tostr(gateiden, noneok=True)
-
-        rules = list(await self.getRules(gateiden=gateiden))
-
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+        rules = list(await self.getRules(gateiden=gateiden))
 
         if len(rules) <= indx:
             mesg = f'User {self.valu} only has {len(rules)} rules.'
