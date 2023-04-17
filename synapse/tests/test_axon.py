@@ -505,7 +505,7 @@ bar baz",vv
                     yield None
                 return
 
-            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn))
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
