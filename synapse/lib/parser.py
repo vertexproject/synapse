@@ -223,31 +223,6 @@ class AstConverter(lark.Transformer):
         return s_ast.ExprDict(astinfo, kids=kids)
 
     @lark.v_args(meta=True)
-    def trycatch(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.TryCatch(astinfo, kids=kids)
-
-    @lark.v_args(meta=True)
-    def catchblock(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.CatchBlock(astinfo, kids=kids)
-
-    @lark.v_args(meta=True)
-    def baresubquery(self, meta, kids):
-        assert len(kids) == 1
-        astinfo = self.metaToAstInfo(meta)
-        kids = self._convert_children(kids)
-        return s_ast.SubQuery(astinfo, kids=kids)
-
-    @lark.v_args(meta=True)
-    def argvquery(self, meta, kids):
-        assert len(kids) == 1
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.ArgvQuery(astinfo, kids)
-
-    @lark.v_args(meta=True)
     def yieldvalu(self, meta, kids):
         kid = self._convert_child(kids[-1])
         astinfo = self.metaToAstInfo(meta)
@@ -258,35 +233,11 @@ class AstConverter(lark.Transformer):
         return self._convert_child(kids[0])
 
     @lark.v_args(meta=True)
-    def lookup(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.Lookup(astinfo, kids=kids)
-
-    @lark.v_args(meta=True)
-    def search(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.Search(astinfo, kids=kids)
-
-    @lark.v_args(meta=True)
-    def query(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.Query(astinfo, kids=kids)
-
-    @lark.v_args(meta=True)
     def embedquery(self, meta, kids):
         assert len(kids) == 1
         astinfo = self.metaToAstInfo(meta)
         text = kids[0].getAstText()
         return s_ast.EmbedQuery(kids[0].astinfo, text, kids=kids)
-
-    @lark.v_args(meta=True)
-    def emit(self, meta, kids):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        return s_ast.Emit(astinfo, kids)
 
     @lark.v_args(meta=True)
     def funccall(self, meta, kids):
@@ -698,8 +649,11 @@ terminalClassMap = {
 # For AstConverter, one-to-one replacements from lark to synapse AST
 ruleClassMap = {
     'abspropcond': s_ast.AbsPropCond,
+    'argvquery': s_ast.ArgvQuery,
     'arraycond': s_ast.ArrayCond,
     'andexpr': s_ast.AndCond,
+    'baresubquery': s_ast.SubQuery,
+    'catchblock': s_ast.CatchBlock,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
@@ -708,6 +662,7 @@ ruleClassMap = {
     'edgedeln2': lambda astinfo, kids: s_ast.EditEdgeDel(astinfo, kids, n2=True),
     'editnodeadd': s_ast.EditNodeAdd,
     'editparens': s_ast.EditParens,
+    'emit': s_ast.Emit,
     'initblock': s_ast.InitBlock,
     'finiblock': s_ast.FiniBlock,
     'formname': s_ast.FormName,
@@ -732,7 +687,6 @@ ruleClassMap = {
     'filtopernot': lambda astinfo, kids: s_ast.FiltOper(astinfo, [s_ast.Const(astinfo, '-')] + kids),
     'forloop': s_ast.ForLoop,
     'formatstring': s_ast.FormatString,
-    'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda astinfo, kids: s_ast.FormPivot(astinfo, kids, isjoin=True),
     'formjoin_pivotout': lambda astinfo, _: s_ast.PivotOut(astinfo, isjoin=True),
     'formjoinin_pivotin': lambda astinfo, kids: s_ast.PivotIn(astinfo, kids, isjoin=True),
@@ -759,6 +713,7 @@ ruleClassMap = {
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
     'looklist': s_ast.LookList,
+    'lookup': s_ast.Lookup,
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
@@ -766,12 +721,14 @@ ruleClassMap = {
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
+    'query': s_ast.Query,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
     'relprop': lambda astinfo, kids: s_ast.RelProp(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': lambda astinfo, kids: s_ast.RelPropValue(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
+    'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
     'setvar': s_ast.SetVarOper,
     'stop': s_ast.Stop,
@@ -783,11 +740,13 @@ ruleClassMap = {
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
+    'trycatch': s_ast.TryCatch,
+    'univprop': s_ast.UnivProp,
+    'univpropvalu': s_ast.UnivPropValue,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'univprop': s_ast.UnivProp,
-    'univpropvalu': s_ast.UnivPropValue,
+    'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }
 
