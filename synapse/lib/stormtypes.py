@@ -8278,6 +8278,7 @@ class User(Prim):
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
@@ -8288,11 +8289,13 @@ class User(Prim):
         return user.getRules(gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
@@ -8479,16 +8482,19 @@ class Role(Prim):
         return role.getRules(gateiden=gateiden)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
