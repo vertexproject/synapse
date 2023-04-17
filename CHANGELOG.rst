@@ -9,7 +9,7 @@ v2.129.0 - 2023-04-17
 
 Features and Enhancements
 -------------------------
-- Updates to the ``ou``, ``risk`` models.
+- Updates to the ``ou`` and ``risk`` models.
   (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
 
   ``ou:campaign``
