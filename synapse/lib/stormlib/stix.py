@@ -470,7 +470,7 @@ def _validateConfig(core, config):
         if objdefs is not None:
             for name, info in objdefs.items():
                 if not stixtype_re.match(name):
-                    mesg = 'Invalid custom object name. Must match regex: ^[a-z0-9_]{3,250}$'
+                    mesg = 'Invalid custom STIX type name. Must match regex: ^[a-z0-9-]{3,250}$'
                     raise s_exc.BadConfValu(mesg=mesg)
                 alltypes.add(name)
 
