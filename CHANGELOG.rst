@@ -51,6 +51,8 @@ Bugfixes
 - Add missing ``toprim()`` calls on arguments to some ``storm:auth:user``
   and ``storm:auth:role`` APIs.
   (`#3086 <https://github.com/vertexproject/synapse/pull/3086>`_)
+- Fix the regular expression used to validate STIX object names.
+  (`#3093 <https://github.com/vertexproject/synapse/pull/3093>`_)
 
 Improved Documentation
 ----------------------
