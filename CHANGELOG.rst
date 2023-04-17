@@ -9,6 +9,10 @@ Unreleased - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
+- Add leader status to the ``synapse.tools.aha.list`` tool output.
+  This will only be available if a leader has been registered for
+  the service.
+  (`#3078 <https://github.com/vertexproject/synapse/pull/3078>`_)
 - Add support for private values in Storm modules, which are specified
   by beginning the name with a double underscore (``__``). These values
   cannot be dereferenced outside of the module they are declared in.
@@ -19,6 +23,8 @@ Features and Enhancements
 - Update ``it:semver`` string normalization to attempt parsing
   improperly formatted semver values.
   (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
+- Update Axon to always pass size value when saving bytes.
+  (`#3084 <https://github.com/vertexproject/synapse/pull/3084>`_)
 
 v2.128.0 - 2023-04-11
 =====================
