@@ -4,11 +4,31 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.129.0 - 2023-04-17
+=====================
 
 Features and Enhancements
 -------------------------
+- Updates to the ``ou``, ``risk`` models.
+  (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
+
+  ``ou:campaign``
+    Add a ``names`` property to record alternative names for the campaign.
+    Add a ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the campaign.
+
+  ``risk:attack``
+    Add a ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the attack.
+
+  ``risk:compromise``
+    Add a ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the compromise.
+
+  ``risk:vuln``
+    Add a ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the vulnerability.
+
 - Add leader status to the ``synapse.tools.aha.list`` tool output.
   This will only be available if a leader has been registered for
   the service.
@@ -31,6 +51,11 @@ Bugfixes
 - Add missing ``toprim()`` calls on arguments to some ``storm:auth:user``
   and ``storm:auth:role`` APIs.
   (`#3086 <https://github.com/vertexproject/synapse/pull/3086>`_)
+
+Improved Documentation
+----------------------
+- Add sections on user and role permissions to the Synapse Admin guide.
+  (`#3073 <https://github.com/vertexproject/synapse/pull/3073>`_)
 
 v2.128.0 - 2023-04-11
 =====================
