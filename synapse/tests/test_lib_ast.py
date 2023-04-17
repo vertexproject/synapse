@@ -2394,7 +2394,6 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq(':bar', text[off:end])
 
-            # below here are failing
             text = 'inet:ipv5'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
@@ -2407,7 +2406,7 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('inet:ipv5', text[off:end])
 
-            text = 'inet:ipv4 $x=:haha'
+            text = '[ inet:ipv4=1.2.3.4 ] $x=:haha'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']

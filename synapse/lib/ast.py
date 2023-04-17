@@ -238,7 +238,7 @@ class Lookup(Query):
 
         if runt.readonly and self.autoadd:
             mesg = 'Autoadd may not be executed in readonly Storm runtime.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         view = runt.snap.view
 
@@ -737,7 +737,7 @@ class CatchBlock(AstNode):
 
         etyp = catchvalu.__class__.__name__
         mesg = f'catch block must be a str or list object. {etyp} not allowed.'
-        raise s_exc.StormRuntimeError(mesg=mesg, type=etyp)
+        raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=etyp))
 
 class ForLoop(Oper):
 
@@ -783,11 +783,13 @@ class ForLoop(Oper):
                         numitems = len(item)
                     except TypeError:
                         mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name)
+                        exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                        raise self.kids[1].addExcInfo(exc)
 
                     if len(name) != numitems:
                         mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                        exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                        raise self.kids[1].addExcInfo(exc)
 
                     if isinstance(item, s_stormtypes.Prim):
                         item = await item.value()
@@ -846,11 +848,13 @@ class ForLoop(Oper):
                         numitems = len(item)
                     except TypeError:
                         mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name)
+                        exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                        raise self.kids[1].addExcInfo(exc)
 
                     if len(name) != numitems:
                         mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        raise s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                        exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                        raise self.kids[1].addExcInfo(exc)
 
                     if isinstance(item, s_stormtypes.Prim):
                         item = await item.value()
@@ -967,7 +971,7 @@ class CmdOper(Oper):
 
         if runt.readonly and not scmd.isReadOnly():
             mesg = f'Command ({name}) is not marked safe for readonly use.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         with s_provenance.claim('stormcmd', name=name):
             async def genx():
@@ -1258,7 +1262,7 @@ class YieldValu(Oper):
                 buid = s_common.uhex(valu)
             except binascii.Error:
                 mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
-                raise s_exc.BadLiftValu(mesg=mesg)
+                raise self.kids[0].addExcInfo(s_exc.BadLiftValu(mesg=mesg))
 
             node = await runt.snap.getNodeByBuid(buid)
             if node is not None:
@@ -1464,7 +1468,7 @@ class LiftProp(LiftOper):
         prop = runt.model.prop(name)
         if prop is None:
             mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
         assert len(self.kids) == 1
 
@@ -1537,8 +1541,18 @@ class LiftPropBy(LiftOper):
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
-        async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
-            yield node
+        if runt.model.props.get(name) is None:
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+        try:
+            async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
+                yield node
+
+        except s_exc.BadTypeValu as e:
+            raise self.kids[2].addExcInfo(e)
+
+        except s_exc.SynErr as e:
+            raise self.addExcInfo(e)
 
 class PivotOper(Oper):
 
@@ -1834,7 +1848,7 @@ class FormPivot(PivotOper):
         prop = runt.model.props.get(name)
         if prop is None:
             mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
         # -> baz:ndef
         if isinstance(prop.type, s_types.Ndef):
@@ -2005,7 +2019,7 @@ class FormPivot(PivotOper):
 
             if not found:
                 mesg = f'No pivot found for {node.form.name} -> {destform.name}.'
-                raise s_exc.NoSuchPivot(n1=node.form.name, n2=destform.name, mesg=mesg)
+                raise self.addExcInfo(s_exc.NoSuchPivot(n1=node.form.name, n2=destform.name, mesg=mesg))
 
 class PropPivotOut(PivotOper):
     '''
@@ -2086,7 +2100,7 @@ class PropPivot(PivotOper):
         prop = runt.model.props.get(name)
         if prop is None:
             mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+            raise self.kids[1].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
         # TODO if we are pivoting to a form, use ndef!
 
@@ -2144,7 +2158,7 @@ class Value(AstNode):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
     async def compute(self, runt, path):  # pragma: no cover
-        raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
+        raise self.addExcInfo(s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()'))
 
     async def getLiftHints(self, runt, path):
         return []
@@ -2299,7 +2313,7 @@ class SubqCond(Cond):
             cmpr = await self.kids[1].compute(runt, None)
             ctor = self.funcs.get(cmpr)
             if ctor is None:
-                raise s_exc.NoSuchCmpr(cmpr=cmpr, type='subquery')
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, type='subquery'))
 
             return ctor(runt)
 
@@ -2451,12 +2465,14 @@ class HasRelPropCond(Cond):
             prop = node.form.props.get(part)
             if prop is None:
                 mesg = f'No property named {node.form.name}:{part}'
-                raise s_exc.NoSuchProp(mesg=mesg, name=part, form=node.form.name)
+                exc = s_exc.NoSuchProp(mesg=mesg, name=part, form=node.form.name)
+                raise self.kids[0].addExcInfo(exc)
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
                 mesg = f'No form {prop.type.name}'
-                raise self.addExcInfo(s_exc.NoSuchForm.init(prop.type.name))
+                exc = s_exc.NoSuchForm.init(prop.type.name)
+                raise self.kids[0].addExcInfo(exc)
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -2501,7 +2517,7 @@ class HasAbsPropCond(Cond):
         prop = runt.model.props.get(name)
         if prop is None:
             mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
         if prop.isform:
 
@@ -2531,11 +2547,11 @@ class ArrayCond(Cond):
             prop = node.form.props.get(name)
             if prop is None:
                 mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name)
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
             if not prop.type.isarray:
                 mesg = f'Array filter syntax is invalid for non-array prop {name}.'
-                raise s_exc.BadCmprType(mesg=mesg)
+                raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
 
             ctor = prop.type.arraytype.getCmprCtor(cmpr)
 
@@ -2562,11 +2578,11 @@ class AbsPropCond(Cond):
         prop = runt.model.props.get(name)
         if prop is None:
             mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+            raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
         ctor = prop.type.getCmprCtor(cmpr)
         if ctor is None:
-            raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
+            raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
 
         if prop.isform:
 
@@ -2603,7 +2619,7 @@ class TagValuCond(Cond):
         cmpr = await cnode.compute(runt, None)
         cmprctor = ival.getCmprCtor(cmpr)
         if cmprctor is None:
-            raise s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name)
+            raise cnode.addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ival.name))
 
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
@@ -2654,7 +2670,7 @@ class RelPropCond(Cond):
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
-                raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
 
             func = ctor(xval)
             return func(valu)
@@ -2696,14 +2712,14 @@ class TagPropCond(Cond):
             prop = runt.model.getTagProp(name)
             if prop is None:
                 mesg = f'No such tag property: {name}'
-                raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
+                raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=name, mesg=mesg))
 
             # TODO cache on (cmpr, valu) for perf?
             valu = await self.kids[2].compute(runt, path)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
-                raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
 
             curv = node.getTagProp(tag, name)
             if curv is None:
@@ -2775,7 +2791,8 @@ class PropValue(Value):
             prop = path.node.form.props.get(name)
             if prop is None:
                 mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
+                                                    name=name, form=path.node.form.name))
 
             valu = path.node.get(name)
             return prop, valu
@@ -2795,7 +2812,8 @@ class PropValue(Value):
             prop = node.form.props.get(name)
             if prop is None:  # pragma: no cover
                 mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg,
+                                                name=name, form=node.form.name))
 
             if i >= imax:
                 return prop, valu
@@ -3380,7 +3398,7 @@ class EditPropSet(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         oper = await self.kids[1].compute(runt, None)
         excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
@@ -3470,7 +3488,7 @@ class EditPropDel(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
             name = await self.kids[0].compute(runt, path)
@@ -3495,7 +3513,7 @@ class EditUnivDel(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         univprop = self.kids[0]
         assert isinstance(univprop, UnivProp)
@@ -3632,7 +3650,7 @@ class EditEdgeAdd(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         # SubQuery -> Query
         query = self.kids[1].kids[0]
@@ -3681,7 +3699,7 @@ class EditEdgeDel(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         query = self.kids[1].kids[0]
 
@@ -3718,7 +3736,7 @@ class EditTagAdd(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
             oper_offset = 1
@@ -3776,7 +3794,7 @@ class EditTagDel(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
 
@@ -3813,7 +3831,7 @@ class EditTagPropSet(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
@@ -3854,7 +3872,7 @@ class EditTagPropDel(Edit):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         async for node, path in genr:
 
@@ -4058,7 +4076,8 @@ class Function(AstNode):
     async def run(self, runt, genr):
         argskid = self.kids[1]
         if not argskid.isRuntSafe(runt):
-            raise s_exc.StormRuntimeError(mesg='Non-runtsafe default parameter value not allowed')
+            exc = s_exc.StormRuntimeError(mesg='Non-runtsafe default parameter value not allowed')
+            raise argskid.addExcInfo(exc)
 
         async def once():
             argdefs = await argskid.compute(runt, None)
