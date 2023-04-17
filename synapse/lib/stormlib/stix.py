@@ -26,7 +26,7 @@ def uuid4(valu=None):
     guid = s_common.guid(valu=valu)
     return str(uuid.UUID(guid, version=4))
 
-stixname_re = regex.compile('^[a-z0-9_]{3,250}$')
+stixtype_re = regex.compile('^[a-z0-9-]{3,250}$')
 
 SYN_STIX_EXTENSION_ID = f'extension-definition--{uuid4("bf1c0a4d90ee557ac05055385971f17c")}'
 
@@ -469,7 +469,7 @@ def _validateConfig(core, config):
         objdefs = custom.get('objects')
         if objdefs is not None:
             for name, info in objdefs.items():
-                if not stixname_re.match(name):
+                if not stixtype_re.match(name):
                     mesg = 'Invalid custom object name. Must match regex: ^[a-z0-9_]{3,250}$'
                     raise s_exc.BadConfValu(mesg=mesg)
                 alltypes.add(name)
