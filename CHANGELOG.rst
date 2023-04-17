@@ -26,6 +26,12 @@ Features and Enhancements
 - Update Axon to always pass size value when saving bytes.
   (`#3084 <https://github.com/vertexproject/synapse/pull/3084>`_)
 
+Bugfixes
+--------
+- Add missing ``toprim()`` calls on arguments to some ``storm:auth:user``
+  and ``storm:auth:role`` APIs.
+  (`#3086 <https://github.com/vertexproject/synapse/pull/3086>`_)
+
 v2.128.0 - 2023-04-11
 =====================
 
