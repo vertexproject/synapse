@@ -446,8 +446,9 @@ bar baz",vv
                 yield b'qwer'
                 yield b'zxcv'
 
-            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-            await axon.save(sha256, genr())
+            asdfbyts = b'asdfqwerzxcv'
+            sha256 = hashlib.sha256(asdfbyts).digest()
+            await axon.save(sha256, genr(), size=len(asdfbyts))
 
             bytslist = [b async for b in axon.get(sha256, 0, size=2)]
             self.eq(b'as', b''.join(bytslist))
@@ -504,7 +505,7 @@ bar baz",vv
                     yield None
                 return
 
-            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen()))
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
@@ -739,8 +740,9 @@ bar baz",vv
                     yield b'qwer'
                     yield b'zxcv'
 
-                sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-                await axon.save(sha256, genr())
+                asdfbyts = b'asdfqwerzxcv'
+                sha256 = hashlib.sha256(asdfbyts).digest()
+                await axon.save(sha256, genr(), size=len(asdfbyts))
                 shatext = s_common.ehex(sha256)
 
                 headers = {'range': 'bytes=2-4'}

@@ -1379,7 +1379,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
-                info['client'] = self.ahaclient
 
             async def finiaha():
                 await s_telepath.delAhaUrl(ahaurl)
