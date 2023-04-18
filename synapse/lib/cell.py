@@ -1453,7 +1453,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
 
-    async def _genAhaInfo(self):
+    async def getAhaInfo(self):
 
         # Default to static information
         ahainfo = self.conf.get('aha:svcinfo')
@@ -1512,7 +1512,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
-        ahainfo = await self._genAhaInfo()
+        ahainfo = await self.getAhaInfo()
         if ahainfo is None:
             return
 
@@ -1520,7 +1520,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         async def onlink(proxy):
             while not proxy.isfini:
-                info = await self._genAhaInfo()
+                info = await self.getAhaInfo()
                 try:
                     await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
@@ -1685,7 +1685,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.ahaclient is None:
             return
 
-        ahainfo = await self._genAhaInfo()
+        ahainfo = await self.getAhaInfo()
         if ahainfo is None:
             return
 

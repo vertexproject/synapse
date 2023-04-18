@@ -5418,7 +5418,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Bring the leader back up and try again
                 async with self.getTestCore(dirn=path00) as core00:
                     self.len(1, await core01.nodes('[ inet:ipv4=7.7.7.8 ]'))
-                    print('LEaving core00 / core01...')
 
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
