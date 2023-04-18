@@ -438,8 +438,6 @@ class NexsRoot(s_base.Base):
 
     async def promote(self):
 
-        logger.error(f'PROMOTE CALLED ON NEXUS! {self.cell.dirn}')
-
         client = self.client
         if client is None:
             mesg = 'promote() called on non-mirror nexsroot'
@@ -527,12 +525,6 @@ class NexsRoot(s_base.Base):
 
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
-
-            finally:
-                # await proxy.waitfini(timeout=1)
-                logger.info(f'Ending mirror loop! {self.cell.dirn}')
-
-        logger.info(f'LEAVING runMirrorLoop! {self.cell.dirn}')
 
         # If we've left the mirror loop for some reason, we no longer know if we
         # will be in the realtime window or not. So we should try to set the ready

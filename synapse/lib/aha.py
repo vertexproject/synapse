@@ -160,7 +160,7 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.addAhaSvc(name, info, network=network)
 
     async def modAhaSvcInfo(self, name, svcinfo):
-        logger.info(f'modSvc {name=} {svcinfo=}')
+
         for key in svcinfo.keys():
             if key not in ('ready',):
                 mesg = f'Editing AHA service info property ({key}) is not supported!'
@@ -181,7 +181,6 @@ class AhaApi(s_cell.CellApi):
         '''
         Return list of AHA svcinfo dictionaries for mirrors of a service.
         '''
-        logger.info(f'Getting mirrors for {name=}')
         svcinfo = await self.cell.getAhaSvc(name)
         if svcinfo is None:
             return None
@@ -495,7 +494,6 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info, network=None):
-        logger.info(f'Adding {name=} {info=}')
 
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
 
@@ -592,45 +590,28 @@ class AhaCell(s_cell.Cell):
         return svcentry
 
     async def getAhaSvcMirrors(self, iden, network=None):
-        '''
-        Get the service mirrors for a given cell by its iden.
-
-        Args:
-            iden (str): Cell iden.
-            network (str): Optional aha network.
-
-        Returns:
-            list: A list of service information dictionaries.
-        '''
 
         retn = {}
         skip = None
 
-        from pprint import pprint
-        print(f'Checking mirrors for cell {iden=}')
         async for svcentry in self.getAhaSvcs(network=network):
-            print('--------------------------------------------------')
-            pprint(svcentry)
 
             svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None:  # pragma: no cover
+            if svcinfo is None: # pragma: no cover
                 continue
 
-            if svcinfo.get('iden') != iden:  # pragma: no cover
+            if svcinfo.get('iden') != iden: # pragma: no cover
                 continue
 
-            if svcinfo.get('online') is None:  # pragma: no cover
-                print(f'SKIPPING NOT ONLINE READY')
+            if svcinfo.get('online') is None: # pragma: no cover
                 continue
 
             if not svcinfo.get('ready'):
-                print(f'SKIPPING READY')
                 continue
 
             # if we run across the leader, skip ( and mark his run )
             if svcentry.get('svcname') == svcinfo.get('leader'):
                 skip = svcinfo.get('run')
-                print(f'Skip is {skip=}')
                 continue
 
             retn[svcinfo.get('run')] = svcentry

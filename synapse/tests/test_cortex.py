@@ -101,13 +101,9 @@ class CortexTest(s_t_utils.SynTest):
                         self.false((await core00.getCellInfo())['cell']['uplink'])
                         self.true((await core01.getCellInfo())['cell']['uplink'])
 
-                        logger.info('PROMOTING CORE01')
-
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
                         await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
-
-                        logger.info('Promoted CORE01!')
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
@@ -5442,6 +5438,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
 
     async def test_cortex_mirror_culled(self):
+
         with self.getTestDir() as dirn:
 
             path00 = s_common.gendir(dirn, 'core00')    # upstream
@@ -5570,6 +5567,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(log00 == log01 == log02)
 
     async def test_cortex_mirror_of_mirror(self):
+
         with self.getTestDir() as dirn:
 
             path00 = s_common.gendir(dirn, 'core00')
