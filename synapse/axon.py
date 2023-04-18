@@ -1151,14 +1151,14 @@ class Axon(s_cell.Cell):
         Returns:
             int: The size of the bytes saved.
         '''
-        assert genr is not None and size is not None
+        assert genr is not None and isinstance(size, int)
         return await self._populate(sha256, genr, size)
 
     async def _populate(self, sha256, genr, size):
         '''
         Populates the metadata and save the data itself if genr is not None
         '''
-        assert genr is not None and size is not None
+        assert genr is not None and isinstance(size, int)
 
         self._reqBelowLimit()
 

@@ -5045,6 +5045,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
 
             visi = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(hehe.haha)
+                $visi = $lib.auth.users.byname(visi)
+                $visi.setRules($lib.list($rule))
+                return($visi)
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), visi['rules'])
+
+            visi = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(foo.bar)
                 $visi = $lib.auth.users.byname(visi)
                 $visi.addRule($rule)
@@ -5075,6 +5083,14 @@ class StormTypesTest(s_test.SynTest):
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(($rule,))
+                return($ninjas)
+            ''')
+            self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
+
+            ninjas = await core.callStorm('''
+                $rule = $lib.auth.ruleFromText(hehe.haha)
+                $ninjas = $lib.auth.roles.byname(ninjas)
+                $ninjas.setRules($lib.list($rule))
                 return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
