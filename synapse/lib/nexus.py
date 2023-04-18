@@ -542,7 +542,7 @@ class NexsRoot(s_base.Base):
             ahainfo = await self.cell.ahaclient.getCellInfo()
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
-                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': True})
+                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
