@@ -45,6 +45,9 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_handoff(self):
 
+        import logging
+        logger = logging.getLogger(__name__)
+
         with self.getTestDir() as dirn:
             ahadir = s_common.genpath(dirn, 'aha00')
             coredir0 = s_common.genpath(dirn, 'core00')
@@ -98,9 +101,13 @@ class CortexTest(s_t_utils.SynTest):
                         self.false((await core00.getCellInfo())['cell']['uplink'])
                         self.true((await core01.getCellInfo())['cell']['uplink'])
 
+                        logger.info('PROMOTING CORE01')
+
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
                         await s_tools_promote.main(argv, outp=outp)
+
+                        logger.info('Promoted CORE01!')
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
