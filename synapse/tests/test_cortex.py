@@ -45,9 +45,6 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_handoff(self):
 
-        import logging
-        logger = logging.getLogger(__name__)
-
         with self.getTestDir() as dirn:
             ahadir = s_common.genpath(dirn, 'aha00')
             coredir0 = s_common.genpath(dirn, 'core00')
