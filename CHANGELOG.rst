@@ -11,6 +11,7 @@ Bugfixes
 --------
 - Fix an issue where attempting a tag lift with a variable containing
   a zero-length string would raise an MDB error.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
 
 v2.129.0 - 2023-04-17
 =====================
