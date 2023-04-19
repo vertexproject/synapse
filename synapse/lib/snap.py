@@ -859,12 +859,18 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByTag(self, tag, form=None):
+        if len(tag) == 0:
+            raise s_exc.BadTypeValu(mesg="Tag names must be non-zero length.")
+
         async for (buid, sodes) in self.core._liftByTag(tag, form, self.layers):
             node = await self._joinSodes(buid, sodes)
             if node is not None:
                 yield node
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None):
+        if len(tag) == 0:
+            raise s_exc.BadTypeValu(mesg="Tag names must be non-zero length.")
+
         norm, info = self.core.model.type('ival').norm(valu)
         async for (buid, sodes) in self.core._liftByTagValu(tag, cmpr, norm, form, self.layers):
             node = await self._joinSodes(buid, sodes)

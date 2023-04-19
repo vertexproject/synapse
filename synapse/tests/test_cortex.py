@@ -1511,6 +1511,12 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(TypeError):
                 await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
 
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag='' #$tag")
+
+            with self.raises(s_exc.BadTypeValu):
+                await wcore.nodes("$tag='' #$tag=2020")
+
     async def test_base_types1(self):
 
         async with self.getTestCore() as core:

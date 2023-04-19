@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue where attempting a tag lift with a variable containing
+  a zero-length string would raise an MDB error.
+
 v2.129.0 - 2023-04-17
 =====================
 
