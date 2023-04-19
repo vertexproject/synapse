@@ -1464,10 +1464,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.sockaddr is None:
             return None
 
-        # If we have no dmon listener configured, do not generate ahainfo
         turl = self.conf.get('dmon:listen')
-        if turl is None:
-            return None
 
         # Dynamically generate the aha info based on config and runtime data.
         urlinfo = s_telepath.chopurl(turl)
