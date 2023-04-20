@@ -14,6 +14,61 @@ Features and Enhancements
   ``$lib.stix.validate``, ``$lib.json.schema``.
   (`#3033 <https://github.com/vertexproject/synapse/pull/3033>`_)
 
+v2.129.0 - 2023-04-17
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``ou`` and ``risk`` models.
+  (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
+
+  ``ou:campaign``
+    Add a ``names`` property to record alternative names for the campaign.
+    Add ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the campaign.
+
+  ``risk:attack``
+    Add ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the attack.
+
+  ``risk:compromise``
+    Add ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the compromise.
+
+  ``risk:vuln``
+    Add ``reporter`` and ``reporter:name`` properties to record information
+    about a reporter of the vulnerability.
+
+- Add leader status to the ``synapse.tools.aha.list`` tool output.
+  This will only be available if a leader has been registered for
+  the service.
+  (`#3078 <https://github.com/vertexproject/synapse/pull/3078>`_)
+- Add support for private values in Storm modules, which are specified
+  by beginning the name with a double underscore (``__``). These values
+  cannot be dereferenced outside of the module they are declared in.
+  (`#3079 <https://github.com/vertexproject/synapse/pull/3079>`_)
+- Update error messages for Axon.wget, Axon.wput, and Axon.postfiles
+  to include more helpful information.
+  (`#3077 <https://github.com/vertexproject/synapse/pull/3077>`_)
+- Update ``it:semver`` string normalization to attempt parsing
+  improperly formatted semver values.
+  (`#3080 <https://github.com/vertexproject/synapse/pull/3080>`_)
+- Update Axon to always pass size value when saving bytes.
+  (`#3084 <https://github.com/vertexproject/synapse/pull/3084>`_)
+
+Bugfixes
+--------
+- Add missing ``toprim()`` calls on arguments to some ``storm:auth:user``
+  and ``storm:auth:role`` APIs.
+  (`#3086 <https://github.com/vertexproject/synapse/pull/3086>`_)
+- Fix the regular expression used to validate custom STIX types.
+  (`#3093 <https://github.com/vertexproject/synapse/pull/3093>`_)
+
+Improved Documentation
+----------------------
+- Add sections on user and role permissions to the Synapse Admin guide.
+  (`#3073 <https://github.com/vertexproject/synapse/pull/3073>`_)
+
 v2.128.0 - 2023-04-11
 =====================
 

@@ -366,7 +366,7 @@ class UpLoad(s_base.Base):
 
                 yield byts
 
-        await self.axon.save(sha256, genr())
+        await self.axon.save(sha256, genr(), rsize)
 
         self._reset()
         return rsize, sha256
@@ -1140,7 +1140,7 @@ class Axon(s_cell.Cell):
         '''
         return dict(self.axonmetrics.items())
 
-    async def save(self, sha256, genr):
+    async def save(self, sha256, genr, size):
         '''
         Save a generator of bytes to the Axon.
 
@@ -1151,14 +1151,14 @@ class Axon(s_cell.Cell):
         Returns:
             int: The size of the bytes saved.
         '''
-        assert genr is not None
-        return await self._populate(sha256, genr)
+        assert genr is not None and isinstance(size, int)
+        return await self._populate(sha256, genr, size)
 
-    async def _populate(self, sha256, genr, size=None):
+    async def _populate(self, sha256, genr, size):
         '''
         Populates the metadata and save the data itself if genr is not None
         '''
-        assert genr is not None or size is not None
+        assert genr is not None and isinstance(size, int)
 
         self._reqBelowLimit()
 
@@ -1171,8 +1171,7 @@ class Axon(s_cell.Cell):
             fhash = s_common.ehex(sha256)
             logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
-            if genr is not None:
-                size = await self._saveFileGenr(sha256, genr)
+            size = await self._saveFileGenr(sha256, genr, size)
 
             await self._axonFileAdd(sha256, size, {'tick': s_common.now()})
 
@@ -1194,7 +1193,7 @@ class Axon(s_cell.Cell):
         self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
-    async def _saveFileGenr(self, sha256, genr):
+    async def _saveFileGenr(self, sha256, genr, size):
 
         size = 0
 
@@ -1521,8 +1520,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
@@ -1579,8 +1580,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
@@ -1700,8 +1703,10 @@ class Axon(s_cell.Cell):
             except Exception as e:
                 logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
                 exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
+                errmsg = exc.get('errmsg')
+                if errmsg:
+                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                else:
                     mesg = exc.get('err')
 
                 return {
