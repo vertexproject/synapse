@@ -105,7 +105,7 @@ setup(
         'cbor2>=5.4.1,<5.4.7',
         'bech32==1.2.0',
         'oauthlib>=3.2.1,<4.0.0',
-        'idna=>3.3,<3.5',
+        'idna>=3.3,<3.5',
         'python-dateutil>=2.8,<3.0',
         'pytz>=2021.3,<2022.2',
         'beautifulsoup4[html5lib]>=4.11.1,<5.0',
