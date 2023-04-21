@@ -319,7 +319,7 @@ Backtick format strings may also span multiple lines, which will include the new
 Like double quotes, backticks will preserve the literal meaning of all characters
 **except for** the backslash ( ``\`` ) character, which is interpreted as an 'escape'
 character. The backslash can be used to include special characters such as tab (``\t``)
-or newline (``\n``), or to include a backtick (`````) or curly brace (``{``) in the output.
+or newline (``\n``), or to include a backtick (`````) or curly brace (``{``) in the string.
 
 .. _storm-op-concepts:
 
