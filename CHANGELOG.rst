@@ -13,6 +13,15 @@ Bugfixes
   certain positions would raise a syntax error.
   (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
 
+Features and Enhancements
+-------------------------
+- Updates to the ``infotech`` model.
+  (`#3095 <https://github.com/vertexproject/synapse/pull/3095>`_)
+
+  ``it:host``
+    Add an ``ext:id`` property for recording an external identifier for
+    a host.
+
 v2.129.0 - 2023-04-17
 =====================
 
