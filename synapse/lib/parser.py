@@ -755,8 +755,11 @@ ruleClassMap = {
     'wordtokn': lambda kids: s_ast.Const(''.join([str(k.valu) for k in kids]))
 }
 
+escape_re = regex.compile(r"(?<!\\)((\\\\)*)'")
+
 def format_unescape(valu):
     repl = valu.replace('\\`', '`').replace('\\{', '{')
+    repl = escape_re.sub(r"\1\'", repl)
     return unescape(f"'''{repl}'''")
 
 def unescape(valu):
