@@ -13,7 +13,7 @@ Features and Enhancements
   (`#3095 <https://github.com/vertexproject/synapse/pull/3095>`_)
 
   ``it:host``
-    Add an ``ext:id`` property for recording the external identifier for 
+    Add an ``ext:id`` property for recording an external identifier for
     a host.
 
 v2.129.0 - 2023-04-17
