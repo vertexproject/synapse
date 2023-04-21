@@ -594,52 +594,54 @@ class ItModule(s_module.CoreModule):
 
                 ('it:host', {}, (
                     ('name', ('it:hostname', {}), {
-                        'doc': 'The name of the host or system.',
-                    }),
+                        'doc': 'The name of the host or system.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the host.',
-                    }),
+                        'doc': 'A free-form description of the host.'}),
+
                     ('domain', ('it:domain', {}), {
-                        'doc': 'The authentication domain that the host is a member of.',
-                    }),
+                        'doc': 'The authentication domain that the host is a member of.'}),
+
                     ('ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The last known ipv4 address for the host.'
-                    }),
+                        'doc': 'The last known ipv4 address for the host.'}),
+
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The last known location for the host.'
-                    }),
+                        'doc': 'The last known location for the host.'}),
+
                     ('place', ('geo:place', {}), {
-                        'doc': 'The place where the host resides.',
-                    }),
+                        'doc': 'The place where the host resides.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location string for the node.',
-                    }),
+                        'doc': 'The geo-political location string for the node.'}),
+
                     ('os', ('it:prod:softver', {}), {
-                        'doc': 'The operating system of the host.'
-                    }),
+                        'doc': 'The operating system of the host.'}),
+
                     ('os:name', ('it:prod:softname', {}), {
-                        'doc': 'A software product name for the host operating system. Used for entity resolution.',
-                    }),
+                        'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
+
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The hardware specification for this host.',
-                    }),
+                        'doc': 'The hardware specification for this host.'}),
+
                     ('manu', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:make.',
-                    }),
+                        'doc': 'Please use :hardware:make.'}),
+
                     ('model', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:model.',
-                    }),
+                        'doc': 'Please use :hardware:model.'}),
+
                     ('serial', ('str', {}), {
-                        'doc': 'The serial number of the host.',
-                    }),
+                        'doc': 'The serial number of the host.'}),
+
                     ('operator', ('ps:contact', {}), {
-                        'doc': 'The operator of the host.',
-                    }),
+                        'doc': 'The operator of the host.'}),
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org that operates the given host.',
-                    }),
+                        'doc': 'The org that operates the given host.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external id that uniquely identifies this host entry.'}),
                 )),
                 ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
