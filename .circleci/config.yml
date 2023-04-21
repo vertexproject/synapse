@@ -591,10 +591,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py310
+          PYTHON_TAG: py311
 
     steps:
       - deploy_pypi_prologue
@@ -622,6 +622,19 @@ jobs:
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
+
+    steps:
+      - deploy_pypi_prologue
+      - deploy_pypi_tag_verify
+      - deploy_pypi_wheel_build
+      - deploy_pypi_upload
+
+  deploy_pypi_310:
+    docker:
+      - image: cimg/python:3.10
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py310
 
     steps:
       - deploy_pypi_prologue
