@@ -152,44 +152,56 @@ When entering a query/command in Storm, one or more whitespace characters are **
 command line arguments:
 
 - A command (such as ``max``) and command line parameters (in this case, the property ``:asof``):
+
+::
   
-  ``storm> inet:whois:rec:fqdn=vertex.link | max :asof``
+  storm> inet:whois:rec:fqdn=vertex.link | max :asof
   
 - An unquoted literal and any subsequent argument or operator:
+
+::
   
-  ``storm> inet:email=support@vertex.link | count``
+  storm> inet:email=support@vertex.link | count
   
-  ``storm> inet:email=support@vertex.link -> *``
+  storm> inet:email=support@vertex.link -> *
 
 Whitespace characters can **optionally** be used when performing the following operations:
 
 - Assigning values using the equals sign assignment operator:
+
+::
   
-  ``storm> [inet:ipv4=192.168.0.1]``
+  storm> [inet:ipv4=192.168.0.1]
   
-  ``storm> [inet:ipv4 = 192.168.0.1]``
+  storm> [inet:ipv4 = 192.168.0.1]
 
 - Comparison operations:
+
+::
   
-  ``storm> file:bytes:size>65536``
+  storm> file:bytes:size>65536
   
-  ``storm> file:bytes:size > 65536``
+  storm> file:bytes:size > 65536
 
 - Pivot operations:
+
+::
   
-  ``storm> inet:ipv4->*``
+  storm> inet:ipv4->*
   
-  ``storm> inet:ipv4 -> *``
+  storm> inet:ipv4 -> *
   
 - Specifying the content of edit brackets or edit parentheses:
 
-  ``storm> [inet:fqdn=vertex.link]``
+::
+
+  storm> [inet:fqdn=vertex.link]
   
-  ``storm> [ inet:fqdn=vertex.link ]``
+  storm> [ inet:fqdn=vertex.link ]
   
-  ``storm> [ inet:fqdn=vertx.link (inet:ipv4=1.2.3.4 :asn=5678) ]``
+  storm> [ inet:fqdn=vertx.link (inet:ipv4=1.2.3.4 :asn=5678) ]
   
-  ``storm> [ inet:fqdn=vertex.link ( inet:ipv4=1.2.3.4 :asn=5678 ) ]``
+  storm> [ inet:fqdn=vertex.link ( inet:ipv4=1.2.3.4 :asn=5678 ) ]
 
 Whitespace characters **cannot** be used between reserved characters when performing the following CLI operations:
 
@@ -197,7 +209,9 @@ Whitespace characters **cannot** be used between reserved characters when perfor
   remove tags to and from nodes in Synapse respectively. When performing tag operations using these characters,
   a whitespace character cannot be used between the actual character and the tag name (e.g., ``+#<tag>``).
 
-  ``storm> inet:ipv4 = 192.168.0.1 [ -#oldtag +#newtag ]``
+::
+
+  storm> inet:ipv4 = 192.168.0.1 [ -#oldtag +#newtag ]
 
 .. _storm-literals:
 
@@ -241,23 +255,31 @@ special characters such as tab (``\t``) or newline (``\n``) within a literal.
 The Storm queries below demonstrate assignment and comparison operations that **do not require** quotation marks:
 
 - Lifting the domain ``vtx.lk``:
+
+::
   
-  ``storm> inet:fqdn = vtx.lk``
+  storm> inet:fqdn = vtx.lk
 
 - Lifting the file name ``windowsupdate.exe``:
+
+::
   
-  ``storm> file:base = windowsupdate.exe``
+  storm> file:base = windowsupdate.exe
 
 The commands below demonstrate assignment and comparison operations that **require** the use of quotation marks.
 Failing to enclose the literals below in quotation marks will result in a syntax error.
 
 - Lift the file name ``windows update.exe`` which contains a whitespace character:
+
+::
   
-  ``storm> file:base = 'windows update.exe'``
+  storm> file:base = 'windows update.exe'
 
 - Lift the file name ``windows,update.exe`` which contains the comma special character:
+
+::
   
-  ``storm> file:base = "windows,update.exe"``
+  storm> file:base = "windows,update.exe"
 
 .. _storm-backtick-format-strings:
 
@@ -268,15 +290,36 @@ Backticks ( ``` ``` ) can be used to specify a format string in Storm, with curl
 
 - Use a variable in a string:
 
-  ``storm> $ip = "1.2.3.4" $str = `The IP is {$ip}```
+::
+
+  storm> $ip = "1.2.3.4" $str = `The IP is {$ip}`
 
 - Use node properties in a string:
 
-  ``storm> inet:ipv4=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} .seen={.seen} foo={#foo}`)``
+::
+
+  storm> inet:ipv4=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} .seen={.seen} foo={#foo}`)
 
 - Lift a node using a format string:
 
-  ``storm> $ip=1.2.3.4 $port=22 inet:client=`{$ip}:{$port}```
+::
+
+  storm> $ip=1.2.3.4 $port=22 inet:client=`{$ip}:{$port}`
+
+Backtick format strings may also span multiple lines, which will include the newlines when displayed:
+
+::
+
+    storm> inet:ipv4=1.2.3.4 $lib.print(`
+    IP {$node.repr()}:
+    asn={:asn}
+    .seen={.seen}
+    foo={#foo}`)
+
+Like double quotes, backticks will preserve the literal meaning of all characters
+**except for** the backslash ( ``\`` ) character, which is interpreted as an 'escape'
+character. The backslash can be used to include special characters such as tab (``\t``)
+or newline (``\n``), or to include a backtick (`````) or curly brace (``{``) in the output.
 
 .. _storm-op-concepts:
 
