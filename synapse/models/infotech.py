@@ -641,7 +641,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The org that operates the given host.'}),
 
                     ('ext:id', ('str', {}), {
-                        'doc': 'An external id that uniquely identifies this host entry.'}),
+                        'doc': 'An external identifier for the host.'}),
                 )),
                 ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
