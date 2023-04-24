@@ -5078,24 +5078,7 @@ class LibVars(Lib):
         return list(self.runt.vars.items())
 
     async def _libVarsType(self, valu):
-        if valu is undef:
-            return 'undef'
-
-        if isinstance(valu, int):
-            return 'int'
-
-        if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
-            return 'generator'
-
-        if isinstance(valu, (types.FunctionType, types.MethodType)):
-            return 'function'
-
-        fp = fromprim(valu)
-
-        if isinstance(fp, StormType):
-            return fp._storm_typename
-
-        raise s_exc.StormRuntimeError(mesg='Unknown object type encountered: {obj}', valuclass=valu.__class__.__name__)
+        return await totype(valu)
 
 @registry.registerType
 class Query(Prim):
@@ -9388,3 +9371,24 @@ async def tobuidhex(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg)
 
     return valu
+
+async def totype(valu) -> str:
+    '''Convert a python valu to its Storm type'''
+    if valu is undef:
+        return 'undef'
+
+    if isinstance(valu, int):
+        return 'int'
+
+    if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
+        return 'generator'
+
+    if isinstance(valu, (types.FunctionType, types.MethodType)):
+        return 'function'
+
+    fp = fromprim(valu)
+
+    if isinstance(fp, StormType):
+        return fp._storm_typename
+
+    raise s_exc.StormRuntimeError(mesg=f'Unknown object type encountered: {valu}', valuclass=valu.__class__.__name__)
