@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.130.0 - 2023-04-24
+=====================
 
 Features and Enhancements
 -------------------------
@@ -16,11 +16,25 @@ Features and Enhancements
     Add an ``ext:id`` property for recording an external identifier for
     a host.
 
+- The ``Cell.ahaclient`` is longer cached in the
+  ``synapse.telepath.aha_clients`` dictionary. This isolates the Cell
+  connection to Aha from other clients.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- When the Cell mirror loop exits, it now reports it ``ready`` status to the
+  Aha service. This allows a service to mark itself as "not ready" if the loop
+  restarts, since it may no longer be in the realtime change window.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+
 Bugfixes
 --------
 - Fix an issue in backtick format strings where single quotes in
   certain positions would raise a syntax error.
   (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
+- Fix an issue where the Cell would report a static ``ready`` value to the Aha
+  service upon reconnecting, instead of it's current ``ready`` status. The
+  ``Cell.ahainfo`` value was replaced with a ``Cell.getAhaInfo()`` API which
+  returns the current information to report to the Aha service.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
 
 v2.129.0 - 2023-04-17
 =====================
