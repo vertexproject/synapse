@@ -5189,12 +5189,6 @@ class NodeProps(Prim):
         {'name': 'list', 'desc': 'List the properties and their values from the ``$node``.',
          'type': {'type': 'function', '_funcname': 'list',
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
-        {'name': 'del', 'desc': 'Remove a specific property value by name.',
-         'type': {'type': 'function', '_funcname': 'del',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to delete.', },
-                  ),
-                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:node:props'
     _ismutable = True
@@ -5208,7 +5202,6 @@ class NodeProps(Prim):
             'get': self.get,
             'set': self.set,
             'list': self.list,
-            'del': self._methNodePropsDel,
         }
 
     async def _derefGet(self, name):
@@ -5227,7 +5220,21 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
         '''
         name = await tostr(name)
+
+        formprop = self.valu.form.prop(name)
+        if formprop is None:
+            mesg = f'No prop {self.valu.form.name}:{name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
+
+        gateiden = self.valu.snap.wlyr.iden
+
+        if valu is undef:
+            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            await self.valu.pop(name, None)
+            return
+
         valu = await toprim(valu)
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
@@ -5256,15 +5263,6 @@ class NodeProps(Prim):
     @stormfunc(readonly=True)
     def value(self):
         return dict(self.valu.props)
-
-    async def _methNodePropsDel(self, name):
-        formprop = self.valu.form.prop(name)
-        if formprop is None:
-            mesg = f'No prop {self.valu.form.name}:{name}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
-        gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
-        await self.valu.pop(name)
 
 @registry.registerType
 class NodeData(Prim):

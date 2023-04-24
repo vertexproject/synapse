@@ -5380,6 +5380,9 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(lolnope, 42))')
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('inet:ipv4=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
+
             await fakeuser.addRule((True, ('node', 'prop', 'set')))
             retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
             self.true(retn)
@@ -5417,17 +5420,17 @@ class StormTypesTest(s_test.SynTest):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.size=(foo, bar)'))
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('inet:ipv4=1.2.3.4 $node.props.del(dns:rev)', opts=opts)
+                await core.callStorm('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4')
             self.nn(nodes[0].props.get('dns:rev'))
 
             await fakeuser.addRule((True, ('node', 'prop', 'del')))
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.props.del(dns:rev)', opts=opts)
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
             self.none(nodes[0].props.get('dns:rev'))
 
             with self.raises(s_exc.NoSuchProp):
-                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.del(newp)'))
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp = $lib.undef'))
 
     async def test_stormtypes_toprim(self):
 
