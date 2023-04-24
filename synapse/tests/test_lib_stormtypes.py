@@ -5416,6 +5416,19 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.size=(foo, bar)'))
 
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('inet:ipv4=1.2.3.4 $node.props.del(dns:rev)', opts=opts)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.nn(nodes[0].props.get('dns:rev'))
+
+            await fakeuser.addRule((True, ('node', 'prop', 'del')))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.props.del(dns:rev)', opts=opts)
+            self.none(nodes[0].props.get('dns:rev'))
+
+            with self.raises(s_exc.NoSuchProp):
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.del(newp)'))
+
     async def test_stormtypes_toprim(self):
 
         async with self.getTestCore() as core:
