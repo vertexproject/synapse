@@ -5429,6 +5429,10 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
             self.none(nodes[0].props.get('dns:rev'))
 
+            await core.nodes('$n=$lib.null inet:ipv4=1.2.3.4 $n=$node spin | $n.props."dns:rev" = "vertex.link"')
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(nodes[0].props.get('dns:rev'), 'vertex.link')
+
             with self.raises(s_exc.NoSuchProp):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp = $lib.undef'))
 

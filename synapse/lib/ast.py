@@ -1033,7 +1033,8 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, None)
 
             # TODO: ditch this when storm goes full heavy object
-            await item.setitem(name, valu)
+            with s_scope.enter({'runt': runt}):
+                await item.setitem(name, valu)
 
 class VarListSetOper(Oper):
 
