@@ -9372,8 +9372,17 @@ async def tobuidhex(valu, noneok=False):
 
     return valu
 
-async def totype(valu) -> str:
-    '''Convert a python valu to its Storm type'''
+async def totype(valu, basetypes=False) -> str:
+    '''
+    Convert a value to its Storm type string.
+
+    Args:
+        valu: The object to check.
+        basetypes (bool): If True, return the base Python class name.
+
+    Returns:
+        str: The type name.
+    '''
     if valu is undef:
         return 'undef'
 
@@ -9391,4 +9400,8 @@ async def totype(valu) -> str:
     if isinstance(fp, StormType):
         return fp._storm_typename
 
-    raise s_exc.StormRuntimeError(mesg=f'Unknown object type encountered: {valu}', valuclass=valu.__class__.__name__)
+    clsn = valu.__class__.__name__
+    if basetypes:
+        return clsn
+
+    raise s_exc.StormRuntimeError(mesg=f'Unknown object type encountered: {clsn}', valuclass=clsn)
