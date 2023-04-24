@@ -199,7 +199,6 @@ class RiskModule(s_module.CoreModule):
                     ('reporter:published', ('time', {}), {
                         'doc': 'The time that the reporting organization first publicly disclosed the tool.'}),
 
-
                     ('soft', ('it:prod:soft', {}), {
                         'doc': 'The authoritative software family for the tool.'}),
 

@@ -1107,8 +1107,10 @@ class InetModule(s_module.CoreModule):
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An Autonomous System Number (ASN).'
-                    }),
+                        'doc': 'An Autonomous System Number (ASN).'}),
+
+                    ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
+                        'doc': 'An network protocol name.'})
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
@@ -1408,6 +1410,11 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 'forms': (
+
+                    ('inet:proto', {}, (
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The default port this protocol typically uses if applicable.'}),
+                    )),
 
                     ('inet:email:message', {}, (
 
@@ -2398,6 +2405,10 @@ class InetModule(s_module.CoreModule):
 
                         ('acct', ('inet:web:acct', {}), {
                             'doc': 'The account that uploaded the file.'}),
+
+                        ('proto', ('inet:proto', {}), {
+                            'ex' 'https',
+                            'doc': 'The protocol used to transmit the file to the web service.'}),
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file that was sent.'}),
