@@ -5220,7 +5220,6 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
         '''
         name = await tostr(name)
-
         formprop = self.valu.form.prop(name)
         if formprop is None:
             mesg = f'No prop {self.valu.form.name}:{name}'

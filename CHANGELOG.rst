@@ -20,6 +20,12 @@ Features and Enhancements
   the property to be removed through ``$node.props``.
   (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
 
+Bugfixes
+--------
+- Fix an issue where permissions were not correctly checked when
+  assigning a property value through ``$node.props``. 
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+
 v2.129.0 - 2023-04-17
 =====================
 
