@@ -335,6 +335,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'loc': 'us.hehe.haha',
                     'operator': cont0,
                     'org': org0,
+                    'ext:id': 'foo123'
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -347,6 +348,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('loc'), 'us.hehe.haha')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('operator'), cont0)
+                self.eq(node.get('ext:id'), 'foo123')
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))

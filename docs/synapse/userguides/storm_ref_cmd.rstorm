@@ -67,6 +67,7 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `help`_
 - `auth`_
 - `background`_
+- `batch`_
 - `count`_
 - `cron`_
 - `delnode`_
@@ -148,17 +149,41 @@ a brief message describing each command. Help for individual commands is availab
 auth
 ----
 
-Storm includes ``auth.*`` commands that allow you create users and roles and manage their associated
+Storm includes ``auth.*`` commands that allow you create and manage users and roles, and manage their associated
 permissions (rules).
 
+- `auth.gate.show`_
 - `auth.role.add`_
 - `auth.role.addrule`_
+- `auth.role.del`_
+- `auth.role.delrule`_
+- `auth.role.list`_
+- `auth.role.mod`_
+- `auth.role.show`_
 - `auth.user.add`_
 - `auth.user.addrule`_
+- `auth.user.delrule`_
+- `auth.user.grant`_
+- `auth.user.list`_
+- `auth.user.mod`_
+- `auth.user.revoke`_
+- `auth.user.show`_
 
 Help for individual ``auth.*`` commands can be displayed using:
 
   ``<command> --help``
+
+.. _storm-auth-gate-show:
+
+auth.gate.show
+++++++++++++++
+
+The ``auth.gate.show`` command displays the user, roles, and permissions associated with the specified
+:ref:`gloss-authgate`.
+
+**Syntax**
+
+.. storm-cli:: auth.gate.show --help
 
 
 .. _storm-auth-role-add:
@@ -185,6 +210,66 @@ The ``auth.role.addrule`` command adds a rule (permission) to a role.
 .. storm-cli:: auth.role.addrule --help
 
 
+.. _storm-auth-role-del:
+
+auth.role.del
++++++++++++++
+
+The ``auth.role.del`` command deletes a role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.del --help
+
+
+.. _storm-auth-role-delrule:
+
+auth.role.delrule
++++++++++++++++++
+
+The ``auth.role.delrule`` command removes a rule (permission) from a role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.delrule --help
+
+
+.. _storm-auth-role-list:
+
+auth.role.list
+++++++++++++++
+
+The ``auth.role.list`` lists all roles in the Cortex.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.list --help
+
+
+.. _storm-auth-role-mod:
+
+auth.role.mod
++++++++++++++
+
+The ``auth.role.mod`` modifies an existing role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.mod --help
+
+
+.. _storm-auth-role-show:
+
+auth.role.show
+++++++++++++++
+
+The ``auth.role.show`` displays the details for a given role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.show --help
+
+
 .. _storm-auth-user-add:
 
 auth.user.add
@@ -209,6 +294,78 @@ The ``auth.user.addrule`` command adds a rule (permission) to a user.
 .. storm-cli:: auth.user.addrule --help
 
 
+.. _storm-auth-user-delrule:
+
+auth.user.delrule
++++++++++++++++++
+
+The ``auth.user.delrule`` command removes a rule (permission) from a user.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.delrule --help
+
+
+.. _storm-auth-user-grant:
+
+auth.user.grant
++++++++++++++++
+
+The ``auth.user.grant`` command grants a role (and its associated permissions) to a user.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.grant --help
+
+
+.. _storm-auth-user-list:
+
+auth.user.list
+++++++++++++++
+
+The ``auth.user.list`` command displays all users in the Cortex.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.list --help
+
+
+.. _storm-auth-user-mod:
+
+auth.user.mod
++++++++++++++
+
+The ``auth.user.mod`` command modifies a user account.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.mod --help
+
+
+.. _storm-auth-user-revoke:
+
+auth.user.revoke
++++++++++++++++++
+
+The ``auth.user.revoke`` command revokes a role (and its associated permissions) from a user.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.revoke --help
+
+
+.. _storm-auth-user-show:
+
+auth.user.show
+++++++++++++++
+
+The ``auth.user.show`` command displays information for a specific user.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.show --help
+
+
 .. _storm-background:
 
 background
@@ -227,6 +384,22 @@ See also :ref:`storm-parallel`.
 **Syntax:**
 
 .. storm-cli:: background --help
+
+
+.. _storm-batch:
+
+batch
+-----
+
+The ``batch`` command allows you to run a Storm query with batched sets of nodes. 
+
+Note that in most cases, Storm queries are meant to operate in a "streaming" manner on individual nodes.
+This command is intended to be used in cases such as querying external APIs that support aggregate queries
+(i.e., an API that allows you to query 100 objects in a single API call as part of the API's quota system).
+
+**Syntax:**
+
+.. storm-cli:: batch --help
 
 
 .. _storm-count:
@@ -651,6 +824,17 @@ the software name (``it:prod:soft:name`` and / or ``it:prod:soft:names``).
 .. storm-cli:: gen.it.prod.soft --help
 
 
+.. _storm-gen-lang:
+
+gen.lang.language
++++++++++++++++++
+
+The ``gen.lang.language`` command locates (lifts) or creates a ``lang:language`` node based on
+the language name (``lang:language:name`` and / or ``lang:language:names``).
+
+.. storm-cli:: gen.lang.language --help
+
+
 .. _storm-gen-industry:
 
 gen.ou.industry
@@ -746,6 +930,9 @@ name of the entity reporting on the software / malware (``risk:tool:software:rep
 
 
 .. _storm-gen-risk-vuln:
+
+gen.risk.vuln
++++++++++++++
 
 The ``gen.risk.vuln`` command locates (lifts) or creates a ``risk:tool:vuln`` node using the
 Common Vulnerabilities and Exposures (CVE) number associated with the vulnerability
@@ -1870,7 +2057,7 @@ Help for individual ``splice.*`` commands can be displayed using:
 splice.list
 +++++++++++
 
-``splice.list`` is a **deprecated** command. ``splice.list``allows you to list (view) splices in the
+``splice.list`` is a **deprecated** command. ``splice.list`` allows you to list (view) splices in the
 splice log. By default, splices are displayed starting with the most recent and working backwards
 through the log.
 
@@ -1884,7 +2071,7 @@ through the log.
 splice.undo
 +++++++++++
 
-``splice.undo`` is a **deprecated** command.. ``splice.list`` allows a user with appropriate permissions
+``splice.undo`` is a **deprecated** command.. ``splice.undo`` allows a user with appropriate permissions
 to roll back or undo the specified set of splices (changes).
 
 **Syntax:**
