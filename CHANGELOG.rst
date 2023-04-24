@@ -16,6 +16,10 @@ Features and Enhancements
     Add an ``ext:id`` property for recording an external identifier for
     a host.
 
+- Add ``$node.props.del()`` method for deleting properties from a node
+  in Storm.
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+
 v2.129.0 - 2023-04-17
 =====================
 
