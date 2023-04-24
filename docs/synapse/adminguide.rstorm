@@ -977,6 +977,46 @@ Similar to ``$lib.model.ext.addFormProp``, ``$lib.model.ext.addUnivProp`` takes 
 ``typedef``, and ``propinfo`` arguments, but applies to all forms.
 
 
+.. _admin_manage_deprecations:
+
+Manage Model Deprecations
+=========================
+
+As the Synapse Data Model grows and evolves, model elements (types, forms, and properties) may be
+deprecated and should no longer be used for new data modeling. The Storm ``model.deprecated`` commands
+can be used to help prepare for the eventual removal of deprecated model elements.
+
+Lock Deprecated Model Elements
+------------------------------
+
+The :ref:`storm-model-deprecated-lock` command edits the lock status of deprecated model elements. Locked
+model elements can still be viewed or deleted, but can no longer be added. Attempting to add a locked
+model element will cause an ``IsDeprLocked`` error. The :ref:`storm-model-deprecated-locks` command can
+be used to show the current lock status of all deprecated model elements.
+
+**Examples:**
+
+Lock the ``ps:person:img`` property:
+
+.. storm-cli:: model.deprecated.lock ps:person:img
+
+Unlock the ``ps:person:img`` property:
+
+.. storm-cli:: model.deprecated.lock --unlock ps:person:img
+
+Lock all deprecated model elements:
+
+.. storm-cli:: model.deprecated.lock *
+
+Check for Deprecated Model Elements
+-----------------------------------
+
+The :ref:`storm-model-deprecated-check` command checks for lock status and the existence of deprecated
+model elements in the Cortex. Warnings will be produced for any deprecated model elements which are
+unlocked or still in use in the Cortex. Once all warnings have been resolved, your Cortex will be
+ready for future model updates.
+
+
 .. _admin_config_mirror:
 
 Configure a Mirrored Layer
