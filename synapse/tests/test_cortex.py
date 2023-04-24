@@ -100,7 +100,7 @@ class CortexTest(s_t_utils.SynTest):
 
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
-                        await s_tools_promote.main(argv, outp=outp)
+                        await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
@@ -5421,7 +5421,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
-                # core00 & core01 can become the leader.
+                # core00 & core01 can become the leader. By default this is
+                # not a graceful promotion.
                 await core01.promote()
                 self.false(core01.nexsroot._mirready.is_set())
 
