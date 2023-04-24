@@ -400,9 +400,9 @@ class RiskModule(s_module.CoreModule):
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability present in this software version range.'}),
                     ('version:min', ('it:prod:softver', {}), {
-                        'doc': 'The minimum version which is vulnerable in this range.'})
+                        'doc': 'The minimum version which is vulnerable in this range.'}),
                     ('version:max', ('it:prod:softver', {}), {
-                        'doc': 'The maximum version which is vulnerable in this range.'})
+                        'doc': 'The maximum version which is vulnerable in this range.'}),
                 )),
 
                 ('risk:hasvuln', {}, (

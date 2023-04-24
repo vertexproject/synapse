@@ -1110,7 +1110,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An Autonomous System Number (ASN).'}),
 
                     ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
-                        'doc': 'An network protocol name.'})
+                        'doc': 'An network protocol name.'}),
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
@@ -2407,8 +2407,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The account that uploaded the file.'}),
 
                         ('proto', ('inet:proto', {}), {
-                            'ex' 'https',
+                            'ex': 'https',
                             'doc': 'The protocol used to transmit the file to the web service.'}),
+
+                        ('interactive', ('bool', {}), {
+                            'doc': 'Set to true if the upload was interactive. False if automated.'}),
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file that was sent.'}),
@@ -2428,18 +2431,18 @@ class InetModule(s_module.CoreModule):
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The IPv6 address of the client that initiated the upload.'}),
 
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geopolitical location that the file was sent from.'),
-
                         ('place', ('geo:place', {}), {
                             'doc': 'The place the file was sent from.'}),
+
+                        ('place:loc', ('loc', {}), {
+                            'doc': 'The geopolitical location that the file was sent from.'}),
 
                         ('place:name', ('geo:name', {}), {
                             'doc': 'The reported name of the place that the file was sent from.'}),
 
                         # ('type', ('inet:web:upload:type:taxonomy', {}), {
                             # 'doc': 'The name of the file at the time it was sent.'}),
-                    ))
+                    )),
 
                     ('inet:web:follows', {}, (
                         ('follower', ('inet:web:acct', {}), {

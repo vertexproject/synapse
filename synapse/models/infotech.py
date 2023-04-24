@@ -387,6 +387,9 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
                 }),
+                ('it:prod:softid', ('guid', {}), {
+                    'doc': 'An identifier issued to a given host by a specific software application.'}),
+
                 ('it:prod:hardware', ('guid', {}), {
                     'doc': 'A specification for a piece of IT hardware.',
                 }),
@@ -1128,6 +1131,20 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:prod:softname', {}, ()),
+                ('it:prod:softid', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The ID issued by the software to the host.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which was issued the ID by the software.'}),
+
+                    ('soft', ('it:prod:softver', {}), {
+                        'doc': 'The software which issued the ID to the host.'}),
+
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software which issued the ID to the host.'}),
+                )),
 
                 ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),

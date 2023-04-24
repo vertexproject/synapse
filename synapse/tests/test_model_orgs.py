@@ -794,8 +794,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('World War III', nodes[0].get('name'))
             self.len(1, await core.nodes('ou:conflict -> meta:timeline'))
 
-            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :conflict={ou:conflict} ]')
+            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={ou:conflict} ]')
             self.len(1, await core.nodes('ou:campaign -> ou:conflict'))
+            self.len(1, await core.nodes('ou:campaign:names[="pacific campaign"]'))
 
             nodes = await core.nodes('''
                 [ ou:contribution=*
