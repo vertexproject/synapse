@@ -984,7 +984,7 @@ Manage Model Deprecations
 
 As the Synapse Data Model grows and evolves, model elements (types, forms, and properties) may be
 deprecated and should no longer be used for new data modeling. The Storm ``model.deprecated`` commands
-can be used to help prepare for the eventual removal of deprecated model elements.
+can be used to prepare for the eventual removal of deprecated model elements.
 
 Lock Deprecated Model Elements
 ------------------------------
