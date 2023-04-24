@@ -2866,6 +2866,9 @@ class FuncCall(Value):
     async def compute(self, runt, path):
 
         func = await self.kids[0].compute(runt, path)
+        if not callable(func):
+            raise s_exc.StormRuntimeError(mesg=f"'{type(func).__name__}' object is not callable.")
+
         if runt.readonly and not getattr(func, '_storm_readonly', False):
             mesg = f'Function ({func.__name__}) is not marked readonly safe.'
             raise s_exc.IsReadOnly(mesg=mesg)
