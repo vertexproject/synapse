@@ -16,11 +16,18 @@ Features and Enhancements
     Add an ``ext:id`` property for recording an external identifier for
     a host.
 
+- Add support for deleting node properties by assigning ``$lib.undef`` to
+  the property to be removed through ``$node.props``.
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+
 Bugfixes
 --------
 - Fix an issue in backtick format strings where single quotes in
   certain positions would raise a syntax error.
   (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
+- Fix an issue where permissions were not correctly checked when
+  assigning a property value through ``$node.props``. 
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
 
 v2.129.0 - 2023-04-17
 =====================
