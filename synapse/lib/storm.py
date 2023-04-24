@@ -181,6 +181,7 @@ permdef_schema = {
         'desc': {'type': 'string'},
         'gate': {'type': 'string'},
         'workflowconfig': {'type': 'boolean'},
+        'default': {'type': 'boolean'},
     },
     'required': ['perm', 'desc', 'gate'],
 }
@@ -751,8 +752,12 @@ stormcmds = (
                 if $pdef.perms {
                     $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
                     for $permdef in $pdef.perms {
-                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
-                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc}`
+                        $default = $permdef.default
+                        if $default {
+                            $text = `{$text} ( default: True )`
+                        }
+                        $lib.print($text)
                     }
                 } else {
                     $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
