@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from unittest import mock
 
@@ -8,6 +9,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.output as s_output
 
@@ -192,18 +194,23 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 # force a reconnect...
+                waiter = aha.waiter(1, 'aha:svcadd')
                 proxy = await cryo.ahaclient.proxy(timeout=2)
                 await proxy.fini()
+                self.nn(await waiter.wait(timeout=6))
 
                 async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
+                waiter = aha.waiter(1, 'aha:svcadd')
                 # force the service into passive mode...
                 await cryo.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
                     async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                         pass
+
+                self.nn(await waiter.wait(timeout=6))
 
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
@@ -315,14 +322,16 @@ class AhaTest(s_test.SynTest):
                 'dmon:listen': f'unix://{dirn}/sock'
             }
             async with self.getTestAha(conf=conf) as aha:
-                uinfo = aha.ahainfo.get('urlinfo', {})
+                ahainfo = await aha.getAhaInfo()
+                uinfo = ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'unix')
                 self.none(uinfo.get('port'))
                 self.none(aha._getAhaUrls())
 
             conf['dmon:listen'] = 'tcp://0.0.0.0:0/'
             async with self.getTestAha(conf=conf) as aha:
-                uinfo = aha.ahainfo.get('urlinfo', {})
+                ahainfo = await aha.getAhaInfo()
+                uinfo = ahainfo.get('urlinfo', {})
                 self.eq(uinfo.get('scheme'), 'tcp')
                 self.gt(uinfo.get('port'), 0)
                 self.eq(aha._getAhaUrls()[0], f'ssl://0.test.foo:{aha.sockaddr[1]}')
@@ -941,3 +950,91 @@ class AhaTest(s_test.SynTest):
                                             provinfo={'mirror': 'cell'}) as cell01:  # type: s_cell.Cell
                     await cell01.sync()
                     # This should teardown cleanly.
+
+    async def test_aha_restart(self):
+        with self.withNexusReplay() as stack:
+
+            with self.getTestDir() as dirn:
+                ahadirn = s_common.gendir(dirn, 'aha')
+                svc0dirn = s_common.gendir(dirn, 'svc00')
+                svc1dirn = s_common.gendir(dirn, 'svc01')
+                async with await s_base.Base.anit() as cm:
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': 'loop.vertex.link',
+                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
+                    }
+                    name = aconf.get('aha:name')
+                    netw = aconf.get('aha:network')
+                    dnsname = f'{name}.{netw}'
+
+                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    addr, port = aha.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
+                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
+                    await cm.enter_context(svc0)
+
+                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                    sconf = {'aha:provision': onetime}
+                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
+                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
+                    await cm.enter_context(svc1)
+
+                    # Ensure that services have connected
+                    await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
+                    await svc1.sync()
+
+                    # Get Aha services
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    self.true(ready)
+
+                    # Fini the Aha service.
+                    await aha.fini()
+
+                    # Reuse our listening port we just deployed services with
+                    aconf = {
+                        'aha:name': 'aha',
+                        'aha:network': 'loop.vertex.link',
+                        'provision:listen': 'ssl://aha.loop.vertex.link:0',  # we do not care about provisioning
+                        'dmon:listen': f'ssl://{dnsname}:{ahaport}?hostname={dnsname}&ca={netw}'
+                    }
+
+                    # Restart aha
+                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
+                    await cm.enter_context(aha)
+
+                    # services are cleared
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    online = svcinfo.get('online')
+                    self.none(online)
+                    self.true(ready)  # Ready is not cleared upon restart
+
+                    n = 3
+                    if len(stack._exit_callbacks) > 0:
+                        n = n * 2
+
+                    waiter = aha.waiter(n, 'aha:svcadd')
+                    self.ge(len(await waiter.wait(timeout=12)), n)
+
+                    # svc01 has reconnected and the ready state has been re-registered
+                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
+                    svcinfo = snfo.get('svcinfo')
+                    ready = svcinfo.get('ready')
+                    online = svcinfo.get('online')
+                    self.nn(online)
+                    self.true(ready)
