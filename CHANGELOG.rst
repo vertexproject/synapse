@@ -20,9 +20,10 @@ Features and Enhancements
   ``synapse.telepath.aha_clients`` dictionary. This isolates the Cell
   connection to Aha from other clients.
   (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
-- When the Cell mirror loop exits, it now reports it ``ready`` status to the
-  Aha service. This allows a service to mark itself as "not ready" if the loop
-  restarts, since it may no longer be in the realtime change window.
+- When the Cell mirror loop exits, it now reports the current ``ready`` status
+  to the Aha service. This allows a service to mark itself as "not ready" when
+  the loop restarts and it is a follower, since it may no longer be in the
+  realtime change window.
   (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
 
 Bugfixes
@@ -31,7 +32,7 @@ Bugfixes
   certain positions would raise a syntax error.
   (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
 - Fix an issue where the Cell would report a static ``ready`` value to the Aha
-  service upon reconnecting, instead of it's current ``ready`` status. The
+  service upon reconnecting, instead of the current ``ready`` status. The
   ``Cell.ahainfo`` value was replaced with a ``Cell.getAhaInfo()`` API which
   returns the current information to report to the Aha service.
   (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
