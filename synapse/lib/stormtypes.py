@@ -5264,7 +5264,7 @@ class NodeProps(Prim):
             raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
-        return await self.valu.pop(name)
+        await self.valu.pop(name)
 
 @registry.registerType
 class NodeData(Prim):
