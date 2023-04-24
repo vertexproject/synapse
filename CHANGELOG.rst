@@ -16,6 +16,12 @@ Features and Enhancements
     Add an ``ext:id`` property for recording an external identifier for
     a host.
 
+Bugfixes
+--------
+- Attempting to call non-existent Storm functions now raises a
+  ``StormRuntimeError`` rather than a Python ``TypeError``.
+  (`#3097 <https://github.com/vertexproject/synapse/pull/3097>`_)
+
 v2.129.0 - 2023-04-17
 =====================
 
