@@ -435,7 +435,7 @@ class OuModule(s_module.CoreModule):
                         'ex': 'operation overlord',
                         'doc': 'A terse name of the campaign.'}),
 
-                    ('names', ('array', {'type': 'ou:campname'}), {
+                    ('names', ('array', {'type': 'ou:campname', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the campaign.'}),
 
                     ('reporter', ('ou:org', {}), {

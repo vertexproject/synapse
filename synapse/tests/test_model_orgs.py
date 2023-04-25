@@ -68,6 +68,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'actors': (acto,),
                     'camptype': 'get.pizza',
                     'name': 'MyName',
+                    'names': ('foo', 'bar', 'Bar'),
                     'type': 'MyType',
                     'desc': 'MyDesc',
                     'success': 1,
@@ -81,7 +82,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
                 self.eq(node.get('actors'), (acto,))
-                self.eq(node.get('name'), 'MyName')
+                self.eq(node.get('name'), 'myname')
+                self.eq(node.get('names'), ('bar', 'foo'))
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('success'), 1)
@@ -796,7 +798,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ ou:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={ou:conflict} ]')
             self.len(1, await core.nodes('ou:campaign -> ou:conflict'))
-            self.len(1, await core.nodes('ou:campaign:names[="pacific campaign"]'))
+            self.len(1, await core.nodes('ou:campaign:names*[="pacific campaign"]'))
 
             nodes = await core.nodes('''
                 [ ou:contribution=*
