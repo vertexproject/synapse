@@ -1541,6 +1541,20 @@ class LayerTest(s_t_utils.SynTest):
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
 
+    async def test_layer_ro(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                msgs = await core.stormlist('$lib.layer.add(({"readonly": $lib.true}))')
+                self.stormIsInErr('Cannot add a new layer with readonly=True', msgs)
+
+                self.len(1, await core.callStorm('return($lib.layer.list())'))
+
+                ldef = {
+                    'iden': s_common.guid(),
+                    'readonly': True
+                }
+                await self.asyncraises(s_exc.ReadOnlyLayer, s_layer.Layer.anit(core, ldef))
+
     async def test_layer_v3(self):
 
         async with self.getRegrCore('2.0-layerv2tov3') as core:
