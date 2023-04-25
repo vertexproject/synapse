@@ -2069,3 +2069,11 @@ class LayerTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadStorageVersion):
             async with self.getRegrCore('future-layrvers') as core:
                 pass
+
+    async def test_layer_readonly_new(self):
+
+        errmsg = 'readonly layer 30a8a5cf989070fa3a5beb7ae4483ab2 does not exist, removing'
+
+        with self.getLoggerStream('synapse.cortex', errmsg) as stream:
+            async with self.getRegrCore('readonly-newlayer') as core:
+                self.len(1, core.layers)
