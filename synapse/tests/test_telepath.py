@@ -1103,16 +1103,21 @@ class TeleTest(s_t_utils.SynTest):
             'inits': 0
         }
         evnt = asyncio.Event()
+        loopevent = asyncio.Event()
         origfire = s_telepath.Client._fireLinkLoop
         originit = s_telepath.Client._initTeleLink
 
+        tgt = {'n': 3}
+
         async def countLinkLoops(self):
             cnts['loops'] += 1
+            if cnts['loops'] > tgt.get('n'):
+                loopevent.set()
             await origfire(self)
 
         async def countInitLinks(self, url):
             cnts['inits'] += 1
-            if cnts['inits'] > 3:
+            if cnts['inits'] > tgt.get('n'):
                 evnt.set()
 
             await originit(self, url)
@@ -1144,15 +1149,20 @@ class TeleTest(s_t_utils.SynTest):
             with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
                 with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
                     async with await s_telepath.Client.anit(url, onlink=onlinkFail) as targ:
-
-                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                        fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=6),
+                                             asyncio.wait_for(loopevent.wait(), timeout=6))
+                        self.eq((True, True), await fut)
                         self.eq(4, cnts['loops'])
                         self.eq(4, cnts['inits'])
 
                     evnt.clear()
-                    async with await s_telepath.Client.anit(url, onlink=onlinkExc) as targ:
+                    loopevent.clear()
+                    tgt['n'] = 4
 
-                        self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                    async with await s_telepath.Client.anit(url, onlink=onlinkExc) as targ:
+                        fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=6),
+                                             asyncio.wait_for(loopevent.wait(), timeout=6))
+                        self.eq((True, True), await fut)
                         self.eq(5, cnts['loops'])
                         self.eq(5, cnts['inits'])
 
