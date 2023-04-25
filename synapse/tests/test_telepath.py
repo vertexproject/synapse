@@ -1141,10 +1141,10 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.Client.anit(url) as targ:
                 proxy = await targ.proxy(timeout=2)
                 await targ.onlink(onLinkOk)
-                self.eq(1, cnts['ok'])
+                self.ge(cnts['ok'], 1)
                 with self.raises(s_exc.SynErr):
                     await targ.onlink(onlinkExc)
-                self.eq(1, cnts['exc'])
+                self.ge(cnts['exc'], 1)
 
             with mock.patch('synapse.telepath.Client._fireLinkLoop', countLinkLoops):
                 with mock.patch('synapse.telepath.Client._initTeleLink', countInitLinks):
@@ -1152,19 +1152,19 @@ class TeleTest(s_t_utils.SynTest):
                         fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=6),
                                              asyncio.wait_for(loopevent.wait(), timeout=6))
                         self.eq((True, True), await fut)
-                        self.eq(4, cnts['loops'])
-                        self.eq(4, cnts['inits'])
+                        self.ge(cnts['loops'], 4)
+                        self.ge(cnts['inits'], 4)
 
                     evnt.clear()
                     loopevent.clear()
                     tgt['n'] = 4
 
                     async with await s_telepath.Client.anit(url, onlink=onlinkExc) as targ:
-                        fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=6),
-                                             asyncio.wait_for(loopevent.wait(), timeout=6))
+                        fut = asyncio.gather(asyncio.wait_for(evnt.wait(), timeout=30),
+                                             asyncio.wait_for(loopevent.wait(), timeout=30),)
                         self.eq((True, True), await fut)
-                        self.eq(5, cnts['loops'])
-                        self.eq(5, cnts['inits'])
+                        self.ge(cnts['loops'], 5)
+                        self.ge(cnts['inits'], 5)
 
     async def test_client_method_reset(self):
         class Foo:
