@@ -1188,6 +1188,9 @@ class Layer(s_nexus.Pusher):
 
         self.fresh = not os.path.exists(path)
 
+        if self.fresh and self.readonly:
+            raise s_exc.ReadOnlyLayer(mesg='Cannot create a fresh layer with readonly=True')
+
         self.dirty = {}
         self.futures = {}
 
