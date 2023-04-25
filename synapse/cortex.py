@@ -4407,6 +4407,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layr = self.layers.get(iden)
         if layr is not None:
             return await layr.pack()
+
+        layrdirn = s_common.gendir(self.dirn, 'layers', iden)
+        path = s_common.genpath(layrdirn, 'layer_v2.lmdb')
+
+        if ldef.get('readonly') and not os.path.exists(path):
+            raise s_exc.ReadOnlyLayer(mesg='Cannot add a new layer with readonly=True')
+
         creator = ldef.get('creator')
 
         user = await self.auth.reqUser(creator)
