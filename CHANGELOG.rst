@@ -4,12 +4,12 @@
 Synapse Changelog
 *****************
 
-v2.131.0 - 2023-04-25
+v2.130.1 - 2023-04-25
 =====================
 
 Bugfixes
 --------
-- Address a race condition in a Telepath unit test which was occurring
+- Fix a race condition in a Telepath unit test which was happening
   during CI testing.
   (`#3104 <https://github.com/vertexproject/synapse/pull/3104>`_)
 
