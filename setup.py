@@ -92,7 +92,7 @@ setup(
         'aiosmtplib>=2.0.0,<2.1.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark==1.1.2',
-        'Pygments>=2.7.4,<2.13.0',
+        'Pygments>=2.7.4,<2.16.0',
         'packaging>=20.0,<22.0',
         'fastjsonschema>=2.15.3,<2.16',
         'stix2-validator>=3.0.0,<4.0.0',
@@ -113,14 +113,14 @@ setup(
 
     extras_require={
         'docs': [
-            'nbconvert==5.6.1',
-            'jupyter-client<=6.1.12',
+            'nbconvert>=7.3.1,<8.0.0',
+            'jupyter-client<=8.2.0',
             'jupyter>=1.0.0,<2.0.0',
-            'hide-code>=0.5.2,<0.5.3',
+            'hide-code>=0.7.0,<0.8.0',
             'nbstripout>=0.3.3,<1.0.0',
-            'sphinx>=4.2.0,<5.0.0',
+            'sphinx>=6.2.0,<7.0.0',
             'sphinx-rtd-theme>=1.0.0,<2.0.0',
-            'sphinx-notfound-page==0.8',
+            'sphinx-notfound-page==0.8.3',
             'jinja2<3.1.0',
         ],
         'dev': [
