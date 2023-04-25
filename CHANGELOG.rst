@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.130.0 - 2023-04-24
+v2.130.0 - 2023-04-25
 =====================
 
 Features and Enhancements
@@ -28,6 +28,10 @@ Features and Enhancements
   the loop restarts and it is a follower, since it may no longer be in the
   realtime change window.
   (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- Update the required versions of the ``nbconvert``, ``sphinx`` and
+  ``hide-code`` libraries used for building documentation. Increased the
+  allowed ranges for the ``pygments`` and ``jupyter-client`` libraries.
+  (`#3103 <https://github.com/vertexproject/synapse/pull/3103>`_)
 
 Bugfixes
 --------
