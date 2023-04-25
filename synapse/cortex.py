@@ -4480,6 +4480,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         node = await self.hive.open(('cortex', 'layers'))
         for _, node in node:
             layrinfo = await node.dict()
+            logger.info(f'Layer definition: {list(layrinfo.items())}')
             await self._initLayr(layrinfo)
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
