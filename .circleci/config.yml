@@ -882,6 +882,7 @@ workflows:
             branches:
               only:
                 - master
+                - dev_layer_def
 
       - push_docker_branch:
           requires:

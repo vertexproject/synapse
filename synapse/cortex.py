@@ -4478,10 +4478,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initCoreLayers(self):
         node = await self.hive.open(('cortex', 'layers'))
+        failed = None
+        bad_ldef = None
         for _, node in node:
             layrinfo = await node.dict()
-            logger.info(f'Layer definition: {list(layrinfo.items())}')
-            await self._initLayr(layrinfo)
+            ldef = dict(list(layrinfo.items()))
+            logger.info(f'Layer definition: {ldef}')
+            try:
+                await self._initLayr(layrinfo)
+            except Exception as e:
+                logger.exception('Failed to initialize layer')
+                failed = e
+                bad_ldef = ldef
+        if failed is not None:
+            # Reraise the last failure...
+            raise s_exc.SynErr(mesg=f'Bad ldef {bad_ldef}', ldef=bad_ldef) from failed
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
