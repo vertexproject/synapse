@@ -4491,8 +4491,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 failed = e
                 bad_ldef = ldef
         if failed is not None:
-            # Reraise the last failure...
-            raise s_exc.SynErr(mesg=f'Bad ldef {bad_ldef}', ldef=bad_ldef) from failed
+            raise failed
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
