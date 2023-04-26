@@ -4,6 +4,16 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue where the ``proxy`` argument was not being passed to the Axon
+  when attempting to post a file via Storm with the ``$lib.inet.http.post()``
+  API.
+  (`#3109 <https://github.com/vertexproject/synapse/pull/3109>`_)
+
 v2.130.1 - 2023-04-25
 =====================
 
