@@ -4,8 +4,17 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.130.1 - 2023-04-25
+=====================
+
+Bugfixes
+--------
+- Fix a race condition in a Telepath unit test which was happening
+  during CI testing.
+  (`#3104 <https://github.com/vertexproject/synapse/pull/3104>`_)
+
+v2.130.0 - 2023-04-25
+=====================
 
 Features and Enhancements
 -------------------------
@@ -16,11 +25,36 @@ Features and Enhancements
     Add an ``ext:id`` property for recording an external identifier for
     a host.
 
+- Add support for deleting node properties by assigning ``$lib.undef`` to
+  the property to be removed through ``$node.props``.
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+- The ``Cell.ahaclient`` is longer cached in the
+  ``synapse.telepath.aha_clients`` dictionary. This isolates the Cell
+  connection to Aha from other clients.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- When the Cell mirror loop exits, it now reports the current ``ready`` status
+  to the Aha service. This allows a service to mark itself as "not ready" when
+  the loop restarts and it is a follower, since it may no longer be in the
+  realtime change window.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- Update the required versions of the ``nbconvert``, ``sphinx`` and
+  ``hide-code`` libraries used for building documentation. Increased the
+  allowed ranges for the ``pygments`` and ``jupyter-client`` libraries.
+  (`#3103 <https://github.com/vertexproject/synapse/pull/3103>`_)
+
 Bugfixes
 --------
 - Fix an issue in backtick format strings where single quotes in
   certain positions would raise a syntax error.
   (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
+- Fix an issue where permissions were not correctly checked when
+  assigning a property value through ``$node.props``. 
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+- Fix an issue where the Cell would report a static ``ready`` value to the Aha
+  service upon reconnecting, instead of the current ``ready`` status. The
+  ``Cell.ahainfo`` value was replaced with a ``Cell.getAhaInfo()`` API which
+  returns the current information to report to the Aha service.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
 
 v2.129.0 - 2023-04-17
 =====================
