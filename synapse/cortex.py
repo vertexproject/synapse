@@ -4401,7 +4401,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layr = self.layers.get(iden)
         if layr is not None:
             return await layr.pack()
-
         creator = ldef.get('creator')
 
         user = await self.auth.reqUser(creator)
@@ -4479,7 +4478,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initCoreLayers(self):
         node = await self.hive.open(('cortex', 'layers'))
-        for layriden, node in node:
+        for _, node in node:
             layrinfo = await node.dict()
             await self._initLayr(layrinfo)
 

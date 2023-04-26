@@ -2419,7 +2419,6 @@ class Layer(s_nexus.Pusher):
             await self.layrslab.fini()
             await self.dataslab.fini()
             await self.nodeeditslab.fini()
-            await asyncio.sleep(1)
 
             slabopts['readonly'] = True
             self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
