@@ -2648,3 +2648,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq('tcp://1.2.3.4:443', nodes[0].get('ingress'))
 
             self.len(1, await core.nodes('inet:tunnel -> ps:contact +:email=visi@vertex.link'))
+
+    async def test_model_inet_proto(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:proto=https :port=443 ]')
+            self.len(1, nodes)
+            self.eq(('inet:proto', 'https'), nodes[0].ndef)
+            self.eq(443, nodes[0].get('port'))

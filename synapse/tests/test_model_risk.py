@@ -139,7 +139,7 @@ class RiskModelTest(s_t_utils.SynTest):
             ]''')
             self.eq(node.ndef, ('risk:vuln', vuln))
             self.eq(node.get('name'), 'myvuln')
-            self.eq(node.get('type'), 'mytype')
+            self.eq(node.get('type'), 'mytype.')
             self.eq(node.get('desc'), 'mydesc')
 
             self.eq(node.get('exploited'), True)
