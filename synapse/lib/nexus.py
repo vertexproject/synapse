@@ -422,7 +422,11 @@ class NexsRoot(s_base.Base):
 
         self.started = True
 
+    async def isNexsReady(self):
+        return self.ready.is_set()
+
     async def setNexsReady(self, status):
+
         if status:
             self.ready.set()
         else:
@@ -484,6 +488,7 @@ class NexsRoot(s_base.Base):
 
                     # with tellready we move to ready=true when we get a None
                     if item is None:
+                        logger.info(f'Entering realtime change window for syncing data at offset={offs}')
                         await self.setNexsReady(True)
                         self._mirready.set()
                         continue
@@ -521,6 +526,12 @@ class NexsRoot(s_base.Base):
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
 
+        # If we've left the mirror loop for some reason, we no longer know if we
+        # will be in the realtime window or not. So we should try to set the ready
+        # value to false and clear our internal flag.
+        if not self.isfini:
+            await self.setNexsReady(not self.cell.conf.get('mirror'))
+
     async def _tellAhaReady(self, status):
 
         if self.cell.ahaclient is None:
@@ -531,7 +542,7 @@ class NexsRoot(s_base.Base):
             ahainfo = await self.cell.ahaclient.getCellInfo()
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
-                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': True})
+                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
