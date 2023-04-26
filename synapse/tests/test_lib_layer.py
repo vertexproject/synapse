@@ -1553,10 +1553,16 @@ class LayerTest(s_t_utils.SynTest):
                 readonly = [ldef for ldef in ldefs if ldef.get('readonly')]
                 self.len(1, readonly)
 
-                layr = core.getLayer(readonly[0].get('iden'))
+                layriden = readonly[0].get('iden')
+                layr = core.getLayer(layriden)
                 self.true(layr.layrslab.readonly)
                 self.true(layr.dataslab.readonly)
                 self.true(layr.nodeeditslab.readonly)
+
+                view = await core.callStorm(f'return($lib.view.add(layers=({layriden},)))')
+
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('[inet:fqdn=vertex.link]', opts={'view': view['iden']})
 
     async def test_layer_v3(self):
 

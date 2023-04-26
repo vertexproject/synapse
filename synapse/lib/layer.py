@@ -2358,17 +2358,7 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
-    async def _initLayerStorage(self):
-
-        slabopts = {
-            'readahead': True,
-            'lockmemory': self.lockmemory,
-            'map_async': self.mapasync,
-            'max_replay_log': self.maxreplaylog,
-        }
-
-        if self.growsize is not None:
-            slabopts['growsize'] = self.growsize
+    async def _initSlabs(self, slabopts):
 
         otherslabopts = {
             **slabopts,
@@ -2384,8 +2374,6 @@ class Layer(s_nexus.Pusher):
 
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
-        if self.fresh:
-            self.meta.set('version', 9)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
@@ -2415,19 +2403,30 @@ class Layer(s_nexus.Pusher):
 
         self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
 
+    async def _initLayerStorage(self):
+
+        slabopts = {
+            'readahead': True,
+            'lockmemory': self.lockmemory,
+            'map_async': self.mapasync,
+            'max_replay_log': self.maxreplaylog,
+        }
+
+        if self.growsize is not None:
+            slabopts['growsize'] = self.growsize
+
+        await self._initSlabs(slabopts)
+
+        if self.fresh:
+            self.meta.set('version', 9)
+
         if self.readonly:
             await self.layrslab.fini()
             await self.dataslab.fini()
             await self.nodeeditslab.fini()
 
             slabopts['readonly'] = True
-            otherslabopts['readonly'] = True
-
-            self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
-            self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
-            self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
-
-            self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
+            await self._initSlabs(slabopts)
 
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
