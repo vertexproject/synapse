@@ -2084,4 +2084,13 @@ class LayerTest(s_t_utils.SynTest):
             async with self.getRegrCore('readonly-newlayer') as core:
                 ldefs = await core.callStorm('return($lib.layer.list())')
                 self.len(2, ldefs)
-                self.len(1, [ldef for ldef in ldefs if ldef.get('readonly')])
+
+                readidens = [ldef['iden'] for ldef in ldefs if ldef.get('readonly')]
+                self.len(1, readidens)
+
+                writeidens = [ldef['iden'] for ldef in ldefs if not ldef.get('readonly')]
+
+                readlayr = core.getLayer(readidens[0])
+                writelayr = core.getLayer(writeidens[0])
+
+                self.eq(readlayr.meta.get('version'), writelayr.meta.get('version'))
