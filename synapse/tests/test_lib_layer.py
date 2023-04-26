@@ -1549,7 +1549,14 @@ class LayerTest(s_t_utils.SynTest):
 
                 ldefs = await core.callStorm('return($lib.layer.list())')
                 self.len(2, ldefs)
-                self.len(1, [ldef for ldef in ldefs if ldef.get('readonly')])
+
+                readonly = [ldef for ldef in ldefs if ldef.get('readonly')]
+                self.len(1, readonly)
+
+                layr = core.getLayer(readonly[0].get('iden'))
+                self.true(layr.layrslab.readonly)
+                self.true(layr.dataslab.readonly)
+                self.true(layr.nodeeditslab.readonly)
 
     async def test_layer_v3(self):
 
