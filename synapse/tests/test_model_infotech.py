@@ -1144,12 +1144,29 @@ class InfotechModelTest(s_t_utils.SynTest):
             host = s_common.guid()
             opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
 
-            nodes = await core.nodes('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''
+            [ it:app:snort:rule=$rule
+                :id=999
+                :text=gronk
+                :name=foo
+                :author = {[ ps:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :family=redtree
+                :version=1.2.3 ]
+            ''', opts=opts)
 
             self.len(1, nodes)
+            self.eq('999', nodes[0].get('id'))
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
+            self.eq('redtree', nodes[0].get('family'))
+            self.eq(True, nodes[0].get('enabled'))
             self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq(1325376000000, nodes[0].get('created'))
+            self.eq(1640995200000, nodes[0].get('updated'))
+            self.nn(nodes[0].get('author'))
 
             nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)

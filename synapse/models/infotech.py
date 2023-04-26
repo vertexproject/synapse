@@ -1850,6 +1850,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:rule', {}, (
 
+                    ('id', ('str', {}), {
+                        'doc': 'The snort rule id.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'The snort rule text.'}),
