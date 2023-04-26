@@ -2421,6 +2421,8 @@ class Layer(s_nexus.Pusher):
             await self.nodeeditslab.fini()
 
             slabopts['readonly'] = True
+            otherslabopts['readonly'] = True
+
             self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
             self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
             self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
