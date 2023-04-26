@@ -9385,13 +9385,22 @@ async def totype(valu, basetypes=False) -> str:
 
     Args:
         valu: The object to check.
-        basetypes (bool): If True, return the base Python class name.
+        basetypes (bool): If True, return the base Python class name as a fallback.
 
     Returns:
         str: The type name.
+
+    Raises:
+        StormRuntimeError: If the valu does not resolve to a known type and basetypes=False.
     '''
     if valu is undef:
         return 'undef'
+
+    if valu is None:
+        return 'null'
+
+    if isinstance(valu, bool):
+        return 'boolean'
 
     if isinstance(valu, int):
         return 'int'
