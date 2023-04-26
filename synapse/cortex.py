@@ -2217,9 +2217,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         sodes.clear()
 
                     await uniqset.add(lastbuid)
+                    lastbuid = buid
 
-                lastbuid = buid
-            sodes[layr] = sode
+                sodes[layr] = sode
 
             if lastbuid is not None:
                 sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
