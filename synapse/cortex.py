@@ -4366,13 +4366,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return [await v.pack() for v in views]
 
-    async def reqLayerExists(self, iden):
-        layrdirn = s_common.gendir(self.dirn, 'layers', iden)
-        path = s_common.genpath(layrdirn, 'layer_v2.lmdb')
-
-        if not os.path.exists(path):
-            raise s_exc.ReadOnlyLayer(mesg='Cannot add a new layer with readonly=True')
-
     async def addLayer(self, ldef=None, nexs=True):
         '''
         Add a Layer to the cortex.
@@ -4391,9 +4384,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         s_layer.reqValidLdef(ldef)
 
-        if ldef.get('readonly'):
-            await self.reqLayerExists(ldef['iden'])
-
         if nexs:
             return await self._push('layer:add', ldef)
         else:
@@ -4411,9 +4401,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         layr = self.layers.get(iden)
         if layr is not None:
             return await layr.pack()
-
-        if ldef.get('readonly'):
-            await self.reqLayerExists(iden)
 
         creator = ldef.get('creator')
 
@@ -4491,23 +4478,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await s_layer.Layer.anit(self, layrinfo)
 
     async def _initCoreLayers(self):
-        remlayrs = set()
         node = await self.hive.open(('cortex', 'layers'))
         for layriden, node in node:
             layrinfo = await node.dict()
-
-            layrdirn = s_common.gendir(self.dirn, 'layers', layriden)
-            path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
-
-            if layrinfo.get('readonly') and not os.path.exists(path):
-                logger.error(f'readonly layer {layriden} does not exist, removing')
-                remlayrs.add(layriden)
-                continue
-
             await self._initLayr(layrinfo)
-
-        for layr in remlayrs:
-            await self.hive.pop(('cortex', 'layers', layr))
 
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):

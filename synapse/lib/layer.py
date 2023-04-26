@@ -1188,9 +1188,6 @@ class Layer(s_nexus.Pusher):
 
         self.fresh = not os.path.exists(path)
 
-        if self.fresh and self.readonly:
-            raise s_exc.ReadOnlyLayer(mesg='Cannot create a fresh layer with readonly=True')
-
         self.dirty = {}
         self.futures = {}
 
@@ -2363,7 +2360,6 @@ class Layer(s_nexus.Pusher):
     async def _initLayerStorage(self):
 
         slabopts = {
-            'readonly': self.readonly,
             'readahead': True,
             'lockmemory': self.lockmemory,
             'map_async': self.mapasync,
@@ -2385,9 +2381,6 @@ class Layer(s_nexus.Pusher):
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
 
-        self.layrslab.addResizeCallback(self.core.checkFreeSpace)
-        self.dataslab.addResizeCallback(self.core.checkFreeSpace)
-
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
@@ -2395,19 +2388,14 @@ class Layer(s_nexus.Pusher):
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
-        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, **otherslabopts)
-        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
+        nodeeditpath = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
 
         self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
-
-        self.onfini(self.layrslab)
-        self.onfini(self.nodeeditslab)
-        self.onfini(self.dataslab)
 
         self.bybuidv3 = self.layrslab.initdb('bybuidv3')
 
@@ -2425,6 +2413,27 @@ class Layer(s_nexus.Pusher):
         self.dataname = self.dataslab.initdb('dataname', dupsort=True)
 
         self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
+
+        if self.readonly:
+            await self.layrslab.fini()
+            await self.dataslab.fini()
+            await self.nodeeditslab.fini()
+            await asyncio.sleep(1)
+
+            slabopts['readonly'] = True
+            self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
+            self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
+            self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
+
+            self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
+
+        self.layrslab.addResizeCallback(self.core.checkFreeSpace)
+        self.dataslab.addResizeCallback(self.core.checkFreeSpace)
+        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
+
+        self.onfini(self.layrslab)
+        self.onfini(self.dataslab)
+        self.onfini(self.nodeeditslab)
 
         self.layrslab.on('commit', self._onLayrSlabCommit)
 

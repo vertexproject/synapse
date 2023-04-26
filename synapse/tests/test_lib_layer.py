@@ -1545,15 +1545,11 @@ class LayerTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 msgs = await core.stormlist('$lib.layer.add(({"readonly": $lib.true}))')
-                self.stormIsInErr('Cannot add a new layer with readonly=True', msgs)
+                self.stormHasNoWarnErr(msgs)
 
-                self.len(1, await core.callStorm('return($lib.layer.list())'))
-
-                ldef = {
-                    'iden': s_common.guid(),
-                    'readonly': True
-                }
-                await self.asyncraises(s_exc.ReadOnlyLayer, s_layer.Layer.anit(core, ldef))
+                ldefs = await core.callStorm('return($lib.layer.list())')
+                self.len(2, ldefs)
+                self.len(1, [ldef for ldef in ldefs if ldef.get('readonly')])
 
     async def test_layer_v3(self):
 
@@ -2071,9 +2067,8 @@ class LayerTest(s_t_utils.SynTest):
                 pass
 
     async def test_layer_readonly_new(self):
-
-        errmsg = 'readonly layer 30a8a5cf989070fa3a5beb7ae4483ab2 does not exist, removing'
-
-        with self.getLoggerStream('synapse.cortex', errmsg) as stream:
+        with self.getLoggerStream('synapse.cortex') as stream:
             async with self.getRegrCore('readonly-newlayer') as core:
-                self.len(1, core.layers)
+                ldefs = await core.callStorm('return($lib.layer.list())')
+                self.len(2, ldefs)
+                self.len(1, [ldef for ldef in ldefs if ldef.get('readonly')])
