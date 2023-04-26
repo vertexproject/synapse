@@ -1864,9 +1864,6 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A brief description of the snort rule.'}),
 
-                    ('author', ('ps:contact', {}), {
-                        'doc': 'The contact info for the author of the rule.'}),
-
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
 
