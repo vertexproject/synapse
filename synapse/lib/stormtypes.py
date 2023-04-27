@@ -1529,7 +1529,7 @@ class LibBase(Lib):
     @staticmethod
     async def _get_mesg(mesg, **kwargs):
         if not isinstance(mesg, str):
-            mesg = await torepr(mesg, usestr=True)
+            mesg = await torepr(mesg)
         elif kwargs:
             mesg = await kwarg_format(mesg, **kwargs)
         return mesg
