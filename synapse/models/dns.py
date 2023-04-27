@@ -303,6 +303,15 @@ class DnsModule(s_module.CoreModule):
                     ('fqdn', ('inet:fqdn', {}), {
                         'doc': 'The FQDN registered within a dynamic DNS provider.'}),
 
+                    ('provider', ('ou:org', {}), {
+                        'doc': 'The organization which provides the dynamic DNS FQDN.'}),
+
+                    ('provider:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
+
+                    ('provider:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
+
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact information of the registrant.'}),
 
