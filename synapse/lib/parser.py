@@ -130,7 +130,7 @@ terminalEnglishMap = {
     '$END': 'end of input',
 }
 
-AstInfo = collections.namedtuple('AstInfo', ('text', 'soff', 'eoff', 'sline', 'eline', 'scol', 'ecol'))
+AstInfo = collections.namedtuple('AstInfo', ('text', 'soff', 'eoff', 'sline', 'eline', 'scol', 'ecol', 'isterm'))
 
 class AstConverter(lark.Transformer):
     '''
@@ -147,13 +147,13 @@ class AstConverter(lark.Transformer):
         import hashlib
         self.texthash = hashlib.md5(text.encode()).hexdigest()
 
-    def metaToAstInfo(self, meta):
+    def metaToAstInfo(self, meta, isterm=False):
         if isinstance(meta, lark.tree.Meta) and meta.empty:
-            return AstInfo(self.text, -1, -1, -1, -1, -1, -1)
+            return AstInfo(self.text, -1, -1, -1, -1, -1, -1, isterm)
         return AstInfo(self.text,
             meta.start_pos, meta.end_pos,
             meta.line, meta.end_line,
-            meta.column, meta.end_column)
+            meta.column, meta.end_column, isterm)
 
     def raiseBadSyntax(self, mesg, astinfo):
         raise s_exc.BadSyntax(mesg=mesg,
@@ -178,7 +178,7 @@ class AstConverter(lark.Transformer):
         tokencls = terminalClassMap.get(child.type, s_ast.Const)
 
         # Tokens have similar fields to meta
-        astinfo = self.metaToAstInfo(child)
+        astinfo = self.metaToAstInfo(child, isterm=True)
         return tokencls(astinfo, child.value)
 
     def __default__(self, treedata, children, treemeta):
@@ -213,13 +213,13 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
         kids = [self._parseJsonToken(k) for k in kids]
-        astinfo = self.metaToAstInfo(meta)
+        astinfo = self.metaToAstInfo(meta, isterm=True)
         return s_ast.ExprList(astinfo, kids=kids)
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
         kids = [self._parseJsonToken(k) for k in kids]
-        astinfo = self.metaToAstInfo(meta)
+        astinfo = self.metaToAstInfo(meta, isterm=True)
         return s_ast.ExprDict(astinfo, kids=kids)
 
     @lark.v_args(meta=True)
@@ -429,7 +429,7 @@ class AstConverter(lark.Transformer):
         astinfo = self.metaToAstInfo(meta)
         if kids[2] == '$':
             tokencls = terminalClassMap.get(kids[3].type, s_ast.Const)
-            kidfo = self.metaToAstInfo(kids[3])
+            kidfo = self.metaToAstInfo(kids[3], isterm=True)
             newkid = s_ast.VarValue(kidfo, kids=[tokencls(kids[3], kids[3])])
         else:
             newkid = self._convert_child(kids[2])
