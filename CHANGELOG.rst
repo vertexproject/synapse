@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue with the search functionality in our documentation missing
+  the required jQuery library.
+  (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+
 v2.130.2 - 2023-04-26
 =====================
 
