@@ -2457,19 +2457,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the logon event.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged into the service.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -2482,7 +2478,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged out of the service.'
                         }),
                         ('loc', ('loc', {}), {

@@ -5221,7 +5221,20 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
         '''
         name = await tostr(name)
+        formprop = self.valu.form.prop(name)
+        if formprop is None:
+            mesg = f'No prop {self.valu.form.name}:{name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
+
+        gateiden = self.valu.snap.wlyr.iden
+
+        if valu is undef:
+            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            await self.valu.pop(name, None)
+            return
+
         valu = await toprim(valu)
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
@@ -5231,13 +5244,7 @@ class NodeProps(Prim):
             yield item
 
     async def set(self, prop, valu):
-        formprop = self.valu.form.prop(prop)
-        if formprop is None:
-            mesg = f'No prop {self.valu.form.name}:{prop}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
-        gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
-        return await self.valu.set(prop, valu)
+        return await self.setitem(prop, valu)
 
     @stormfunc(readonly=True)
     async def get(self, name):

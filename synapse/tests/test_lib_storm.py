@@ -154,6 +154,9 @@ class StormTest(s_t_utils.SynTest):
             baz=faz
             ''')
 
+            self.eq("foo 'bar'", await core.callStorm("$foo=bar return(`foo '{$foo}'`)"))
+            self.eq(r"\'''''bar'''", await core.callStorm(r"$foo=bar return(`\\'\''''{$foo}'''`)"))
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''

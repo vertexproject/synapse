@@ -297,18 +297,18 @@ class Search(Query):
             if not tokns:
                 return
 
-            buidset = await s_spooled.Set.anit(dirn=runt.snap.core.dirn, cell=runt.snap.core)
+            async with await s_spooled.Set.anit(dirn=runt.snap.core.dirn, cell=runt.snap.core) as buidset:
 
-            todo = s_common.todo('search', tokns)
-            async for (prio, buid) in view.mergeStormIface('search', todo):
-                if buid in buidset:
-                    await asyncio.sleep(0)
-                    continue
+                todo = s_common.todo('search', tokns)
+                async for (prio, buid) in view.mergeStormIface('search', todo):
+                    if buid in buidset:
+                        await asyncio.sleep(0)
+                        continue
 
-                await buidset.add(buid)
-                node = await runt.snap.getNodeByBuid(buid)
-                if node is not None:
-                    yield node, runt.initPath(node)
+                    await buidset.add(buid)
+                    node = await runt.snap.getNodeByBuid(buid)
+                    if node is not None:
+                        yield node, runt.initPath(node)
 
         realgenr = searchgenr()
         if len(self.kids) > 1:
@@ -1063,7 +1063,8 @@ class SetItemOper(Oper):
 
             # TODO: ditch this when storm goes full heavy object
             name = await tostr(name)
-            await item.setitem(name, valu)
+            with s_scope.enter({'runt': runt}):
+                await item.setitem(name, valu)
 
             yield node, path
 
@@ -1075,7 +1076,8 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, None)
 
             # TODO: ditch this when storm goes full heavy object
-            await item.setitem(name, valu)
+            with s_scope.enter({'runt': runt}):
+                await item.setitem(name, valu)
 
 class VarListSetOper(Oper):
 
