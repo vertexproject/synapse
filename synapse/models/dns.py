@@ -145,6 +145,10 @@ class DnsModule(s_module.CoreModule):
 
                 ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ipv6', 'inet:ipv6'))}), {
                     'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
+
+                ('inet:dns:dynreg', ('guid', {}), {
+                    'doc': 'A dynamic DNS registration.'}),
+
             ),
 
             'forms': (
@@ -292,6 +296,36 @@ class DnsModule(s_module.CoreModule):
                         'doc': 'The domain containing a wild card record.'}),
                     ('ipv6', ('inet:ipv6', {}), {'ro': True,
                         'doc': 'The IPv6 address returned by wild card resolutions.'}),
+                )),
+
+                ('inet:dns:dynreg', {}, (
+
+                    ('fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN registered within a dynamic DNS provider.'}),
+
+                    ('provider', ('ou:org', {}), {
+                        'doc': 'The organization which provides the dynamic DNS FQDN.'}),
+
+                    ('provider:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
+
+                    ('provider:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN of the organization which provides the dynamic DNS FQDN.'}),
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact information of the registrant.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the dynamic DNS registration was first created.'}),
+
+                    ('client', ('inet:client', {}), {
+                        'doc': 'The network client address used to register the dynamic FQDN.'}),
+
+                    ('client:ipv4', ('inet:ipv4', {}), {
+                        'doc': 'The client IPv4 address used to register the dynamic FQDN.'}),
+
+                    ('client:ipv6', ('inet:ipv6', {}), {
+                        'doc': 'The client IPv6 address used to register the dynamic FQDN.'}),
                 )),
             )
 
