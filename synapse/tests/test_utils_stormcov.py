@@ -59,10 +59,6 @@ class TestUtilsStormcov(s_utils.SynTest):
             with mock.patch('synapse.lib.stormctrl.StormCtrlFlow.__init__', __init__):
                 await core.nodes(s_files.getAssetStr('stormcov/stormctrl.storm'))
 
-        async with self.getTestCore() as core:
-            with mock.patch('synapse.lib.stormctrl.StormCtrlFlow.__init__', __init__):
-                await core.nodes(s_files.getAssetStr('stormcov/stormctrl.storm'))
-
             def __init__(self, item=None):
                 frame = inspect.currentframe()
                 assert 'argvquery.storm' in ctrltracer.dynamic_source_filename(None, frame)
@@ -133,4 +129,14 @@ class TestUtilsStormcov(s_utils.SynTest):
                 return pullgenr(), gotone is None
 
             with mock.patch('synapse.lib.ast.pullone', pullone):
+                await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))
+
+            orig = s_ast.Const.compute
+            async def compute(self, runt, valu):
+                frame = inspect.currentframe()
+                assert 'pivot.storm' in stormtracer.dynamic_source_filename(None, frame)
+                assert (1, 1) == stormtracer.line_number_range(frame)
+                return await orig(self, runt, valu)
+
+            with mock.patch('synapse.lib.ast.Const.compute', compute):
                 await core.nodes(s_files.getAssetStr('stormcov/pivot.storm'))

@@ -112,6 +112,9 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         nodeid = id(node)
 
         info = self.node_map.get(nodeid, s_common.novalu)
+        if info is None:
+            return
+
         if info is not s_common.novalu:
             realnode._coverage_offs = info[1]
             return info[0]
@@ -145,9 +148,15 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         if frame.f_code.co_name == 'pullgenr':
             frame = frame.f_back.f_back
 
-        strt = frame.f_locals.get('self').astinfo.sline
-        fini = frame.f_locals.get('self').astinfo.eline
-        offs = frame.f_locals.get('self')._coverage_offs
+        astn = frame.f_locals.get('self')
+
+        offs = astn._coverage_offs
+        strt = astn.astinfo.sline
+        if astn.astinfo.isterm:
+            fini = astn.astinfo.eline
+        else:
+            fini = strt
+
         return (strt + offs, fini + offs)
 
 class StormCtrlTracer(coverage.FileTracer):
