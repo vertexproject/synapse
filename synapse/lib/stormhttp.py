@@ -375,12 +375,15 @@ class LibHttp(s_stormtypes.Lib):
 
         headers = self.strify(headers)
 
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+
         if fields:
             if any(['sha256' in field for field in fields]):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
                 axon = self.runt.snap.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params,
-                                            method=meth, ssl=ssl_verify, timeout=timeout)
+                                            method=meth, ssl=ssl_verify, timeout=timeout, proxy=proxy)
                 return HttpResp(info)
             else:
                 data = self._buildFormData(fields)
@@ -388,9 +391,6 @@ class LibHttp(s_stormtypes.Lib):
             data = body
 
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
-
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')

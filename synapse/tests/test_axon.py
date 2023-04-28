@@ -990,6 +990,15 @@ bar baz",vv
 
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
+
+            axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+
+            async with await axon.upload() as fd:
+                await fd.write(b'asdfasdf')
+                size, sha256 = await fd.save()
+
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
                 self.false(resp.get('ok'))
@@ -1002,6 +1011,27 @@ bar baz",vv
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
             self.isin('InvalidURL: vertex.link', resp.get('err', ''))
+
+            # Bypass the Axon proxy configuration from Storm
+            url = axon.getLocalUrl()
+            async with self.getTestCore(conf={'axon': url}) as core:
+                q = f'''
+                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                            fields=$fields, ssl_verify=(0))
+                return($resp)
+                '''
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+
+                q = f'''
+                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                            fields=$fields, ssl_verify=(0), proxy=$lib.false)
+                return($resp)
+                '''
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                self.true(resp.get('ok'))
+                self.eq(resp.get('code'), 200)
 
     async def test_axon_tlscapath(self):
 

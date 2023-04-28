@@ -3224,7 +3224,10 @@ class StormTypesTest(s_test.SynTest):
             self.lt(size, 1000000000)
 
             # Try to create an invalid layer
-            mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
+            msgs = await core.stormlist('$lib.layer.add(ldef=({"lockmemory": (42)}))')
+            self.stormIsInErr('lockmemory must be boolean', msgs)
+            msgs = await core.stormlist('$lib.layer.add(ldef=({"readonly": "False"}))')
+            self.stormIsInErr('readonly must be boolean', msgs)
 
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')

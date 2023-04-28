@@ -4,6 +4,28 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue with the search functionality in our documentation missing
+  the required jQuery library.
+  (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+
+v2.130.2 - 2023-04-26
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the ``proxy`` argument was not being passed to the Axon
+  when attempting to post a file via Storm with the ``$lib.inet.http.post()``
+  API.
+  (`#3109 <https://github.com/vertexproject/synapse/pull/3109>`_)
+- Fix an issue where adding a readonly layer that does not already exist
+  would raise an error.
+  (`#3106 <https://github.com/vertexproject/synapse/pull/3106>`_)
+
 v2.130.1 - 2023-04-25
 =====================
 
