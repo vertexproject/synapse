@@ -240,6 +240,13 @@ class LibGen(s_stormtypes.Lib):
             [ lang:language=* :name=$name ]
             return($node)
         }
+
+        function campaign(name, reporter) {
+            ou:campname = $name -> ou:campaign +:reporter:name=$reporter
+            return($node)
+            [ ou:campaign=* :name=$name :reporter:name=$reporter ]
+            return($node)
+        }
     '''
 
 stormcmds = (
@@ -259,6 +266,15 @@ stormcmds = (
             ('name', {'help': 'The name of the organization.'}),
         ),
         'storm': 'yield $lib.gen.orgHqByName($cmdopts.name)',
+    },
+    {
+        'name': 'gen.ou.campaign',
+        'descr': 'Lift or create an ou:campaign based on the name and reporting organization.',
+        'cmdargs': (
+            ('name', {'help': 'The name of the campaign.'}),
+            ('reporter', {'help': 'The name of the reporting organization.'}),
+        ),
+        'storm': 'yield $lib.gen.campaign($cmdopts.name, $cmdopts.reporter)',
     },
     {
         'name': 'gen.it.prod.soft',
