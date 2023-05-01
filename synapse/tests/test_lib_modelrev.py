@@ -378,3 +378,4 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.19') as core:
             self.len(1, await core.nodes('ou:campname="operation overlord"'))
             self.len(1, await core.nodes('ou:campname="operation overlord" -> ou:campaign'))
+            self.len(1, await core.nodes('risk:vuln:type:taxonomy="cyber.int_overflow" -> risk:vuln'))

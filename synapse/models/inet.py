@@ -1110,7 +1110,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An Autonomous System Number (ASN).'}),
 
                     ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
-                        'doc': 'An network protocol name.'}),
+                        'doc': 'A network protocol name.'}),
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',

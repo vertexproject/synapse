@@ -706,6 +706,8 @@ class ModelRev:
     async def revModel_0_2_19(self, layers):
         await self._normPropValu(layers, 'ou:campaign:name')
         await self._propToForm(layers, 'ou:campaign:name', 'ou:campname')
+        await self._normPropValu(layers, 'risk:vuln:type')
+        await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
 
     async def runStorm(self, text, opts=None):
         '''
