@@ -1337,3 +1337,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+    async def test_infotech_softid(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:prod:softid=*
+                    :id=Woot
+                    :host=*
+                    :soft={[ it:prod:softver=* :name=beacon ]}
+                    :soft:name=beacon
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('Woot', nodes[0].get('id'))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('soft'))
+            self.len(1, await core.nodes('it:host -> it:prod:softid'))
+            self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))
