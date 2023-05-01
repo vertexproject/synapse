@@ -168,6 +168,25 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f.',
                 msgs, deguid=True)
 
+            q = '$lib.auth.users.byname(visi).setAdmin($admin, gateiden=$lib.view.get().layers.0.iden)'
+            await core.nodes(q, opts={'vars': {'admin': True}})
+            msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('allowed: true - The user is an admin of auth gate 741529fa80e3fb42f63c5320e4bf348f',
+                                msgs, deguid=True)
+            await core.nodes(q, opts={'vars': {'admin': False}})
+
+            await core.nodes('auth.role.addrule ninjas beep.sys --gate $lib.view.get().layers.0.iden')
+            msgs = await core.stormlist('auth.user.allowed visi beep.sys --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('Matched role rule (beep.sys) for role ninjas on gate 741529fa80e3fb42f63c5320e4bf348f',
+                                msgs, deguid=True)
+            await core.nodes('auth.role.addrule ninjas beep.sys')
+            msgs = await core.stormlist('auth.user.allowed visi beep.sys')
+            self.stormIsInPrint('Matched role rule (beep.sys) for role ninjas', msgs)
+
+            # Cleanup ninjas
+            await core.nodes('auth.role.delrule ninjas beep.sys')
+            await core.nodes('auth.role.delrule ninjas beep.sys --gate $lib.view.get().layers.0.iden')
+
             msgs = await core.stormlist('auth.role.addrule ninjas node --gate $lib.view.get().layers.0.iden')
             self.stormHasNoWarnErr(msgs)
 
