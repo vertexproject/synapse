@@ -9,7 +9,7 @@ import subprocess
 
 basepath = os.path.split(__file__)[0]
 docspath = os.path.abspath(os.path.join(basepath, '../docs'))
-tmplpath = os.path.join(docspath, 'vertex.tpl')
+tmplpath = os.path.join(docspath, 'vertex')
 
 def check_ipynb(dirn):
     for fdir, dirs, fns in os.walk(dirn):

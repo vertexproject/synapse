@@ -1541,6 +1541,29 @@ class LayerTest(s_t_utils.SynTest):
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
 
+    async def test_layer_ro(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+                msgs = await core.stormlist('$lib.layer.add(({"readonly": $lib.true}))')
+                self.stormHasNoWarnErr(msgs)
+
+                ldefs = await core.callStorm('return($lib.layer.list())')
+                self.len(2, ldefs)
+
+                readonly = [ldef for ldef in ldefs if ldef.get('readonly')]
+                self.len(1, readonly)
+
+                layriden = readonly[0].get('iden')
+                layr = core.getLayer(layriden)
+                self.true(layr.layrslab.readonly)
+                self.true(layr.dataslab.readonly)
+                self.true(layr.nodeeditslab.readonly)
+
+                view = await core.callStorm(f'return($lib.view.add(layers=({layriden},)))')
+
+                with self.raises(s_exc.IsReadOnly):
+                    await core.nodes('[inet:fqdn=vertex.link]', opts={'view': view['iden']})
+
     async def test_layer_v3(self):
 
         async with self.getRegrCore('2.0-layerv2tov3') as core:
@@ -2055,3 +2078,19 @@ class LayerTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadStorageVersion):
             async with self.getRegrCore('future-layrvers') as core:
                 pass
+
+    async def test_layer_readonly_new(self):
+        with self.getLoggerStream('synapse.cortex') as stream:
+            async with self.getRegrCore('readonly-newlayer') as core:
+                ldefs = await core.callStorm('return($lib.layer.list())')
+                self.len(2, ldefs)
+
+                readidens = [ldef['iden'] for ldef in ldefs if ldef.get('readonly')]
+                self.len(1, readidens)
+
+                writeidens = [ldef['iden'] for ldef in ldefs if not ldef.get('readonly')]
+
+                readlayr = core.getLayer(readidens[0])
+                writelayr = core.getLayer(writeidens[0])
+
+                self.eq(readlayr.meta.get('version'), writelayr.meta.get('version'))
