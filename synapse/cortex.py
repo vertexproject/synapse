@@ -5784,7 +5784,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO make this generic and check cdef
 
         if name == 'creator':
-            self.auth.reqUser(valu)
+            await self.auth.reqUser(valu)
             appt.creator = valu
             await appt._save()
 

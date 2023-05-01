@@ -390,6 +390,9 @@ class PsModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place associated with this contact.',
                     }),
+                    ('place:name', ('geo:name', {}), {
+                        'doc': 'The reported place name of the contact.',
+                    }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The main phone number for this contact.',
                     }),

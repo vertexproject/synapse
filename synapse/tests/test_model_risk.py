@@ -373,8 +373,8 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ risk:vuln:soft:range=*
                     :vuln={[ risk:vuln=* :name=woot ]}
-                    :version:min={[ it:prod:softvers=* :name=visisoft :version=1.2.3 ]}
-                    :version:max={[ it:prod:softvers=* :name=visisoft :version=1.3.0 ]}
+                    :version:min={[ it:prod:softver=* :name=visisoft :vers=1.2.3 ]}
+                    :version:max={[ it:prod:softver=* :name=visisoft :vers=1.3.0 ]}
                 ]
             ''')
             self.len(1, nodes)
