@@ -376,4 +376,5 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_19(self):
 
         async with self.getRegrCore('model-0.2.19') as core:
-            self.len(1, await core.nodes('ou:campname', 'operation overlord'))
+            self.len(1, await core.nodes('ou:campname="operation overlord"'))
+            self.len(1, await core.nodes('ou:campname="operation overlord" -> ou:campaign'))
