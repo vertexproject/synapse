@@ -1107,8 +1107,10 @@ class InetModule(s_module.CoreModule):
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An Autonomous System Number (ASN).'
-                    }),
+                        'doc': 'An Autonomous System Number (ASN).'}),
+
+                    ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
+                        'doc': 'A network protocol name.'}),
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
@@ -1250,6 +1252,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
                         'doc': 'A file posted by a web account.'
                     }),
+
+                    ('inet:web:attachment', ('guid', {}), {
+                        'doc': 'An instance of a file being sent to a web service by an account.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
@@ -1405,6 +1410,11 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 'forms': (
+
+                    ('inet:proto', {}, (
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The default port this protocol typically uses if applicable.'}),
+                    )),
 
                     ('inet:email:message', {}, (
 
@@ -2375,17 +2385,66 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the file owned by or associated with the account.'
                         }),
                         ('posted', ('time', {}), {
-                            'doc': 'The date and time the file was posted / submitted.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client', ('inet:client', {}), {
-                            'doc': 'The source client address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+                    )),
+
+                    ('inet:web:attachment', {}, (
+
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that uploaded the file.'}),
+
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The optional web post that the file was attached to.'}),
+
+                        ('mesg', ('inet:web:mesg', {}), {
+                            'doc': 'The optional web message that the file was attached to.'}),
+
+                        ('proto', ('inet:proto', {}), {
+                            'ex': 'https',
+                            'doc': 'The protocol used to transmit the file to the web service.'}),
+
+                        ('interactive', ('bool', {}), {
+                            'doc': 'Set to true if the upload was interactive. False if automated.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was sent.'}),
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the file at the time it was sent.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the file was sent.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address which initiated the upload.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address of the client that initiated the upload.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address of the client that initiated the upload.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place the file was sent from.'}),
+
+                        ('place:loc', ('loc', {}), {
+                            'doc': 'The geopolitical location that the file was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The reported name of the place that the file was sent from.'}),
                     )),
 
                     ('inet:web:follows', {}, (
