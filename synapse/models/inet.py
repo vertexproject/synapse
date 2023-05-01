@@ -1253,7 +1253,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A file posted by a web account.'
                     }),
 
-                    ('inet:web:upload', ('guid', {}), {
+                    ('inet:web:attachment', ('guid', {}), {
                         'doc': 'An instance of a file being sent to a web service by an account.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
@@ -2386,25 +2386,31 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('posted', ('time', {}), {
                             'deprecated': True,
-                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
 
                         ('client', ('inet:client', {}), {
                             'deprecated': True,
-                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
 
                         ('client:ipv4', ('inet:ipv4', {}), {
                             'deprecated': True,
-                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
 
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'deprecated': True,
-                            'doc': 'Deprecated. Instance data belongs on inet:web:upload.'}),
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
                     )),
 
-                    ('inet:web:upload', {}, (
+                    ('inet:web:attachment', {}, (
 
                         ('acct', ('inet:web:acct', {}), {
                             'doc': 'The account that uploaded the file.'}),
+
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The optional web post that the file was attached to.'}),
+
+                        ('mesg', ('inet:web:mesg', {}), {
+                            'doc': 'The optional web message that the file was attached to.'}),
 
                         ('proto', ('inet:proto', {}), {
                             'ex': 'https',
@@ -2439,9 +2445,6 @@ class InetModule(s_module.CoreModule):
 
                         ('place:name', ('geo:name', {}), {
                             'doc': 'The reported name of the place that the file was sent from.'}),
-
-                        # ('type', ('inet:web:upload:type:taxonomy', {}), {
-                            # 'doc': 'The name of the file at the time it was sent.'}),
                     )),
 
                     ('inet:web:follows', {}, (
