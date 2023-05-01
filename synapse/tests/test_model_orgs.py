@@ -39,13 +39,15 @@ class OuModelTest(s_t_utils.SynTest):
 
                 props = {
                     'name': 'MyGoal',
-                    'type': 'MyType',
+                    'names': ['Foo Goal', 'Bar Goal', 'Bar Goal'],
+                    'type': 'foo.bar',
                     'desc': 'MyDesc',
                     'prev': goal,
                 }
                 node = await snap.addNode('ou:goal', goal, props=props)
-                self.eq(node.get('name'), 'MyGoal')
-                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('name'), 'mygoal')
+                self.eq(node.get('names'), ('bar goal', 'foo goal'))
+                self.eq(node.get('type'), 'foo.bar.')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('prev'), goal)
 
@@ -66,24 +68,31 @@ class OuModelTest(s_t_utils.SynTest):
                     'actors': (acto,),
                     'camptype': 'get.pizza',
                     'name': 'MyName',
+                    'names': ('foo', 'bar', 'Bar'),
                     'type': 'MyType',
                     'desc': 'MyDesc',
                     'success': 1,
                     'techniques': teqs,
                     'sophistication': 'high',
+                    'reporter': '*',
+                    'reporter:name': 'vertex',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
                 self.eq(node.get('actors'), (acto,))
-                self.eq(node.get('name'), 'MyName')
+                self.eq(node.get('name'), 'myname')
+                self.eq(node.get('names'), ('bar', 'foo'))
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('success'), 1)
                 self.eq(node.get('sophistication'), 40)
                 self.eq(node.get('camptype'), 'get.pizza.')
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+
+                self.nn(node.get('reporter'))
+                self.eq(node.get('reporter:name'), 'vertex')
 
             # type norming first
             # ou:name
@@ -190,6 +199,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'founded': '2015',
                     'dissolved': '2019',
                     'techniques': teqs,
+                    'goals': (goal,),
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -207,12 +217,13 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+                self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')
-                self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
+                self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
 
                 nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)
@@ -785,8 +796,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('World War III', nodes[0].get('name'))
             self.len(1, await core.nodes('ou:conflict -> meta:timeline'))
 
-            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :conflict={ou:conflict} ]')
+            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={ou:conflict} ]')
             self.len(1, await core.nodes('ou:campaign -> ou:conflict'))
+            self.len(1, await core.nodes('ou:campaign:names*[="pacific campaign"]'))
 
             nodes = await core.nodes('''
                 [ ou:contribution=*

@@ -260,17 +260,30 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('nobody@nowhere.com', item['result']['email'])
                     noobiden = item['result']['iden']
 
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}') as resp:
+                    item = await resp.json()
+                    self.eq(noobiden, item['result']['iden'])
+
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
                     self.eq('DupUser', item.get('code'))
 
-                info = {'name': 'analysts'}
+                info = {'name': 'analysts',
+                        'rules': [
+                            [True, ('foo', 'bar')],
+                            [False, ('baz',)]
+                        ]}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
                     item = await resp.json()
                     self.nn(item.get('result').get('iden'))
+                    self.eq(item.get('result').get('rules'), ((True, ('foo', 'bar')), (False, ('baz',))))
                     analystiden = item['result']['iden']
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}') as resp:
+                    item = await resp.json()
+                    self.nn(item.get('result').get('iden'), analystiden)
 
                 info = {'name': 'analysts'}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
@@ -331,6 +344,37 @@ class HttpApiTest(s_tests.SynTest):
                     roles = item['result']['roles']
                     self.len(1, roles)
 
+                # Sad path coverage
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/roles') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/user/{noobiden}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/role/{analystiden}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchUser', item.get('code'))
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
+
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
+
             # lets try out session based login
 
             async with self.getHttpSess() as sess:
@@ -359,6 +403,12 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
+
+                await core.setUserLocked(visiiden, True)
+                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
+                    item = await resp.json()
+                    self.eq('NotAuthenticated', item.get('code'))
+                await core.setUserLocked(visiiden, False)
 
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
                     item = await resp.json()
@@ -909,7 +959,7 @@ class HttpApiTest(s_tests.SynTest):
                             self.ge(len(data['gates']), 1)
 
                         if event.startswith('pkg'):
-                            self.len(1, data['perms'])
+                            self.nn(data['perms'])
 
                         # offset always goes up
                         self.gt(data['offset'], base)
@@ -1461,7 +1511,6 @@ class HttpApiTest(s_tests.SynTest):
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
                     self.true(result['result']['active'])
-                    self.eq('1; mode=block', resp.headers.get('x-xss-protection'))
                     self.eq('nosniff', resp.headers.get('x-content-type-options'))
 
             await root.setPasswd('secret')
@@ -1647,3 +1696,82 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(sess01.info, {})
                     self.true(sess00.isfini)
                     self.true(sess01.isfini)
+
+    async def test_request_logging(self):
+
+        def get_mesg(stream):
+            data = stream.getvalue()
+            raw_mesgs = [m for m in data.split('\n') if m]
+            msgs = [json.loads(m) for m in raw_mesgs]
+            self.len(1, msgs)
+            return msgs[0]
+
+        async with self.getTestCore() as core:
+
+            # structlog tests
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            async with self.getHttpSess() as sess:
+
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                logname = 'tornado.access'
+
+                # Basic-auth
+
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                        item = await resp.json()
+                        self.nn(item.get('result').get('iden'))
+                        visiiden = item['result']['iden']
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg.get('username'), 'root')
+                self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.isin('remoteip', mesg)
+                self.isin('(root)', mesg.get('message'))
+                self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+
+                # No auth provided
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/active') as stream:
+                    async with sess.get(f'https://root:root@localhost:{port}/api/v1/active') as resp:
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/active')
+                self.notin('username', mesg)
+                self.notin('user', mesg)
+                self.isin('remoteip', mesg)
+                self.isin('200 GET /api/v1/active', mesg.get('message'))
+
+                # Sessions populate the data too
+                async with self.getHttpSess() as sess:
+
+                    # api/v1/login populates the data
+                    with self.getStructuredAsyncLoggerStream(logname, 'api/v1/login') as stream:
+                        async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                            self.eq(resp.status, 200)
+                            self.true(await stream.wait(6))
+
+                    mesg = get_mesg(stream)
+                    self.eq(mesg.get('uri'), '/api/v1/login')
+                    self.eq(mesg.get('username'), 'visi')
+                    self.eq(mesg.get('user'), visiiden)
+
+                    # session cookie loging populates the data upon reuse
+                    with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/users') as stream:
+                        async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                            self.eq(resp.status, 200)
+                            self.true(await stream.wait(6))
+
+                    mesg = get_mesg(stream)
+                    self.eq(mesg.get('uri'), '/api/v1/auth/users')
+                    self.eq(mesg.get('username'), 'visi')
+                    self.eq(mesg.get('user'), visiiden)

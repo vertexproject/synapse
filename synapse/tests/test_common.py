@@ -405,7 +405,7 @@ class CommonTest(s_t_utils.SynTest):
         )
         for (item, eret) in items:
             if eret is None:
-                self.none(s_common.reqJsonSafe(item))
+                self.none(s_common.reqJsonSafeStrict(item))
             else:
                 with self.raises(eret):
-                    s_common.reqJsonSafe(item)
+                    s_common.reqJsonSafeStrict(item)

@@ -37,6 +37,7 @@ import collections
 import unittest.mock as mock
 
 import vcr
+import regex
 import aiohttp
 
 from prompt_toolkit.formatted_text import FormattedText
@@ -89,6 +90,9 @@ def norm(z):
     if isinstance(z, dict):
         return {norm(k): norm(v) for (k, v) in z.items()}
     return z
+
+def deguidify(x):
+    return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
 class LibTst(s_stormtypes.Lib):
     '''
@@ -193,6 +197,7 @@ testmodel = {
 
         ('test:ival', ('ival', {}), {}),
 
+        ('test:ro', ('str', {}), {}),
         ('test:int', ('int', {}), {}),
         ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
@@ -361,6 +366,11 @@ testmodel = {
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
         )),
+
+        ('test:ro', {}, (
+            ('writeable', ('str', {}), {'doc': 'writeable property'}),
+            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+        ))
 
     ),
 }
@@ -701,6 +711,12 @@ class HttpReflector(s_httpapi.Handler):
         if sleep:
             sleep = int(sleep[0])
             await asyncio.sleep(sleep)
+
+        redirect = params.get('redirect')
+        if redirect:
+            self.add_header('Redirected', '1')
+            self.redirect(redirect[0])
+            return
 
         self.sendRestRetn(resp)
 
@@ -1144,7 +1160,6 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True,
                     'nexslog:en': True,
                     'layers:logedits': True,
                     }
@@ -1987,7 +2002,7 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
-    def stormIsInPrint(self, mesg, mesgs):
+    def stormIsInPrint(self, mesg, mesgs, deguid=False):
         '''
         Check if a string is present in all of the print messages from a stream of storm messages.
 
@@ -1995,7 +2010,14 @@ class SynTest(unittest.TestCase):
             mesg (str): A string to check.
             mesgs (list): A list of storm messages.
         '''
+        if deguid:
+            mesg = deguidify(mesg)
+
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+
+        if deguid:
+            print_str = deguidify(print_str)
+
         self.isin(mesg, print_str)
 
     def stormNotInPrint(self, mesg, mesgs):

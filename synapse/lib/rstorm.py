@@ -67,7 +67,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         self.stormopts = stormopts or {}
 
         # hide a few mesg types by default
-        for mtype in ('init', 'fini', 'node:edits', 'node:edits:count', 'prov:new'):
+        for mtype in ('init', 'fini', 'node:edits', 'node:edits:count', ):
             self.cmdmeths[mtype] = self._silence
 
         self.core = core
@@ -207,7 +207,7 @@ class StormCliOutput(s_storm.StormCli):
         self.ctx = {}
         self._print_skips.append('init')
         self._print_skips.append('fini')
-        self._print_skips.append('prov:new')
+        self._print_skips.append('prov:new')  # TODO: Remove in v3.0.0
         self._print_skips.append('node:edits')
         self._print_skips.append('node:edits:count')
 

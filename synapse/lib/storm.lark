@@ -86,7 +86,7 @@ vareval: _varvalu
 
 // A variable assignment
 setvar: "$" VARTOKN "=" _valu
-setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue) "=" _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue | formatstring | _derefexpr) (EQSPACE | EQNOSPACE) _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
@@ -94,7 +94,10 @@ subquery: [YIELD] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD.1: /yield(?=[\s\{])/
-switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" baresubquery)* "}"
+
+// Split out case subqueries to prevent invalid state merging
+casesubquery: "{" query "}" -> baresubquery
+switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" casesubquery)* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
 
@@ -182,7 +185,7 @@ edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
 edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
 
-liftformtag: (PROPS | UNIVNAME) tagname [_cmpr _valu]
+liftformtag: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname [_cmpr _valu]
 _DEREF.3:  /\*(?=\$)/
 liftpropby: ((PROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
 liftprop: ((PROPS | UNIVNAME) | _DEREF _varvalu)
@@ -193,9 +196,10 @@ liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: _tagmatch
 tagnamewithspace: _tagmatchwithspace -> tagname
-tagprop: tagname ":" (BASEPROP | _varvalu)
-tagpropwithspace: tagnamewithspace ":" (BASEPROP | _varvalu) -> tagprop
-formtagprop: (PROPS | UNIVNAME) tagname ":" (BASEPROP | _varvalu)
+tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
+tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
+formtagprop: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
+_COLONNOSPACE.2: /(?<!\s):/
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
@@ -245,7 +249,7 @@ CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _dollarexprs
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -262,10 +266,15 @@ exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | formatstring | innerdollarexpr
+    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
 // Expr versions of rules to avoid invalid state merges
-innerdollarexpr: "$"? "(" expror ")" -> dollarexpr
+_innerdollarexprs: "$"? innerdollaroper
+?!innerdollaroper: innerdollarexpr
+    | innerdollaroper _exprcallargs -> funccall
+    | innerdollaroper "." (EXPRVARTOKN | "$" EXPRVARTOKN | formatstring | _innerderefexpr) -> varderef
+_innerderefexpr: "$"? innerdollarexpr
+innerdollarexpr: "(" expror ")" -> dollarexpr
 
 exprrelpropvalu: EXPRRELNAME -> relpropvalu
     | _COLONDOLLAR _exprvarvaluatom -> relpropvalu
@@ -287,21 +296,23 @@ _EXPRHASHSPACE.2: /(?<=\s)#/
 
 exprtagpropvalu: exprtagprop -> tagpropvalu
     | exprtagpropwithspace -> tagpropvalu
-exprtagprop: exprtagname ":" (BASEPROP | _exprvarvalu) -> tagprop
-exprtagpropwithspace: exprtagnamewithspace ":" (BASEPROP | _exprvarvalu) -> tagprop
+exprtagprop: exprtagname _COLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+exprtagpropwithspace: exprtagnamewithspace _COLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
 
 _exprvarvalu: "$" _exprvarvaluatom
 _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
 exprvarvalue: EXPRVARTOKN -> varvalue
 EXPRVARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 
-!exprvarderef: _exprvarvaluatom "." (VARTOKN | "$" VARTOKN) -> varderef
+!exprvarderef: _exprvarvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
 
 exprfunccall: _exprvarvaluatom _exprcallargs -> funccall
 _exprcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 
-?listvalu: _basevalu | LISTTOKN | _exprvarvalu | exprrelpropvalu
+?listvalu: LISTTOKN | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu
+    | baresubquery | valulist | embedquery | TRIPLEQUOTEDSTRING
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
 LISTTOKN.1: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
@@ -332,7 +343,7 @@ _varvalu: "$" _varvaluatom
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
-!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
+!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr)
 
 funccall: _varvaluatom _callargs
 _callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
@@ -350,7 +361,7 @@ _cond: notcond | "(" _condexpr ")"
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq | arraycond
-    | _varvalu | reqdollarexpr
+    | _varvalu | _reqdollarexprs
 
 notcond: "not" _cond
 
@@ -380,7 +391,7 @@ TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
-FORMATTEXT: /[^`{].*?(?<!\\)(\\\\)*?(?=[`{])/
+FORMATTEXT: /[^`{].*?(?<!\\)(\\\\)*?(?=[`{])/s
 _formatexpr: "{" expror "}"
 formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 
@@ -404,9 +415,16 @@ RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
-dollarexpr: "$"? "(" expror ")"
+_dollarexprs: "$"? dollaroper
+
+?!dollaroper: dollarexpr
+    | dollaroper _callargs -> funccall
+    | dollaroper "." (VARTOKN | "$" VARTOKN | formatstring | _derefexpr) -> varderef
+_derefexpr: "$"? dollarexpr
+dollarexpr: "(" expror ")"
+
 // A dollar expression with a required dollar
-reqdollarexpr: "$" "(" expror ")"
+_reqdollarexprs: "$" dollaroper
 EXPRPLUS.2: "+"
 EXPRMINUS.2: /(?<!-)-/
 EXPRNEG.2: /-(?![^$:.#(\-]|(?>(?<EXPRNEGRECUR>\(((?>[^()"'`]+|(?&EXPRNEGRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
@@ -415,7 +433,7 @@ EXPRDIVIDE.2: "/"
 EXPRPOW.2: "**"
 NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![^\s})*\/+\-=><!~]|(?>(?<NUMBERRECUR>\(((?>[^()"'`]+|(?&NUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
 HEXNUMBER.1: /-?0x[0-9a-fA-F]+(?![^\s})*\/+\-=><!~]|(?>(?<HEXNUMBERRECUR>\(((?>[^()"'`]+|(?&HEXNUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
-BOOL.2: /true|false/
+BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
 NOT.2: "not"
 OR.2: "or"
 AND.2: "and"

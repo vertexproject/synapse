@@ -330,6 +330,19 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]')))
             self.len(0, await alist(view1.eval('inet:ipv4:asn=99')))
 
+            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.5 :asn=43 ]')))
+            self.len(2, await alist(view1.eval('inet:ipv4:asn')))
+
+            await view0.core.addTagProp('score', ('int', {}), {})
+
+            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4 [ +#foo:score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ipv4=1.2.3.4 [ +#foo:score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ipv4=1.2.3.4 [ +#foo:score=99 ]')))
+            self.len(1, await alist(view0.eval('inet:ipv4=1.2.3.5 [ +#foo:score=43 ]')))
+
+            nodes = await alist(view1.eval('#foo:score'))
+            self.len(2, await alist(view1.eval('#foo:score')))
+
     async def test_cortex_lift_bytype(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
@@ -577,7 +590,7 @@ class SnapTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 
-            self.len(1, await core.nodes('[ inet:dns:soa=(lol,) :fqdn=vertex.link ]'))
-            self.len(1, await core.nodes('inet:dns:soa=(lol,) [ :fqdn=vertex.link ]'))
+            self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
+            self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
-                await core.nodes('inet:dns:soa=(lol,) [ :fqdn=woot.com ]')
+                await core.nodes('test:ro=foo [ :readable=newp ]')

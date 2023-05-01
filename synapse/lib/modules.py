@@ -26,4 +26,5 @@ coremods = (
     'synapse.models.transport.TransportModule',
     'synapse.models.proj.ProjectModule',
     'synapse.models.biz.BizModule',
+    'synapse.models.belief.BeliefModule',
 )

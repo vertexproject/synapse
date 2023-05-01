@@ -338,6 +338,11 @@ class SnapEditor:
         self.protonodes = {}
         self.maxnodes = snap.core.maxnodes
 
+    async def getNodeByBuid(self, buid):
+        node = await self.snap.getNodeByBuid(buid)
+        if node:
+            return self.loadNode(node)
+
     def getNodeEdits(self):
         nodeedits = []
         for protonode in self.protonodes.values():
@@ -488,16 +493,20 @@ class Snap(s_base.Base):
             'user': self.user.iden
         }
 
-        providen = self.core.provstor.precommit()
-        if providen is not None:
-            meta['prov'] = providen
-
         return meta
 
     @contextlib.asynccontextmanager
     async def getStormRuntime(self, query, opts=None, user=None):
         if user is None:
             user = self.user
+
+        if opts is not None:
+            varz = opts.get('vars')
+            if varz is not None:
+                for valu in varz.keys():
+                    if not isinstance(valu, str):
+                        mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
+                        raise s_exc.BadArg(mesg=mesg)
 
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
             yield runt
@@ -522,7 +531,7 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.view.iden)
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
@@ -1092,9 +1101,6 @@ class Snap(s_base.Base):
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:
-            providen, provstack = self.core.provstor.stor()
-            if providen is not None:
-                await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
             await self.fire('node:edits', edits=actualedits)
 
         return saveoff, changes, nodes
@@ -1309,7 +1315,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 
@@ -1323,7 +1329,7 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edgeset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
 
             for layr in self.layers:
 
@@ -1347,9 +1353,7 @@ class Snap(s_base.Base):
         False otherwise
         '''
         for layr in reversed(self.layers):
-            todo = s_common.todo('hasNodeData', buid, name)
-            has = await self.core.dyncall(layr.iden, todo)
-            if has:
+            if await layr.hasNodeData(buid, name):
                 return True
         return False
 
@@ -1358,8 +1362,7 @@ class Snap(s_base.Base):
         Get nodedata from closest to write layer, no merging involved
         '''
         for layr in reversed(self.layers):
-            todo = s_common.todo('getNodeData', buid, name)
-            ok, valu = await self.core.dyncall(layr.iden, todo)
+            ok, valu = await layr.getNodeData(buid, name)
             if ok:
                 return valu
         return defv
@@ -1368,11 +1371,28 @@ class Snap(s_base.Base):
         '''
         Returns:  Iterable[Tuple[str, Any]]
         '''
-        some = False
-        for layr in reversed(self.layers):
-            todo = s_common.todo('iterNodeData', buid)
-            async for item in self.core.dyniter(layr.iden, todo):
-                some = True
-                yield item
-            if some:
-                return
+        async with self.core.getSpooledSet() as sset:
+
+            for layr in reversed(self.layers):
+
+                async for name, valu in layr.iterNodeData(buid):
+                    if name in sset:
+                        continue
+
+                    await sset.add(name)
+                    yield name, valu
+
+    async def iterNodeDataKeys(self, buid):
+        '''
+        Yield each data key from the given node by buid.
+        '''
+        async with self.core.getSpooledSet() as sset:
+
+            for layr in reversed(self.layers):
+
+                async for name in layr.iterNodeDataKeys(buid):
+                    if name in sset:
+                        continue
+
+                    await sset.add(name)
+                    yield name

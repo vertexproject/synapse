@@ -273,6 +273,10 @@ class ProvDmon(s_daemon.Daemon):
             await self.aha.delAhaUserEnroll(name)
             return EnrollApi(self.aha, userinfo)
 
+        mesg = f'Invalid provisioning identifier name={name}. This could be' \
+               f' caused by the re-use of a provisioning URL.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
+
 class EnrollApi:
 
     def __init__(self, aha, userinfo):
@@ -377,6 +381,8 @@ class AhaCell(s_cell.Cell):
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
+        slab.addResizeCallback(self.checkFreeSpace)
+
         self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():
@@ -726,6 +732,8 @@ class AhaCell(s_cell.Cell):
     def _getAhaUrls(self):
         urls = self.conf.get('aha:urls')
         if urls is not None:
+            if isinstance(urls, str):
+                return (urls,)
             return urls
 
         ahaname = self.conf.get('aha:name')
@@ -736,8 +744,11 @@ class AhaCell(s_cell.Cell):
         if ahanetw is None:
             return None
 
+        if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
+            return None
+
         # TODO this could eventually enumerate others via itself
-        return f'ssl://{ahaname}.{ahanetw}'
+        return (f'ssl://{ahaname}.{ahanetw}:{self.sockaddr[1]}',)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -794,9 +805,6 @@ class AhaCell(s_cell.Cell):
 
         if peer:
             conf.setdefault('aha:leader', leader)
-
-        if isinstance(ahaurls, str):
-            ahaurls = (ahaurls,)
 
         # allow user to win over leader
         ahauser = conf.get('aha:user')

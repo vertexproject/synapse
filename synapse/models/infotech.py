@@ -3,6 +3,8 @@ import logging
 
 import synapse.exc as s_exc
 
+import synapse.common as s_common
+
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
@@ -167,9 +169,15 @@ class SemVer(s_types.Int):
 
         subs = s_version.parseSemver(valu)
         if subs is None:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Unable to parse string as a semver.')
+            subs = s_version.parseVersionParts(valu)
+            if subs is None:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Unable to parse string as a semver.')
+
+        subs.setdefault('minor', 0)
+        subs.setdefault('patch', 0)
         valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
+
         return valu, {'subs': subs}
 
     def _normPyInt(self, valu):
@@ -213,6 +221,8 @@ class ItModule(s_module.CoreModule):
 
     def bruteVersionStr(self, valu):
         '''
+        This API is deprecated.
+
         Brute force the version out of a string.
 
         Args:
@@ -225,21 +235,11 @@ class ItModule(s_module.CoreModule):
         Returns:
             int, dict: The system normalized version integer and a subs dictionary.
         '''
-        try:
-            valu, info = self.core.model.type('it:semver').norm(valu)
-            subs = info.get('subs')
-            return valu, subs
-        except s_exc.BadTypeValu:
-            # Try doing version part extraction by noming through the string
-            subs = s_version.parseVersionParts(valu)
-            if subs is None:
-                raise s_exc.BadTypeValu(valu=valu, name='bruteVersionStr',
-                                        mesg='Unable to brute force version parts out of the string')
-            if subs:
-                valu = s_version.packVersion(subs.get('major'),
-                                             subs.get('minor', 0),
-                                             subs.get('patch', 0))
-                return valu, subs
+        s_common.deprecated('ItModule.bruteVersionStr')
+
+        valu, info = self.core.model.type('it:semver').norm(valu)
+        subs = info.get('subs')
+        return valu, subs
 
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
@@ -267,7 +267,8 @@ class ItModule(s_module.CoreModule):
 
         # form the semver properly or bruteforce parts
         try:
-            valu, subs = self.bruteVersionStr(prop)
+            valu, info = self.core.model.type('it:semver').norm(prop)
+            subs = info.get('subs')
             await node.set('semver', valu)
             for k, v in subs.items():
                 await node.set(f'semver:{k}', v)
@@ -295,6 +296,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
+                }),
+                ('it:log:event:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of log event types.',
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -383,6 +387,9 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
                 }),
+                ('it:prod:softid', ('guid', {}), {
+                    'doc': 'An identifier issued to a given host by a specific software application.'}),
+
                 ('it:prod:hardware', ('guid', {}), {
                     'doc': 'A specification for a piece of IT hardware.',
                 }),
@@ -540,7 +547,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
                 ('it:app:snort:rule', ('guid', {}), {
-                    'doc': 'A snort rule unique identifier.',
+                    'doc': 'A snort rule.',
                 }),
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
@@ -590,63 +597,77 @@ class ItModule(s_module.CoreModule):
 
                 ('it:host', {}, (
                     ('name', ('it:hostname', {}), {
-                        'doc': 'The name of the host or system.',
-                    }),
+                        'doc': 'The name of the host or system.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the host.',
-                    }),
+                        'doc': 'A free-form description of the host.'}),
+
                     ('domain', ('it:domain', {}), {
-                        'doc': 'The authentication domain that the host is a member of.',
-                    }),
+                        'doc': 'The authentication domain that the host is a member of.'}),
+
                     ('ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The last known ipv4 address for the host.'
-                    }),
+                        'doc': 'The last known ipv4 address for the host.'}),
+
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The last known location for the host.'
-                    }),
+                        'doc': 'The last known location for the host.'}),
+
                     ('place', ('geo:place', {}), {
-                        'doc': 'The place where the host resides.',
-                    }),
+                        'doc': 'The place where the host resides.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location string for the node.',
-                    }),
+                        'doc': 'The geo-political location string for the node.'}),
+
                     ('os', ('it:prod:softver', {}), {
-                        'doc': 'The operating system of the host.'
-                    }),
+                        'doc': 'The operating system of the host.'}),
+
                     ('os:name', ('it:prod:softname', {}), {
-                        'doc': 'A software product name for the host operating system. Used for entity resolution.',
-                    }),
+                        'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
+
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The hardware specification for this host.',
-                    }),
+                        'doc': 'The hardware specification for this host.'}),
+
                     ('manu', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:make.',
-                    }),
+                        'doc': 'Please use :hardware:make.'}),
+
                     ('model', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:model.',
-                    }),
+                        'doc': 'Please use :hardware:model.'}),
+
                     ('serial', ('str', {}), {
-                        'doc': 'The serial number of the host.',
-                    }),
+                        'doc': 'The serial number of the host.'}),
+
                     ('operator', ('ps:contact', {}), {
-                        'doc': 'The operator of the host.',
-                    }),
+                        'doc': 'The operator of the host.'}),
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org that operates the given host.',
-                    }),
+                        'doc': 'The org that operates the given host.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external identifier for the host.'}),
                 )),
+                ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
+
                     ('mesg', ('str', {}), {
-                        'doc': 'The log messsage text.',
-                    }),
+                        'doc': 'The log message text.'}),
+
+                    ('type', ('it:log:event:type:taxonomy', {}), {
+                        'ex': 'windows.eventlog.securitylog',
+                        'doc': 'A taxonometric type for the log event.'}),
+
                     ('severity', ('int', {'enums': loglevels}), {
-                        'doc': 'A log level integer that increases with severity.',
-                    }),
+                        'doc': 'A log level integer that increases with severity.'}),
+
                     ('data', ('data', {}), {
-                        'doc': 'A raw JSON record of the log event.',
-                    }),
+                        'doc': 'A raw JSON record of the log event.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external id that uniquely identifies this log entry.'}),
+
+                    ('product', ('it:prod:softver', {}), {
+                        'doc': 'The software which produced the log entry.'}),
+
                 )),
                 ('it:domain', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1110,6 +1131,20 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:prod:softname', {}, ()),
+                ('it:prod:softid', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The ID issued by the software to the host.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which was issued the ID by the software.'}),
+
+                    ('soft', ('it:prod:softver', {}), {
+                        'doc': 'The software which issued the ID to the host.'}),
+
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software which issued the ID to the host.'}),
+                )),
 
                 ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
@@ -1814,14 +1849,38 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:snort:rule', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The snort rule id.'}),
+
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The snort rule text.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the snort rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the rule.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was initially created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for snort evaluation engines.'}),
+
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:snort:hit', {}, (

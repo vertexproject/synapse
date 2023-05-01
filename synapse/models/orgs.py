@@ -50,6 +50,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
                 }),
+                ('ou:industry:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'An industry type taxonomy.',
+                }),
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
@@ -130,6 +134,13 @@ class OuModule(s_module.CoreModule):
                 ('ou:goal', ('guid', {}), {
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
                 }),
+                ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A goal name.',
+                }),
+                ('ou:goal:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of goal types.',
+                }),
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
                     'deprecated': True,
                     'doc': 'Deprecated. Please use ou:org:goals.',
@@ -138,6 +149,9 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An campaign type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
+                ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A campaign name.'}),
+
                 ('ou:campaign', ('guid', {}), {
                     'doc': "Represents an org's activity in pursuit of a goal.",
                 }),
@@ -357,20 +371,26 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The date/time that the id number was updated.',
                     }),
                 )),
+                ('ou:goalname', {}, ()),
+                ('ou:goal:type:taxonomy', {}, ()),
                 ('ou:goal', {}, (
-                    ('name', ('str', {}), {
-                        'doc': 'A terse name for the goal.',
-                    }),
-                    ('type', ('str', {}), {
-                        'doc': 'A user specified goal type.',
-                    }),
+
+                    ('name', ('ou:goalname', {}), {
+                        'doc': 'A terse name for the goal.'}),
+
+                    ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the goal. Used to merge/resolve goals.'}),
+
+                    ('type', ('ou:goal:type:taxonomy', {}), {
+                        'doc': 'A type taxonomy entry for the goal.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the goal.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the goal.'}),
+
                     ('prev', ('ou:goal', {}), {
-                        'doc': 'The previous/parent goal in a list or hierarchy.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:goal:type taxonomy.'}),
                 )),
                 ('ou:hasgoal', {}, (
                     ('org', ('ou:org', {}), {
@@ -387,70 +407,91 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:camptype', {}, ()),
+                ('ou:campname', {}, ()),
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org carrying out the campaign.',
-                    }),
+                        'doc': 'The org carrying out the campaign.'}),
+
                     ('org:name', ('ou:name', {}), {
-                        'doc': 'The name of the org responsible for the campaign. Used for entity resolution.',
-                    }),
+                        'doc': 'The name of the org responsible for the campaign. Used for entity resolution.'}),
+
                     ('org:fqdn', ('inet:fqdn', {}), {
-                        'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.',
-                    }),
+                        'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.'}),
+
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The assessed primary goal of the campaign.',
-                    }),
+                        'doc': 'The assessed primary goal of the campaign.'}),
+
                     ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Actors who participated in the campaign.',
-                    }),
+                        'doc': 'Actors who participated in the campaign.'}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'Additional assessed goals of the campaign.',
-                    }),
+                        'doc': 'Additional assessed goals of the campaign.'}),
+
                     ('success', ('bool', {}), {
-                        'doc': 'Records the success/failure status of the campaign if known.',
-                    }),
-                    ('name', ('str', {}), {
-                        'doc': 'A terse name of the campaign.',
-                    }),
+                        'doc': 'Records the success/failure status of the campaign if known.'}),
+
+                    ('name', ('ou:campname', {}), {
+                        'ex': 'operation overlord',
+                        'doc': 'A terse name of the campaign.'}),
+
+                    ('names', ('array', {'type': 'ou:campname', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the campaign.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the campaign.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the campaign.'}),
+
                     ('type', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Use the :camptype taxonomy.',
-                    }),
+                        'doc': 'Deprecated. Use the :camptype taxonomy.', }),
+
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
                     ('camptype', ('ou:camptype', {}), {
-                        'doc': 'The campaign type taxonomy.',
                         'disp': {'hint': 'taxonomy'},
-                    }),
+                        'doc': 'The campaign type taxonomy.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the campaign.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the campaign.'}),
 
-                    ('period', ('ival', {}), {}),
-                    ('currency', ('econ:currency', {}), {}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time interval when the organization was running the campaign.'}),
 
-                    ('cost', ('econ:price', {}), {}),
-                    ('budget', ('econ:price', {}), {}),
+                    ('cost', ('econ:price', {}), {
+                        'doc': 'The actual cost to the organization.'}),
 
-                    ('goal:revenue', ('econ:price', {}), {}),
-                    ('result:revenue', ('econ:price', {}), {}),
+                    ('budget', ('econ:price', {}), {
+                        'doc': 'The budget allocated by the organization to execute the campaign.'}),
 
-                    ('goal:pop', ('int', {}), {}),
-                    ('result:pop', ('int', {}), {}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used to record econ:price properties.'}),
+
+                    ('goal:revenue', ('econ:price', {}), {
+                        'doc': 'A goal for revenue resulting from the campaign.'}),
+
+                    ('result:revenue', ('econ:price', {}), {
+                        'doc': 'The revenue resulting from the campaign.'}),
+
+                    ('goal:pop', ('int', {}), {
+                        'doc': 'A goal for the number of people affected by the campaign.'}),
+
+                    ('result:pop', ('int', {}), {
+                        'doc': 'The count of people affected by the campaign.'}),
 
                     ('team', ('ou:team', {}), {
-                        'doc': 'The org team responsible for carrying out the campaign.',
-                    }),
+                        'doc': 'The org team responsible for carrying out the campaign.'}),
+
                     ('conflict', ('ou:conflict', {}), {
-                        'doc': 'The conflict in which this campaign is a primary participant.',
-                    }),
+                        'doc': 'The conflict in which this campaign is a primary participant.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
-                    }),
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
@@ -575,6 +616,9 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                        'doc': 'The assessed goals of the organization.'
+                    }),
                 )),
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
@@ -636,22 +680,31 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry', {}, (
+
                     ('name', ('ou:industryname', {}), {
                         'doc': 'The name of the industry.'}),
+
+                    ('type', ('ou:industry:type:taxonomy', {}), {
+                        'doc': 'An taxonomy entry for the industry.'}),
+
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
+
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of sub-industries.'}),
+                        'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),
+
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
+
                     ('naics', ('array', {'type': 'ou:naics', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
+
                     ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of ISIC codes that map to the industry.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the industry.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'A description of the industry.'}),
                 )),
                 ('ou:industryname', {}, ()),
                 ('ou:hasalias', {}, (

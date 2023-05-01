@@ -167,6 +167,13 @@ class StormLibStixTest(s_test.SynTest):
 
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
+            self.eq(2, await core.callStorm('''
+                $bund = $lib.stix.export.bundle()
+                [ inet:asn=42 inet:asn=31337 ]
+                $bund.add($node)
+                fini{ return($bund.size()) }
+            '''))
+
             resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bund}})
             self.true(resp.get('ok'))
             result = resp.get('result')
@@ -376,12 +383,12 @@ class StormLibStixTest(s_test.SynTest):
                     // register a custom object type so we pass validation
                     // (dictionary contents are reserved for future use )
 
-                    $config.custom.objects.mitigation = ({})
+                    $config.custom.objects."vtx-mitigation" = ({})
 
                     $config.forms."risk:mitigation" = ({
-                        "default": "mitigation",
+                        "default": "vtx-mitigation",
                         "stix": {
-                            "mitigation": {
+                            "vtx-mitigation": {
                                 "props": {
                                     "name": "{+:name return(:name)} return($node.repr())",
                                     "created": "return($lib.stix.export.timestamp(.created))",
@@ -401,7 +408,7 @@ class StormLibStixTest(s_test.SynTest):
                 fini { return($bundle) }
             ''')
 
-            self.eq('mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
+            self.eq('vtx-mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
             self.eq('patch stuff and do things', bund['objects'][1]['name'])
             self.nn(bund['objects'][1]['created'])
             self.nn(bund['objects'][1]['modified'])

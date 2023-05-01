@@ -12,8 +12,6 @@ import logging
 import contextlib
 import collections
 
-import aiohttp
-
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -263,7 +261,8 @@ async def loadTeleCell(dirn):
     ahaurl = None
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
-        ahaurl = conf.get('aha:registry')
+        if conf is not None:
+            ahaurl = conf.get('aha:registry')
 
     if usecerts:
         s_certdir.addCertPath(certpath)

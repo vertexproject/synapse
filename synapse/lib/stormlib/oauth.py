@@ -261,25 +261,29 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
     async def _addProvider(self, conf):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg='addProvider() requires admin privs.')
+            raise s_exc.AuthDeny(mesg='addProvider() requires admin privs.',
+                                 user=self.runt.user.iden, username=self.runt.user.name)
         conf = await s_stormtypes.toprim(conf)
         await self.runt.snap.core.addOAuthProvider(conf)
 
     async def _delProvider(self, iden):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg='delProvider() requires admin privs.')
+            raise s_exc.AuthDeny(mesg='delProvider() requires admin privs.',
+                                 user=self.runt.user.iden, username=self.runt.user.name)
         iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.core.delOAuthProvider(iden)
 
     async def _getProvider(self, iden):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg='getProvider() requires admin privs.')
+            raise s_exc.AuthDeny(mesg='getProvider() requires admin privs.',
+                                 user=self.runt.user.iden, username=self.runt.user.name)
         iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.core.getOAuthProvider(iden)
 
     async def _listProviders(self):
         if not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg='listProviders() requires admin privs.')
+            raise s_exc.AuthDeny(mesg='listProviders() requires admin privs.',
+                                 user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.listOAuthProviders()
 
     async def _setUserAuthCode(self, iden, authcode, code_verifier=None):

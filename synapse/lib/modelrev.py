@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 16)
+maxvers = (0, 2, 19)
 
 class ModelRev:
 
@@ -30,6 +30,9 @@ class ModelRev:
             ((0, 2, 14), self.revModel20221123),
             ((0, 2, 15), self.revModel20221212),
             ((0, 2, 16), self.revModel20221220),
+            ((0, 2, 17), self.revModel20230209),
+            ((0, 2, 18), self.revModel_0_2_18),
+            ((0, 2, 19), self.revModel_0_2_19),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -653,6 +656,59 @@ class ModelRev:
         )
         await self._uniqSortArray(todoprops, layers)
 
+    async def revModel20230209(self, layers):
+
+        await self._normFormSubs(layers, 'inet:http:cookie')
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop('risk:vuln:cvss:av')
+            propname = prop.name
+            formname = prop.form.name
+            stortype = prop.type.stortype
+
+            oldvalu = 'V'
+            newvalu = 'P'
+
+            async for buid, propvalu in layr.iterPropRows(formname, propname, stortype=stortype, startvalu=oldvalu):
+
+                if propvalu != oldvalu:  # pragma: no cover
+                    break
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
+                        (s_layer.EDIT_PROP_SET, (propname, newvalu, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def revModel_0_2_18(self, layers):
+        await self._propToForm(layers, 'file:bytes:mime:pe:imphash', 'hash:md5')
+        await self._normPropValu(layers, 'ou:goal:type')
+        await self._propToForm(layers, 'ou:goal:type', 'ou:goal:type:taxonomy')
+
+        await self._normPropValu(layers, 'ou:goal:name')
+        await self._propToForm(layers, 'ou:goal:name', 'ou:goalname')
+
+    async def revModel_0_2_19(self, layers):
+        await self._normPropValu(layers, 'ou:campaign:name')
+        await self._propToForm(layers, 'ou:campaign:name', 'ou:campname')
+        await self._normPropValu(layers, 'risk:vuln:type')
+        await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -758,6 +814,73 @@ class ModelRev:
 
                 if len(nodeedits) >= 1000:  # pragma: no cover
                     await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normFormSubs(self, layers, formname):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        subprops = {}
+
+        form = self.core.model.form(formname)
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for lkey, buid, sode in layr.liftByProp(formname, None):
+
+                sodevalu = sode.get('valu')
+                if sodevalu is None: # pragma: no cover
+                    continue
+
+                formvalu = sodevalu[0]
+
+                try:
+                    norm, info = form.type.norm(formvalu)
+                except s_exc.BadTypeValu as e: # pragma: no cover
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
+                    continue
+
+                edits = []
+                subs = info.get('subs')
+                if subs is not None:
+
+                    for subname, subvalu in subs.items():
+
+                        subprop = subprops.get(subname, s_common.novalu)
+                        if subprop is s_common.novalu:
+                            subprop = subprops[subname] = self.core.model.prop(f'{formname}:{subname}')
+
+                        if subprop is None: # pragma: no cover
+                            continue
+
+                        try:
+                            subnorm, subinfo = subprop.type.norm(subvalu)
+                        except s_exc.BadTypeValu as e: # pragma: no cover
+                            oldm = e.errinfo.get('mesg')
+                            logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
+                            continue
+
+                        subcurv = sode['props'].get(subprop.name)
+                        if subcurv == subnorm: # pragma: no cover
+                            continue
+
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+
+                    if not edits: # pragma: no cover
+                        continue
+
+                    nodeedits.append((buid, formname, edits))
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
 
             if nodeedits:
                 await save()

@@ -202,6 +202,11 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
             with s_common.genfile(cmd_path) as fd:
                 cmd['storm'] = fd.read().decode()
 
+    for gdef in pkgdef.get('graphs', ()):
+        gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
+        gdef['scope'] = 'power-up'
+        gdef['power-up'] = pkgname
+
     wflowdir = s_common.genpath(protodir, 'workflows')
     if os.path.isdir(wflowdir):
         pkgdef.setdefault('optic', {})
@@ -219,7 +224,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     s_storm.reqValidPkgdef(pkgdef)
 
     # Ensure the package is json safe and tuplify it.
-    s_common.reqJsonSafe(pkgdef)
+    s_common.reqJsonSafeStrict(pkgdef)
     pkgdef = s_common.tuplify(pkgdef)
     return pkgdef
 

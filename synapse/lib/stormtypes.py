@@ -478,6 +478,7 @@ class Lib(StormType):
     _ismutable = False
     _storm_query = None
     _storm_typename = 'storm:lib'
+    _storm_lib_perms = ()
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -509,6 +510,9 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+        if name.startswith('__'):
+            raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
+
         try:
             return await StormType.deref(self, name)
         except s_exc.NoSuchName:
@@ -956,6 +960,8 @@ class LibTags(Lib):
                   'args': (
                       {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                      {'name': 'ispart', 'type': 'boolean', 'default': False,
+                       'desc': 'Whether the names have already been normalized. Normalization will be skipped if set to true.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
     )
@@ -965,18 +971,22 @@ class LibTags(Lib):
             'prefix': self.prefix,
         }
 
-    async def prefix(self, names, prefix):
+    async def prefix(self, names, prefix, ispart=False):
 
         prefix = await tostr(prefix)
+        ispart = await tobool(ispart)
         tagpart = self.runt.snap.core.model.type('syn:tag:part')
 
         retn = []
         async for part in toiter(names):
-            try:
-                partnorm = tagpart.norm(part)[0]
-                retn.append(f'{prefix}.{partnorm}')
-            except s_exc.BadTypeValu:
-                pass
+            if not ispart:
+                try:
+                    partnorm = tagpart.norm(part)[0]
+                    retn.append(f'{prefix}.{partnorm}')
+                except s_exc.BadTypeValu:
+                    pass
+            else:
+                retn.append(f'{prefix}.{part}')
 
         return retn
 
@@ -1358,7 +1368,7 @@ class LibBase(Lib):
             if not asroot:
                 permtext = ' or '.join(('.'.join(p) for p in rootperms))
                 mesg = f'Module ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
@@ -1366,7 +1376,7 @@ class LibBase(Lib):
 
             if mdef.get('asroot', False) and not asroot:
                 mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1534,10 +1544,15 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
+        s_common.reqjsonsafe(info)
+
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
             raise ctor(mesg=mesg, **info)
-        raise s_exc.StormRaise(name, mesg, info)
+
+        info['mesg'] = mesg
+        info['errname'] = name
+        raise s_exc.StormRaise(**info)
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
@@ -1989,7 +2004,7 @@ class LibAxon(Lib):
         self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         url = await tostr(url)
         method = await tostr(method)
@@ -2013,15 +2028,17 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
+        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout, **kwargs)
+        resp['original_url'] = url
+        return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
         self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -2059,27 +2076,52 @@ class LibAxon(Lib):
             await self.runt.warn(mesg, log=False)
             return
 
-        url = resp.get('url')
+        now = self.runt.model.type('time').norm('now')[0]
+
+        original_url = resp.get('original_url')
         hashes = resp.get('hashes')
+        sha256 = hashes.get('sha256')
         props = {
             'size': resp.get('size'),
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
-            'sha256': hashes.get('sha256'),
-            '.seen': 'now',
+            'sha256': sha256,
+            '.seen': now,
         }
 
-        sha256 = hashes.get('sha256')
         filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
 
         if not filenode.get('name'):
-            info = s_urlhelp.chopurl(url)
+            info = s_urlhelp.chopurl(original_url)
             base = info.get('path').strip('/').split('/')[-1]
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': 'now'}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+        props = {'.seen': now}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+
+        history = resp.get('history')
+        if history is not None:
+            redirs = []
+            src = original_url
+
+            # We skip the first entry in history, since that URL is the original URL
+            # having been redirected. The second+ history item represents the
+            # requested URL. We then capture the last part of the chain in our list.
+            # The recorded URLs after the original_url are all the resolved URLS,
+            # since Location headers may be partial paths and this avoids needing to
+            # do url introspection that has already been done by the Axon.
+
+            for info in history[1:]:
+                url = info.get('url')
+                redirs.append((src, url))
+                src = url
+
+            redirs.append((src, resp.get('url')))
+
+            for valu in redirs:
+                props = {'.seen': now}
+                await self.runt.snap.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
 
@@ -2587,6 +2629,7 @@ class LibTime(Lib):
         return ret
 
     async def _parse(self, valu, format, errok=False):
+        valu = await tostr(valu)
         errok = await tobool(errok)
         try:
             dt = datetime.datetime.strptime(valu, format)
@@ -3554,8 +3597,8 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64encode(valu).decode('ascii')
             return base64.b64encode(valu).decode('ascii')
         except TypeError as e:
-            mesg = f'Error during base64 encoding - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+            mesg = f'Error during base64 encoding - {str(e)}: {repr(valu)[:256]}'
+            raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
     async def _decode(self, valu, urlsafe=True):
         try:
@@ -3563,8 +3606,8 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
         except binascii.Error as e:
-            mesg = f'Error during base64 decoding - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+            mesg = f'Error during base64 decoding - {str(e)}: {repr(valu)[:256]}'
+            raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
 @functools.total_ordering
 class Prim(StormType):
@@ -3891,7 +3934,7 @@ class Str(Prim):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
@@ -4104,7 +4147,7 @@ class Bytes(Prim):
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -4131,7 +4174,7 @@ class Bytes(Prim):
             return json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
 
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode bytes as json: {e.args[0]}'
@@ -4828,6 +4871,25 @@ class LibGlobals(Lib):
                               'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
+    _storm_lib_perms = (
+        {'perm': ('globals',), 'gate': 'cortex',
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'), 'gate': 'cortex',
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'pop'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to a specific global variable.'},
+    )
 
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
@@ -5158,7 +5220,20 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
         '''
         name = await tostr(name)
+        formprop = self.valu.form.prop(name)
+        if formprop is None:
+            mesg = f'No prop {self.valu.form.name}:{name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
+
+        gateiden = self.valu.snap.wlyr.iden
+
+        if valu is undef:
+            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            await self.valu.pop(name, None)
+            return
+
         valu = await toprim(valu)
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
@@ -5168,13 +5243,7 @@ class NodeProps(Prim):
             yield item
 
     async def set(self, prop, valu):
-        formprop = self.valu.form.prop(prop)
-        if formprop is None:
-            mesg = f'No prop {self.valu.form.name}:{prop}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
-        gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
-        return await self.valu.set(prop, valu)
+        return await self.setitem(prop, valu)
 
     @stormfunc(readonly=True)
     async def get(self, name):
@@ -6134,6 +6203,57 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'storm:node',
                               'desc': 'Yields nodes.', }}},
+
+        {'name': 'getEdges', 'desc': '''
+            Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
+
+            Example:
+                Iterate the light edges in ``$layer``::
+
+                    for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
+                        $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                    }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdges',
+                  'args': (),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
+
+        {'name': 'getEdgesByN1', 'desc': '''
+            Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
+
+            Example:
+                Iterate the N1 edges for ``$node``::
+
+                    for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
+                        $lib.print(`-({$verb})> {$n2iden}`)
+                    }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgesByN1',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
+
+        {'name': 'getEdgesByN2', 'desc': '''
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
+
+            Example:
+                Iterate the N2 edges for ``$node``::
+
+                    for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
+                        $lib.print(`-({$verb})> {$n1iden}`)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgesByN2',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -6175,6 +6295,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
@@ -6182,6 +6303,8 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
+            'getEdgesByN1': self.getEdgesByN1,
+            'getEdgesByN2': self.getEdgesByN2,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -6250,7 +6373,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layr.addPull() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
@@ -6275,7 +6398,7 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layr.delPull() requires admin privs on the top layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         todo = s_common.todo('delLayrPull', layriden, iden)
         await self.runt.dyncall('cortex', todo)
@@ -6289,7 +6412,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layer.addPush() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
@@ -6314,7 +6437,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layer.delPush() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         todo = s_common.todo('delLayrPush', layriden, iden)
         await self.runt.dyncall('cortex', todo)
@@ -6383,6 +6506,29 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
         async for item in layr.getStorNodes():
+            yield item
+
+    async def getEdges(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getEdges():
+            yield item
+
+    async def getEdgesByN1(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
+            yield item
+
+    async def getEdgesByN2(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
             yield item
 
     async def _methLayerGet(self, name, defv=None):
@@ -6618,7 +6764,7 @@ class View(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
                       {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'The node which may have been just constructed.', }}},
+                  'returns': {'type': 'storm:node', 'desc': 'The storm:node if the view is the current view, otherwise null.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -6682,14 +6828,22 @@ class View(Prim):
         viewiden = self.valu.get('iden')
 
         view = self.runt.snap.core.getView(viewiden)
+        layriden = view.layers[0].iden
 
-        self.runt.layerConfirm(('node', 'add', form))
+        # check that the user can read from the view
+        # ( to emulate perms check for being able to run storm at all )
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
 
-        for propname in props.keys():
-            fullname = f'{form}:{propname}'
-            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
+        self.runt.confirm(('node', 'add', form), gateiden=layriden)
+        if props is not None:
+            for propname in props.keys():
+                fullname = f'{form}:{propname}'
+                self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        return await self.runt.snap.addNode(form, valu, props=props)
+        if viewiden == self.runt.snap.view.iden:
+            return await self.runt.snap.addNode(form, valu, props=props)
+        else:
+            await view.addNode(form, valu, props=props, user=self.runt.user)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
@@ -6770,8 +6924,8 @@ class View(Prim):
                 self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
 
             if not self.runt.isAdmin(gateiden=view.iden):
-                mesg = 'You must be an admin of the view to set the layers.'
-                raise s_exc.AuthDeny(mesg=mesg)
+                mesg = 'User must be an admin of the view to set the layers.'
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
             await view.setLayers(layers)
             self.valu['layers'] = layers
@@ -7184,17 +7338,50 @@ class LibAuth(Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
+        {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
+         'type': {'type': 'function', '_funcname': 'textFromRule',
+                  'args': (
+                    {'name': 'rule', 'type': 'list', 'desc': 'A rule tuple.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The rule text.'}}},
+        {'name': 'getPermDefs', 'desc': 'Return a list of permission definitions.',
+         'type': {'type': 'function', '_funcname': 'getPermDefs',
+                  'args': (),
+                  'returns': {'type': 'list', 'desc': 'The list of permission definitions.'}}},
+        {'name': 'getPermDef', 'desc': 'Return a single permission definition.',
+         'type': {'type': 'function', '_funcname': 'getPermDef',
+                  'args': (
+                    {'name': 'perm', 'type': 'list', 'desc': 'A permission tuple.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A permission definition or null.'}}},
     )
     _storm_lib_path = ('auth',)
 
     def getObjLocals(self):
         return {
+            'getPermDef': self.getPermDef,
+            'getPermDefs': self.getPermDefs,
             'ruleFromText': self.ruleFromText,
+            'textFromRule': self.textFromRule,
         }
 
     @staticmethod
     def ruleFromText(text):
         return ruleFromText(text)
+
+    async def textFromRule(self, rule):
+        rule = await toprim(rule)
+        text = '.'.join(rule[1])
+        if not rule[0]:
+            text = '!' + text
+        return text
+
+    async def getPermDefs(self):
+        return await self.runt.snap.core.getPermDefs()
+
+    async def getPermDef(self, perm):
+        perm = await toprim(perm)
+        return await self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):
@@ -7247,14 +7434,17 @@ class LibUsers(Lib):
             'byname': self._methUsersByName,
         }
 
+    @stormfunc(readonly=True)
     async def _methUsersList(self):
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
+    @stormfunc(readonly=True)
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
+    @stormfunc(readonly=True)
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
         if udef is not None:
@@ -7320,14 +7510,17 @@ class LibRoles(Lib):
             'byname': self._methRolesByName,
         }
 
+    @stormfunc(readonly=True)
     async def _methRolesList(self):
         return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
 
+    @stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
         rdef = await self.runt.snap.core.getRoleDef(iden)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
+    @stormfunc(readonly=True)
     async def _methRolesByName(self, name):
         rdef = await self.runt.snap.core.getRoleDefByName(name)
         if rdef is not None:
@@ -7367,11 +7560,13 @@ class LibGates(Lib):
             'list': self._methGatesList,
         }
 
+    @stormfunc(readonly=True)
     async def _methGatesList(self):
         todo = s_common.todo('getAuthGates')
         gates = await self.runt.coreDynCall(todo)
         return [Gate(self.runt, g) for g in gates]
 
+    @stormfunc(readonly=True)
     async def _methGatesGet(self, iden):
         iden = await toprim(iden)
         todo = s_common.todo('getAuthGate', iden)
@@ -7481,7 +7676,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.has() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         if isinstance(path, str):
@@ -7494,7 +7689,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.get() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         prop = await toprim(prop)
@@ -7513,7 +7708,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.set() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         valu = await toprim(valu)
@@ -7534,7 +7729,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.del() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         prop = await toprim(prop)
@@ -7554,7 +7749,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.iter() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
 
@@ -7571,7 +7766,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheget() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         key = await toprim(key)
         path = await toprim(path)
@@ -7600,7 +7795,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheset() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         key = await toprim(key)
         path = await toprim(path)
@@ -7812,7 +8007,7 @@ class User(Prim):
         {'name': 'roles', 'desc': 'Get the Roles for the User.',
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
+                              'desc': 'A list of ``storm:auth:roles`` which the user is a member of.', }}},
         {'name': 'pack', 'desc': 'Get the packed version of the User.',
          'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
@@ -7875,6 +8070,13 @@ class User(Prim):
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'popRule', 'desc': 'Remove a rule by index from the User.',
+         'type': {'type': 'function', '_funcname': '_methUserPopRule',
+                  'args': (
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The rule which was removed.'}}},
         {'name': 'setRules', 'desc': 'Replace the rules on the User with new rules.',
          'type': {'type': 'function', '_funcname': '_methUserSetRules',
                   'args': (
@@ -7883,6 +8085,13 @@ class User(Prim):
                        'desc': 'The gate iden used for the rules.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'getRules', 'desc': 'Get the rules for the user and optional auth gate.',
+         'type': {'type': 'function', '_funcname': 'getRules',
+                  'args': (
+                      {'name': 'gateiden', 'type': 'str',
+                       'desc': 'The gate iden used for the rules.', 'default': None},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of rules.'}}},
         {'name': 'setAdmin', 'desc': 'Set the Admin flag for the user.',
          'type': {'type': 'function', '_funcname': '_methUserSetAdmin',
                   'args': (
@@ -7911,6 +8120,11 @@ class User(Prim):
                        'desc': 'The new password for the user. This is best passed into the runtime as a variable.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'gates', 'desc': 'Return a list of auth gates that the user has rules for.',
+         'type': {'type': 'function', '_funcname': 'gates',
+                  'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of ``storm:auth:gates`` that the user has rules for.', }}},
         {'name': 'name', 'desc': '''
         A users name. This can also be used to set a users name.
 
@@ -7979,6 +8193,7 @@ class User(Prim):
             'get': self._methUserGet,
             'pack': self._methUserPack,
             'tell': self._methUserTell,
+            'gates': self.gates,
             'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
@@ -7986,7 +8201,9 @@ class User(Prim):
             'revoke': self._methUserRevoke,
             'addRule': self._methUserAddRule,
             'delRule': self._methUserDelRule,
+            'popRule': self._methUserPopRule,
             'setRoles': self._methUserSetRoles,
+            'getRules': self.getRules,
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
             'setEmail': self._methUserSetEmail,
@@ -7998,19 +8215,19 @@ class User(Prim):
         return await self.value()
 
     async def _methUserTell(self, text):
+        self.runt.confirm(('tell', self.valu), default=True)
         mesgdata = {
             'text': await tostr(text),
             'from': self.runt.user.iden,
         }
-        self.runt.confirm(('tell', self.valu), default=True)
         return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
 
     async def _methUserNotify(self, mesgtype, mesgdata):
-        mesgtype = await tostr(mesgtype)
-        mesgdata = await toprim(mesgdata)
         if not self.runt.isAdmin():
             mesg = '$user.notify() method requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        mesgtype = await tostr(mesgtype)
+        mesgdata = await toprim(mesgdata)
         return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _storUserName(self, name):
@@ -8031,6 +8248,14 @@ class User(Prim):
     async def _methUserGet(self, name):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return udef.get(name)
+
+    async def gates(self):
+        user = self.runt.snap.core.auth.user(self.valu)
+        retn = []
+        for gateiden in user.authgates.keys():
+            gate = await self.runt.snap.core.getAuthGate(gateiden)
+            retn.append(Gate(self.runt, gate))
+        return retn
 
     async def _methUserRoles(self):
         udef = await self.runt.snap.core.getUserDef(self.valu)
@@ -8060,16 +8285,43 @@ class User(Prim):
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
+    async def getRules(self, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
+        user = self.runt.snap.core.auth.user(self.valu)
+        return user.getRules(gateiden=gateiden)
+
     async def _methUserAddRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
+
+    async def _methUserPopRule(self, indx, gateiden=None):
+
+        gateiden = await tostr(gateiden, noneok=True)
+        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+        rules = list(await self.getRules(gateiden=gateiden))
+
+        if len(rules) <= indx:
+            mesg = f'User {self.valu} only has {len(rules)} rules.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retn = rules.pop(indx)
+        await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
+        return retn
 
     async def _methUserSetEmail(self, email):
         email = await tostr(email)
@@ -8082,14 +8334,15 @@ class User(Prim):
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
+        passwd = await tostr(passwd, noneok=True)
         if self.runt.user.iden == self.valu:
-            passwd = await tostr(passwd, noneok=True)
             self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
@@ -8122,6 +8375,11 @@ class Role(Prim):
         {'name': 'pack', 'desc': 'Get the packed version of the Role.',
          'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
+        {'name': 'gates', 'desc': 'Return a list of auth gates that the role has rules for.',
+         'type': {'type': 'function', '_funcname': 'gates',
+                  'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of ``storm:auth:gates`` that the role has rules for.', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the Role',
          'type': {'type': 'function', '_funcname': '_methRoleAddRule',
                   'args': (
@@ -8139,6 +8397,20 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }
                   }},
+        {'name': 'popRule', 'desc': 'Remove a rule by index from the Role.',
+         'type': {'type': 'function', '_funcname': '_methRolePopRule',
+                  'args': (
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The rule which was removed.'}}},
+        {'name': 'getRules', 'desc': 'Get the rules for the role and optional auth gate.',
+         'type': {'type': 'function', '_funcname': 'getRules',
+                  'args': (
+                      {'name': 'gateiden', 'type': 'str',
+                       'desc': 'The gate iden used for the rules.', 'default': None},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of rules.'}}},
         {'name': 'setRules', 'desc': 'Replace the rules on the Role with new rules.',
          'type': {'type': 'function', '_funcname': '_methRoleSetRules',
                   'args': (
@@ -8178,9 +8450,12 @@ class Role(Prim):
         return {
             'get': self._methRoleGet,
             'pack': self._methRolePack,
+            'gates': self.gates,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
+            'popRule': self._methRolePopRule,
             'setRules': self._methRoleSetRules,
+            'getRules': self.getRules,
         }
 
     async def _derefGet(self, name):
@@ -8188,9 +8463,8 @@ class Role(Prim):
         return rdef.get(name, s_common.novalu)
 
     async def _setRoleName(self, name):
-        name = await tostr(name)
-
         self.runt.confirm(('auth', 'role', 'set', 'name'))
+        name = await tostr(name)
         await self.runt.snap.core.setRoleName(self.valu, name)
 
     async def _methRoleGet(self, name):
@@ -8200,17 +8474,53 @@ class Role(Prim):
     async def _methRolePack(self):
         return await self.value()
 
+    async def gates(self):
+        role = self.runt.snap.core.auth.role(self.valu)
+        retn = []
+        for gateiden in role.authgates.keys():
+            gate = await self.runt.snap.core.getAuthGate(gateiden)
+            retn.append(Gate(self.runt, gate))
+        return retn
+
+    async def getRules(self, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
+        role = self.runt.snap.core.auth.role(self.valu)
+        return role.getRules(gateiden=gateiden)
+
     async def _methRoleSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
+
+    async def _methRolePopRule(self, indx, gateiden=None):
+
+        gateiden = await tostr(gateiden, noneok=True)
+        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+
+        rules = list(await self.getRules(gateiden=gateiden))
+
+        if len(rules) <= indx:
+            mesg = f'Role {self.valu} only has {len(rules)} rules.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retn = rules.pop(indx)
+        await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
+        return retn
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
@@ -9025,7 +9335,13 @@ async def toiter(valu, noneok=False):
             yield item
         return
 
-    for item in valu:
+    try:
+        genr = iter(valu)
+    except TypeError as e:
+        mesg = f'Value is not iterable: {valu!r}'
+        raise s_exc.StormRuntimeError(mesg=mesg) from e
+
+    for item in genr:
         yield item
 
 async def torepr(valu, usestr=False):

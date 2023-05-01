@@ -335,6 +335,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'loc': 'us.hehe.haha',
                     'operator': cont0,
                     'org': org0,
+                    'ext:id': 'foo123'
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -347,6 +348,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('loc'), 'us.hehe.haha')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('operator'), cont0)
+                self.eq(node.get('ext:id'), 'foo123')
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
@@ -593,6 +595,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     ('0.18rc2', 0, {'major': 0, 'minor': 0, 'patch': 0}),
                     ('OpenSSL_1_0_2l', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
                 ]
+                itmod = core.getCoreMod('synapse.models.infotech.ItModule')
+
                 for tv, te, subs in testvectors:
                     props = {
                         'vers': tv
@@ -603,13 +607,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.eq(node.get('semver:minor'), subs.get('minor'))
                     self.eq(node.get('semver:patch'), subs.get('patch'))
 
+                    self.eq(itmod.bruteVersionStr(tv), (te, subs))
+
                 node = await snap.addNode('it:prod:softver', '*', {'vers': ''})
                 self.eq(node.get('vers'), '')
                 self.none(node.get('vers:norm'))
                 self.none(node.get('semver'))
 
                 with self.getLoggerStream('synapse.models.infotech',
-                                          'Unable to brute force version parts out of the string') as stream:
+                                          'Unable to parse string as a semver') as stream:
 
                     node = await snap.addNode('it:prod:softver', '*', {'vers': 'Alpha'})
                     self.none(node.get('semver'))
@@ -716,7 +722,23 @@ class InfotechModelTest(s_t_utils.SynTest):
                 (0xFFFFF, (0xFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFF})),
                 (0xFFFFF + 1, (0xFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0})),
                 (0xdeadb33f1337133, (0xdeadb33f1337133, {'major': 0xdeadb, 'minor': 0x33f13, 'patch': 0x37133})),
-                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF}))
+                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF})),
+                # Brute forced strings
+                ('1', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('1.2', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
+                ('2.0A1', (2199023255552, {'major': 2, 'minor': 0, 'patch': 0})),
+                ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
+                ('0.0.00001', (1, {'major': 0, 'minor': 0, 'patch': 1})),
+                ('2016-03-01', (2216615444742145, {'major': 2016, 'minor': 3, 'patch': 1})),
+                ('v2.4.0.0-1', (2199027449856, {'major': 2, 'minor': 4, 'patch': 0})),
+                ('1.3a2.dev12', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('OpenSSL_1_0_2l', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('1.2.windows-RC1', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
+                ('v2.4.1.0-0.3.rc1', (2199027449857, {'major': 2, 'minor': 4, 'patch': 1})),
+                ('1.2.3-alpha.foo..+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha.foo.001+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah...', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah.*iggy', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3}))
             )
 
             for v, e in testvectors:
@@ -727,26 +749,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(subs, es)
 
             testvectors_bad = (
-                # Invalid strings
-                '1',
-                '1.2',
-                '2.0A1',
-                '0.18rc2',
-                '0.0.00001',
-                '2016-03-01',
-                'v2.4.0.0-1',
-                '1.3a2.dev12',
-                'OpenSSL_1_0_2l',
-                '1.2.windows-RC1',
-                'v2.4.1.0-0.3.rc1',
                 # invalid ints
                 -1,
                 0xFFFFFFFFFFFFFFFFFFFFFFFF + 1,
-                # Invalid build and prerelease values
-                '1.2.3-alpha.foo..+001',
-                '1.2.3-alpha.foo.001+001',
-                '1.2.3-alpha+001.blahblahblah...',
-                '1.2.3-alpha+001.blahblahblah.*iggy',
                 # Just bad input
                 '   ',
                 ' alpha ',
@@ -1139,12 +1144,29 @@ class InfotechModelTest(s_t_utils.SynTest):
             host = s_common.guid()
             opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
 
-            nodes = await core.nodes('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''
+            [ it:app:snort:rule=$rule
+                :id=999
+                :text=gronk
+                :name=foo
+                :author = {[ ps:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :family=redtree
+                :version=1.2.3 ]
+            ''', opts=opts)
 
             self.len(1, nodes)
+            self.eq('999', nodes[0].get('id'))
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
+            self.eq('redtree', nodes[0].get('family'))
+            self.eq(True, nodes[0].get('enabled'))
             self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq(1325376000000, nodes[0].get('created'))
+            self.eq(1640995200000, nodes[0].get('updated'))
+            self.nn(nodes[0].get('author'))
 
             nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
@@ -1315,3 +1337,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+    async def test_infotech_softid(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:prod:softid=*
+                    :id=Woot
+                    :host=*
+                    :soft={[ it:prod:softver=* :name=beacon ]}
+                    :soft:name=beacon
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('Woot', nodes[0].get('id'))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('soft'))
+            self.len(1, await core.nodes('it:host -> it:prod:softid'))
+            self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))

@@ -20,7 +20,7 @@ class TransportModule(s_module.CoreModule):
                     'ex': 'ua2437'}),
 
                 ('transport:air:telem', ('guid', {}), {
-                    'doc': 'A telemtry sample from an aircraft in transit.'}),
+                    'doc': 'A telemetry sample from an aircraft in transit.'}),
 
                 ('transport:air:flight', ('guid', {}), {
                     'doc': 'An individual instance of a flight.'}),

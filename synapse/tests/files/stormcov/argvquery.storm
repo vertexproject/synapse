@@ -1,0 +1,8 @@
+function foo() {
+    tee {
+        if $lib.true {
+            stop
+        }
+    } {}
+}
+yield $foo()

@@ -106,6 +106,9 @@ class Prop:
             self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
 
+        self.setperm = ('node', 'prop', 'set', self.full)
+        self.delperm = ('node', 'prop', 'del', self.full)
+
         self.form = form
         self.type = None
         self.typedef = typedef
@@ -246,6 +249,9 @@ class Form:
 
         self.onadds = []
         self.ondels = []
+
+        self.addperm = ('node', 'add', self.name)
+        self.delperm = ('node', 'del', self.name)
 
         self.type = modl.types.get(name)
         if self.type is None:
@@ -557,7 +563,7 @@ class Model:
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
         })
-        self.addUnivProp('created', ('time', {}), {
+        self.addUnivProp('created', ('time', {'ismin': True}), {
             'ro': True,
             'doc': 'The time the node was created in the cortex.',
         })

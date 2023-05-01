@@ -1,6 +1,7 @@
 import io
 import os
 import csv
+import sys
 import base64
 import shutil
 import asyncio
@@ -379,9 +380,25 @@ bar baz",vv
         with self.raises(s_exc.BadArg) as cm:
             rows = [row async for row in axon.csvrows(sha256, newp='newp')]
 
-        # data that isn't a text file
+        # From CPython Test_Csv.test_read_eof
+        eofbuf = '"a,'.encode()
+        size, eofsha256 = await axon.put(eofbuf)
         with self.raises(s_exc.BadDataValu) as cm:
+            rows = [row async for row in axon.csvrows(eofsha256, strict=True)]
+        self.isin('unexpected end of data', cm.exception.get('mesg'))
+
+        # Python 3.11+ - csv handles null bytes in an acceptable fashion.
+        # See https://github.com/python/cpython/issues/71767 for discussion
+        if sys.version_info.major >= 3 and sys.version_info.minor >= 11:
+
             rows = [row async for row in axon.csvrows(bin256)]
+            self.eq(rows, (('/$A\x00_v4\x1b',),))
+
+        else:
+
+            # data that has null bytes is not handled by cpython csv < 3.11
+            with self.raises(s_exc.BadDataValu) as cm:
+                rows = [row async for row in axon.csvrows(bin256)]
 
         with self.raises(s_exc.NoSuchFile):
             lines = [item async for item in axon.csvrows(newphash)]
@@ -429,8 +446,9 @@ bar baz",vv
                 yield b'qwer'
                 yield b'zxcv'
 
-            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-            await axon.save(sha256, genr())
+            asdfbyts = b'asdfqwerzxcv'
+            sha256 = hashlib.sha256(asdfbyts).digest()
+            await axon.save(sha256, genr(), size=len(asdfbyts))
 
             bytslist = [b async for b in axon.get(sha256, 0, size=2)]
             self.eq(b'as', b''.join(bytslist))
@@ -477,12 +495,17 @@ bar baz",vv
             self.eq(bbufretn, await axon.put(bbuf))
             self.true(await axon.has(bbufhash))
 
+            with self.raises(ValueError) as cm:
+                async with axon.holdHashLock(bbufhash):
+                    raise ValueError('oops')
+            self.none(axon.hashlocks.get(bbufhash))
+
             def emptygen():
                 if False:
                     yield None
                 return
 
-            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen()))
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen(), size=bbufretn[0]))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
@@ -717,8 +740,9 @@ bar baz",vv
                     yield b'qwer'
                     yield b'zxcv'
 
-                sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-                await axon.save(sha256, genr())
+                asdfbyts = b'asdfqwerzxcv'
+                sha256 = hashlib.sha256(asdfbyts).digest()
+                await axon.save(sha256, genr(), size=len(asdfbyts))
                 shatext = s_common.ehex(sha256)
 
                 headers = {'range': 'bytes=2-4'}
@@ -901,7 +925,12 @@ bar baz",vv
         async with self.getTestAxon(conf=conf) as axon:
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.wget('http://vertex.link')
-                self.isin('Can not connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+
+            resp = await proxy.wget('vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
 
     async def test_axon_wput(self):
 
@@ -961,10 +990,48 @@ bar baz",vv
 
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
+
+            axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+
+            async with await axon.upload() as fd:
+                await fd.write(b'asdfasdf')
+                size, sha256 = await fd.save()
+
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
-                self.false(resp['ok'])
-                self.isin('Can not connect to proxy 127.0.0.1:1', resp.get('err', ''))
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+
+            resp = await proxy.wput(sha256, 'vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+
+            resp = await proxy.postfiles(fields, 'vertex.link')
+            self.false(resp.get('ok'))
+            self.isin('InvalidURL: vertex.link', resp.get('err', ''))
+
+            # Bypass the Axon proxy configuration from Storm
+            url = axon.getLocalUrl()
+            async with self.getTestCore(conf={'axon': url}) as core:
+                q = f'''
+                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                            fields=$fields, ssl_verify=(0))
+                return($resp)
+                '''
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+
+                q = f'''
+                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                            fields=$fields, ssl_verify=(0), proxy=$lib.false)
+                return($resp)
+                '''
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                self.true(resp.get('ok'))
+                self.eq(resp.get('code'), 200)
 
     async def test_axon_tlscapath(self):
 

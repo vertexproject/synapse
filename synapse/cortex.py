@@ -67,6 +67,8 @@ import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
+import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
+import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
@@ -119,6 +121,32 @@ reqValidTagModel = s_config.getJsValidator({
     },
     'additionalProperties': False,
     'required': [],
+})
+
+reqValidStormMacro = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string', 'pattern': '^.{1,491}$'},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        # user kept for backward compat. remove eventually...
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'desc': {'type': 'string', 'default': ''},
+        'storm': {'type': 'string'},
+        'created': {'type': 'number'},
+        'updated': {'type': 'number'},
+        'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
+    },
+    'required': [
+        'name',
+        'iden',
+        'user',
+        'storm',
+        'creator',
+        'created',
+        'updated',
+        'permissions',
+    ],
 })
 
 def cmprkey_indx(x):
@@ -658,35 +686,6 @@ class CoreApi(s_cell.CellApi):
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
-    @s_cell.adminapi()
-    async def provStacks(self, offs, size):
-        '''
-        Return stream of (iden, provenance stack) tuples at the given offset.
-        '''
-        s_common.deprecated('CoreApi.provStacks()', curv='2.117.0', eolv='2.221.0')
-        count = 0
-        for iden, stack in self.cell.provstor.provStacks(offs, size):
-            count += 1
-            if not count % 1000:
-                await asyncio.sleep(0)
-            yield s_common.ehex(iden), stack
-
-    @s_cell.adminapi()
-    async def getProvStack(self, iden: str):
-        '''
-        Return the provenance stack associated with the given iden.
-
-        Args:
-            iden (str):  the iden of the provenance stack
-
-        Note: the iden appears on each splice entry as the 'prov' property
-        '''
-        s_common.deprecated('CoreApi.getProvStack()', curv='2.117.0', eolv='2.221.0')
-        if iden is None:
-            return None
-
-        return self.cell.provstor.getProvStack(s_common.uhex(iden))
-
     async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
@@ -1060,10 +1059,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
         },
-        'provenance:en': {
+        'provenance:en': {  # TODO: Remove in 3.0.0
             'default': False,
-            'description': 'Enable provenance tracking for all writes. This option will be removed in v2.221.0.',
-            'type': 'boolean'
+            'description': 'This no longer does anything.',
+            'type': 'boolean',
+            'hideconf': True,
         },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
@@ -1121,6 +1121,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceStorage(self):
 
         # NOTE: we may not make *any* nexus actions in this method
+        self.macrodb = self.slab.initdb('storm:macros')
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
@@ -1162,12 +1163,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
-        self.permdefs = None
-        self.permlook = None
-
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
+        self.stormlibs = []
+
         self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
@@ -1175,11 +1175,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.axoninfo = {}
 
         self.view = None  # The default/main view
-
-        proven = self.conf.get('provenance:en')
-
-        self.provstor = await s_provenance.ProvStor.anit(self.dirn, proven=proven)
-        self.onfini(self.provstor.fini)
 
         # Reset the storm:log:level from the config value to an int for internal use.
         self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
@@ -1224,6 +1219,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
         await self._initStormDmons()
+        await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
 
@@ -1252,6 +1248,212 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+        await self._bumpCellVers('cortex:storage', (
+            (1, self._storUpdateMacros),
+        ), nexs=False)
+
+    async def _storUpdateMacros(self):
+        for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
+
+            try:
+
+                info = {
+                    'name': name,
+                    'storm': node.valu.get('storm'),
+                }
+
+                user = node.valu.get('user')
+                if user is not None:
+                    info['user'] = user
+
+                created = node.valu.get('created')
+                if created is not None:
+                    info['created'] = created
+
+                edited = node.valu.get('edited')
+                if edited is not None:
+                    info['updated'] = edited
+
+                    if info.get('created') is None:
+                        info['created'] = edited
+
+                mdef = self._initStormMacro(info)
+
+                await self._addStormMacro(mdef)
+
+            except Exception as e:
+                logger.exception(f'Macro migration error for macro: {name} (skipped).')
+
+    def getStormMacro(self, name, user=None):
+
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
+
+        byts = self.slab.get(name.encode(), db=self.macrodb)
+        if byts is None:
+            return None
+
+        mdef = s_msgpack.un(byts)
+
+        if user is not None:
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+
+        return mdef
+
+    def reqStormMacro(self, name, user=None):
+
+        mdef = self.getStormMacro(name)
+        if mdef is None:
+            raise s_exc.NoSuchName(mesg=f'Macro name not found: {name}')
+
+        if user is not None:
+            self._reqEasyPerm(mdef, user, s_cell.PERM_READ)
+
+        return mdef
+
+    def _reqStormMacroPerm(self, user, name, level):
+        mdef = self.reqStormMacro(name)
+        mesg = f'User requires {s_cell.permnames.get(level)} permission on macro: {name}'
+
+        if level == s_cell.PERM_EDIT and (
+            user.allowed(('storm', 'macro', 'edit')) or
+            user.allowed(('storm', 'macro', 'admin'))):
+            return mdef
+
+        if level == s_cell.PERM_ADMIN and user.allowed(('storm', 'macro', 'admin')):
+            return mdef
+
+        self._reqEasyPerm(mdef, user, level, mesg=mesg)
+        return mdef
+
+    async def addStormMacro(self, mdef, user=None):
+
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('storm', 'macro', 'add'), default=True)
+
+        mdef = self._initStormMacro(mdef, user=user)
+
+        reqValidStormMacro(mdef)
+
+        return await self._push('storm:macro:add', mdef)
+
+    def _initStormMacro(self, mdef, user=None):
+
+        if user is None:
+            user = self.auth.rootuser
+
+        mdef['iden'] = s_common.guid()
+
+        now = s_common.now()
+
+        mdef.setdefault('updated', now)
+        mdef.setdefault('created', now)
+
+        useriden = mdef.get('user', user.iden)
+
+        mdef['user'] = useriden
+        mdef['creator'] = useriden
+
+        mdef.setdefault('storm', '')
+        self._initEasyPerm(mdef)
+
+        mdef['permissions']['users'][useriden] = s_cell.PERM_ADMIN
+
+        return mdef
+
+    @s_nexus.Pusher.onPush('storm:macro:add')
+    async def _addStormMacro(self, mdef):
+        name = mdef.get('name')
+        reqValidStormMacro(mdef)
+
+        # idempotency protection...
+        oldv = self.getStormMacro(name)
+        if oldv is not None and oldv.get('iden') != mdef.get('iden'):
+            raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
+
+        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        return mdef
+
+    async def delStormMacro(self, name, user=None):
+
+        if user is not None:
+            self._reqStormMacroPerm(user, name, s_cell.PERM_ADMIN)
+
+        return await self._push('storm:macro:del', name)
+
+    @s_nexus.Pusher.onPush('storm:macro:del')
+    async def _delStormMacro(self, name):
+        byts = self.slab.pop(name.encode(), db=self.macrodb)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def modStormMacro(self, name, info, user=None):
+        if user is not None:
+            self._reqStormMacroPerm(user, name, s_cell.PERM_EDIT)
+        return await self._push('storm:macro:mod', name, info)
+
+    @s_nexus.Pusher.onPush('storm:macro:mod')
+    async def _modStormMacro(self, name, info):
+
+        mdef = self.getStormMacro(name)
+        if mdef is None:
+            return
+
+        mdef.update(info)
+
+        reqValidStormMacro(mdef)
+
+        newname = info.get('name')
+        if newname is not None and newname != name:
+
+            byts = self.slab.get(newname.encode(), db=self.macrodb)
+            if byts is not None:
+                raise s_exc.DupName('A macro named {newname} already exists!')
+
+            self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
+            self.slab.pop(name.encode(), db=self.macrodb)
+        else:
+            self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+
+        return mdef
+
+    async def setStormMacroPerm(self, name, scope, iden, level, user=None):
+
+        if user is not None:
+            self._reqStormMacroPerm(user, name, s_cell.PERM_ADMIN)
+
+        return await self._push('storm:macro:set:perm', name, scope, iden, level)
+
+    @s_nexus.Pusher.onPush('storm:macro:set:perm')
+    async def _setStormMacroPerm(self, name, scope, iden, level):
+
+        mdef = self.reqStormMacro(name)
+        await self._setEasyPerm(mdef, scope, iden, level)
+
+        reqValidStormMacro(mdef)
+
+        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        return mdef
+
+    async def getStormMacros(self, user=None):
+
+        retn = []
+
+        for lkey, byts in self.slab.scanByFull(db=self.macrodb):
+
+            await asyncio.sleep(0)
+
+            mdef = s_msgpack.un(byts)
+
+            if user is not None and not self._hasEasyPerm(mdef, user, s_cell.PERM_READ):
+                continue
+
+            retn.append(mdef)
+
+        return retn
+
     async def getStormIfaces(self, name):
 
         mods = self.modsbyiface.get(name)
@@ -1273,44 +1475,65 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface[name] = tuple(mods)
         return mods
 
-    async def getPermDef(self, perm):
-        if self.permlook is None:
-            permdefs = await self.getPermDefs()
-            self.permlook = {p['perm']: p for p in permdefs}
-        return self.permlook.get(tuple(perm))
-
-    async def getPermDefs(self):
-        if self.permdefs is None:
-            self.permdefs = await self._getPermDefs()
-        return self.permdefs
-
     async def _getPermDefs(self):
 
-        permdefs = [
+        permdefs = list(await s_cell.Cell._getPermDefs(self))
+        permdefs.extend((
+            {'perm': ('view',), 'gate': 'view',
+                'desc': 'Used to control all view permissions.'},
+            {'perm': ('view', 'read'), 'gate': 'view',
+                'desc': 'Used to control read access to a view.'},
+
             {'perm': ('node',), 'gate': 'layer',
                 'desc': 'Controls all node edits in a layer.'},
-            {'perm': ('node', 'add'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'add'), 'gate': 'layer',
                 'desc': 'Controls adding any form of node in a layer.'},
-            {'perm': ('node', 'del'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'del'), 'gate': 'layer',
                 'desc': 'Controls removing any form of node in a layer.'},
+
+            {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
+                'ex': 'node.add.inet:ipv4',
+                'desc': 'Controls adding a specific form of node in a layer.'},
+            {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
+                'desc': 'Controls removing a specific form of node in a layer.'},
 
             {'perm': ('node', 'tag'), 'gate': 'layer',
                 'desc': 'Controls editing any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'add'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
                 'desc': 'Controls adding any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
                 'desc': 'Controls removing any tag on any node in a layer.'},
+
+            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
+                'ex': 'node.tag.add.cno.mal.redtree',
+                'desc': 'Controls adding a specific tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
+                'ex': 'node.tag.del.cno.mal.redtree',
+                'desc': 'Controls removing a specific tag on any node in a layer.'},
 
             {'perm': ('node', 'prop'), 'gate': 'layer',
                 'desc': 'Controls editing any prop on any node in the layer.'},
-            {'perm': ('node', 'prop', 'set'), 'gate': 'layer', 'expand': True,
+
+            {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
                 'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'del'), 'gate': 'layer', 'expand': True,
+            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
+                'ex': 'node.prop.set.inet:ipv4:asn',
+                'desc': 'Controls setting a specific property on a node in a layer.'},
+
+            {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
                 'desc': 'Controls removing any prop on any node in a layer.'},
-        ]
+            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
+                'ex': 'node.prop.del.inet:ipv4:asn',
+                'desc': 'Controls removing a specific property from a node in a layer.'},
+        ))
+
+        # TODO declare perm defs in storm libraries and include them here...
 
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
+
+        for (path, ctor) in self.stormlibs:
+            permdefs.extend(getattr(ctor, '_storm_lib_perms', ()))
 
         return tuple(permdefs)
 
@@ -1407,6 +1630,156 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def reqValidStormGraph(self, gdef):
+        for filt in gdef.get('filters', ()):
+            await self.getStormQuery(filt)
+
+        for pivo in gdef.get('filters', ()):
+            await self.getStormQuery(pivo)
+
+        for form, rule in gdef.get('forms', {}).items():
+            if form != '*' and self.model.form(form) is None:
+                raise s_exc.NoSuchForm(name=form)
+
+            for filt in rule.get('filters', ()):
+                await self.getStormQuery(filt)
+
+            for pivo in rule.get('filters', ()):
+                await self.getStormQuery(pivo)
+
+    async def addStormGraph(self, gdef, user=None):
+
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('storm', 'graph', 'add'), default=True)
+
+        self._initEasyPerm(gdef)
+
+        now = s_common.now()
+
+        gdef['iden'] = s_common.guid()
+        gdef['scope'] = 'user'
+        gdef['creator'] = user.iden
+        gdef['created'] = now
+        gdef['updated'] = now
+        gdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
+
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        await self.reqValidStormGraph(gdef)
+
+        return await self._push('storm:graph:add', gdef)
+
+    @s_nexus.Pusher.onPush('storm:graph:add')
+    async def _addStormGraph(self, gdef):
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        await self.reqValidStormGraph(gdef)
+
+        if gdef['scope'] == 'power-up':
+            mesg = 'Power-up graph projections may only be added by power-ups.'
+            raise s_exc.SynErr(mesg=mesg)
+
+        iden = gdef['iden']
+        if self.graphs.get(iden) is not None:
+            return
+
+        self.graphs.set(iden, gdef)
+
+        await self.feedBeholder('storm:graph:add', {'gdef': gdef})
+        return copy.deepcopy(gdef)
+
+    def _reqStormGraphPerm(self, user, iden, level):
+        gdef = self.graphs.get(iden)
+        if gdef is None:
+            gdef = self.pkggraphs.get(iden)
+
+        if gdef is None:
+            mesg = f'No graph projection with iden {iden} exists!'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        if gdef['scope'] == 'power-up' and level > s_cell.PERM_READ:
+            mesg = 'Power-up graph projections may not be modified.'
+            raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
+
+        if user is not None:
+            self._reqEasyPerm(gdef, user, level)
+
+        return gdef
+
+    async def delStormGraph(self, iden, user=None):
+        self._reqStormGraphPerm(user, iden, s_cell.PERM_ADMIN)
+        return await self._push('storm:graph:del', iden)
+
+    @s_nexus.Pusher.onPush('storm:graph:del')
+    async def _delStormGraph(self, iden):
+        gdef = self.graphs.pop(iden, None)
+        if gdef is not None:
+            await self.feedBeholder('storm:graph:del', {'iden': iden})
+            return gdef
+
+    async def getStormGraph(self, iden, user=None):
+        gdef = self._reqStormGraphPerm(user, iden, s_cell.PERM_READ)
+        return copy.deepcopy(gdef)
+
+    async def getStormGraphs(self, user=None):
+
+        for _, gdef in self.graphs.items():
+
+            await asyncio.sleep(0)
+
+            if user is not None and self._hasEasyPerm(gdef, user, s_cell.PERM_READ):
+                yield copy.deepcopy(gdef)
+
+        for gdef in self.pkggraphs.values():
+
+            await asyncio.sleep(0)
+
+            if user is not None and self._hasEasyPerm(gdef, user, s_cell.PERM_READ):
+                yield copy.deepcopy(gdef)
+
+    async def modStormGraph(self, iden, info, user=None):
+        self._reqStormGraphPerm(user, iden, s_cell.PERM_EDIT)
+        info['updated'] = s_common.now()
+        return await self._push('storm:graph:mod', iden, info)
+
+    @s_nexus.Pusher.onPush('storm:graph:mod')
+    async def _modStormGraph(self, iden, info):
+
+        gdef = self._reqStormGraphPerm(None, iden, s_cell.PERM_EDIT)
+        gdef = copy.deepcopy(gdef)
+        gdef.update(info)
+
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        await self.reqValidStormGraph(gdef)
+
+        self.graphs.set(iden, gdef)
+
+        await self.feedBeholder('storm:graph:mod', {'gdef': gdef})
+        return copy.deepcopy(gdef)
+
+    async def setStormGraphPerm(self, gden, scope, iden, level, user=None):
+        self._reqStormGraphPerm(user, gden, s_cell.PERM_ADMIN)
+        return await self._push('storm:graph:set:perm', gden, scope, iden, level, s_common.now())
+
+    @s_nexus.Pusher.onPush('storm:graph:set:perm')
+    async def _setStormGraphPerm(self, gden, scope, iden, level, utime):
+
+        gdef = self._reqStormGraphPerm(None, gden, s_cell.PERM_ADMIN)
+        gdef = copy.deepcopy(gdef)
+        gdef['updated'] = utime
+
+        await self._setEasyPerm(gdef, scope, iden, level)
+
+        s_stormlib_graph.reqValidGdef(gdef)
+
+        self.graphs.set(gden, gdef)
+
+        await self.feedBeholder('storm:graph:set:perm', {'gdef': gdef})
+        return copy.deepcopy(gdef)
 
     async def addCoreQueue(self, name, info):
 
@@ -1726,6 +2099,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
+    async def _initStormGraphs(self):
+        path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
+
+        slab = await s_lmdbslab.Slab.anit(path)
+        self.onfini(slab.fini)
+
+        self.pkggraphs = {}
+        self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
+
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
         return await self._push('cmd:set', cdef)
@@ -1819,6 +2201,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if sodelist is not None:
                 yield sodelist
 
+    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None):
+        lastbuid = None
+        sodes = {}
+        async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
+            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
+                if buid in uniqset:
+                    continue
+
+                if not buid == lastbuid or layr in sodes:
+                    if lastbuid is not None:
+                        sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                        if sodelist is not None:
+                            yield sodelist
+                        sodes.clear()
+
+                    await uniqset.add(lastbuid)
+                    lastbuid = buid
+
+                sodes[layr] = sode
+
+            if lastbuid is not None:
+                sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                if sodelist is not None:
+                    yield sodelist
+
     async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
@@ -1844,7 +2251,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
@@ -1961,7 +2368,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
@@ -2139,6 +2546,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
 
+        self._clearPermDefs()
+
         gates = []
         perms = []
         pkgperms = pkgdef.get('perms')
@@ -2166,6 +2575,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._dropStormPkg(pkgdef)
 
+        self._clearPermDefs()
+
         gates = []
         perms = []
         pkgperms = pkgdef.get('perms')
@@ -2181,11 +2592,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
-        return self.stormmods
+        return copy.deepcopy(self.stormmods)
 
     async def getStormMod(self, name, reqvers=None):
 
-        mdef = self.stormmods.get(name)
+        mdef = copy.deepcopy(self.stormmods.get(name))
         if mdef is None or reqvers is None:
             return mdef
 
@@ -2282,7 +2693,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if require['ok']:
                 continue
 
-            mesg = f'Storm package {name} requirement {require.get("name")}{require.get("version")} is currently unmet.'
+            option = ' '
+            if require.get('optional'):
+                option = ' optional '
+
+            mesg = f'Storm package {name}{option}requirement {require.get("name")}{require.get("version")} is currently unmet.'
             logger.debug(mesg)
 
         for conflict in deps['conflicts']:
@@ -2349,6 +2764,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
 
+        for gdef in pkgdef.get('graphs', ()):
+            gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
+            gdef['scope'] = 'power-up'
+            gdef['power-up'] = pkgname
+
+            if validstorm:
+                await self.reqValidStormGraph(gdef)
+
         # Validate package def (post normalization)
         s_storm.reqValidPkgdef(pkgdef)
 
@@ -2366,10 +2789,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
-
-        if pkgdef.get('perms'):
-            self.permdefs = None
-            self.permlook = None
 
         # now actually load...
         self.stormpkgs[name] = pkgdef
@@ -2390,6 +2809,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for cdef in cmds:
             await self._setStormCmd(cdef)
+
+        for gdef in pkgdef.get('graphs', ()):
+            gdef = copy.deepcopy(gdef)
+            self._initEasyPerm(gdef)
+            self.pkggraphs[gdef['iden']] = gdef
 
         onload = pkgdef.get('onload')
         if onload is not None and self.isactive:
@@ -2423,6 +2847,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._popStormCmd(name)
 
         pkgname = pkgdef.get('name')
+
+        for gdef in pkgdef.get('graphs', ()):
+            self.pkggraphs.pop(gdef['iden'], None)
+
         self.stormpkgs.pop(pkgname, None)
 
     def getStormSvc(self, name):
@@ -3375,12 +3803,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.SpinCmd)
         self.addStormCmd(s_storm.SudoCmd)
         self.addStormCmd(s_storm.UniqCmd)
+        self.addStormCmd(s_storm.BatchCmd)
         self.addStormCmd(s_storm.CountCmd)
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.MergeCmd)
         self.addStormCmd(s_storm.RunAsCmd)
         self.addStormCmd(s_storm.SleepCmd)
+        self.addStormCmd(s_storm.CopyToCmd)
         self.addStormCmd(s_storm.DivertCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
         self.addStormCmd(s_storm.DelNodeCmd)
@@ -3402,6 +3832,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_gen.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_stormlib_auth.stormcmds:
@@ -4442,6 +4875,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def addStormLib(self, path, ctor):
 
+        self.stormlibs.append((path, ctor))
+
         root = self.libroot
         # (name, {kids}, {funcs})
 
@@ -4676,7 +5111,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = self.auth.user(useriden)
         if user is None:
             mesg = f'No user found with iden: {useriden}'
-            raise s_exc.NoSuchUser(mesg, iden=useriden)
+            raise s_exc.NoSuchUser(mesg=mesg, user=useriden)
 
         return user
 
@@ -4715,29 +5150,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        spooldict = await s_spooled.Dict.anit(dirn=self.dirn)
-        async with await self.snap(user=user, view=view) as snap:
+        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+            async with await self.snap(user=user, view=view) as snap:
 
-            async for pode in snap.iterStormPodes(text, opts=opts):
-                await spooldict.set(pode[1]['iden'], pode)
-                await asyncio.sleep(0)
-
-            for iden, pode in spooldict.items():
-                await asyncio.sleep(0)
-
-                edges = []
-                async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                async for pode in snap.iterStormPodes(text, opts=opts):
+                    await spooldict.set(pode[1]['iden'], pode)
                     await asyncio.sleep(0)
 
-                    if not spooldict.has(n2iden):
-                        continue
+                for iden, pode in spooldict.items():
+                    await asyncio.sleep(0)
 
-                    edges.append((verb, n2iden))
+                    edges = []
+                    async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                        await asyncio.sleep(0)
 
-                if edges:
-                    pode[1]['edges'] = edges
+                        if not spooldict.has(n2iden):
+                            continue
 
-                yield pode
+                        edges.append((verb, n2iden))
+
+                    if edges:
+                        pode[1]['edges'] = edges
+
+                    yield pode
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
@@ -4877,13 +5312,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user, mode):
+    def _logStormQuery(self, text, user, mode, view):
         '''
         Log a storm query.
         '''
         if self.stormlog:
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode}})
+                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode,
+                                               'view': view}})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
@@ -5348,7 +5784,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO make this generic and check cdef
 
         if name == 'creator':
-            self.auth.reqUser(valu)
+            await self.auth.reqUser(valu)
             appt.creator = valu
             await appt._save()
 

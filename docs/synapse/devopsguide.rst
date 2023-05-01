@@ -150,7 +150,7 @@ Once completed, the previous leader will now be configured as a follower of the 
 
     If you are promoting the follower due to a catastrophic failure of the previous leader, you may use the
     command ``synapse.tools.promote --failure`` to force promotion despite not being able to carry out a graceful
-    handoff. It is **critcal that you not bring the previous leader back online** once this has been done. To regain
+    handoff. It is **critical that you not bring the previous leader back online** once this has been done. To regain
     redundancy, deploy a new mirror using the AHA provisioning process described in the :ref:`deploymentguide`.
 
 .. _devops-task-update:
@@ -291,6 +291,20 @@ log message pretty-printed log message::
       "username": "root",
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
+
+.. _devops-task-diskfree:
+
+Configure Free Space Requirement
+--------------------------------
+
+To avoid the risk of data corruption due to lack of disk space, Synapse services periodically
+check the amount of free space available and will switch to read-only mode if they are below
+a minimum threshold. This threshold can be controlled via the ``limit:disk:free`` configuration
+option, and is set to 5% free space by default.
+
+If the available free space goes below the minimum threshold, the service will continue
+the free space checks and re-enable writes if the available space returns above the
+threshold.
 
 .. _devops-task-performance:
 
@@ -908,89 +922,458 @@ Kubernetes
 ~~~~~~~~~~
 
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
-scaling and management of containerized applications. We provide examples that you can use to quickly get started
-using Kubernetes to orchestrate your Synapse deployment.  These examples include an Aha cell, an Axon, a Cortex,
-the Maxmind connector, and the Optic UI.
+scaling and management of containerized applications. Synapse does work in Kubernetes environments.
 
-Since all Telepath services connect via Aha, this allows for easy lookup of services via Aha. This allows for users to
-ignore most application awareness of port numbers. For example, the Maxmind connector can easily be added to the
-Cortex via ``service.add maxmind aha://root:demo@maxmind.aha.demo.net``.
+.. note::
 
-The Optic deployment uses an ``initContainers`` container to copy the TLS certificates into the service directory for
-Optic. The Traefik ``IngressRouteTCP`` directs all TLS traffic to the service to the Optic service. Since the TLS
-certificates have been put into the Cell directory for Optic, and the ``IngressRouteTCP`` acts a TLS passthrough,
-users are using TLS end to end to connect to Optic.
+    If you are using these examples to get started with Synapse on Kubernetes, you may need to adapt them to meet
+    operational needs for your environment.
 
-Passwords used for doing inter-service communications are stored in Kubernetes Secrets and are interpolated from
-environment variables to form Telepath URLs when needed. To keep these examples from being too large, passwords are
-shared between services.
+.. _orch-kubernetes-deployment:
 
-The following examples make the following assumptions:
+Example Deployment
+++++++++++++++++++
 
-1. A PersistentVolumeClaim provider is available. These examples use Digital Ocean block storage.
-2. Traefik is available to provide ``IngressRouteTCP`` providers. The examples here are treated as TLS passthrough
-   examples with a default websecure ``entryPoint``, which means the service must provide its own TLS endpoint. Further
-   Traefik configuration for providing TLS termination and connecting to backend services over TLS is beyond the scope
-   of this documentation.
-3. There is a ``cert-manager`` Certificate provider available to generate a Let's Encrypt TLS certificate.
-4. There is a secret ``regcred`` available which can be used to pull a Docker pull secret that can access the private
-   images.
+The following examples walk through deploying an example Synapse deployment ( based on :ref:`deploymentguide` ), but
+inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment makes a few assumptions:
 
-**Single Pod**
+  Synapse Deployment Guide
+    This guide assumes a familiarity with the Synapse deployment guide. Concepts covered there are not repeated here.
 
-This single pod example can be readily used, provided that the assumptions noted earlier are accounted for. The DNS name
-for the Certificate, IngressRouteTCP, and SYN_OPTIC_NETLOC value would need to be updated to account for your own DNS
-settings.
+  namespace
+    These examples use the Kubernetes ``default`` namespace.
 
-.. literalinclude:: devguides/demo-aha-onepod.yaml
+  PersistentVolumeClaim
+    These examples use PersistentVolumeClaim (PVC) to create a persistent storage location. All Synapse services assume
+    they have some persistent storage to read and write to.  This example uses the ``storageClass`` of
+    ``do-block-storage``. You may need to alter these examples to provide a ``storageClass`` that is appropriate
+    for your environment.
+
+  Aha naming
+    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS, so our Aha name
+    and Aha network should match the internal naming for services in the cluster. The ``aha:network`` value is
+    ``<namespace>.<cluster dns root>``. This DNS root value is normally ``svc.cluster.local``, so the resulting DNS
+    label for the Aha service is ``aha.default.svc.cluster.local``. Similarly, the Aha service is configured to listen
+    on ``0.0.0.0``, since we cannot bind the DNS label provided by Kubernetes prior to the Pod running Aha being
+    available.
+
+Aha
+^^^
+
+The following ``aha.yaml`` can be used to deploy an Aha service.
+
+.. literalinclude:: ./kubernetes/aha.yaml
     :language: yaml
-    :lines: 1-284
 
-**Multiple Pods**
+This can be deployed via ``kubectl apply``. That will create the PVC, deployment, and service.
 
-Each service can also be broken into separate pods. This example is broken down across three sections, a Cortex, an Axon,
-and other services. This lines up with three distinct Persistent Volume Claims being made to host the data for the
-services. This isolates the storage between the Cortex, Axon and other services. Each service is deployed into its own
-pods; and each Telepath-capable service reports itself into an Aha server.
+::
 
-First, the shared Secret.
+    $ kubectl apply -f aha.yaml
+    persistentvolumeclaim/example-aha created
+    deployment.apps/aha created
+    service/aha created
 
-.. literalinclude:: devguides/demo-aha-pods.yaml
+You can see the startup logs as well:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=aha
+    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_DMON_LISTEN] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NAME] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,569 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 04:22:02,651 [INFO] Adding CA certificate for default.svc.cluster.local [aha.py:initServiceRuntime:MainThread:MainProcess]
+    2023-03-08 04:22:02,651 [INFO] Generating CA certificate for default.svc.cluster.local [aha.py:genCaCert:MainThread:MainProcess]
+    2023-03-08 04:22:06,401 [INFO] Adding server certificate for aha.default.svc.cluster.local [aha.py:initServiceRuntime:MainThread:MainProcess]
+    2023-03-08 04:22:08,879 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 04:22:08,882 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 04:22:08,882 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
+
+Axon
+^^^^
+
+The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
+
+.. literalinclude:: ./kubernetes/axon.yaml
     :language: yaml
-    :lines: 17-27
 
-The Cortex is straightforward. It uses a PVC, it is configured via environment variables, and has its Telepath
-port exposed as a service that other Pods can connect to. This example also adds a ``startupProbe`` and
-``readinessProbe`` added to check the Cortex (and other services). This allows us to know when the services are
-available.
+Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
+like the following:
 
-The use of the ``readinessProbe`` is preferred over ``livenessProbe``, since that can make a pod unavailable for
-the purposes of routing traffic to it. This allows operations teams to investigate service outages without having the
-underlying container killed.
+::
 
-.. warning::
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.axon
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
-    We recommend the use of large values for the ``startupProbe.failureThreshold`` value. In our examples, we use the
-    maximum supported value of ``2147483647``.  In the event that a Synapse service needs to perform a data migration
-    or perform a backup of a service in order to deploy a mirror, this allows that to complete without the container
-    being terminated.
+We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block looks like the
+following:
 
-.. literalinclude:: devguides/demo-aha-pods.yaml
+::
+
+    - name: SYN_AXON_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+This can then be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f axon.yaml
+    persistentvolumeclaim/example-axon00 unchanged
+    deployment.apps/axon00 created
+
+You can see the Axon logs as well. These show provisioning and listening for traffic:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=axon00
+    2023-03-08 17:27:44,721 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:27:44,722 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:44,722 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:44,723 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:27:44,833 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:44,833 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:27:51,649 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:27:51,898 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:27:51,899 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:27:51,899 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
+The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
+name that it uses to register with the Aha service.
+
+
+JSONStor
+^^^^^^^^
+
+The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor service.
+
+.. literalinclude:: ./kubernetes/jsonstor.yaml
     :language: yaml
-    :lines: 37-148
 
-The Axon is very similar to the Cortex.
+Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
+like the following:
 
-.. literalinclude:: devguides/demo-aha-pods.yaml
+::
+
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block looks like the
+following:
+
+::
+
+    - name: SYN_JSONSTOR_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+
+This can then be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f jsonstor.yaml
+    persistentvolumeclaim/example-jsonstor00 created
+    deployment.apps/jsonstor00 created
+
+You can see the JSONStor logs as well. These show provisioning and listening for traffic:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=jsonstor00
+    2023-03-08 17:29:15,137 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:29:15,137 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:15,138 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:15,140 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:15,261 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:15,261 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:19,325 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:19,966 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
+Cortex
+^^^^^^
+
+The following ``cortex.yaml`` can be used as the basis to deploy the Cortex.
+
+.. literalinclude:: ./kubernetes/cortex.yaml
     :language: yaml
-    :lines: 156-254
 
-The last set of components shown here is the most complex. It includes the Aha server, the Maxmind connector, and the
-Optic UI.
+Before we deploy that, we need to create the Aha provisioning URL. This uses a fixed listening port for the Cortex, so
+that we can later use port-forwarding to access the Cortex service. We do this via ``kubectl exec``. That should look
+like the following:
 
-.. literalinclude:: devguides/demo-aha-pods.yaml
+::
+
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block looks like the
+following:
+
+::
+
+    - name: SYN_CORTEX_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+
+This can then be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f cortex.yaml
+    persistentvolumeclaim/example-cortex00 created
+    deployment.apps/cortex00 created
+    service/cortex created
+
+
+You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connection being
+made to the Axon and JSONStor services:
+
+::
+
+    $ kubectl logs -l app.kubernetes.io/instance=cortex00
+    2023-03-08 17:29:16,892 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:29:16,893 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,893 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:16,896 [INFO] Provisioning cortex from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:17,008 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,009 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,009 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,010 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:17,010 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:29:20,356 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:29:21,077 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:29:21,078 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:29:21,078 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:29:21,082 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
+    2023-03-08 17:29:21,174 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
+
+
+CLI Tooling Example
+^^^^^^^^^^^^^^^^^^^
+
+Synapse services and tooling assumes that IP and Port combinations registered with the AHA service are reachable.
+This example shows a way to connect to the Cortex from **outside** of the Kubernetes cluster without resolving service
+information via Aha. Communication between services inside of the cluster does not need to go through these steps.
+This does assume that your local environment has the Python synapse package available.
+
+First add a user to the Cortex:
+
+::
+
+    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add --admin true visi
+    Adding user: visi
+    ...setting admin: true
+
+Then we need to generate a user provisioning URL:
+
+::
+
+    $ kubectl exec -it deployment/aha -- python -m synapse.tools.aha.provision.user visi
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
+
+Port-forward the AHA provisioning service to your local environment:
+
+::
+
+    kubectl port-forward service/aha 27272:provisioning
+
+Run the enroll tool to create a user certificate pair and have it signed by the Aha service. We replace the service DNS
+name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
+
+::
+
+    $ python -m synapse.tools.aha.enroll ssl://localhost:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
+    Saved CA certificate: /home/visi/.syn/certs/cas/default.svc.cluster.local.crt
+    Saved user certificate: /home/visi/.syn/certs/users/visi@default.svc.cluster.local.crt
+    Updating known AHA servers
+
+The Aha service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
+
+::
+
+    kubectl port-forward service/cortex 27492:telepath
+
+Then connect to the Cortex via the Storm CLI, using the URL
+``ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local``.
+
+::
+
+    $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local"
+
+    Welcome to the Storm interpreter!
+
+    Local interpreter (non-storm) commands may be executed with a ! prefix:
+        Use !quit to exit.
+        Use !help to see local interpreter commands.
+
+    storm>
+
+The Storm CLI tool can then be used to run Storm commands.
+
+Commercial Components
+^^^^^^^^^^^^^^^^^^^^^
+
+For Synapse-Enterprise users, deploying commercial components can follow a similar pattern. The following is an example
+of deploying Optic, the Synapse User Interface, as it is a common part of a Synapse deployment. This enables users to
+interact with Synapse via a web browser, instead of using the CLI tools. This example shows accessing the service via
+a port-forward. This example does not contain the full configuration settings you will need for a production deployment
+of Optic, please see :ref:`synapse-ui` for more information.
+
+.. note::
+
+    Optic is available as a part of the **Synapse Enterprise** commercial offering. This example assumes that the
+    Kubernetes cluster has a valid ``imagePullSecret`` named ``regcred`` which can access commercial images.
+
+The following ``optic.yaml`` can be used as the basis to deploy Optic.
+
+.. literalinclude:: ./kubernetes/optic.yaml
     :language: yaml
-    :lines: 275-613
+
+Before we deploy that, we need to create the Aha provisioning URL. We do this via ``kubectl exec``. That should look
+like the following:
+
+::
+
+    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
+    one-time use URL: ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+
+We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block looks like the
+following:
+
+::
+
+    - name: SYN_OPTIC_AHA_PROVISION
+      value: "ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+
+
+This can then be deployed via ``kubectl apply``:
+
+::
+
+    $ kubectl apply -f optic.yaml
+    persistentvolumeclaim/example-optic00 created
+    deployment.apps/optic00 created
+    service/optic created
+
+You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connection being
+made to the Axon, Cortex, and JSONStor services:
+
+::
+
+    $ kubectl logs --tail 30 -l app.kubernetes.io/instance=optic00
+    2023-03-08 17:32:40,149 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2023-03-08 17:32:40,150 [DEBUG] Set config valu from envar: [SYN_OPTIC_CORTEX] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,150 [DEBUG] Set config valu from envar: [SYN_OPTIC_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,151 [DEBUG] Set config valu from envar: [SYN_OPTIC_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,151 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,152 [DEBUG] Set config valu from envar: [SYN_OPTIC_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,153 [INFO] Provisioning optic from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:32:40,264 [DEBUG] Set config valu from envar: [SYN_OPTIC_CORTEX] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,265 [DEBUG] Set config valu from envar: [SYN_OPTIC_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:40,266 [DEBUG] Set config valu from envar: [SYN_OPTIC_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2023-03-08 17:32:45,181 [INFO] Done provisioning optic AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2023-03-08 17:32:45,247 [INFO] optic wwwroot: /usr/local/lib/python3.10/dist-packages/optic/site [app.py:initServiceStorage:MainThread:MainProcess]
+    2023-03-08 17:32:45,248 [WARNING] Waiting for remote jsonstor... [app.py:initJsonStor:MainThread:MainProcess]
+    2023-03-08 17:32:45,502 [INFO] Connected to JsonStor at [aha://jsonstor...] [app.py:initJsonStor:MainThread:MainProcess]
+    2023-03-08 17:32:45,504 [INFO] Waiting for connection to Cortex [app.py:_initOpticCortex:MainThread:MainProcess]
+    2023-03-08 17:32:45,599 [INFO] Connected to Cortex at [aha://cortex...] [app.py:_initOpticCortex:MainThread:MainProcess]
+    2023-03-08 17:32:45,930 [INFO] Connected to Axon at [aha://axon...] [app.py:onaxonlink:MainThread:MainProcess]
+    2023-03-08 17:32:45,937 [DEBUG] Email settings/server not configured or invalid. [app.py:initEmailApis:asyncio_0:MainProcess]
+    2023-03-08 17:32:45,975 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.optic.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:32:45,976 [WARNING] NO CERTIFICATE FOUND! generating self-signed certificate. [cell.py:addHttpsPort:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] https listening: 4443 [cell.py:initServiceNetwork:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] ...optic API (telepath): ssl://0.0.0.0:0?hostname=00.optic.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
+    2023-03-08 17:32:47,773 [INFO] ...optic API (https): 4443 [cell.py:initFromArgv:MainThread:MainProcess]
+
+Once Optic is connected, we will need to set a password for the user we previously created in order to log in. This can
+be done via ``kubectl exec``, setting the password for the user on the Cortex:
+
+::
+
+    $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --passwd secretPassword visi
+    Modifying user: visi
+    ...setting passwd: secretPassword
+
+Enable a port-forward to connect to the Optic service:
+
+::
+
+    $ kubectl port-forward service/optic 4443:https
+
+You can then use a Chrome browser to navigate to ``https://localhost:4443`` and you should be prompted with an Optic
+login screen. You can enter your username and password ( ``visi`` and ``secretPassword`` ) in order to login to Optic.
+
+Practical Considerations
+++++++++++++++++++++++++
+
+The following items should be considered for Kubernetes deployments intended for production use cases:
+
+  Healthchecks
+    These examples use large ``startupProbe`` failure values. Vertex recommends these large values, since service
+    updates may have automatic data migrations which they perform at startup. These will be performed before a service
+    has enabled any listeners which would respond to healthcheck probes. The large value prevents a service from being
+    terminated prior to a long running data migration completing.
+
+  Ingress and Load Balancing
+    The use of ``kubectl port-forward`` may not be sustainable in a production environment. It is common to use a form
+    of ingress controller or load balancer for external services to reach services such as the Cortex or Optic
+    applications. It is common for the Optic UI or the Cortex HTTP API to be exposed to end users since that often has
+    a simpler networking configuration than exposing Telepath services on Aha and the Cortex.
+
+  Log aggregation
+    Many Kubernetes clusters may perform some sort of log aggregation for the containers running in them. If your log
+    aggregation solution can parse JSON formatted container logs, you can set the ``SYN_LOG_STRUCT`` environment
+    variable to ``"true"`` to enable structured log output. See :ref:`devops-task-logging` for more information about that
+    option.
+
+  Node Selectors
+    These examples do not use any node selectors to bind pods to specific nodes or node types. Node selectors on the
+    podspec can be used to constrain different services to different types of nodes. For example, they can be used to
+    ensure the Cortex is deployed to a node which has been provisioned as a high memory node for that purpose.
+
+  PVC
+    The previous examples used relatively small volume claim sizes for demonstration purposes. A ``storageClass``
+    which can be dynamically resized will be helpful in the event of needing to grow the storage used by a deployment.
+    This is a common feature for managed Kubernetes instances.
+
+.. _orch-kubernetes-sysctl:
+
+Performance Tuning in Kubernetes
+++++++++++++++++++++++++++++++++
+
+It is common for Kubernetes to be executed in a managed environment, where an operator may not have direct access to
+the underlying hosts. In that scenario, applying the system configurations detailed in :ref:`devops-task-performance`
+may be difficult. The following example shows a DaemonSet which runs a privileged pod, that ensures that the desired
+``sysctl`` values are set on the host. You may need to modify this to meet any requirements which are specific to
+your deployment.
+
+The following ``sysctl.yaml`` can be used as the basis to deploy these modifications.
+
+.. literalinclude:: ./kubernetes/sysctl.yaml
+    :language: yaml
+
+
+This can be deployed via ``kubectl apply``. That will create the DaemonSet for you..
+
+::
+
+    $ kubectl apply -f sysctl_dset.yaml
+    daemonset.apps/setsysctl created
+
+You can see the sysctl pods by running the following command:
+
+::
+
+    $ kubectl get pods -l app.kubernetes.io/component=sysctl -o wide
 
 
 .. _autodoc-conf-aha:

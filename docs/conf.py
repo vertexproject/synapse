@@ -14,6 +14,7 @@
 #
 import os
 import sys
+import datetime
 sys.path.insert(0, os.path.abspath('..'))
 
 import synapse
@@ -22,7 +23,7 @@ import synapse
 # -- Project information -----------------------------------------------------
 
 project = 'Synapse'
-copyright = '2021, The Vertex Project'
+copyright = f'{datetime.datetime.now().year}, The Vertex Project, LLC'
 author = 'The Vertex Project'
 
 # The short X.Y version
@@ -44,6 +45,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.jquery',
     'notfound.extension',
 ]
 
@@ -95,7 +97,9 @@ html_favicon = "_static/favicon.svg"
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'navigation_depth': 5,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -257,7 +261,7 @@ def convert_ipynb(_):
                 #     continue
                 tick = s_common.now()
                 fp = os.path.join(fdir, fn)
-                args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
+                args = ['--execute', '--template', 'vertex', '--to', 'rst', fp]
                 nba.main(args)
                 tock = s_common.now()
                 took = (tock - tick) / 1000

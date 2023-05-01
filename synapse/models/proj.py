@@ -121,7 +121,7 @@ class ProjectModule(s_module.CoreModule):
                         ('created', ('time', {}), {
                             'doc': 'The time the comment was added.'}),
 
-                        ('updated', ('time', {'max': True}), {
+                        ('updated', ('time', {'ismax': True}), {
                             'doc': 'The last time the comment was updated.'}),
 
                         ('ticket', ('proj:ticket', {}), {
@@ -146,7 +146,7 @@ class ProjectModule(s_module.CoreModule):
                         ('created', ('time', {}), {
                             'doc': 'The time the epic was created.'}),
 
-                        ('updated', ('time', {'max': True}), {
+                        ('updated', ('time', {'ismax': True}), {
                             'doc': 'The last time the epic was updated.'}),
                     )),
 
@@ -191,7 +191,7 @@ class ProjectModule(s_module.CoreModule):
                         ('created', ('time', {}), {
                             'doc': 'The time the ticket was created.'}),
 
-                        ('updated', ('time', {'max': True}), {
+                        ('updated', ('time', {'ismax': True}), {
                             'doc': 'The last time the ticket was updated.'}),
 
                         ('name', ('str', {'onespace': True}), {

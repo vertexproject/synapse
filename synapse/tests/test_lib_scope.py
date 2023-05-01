@@ -1,3 +1,5 @@
+import asyncio
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.lib.scope as s_scope
@@ -73,6 +75,90 @@ class ScopeTest(s_t_utils.SynTest):
                 self.eq(s_scope.get('foo'), 'bar')
                 raise ValueError('bad value')
         self.none(s_scope.get('foo'))
+
+        with s_scope.enter({'foo': 'bar'}):
+            self.eq(s_scope.get('foo'), 'bar')
+            with s_scope.enter({'hehe': 'haha'}):
+                self.eq(s_scope.get('hehe'), 'haha')
+                self.eq(s_scope.get('foo'), 'bar')
+                with s_scope.enter({'foo': 'woah'}):
+                    self.eq(s_scope.get('foo'), 'woah')
+                self.eq(s_scope.get('foo'), 'bar')
+            self.none(s_scope.get('hehe'))
+            self.eq(s_scope.get('foo'), 'bar')
+
+    async def test_lib_task_clone(self):
+        # Ensure that scope task clones are shallow
+        evt0 = asyncio.Event()
+        evt1 = asyncio.Event()
+
+        # Ensure the following rules are met with scope copies:
+        # 1. The frames of the scope.copy are shallow copies of the parent
+        #    scope.
+        # 2. Changes in the parent scope, after being copied, are not seen
+        #    by the child scope.
+        #    Example: In chained scopes ( example, three copied scopes ) a
+        #    member of he chain leaving scope does not affect subsequent
+        #    copies.
+        #
+
+        async def func2():
+            self.eq(s_scope.get('foo'), 'bar')
+            self.eq(s_scope.get('dict'), {'hehe': 'haha'})
+            s_scope.get('dict')['beep'] = 'boop'  # mutable object being modified
+            s_scope.set('f2', 'notseen')
+            evt0.set()
+            await asyncio.wait_for(evt1.wait(), timeout=6)
+            self.eq(s_scope.get('f2'), 'notseen')
+            return
+
+        async def func1():
+            s_scope.set('foo', 'bar')
+            s_scope.set('dict', {'hehe': 'haha'})
+            t2 = asyncio.create_task(func2())
+            s_scope.clone(t2)
+            await asyncio.sleep(0)
+            await asyncio.wait_for(evt0.wait(), timeout=6)
+            self.eq(s_scope.get('dict').get('beep'), 'boop')
+            self.none(s_scope.get('f2'))
+            s_scope.set('f2', 'setbyf1')
+            evt1.set()
+            self.eq(s_scope.get('f2'), 'setbyf1')
+            await t2
+            # change made in dict still is present
+            self.eq(s_scope.get('dict').get('beep'), 'boop')
+            return
+
+        task = asyncio.create_task(func1())
+        s_scope.clone(task)
+        self.none(await task)
+
+    def test_scope_copy(self):
+        # Ensure scope copies are shallow copies
+        # Scope keys do not mutate in copies.
+        # Mutable data structures stored in scopes may change.
+        scope00 = s_scope.Scope()
+        scope00.enter()
+        scope00.update(vals={'key': 'valu', 'dict': {'foo': 'bar'}})
+        self.eq(scope00.get('key'), 'valu')
+        self.eq(scope00.get('dict'), {'foo': 'bar'})
+
+        scope01 = scope00.copy()
+        scope01.enter()
+        self.eq(scope01.get('key'), 'valu')
+        scope01.set('s1', True)
+        scope01.get('dict')['hehe'] = 'haha'
+        self.none(scope00.get('s1'))
+        self.eq(scope00.get('dict').get('hehe'), 'haha')
+        scope00.set('key', 'newp')
+        self.eq(scope01.get('key'), 'valu')
+
+        # If an earlier scope leaves, it does not affect the copied scope.
+        scope00.leave()
+        self.none(scope00.get('key'))
+        self.eq(scope01.get('key'), 'valu')
+        self.eq(scope01.get('dict'), {'foo': 'bar', 'hehe': 'haha'})
+        scope01.leave()
 
     def test_lib_scope_get_defval(self):
         syms = {'foo': None, 'bar': 123}

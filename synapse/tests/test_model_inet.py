@@ -385,6 +385,14 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = t.norm('bob\udcfesmith@woot.com')[0]
 
+            with self.raises(s_exc.BadTypeValu) as cm:
+                t.norm('hehe')
+            self.isin('Email address expected in <user>@<fqdn> format', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.BadTypeValu) as cm:
+                t.norm('hehe@1.2.3.4')
+            self.isin('FQDN Got an IP address instead', cm.exception.get('mesg'))
+
             # Form Tests ======================================================
             valu = 'UnitTest@Vertex.link'
             expected_ndef = (formname, valu.lower())
@@ -398,6 +406,8 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_flow(self):
         formname = 'inet:flow'
+        srccert = s_common.guid()
+        dstcert = s_common.guid()
         input_props = {
             'time': 0,
             'duration': 1,
@@ -425,6 +435,13 @@ class InetModelTest(s_t_utils.SynTest):
             'ip:proto': 6,
             'ip:tcp:flags': 0x20,
             'sandbox:file': 'e' * 64,
+            'src:ssh:key': srccert,
+            'dst:ssh:key': dstcert,
+            'src:ssl:cert': srccert,
+            'dst:ssl:cert': dstcert,
+            'src:rdp:hostname': 'SYNCODER',
+            'src:rdp:keyboard:layout': 'AZERTY',
+            'raw': (10, 20),
         }
         expected_props = {
             'time': 0,
@@ -458,13 +475,24 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
             'ip:proto': 6,
             'ip:tcp:flags': 0x20,
-            'sandbox:file': 'sha256:' + 64 * 'e'
+            'sandbox:file': 'sha256:' + 64 * 'e',
+            'src:ssh:key': srccert,
+            'dst:ssh:key': dstcert,
+            'src:ssl:cert': srccert,
+            'dst:ssl:cert': dstcert,
+            'src:rdp:hostname': 'syncoder',
+            'src:rdp:keyboard:layout': 'azerty',
+            'raw': (10, 20),
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, 32 * 'a', props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
+            self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
+            self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -664,6 +692,21 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
+                self.eq(node.get('name'), 'HeHe')
+                self.eq(node.get('value'), 'HaHa')
+
+            nodes = await core.nodes('''
+                [ inet:http:request=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
+
+            nodes = await core.nodes('''
+                [ inet:http:session=* :cookies={[ inet:http:cookie="foo=bar; baz=faz;" ]} ]
+            ''')
+            self.eq(nodes[0].get('cookies'), ('baz=faz', 'foo=bar'))
+
+            nodes = await core.nodes('[ inet:http:cookie=(lol, lul) ]')
+            self.len(2, nodes)
 
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'
@@ -2586,3 +2629,57 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
+
+    async def test_model_inet_tunnel(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+            [ inet:tunnel=*
+                :ingress=1.2.3.4:443
+                :egress=5.5.5.5
+                :type=vpn
+                :anon=$lib.true
+                :operator = {[ ps:contact=* :email=visi@vertex.link ]}
+            ]''')
+            self.len(1, nodes)
+
+            self.eq(True, nodes[0].get('anon'))
+            self.eq('vpn.', nodes[0].get('type'))
+            self.eq('tcp://5.5.5.5', nodes[0].get('egress'))
+            self.eq('tcp://1.2.3.4:443', nodes[0].get('ingress'))
+
+            self.len(1, await core.nodes('inet:tunnel -> ps:contact +:email=visi@vertex.link'))
+
+    async def test_model_inet_proto(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:proto=https :port=443 ]')
+            self.len(1, nodes)
+            self.eq(('inet:proto', 'https'), nodes[0].ndef)
+            self.eq(443, nodes[0].get('port'))
+
+    async def test_model_inet_web_attachment(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+            [ inet:web:attachment=*
+                :acct=twitter.com/invisig0th
+                :client=tcp://1.2.3.4
+                :file=*
+                :name=beacon.exe
+                :time=20230202
+                :post=*
+                :mesg=(twitter.com/invisig0th, twitter.com/vtxproject, 20230202)
+            ]''')
+            self.len(1, nodes)
+            self.eq(1675296000000, nodes[0].get('time'))
+            self.eq('beacon.exe', nodes[0].get('name'))
+            self.eq('tcp://1.2.3.4', nodes[0].get('client'))
+            self.eq(0x01020304, nodes[0].get('client:ipv4'))
+
+            self.nn(nodes[0].get('post'))
+            self.nn(nodes[0].get('mesg'))
+            self.nn(nodes[0].get('file'))
+
+            self.len(1, await core.nodes('inet:web:attachment :file -> file:bytes'))
+            self.len(1, await core.nodes('inet:web:attachment :post -> inet:web:post'))
+            self.len(1, await core.nodes('inet:web:attachment :mesg -> inet:web:mesg'))

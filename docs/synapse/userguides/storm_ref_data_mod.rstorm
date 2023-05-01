@@ -307,7 +307,7 @@ In the example above, the subquery is used to lift the industry node(s) whose ``
 
   - The :ref:`edit-try` can be used instead ( ``[ :org?={ ou:org:alias=usgovdoj } ]`` ); in this case, if an error condition occurs, Storm will fail silently - the property will not be set but no error is thrown and any subsequent Storm operations will continue.
  
-- When using  a subquery to assign a property value, the subquery cannot iterate more than 128 times or Storm will throw an error. For example, attempting to assign "all the industries" to a single organization ( ``ou:org=<guid> [ :industries+={ ou:industry } ]`` ) will error if there are more than 128 ``ou:industry`` nodes. This is a built-in limitation of the
+- When using a subquery to assign a property value, the subquery cannot iterate more than 128 times or Storm will throw an error. For example, attempting to assign "all the industries" to a single organization ( ``ou:org=<guid> [ :industries+={ ou:industry } ]`` ) will error if there are more than 128 ``ou:industry`` nodes.
 
 .. _prop-del:
 

@@ -44,6 +44,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq('usd', nodes[0].get('currency'))
             self.eq('100', nodes[0].get('econ:gdp'))
             self.eq('usd', nodes[0].get('econ:currency'))
+            self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 
     async def test_types_iso2(self):
         async with self.getTestCore() as core:
@@ -152,3 +153,25 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))
+
+    async def test_model_geopol_immigration(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ pol:immigration:status=*
+                    :country = {[ pol:country=* :name=woot ]}
+                    :contact = {[ ps:contact=* :name=visi ]}
+                    :type = citizen.naturalized
+                    :state = requested
+                    :began = 20230328
+                    :ended = 2024
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('country'))
+            self.nn(nodes[0].get('contact'))
+            self.eq('requested', nodes[0].get('state'))
+            self.eq('citizen.naturalized.', nodes[0].get('type'))
+            self.eq(1679961600000, nodes[0].get('began'))
+            self.eq(1704067200000, nodes[0].get('ended'))

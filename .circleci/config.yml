@@ -268,7 +268,6 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
-
   do_docker_login:
     description: "Login to docker"
     parameters:
@@ -464,6 +463,23 @@ jobs:
     steps:
       - test_steps_python
 
+  python311:
+    parallelism: 8
+    docker:
+      - image: cimg/python:3.11
+        environment:
+          PYVERS: 3.11
+          RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   python310:
     parallelism: 8
     docker:
@@ -532,12 +548,29 @@ jobs:
     steps:
       - test_steps_python
 
+  python311_replay:
+    parallelism: 6
+    docker:
+      - image: cimg/python:3.11
+        environment:
+          PYVERS: 3.11
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   doctests:
     parallelism: 1
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.10
         environment:
-          PYVERS: 3.8
+          PYVERS: 3.10
 
     working_directory: ~/repo
 
@@ -546,10 +579,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.10
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py38
+          PYTHON_TAG: py310
 
     steps:
       - deploy_pypi_prologue
@@ -558,10 +591,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.10
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py38
+          PYTHON_TAG: py310
 
     steps:
       - deploy_pypi_prologue
@@ -583,16 +616,29 @@ jobs:
       - deploy_pypi_wheel_build
       - deploy_pypi_upload
 
+  deploy_pypi_38:
+    docker:
+      - image: cimg/python:3.8
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py38
+
+    steps:
+      - deploy_pypi_prologue
+      - deploy_pypi_tag_verify
+      - deploy_pypi_wheel_build
+      - deploy_pypi_upload
+
   build_docker_branch:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - build_docker:
           image-tag: ${CIRCLE_BRANCH}
 
   push_docker_branch:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - checkout
       - load_docker_from_workspace
@@ -601,7 +647,7 @@ jobs:
 
   push_docker_branch_ecr:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - checkout
       - load_docker_from_workspace:
@@ -612,20 +658,20 @@ jobs:
 
   delete_docker_branch:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - delete_docker_image
 
   build_docker_tag:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - build_docker:
           image-tag: ${CIRCLE_TAG}
 
   push_docker_tag:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
     environment:
@@ -642,7 +688,7 @@ jobs:
 
   push_docker_tag_ecr:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
     environment:
@@ -662,7 +708,7 @@ jobs:
 
   delete_docker_tag:
     docker:
-      - image: docker:20.10.1
+      - image: docker:20.10.18
     steps:
       - delete_docker_image
 
@@ -704,8 +750,14 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only:
-                - master
+              only: /.*/
+
+      - python311:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
 
       - python37_replay:
           filters:
@@ -731,6 +783,14 @@ workflows:
               only:
                 - master
 
+      - python311_replay:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - master
+
       - python_package_smoketest:
           filters:
             tags:
@@ -744,8 +804,10 @@ workflows:
             - doctests
             - python37
             - python38
+            - python310
             - python37_replay
             - python38_replay
+            - python310_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -760,8 +822,28 @@ workflows:
             - doctests
             - python37
             - python38
+            - python310
             - python37_replay
             - python38_replay
+            - python310_replay
+            - python_package_smoketest
+          context:
+            - PublicPypiAccess
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
+
+      - deploy_pypi_38:
+          requires:
+            - doctests
+            - python37
+            - python38
+            - python310
+            - python37_replay
+            - python38_replay
+            - python310_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -776,11 +858,14 @@ workflows:
             - doctests
             - python37
             - python38
+            - python310
             - python37_replay
             - python38_replay
+            - python310_replay
             - python_package_smoketest
           context:
             - GithubMachine
+            - Mailgun
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -792,6 +877,7 @@ workflows:
             - doctests
             - python37
             - python38
+            - python310
           filters:
             branches:
               only:
@@ -819,6 +905,7 @@ workflows:
             - doctests
             - python37
             - python38
+            - python310
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -867,6 +954,7 @@ workflows:
                 - master
     jobs:
       - doctests
+      - python37
       - python38
       - python310
 
@@ -880,7 +968,6 @@ workflows:
                 - master
     jobs:
       - osx38
-      - python37
       - python37_replay
       - python38_replay
       - python310_replay

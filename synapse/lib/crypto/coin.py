@@ -128,7 +128,7 @@ def cardano_byron_check(match: regex.Match):
     try:
         decoded_text = base58.b58decode(text)
         message = cbor2.loads(decoded_text)
-        if len(message) != 2:
+        if not isinstance(message, list) or len(message) != 2:
             return None, {}
         csum = message[1]
         computed_checksum = binascii.crc32(message[0].value)

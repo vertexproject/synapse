@@ -86,6 +86,11 @@ class GenPkgTest(s_test.SynTest):
             msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
             self.stormIsInPrint('Imported Module testmod', msgs)
 
+            gdefs = await core.callStorm('return($lib.graph.list())')
+            self.len(1, gdefs)
+            self.eq(gdefs[0]['name'], 'testgraph')
+            self.eq(gdefs[0]['power-up'], 'testpkg')
+
             pdef = s_common.yamlload(savepath)
             s_common.yamlsave(pdef, yamlpath)
 
