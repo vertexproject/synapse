@@ -6,8 +6,8 @@ import synapse.tests.utils as s_test
 visishow = '''
 User: visi (8d19302a671c3d5c8eeaccde305413a0)
 
-  Locked: False
-  Admin: False
+  Locked: false
+  Admin: false
   Email: visi@vertex.link
   Rules:
     [0  ] - foo.bar
@@ -39,10 +39,10 @@ Gate Type: layer
 
 Auth Gate Users:
   b1d8d5b4c946399113a25ebed44f490b - root
-    Admin: True
+    Admin: true
     Rules:
   59f9e2c6d6f7cfae6dabe313a1f55396 - visi
-    Admin: False
+    Admin: false
     Rules:
      [0  ] - node
 
@@ -58,8 +58,8 @@ Auth Gate Roles:
 coolshow = '''
 User: cool (8d19302a671c3d5c8eeaccde305413a0)
 
-  Locked: False
-  Admin: True
+  Locked: false
+  Admin: true
   Email: foo@bar.com
   Rules:
 
@@ -132,6 +132,10 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule !baz.faz to user visi.', msgs)
 
+            msgs = await core.stormlist('auth.user.allowed visi baz.faz')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('allowed: false - Matched user rule (!baz.faz).', msgs, deguid=True)
+
             msgs = await core.stormlist('auth.role.addrule ninjas foo.bar')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule foo.bar to role ninjas.', msgs)
@@ -150,6 +154,19 @@ class StormLibAuthTest(s_test.SynTest):
 
             msgs = await core.stormlist('auth.user.addrule visi node --gate $lib.view.get().layers.0.iden')
             self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('auth.user.allowed visi node.tag.del')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('allowed: false - No matching rule found.', msgs, deguid=True)
+
+            msgs = await core.stormlist('auth.user.allowed root node.tag.del')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('allowed: true - The user is a global admin.', msgs, deguid=True)
+
+            msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f.',
+                msgs, deguid=True)
 
             msgs = await core.stormlist('auth.role.addrule ninjas node --gate $lib.view.get().layers.0.iden')
             self.stormHasNoWarnErr(msgs)
@@ -214,7 +231,10 @@ class StormLibAuthTest(s_test.SynTest):
 
             msgs = await core.stormlist('auth.user.mod visi --name cool --locked $lib.true')
             self.stormIsInPrint('User (visi) renamed to cool.', msgs)
-            self.stormIsInPrint('User (visi) locked status set to True.', msgs)
+            self.stormIsInPrint('User (visi) locked status set to true.', msgs)
+
+            msgs = await core.stormlist('auth.user.allowed cool woot')
+            self.stormIsInPrint('allowed: false - The user is locked.', msgs)
 
             msgs = await core.stormlist('auth.user.list')
             self.stormIsInPrint(userlist, msgs)
@@ -230,8 +250,8 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInPrint('User (cool) email address set to foo@bar.com.', msgs)
             self.stormIsInPrint('User (cool) password updated.', msgs)
-            self.stormIsInPrint('User (cool) locked status set to False.', msgs)
-            self.stormIsInPrint('User (cool) admin status set to True.', msgs)
+            self.stormIsInPrint('User (cool) locked status set to false.', msgs)
+            self.stormIsInPrint('User (cool) admin status set to true.', msgs)
 
             self.nn(await core.tryUserPasswd('cool', 'bar'))
 
