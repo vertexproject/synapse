@@ -951,13 +951,13 @@ class HiveUser(HiveRuler):
 
                 for allow, path in info.get('rules', ()):
                     if perm[:len(path)] == path:
-                        return (allow, 'Matched role rule ({textFromRule((allow, path))}) for role {role.name} on gate {gateiden}.')
+                        return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name} on gate {gateiden}.')
 
         # 4. check role rules
         for role in self.getRoles():
             for allow, path in role.info.get('rules', ()):
                 if perm[:len(path)] == path:
-                    return (allow, 'Matched role rule ({textFromRule((allow, path))}) for role {role.name}.')
+                    return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name}.')
 
         return (default, 'No matching rule found.')
 
