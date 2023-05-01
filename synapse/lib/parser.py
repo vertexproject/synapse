@@ -614,8 +614,7 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    # return await s_coro.forked(parseQuery, args[0], mode=args[1])
-    return parseQuery(args[0], mode=args[1])
+    return await s_coro.forked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
     return await s_coro.forked(parseEval, text)
