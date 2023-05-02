@@ -7,6 +7,12 @@ Synapse Changelog
 Unreleased - YYYY-MM-DD
 =======================
 
+Features and Enhancements
+-------------------------
+- Add a new Storm command, ``auth.user.allowed`` that can be used to check
+  if a user is allowed to use a given permission and why.
+  (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
+
 Bugfixes
 --------
 - Fix an issue with the search functionality in our documentation missing
