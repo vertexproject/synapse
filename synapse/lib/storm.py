@@ -735,7 +735,7 @@ stormcmds = (
         'name': 'pkg.perms.list',
         'descr': 'List any permissions declared by the package.',
         'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.'}),
+            ('name', {'help': 'The name (or name prefix) of the package.', 'type': 'str'}),
         ),
         'storm': '''
             $pdef = $lib.null
