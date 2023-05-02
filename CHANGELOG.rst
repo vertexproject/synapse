@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.131.0 - 2023-05-02
+=====================
 
 Automatic Migrations
 --------------------
@@ -126,7 +126,6 @@ Improved Documentation
 - Add a section about managing data model deprecations to the Synapse
   Admin guide.
   (`#3102 <https://github.com/vertexproject/synapse/pull/3102>`_)
-
 
 Deprecations
 ------------
