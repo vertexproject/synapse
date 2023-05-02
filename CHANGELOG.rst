@@ -107,6 +107,10 @@ Features and Enhancements
 - Add a boolean ``default`` key to the permissions schema definition. This
   allows a Storm package permission to note what its default value is.
   (`#3099 <https://github.com/vertexproject/synapse/pull/3099>`_)
+- Data model migrations which fail to normalize existing secondary values into
+  their new types now store those values in Node data on the affected nodes
+  and remove those bad properties from the affected nodes.
+  (`#3117 <https://github.com/vertexproject/synapse/pull/3117>`_)
 
 Bugfixes
 --------
