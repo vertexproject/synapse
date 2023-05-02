@@ -7,11 +7,119 @@ Synapse Changelog
 Unreleased - YYYY-MM-DD
 =======================
 
+Automatic Migrations
+--------------------
+- Migrate the ``ou:campaign:name`` property from a ``str`` to a
+  ``ou:campname`` type and create the ``ou:campname`` nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Migrate the ``risk:vuln:type`` property from a ``str`` to
+  ``risk:vuln:type:taxonomy`` type and create the ``risk:vuln:type:taxonomy``
+  nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+
+- Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
+  models.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+  (`#3108 <https://github.com/vertexproject/synapse/pull/3108>`_)
+  (`#3113 <https://github.com/vertexproject/synapse/pull/3113>`_)
+
+  ``inet:dns:answer``
+    Add a ``mx:priority`` property to record the priority MX response.
+
+  ``inet:dns:dynreg``
+    Add a form to record the registration of a domain with a dynamic DNS
+    provider.
+
+  ``inet:proto``
+    Add a form record a network protocol name.
+
+  ``inet:web:attachment``
+    Add a form to record the instance of a file being sent to a web service
+    by an account.
+
+  ``inet:web:file``
+    Deprecate the ``client``, ``client:ipv4``, and ``client:ipv6`` properties
+    in favor of using ``inet:web:attachment``.
+
+  ``inet:web:logon``
+    Remove incorrect ``readony`` markings for properties.
+
+  ``it:app:snort:rule``
+    Add an ``id`` property to record the snort rule id.
+    Add an ``author`` property to record contact information for the rule
+    author.
+    Add ``created`` and ``updated`` properties to track when the rule was
+    created and last updated.
+    Add an ``enabled`` property to record if the rule should be used for
+    snort evaluation engines.
+    Add an ``family`` property to record the software family the rule is
+    designed to detect.
+
+  ``it:prod:softid``
+    Add a form to record an identifier issued to a given host by a specific
+    software application.
+
+  ``ou:campname``
+    Add a form to record the name of campaigns.
+
+  ``ou:campaign``
+    Change the ``name`` and ``names`` secondary properties from ``str`` to
+    ``ou:campname`` types.
+
+  ``ps:contact``
+    Add a ``place:name`` to record the name of the place associated with the
+    contact.
+
+  ``risk:threat``
+    Add a ``active`` property to record the interval of time when the threat
+    cluster is assessed to have been active.
+    Add a ``reporter:published`` to record the time that a reporting
+    organization first publicly disclosed the threat cluster.
+
+  ``risk:tool:software``
+    Add a ``used`` property to record the interval when the tool is assessed
+    to have been deployed.
+    Add a ``reporter:discovered`` to record the time that a reporting
+    organization first discovered the tool.
+    Add a ``reporter:published`` to record the time that a reporting
+    organization first publicly disclosed the tool.
+
+  ``risk:vuln:soft:range``
+    Add a form to record a contiguous range of software versions which
+    contain a vulnerability.
+
+  ``risk:vuln``
+    Change the ``type`` property from a ``str`` to a
+    ``risk:vuln:type:taxonomy``.
+
+  ``risk:vuln:type:taxonomy``
+    Add a form to record a taxonomy of vulnerability types.
+
+- Add a Storm command, ``gen.ou.campaign``, to assist with generating or
+  creating ``ou:campaign`` nodes.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+
 Bugfixes
 --------
 - Fix an issue with the search functionality in our documentation missing
   the required jQuery library.
   (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+- Unique nodes when performing multi-layer lifts on secondary properties.
+  Previously it was possible to lift the same node multiple times when
+  working across multiple layers where the same node had been made in
+  different layers.
+  (`#3110 <https://github.com/vertexproject/synapse/pull/3110>`_)
+
+Improved Documentation
+----------------------
+- Add a section about managing data model deprecations to the Synapse
+  Admin guide.
+  (`#3102 <https://github.com/vertexproject/synapse/pull/3102>`_)
+
 
 v2.130.2 - 2023-04-26
 =====================
