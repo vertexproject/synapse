@@ -372,3 +372,10 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('file:bytes:mime:pe:imphash -> hash:md5')
             self.len(1, nodes)
             self.eq(('hash:md5', 'c734c107793b4222ee690fed85e2ad4d'), nodes[0].ndef)
+
+    async def test_modelrev_0_2_19(self):
+
+        async with self.getRegrCore('model-0.2.19') as core:
+            self.len(1, await core.nodes('ou:campname="operation overlord"'))
+            self.len(1, await core.nodes('ou:campname="operation overlord" -> ou:campaign'))
+            self.len(1, await core.nodes('risk:vuln:type:taxonomy="cyber.int_overflow" -> risk:vuln'))

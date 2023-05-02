@@ -2201,6 +2201,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if sodelist is not None:
                 yield sodelist
 
+    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None):
+        lastbuid = None
+        sodes = {}
+        async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
+            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
+                if buid in uniqset:
+                    continue
+
+                if not buid == lastbuid or layr in sodes:
+                    if lastbuid is not None:
+                        sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                        if sodelist is not None:
+                            yield sodelist
+                        sodes.clear()
+
+                    await uniqset.add(lastbuid)
+                    lastbuid = buid
+
+                sodes[layr] = sode
+
+            if lastbuid is not None:
+                sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                if sodelist is not None:
+                    yield sodelist
+
     async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
@@ -2226,7 +2251,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
@@ -2343,7 +2368,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
@@ -5125,29 +5150,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        spooldict = await s_spooled.Dict.anit(dirn=self.dirn, cell=self)
-        async with await self.snap(user=user, view=view) as snap:
+        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+            async with await self.snap(user=user, view=view) as snap:
 
-            async for pode in snap.iterStormPodes(text, opts=opts):
-                await spooldict.set(pode[1]['iden'], pode)
-                await asyncio.sleep(0)
-
-            for iden, pode in spooldict.items():
-                await asyncio.sleep(0)
-
-                edges = []
-                async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                async for pode in snap.iterStormPodes(text, opts=opts):
+                    await spooldict.set(pode[1]['iden'], pode)
                     await asyncio.sleep(0)
 
-                    if not spooldict.has(n2iden):
-                        continue
+                for iden, pode in spooldict.items():
+                    await asyncio.sleep(0)
 
-                    edges.append((verb, n2iden))
+                    edges = []
+                    async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                        await asyncio.sleep(0)
 
-                if edges:
-                    pode[1]['edges'] = edges
+                        if not spooldict.has(n2iden):
+                            continue
 
-                yield pode
+                        edges.append((verb, n2iden))
+
+                    if edges:
+                        pode[1]['edges'] = edges
+
+                    yield pode
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
@@ -5759,7 +5784,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO make this generic and check cdef
 
         if name == 'creator':
-            self.auth.reqUser(valu)
+            await self.auth.reqUser(valu)
             appt.creator = valu
             await appt._save()
 

@@ -45,6 +45,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.jquery',
     'notfound.extension',
 ]
 
@@ -260,7 +261,7 @@ def convert_ipynb(_):
                 #     continue
                 tick = s_common.now()
                 fp = os.path.join(fdir, fn)
-                args = ['--execute', '--template', './vertex.tpl', '--to', 'rst', fp]
+                args = ['--execute', '--template', 'vertex', '--to', 'rst', fp]
                 nba.main(args)
                 tock = s_common.now()
                 took = (tock - tick) / 1000

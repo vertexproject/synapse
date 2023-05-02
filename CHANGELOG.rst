@@ -7,6 +7,44 @@ Synapse Changelog
 Unreleased - YYYY-MM-DD
 =======================
 
+Bugfixes
+--------
+- Fix an issue with the search functionality in our documentation missing
+  the required jQuery library.
+  (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.lib.httpapi.HandlerBase.user()`` and
+  ``synapse.lib.httpapi.HandlerBase.getUserBody()`` functions. Remove the
+  deprecated ``synapse.axon.AxonFileHandler.axon()`` function.
+  (`#3115 <https://github.com/vertexproject/synapse/pull/3115>`_)
+
+v2.130.2 - 2023-04-26
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the ``proxy`` argument was not being passed to the Axon
+  when attempting to post a file via Storm with the ``$lib.inet.http.post()``
+  API.
+  (`#3109 <https://github.com/vertexproject/synapse/pull/3109>`_)
+- Fix an issue where adding a readonly layer that does not already exist
+  would raise an error.
+  (`#3106 <https://github.com/vertexproject/synapse/pull/3106>`_)
+
+v2.130.1 - 2023-04-25
+=====================
+
+Bugfixes
+--------
+- Fix a race condition in a Telepath unit test which was happening
+  during CI testing.
+  (`#3104 <https://github.com/vertexproject/synapse/pull/3104>`_)
+
+v2.130.0 - 2023-04-25
+=====================
+
 Features and Enhancements
 -------------------------
 - Updates to the ``infotech`` model.
@@ -16,11 +54,36 @@ Features and Enhancements
     Add an ``ext:id`` property for recording an external identifier for
     a host.
 
+- Add support for deleting node properties by assigning ``$lib.undef`` to
+  the property to be removed through ``$node.props``.
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+- The ``Cell.ahaclient`` is longer cached in the
+  ``synapse.telepath.aha_clients`` dictionary. This isolates the Cell
+  connection to Aha from other clients.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- When the Cell mirror loop exits, it now reports the current ``ready`` status
+  to the Aha service. This allows a service to mark itself as "not ready" when
+  the loop restarts and it is a follower, since it may no longer be in the
+  realtime change window.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- Update the required versions of the ``nbconvert``, ``sphinx`` and
+  ``hide-code`` libraries used for building documentation. Increased the
+  allowed ranges for the ``pygments`` and ``jupyter-client`` libraries.
+  (`#3103 <https://github.com/vertexproject/synapse/pull/3103>`_)
+
 Bugfixes
 --------
 - Fix an issue in backtick format strings where single quotes in
   certain positions would raise a syntax error.
   (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
+- Fix an issue where permissions were not correctly checked when
+  assigning a property value through ``$node.props``. 
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+- Fix an issue where the Cell would report a static ``ready`` value to the Aha
+  service upon reconnecting, instead of the current ``ready`` status. The
+  ``Cell.ahainfo`` value was replaced with a ``Cell.getAhaInfo()`` API which
+  returns the current information to report to the Aha service.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
 
 v2.129.0 - 2023-04-17
 =====================
