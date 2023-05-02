@@ -20,7 +20,6 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-
 - Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
   models.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
@@ -99,6 +98,9 @@ Features and Enhancements
   ``risk:vuln:type:taxonomy``
     Add a form to record a taxonomy of vulnerability types.
 
+- Add a new Storm command, ``auth.user.allowed`` that can be used to check
+  if a user is allowed to use a given permission and why.
+  (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
 - Add a Storm command, ``gen.ou.campaign``, to assist with generating or
   creating ``ou:campaign`` nodes.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
