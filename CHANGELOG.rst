@@ -110,10 +110,8 @@ Bugfixes
 - Fix an issue with the search functionality in our documentation missing
   the required jQuery library.
   (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
-- Unique nodes when performing multi-layer lifts on secondary properties.
-  Previously it was possible to lift the same node multiple times when
-  working across multiple layers where the same node had been made in
-  different layers.
+- Unique nodes when performing multi-layer lifts on secondary properties
+  without a value.
   (`#3110 <https://github.com/vertexproject/synapse/pull/3110>`_)
 
 Improved Documentation
