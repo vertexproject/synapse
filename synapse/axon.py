@@ -128,10 +128,6 @@ class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
 
 class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
-    def axon(self):
-        s_common.deprecated('AxonFileHandler.axon(), use getAxon() instead', eolv='2.130.0')
-        return self.getAxon()
-
     async def getAxonInfo(self):
         return await self.getAxon().getCellInfo()
 
