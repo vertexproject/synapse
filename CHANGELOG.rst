@@ -9,10 +9,10 @@ Unreleased - YYYY-MM-DD
 
 Automatic Migrations
 --------------------
-- Migrate the ``ou:campaign:name`` property from an ``str`` to a
+- Migrate the ``ou:campaign:name`` property from a ``str`` to an
   ``ou:campname`` type and create the ``ou:campname`` nodes as needed.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
-- Migrate the ``risk:vuln:type`` property from a ``str`` to
+- Migrate the ``risk:vuln:type`` property from a ``str`` to a
   ``risk:vuln:type:taxonomy`` type and create the ``risk:vuln:type:taxonomy``
   nodes as needed.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
