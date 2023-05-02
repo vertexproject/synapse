@@ -9,7 +9,7 @@ Unreleased - YYYY-MM-DD
 
 Automatic Migrations
 --------------------
-- Migrate the ``ou:campaign:name`` property from a ``str`` to a
+- Migrate the ``ou:campaign:name`` property from an ``str`` to a
   ``ou:campname`` type and create the ``ou:campname`` nodes as needed.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
 - Migrate the ``risk:vuln:type`` property from a ``str`` to
@@ -27,14 +27,14 @@ Features and Enhancements
   (`#3113 <https://github.com/vertexproject/synapse/pull/3113>`_)
 
   ``inet:dns:answer``
-    Add a ``mx:priority`` property to record the priority MX response.
+    Add a ``mx:priority`` property to record the priority of the MX response.
 
   ``inet:dns:dynreg``
     Add a form to record the registration of a domain with a dynamic DNS
     provider.
 
   ``inet:proto``
-    Add a form record a network protocol name.
+    Add a form to record a network protocol name.
 
   ``inet:web:attachment``
     Add a form to record the instance of a file being sent to a web service
@@ -45,7 +45,7 @@ Features and Enhancements
     in favor of using ``inet:web:attachment``.
 
   ``inet:web:logon``
-    Remove incorrect ``readony`` markings for properties.
+    Remove incorrect ``readonly`` markings for properties.
 
   ``it:app:snort:rule``
     Add an ``id`` property to record the snort rule id.
@@ -55,7 +55,7 @@ Features and Enhancements
     created and last updated.
     Add an ``enabled`` property to record if the rule should be used for
     snort evaluation engines.
-    Add an ``family`` property to record the software family the rule is
+    Add a ``family`` property to record the software family the rule is
     designed to detect.
 
   ``it:prod:softid``
@@ -74,17 +74,17 @@ Features and Enhancements
     contact.
 
   ``risk:threat``
-    Add a ``active`` property to record the interval of time when the threat
+    Add an ``active`` property to record the interval of time when the threat
     cluster is assessed to have been active.
-    Add a ``reporter:published`` to record the time that a reporting
+    Add a ``reporter:published`` property to record the time that a reporting
     organization first publicly disclosed the threat cluster.
 
   ``risk:tool:software``
     Add a ``used`` property to record the interval when the tool is assessed
     to have been deployed.
-    Add a ``reporter:discovered`` to record the time that a reporting
+    Add a ``reporter:discovered`` property to record the time that a reporting
     organization first discovered the tool.
-    Add a ``reporter:published`` to record the time that a reporting
+    Add a ``reporter:published`` property to record the time that a reporting
     organization first publicly disclosed the tool.
 
   ``risk:vuln:soft:range``
@@ -101,7 +101,7 @@ Features and Enhancements
 - Add a new Storm command, ``auth.user.allowed`` that can be used to check
   if a user is allowed to use a given permission and why.
   (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
-- Add a Storm command, ``gen.ou.campaign``, to assist with generating or
+- Add a new Storm command, ``gen.ou.campaign``, to assist with generating or
   creating ``ou:campaign`` nodes.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
 
