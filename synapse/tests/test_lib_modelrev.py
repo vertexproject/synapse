@@ -379,3 +379,15 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('ou:campname="operation overlord"'))
             self.len(1, await core.nodes('ou:campname="operation overlord" -> ou:campaign'))
             self.len(1, await core.nodes('risk:vuln:type:taxonomy="cyber.int_overflow" -> risk:vuln'))
+
+        with self.getAsyncLoggerStream('synapse.lib.modelrev',
+                                       'error re-norming risk:vuln:type=foo.bar...newp') as stream:
+            async with self.getRegrCore('model-0.2.19-bad-risk-types') as core:
+                self.true(await stream.wait(timeout=6))
+                self.len(5, await core.nodes('risk:vuln'))
+                self.len(4, await core.nodes('risk:vuln:type'))
+                nodes = await core.nodes('yield $lib.lift.byNodeData(_migrated:risk:vuln:type)')
+                self.len(1, nodes)
+                node = nodes[0]
+                self.none(node.get('type'))
+                self.eq(node.nodedata.get('_migrated:risk:vuln:type'), 'foo.bar...newp')
