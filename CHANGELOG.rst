@@ -19,6 +19,13 @@ Bugfixes
   the required jQuery library.
   (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
 
+Deprecations
+------------
+- Remove the deprecated ``synapse.lib.httpapi.HandlerBase.user()`` and
+  ``synapse.lib.httpapi.HandlerBase.getUserBody()`` functions. Remove the
+  deprecated ``synapse.axon.AxonFileHandler.axon()`` function.
+  (`#3115 <https://github.com/vertexproject/synapse/pull/3115>`_)
+
 v2.130.2 - 2023-04-26
 =====================
 
