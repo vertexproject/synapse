@@ -12,6 +12,9 @@ Features and Enhancements
 - Add a new Storm command, ``auth.user.allowed`` that can be used to check
   if a user is allowed to use a given permission and why.
   (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
+- Add a boolean ``default`` key to the permissions schema definition. This
+  allows a Storm package permission to note what its default value is.
+  (`#3099 <https://github.com/vertexproject/synapse/pull/3099>`_)
 
 Bugfixes
 --------
