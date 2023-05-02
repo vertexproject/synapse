@@ -387,6 +387,9 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
                 }),
+                ('it:prod:softid', ('guid', {}), {
+                    'doc': 'An identifier issued to a given host by a specific software application.'}),
+
                 ('it:prod:hardware', ('guid', {}), {
                     'doc': 'A specification for a piece of IT hardware.',
                 }),
@@ -544,7 +547,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
                 ('it:app:snort:rule', ('guid', {}), {
-                    'doc': 'A snort rule unique identifier.',
+                    'doc': 'A snort rule.',
                 }),
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
@@ -1128,6 +1131,20 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:prod:softname', {}, ()),
+                ('it:prod:softid', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The ID issued by the software to the host.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which was issued the ID by the software.'}),
+
+                    ('soft', ('it:prod:softver', {}), {
+                        'doc': 'The software which issued the ID to the host.'}),
+
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software which issued the ID to the host.'}),
+                )),
 
                 ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
@@ -1833,6 +1850,9 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:snort:rule', {}, (
 
+                    ('id', ('str', {}), {
+                        'doc': 'The snort rule id.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'The snort rule text.'}),
@@ -1846,6 +1866,21 @@ class ItModule(s_module.CoreModule):
 
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the rule.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was initially created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for snort evaluation engines.'}),
+
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:snort:hit', {}, (

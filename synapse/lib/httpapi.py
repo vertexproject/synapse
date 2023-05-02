@@ -225,20 +225,6 @@ class HandlerBase:
 
         return self._web_sess
 
-    async def user(self):  # pragma: no cover
-        '''
-        Get the heavy User object from the Cell for the authenticated user.
-
-        Deprecated, use the useriden() function instead.
-        '''
-        s_common.deprecated('HandlerBase.user() - use useriden()', eolv='v2.130.0')  # set curv?
-        iden = await self.useriden()
-        if iden is None:
-            return None
-        user = self.cell.auth.user(iden)
-        self._web_user = user
-        return user
-
     async def useriden(self):
         '''
         Get the user iden of the current session user.
@@ -345,23 +331,6 @@ class HandlerBase:
             bool: True if the request has an authenticated user, false otherwise.
         '''
         return await self.useriden() is not None
-
-    async def getUserBody(self):  # pragma: no cover
-        '''
-        Helper function to confirm that there is an auth user and a valid JSON body in the request.
-
-        Deprecated, use the getUseridenBody() function instead.
-        '''
-        s_common.deprecated('HandlerBase.getUserBody - use getUseridenBody', eolv='v2.130.0')  # set curv?
-        if not await self.reqAuthUser():
-            return (s_common.novalu, s_common.novalu)
-
-        body = self.getJsonBody()
-        if body is None:
-            return (s_common.novalu, s_common.novalu)
-
-        user = await self.user()
-        return (user, body)
 
     async def getUseridenBody(self, validator=None):
         '''
