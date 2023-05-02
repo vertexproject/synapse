@@ -4816,6 +4816,7 @@ class StormTypesTest(s_test.SynTest):
                 'version': '0.0.1',
                 'perms': (
                     {'perm': ('wootwoot',), 'desc': 'lol lol', 'gate': 'cortex'},
+                    {'perm': ('wootwoot.wow',), 'desc': 'a new permission', 'gate': 'cortex', 'default': True},
                 ),
                 'modules': (
                     {
@@ -4853,7 +4854,8 @@ class StormTypesTest(s_test.SynTest):
 
             msgs = await core.stormlist('pkg.perms.list authtest')
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
-            self.stormIsInPrint('wootwoot                         : lol lol', msgs)
+            self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
+            self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
 
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}

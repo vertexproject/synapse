@@ -104,6 +104,9 @@ Features and Enhancements
 - Add a new Storm command, ``gen.ou.campaign``, to assist with generating or
   creating ``ou:campaign`` nodes.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Add a boolean ``default`` key to the permissions schema definition. This
+  allows a Storm package permission to note what its default value is.
+  (`#3099 <https://github.com/vertexproject/synapse/pull/3099>`_)
 
 Bugfixes
 --------
