@@ -115,8 +115,8 @@ class StormTest(s_t_utils.SynTest):
 
                 $lib.print(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)
             ''')
-            self.stormIsInPrint('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) True', msgs)
-            self.stormIsInPrint('ip=1.1.1.1 asn=6 .seen=(1, 2) foo=(3, 4) False', msgs)
+            self.stormIsInPrint('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) true', msgs)
+            self.stormIsInPrint('ip=1.1.1.1 asn=6 .seen=(1, 2) foo=(3, 4) false', msgs)
 
             retn = await core.callStorm('''
                 $foo = mystr
@@ -153,6 +153,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(retn, '''foo=bar
             baz=faz
             ''')
+
+            self.eq("foo 'bar'", await core.callStorm("$foo=bar return(`foo '{$foo}'`)"))
+            self.eq(r"\'''''bar'''", await core.callStorm(r"$foo=bar return(`\\'\''''{$foo}'''`)"))
 
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:

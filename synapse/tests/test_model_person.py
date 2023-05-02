@@ -92,6 +92,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'name': 'Tony  Stark',
                     'title': 'CEO',
                     'place': place,
+                    'place:name': 'The Shire',
                     'orgname': 'Stark Industries, INC',
                     # 'img': '',  # fixme file:bytes
                     'user': 'ironman',
@@ -128,6 +129,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('asof'), 1208131200000)
                 self.eq(node.get('person'), person0)
                 self.eq(node.get('place'), place)
+                self.eq(node.get('place:name'), 'the shire')
                 self.eq(node.get('name'), 'tony stark')
                 self.eq(node.get('title'), 'ceo')
                 self.eq(node.get('orgname'), 'stark industries, inc')
