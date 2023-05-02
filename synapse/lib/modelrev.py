@@ -798,7 +798,13 @@ class ModelRev:
             async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
-                except s_exc.BadTypeValu as e: # pragma: no cover
+                except s_exc.BadTypeValu as e:
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.name}', propvalu, None), ()),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
                     oldm = e.errinfo.get('mesg')
                     logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
                     continue
