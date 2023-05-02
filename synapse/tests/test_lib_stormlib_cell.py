@@ -211,7 +211,7 @@ class StormCellTest(s_test.SynTest):
 
             msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
             self.stormIsInPrint('Would apply fix (1, 0, 0) for [Create nodes for known missing autoadds.]', msgs)
-            self.stormIsInPrint('r=True', msgs)
+            self.stormIsInPrint('r=true', msgs)
 
             q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
             mesg = '\n'.join(['The following Views will be fixed in order:', '68695c660aa6981192d70e954af0c8e3',
@@ -224,7 +224,7 @@ class StormCellTest(s_test.SynTest):
             self.stormIsInPrint('fix (2, 0, 0)', msgs)
 
             msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
-            self.stormIsInPrint('r=False', msgs)
+            self.stormIsInPrint('r=false', msgs)
 
             name2view = await get_regression_views(core)
 
@@ -269,7 +269,7 @@ class StormCellTest(s_test.SynTest):
             msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
             m = 'Would apply fix (2, 0, 0) for [Populate crypto:currency:coin nodes from existing addresses.]'
             self.stormIsInPrint(m, msgs)
-            self.stormIsInPrint('r=True', msgs)
+            self.stormIsInPrint('r=true', msgs)
 
             q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
 
