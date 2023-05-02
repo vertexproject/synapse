@@ -801,12 +801,14 @@ class ModelRev:
                 except s_exc.BadTypeValu as e:
                     nodeedits.append(
                         (buid, prop.form.name, (
-                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.name}', propvalu, None), ()),
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
                             (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
                         )),
                     )
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                    iden = s_common.ehex(buid)
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
                     continue
 
                 if norm == propvalu:
