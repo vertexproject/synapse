@@ -752,12 +752,11 @@ stormcmds = (
                 if $pdef.perms {
                     $lib.print(`Package ({$cmdopts.name}) defines the following permissions:`)
                     for $permdef in $pdef.perms {
-                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc}`
-                        $default = $permdef.default
-                        $lib.log.info(`{$cmdopts.name} {$text} default={$default}`)
-                        if $default {
-                            $text = `{$text} ( default: true )`
+                        $defv = $permdef.default
+                        if ( $defv = $lib.null ) {
+                            $defv = $lib.false
                         }
+                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
                         $lib.print($text)
                     }
                 } else {

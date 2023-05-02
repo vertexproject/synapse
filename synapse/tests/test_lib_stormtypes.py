@@ -4854,7 +4854,7 @@ class StormTypesTest(s_test.SynTest):
 
             msgs = await core.stormlist('pkg.perms.list authtest')
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
-            self.stormIsInPrint('wootwoot                         : lol lol', msgs)
+            self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
             self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
 
             visi = await core.auth.getUserByName('visi')
