@@ -895,8 +895,6 @@ class ModelRev:
 
     async def _propToForm(self, layers, propfull, formname):
 
-        propname = self.core.model.prop(propfull).name
-
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
             'formname': formname,
@@ -921,8 +919,6 @@ class ModelRev:
         await self.runStorm(storm, opts=opts)
 
     async def _propArrayToForm(self, layers, propfull, formname):
-
-        propname = self.core.model.prop(propfull).name
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
