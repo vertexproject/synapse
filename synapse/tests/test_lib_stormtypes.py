@@ -929,7 +929,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('endofquery', msgs)
 
             msgs = await core.stormlist(f'ps.kill {iden}')
-            self.stormIsInPrint('kill status: True', msgs)
+            self.stormIsInPrint('kill status: true', msgs)
             self.true(task.done())
 
             msgs = await core.stormlist('ps.list')
@@ -982,7 +982,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Kill the task as the user
                 msgs = await alist(prox.storm(f'ps.kill {iden}'))
-                self.stormIsInPrint('kill status: True', msgs)
+                self.stormIsInPrint('kill status: true', msgs)
                 self.true(task.done())
 
                 # Kill a task that doesn't exist
@@ -4818,6 +4818,7 @@ class StormTypesTest(s_test.SynTest):
                 'version': '0.0.1',
                 'perms': (
                     {'perm': ('wootwoot',), 'desc': 'lol lol', 'gate': 'cortex'},
+                    {'perm': ('wootwoot.wow',), 'desc': 'a new permission', 'gate': 'cortex', 'default': True},
                 ),
                 'modules': (
                     {
@@ -4855,7 +4856,8 @@ class StormTypesTest(s_test.SynTest):
 
             msgs = await core.stormlist('pkg.perms.list authtest')
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
-            self.stormIsInPrint('wootwoot                         : lol lol', msgs)
+            self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
+            self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
 
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}

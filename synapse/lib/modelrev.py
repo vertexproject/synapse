@@ -798,9 +798,17 @@ class ModelRev:
             async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
-                except s_exc.BadTypeValu as e: # pragma: no cover
+                except s_exc.BadTypeValu as e:
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                    iden = s_common.ehex(buid)
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
                     continue
 
                 if norm == propvalu:
@@ -887,8 +895,6 @@ class ModelRev:
 
     async def _propToForm(self, layers, propfull, formname):
 
-        propname = self.core.model.prop(propfull).name
-
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
             'formname': formname,
@@ -913,8 +919,6 @@ class ModelRev:
         await self.runStorm(storm, opts=opts)
 
     async def _propArrayToForm(self, layers, propfull, formname):
-
-        propname = self.core.model.prop(propfull).name
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],

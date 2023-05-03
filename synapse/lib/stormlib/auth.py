@@ -428,6 +428,28 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'auth.user.allowed',
+        'descr': '''
+            Show whether the user is allowed the given permission and why.
+
+            Examples:
+
+                auth.user.allowed visi foo.bar
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+            ('permname', {'type': 'str', 'help': 'The permission string.'}),
+            ('--gate', {'type': 'str', 'help': 'An auth gate to test the perms against.'}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
+
+            ($allow, $reason) = $user.getAllowedReason($cmdopts.permname, gateiden=$cmdopts.gate)
+            $lib.print(`allowed: {$allow} - {$reason}`)
+        ''',
+    },
+    {
         'name': 'auth.role.show',
         'descr': '''
 

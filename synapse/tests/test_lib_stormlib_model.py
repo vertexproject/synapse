@@ -216,9 +216,9 @@ class StormlibModelTest(s_test.SynTest):
                 # End coverage test
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('ou:org:sic: True', mesgs)
-                self.stormIsInPrint('ou:hasalias: True', mesgs)
-                self.stormIsInPrint('it:reveng:funcstr: False', mesgs)
+                self.stormIsInPrint('ou:org:sic: true', mesgs)
+                self.stormIsInPrint('ou:hasalias: true', mesgs)
+                self.stormIsInPrint('it:reveng:funcstr: false', mesgs)
 
                 await core.nodes('model.deprecated.lock --unlock ou:org:sic')
                 await core.nodes('ou:org [ :sic=5678 ]')
@@ -238,7 +238,7 @@ class StormlibModelTest(s_test.SynTest):
                 await core.nodes('model.deprecated.lock *')
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('it:reveng:funcstr: True', mesgs)
+                self.stormIsInPrint('it:reveng:funcstr: true', mesgs)
 
                 await core.nodes('ou:org [ -:sic ]')
                 await core.nodes('ou:hasalias | delnode')

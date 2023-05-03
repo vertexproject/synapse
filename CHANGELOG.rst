@@ -4,14 +4,135 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.131.0 - 2023-05-02
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate the ``ou:campaign:name`` property from a ``str`` to an
+  ``ou:campname`` type and create the ``ou:campname`` nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Migrate the ``risk:vuln:type`` property from a ``str`` to a
+  ``risk:vuln:type:taxonomy`` type and create the ``risk:vuln:type:taxonomy``
+  nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
+  models.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+  (`#3108 <https://github.com/vertexproject/synapse/pull/3108>`_)
+  (`#3113 <https://github.com/vertexproject/synapse/pull/3113>`_)
+
+  ``inet:dns:answer``
+    Add a ``mx:priority`` property to record the priority of the MX response.
+
+  ``inet:dns:dynreg``
+    Add a form to record the registration of a domain with a dynamic DNS
+    provider.
+
+  ``inet:proto``
+    Add a form to record a network protocol name.
+
+  ``inet:web:attachment``
+    Add a form to record the instance of a file being sent to a web service
+    by an account.
+
+  ``inet:web:file``
+    Deprecate the ``client``, ``client:ipv4``, and ``client:ipv6`` properties
+    in favor of using ``inet:web:attachment``.
+
+  ``inet:web:logon``
+    Remove incorrect ``readonly`` markings for properties.
+
+  ``it:app:snort:rule``
+    Add an ``id`` property to record the snort rule id.
+    Add an ``author`` property to record contact information for the rule
+    author.
+    Add ``created`` and ``updated`` properties to track when the rule was
+    created and last updated.
+    Add an ``enabled`` property to record if the rule should be used for
+    snort evaluation engines.
+    Add a ``family`` property to record the software family the rule is
+    designed to detect.
+
+  ``it:prod:softid``
+    Add a form to record an identifier issued to a given host by a specific
+    software application.
+
+  ``ou:campname``
+    Add a form to record the name of campaigns.
+
+  ``ou:campaign``
+    Change the ``name`` and ``names`` secondary properties from ``str`` to
+    ``ou:campname`` types.
+
+  ``ps:contact``
+    Add a ``place:name`` to record the name of the place associated with the
+    contact.
+
+  ``risk:threat``
+    Add an ``active`` property to record the interval of time when the threat
+    cluster is assessed to have been active.
+    Add a ``reporter:published`` property to record the time that a reporting
+    organization first publicly disclosed the threat cluster.
+
+  ``risk:tool:software``
+    Add a ``used`` property to record the interval when the tool is assessed
+    to have been deployed.
+    Add a ``reporter:discovered`` property to record the time that a reporting
+    organization first discovered the tool.
+    Add a ``reporter:published`` property to record the time that a reporting
+    organization first publicly disclosed the tool.
+
+  ``risk:vuln:soft:range``
+    Add a form to record a contiguous range of software versions which
+    contain a vulnerability.
+
+  ``risk:vuln``
+    Change the ``type`` property from a ``str`` to a
+    ``risk:vuln:type:taxonomy``.
+
+  ``risk:vuln:type:taxonomy``
+    Add a form to record a taxonomy of vulnerability types.
+
+- Add a new Storm command, ``auth.user.allowed`` that can be used to check
+  if a user is allowed to use a given permission and why.
+  (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
+- Add a new Storm command, ``gen.ou.campaign``, to assist with generating or
+  creating ``ou:campaign`` nodes.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Add a boolean ``default`` key to the permissions schema definition. This
+  allows a Storm package permission to note what its default value is.
+  (`#3099 <https://github.com/vertexproject/synapse/pull/3099>`_)
+- Data model migrations which fail to normalize existing secondary values into
+  their new types now store those values in Node data on the affected nodes
+  and remove those bad properties from the affected nodes.
+  (`#3117 <https://github.com/vertexproject/synapse/pull/3117>`_)
 
 Bugfixes
 --------
 - Fix an issue with the search functionality in our documentation missing
   the required jQuery library.
   (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+- Unique nodes when performing multi-layer lifts on secondary properties
+  without a value.
+  (`#3110 <https://github.com/vertexproject/synapse/pull/3110>`_)
+
+Improved Documentation
+----------------------
+- Add a section about managing data model deprecations to the Synapse
+  Admin guide.
+  (`#3102 <https://github.com/vertexproject/synapse/pull/3102>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.lib.httpapi.HandlerBase.user()`` and
+  ``synapse.lib.httpapi.HandlerBase.getUserBody()`` functions. Remove the
+  deprecated ``synapse.axon.AxonFileHandler.axon()`` function.
+  (`#3115 <https://github.com/vertexproject/synapse/pull/3115>`_)
 
 v2.130.2 - 2023-04-26
 =====================
