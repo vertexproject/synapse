@@ -63,7 +63,7 @@ class JupyterTest(s_t_utils.SynTest):
         self.false(svcprox.isfini)
 
         mesgs = await cmdrcore.storm('service.list')
-        self.true(any(['True (testsvc)' in str(mesg) for mesg in mesgs]))
+        self.true(any(['true (testsvc)' in str(mesg) for mesg in mesgs]))
 
         nodes = await cmdrcore.eval('testsvc.magic')
         self.len(1, nodes)

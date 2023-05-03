@@ -181,6 +181,7 @@ permdef_schema = {
         'desc': {'type': 'string'},
         'gate': {'type': 'string'},
         'workflowconfig': {'type': 'boolean'},
+        'default': {'type': 'boolean', 'default': False},
     },
     'required': ['perm', 'desc', 'gate'],
 }
@@ -734,7 +735,7 @@ stormcmds = (
         'name': 'pkg.perms.list',
         'descr': 'List any permissions declared by the package.',
         'cmdargs': (
-            ('name', {'help': 'The name (or name prefix) of the package.'}),
+            ('name', {'help': 'The name (or name prefix) of the package.', 'type': 'str'}),
         ),
         'storm': '''
             $pdef = $lib.null
@@ -746,16 +747,20 @@ stormcmds = (
             }
 
             if (not $pdef) {
-                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+                $lib.warn(`Package ({$cmdopts.name}) not found!`)
             } else {
                 if $pdef.perms {
-                    $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
+                    $lib.print(`Package ({$cmdopts.name}) defines the following permissions:`)
                     for $permdef in $pdef.perms {
-                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
-                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                        $defv = $permdef.default
+                        if ( $defv = $lib.null ) {
+                            $defv = $lib.false
+                        }
+                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
+                        $lib.print($text)
                     }
                 } else {
-                    $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
+                    $lib.print(`Package ({$cmdopts.name}) contains no permissions definitions.`)
                 }
             }
         '''
@@ -1783,6 +1788,17 @@ class Runtime(s_base.Base):
 
         self._loadRuntVars(query)
         self.onfini(self._onRuntFini)
+
+    def getScopeVars(self):
+        '''
+        Return a dict of all the vars within this and all parent scopes.
+        '''
+        varz = {}
+        if self.root:
+            varz.update(self.root.getScopeVars())
+
+        varz.update(self.vars)
+        return varz
 
     async def emitter(self):
 
@@ -4650,7 +4666,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.vars)
+        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars())
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {

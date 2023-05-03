@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.129.0'
+VERSION = '2.132.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -91,36 +91,37 @@ setup(
         'aioimaplib>=1.0.1,<1.1.0',
         'aiosmtplib>=2.0.0,<2.1.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
-        'lark==1.1.2',
-        'Pygments>=2.7.4,<2.13.0',
-        'packaging>=20.0,<22.0',
-        'fastjsonschema>=2.15.3,<2.16',
+        'lark==1.1.5',
+        'Pygments>=2.7.4,<2.16.0',
+        'packaging>=20.0,<24.0',
+        'fastjsonschema>=2.16.3,<2.17.0',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
         'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib==0.11.0',
         'pycryptodome>=3.11.0,<3.17.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
-        'scalecodec>=1.0.2,<1.0.38',  # synapse.vendor.substrateinterface req
+        'scalecodec>=1.0.2,<1.3.0',  # synapse.vendor.substrateinterface req
         'cbor2>=5.4.1,<5.4.7',
         'bech32==1.2.0',
         'oauthlib>=3.2.1,<4.0.0',
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
-        'pytz>=2021.3,<2022.2',
+        'pytz>=2023.3,<2024.1',
         'beautifulsoup4[html5lib]>=4.11.1,<5.0',
+        'requests<2.30.0',  # temporary pin until https://github.com/kevin1024/vcrpy/issues/688 is resolved
     ],
 
     extras_require={
         'docs': [
-            'nbconvert==5.6.1',
-            'jupyter-client<=6.1.12',
+            'nbconvert>=7.3.1,<8.0.0',
+            'jupyter-client<=8.2.0',
             'jupyter>=1.0.0,<2.0.0',
-            'hide-code>=0.5.2,<0.5.3',
+            'hide-code>=0.7.0,<0.8.0',
             'nbstripout>=0.3.3,<1.0.0',
-            'sphinx>=4.2.0,<5.0.0',
+            'sphinx>=6.2.0,<7.0.0',
             'sphinx-rtd-theme>=1.0.0,<2.0.0',
-            'sphinx-notfound-page==0.8',
+            'sphinx-notfound-page==0.8.3',
             'jinja2<3.1.0',
         ],
         'dev': [

@@ -149,6 +149,9 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An campaign type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
+                ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A campaign name.'}),
+
                 ('ou:campaign', ('guid', {}), {
                     'doc': "Represents an org's activity in pursuit of a goal.",
                 }),
@@ -404,6 +407,7 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:camptype', {}, ()),
+                ('ou:campname', {}, ()),
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
@@ -427,10 +431,11 @@ class OuModule(s_module.CoreModule):
                     ('success', ('bool', {}), {
                         'doc': 'Records the success/failure status of the campaign if known.'}),
 
-                    ('name', ('str', {}), {
+                    ('name', ('ou:campname', {}), {
+                        'ex': 'operation overlord',
                         'doc': 'A terse name of the campaign.'}),
 
-                    ('names', ('array', {'type': 'str'}), {
+                    ('names', ('array', {'type': 'ou:campname', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the campaign.'}),
 
                     ('reporter', ('ou:org', {}), {
@@ -442,6 +447,7 @@ class OuModule(s_module.CoreModule):
                     ('type', ('str', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Use the :camptype taxonomy.', }),
+
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),

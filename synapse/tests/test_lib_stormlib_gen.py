@@ -95,3 +95,9 @@ class StormLibGenTest(s_test.SynTest):
             nodes00 = await core.nodes('gen.lang.language "English (US)" | [ :names+="Murican" ]')
             nodes01 = await core.nodes('yield $lib.gen.langByName(Murican)')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes00 = await core.nodes('gen.ou.campaign "operation overlord" vertex | [ :names+="d-day" ]')
+            nodes01 = await core.nodes('gen.ou.campaign d-day vertex')
+            nodes02 = await core.nodes('gen.ou.campaign d-day otherorg')
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+            self.ne(nodes01[0].ndef, nodes02[0].ndef)

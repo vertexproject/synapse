@@ -929,7 +929,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('endofquery', msgs)
 
             msgs = await core.stormlist(f'ps.kill {iden}')
-            self.stormIsInPrint('kill status: True', msgs)
+            self.stormIsInPrint('kill status: true', msgs)
             self.true(task.done())
 
             msgs = await core.stormlist('ps.list')
@@ -982,7 +982,7 @@ class StormTypesTest(s_test.SynTest):
 
                 # Kill the task as the user
                 msgs = await alist(prox.storm(f'ps.kill {iden}'))
-                self.stormIsInPrint('kill status: True', msgs)
+                self.stormIsInPrint('kill status: true', msgs)
                 self.true(task.done())
 
                 # Kill a task that doesn't exist
@@ -3224,7 +3224,10 @@ class StormTypesTest(s_test.SynTest):
             self.lt(size, 1000000000)
 
             # Try to create an invalid layer
-            mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
+            msgs = await core.stormlist('$lib.layer.add(ldef=({"lockmemory": (42)}))')
+            self.stormIsInErr('lockmemory must be boolean', msgs)
+            msgs = await core.stormlist('$lib.layer.add(ldef=({"readonly": "False"}))')
+            self.stormIsInErr('readonly must be boolean', msgs)
 
             # Create a new layer
             newlayr = await core.callStorm('return($lib.layer.add().iden)')
@@ -4813,6 +4816,7 @@ class StormTypesTest(s_test.SynTest):
                 'version': '0.0.1',
                 'perms': (
                     {'perm': ('wootwoot',), 'desc': 'lol lol', 'gate': 'cortex'},
+                    {'perm': ('wootwoot.wow',), 'desc': 'a new permission', 'gate': 'cortex', 'default': True},
                 ),
                 'modules': (
                     {
@@ -4850,7 +4854,8 @@ class StormTypesTest(s_test.SynTest):
 
             msgs = await core.stormlist('pkg.perms.list authtest')
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
-            self.stormIsInPrint('wootwoot                         : lol lol', msgs)
+            self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
+            self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
 
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
@@ -5380,6 +5385,9 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(lolnope, 42))')
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('inet:ipv4=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
+
             await fakeuser.addRule((True, ('node', 'prop', 'set')))
             retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
             self.true(retn)
@@ -5415,6 +5423,23 @@ class StormTypesTest(s_test.SynTest):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp="noSuchProp"'))
             with self.raises(s_exc.BadTypeValu):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.size=(foo, bar)'))
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.nn(nodes[0].props.get('dns:rev'))
+
+            await fakeuser.addRule((True, ('node', 'prop', 'del')))
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
+            self.none(nodes[0].props.get('dns:rev'))
+
+            await core.nodes('$n=$lib.null inet:ipv4=1.2.3.4 $n=$node spin | $n.props."dns:rev" = "vertex.link"')
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(nodes[0].props.get('dns:rev'), 'vertex.link')
+
+            with self.raises(s_exc.NoSuchProp):
+                self.true(await core.callStorm('[test:guid=(beep,)] $node.props.newp = $lib.undef'))
 
     async def test_stormtypes_toprim(self):
 

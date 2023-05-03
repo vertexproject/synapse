@@ -32,6 +32,12 @@ def getShadow(passwd):  # pragma: no cover
     hashed = s_common.guid((salt, passwd))
     return (salt, hashed)
 
+def textFromRule(rule):
+    text = '.'.join(rule[1])
+    if not rule[0]:
+        text = '!' + text
+    return text
+
 class Auth(s_nexus.Pusher):
     '''
     Auth is a user authentication and authorization stored in a Hive.  Users
@@ -902,6 +908,58 @@ class HiveUser(HiveRuler):
                     return allow
 
         return default
+
+    def getAllowedReason(self, perm, gateiden=None, default=False):
+        '''
+        A non-optimized diagnostic routine which will return a tuple
+        of (allowed, reason). This is implemented separately for perf.
+
+        NOTE: This must remain in sync with any changes to _allowed()!
+        '''
+        if self.info.get('locked'):
+            return (False, 'The user is locked.')
+
+        if self.info.get('admin'):
+            return (True, 'The user is a global admin.')
+
+        # 1. check authgate user rules
+        if gateiden is not None:
+
+            info = self.authgates.get(gateiden)
+            if info is not None:
+
+                if info.get('admin'):
+                    return (True, f'The user is an admin of auth gate {gateiden}.')
+
+                for allow, path in info.get('rules', ()):
+                    if perm[:len(path)] == path:
+                        return (allow, f'Matched user rule ({textFromRule((allow, path))}) on gate {gateiden}.')
+
+        # 2. check user rules
+        for allow, path in self.info.get('rules', ()):
+            if perm[:len(path)] == path:
+                return (allow, f'Matched user rule ({textFromRule((allow, path))}).')
+
+        # 3. check authgate role rules
+        if gateiden is not None:
+
+            for role in self.getRoles():
+
+                info = role.authgates.get(gateiden)
+                if info is None:
+                    continue
+
+                for allow, path in info.get('rules', ()):
+                    if perm[:len(path)] == path:
+                        return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name} on gate {gateiden}.')
+
+        # 4. check role rules
+        for role in self.getRoles():
+            for allow, path in role.info.get('rules', ()):
+                if perm[:len(path)] == path:
+                    return (allow, f'Matched role rule ({textFromRule((allow, path))}) for role {role.name}.')
+
+        return (default, 'No matching rule found.')
 
     def clearAuthCache(self):
         self.permcache.clear()

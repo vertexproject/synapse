@@ -5220,7 +5220,20 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
         '''
         name = await tostr(name)
+        formprop = self.valu.form.prop(name)
+        if formprop is None:
+            mesg = f'No prop {self.valu.form.name}:{name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
+
+        gateiden = self.valu.snap.wlyr.iden
+
+        if valu is undef:
+            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            await self.valu.pop(name, None)
+            return
+
         valu = await toprim(valu)
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
@@ -5230,13 +5243,7 @@ class NodeProps(Prim):
             yield item
 
     async def set(self, prop, valu):
-        formprop = self.valu.form.prop(prop)
-        if formprop is None:
-            mesg = f'No prop {self.valu.form.name}:{prop}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
-        gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
-        return await self.valu.set(prop, valu)
+        return await self.setitem(prop, valu)
 
     @stormfunc(readonly=True)
     async def get(self, name):
@@ -8012,6 +8019,14 @@ class User(Prim):
                       {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the rule is allowed, False otherwise.', }}},
+        {'name': 'getAllowedReason', 'desc': 'Return an allowed status and reason for the given perm.',
+         'type': {'type': 'function', '_funcname': 'getAllowedReason',
+                  'args': (
+                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'An (allowed, reason) tuple.', }}},
         {'name': 'grant', 'desc': 'Grant a Role to the User.',
          'type': {'type': 'function', '_funcname': '_methUserGrant',
                   'args': (
@@ -8202,6 +8217,7 @@ class User(Prim):
             'setEmail': self._methUserSetEmail,
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
+            'getAllowedReason': self.getAllowedReason,
         }
 
     async def _methUserPack(self):
@@ -8262,6 +8278,15 @@ class User(Prim):
         perm = tuple(permname.split('.'))
         user = await self.runt.snap.core.auth.reqUser(self.valu)
         return user.allowed(perm, gateiden=gateiden, default=default)
+
+    async def getAllowedReason(self, permname, gateiden=None, default=False):
+        permname = await tostr(permname)
+        gateiden = await tostr(gateiden)
+        default = await tobool(default)
+
+        perm = tuple(permname.split('.'))
+        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        return user.getAllowedReason(perm, gateiden=gateiden, default=default)
 
     async def _methUserGrant(self, iden):
         self.runt.confirm(('auth', 'user', 'grant'))
@@ -9340,6 +9365,10 @@ async def toiter(valu, noneok=False):
 async def torepr(valu, usestr=False):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
         return await valu.stormrepr()
+
+    if isinstance(valu, bool):
+        return str(valu).lower()
+
     if usestr:
         return str(valu)
     return repr(valu)

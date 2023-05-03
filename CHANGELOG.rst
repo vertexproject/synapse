@@ -13,6 +13,220 @@ Bugfixes
   a zero-length string would raise an MDB error.
   (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
 
+v2.132.0 - 2023-05-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the minimum required version of the ``fastjsonschema``, ``lark``,
+  and ``pytz`` libraries. Update the allowed version of the ``packaging`` and
+  ``scalecodec`` libraries.
+  (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
+
+Bugfixes
+--------
+- Cap the maximum version of the ``requests`` library until downstream use of
+  that library has been updated to account for changes in ``urllib3``.
+  (`#3119 <https://github.com/vertexproject/synapse/pull/3119>`_)
+
+- Properly add parent scope vars to ``background`` command context.
+  (`#3120 <https://github.com/vertexproject/synapse/pull/3120>`_)
+
+v2.131.0 - 2023-05-02
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate the ``ou:campaign:name`` property from a ``str`` to an
+  ``ou:campname`` type and create the ``ou:campname`` nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Migrate the ``risk:vuln:type`` property from a ``str`` to a
+  ``risk:vuln:type:taxonomy`` type and create the ``risk:vuln:type:taxonomy``
+  nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
+  models.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+  (`#3108 <https://github.com/vertexproject/synapse/pull/3108>`_)
+  (`#3113 <https://github.com/vertexproject/synapse/pull/3113>`_)
+
+  ``inet:dns:answer``
+    Add a ``mx:priority`` property to record the priority of the MX response.
+
+  ``inet:dns:dynreg``
+    Add a form to record the registration of a domain with a dynamic DNS
+    provider.
+
+  ``inet:proto``
+    Add a form to record a network protocol name.
+
+  ``inet:web:attachment``
+    Add a form to record the instance of a file being sent to a web service
+    by an account.
+
+  ``inet:web:file``
+    Deprecate the ``client``, ``client:ipv4``, and ``client:ipv6`` properties
+    in favor of using ``inet:web:attachment``.
+
+  ``inet:web:logon``
+    Remove incorrect ``readonly`` markings for properties.
+
+  ``it:app:snort:rule``
+    Add an ``id`` property to record the snort rule id.
+    Add an ``author`` property to record contact information for the rule
+    author.
+    Add ``created`` and ``updated`` properties to track when the rule was
+    created and last updated.
+    Add an ``enabled`` property to record if the rule should be used for
+    snort evaluation engines.
+    Add a ``family`` property to record the software family the rule is
+    designed to detect.
+
+  ``it:prod:softid``
+    Add a form to record an identifier issued to a given host by a specific
+    software application.
+
+  ``ou:campname``
+    Add a form to record the name of campaigns.
+
+  ``ou:campaign``
+    Change the ``name`` and ``names`` secondary properties from ``str`` to
+    ``ou:campname`` types.
+
+  ``ps:contact``
+    Add a ``place:name`` to record the name of the place associated with the
+    contact.
+
+  ``risk:threat``
+    Add an ``active`` property to record the interval of time when the threat
+    cluster is assessed to have been active.
+    Add a ``reporter:published`` property to record the time that a reporting
+    organization first publicly disclosed the threat cluster.
+
+  ``risk:tool:software``
+    Add a ``used`` property to record the interval when the tool is assessed
+    to have been deployed.
+    Add a ``reporter:discovered`` property to record the time that a reporting
+    organization first discovered the tool.
+    Add a ``reporter:published`` property to record the time that a reporting
+    organization first publicly disclosed the tool.
+
+  ``risk:vuln:soft:range``
+    Add a form to record a contiguous range of software versions which
+    contain a vulnerability.
+
+  ``risk:vuln``
+    Change the ``type`` property from a ``str`` to a
+    ``risk:vuln:type:taxonomy``.
+
+  ``risk:vuln:type:taxonomy``
+    Add a form to record a taxonomy of vulnerability types.
+
+- Add a new Storm command, ``auth.user.allowed`` that can be used to check
+  if a user is allowed to use a given permission and why.
+  (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
+- Add a new Storm command, ``gen.ou.campaign``, to assist with generating or
+  creating ``ou:campaign`` nodes.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Add a boolean ``default`` key to the permissions schema definition. This
+  allows a Storm package permission to note what its default value is.
+  (`#3099 <https://github.com/vertexproject/synapse/pull/3099>`_)
+- Data model migrations which fail to normalize existing secondary values into
+  their new types now store those values in Node data on the affected nodes
+  and remove those bad properties from the affected nodes.
+  (`#3117 <https://github.com/vertexproject/synapse/pull/3117>`_)
+
+Bugfixes
+--------
+- Fix an issue with the search functionality in our documentation missing
+  the required jQuery library.
+  (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+- Unique nodes when performing multi-layer lifts on secondary properties
+  without a value.
+  (`#3110 <https://github.com/vertexproject/synapse/pull/3110>`_)
+
+Improved Documentation
+----------------------
+- Add a section about managing data model deprecations to the Synapse
+  Admin guide.
+  (`#3102 <https://github.com/vertexproject/synapse/pull/3102>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.lib.httpapi.HandlerBase.user()`` and
+  ``synapse.lib.httpapi.HandlerBase.getUserBody()`` functions. Remove the
+  deprecated ``synapse.axon.AxonFileHandler.axon()`` function.
+  (`#3115 <https://github.com/vertexproject/synapse/pull/3115>`_)
+
+v2.130.2 - 2023-04-26
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the ``proxy`` argument was not being passed to the Axon
+  when attempting to post a file via Storm with the ``$lib.inet.http.post()``
+  API.
+  (`#3109 <https://github.com/vertexproject/synapse/pull/3109>`_)
+- Fix an issue where adding a readonly layer that does not already exist
+  would raise an error.
+  (`#3106 <https://github.com/vertexproject/synapse/pull/3106>`_)
+
+v2.130.1 - 2023-04-25
+=====================
+
+Bugfixes
+--------
+- Fix a race condition in a Telepath unit test which was happening
+  during CI testing.
+  (`#3104 <https://github.com/vertexproject/synapse/pull/3104>`_)
+
+v2.130.0 - 2023-04-25
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``infotech`` model.
+  (`#3095 <https://github.com/vertexproject/synapse/pull/3095>`_)
+
+  ``it:host``
+    Add an ``ext:id`` property for recording an external identifier for
+    a host.
+
+- Add support for deleting node properties by assigning ``$lib.undef`` to
+  the property to be removed through ``$node.props``.
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+- The ``Cell.ahaclient`` is longer cached in the
+  ``synapse.telepath.aha_clients`` dictionary. This isolates the Cell
+  connection to Aha from other clients.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- When the Cell mirror loop exits, it now reports the current ``ready`` status
+  to the Aha service. This allows a service to mark itself as "not ready" when
+  the loop restarts and it is a follower, since it may no longer be in the
+  realtime change window.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+- Update the required versions of the ``nbconvert``, ``sphinx`` and
+  ``hide-code`` libraries used for building documentation. Increased the
+  allowed ranges for the ``pygments`` and ``jupyter-client`` libraries.
+  (`#3103 <https://github.com/vertexproject/synapse/pull/3103>`_)
+
+Bugfixes
+--------
+- Fix an issue in backtick format strings where single quotes in
+  certain positions would raise a syntax error.
+  (`#3096 <https://github.com/vertexproject/synapse/pull/3096>`_)
+- Fix an issue where permissions were not correctly checked when
+  assigning a property value through ``$node.props``. 
+  (`#3098 <https://github.com/vertexproject/synapse/pull/3098>`_)
+- Fix an issue where the Cell would report a static ``ready`` value to the Aha
+  service upon reconnecting, instead of the current ``ready`` status. The
+  ``Cell.ahainfo`` value was replaced with a ``Cell.getAhaInfo()`` API which
+  returns the current information to report to the Aha service.
+  (`#3008 <https://github.com/vertexproject/synapse/pull/3008>`_)
+
 v2.129.0 - 2023-04-17
 =====================
 
