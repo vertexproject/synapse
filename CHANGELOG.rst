@@ -10,7 +10,8 @@ Unreleased - YYYY-MM-DD
 
 Features and Enhancements
 -------------------------
-- Update the minimum required version of the ``fastjsonschema`` library.
+- Update the minimum required version of the ``fastjsonschema`` and ``pytz``
+  libraries.
   (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
 
 
