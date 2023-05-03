@@ -93,7 +93,7 @@ setup(
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark==1.1.2',
         'Pygments>=2.7.4,<2.16.0',
-        'packaging>=20.0,<22.0',
+        'packaging>=20.0,<24.0',
         'fastjsonschema>=2.16.3,<2.17.0',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
