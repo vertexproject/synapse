@@ -6489,7 +6489,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'storm'] properties")
+                        "data.modules[0] must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
@@ -6507,7 +6507,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain only specified items")
+                        "data.commands[0].cmdargs[0] must contain only specified items")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['configvars'] = (
