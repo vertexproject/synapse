@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import collections
 
 import lark  # type: ignore
@@ -144,7 +145,6 @@ class AstConverter(lark.Transformer):
 
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
-        import hashlib
         self.texthash = hashlib.md5(text.encode()).hexdigest()
 
     def metaToAstInfo(self, meta, isterm=False):

@@ -1,5 +1,6 @@
 import shutil
 import asyncio
+import hashlib
 import logging
 import itertools
 import collections
@@ -435,7 +436,6 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
-        import hashlib
         texthash = hashlib.md5(text.encode()).hexdigest()
 
         async def runStorm():
