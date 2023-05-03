@@ -20,6 +20,9 @@ Bugfixes
   that library has been updated to account for changes in ``urllib3``.
   (`#3119 <https://github.com/vertexproject/synapse/pull/3119>`_)
 
+- Properly add parent scope vars to ``background`` command context.
+  (`#3120 <https://github.com/vertexproject/synapse/pull/3120>`_)
+
 v2.131.0 - 2023-05-02
 =====================
 
