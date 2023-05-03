@@ -33,3 +33,4 @@ beautifulsoup4[html5lib]>=4.11.1,<5.0.0
 # have a minimum version bumped in the event of a OpenSSL vulnerability that
 # needs to be patched.
 cryptography>=39.0.1,<40.0.0
+requests<2.30.0  # temporary pin until https://github.com/kevin1024/vcrpy/issues/688 is resolved
