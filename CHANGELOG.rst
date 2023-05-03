@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.132.0 - 2023-05-02
+=====================
 
 Features and Enhancements
 -------------------------
