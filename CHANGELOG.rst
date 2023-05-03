@@ -14,6 +14,12 @@ Features and Enhancements
   ``scalecodec`` libraries.
   (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
 
+Bugfixes
+--------
+- Cap the maximum version of the ``requests`` library until downstream use of
+  that library has been updated to account for changes in ``urllib3``.
+  (`#3119 <https://github.com/vertexproject/synapse/pull/3119>`_)
+
 v2.131.0 - 2023-05-02
 =====================
 
