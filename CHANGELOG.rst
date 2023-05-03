@@ -4,6 +4,25 @@
 Synapse Changelog
 *****************
 
+v2.132.0 - 2023-05-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the minimum required version of the ``fastjsonschema``, ``lark``,
+  and ``pytz`` libraries. Update the allowed version of the ``packaging`` and
+  ``scalecodec`` libraries.
+  (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
+
+Bugfixes
+--------
+- Cap the maximum version of the ``requests`` library until downstream use of
+  that library has been updated to account for changes in ``urllib3``.
+  (`#3119 <https://github.com/vertexproject/synapse/pull/3119>`_)
+
+- Properly add parent scope vars to ``background`` command context.
+  (`#3120 <https://github.com/vertexproject/synapse/pull/3120>`_)
+
 v2.131.0 - 2023-05-02
 =====================
 

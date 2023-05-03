@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.131.0'
+VERSION = '2.132.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -91,10 +91,10 @@ setup(
         'aioimaplib>=1.0.1,<1.1.0',
         'aiosmtplib>=2.0.0,<2.1.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
-        'lark==1.1.2',
+        'lark==1.1.5',
         'Pygments>=2.7.4,<2.16.0',
-        'packaging>=20.0,<22.0',
-        'fastjsonschema>=2.15.3,<2.16',
+        'packaging>=20.0,<24.0',
+        'fastjsonschema>=2.16.3,<2.17.0',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.3.0',
         'base58>=2.1.0,<2.2.0',
@@ -107,8 +107,9 @@ setup(
         'oauthlib>=3.2.1,<4.0.0',
         'idna>=3.3,<3.5',
         'python-dateutil>=2.8,<3.0',
-        'pytz>=2021.3,<2022.2',
+        'pytz>=2023.3,<2024.1',
         'beautifulsoup4[html5lib]>=4.11.1,<5.0',
+        'requests<2.30.0',  # temporary pin until https://github.com/kevin1024/vcrpy/issues/688 is resolved
     ],
 
     extras_require={

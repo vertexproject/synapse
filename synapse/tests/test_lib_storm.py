@@ -507,14 +507,19 @@ class StormTest(s_t_utils.SynTest):
 
             # test storm background command
             await core.nodes('''
-                $lib.queue.add(foo)
-                [inet:ipv4=1.2.3.4]
-                background {
-                    [it:dev:str=haha]
-                    fini{
-                        $lib.queue.get(foo).put(hehe)
+                $x = foo
+                $lib.queue.add($x)
+                function stuff() {
+                    [inet:ipv4=1.2.3.4]
+                    background {
+                        [it:dev:str=haha]
+                        fini{
+                            $lib.queue.get($x).put(hehe)
+                        }
                     }
-                }''')
+                }
+                yield $stuff()
+            ''')
             self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
 
             await core.nodes('''$lib.queue.gen(bar)
