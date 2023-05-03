@@ -109,6 +109,7 @@ setup(
         'python-dateutil>=2.8,<3.0',
         'pytz>=2023.3,<2024.1',
         'beautifulsoup4[html5lib]>=4.11.1,<5.0',
+        'requests<2.30.0',  # temporary pin until https://github.com/kevin1024/vcrpy/issues/688 is resolved
     ],
 
     extras_require={
