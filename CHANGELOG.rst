@@ -10,7 +10,8 @@ Unreleased - YYYY-MM-DD
 Features and Enhancements
 -------------------------
 - Update the minimum required version of the ``fastjsonschema`` and ``pytz``
-  libraries. Update the allowed version of the ``packaging`` library.
+  libraries. Update the allowed version of the ``packaging`` and
+  ``scalecodec`` libraries.
   (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
 
 v2.131.0 - 2023-05-02
