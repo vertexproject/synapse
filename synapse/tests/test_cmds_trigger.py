@@ -113,6 +113,8 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add node:add #tag1 {test:str}')
             self.true(outp.expect('Missing form'))
 
+            await cmdr.runCmdLine('trigger add tag:add #tag test:int')
+
             # Bad storm syntax
             await cmdr.runCmdLine('trigger add node:add test:str {[ | | test:int=1 ] }')
             self.true(outp.expect('BadSyntax'))
