@@ -91,7 +91,7 @@ setup(
         'aioimaplib>=1.0.1,<1.1.0',
         'aiosmtplib>=2.0.0,<2.1.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
-        'lark==1.1.2',
+        'lark==1.1.5',
         'Pygments>=2.7.4,<2.16.0',
         'packaging>=20.0,<24.0',
         'fastjsonschema>=2.16.3,<2.17.0',
