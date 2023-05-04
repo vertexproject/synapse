@@ -928,6 +928,24 @@ class SynTest(unittest.TestCase):
         if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
             raise unittest.SkipTest('SYNDEV_NEXUS_REPLAY envar set')
 
+    def skipIfNoPath(self, path, mesg=None):
+        '''
+        Allows skipping a test if the test/files path does not exist.
+
+        Args:
+            path (str): Path to check.
+            mesg (str): Optional additional message.
+
+        Raises:
+            unittest.SkipTest if the path does not exist.
+        '''
+        path = self.getTestFilePath(path)
+        if not os.path.exists(path):
+            m = f'Test path does not exist: {path}'
+            if mesg:
+                m = f'{m} {mesg}'
+            raise unittest.SkipTest(m)
+
     def getTestOutp(self):
         '''
         Get a Output instance with a expects() function.
@@ -1256,6 +1274,7 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
+        self.skipIfNoPath(path='certdir', mesg='Missing files for test dmon!')
         with self.getTestDir(mirror='certdir') as certpath:
             certdir = s_certdir.CertDir(path=certpath)
             s_certdir.addCertPath(certpath)

@@ -12,6 +12,7 @@ COPY synapse /build/synapse/synapse
 COPY setup.py /build/synapse/setup.py
 COPY MANIFEST.in /build/synapse/MANIFEST.in
 
+COPY docker/rmlist.txt /build/synapse/rmlist.txt
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
 RUN /build/synapse/bootstrap.sh
 
