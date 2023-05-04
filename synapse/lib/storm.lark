@@ -123,8 +123,8 @@ opervarlist: varlist "=" _valu
 
 // Pivots
 _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | formpivot_
-formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | _tagmatch | _tagmatchwithspace)
-formpivot_jointags: _RIGHTJOIN (ALLTAGS | _tagmatch | _tagmatchwithspace)
+formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | (_HASH | _HASHSPACE) (_varvalu | tagmatch))
+formpivot_jointags: _RIGHTJOIN (ALLTAGS | (_HASH | _HASHSPACE) (_varvalu | tagmatch))
 // The special symbol that indicates to pivot to syn:tag nodes
 ALLTAGS.2: /#(?=\/[\/\*]|\s|$|\})/
 
@@ -194,8 +194,6 @@ lifttagtag:(_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace) [_cmpr _valu]
 liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
-tagname: _tagmatch
-tagnamewithspace: _tagmatchwithspace -> tagname
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
 formtagprop: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
@@ -228,16 +226,17 @@ EQNOSPACE: /(?<!\s)=(?!\s)/
 cmdrargs: _cmdrargv (EQNOSPACE? _cmdrargv)*
 _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQNOSPACE (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
 
-// A tag with either a variable reference or a tag name potentially with asterisks
-_tagmatch: _HASH (_varvalu | TAGMATCH)
+// A tag with either a variable reference or tag name segments without asterisks
+tagname: _HASH (_varvalu | _tagsegs)
+tagnamewithspace: _HASHSPACE (_varvalu | _tagsegs) -> tagname
 _HASH.2: /(?<!\s)#/
-
-_tagmatchwithspace: _HASHSPACE (_varvalu | TAGMATCH)
 _HASHSPACE.2: /(?<=\s)#/
+_tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
+TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
-TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
-_TAGSEGNOVAR: /[\w*]+/
+tagmatch:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
+WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
 _cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
@@ -260,9 +259,8 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" ((_exprvalu | VARTOKN)  ":" (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) ":" (_exprvalu | VARTOKN))* ","? )? "}"
+exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
 exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
-
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
@@ -286,18 +284,23 @@ EXPRUNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 
 exprtagvalu: exprtagname -> tagvalu
     | exprtagnamewithspace -> tagvalu
-exprtagname: _exprtagmatch -> tagname
-_exprtagmatch: _EXPRHASH (_varvalu | TAGMATCH)
-_EXPRHASH.2: /(?<!\s)#/
 
-exprtagnamewithspace: _exprtagmatchwithspace -> tagname
-_exprtagmatchwithspace: _EXPRHASHSPACE (_varvalu | TAGMATCH)
+exprtagname: _HASH (_exprvarvalu | _exprtagsegs) -> tagname
+exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
+_exprtagsegs:  EXPRTAGSEGNOVAR ( "." (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
+EXPRTAGSEGNOVAR: /[\w]+/
+
+_exprtagmatch: (_EXPRHASH | _EXPRHASHSPACE) (_exprvarvalu | exprtagmatch)
+_EXPRHASH.2: /(?<!\s)#/
 _EXPRHASHSPACE.2: /(?<=\s)#/
+
+exprtagmatch:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" exprvarvalue))* -> tagmatch
 
 exprtagpropvalu: exprtagprop -> tagpropvalu
     | exprtagpropwithspace -> tagpropvalu
-exprtagprop: exprtagname _COLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
-exprtagpropwithspace: exprtagnamewithspace _COLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+exprtagprop: exprtagname _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+exprtagpropwithspace: exprtagnamewithspace _EXPRCOLONNOSPACE (BASEPROP | _exprvarvalu) -> tagprop
+_EXPRCOLONNOSPACE.2: /(?<!\s):/
 
 _exprvarvalu: "$" _exprvarvaluatom
 _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
@@ -372,11 +375,11 @@ relpropvalue:   relprop | univprop
 abspropcond:  ABSPROPNOUNIV _cmpr _valu
 hasabspropcond: ABSPROPNOUNIV
 
-tagpropcond:  (tagprop | tagpropwithspace) _cmpr _valu
-hastagpropcond: (tagprop | tagpropwithspace)
+tagpropcond:  (_HASH | _HASHSPACE) (_varvalu | tagmatch) _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
+hastagpropcond: (_HASH | _HASHSPACE) (_varvalu | tagmatch) _COLONNOSPACE (BASEPROP | _varvalu)
 
-tagvalucond:  (_tagmatch | _tagmatchwithspace) _cmpr _valu
-tagcond: (_tagmatch | _tagmatchwithspace)
+tagvalucond: (_HASH | _HASHSPACE) (_varvalu | tagmatch) _cmpr _valu
+tagcond: (_HASH | _HASHSPACE) (_varvalu | tagmatch)
 
 condsubq: "{" query "}" [ _cmpr _valu]
 arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"

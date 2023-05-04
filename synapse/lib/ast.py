@@ -1275,7 +1275,10 @@ class LiftTag(LiftOper):
 
     async def lift(self, runt, path):
 
-        tag = await tostr(await self.kids[0].compute(runt, path))
+        tag = await self.kids[0].compute(runt, path)
+        if not isinstance(tag, str):
+            mesg = f'Invalid tag lift value, must be a single string'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         if len(self.kids) == 3:
 
@@ -1332,6 +1335,9 @@ class LiftFormTagProp(LiftOper):
     async def lift(self, runt, path):
 
         form, tag, prop = await self.kids[0].compute(runt, path)
+        if not isinstance(tag, str):
+            mesg = f'Invalid tag value, must be a single string'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         if not runt.model.form(form):
             raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
@@ -1356,7 +1362,10 @@ class LiftTagTag(LiftOper):
 
     async def lift(self, runt, path):
 
-        tagname = await tostr(await self.kids[0].compute(runt, path))
+        tagname = await self.kids[0].compute(runt, path)
+        if not isinstance(tagname, str):
+            mesg = f'Invalid tag lift value, must be a single string'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
         if node is None:
@@ -1401,7 +1410,10 @@ class LiftFormTag(LiftOper):
         if not runt.model.form(form):
             raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
 
-        tag = await tostr(await self.kids[1].compute(runt, path))
+        tag = await self.kids[1].compute(runt, path)
+        if not isinstance(tag, str):
+            mesg = f'Invalid tag lift value, must be a single string'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         if len(self.kids) == 4:
 
@@ -2448,7 +2460,18 @@ class HasTagPropCond(Cond):
     async def getCondEval(self, runt):
 
         async def cond(node, path):
-            tag, name = await self.kids[0].compute(runt, path)
+            tag = await self.kids[0].compute(runt, path)
+            name = await self.kids[1].compute(runt, path)
+
+            if tag == '*':
+                return any(name in props for props in node.tagprops.values())
+
+            if '*' in tag:
+                reobj = s_cache.getTagGlobRegx(tag)
+                for tagname, props in node.tagprops:
+                    if reobj.fullmatch(tagname) and name in props:
+                        return True
+
             return node.hasTagProp(tag, name)
 
         return cond
@@ -2648,11 +2671,12 @@ class TagPropCond(Cond):
 
     async def getCondEval(self, runt):
 
-        cmpr = await self.kids[1].compute(runt, None)
+        cmpr = await self.kids[2].compute(runt, None)
 
         async def cond(node, path):
 
-            tag, name = await self.kids[0].compute(runt, path)
+            tag = await self.kids[0].compute(runt, path)
+            name = await self.kids[1].compute(runt, path)
 
             prop = runt.model.getTagProp(name)
             if prop is None:
@@ -2660,7 +2684,7 @@ class TagPropCond(Cond):
                 raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
             # TODO cache on (cmpr, valu) for perf?
-            valu = await self.kids[2].compute(runt, path)
+            valu = await self.kids[3].compute(runt, path)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
@@ -3010,13 +3034,38 @@ class TagName(Value):
         if self.isconst:
             return self.constval
 
+        if not isinstance(self.kids[0], Const):
+            tags = []
+            vals = await self.kids[0].compute(runt, path)
+            vals = await s_stormtypes.toprim(vals)
+
+            if not isinstance(vals, (tuple, list, set)):
+                vals = (vals,)
+
+            for valu in vals:
+                if not isinstance(valu, str):
+                    mesg = f'Invalid value type for tag, tags must be strings.'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+
+                normtupl = await runt.snap.getTagNorm(valu)
+                if normtupl is None:
+                    continue
+
+                tags.append(normtupl[0])
+            if len(tags) == 1:
+                return tags[0]
+            return tags
+
         vals = []
         for kid in self.kids:
             part = await kid.compute(runt, path)
             if part is None:
                 mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
                 raise s_exc.BadTypeValu(mesg=mesg)
-            vals.append(await tostr(part))
+
+            part = await tostr(part)
+            partnorm = await runt.snap.getTagNorm(part)
+            vals.append(partnorm[0])
 
         return '.'.join(vals)
 
@@ -3028,6 +3077,31 @@ class TagMatch(TagName):
         assert self.kids
         # TODO support vars with asterisks?
         return any('*' in kid.valu for kid in self.kids if isinstance(kid, Const))
+
+    async def compute(self, runt, path):
+
+        if self.isconst:
+            return self.constval
+
+        if len(self.kids) == 1 and isinstance(self.kids[0], VarValue):
+            valu = await self.kids[0].compute(runt, path)
+            valu = await s_stormtypes.toprim(vals)
+
+            if not isinstance(valu, str):
+                mesg = f'Invalid value type from var ${self.kids[0].name}, tag must be a string.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            return valu
+
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            vals.append(await tostr(part))
+
+        return '.'.join(vals)
 
 class Const(Value):
 

@@ -54,6 +54,7 @@ terminalEnglishMap = {
     'EXPRNEG': '-',
     'EXPRPLUS': '+',
     'EXPRPOW': '**',
+    'EXPRTAGSEGNOVAR': 'non-variable tag segment',
     'EXPRTIMES': '*',
     'FOR': 'for',
     'FORMATSTRING': 'backtick-quoted format string',
@@ -82,8 +83,8 @@ terminalEnglishMap = {
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
+    'TAGSEGNOVAR': 'non-variable tag segment',
     'TRY': 'try',
-    'TAGMATCH': 'tag name potentially with asterisks',
     'TRIPLEQUOTEDSTRING': 'triple-quoted string',
     'TRYSET': '?=',
     'TRYSETPLUS': '?+=',
@@ -436,16 +437,6 @@ class AstConverter(lark.Transformer):
 
         return argv
 
-    @classmethod
-    def _tagsplit(cls, tag):
-        if '$' not in tag:
-            return [s_ast.Const(tag)]
-
-        segs = tag.split('.')
-        kids = [s_ast.VarValue(kids=[s_ast.Const(seg[1:])]) if seg[0] == '$' else s_ast.Const(seg)
-                for seg in segs]
-        return kids
-
     def varderef(self, kids):
         assert kids and len(kids) in (3, 4)
         if kids[2] == '$':
@@ -454,20 +445,6 @@ class AstConverter(lark.Transformer):
         else:
             newkid = self._convert_child(kids[2])
         return s_ast.VarDeref(kids=(kids[0], newkid))
-
-    def tagname(self, kids):
-        assert kids and len(kids) == 1
-        kid = kids[0]
-        if not isinstance(kid, lark.lexer.Token):
-            return self._convert_child(kid)
-
-        valu = kid.value
-        if '*' in valu:
-            mesg = f"Invalid wildcard usage in tag {valu}"
-            raise s_exc.BadSyntax(mesg=mesg, tag=valu)
-
-        kids = self._tagsplit(valu)
-        return s_ast.TagName(kids=kids)
 
     def switchcase(self, kids):
         newkids = []
@@ -653,7 +630,6 @@ terminalClassMap = {
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
-    'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
     'EXPRVARTOKN': massage_vartokn,
@@ -742,6 +718,9 @@ ruleClassMap = {
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
+    'tagname': s_ast.TagName,
+    'tagsegs': s_ast.TagName,
+    'tagmatch': s_ast.TagMatch,
     'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,

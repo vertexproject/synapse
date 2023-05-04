@@ -1496,7 +1496,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
-            with self.raises(AttributeError):
+            with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$foo=(('foo', 'bar.baz'),) [test:int=2 +#$foo]")
 
             # Can set a list of tags directly
@@ -1508,8 +1508,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
-            with self.raises(TypeError):
-                await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
+            nodes = await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
 
             with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$tag='' #$tag")
@@ -4889,7 +4890,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag1'))
             self.nn(nodes[0].getTag('tag3'))
 
-            q = '$t1="" $t2="" $t3=tag3 [test:str=x -#$t1 +?#$t2 +?#$t3]'
+            q = '$t2="" $t3=tag3 [test:str=x +?#$t2 +?#$t3]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.nn(nodes[0].getTag('tag3'))
@@ -4901,7 +4902,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
-            mesgs = await core.stormlist('$var="" test:str=foo [+?#$var=2019] $lib.print(#$var)')
+            mesgs = await core.stormlist('$var="" test:str=foo [+?#$var=2019]')
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
