@@ -4744,6 +4744,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         if ddef.get('iden') is None:
             ddef['iden'] = s_common.guid()
+
+        if self.getStormDmon(ddef['iden']) is not None:
+            mesg = f'Duplicate iden specified for dmon: {ddef["iden"]}'
+            raise s_exc.DupIden(mesg=mesg)
+
         return await self._push('storm:dmon:add', ddef)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
