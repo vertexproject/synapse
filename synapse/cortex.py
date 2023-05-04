@@ -4742,8 +4742,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Add a storm dmon task.
         '''
-        iden = s_common.guid()
-        ddef['iden'] = iden
+        if ddef.get('iden') is None:
+            ddef['iden'] = s_common.guid()
         return await self._push('storm:dmon:add', ddef)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
