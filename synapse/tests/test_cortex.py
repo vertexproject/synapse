@@ -5840,8 +5840,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $q.cull($offs)
                 }
                 '''
-                ddef = {'user': visi.iden, 'storm': q}
+                ddef = {'user': visi.iden, 'storm': q, 'iden': s_common.guid()}
                 await core.addStormDmon(ddef)
+
+                with self.raises(s_exc.DupIden):
+                    await core.addStormDmon(ddef)
 
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
                 with self.getAsyncLoggerStream('synapse.lib.storm',
