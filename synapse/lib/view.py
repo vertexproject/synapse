@@ -32,7 +32,9 @@ reqValidVdef = s_config.getJsValidator({
         'nomerge': {'type': 'boolean'},
         'layers': {
             'type': 'array',
-            'items': {'type': 'string', 'pattern': s_config.re_iden}
+            'items': {'type': 'string', 'pattern': s_config.re_iden},
+            'minItems': 1,
+            'uniqueItems': True
         },
     },
     'additionalProperties': True,

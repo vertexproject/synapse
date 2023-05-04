@@ -3522,6 +3522,10 @@ class StormTypesTest(s_test.SynTest):
             await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get().merge()'))
             await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
             await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
+            await self.asyncraises(s_exc.SchemaViolation, core.nodes('$lib.view.add(([]))'))
+
+            q = '$iden = $lib.layer.get().iden $lib.view.add(([$iden, $iden]))'
+            await self.asyncraises(s_exc.SchemaViolation, core.nodes(q))
 
             # Check helper commands
             # Get the main view
