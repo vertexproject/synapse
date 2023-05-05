@@ -1,6 +1,7 @@
 import types
 import asyncio
 import fnmatch
+import hashlib
 import logging
 import binascii
 import itertools
