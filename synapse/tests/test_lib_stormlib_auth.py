@@ -10,8 +10,8 @@ User: visi (8d19302a671c3d5c8eeaccde305413a0)
   Admin: false
   Email: visi@vertex.link
   Rules:
-    [0  ] - foo.bar
-    [1  ] - !baz.faz
+    [0  ] - !baz.faz
+    [1  ] - foo.bar
 
   Roles:
     878e79f585e74258d2a33ccdf817a47f - all
@@ -26,8 +26,8 @@ ninjashow = '''
 Role: ninjas (3c5318903adb4bbd67e100331d37961d)
 
   Rules:
-    [0  ] - foo.bar
-    [1  ] - !baz.faz
+    [0  ] - !baz.faz
+    [1  ] - foo.bar
 
   Gates:
     734245de81ccb4284f0a169be9b81aa8 - (layer)
@@ -128,7 +128,7 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('auth.user.addrule visi foo.bar')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule foo.bar to user visi.', msgs)
-            msgs = await core.stormlist('auth.user.addrule visi "!baz.faz"')
+            msgs = await core.stormlist('auth.user.addrule visi --index 0 "!baz.faz"')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule !baz.faz to user visi.', msgs)
 
@@ -139,7 +139,7 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('auth.role.addrule ninjas foo.bar')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule foo.bar to role ninjas.', msgs)
-            msgs = await core.stormlist('auth.role.addrule ninjas "!baz.faz"')
+            msgs = await core.stormlist('auth.role.addrule ninjas --index 0 "!baz.faz"')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Added rule !baz.faz to role ninjas.', msgs)
 

@@ -8068,7 +8068,9 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to add to the User.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
+                       'default': None, },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index to add the rule in.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the User.',
@@ -8313,11 +8315,12 @@ class User(Prim):
         user = self.runt.snap.core.auth.user(self.valu)
         return user.getRules(gateiden=gateiden)
 
-    async def _methUserAddRule(self, rule, gateiden=None):
+    async def _methUserAddRule(self, rule, gateiden=None, indx=None):
         rule = await toprim(rule)
+        indx = await toint(indx, noneok=True)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
         rule = await toprim(rule)
@@ -8404,6 +8407,7 @@ class Role(Prim):
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to added to the Role.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
                        'default': None, },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index to add the rule in.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the Role.',
@@ -8511,11 +8515,12 @@ class Role(Prim):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
-    async def _methRoleAddRule(self, rule, gateiden=None):
+    async def _methRoleAddRule(self, rule, gateiden=None, indx=None):
         rule = await toprim(rule)
+        indx = await toint(indx, noneok=True)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
         rule = await toprim(rule)
