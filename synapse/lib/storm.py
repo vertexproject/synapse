@@ -1789,6 +1789,17 @@ class Runtime(s_base.Base):
         self._loadRuntVars(query)
         self.onfini(self._onRuntFini)
 
+    def getScopeVars(self):
+        '''
+        Return a dict of all the vars within this and all parent scopes.
+        '''
+        varz = {}
+        if self.root:
+            varz.update(self.root.getScopeVars())
+
+        varz.update(self.vars)
+        return varz
+
     async def emitter(self):
 
         self.emitq = asyncio.Queue(maxsize=1)
@@ -4655,7 +4666,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.vars)
+        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars())
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {
