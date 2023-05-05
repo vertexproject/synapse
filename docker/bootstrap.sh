@@ -5,11 +5,12 @@ if [ -d /build/synapse ]; then
 fi
 
 if [ -f /build/synapse/rmlist.txt ]; then
-    while read line; do
-        if [ -f $line ]; then
-            echo "Removing line ${line}" && rm $line;
+    while read path; do
+        if [ -e $path ]; then
+            echo "Removing ${path}" && rm -rf $path;
         else
-            echo "File not present: ${line}";
+            echo "! Path not present: ${path}";
+            exit 1
         fi
     done < /build/synapse/rmlist.txt
 fi

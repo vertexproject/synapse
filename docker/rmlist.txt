@@ -1,4 +1,1 @@
-/usr/local/lib/python3.11/dist-packages/synapse/tests/files/certdir/cas/ca.key
-/usr/local/lib/python3.11/dist-packages/synapse/tests/files/certdir/hosts/localhost.key
-/usr/local/lib/python3.11/dist-packages/synapse/tests/files/certdir/users/root.key
-/usr/local/lib/python3.11/dist-packages/synapse/tests/files/certdir/users/user.key
+/usr/local/lib/python3.11/dist-packages/synapse/tests/files/certdir/
