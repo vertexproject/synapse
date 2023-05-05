@@ -313,36 +313,46 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The date the action is due according to the CISA KEV database.'}),
 
                     ('cvss:v2', ('str', {'regex': cvss_v2_re}), {
-                        'doc': 'The CVSS v2 vector for the vulnerability.'})
+                        'doc': 'The CVSS v2 vector for the vulnerability.'}),
+
                     ('cvss:v2_1:score', ('float', {}), {
-                        'doc': 'The CVSS v2.1 overall score for the vulnerability.'})
+                        'doc': 'The CVSS v2.1 overall score for the vulnerability.'}),
+
                     ('cvss:v2_1:score:base', ('float', {}), {
-                        'doc': 'The CVSS v2.1 base score for the vulnerability.'})
+                        'doc': 'The CVSS v2.1 base score for the vulnerability.'}),
+
                     ('cvss:v2_1:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v2.1 temporal score for the vulnerability.'})
+                        'doc': 'The CVSS v2.1 temporal score for the vulnerability.'}),
+
                     ('cvss:v2_1:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v2.1 environmental score for the vulnerability.'})
+                        'doc': 'The CVSS v2.1 environmental score for the vulnerability.'}),
 
                     ('cvss:v3', ('str', {'regex': cvss_v3_re}), {
-                        'doc': 'The CVSS v3 vector for the vulnerability.'})
+                        'doc': 'The CVSS v3 vector for the vulnerability.'}),
 
                     ('cvss:v3_0:score', ('float', {}), {
-                        'doc': 'The CVSS v3.0 overall score for the vulnerability.'})
+                        'doc': 'The CVSS v3.0 overall score for the vulnerability.'}),
+
                     ('cvss:v3_0:score:base', ('float', {}), {
-                        'doc': 'The CVSS v3.0 base score for the vulnerability.'})
+                        'doc': 'The CVSS v3.0 base score for the vulnerability.'}),
+
                     ('cvss:v3_0:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v3.0 temporal score for the vulnerability.'})
+                        'doc': 'The CVSS v3.0 temporal score for the vulnerability.'}),
+
                     ('cvss:v3_0:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v3.0 environmental score for the vulnerability.'})
+                        'doc': 'The CVSS v3.0 environmental score for the vulnerability.'}),
 
                     ('cvss:v3_1:score', ('float', {}), {
-                        'doc': 'The CVSS v3.1 overall score for the vulnerability.'})
+                        'doc': 'The CVSS v3.1 overall score for the vulnerability.'}),
+
                     ('cvss:v3_1:score:base', ('float', {}), {
-                        'doc': 'The CVSS v3.1 base score for the vulnerability.'})
+                        'doc': 'The CVSS v3.1 base score for the vulnerability.'}),
+
                     ('cvss:v3_1:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v3.1 temporal score for the vulnerability.'})
+                        'doc': 'The CVSS v3.1 temporal score for the vulnerability.'}),
+
                     ('cvss:v3_1:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v3.1 environmental score for the vulnerability.'})
+                        'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
 
                     ('cvss:av', ('str', {'enums': 'N,A,P,L'}), {
                         'deprecated': True,
