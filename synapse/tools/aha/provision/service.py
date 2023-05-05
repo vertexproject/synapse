@@ -30,6 +30,8 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--mirror', help='Provision the new service as a mirror of the existing AHA service.')
     pars.add_argument('--dmon-port', help='Provision the services SSL listener on a given port.', type=int)
     pars.add_argument('--https-port', help='Provision the services HTTPS listener on a given port.', type=int)
+    pars.add_argument('--only-url', help='Only output the URL upon successful execution',
+                      action='store_true', default=False)
     pars.add_argument('svcname', help='The name of the service relative to the AHA network.')
 
     opts = pars.parse_args(argv)
@@ -60,10 +62,15 @@ async def main(argv, outp=s_output.stdout):
                     provinfo['https:port'] = opts.https_port
 
                 provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
-                outp.printf(f'one-time use URL: {provurl}')
+                if opts.only_url:
+                    outp.printf(provurl)
+                else:
+                    outp.printf(f'one-time use URL: {provurl}')
+                return 0
         except s_exc.SynErr as e:
             mesg = e.errinfo.get('mesg', repr(e))
             outp.printf(f'ERROR: {mesg}')
+            return 1
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

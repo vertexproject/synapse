@@ -688,11 +688,13 @@ class AhaTest(s_test.SynTest):
                 # With one axon up, we can provision a mirror of him.
                 axn2path = s_common.genpath(dirn, 'axon2')
 
-                argv = ['--url', aha.getLocalUrl(), '01.axon', '--mirror', 'axon']
+                argv = ['--url', aha.getLocalUrl(), '01.axon', '--mirror', 'axon', '--only-url']
                 outp = s_output.OutPutStr()
-                await s_tools_provision_service.main(argv, outp=outp)
-                self.isin('one-time use URL: ', str(outp))
-                provurl = str(outp).split(':', 1)[1].strip()
+                retn = await s_tools_provision_service.main(argv, outp=outp)
+                self.eq(0, retn)
+                provurl = str(outp).strip()
+                self.notin('one-time use URL: ', provurl)
+                self.isin('ssl://', provurl)
                 urlinfo = s_telepath.chopurl(provurl)
                 providen = urlinfo.get('path').strip('/')
 
