@@ -941,9 +941,9 @@ class SynTest(unittest.TestCase):
         '''
         path = self.getTestFilePath(path)
         if not os.path.exists(path):
-            m = f'Test path does not exist: {path}'
+            m = f'Path does not exist: {path}'
             if mesg:
-                m = f'{m} {mesg}'
+                m = f'{m} mesg={mesg}'
             raise unittest.SkipTest(m)
 
     def getTestOutp(self):
