@@ -19,6 +19,7 @@ User: visi (8d19302a671c3d5c8eeaccde305413a0)
 
   Gates:
     14aaa84884773c7791a388e48ca93029 - (layer)
+      Admin: false
       [0  ] - node
 '''.strip()
 
@@ -69,6 +70,7 @@ User: cool (8d19302a671c3d5c8eeaccde305413a0)
 
   Gates:
     14aaa84884773c7791a388e48ca93029 - (layer)
+      Admin: false
       [0  ] - node
 '''.strip()
 

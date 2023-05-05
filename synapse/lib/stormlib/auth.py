@@ -426,7 +426,13 @@ stormcmds = (
             $lib.print("")
             $lib.print("  Gates:")
             for $gate in $user.gates() {
+                for $gateuser in $gate.users {
+                    if  ( $gateuser.iden = $user.iden ) {
+                        break
+                    }
+                }
                 $lib.print(`    {$gate.iden} - ({$gate.type})`)
+                $lib.print(`      Admin: {$gateuser.admin}`)
                 for ($indx, $rule) in $lib.iters.enum($user.getRules(gateiden=$gate.iden)) {
                     $ruletext = $lib.auth.textFromRule($rule)
                     $indxtext = $lib.cast(str, $indx).ljust(3)
