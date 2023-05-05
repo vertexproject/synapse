@@ -1,3 +1,5 @@
+.. _dev_docker_builds:
+
 Synapse Docker Builds
 =====================
 
@@ -72,6 +74,8 @@ The bare image with only Synapse installed on it can be built like the following
 
         $ docker build --pull -t vertexproject/synapse:mytag -f docker/images/synapse/Dockerfile .
 
+.. _dev_docker_working_with_images:
+
 Working with Synapse Images
 ---------------------------
 
@@ -87,6 +91,10 @@ Developers working with Synapse images should consider the following items:
 
 * The ``synapse`` package, and supporting packages, are currently installed
   to the distribution Python environment. The version of ``pip`` installed in
-  the containers is PEP668 aware. If you are installing your own Python
+  the containers is PEP668_ aware. If you are installing your own Python
   packages to the distribution Python environment with ```pip``, you will
-  need to add the ``--break-system-packages`` flag.
+  need to add the ``--break-system-packages`` argument::
+
+    python -m pip install --break-system-packages yourTargetPackage
+
+.. _PEP668: https://peps.python.org/pep-0668/

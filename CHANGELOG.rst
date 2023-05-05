@@ -4,6 +4,17 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the base Synapse images to use Debian bookworm and use Python 3.11
+  as the Python runtime. For users which build custom images from our
+  published images, see additional information at
+  :ref:`dev_docker_working_with_images` for changes which may affect you.
+  (`#3025 <https://github.com/vertexproject/synapse/pull/3025>`_)
+
 v2.132.0 - 2023-05-02
 =====================
 
