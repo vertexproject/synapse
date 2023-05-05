@@ -531,6 +531,19 @@ def _validateConfig(core, config):
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
                         raise s_exc.BadConfValu(mesg=mesg)
 
+            stixpivs = stixinfo.get('pivots')
+            if stixpivs is not None:
+                for stixpiv in stixpivs:
+
+                    if not isinstance(stixpiv.get('storm'), str):
+                        raise s_exc.BadConfValu(mesg=f'Pivot for {formname} (as {stixtype}) has invalid/missing storm field.')
+
+                    pivtype = stixpiv.get('stixtype')
+                    if isinstance(pivtype, str):
+                        if pivtype not in alltypes:
+                            mesg = f'STIX Bundle config has unknown pivot STIX type {pivtype} for form {formname}.'
+                            raise s_exc.BadConfValu(mesg=mesg)
+
 def validateStix(bundle, version='2.1'):
     ret = {
         'ok': False,
@@ -1019,6 +1032,21 @@ class LibStixExport(s_stormtypes.Lib):
                             },
                     }},
 
+                You may also specify pivots on a per form+stixtype basis to automate pivoting to additional nodes
+                to include in the bundle::
+
+                    {"forms": {
+                        "inet:fqdn":
+                            ...
+                            "domain-name": {
+                                ...
+                                "pivots": [
+                                    {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                                ]
+                            {
+                        }
+                    }
+
                 Note:
                     The default config is an evolving set of mappings.  If you need to guarantee stable output please
                     specify a config.
@@ -1248,6 +1276,11 @@ class StixBundle(s_stormtypes.Prim):
             async for relnode, relpath in node.storm(self.runt, relstorm):
                 n2id = await self.add(relnode, stixtype=reltype)
                 await self._addRel(stixid, relname, n2id)
+
+        for pivdef in stixconf.get('pivots', ()):
+            pivtype = pivdef.get('stixtype')
+            async for pivnode, pivpath in node.storm(self.runt, pivdef.get('storm')):
+                await self.add(pivnode, stixtype=pivtype)
 
         return stixid
 
