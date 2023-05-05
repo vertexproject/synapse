@@ -4326,11 +4326,11 @@ class StormTypesTest(s_test.SynTest):
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('graph:node:type=m1'))
 
-                q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
-                mesgs = await core.stormlist(q)
+                q = "cron.mod $guid { [graph:node='*' :type=m2] }"
+                mesgs = await core.stormlist(q, opts={'vars': {'guid': guid[:6]}})
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
-                q = "cron.mod xxx {{[graph:node='*' :type=m2]}}"
+                q = "cron.mod xxx { [graph:node='*' :type=m2] }"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
@@ -4338,6 +4338,8 @@ class StormTypesTest(s_test.SynTest):
                 unixtime += 60
                 await asyncio.sleep(0)
                 self.eq(1, await prox.count('graph:node:type=m1'))
+                # UNG WTF
+                await asyncio.sleep(0)
                 await asyncio.sleep(0)
                 self.eq(1, await prox.count('graph:node:type=m2'))
 
