@@ -138,10 +138,10 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cisa:kev:duedate=2022-01-02
 
                     :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
-                    :cvss:v2_1:score=1.0
-                    :cvss:v2_1:score:base=1.1
-                    :cvss:v2_1:score:temporal=1.2
-                    :cvss:v2_1:score:environmental=1.3
+                    :cvss:v2_0:score=1.0
+                    :cvss:v2_0:score:base=1.1
+                    :cvss:v2_0:score:temporal=1.2
+                    :cvss:v2_0:score:environmental=1.3
 
                     :cvss:v3 = AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MUI:X/MS:C/MC:N/MI:N/MA:N
 
@@ -183,10 +183,10 @@ class RiskModelTest(s_t_utils.SynTest):
             cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MUI:X/MS:C/MC:N/MI:N/MA:N'
             self.eq(node.get('cvss:v3'), cvssv3)
 
-            self.eq(node.get('cvss:v2_1:score'), 1.0)
-            self.eq(node.get('cvss:v2_1:score:base'), 1.1)
-            self.eq(node.get('cvss:v2_1:score:temporal'), 1.2)
-            self.eq(node.get('cvss:v2_1:score:environmental'), 1.3)
+            self.eq(node.get('cvss:v2_0:score'), 1.0)
+            self.eq(node.get('cvss:v2_0:score:base'), 1.1)
+            self.eq(node.get('cvss:v2_0:score:temporal'), 1.2)
+            self.eq(node.get('cvss:v2_0:score:environmental'), 1.3)
 
             self.eq(node.get('cvss:v3_0:score'), 2.0)
             self.eq(node.get('cvss:v3_0:score:base'), 2.1)

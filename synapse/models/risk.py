@@ -315,17 +315,17 @@ class RiskModule(s_module.CoreModule):
                     ('cvss:v2', ('str', {'regex': cvss_v2_re}), {
                         'doc': 'The CVSS v2 vector for the vulnerability.'}),
 
-                    ('cvss:v2_1:score', ('float', {}), {
-                        'doc': 'The CVSS v2.1 overall score for the vulnerability.'}),
+                    ('cvss:v2_0:score', ('float', {}), {
+                        'doc': 'The CVSS v2.0 overall score for the vulnerability.'}),
 
-                    ('cvss:v2_1:score:base', ('float', {}), {
-                        'doc': 'The CVSS v2.1 base score for the vulnerability.'}),
+                    ('cvss:v2_0:score:base', ('float', {}), {
+                        'doc': 'The CVSS v2.0 base score for the vulnerability.'}),
 
-                    ('cvss:v2_1:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS v2.1 temporal score for the vulnerability.'}),
+                    ('cvss:v2_0:score:temporal', ('float', {}), {
+                        'doc': 'The CVSS v2.0 temporal score for the vulnerability.'}),
 
-                    ('cvss:v2_1:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS v2.1 environmental score for the vulnerability.'}),
+                    ('cvss:v2_0:score:environmental', ('float', {}), {
+                        'doc': 'The CVSS v2.0 environmental score for the vulnerability.'}),
 
                     ('cvss:v3', ('str', {'regex': cvss_v3_re}), {
                         'doc': 'The CVSS v3 vector for the vulnerability.'}),
