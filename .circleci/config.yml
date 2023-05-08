@@ -858,6 +858,7 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
             - python37_replay
             - python38_replay
             - python310_replay
@@ -877,6 +878,7 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
             - python37_replay
             - python38_replay
             - python310_replay
