@@ -4,6 +4,114 @@
 Synapse Changelog
 *****************
 
+v2.133.0 - 2023-05-08
+=====================
+
+Model Changes
+-------------
+- Updates to the ``risk`` model.
+  (`#3123 <https://github.com/vertexproject/synapse/pull/3123>`_)
+
+  New Properties
+  --------------
+
+  ``risk:vuln``
+    The ``risk:vuln`` form had the following properties added to it:
+
+    ``cvss:v2``
+        The CVSS v2 vector for the vulnerability.
+    ``cvss:v2_0:score``
+        The CVSS v2.0 overall score for the vulnerability.
+    ``cvss:v2_0:score:base``
+        The CVSS v2.0 base score for the vulnerability.
+    ``cvss:v2_0:score:temporal``
+        The CVSS v2.0 temporal score for the vulnerability.
+    ``cvss:v2_0:score:environmental``
+        The CVSS v2.0 environmental score for the vulnerability.
+    ``cvss:v3``
+        The CVSS v3 vector for the vulnerability.
+    ``cvss:v3_0:score``
+        The CVSS v3.0 overall score for the vulnerability.
+    ``cvss:v3_0:score:base``
+        The CVSS v3.0 base score for the vulnerability.
+    ``cvss:v3_0:scare:temporal``
+        The CVSS v3.0 temporal score for the vulnerability.
+    ``cvss:v3_0:score:environmental``
+        The CVSS v3.0 environmental score for the vulnerability.
+    ``cvss:v3_1:score``
+        The CVSS v3.1 overall score for the vulnerability.
+    ``cvss:v3_1:score:base``
+        The CVSS v3.1 base score for the vulnerability.
+    ``cvss:v3_1:scare:temporal``
+        The CVSS v3.1 temporal score for the vulnerability.
+    ``cvss:v3_1:score:environmental``
+        The CVSS v3.1 environmental score for the vulnerability.
+
+  Deprecated Properties
+  ---------------------
+
+  ``risk:vuln``
+    The ``risk:vuln`` form had the following properties marked as deprecated:
+
+    * ``cvss:av``
+    * ``cvss:ac``
+    * ``cvss:pr``
+    * ``cvss:ui``
+    * ``cvss:s``
+    * ``cvss:c``
+    * ``cvss:i``
+    * ``cvss:a``
+    * ``cvss:e``
+    * ``cvss:rl``
+    * ``cvss:rc``
+    * ``cvss:mav``
+    * ``cvss:mac``
+    * ``cvss:mpr``
+    * ``cvss:mui``
+    * ``cvss:ms``
+    * ``cvss:mc``
+    * ``cvss:mi``
+    * ``cvss:ma``
+    * ``cvss:cr``
+    * ``cvss:ir``
+    * ``cvss:ar``
+    * ``cvss:score``
+    * ``cvss:score:temporal``
+    * ``cvss:score:environmental``
+
+Features and Enhancements
+-------------------------
+- Add a ``highlight`` parameter to BadSyntaxError and some exceptions raised
+  during the execution of a Storm block. This contains detailed information
+  about where an error occurred in the Storm code.
+  (`#3063 <https://github.com/vertexproject/synapse/pull/3063>`_)
+- Allow callers to specify an ``iden`` value when creating a Storm Dmon or a
+  trigger.
+  (`#3121 <https://github.com/vertexproject/synapse/pull/3121>`_)
+- Add support for STIX export configs to specify pivots to include additional
+  nodes.
+  (`#3122 <https://github.com/vertexproject/synapse/pull/3122>`_)
+- The Storm ``auth.user.addrule`` and ``auth.role.addrule`` now have an
+  optional ``--index`` argument that allows specifying the rule location
+  as a 0-based index value.
+  (`#3124 <https://github.com/vertexproject/synapse/pull/3124>`_)
+- The Storm ``auth.user.show`` command now shows the user's ``admin`` status
+  on authgates.
+  (`#3124 <https://github.com/vertexproject/synapse/pull/3124>`_)
+- Add a ``--only-url`` flag to the ``synapse.tools.aha.provision.service`` and
+  ``synapse.tools.aha.provision.user`` CLI tools. When set, the tool only
+  prints the URL to stdout.
+  (`#3125 <https://github.com/vertexproject/synapse/pull/3125>`_)
+- Add additional layer validation in the View schema.
+  (`#3128 <https://github.com/vertexproject/synapse/pull/3128>`_)
+
+Bugfixes
+--------
+- Ensure the CLI tools ``synapse.tools.cellauth``, ``synapse.tools.csvtool``,
+  and ``synapse.tools.easycert`` now return ``1`` on an execution failure. In
+  some cases they previously returned ``-1``.
+  (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
+
 v2.132.0 - 2023-05-02
 =====================
 
