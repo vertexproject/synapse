@@ -8069,7 +8069,8 @@ class User(Prim):
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to add to the User.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
                        'default': None, },
-                      {'name': 'indx', 'type': 'int', 'desc': 'The index to add the rule in.', 'default': None, }
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the rule as a 0 based index.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the User.',
@@ -8406,7 +8407,8 @@ class Role(Prim):
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to added to the Role.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
                        'default': None, },
-                      {'name': 'indx', 'type': 'int', 'desc': 'The index to add the rule in.', 'default': None, }
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the rule as a 0 based index.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the Role.',
