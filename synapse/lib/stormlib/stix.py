@@ -491,7 +491,7 @@ def _validateConfig(core, config):
         form = core.model.form(formname)
         if form is None:
             mesg = f'STIX Bundle config contains invalid form name {formname}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm.init(formname, mesg=mesg)
 
         stixdef = formconf.get('default')
         if stixdef is None:
