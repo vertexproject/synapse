@@ -4995,7 +4995,7 @@ class ScrapeCmd(Cmd):
         pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
                           help='Do not remove de-fanging from text before scraping')
         pars.add_argument('--forms', default=[], nargs='*',
-                          help='Only attempt to scrape values which match specific forms.')
+                          help='Only scrape values which match specific forms.')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
