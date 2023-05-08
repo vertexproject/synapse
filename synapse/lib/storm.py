@@ -5024,22 +5024,18 @@ class ScrapeCmd(Cmd):
                     if forms and form not in forms:
                         continue
 
-                    try:
-                        nnode = await node.snap.addNode(form, valu)
-                        npath = path.fork(nnode)
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
 
-                        if refs:
-                            if node.form.isrunt:
-                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
-                                await runt.warn(mesg)
-                            else:
-                                await node.addEdge('refs', nnode.iden())
+                    if refs:
+                        if node.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                            await runt.warn(mesg)
+                        else:
+                            await node.addEdge('refs', nnode.iden())
 
-                        if self.opts.doyield:
-                            yield nnode, npath
-
-                    except s_exc.BadTypeValu as e:
-                        await runt.warn(f'BadTypeValue for {form}="{valu}"')
+                    if self.opts.doyield:
+                        yield nnode, npath
 
             if not self.opts.doyield:
                 yield node, path
@@ -5052,17 +5048,13 @@ class ScrapeCmd(Cmd):
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                try:
-                    async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
-                        if forms and form not in forms:
-                            continue
+                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                    if forms and form not in forms:
+                        continue
 
-                        addnode = await runt.snap.addNode(form, valu)
-                        if self.opts.doyield:
-                            yield addnode, runt.initPath(addnode)
-
-                except s_exc.BadTypeValu as e:
-                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
+                    addnode = await runt.snap.addNode(form, valu)
+                    if self.opts.doyield:
+                        yield addnode, runt.initPath(addnode)
 
 class SpliceListCmd(Cmd):
     '''
