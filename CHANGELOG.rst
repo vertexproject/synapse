@@ -57,8 +57,8 @@ Model Changes
     * ``cvss:ac``
     * ``cvss:pr``
     * ``cvss:ui``
-    * ``cvs:s``
-    * ``cvs:c``
+    * ``cvss:s``
+    * ``cvss:c``
     * ``cvss:i``
     * ``cvss:a``
     * ``cvss:e``
