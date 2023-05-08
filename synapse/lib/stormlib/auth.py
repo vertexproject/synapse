@@ -202,7 +202,7 @@ stormcmds = (
                 // add a deny rule to the user "visi" for permission "foo.bar.baz"
                 auth.user.addrule visi "!foo.bar.baz"
 
-                // add a allow rule to the user "visi" for permission "baz" at the first index.
+                // add an allow rule to the user "visi" for permission "baz" at the first index.
                 auth.user.addrule visi baz --indx 0
         ''',
         'cmdargs': (
@@ -274,7 +274,7 @@ stormcmds = (
                 // add a deny rule to the role "ninjas" for permission "foo.bar.baz"
                 auth.role.addrule ninjas "!foo.bar.baz"
 
-                // add a allow rule to the user "visi" for permission "baz" at the first index.
+                // add an allow rule to the role "ninjas" for permission "baz" at the first index.
                 auth.role.addrule ninjas baz --indx 0
         ''',
         'cmdargs': (
