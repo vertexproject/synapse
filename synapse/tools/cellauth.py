@@ -92,7 +92,7 @@ async def handleModify(opts):
 
     if opts.object and not opts.addrule:
         outp.printf('--object option only valid with --addrule')
-        return -1
+        return 1
 
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
@@ -280,7 +280,7 @@ async def main(argv, outprint=None):
         try:
             opts = pars.parse_args(argv)
         except s_exc.ParserExit:
-            return -1
+            return 1
 
         retn = await opts.func(opts)
 
