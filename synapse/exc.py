@@ -217,6 +217,26 @@ class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
 class NotMsgpackSafe(SynErr): pass
 
+class NoSuchForm(SynErr):
+
+    # new convention where exceptions with an init() class
+    # method may be called to enforce normalization of message
+    # contents based on variables that are relevant to the
+    # exception type...
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No form named {name}'
+        return NoSuchForm(mesg=mesg, name=name)
+
+class NoSuchProp(SynErr):
+
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No property named {name}'
+        return NoSuchProp(mesg=mesg, name=name)
+
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
@@ -230,7 +250,6 @@ class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 class NoSuchFile(SynErr): pass
-class NoSuchForm(SynErr): pass
 class NoSuchFunc(SynErr): pass
 class NoSuchIden(SynErr): pass
 class NoSuchImpl(SynErr): pass
@@ -243,7 +262,6 @@ class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
-class NoSuchProp(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchType(SynErr): pass
