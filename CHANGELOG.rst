@@ -109,6 +109,9 @@ Features and Enhancements
   (`#3125 <https://github.com/vertexproject/synapse/pull/3125>`_)
 - Add additional layer validation in the View schema.
   (`#3128 <https://github.com/vertexproject/synapse/pull/3128>`_)
+- Update the allowed version of the ``cryptography``, ``coverage``,
+  ``idna``,  ``pycryptodome``, ``python-bitcoin``, and ``vcrpy`` libraries.
+  (`#3025 <https://github.com/vertexproject/synapse/pull/3025>`_)
 
 Bugfixes
 --------
