@@ -108,7 +108,7 @@ Features and Enhancements
 Bugfixes
 --------
 - Ensure the CLI tools ``synapse.tools.cellauth``, ``synapse.tools.csvtool``,
-  and ``synapse.tools.easycert`` now return ``1`` on a execution failure. In
+  and ``synapse.tools.easycert`` now return ``1`` on an execution failure. In
   some cases they previously returned ``-1``.
   (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
 
