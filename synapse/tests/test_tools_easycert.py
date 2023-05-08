@@ -94,7 +94,7 @@ class TestEasyCert(s_t_utils.SynTest):
             # Ensure that duplicate files won't be overwritten
             outp = self.getTestOutp()
             argv = ['--csr', '--certdir', path, 'user@test.com']
-            self.eq(s_easycert.main(argv, outp=outp), -1)
+            self.eq(s_easycert.main(argv, outp=outp), 1)
             self.true(outp.expect('file exists:'))
             self.true(outp.expect('user@test.com.key'))
 
@@ -119,13 +119,13 @@ class TestEasyCert(s_t_utils.SynTest):
             # test nonexistent csr
             outp = self.getTestOutp()
             argv = ['--certdir', path, '--signas', 'testca', '--sign-csr', 'lololol', ]
-            self.eq(s_easycert.main(argv, outp=outp), -1)
+            self.eq(s_easycert.main(argv, outp=outp), 1)
             self.true(outp.expect('csr not found: lololol'))
 
             # Test bad input
             outp = self.getTestOutp()
             argv = ['--certdir', path, '--sign-csr', 'lololol', ]
-            self.eq(s_easycert.main(argv, outp=outp), -1)
+            self.eq(s_easycert.main(argv, outp=outp), 1)
             self.true(outp.expect('--sign-csr requires --signas'))
 
     def test_easycert_importfile(self):
