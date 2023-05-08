@@ -5020,7 +5020,7 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
                     if forms and form not in forms:
                         continue
 
@@ -5053,7 +5053,7 @@ class ScrapeCmd(Cmd):
                 text = str(await s_stormtypes.toprim(item))
 
                 try:
-                    for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                    async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
                         if forms and form not in forms:
                             continue
 

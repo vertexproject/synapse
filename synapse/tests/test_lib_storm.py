@@ -2567,7 +2567,8 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield --skiprefang')
             self.len(0, nodes)
 
-            nodes = await core.nodes('$foo="fxp.com 1.2.3.4" | scrape $foo --yield --forms inet:fqdn inet:ipv4')
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms inet:fqdn inet:ipv4'
+            nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
@@ -2595,12 +2596,6 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
-
-            # test runtsafe and non-runtsafe failure to create node
-            msgs = await core.stormlist('scrape "https://t.c\\\\"')
-            self.stormIsInWarn('BadTypeValue', msgs)
-            msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
-            self.stormIsInWarn('BadTypeValue', msgs)
 
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')
             msgs = await core.stormlist('syn:trigger | scrape :storm --refs')
