@@ -4379,11 +4379,11 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'media:news:org#test'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:org', msgs)
 
             q = 'media:news:org#test:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:org', msgs)
 
             q = 'media:news:org#test.*.bar'
             msgs = await core.stormlist(q)

@@ -363,10 +363,6 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             'minute': (0, 'hour'),
         }
 
-        if not opts.query.startswith('{'):
-            self.printf('Error: query parameter must start with {')
-            return
-
         try:
             alias_opts = self._parse_alias(opts)
         except ValueError as e:
@@ -448,9 +444,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
             incunit = valinfo[requnit][1]
             incval = 1
 
-        # Remove the curly braces
-        query = opts.query[1:-1]
-        cdef = {'storm': query,
+        cdef = {'storm': opts.query,
                 'reqs': reqdict,
                 'incunit': incunit,
                 'incvals': incval,
@@ -496,16 +490,10 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
-        query = opts.query
-        if not query.startswith('{'):
-            self.printf('Error:  expected second argument to start with {')
-            return
-        # remove the curly braces
-        query = query[1:-1]
         iden = await self._match_idens(core, prefix)
         if iden is None:
             return
-        await core.updateCronJob(iden, query)
+        await core.updateCronJob(iden, opts.query)
         self.printf(f'Modified cron job {iden}')
 
     async def _handle_enable(self, core, opts):
@@ -684,22 +672,16 @@ Examples:
         # TODO: retrieve time from cortex in case of wrong cmdr time
         now = time.time()
 
-        for pos, arg in enumerate(opts.args):
+        query = opts.args[-1]
+        for pos, arg in enumerate(opts.args[:-1]):
             try:
                 if consumed_next:
                     consumed_next = False
                     continue
 
-                if arg.startswith('{'):
-                    if query is not None:
-                        self.printf('Error: only a single query is allowed')
-                        return
-                    query = arg[1:-1]
-                    continue
-
                 if arg.startswith('+'):
                     if arg[-1].isdigit():
-                        if pos == len(opts.args) - 1:
+                        if pos == len(opts.args) - 2:
                             self.printf('Time delta missing unit')
                             return
                         arg = f'{arg} {opts.args[pos + 1]}'
@@ -710,6 +692,7 @@ Examples:
 
                 ts = s_time.parse(arg) / 1000.0
                 tslist.append(ts)
+
             except (ValueError, s_exc.BadTypeValu):
                 self.printf(f'Error: Trouble parsing "{arg}"')
                 return
