@@ -5020,7 +5020,10 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for form, valu in s_scrape.scrape(text, ptype=forms, refang=refang):
+                for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+
+                    if forms and form not in forms:
+                        continue
 
                     try:
                         nnode = await node.snap.addNode(form, valu)
@@ -5051,7 +5054,11 @@ class ScrapeCmd(Cmd):
                 text = str(await s_stormtypes.toprim(item))
 
                 try:
-                    for form, valu in s_scrape.scrape(text, ptype=forms, refang=refang):
+                    for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+
+                        if forms and form not in forms:
+                            continue
+
                         addnode = await runt.snap.addNode(form, valu)
                         if self.opts.doyield:
                             yield addnode, runt.initPath(addnode)

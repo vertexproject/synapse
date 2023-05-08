@@ -333,7 +333,7 @@ def contextScrape(text, form=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        form (str, tuple): Optional forms to scrape. If present, only scrape items which match the provided forms.
+        form (str): Optional form to scrape. If present, only scrape items which match the provided form.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
         first (bool): If true, only yield the first item scraped.
 
@@ -360,11 +360,8 @@ def contextScrape(text, form=None, refang=True, first=False):
     if refang:
         scrape_text, offsets = refang_text2(text)
 
-    if isinstance(form, str):
-        form = (form,)
-
     for ruletype, blobs in _regexes.items():
-        if form and ruletype not in form:
+        if form and form != ruletype:
             continue
 
         for (regx, opts) in blobs:
@@ -387,7 +384,7 @@ def scrape(text, ptype=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        ptype (str, tuple): Optional ptypes to scrape. If present, only scrape items which match the provided types.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
         first (bool): If true, only yield the first item scraped.
 
