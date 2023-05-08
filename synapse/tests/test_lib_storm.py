@@ -2597,6 +2597,11 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
+            msgs = await core.stormlist('scrape "https://t.c\\\\"')
+            self.stormHasNoWarnErr(msgs)
+            msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
+            self.stormHasNoWarnErr(msgs)
+
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')
             msgs = await core.stormlist('syn:trigger | scrape :storm --refs')
             self.stormIsInWarn('Edges cannot be used with runt nodes: syn:trigger', msgs)

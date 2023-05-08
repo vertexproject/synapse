@@ -998,7 +998,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     tobj = self.core.model.type(form)
                     valu, _ = tobj.norm(valu)
-                except s_exc.BadTypeValu:  # pragma: no cover
+                except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
 
