@@ -5021,7 +5021,6 @@ class ScrapeCmd(Cmd):
                 text = str(text)
 
                 for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
-
                     if forms and form not in forms:
                         continue
 
@@ -5055,7 +5054,6 @@ class ScrapeCmd(Cmd):
 
                 try:
                     for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
-
                         if forms and form not in forms:
                             continue
 
