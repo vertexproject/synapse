@@ -54,11 +54,15 @@ async def main(argv, outp=s_output.stdout):
                     provinfo['conf']['aha:user'] = opts.user
 
                 if opts.dmon_port is not None:
-                    assert 0 <= opts.dmon_port < 65535, f'Invalid port: {opts.dmon_port}'
+                    if not 0 <= opts.dmon_port < 65535:
+                        outp.printf(f'ERROR: Invalid dmon port: {opts.dmon_port}')
+                        return 1
                     provinfo['dmon:port'] = opts.dmon_port
 
                 if opts.https_port is not None:
-                    assert 0 <= opts.https_port < 65535, f'Invalid port: {opts.https_port}'
+                    if not 0 <= opts.https_port < 65535:
+                        outp.printf(f'ERROR: Invalid HTTPS port: {opts.https_port}')
+                        return 1
                     provinfo['https:port'] = opts.https_port
 
                 provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
