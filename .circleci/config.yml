@@ -803,7 +803,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_python311
 
       - python_package_smoketest:
           filters:
@@ -897,7 +896,6 @@ workflows:
             branches:
               only:
                 - master
-                - feat_python311
 
       - push_docker_branch:
           requires:
@@ -973,6 +971,7 @@ workflows:
       - python37
       - python38
       - python310
+      - python311
 
   weekly:
     triggers:
@@ -987,3 +986,4 @@ workflows:
       - python37_replay
       - python38_replay
       - python310_replay
+      - python311_replay
