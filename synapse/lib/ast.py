@@ -2425,6 +2425,10 @@ class TagCond(Cond):
         # kid is a non-runtsafe VarValue: dynamically evaluate value of variable for each node
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
+            if not isinstance(name, str):
+                mesg = 'Invalid tag name, must be a string'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
             if name == '*':
                 return bool(node.tags)
 
@@ -2520,6 +2524,10 @@ class HasTagPropCond(Cond):
 
         async def cond(node, path):
             tag = await self.kids[0].compute(runt, path)
+            if not isinstance(tag, str):
+                mesg = 'Invalid tag name, must be a string'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
             name = await self.kids[1].compute(runt, path)
 
             if tag == '*':
@@ -2651,6 +2659,10 @@ class TagValuCond(Cond):
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
+                if not isinstance(name, str):
+                    mesg = 'Invalid tag name, must be a string'
+                    raise s_exc.BadTypeValu(mesg=mesg)
+
                 valu = await rnode.compute(runt, path)
                 return cmprctor(valu)(node.tags.get(name))
 
@@ -2735,6 +2747,10 @@ class TagPropCond(Cond):
         async def cond(node, path):
 
             tag = await self.kids[0].compute(runt, path)
+            if not isinstance(tag, str):
+                mesg = 'Invalid tag name, must be a string'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
             name = await self.kids[1].compute(runt, path)
 
             prop = runt.model.getTagProp(name)
@@ -3164,15 +3180,6 @@ class TagMatch(TagName):
 
         if self.isconst:
             return self.constval
-
-        if len(self.kids) == 1 and isinstance(self.kids[0], VarValue):
-            valu = await self.kids[0].compute(runt, path)
-            valu = await s_stormtypes.toprim(vals)
-
-            if not isinstance(valu, str):
-                mesg = f'Invalid value type from var ${self.kids[0].name}, tag name must be a string.'
-                raise s_exc.BadTypeValu(mesg=mesg)
-            return valu
 
         vals = []
         for kid in self.kids:

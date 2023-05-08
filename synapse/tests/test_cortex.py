@@ -1322,10 +1322,22 @@ class CortexTest(s_t_utils.SynTest):
                     await core.addTagProp('derp', ('derp', {}), {})
 
                 with self.raises(s_exc.BadTypeValu):
-                    await core.nodes("$tag=(foo, bar) inet:fqdn#$tag:prop")
+                    await core.nodes("$tag=(foo, bar) test:int#$tag:prop")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int +#$tag:prop")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int +#$tag:prop=5")
 
                 with self.raises(s_exc.BadTypeValu):
                     await core.nodes("test:int $tag=(foo, bar) $lib.print(#$tag:prop)")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) [ +#$tag:prop=foo ]")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) [ -#$tag:prop ]")
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:
@@ -1527,7 +1539,10 @@ class CortexTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) ##$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=$lib.null +#foo.$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020"))
 
     async def test_base_types1(self):
 
