@@ -92,12 +92,12 @@ def main(argv, outp=None):
 
             if opts.signas is None:
                 outp.printf('--sign-csr requires --signas')
-                return -1
+                return 1
 
             xcsr = cdir._loadCsrPath(opts.name)
             if xcsr is None:
                 outp.printf('csr not found: %s' % (opts.name,))
-                return -1
+                return 1
 
             if opts.server:
                 cdir.signHostCsr(xcsr, opts.signas, outp=outp)
@@ -135,7 +135,7 @@ def main(argv, outp=None):
 
     except s_exc.DupFileName as e:
         outp.printf('file exists: %s' % (e.errinfo.get('path'),))
-        return -1
+        return 1
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))

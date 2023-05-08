@@ -1844,9 +1844,11 @@ class StormTypesTest(s_test.SynTest):
                 $set.adds(($trig, $trig, $trig, $trig))
                 $lib.print('There is {count} item in the set', count=$lib.len($set))
             '''
-            tdef = {'cond': 'node:add', 'storm': '[ test:str=foo ]', 'form': 'test:str'}
+            iden = s_common.guid()
+            tdef = {'iden': iden, 'cond': 'node:add', 'storm': '[ test:str=foo ]', 'form': 'test:str'}
             msgs = await core.stormlist(q, opts={'vars': {'tdef': tdef}})
             self.stormIsInPrint('There is 1 item in the set', msgs)
+            self.nn(await core.view.getTrigger(iden))
 
             # user
             q = '''
@@ -2482,6 +2484,7 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
+            iden = s_common.guid()
             await core.nodes('''
                 $lib.queue.add(visi)
                 $lib.dmon.add(${
@@ -2489,11 +2492,12 @@ class StormTypesTest(s_test.SynTest):
                     for $tick in $lib.time.ticker(0.01) {
                         $visi.put($tick)
                     }
-                })
-            ''')
+                }, ddef=({"iden": $iden}))
+            ''', opts={'vars': {'iden': iden}})
             nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
             self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
+            self.nn(core.getStormDmon(iden))
 
             # lib.time.ticker also clears the snap cache
             async with await core.snap() as snap:
@@ -4330,11 +4334,11 @@ class StormTypesTest(s_test.SynTest):
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('graph:node:type=m1'))
 
-                q = f"cron.mod {guid[:6]} {{[graph:node='*' :type=m2]}}"
-                mesgs = await core.stormlist(q)
+                q = "cron.mod $guid { [graph:node='*' :type=m2] }"
+                mesgs = await core.stormlist(q, opts={'vars': {'guid': guid[:6]}})
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
-                q = "cron.mod xxx {{[graph:node='*' :type=m2]}}"
+                q = "cron.mod xxx { [graph:node='*' :type=m2] }"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
@@ -4342,6 +4346,8 @@ class StormTypesTest(s_test.SynTest):
                 unixtime += 60
                 await asyncio.sleep(0)
                 self.eq(1, await prox.count('graph:node:type=m1'))
+                # UNG WTF
+                await asyncio.sleep(0)
                 await asyncio.sleep(0)
                 self.eq(1, await prox.count('graph:node:type=m2'))
 
