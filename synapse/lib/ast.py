@@ -2527,7 +2527,7 @@ class HasTagPropCond(Cond):
 
             if '*' in tag:
                 reobj = s_cache.getTagGlobRegx(tag)
-                for tagname, props in node.tagprops:
+                for tagname, props in node.tagprops.items():
                     if reobj.fullmatch(tagname) and name in props:
                         return True
 
