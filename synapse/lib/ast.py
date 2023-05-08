@@ -1324,7 +1324,7 @@ class LiftTag(LiftOper):
 
         tag = await self.kids[0].compute(runt, path)
         if not isinstance(tag, str):
-            mesg = 'Invalid tag lift value, must be a string'
+            mesg = 'Invalid tag lift, tag name must be a string'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if len(self.kids) == 3:
@@ -1383,7 +1383,7 @@ class LiftFormTagProp(LiftOper):
 
         form, tag, prop = await self.kids[0].compute(runt, path)
         if not isinstance(tag, str):
-            mesg = 'Invalid tag value, must be a string'
+            mesg = 'Invalid tag name, must be a string'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if not runt.model.form(form):
@@ -1411,7 +1411,7 @@ class LiftTagTag(LiftOper):
 
         tagname = await self.kids[0].compute(runt, path)
         if not isinstance(tagname, str):
-            mesg = 'Invalid tag lift value, must be a string'
+            mesg = 'Invalid tag lift, tag name must be a string'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
@@ -1459,7 +1459,7 @@ class LiftFormTag(LiftOper):
 
         tag = await self.kids[1].compute(runt, path)
         if not isinstance(tag, str):
-            mesg = 'Invalid tag lift value, must be a string'
+            mesg = 'Invalid tag name, must be a string'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if len(self.kids) == 4:
@@ -2874,6 +2874,9 @@ class TagValue(Value):
 
     async def compute(self, runt, path):
         valu = await self.kids[0].compute(runt, path)
+        if not isinstance(valu, str):
+            mesg = 'Invalid tag name, must be a string'
+            raise s_exc.BadTypeValu(mesg=mesg)
         return path.node.getTag(valu)
 
 class TagProp(Value):
@@ -2894,6 +2897,9 @@ class FormTagProp(Value):
 class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
+        if not isinstance(tag, str):
+            mesg = 'Invalid tag name, must be a string'
+            raise s_exc.BadTypeValu(mesg=mesg)
         return path.node.getTagProp(tag, prop)
 
 class CallArgs(Value):
@@ -3120,7 +3126,7 @@ class TagName(Value):
 
             for valu in vals:
                 if not isinstance(valu, str):
-                    mesg = 'Invalid value type for tag, tags must be strings.'
+                    mesg = 'Invalid value type for tag name, tag names must be strings.'
                     raise s_exc.BadTypeValu(mesg=mesg)
 
                 normtupl = await runt.snap.getTagNorm(valu)
@@ -3164,7 +3170,7 @@ class TagMatch(TagName):
             valu = await s_stormtypes.toprim(vals)
 
             if not isinstance(valu, str):
-                mesg = f'Invalid value type from var ${self.kids[0].name}, tag must be a string.'
+                mesg = f'Invalid value type from var ${self.kids[0].name}, tag name must be a string.'
                 raise s_exc.BadTypeValu(mesg=mesg)
             return valu
 
@@ -3918,7 +3924,7 @@ class EditTagPropSet(Edit):
 
             tag, prop = await self.kids[0].compute(runt, path)
             if not isinstance(tag, str):
-                mesg = 'Invalid tag value, must be a string'
+                mesg = 'Invalid tag name, must be a string'
                 raise s_exc.BadTypeValu(mesg=mesg)
 
             valu = await self.kids[2].compute(runt, path)
@@ -3959,7 +3965,7 @@ class EditTagPropDel(Edit):
 
             tag, prop = await self.kids[0].compute(runt, path)
             if not isinstance(tag, str):
-                mesg = 'Invalid tag value, must be a string'
+                mesg = 'Invalid tag name, must be a string'
                 raise s_exc.BadTypeValu(mesg=mesg)
 
             normtupl = await runt.snap.getTagNorm(tag)
