@@ -79,7 +79,7 @@ setup(
 
     install_requires=[
         'pyOpenSSL>=23.0.0,<27.0.0',
-        'cryptography>=39.0.1,<40.0.0',
+        'cryptography>=39.0.1,<41.0.0',
         'msgpack>=1.0.5,<1.1.0',
         'xxhash>=1.4.4,<3.3.0',
         'lmdb>=1.2.1,<1.5.0',
@@ -96,16 +96,16 @@ setup(
         'packaging>=20.0,<24.0',
         'fastjsonschema>=2.16.3,<2.17.0',
         'stix2-validator>=3.0.0,<4.0.0',
-        'vcrpy>=4.1.1,<4.2.0',
+        'vcrpy>=4.1.1,<4.3.0',
         'base58>=2.1.0,<2.2.0',
-        'python-bitcoinlib==0.11.0',
-        'pycryptodome>=3.11.0,<3.17.0',
+        'python-bitcoinlib>=0.11.0,<0.13.0',
+        'pycryptodome>=3.11.0,<3.18.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
         'scalecodec>=1.0.2,<1.3.0',  # synapse.vendor.substrateinterface req
         'cbor2>=5.4.1,<5.4.7',
         'bech32==1.2.0',
         'oauthlib>=3.2.1,<4.0.0',
-        'idna==3.3',
+        'idna>=3.3,<3.5',
         'python-dateutil>=2.8,<3.0',
         'pytz>=2023.3,<2024.1',
         'beautifulsoup4[html5lib]>=4.11.1,<5.0',
@@ -131,7 +131,7 @@ setup(
             'pycodestyle>=2.8.0,<3.0.0',
             'bump2version>=1.0.1,<1.1.0',
             'pytest-xdist>=3.0.2,<4.0.0',
-            'coverage>=6.5.0,<7.0.0',
+            'coverage>=7.0.0,<8.0.0',
         ],
     },
 
@@ -147,6 +147,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
     cmdclass={
         'verify': VerifyVersionCommand,

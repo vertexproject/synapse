@@ -81,6 +81,11 @@ Model Changes
 
 Features and Enhancements
 -------------------------
+- Update the base Synapse images to use Debian bookworm and use Python 3.11
+  as the Python runtime. For users which build custom images from our
+  published images, see additional information at
+  :ref:`dev_docker_working_with_images` for changes which may affect you.
+  (`#3025 <https://github.com/vertexproject/synapse/pull/3025>`_)
 - Add a ``highlight`` parameter to BadSyntaxError and some exceptions raised
   during the execution of a Storm block. This contains detailed information
   about where an error occurred in the Storm code.
