@@ -2198,6 +2198,10 @@ class CortexTest(s_t_utils.SynTest):
                                mesgs)
             self.len(0, [m for m in mesgs if m[0] == 'node'])
 
+            # Do a PivotInFrom with a bad form
+            with self.raises(s_exc.NoSuchForm) as cm:
+                await core.nodes('.created <- test:newp')
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await wcore.nodes('[ test:comp=(127,newp) ] [test:comp=(127,127)]')
@@ -2319,6 +2323,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await wcore.nodes('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
 
             self.len(1, await core.nodes('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +.seen@=$fqdnbad'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#foo==(2022,2023)')
 
     async def test_cortex_storm_tagform(self):
 
@@ -3834,6 +3841,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 1 '))
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 '))
 
+            with self.raises(s_exc.NoSuchCmpr) as cm:
+                await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } @ 2')
+
             await core.nodes('[ risk:attack=* +(foo)> {[ test:str=foo ]} ]')
             await core.nodes('[ risk:attack=* +(foo)> {[ test:str=bar ]} ]')
 
@@ -4194,6 +4204,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await alist(core.addNodes((node,)))
 
             self.nn(await core.getNodeByNdef(('test:str', 'foo')))
+            with self.raises(s_exc.NoSuchForm):
+                await core.getNodeByNdef(('test:newp', 'hehe'))
 
     async def test_cortex_storm_vars(self):
 
@@ -5847,8 +5859,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $q.cull($offs)
                 }
                 '''
-                ddef = {'user': visi.iden, 'storm': q}
+                ddef = {'user': visi.iden, 'storm': q, 'iden': s_common.guid()}
                 await core.addStormDmon(ddef)
+
+                with self.raises(s_exc.DupIden):
+                    await core.addStormDmon(ddef)
 
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
                 with self.getAsyncLoggerStream('synapse.lib.storm',

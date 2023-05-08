@@ -16,7 +16,7 @@ class CellAuthTest(s_t_utils.SynTest):
 
             argv = [coreurl]
             outp = self.getTestOutp()
-            self.eq(await s_cellauth.main(argv, outp), -1)
+            self.eq(await s_cellauth.main(argv, outp), 1)
             outp.expect('the following arguments are required:')
 
             outp.clear()

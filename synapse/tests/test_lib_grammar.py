@@ -1269,10 +1269,10 @@ class GrammarTest(s_t_utils.SynTest):
         q = '''add {inet:fqdn | graph 2 --filter { -#nope } } inet:f-M +1 { [ graph:node='*' :type=m1]}'''
         correct = (
             'add',
-            '{inet:fqdn | graph 2 --filter { -#nope } }',
+            'inet:fqdn | graph 2 --filter { -#nope }',
             'inet:f-M',
             '+1',
-            "{ [ graph:node='*' :type=m1]}"
+            "[ graph:node='*' :type=m1]"
             )
         parser = s_parser.Parser(q)
         args = parser.cmdrargs()
@@ -1281,7 +1281,7 @@ class GrammarTest(s_t_utils.SynTest):
         q = 'add --filter={inet:fqdn | limit 1}'
         parser = s_parser.Parser(q)
         args = parser.cmdrargs()
-        self.eq(args, ['add', '--filter={inet:fqdn | limit 1}'])
+        self.eq(args, ['add', '--filter=inet:fqdn | limit 1'])
 
         query = 'add {uniq +#*}'
         parser = s_parser.Parser(query)
@@ -1377,40 +1377,41 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('line'), 8)
         self.eq(errinfo.get('column'), 25)
         self.eq(errinfo.get('mesg'),
-                "Positional parameter 'faz' follows keyword parameter in definition at line 8 col 25")
+                'Positional parameter "faz" follows keyword parameter in definition')
 
         query = '''function foo(bar, baz, bar) { return ( $lib.true ) }'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 12)
+        self.nn(errinfo.get('highlight'))
+        self.eq(errinfo.get('at'), 23)
         self.eq(errinfo.get('line'), 1)
-        self.eq(errinfo.get('column'), 13)
+        self.eq(errinfo.get('column'), 24)
         self.eq(errinfo.get('mesg'),
-                "Duplicate parameter 'bar' in function definition at line 1 col 13")
+                'Duplicate parameter "bar" in function definition')
 
         query = '''$lib.foo(bar=(1), baz=(2), bar=(3))'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 1)
+        self.eq(errinfo.get('at'), 27)
         self.eq(errinfo.get('line'), 1)
-        self.eq(errinfo.get('column'), 2)
+        self.eq(errinfo.get('column'), 28)
         self.eq(errinfo.get('mesg'),
-                "Duplicate keyword argument 'bar' in function call at line 1 col 2")
+                'Duplicate keyword argument "bar" in function call')
 
         query = '''$lib.foo(bar=(1), (2), (3))'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 1)
+        self.eq(errinfo.get('at'), 18)
         self.eq(errinfo.get('line'), 1)
-        self.eq(errinfo.get('column'), 2)
+        self.eq(errinfo.get('column'), 19)
         self.eq(errinfo.get('mesg'),
-                "Positional argument follows keyword argument in function call at line 1 col 2")
+                "Positional argument follows keyword argument in function call")
 
         query = '''
 
@@ -1492,10 +1493,10 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             _ = parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 8)
+        self.eq(errinfo.get('at'), 30)
         self.eq(errinfo.get('line'), 1)
-        self.eq(errinfo.get('column'), 9)
-        self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression at line 1 col 9"))
+        self.eq(errinfo.get('column'), 31)
+        self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression"))
 
         query = '''ou:name="foo\x00bar"'''
         parser = s_parser.Parser(query)
