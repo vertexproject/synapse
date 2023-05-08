@@ -333,7 +333,7 @@ def contextScrape(text, form=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        form (str, tuple): Optional forms to scrape. If present, only scrape items which match the provided form or forms.
+        form (str, tuple): Optional forms to scrape. If present, only scrape items which match the provided forms.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
         first (bool): If true, only yield the first item scraped.
 
@@ -387,7 +387,7 @@ def scrape(text, ptype=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        ptype (str, tuple): Optional ptypes to scrape. If present, only scrape items which match the provided type or types.
+        ptype (str, tuple): Optional ptypes to scrape. If present, only scrape items which match the provided types.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
         first (bool): If true, only yield the first item scraped.
 
