@@ -1844,9 +1844,11 @@ class StormTypesTest(s_test.SynTest):
                 $set.adds(($trig, $trig, $trig, $trig))
                 $lib.print('There is {count} item in the set', count=$lib.len($set))
             '''
-            tdef = {'cond': 'node:add', 'storm': '[ test:str=foo ]', 'form': 'test:str'}
+            iden = s_common.guid()
+            tdef = {'iden': iden, 'cond': 'node:add', 'storm': '[ test:str=foo ]', 'form': 'test:str'}
             msgs = await core.stormlist(q, opts={'vars': {'tdef': tdef}})
             self.stormIsInPrint('There is 1 item in the set', msgs)
+            self.nn(await core.view.getTrigger(iden))
 
             # user
             q = '''
@@ -2482,6 +2484,7 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
+            iden = s_common.guid()
             await core.nodes('''
                 $lib.queue.add(visi)
                 $lib.dmon.add(${
@@ -2489,11 +2492,12 @@ class StormTypesTest(s_test.SynTest):
                     for $tick in $lib.time.ticker(0.01) {
                         $visi.put($tick)
                     }
-                })
-            ''')
+                }, ddef=({"iden": $iden}))
+            ''', opts={'vars': {'iden': iden}})
             nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
             self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
+            self.nn(core.getStormDmon(iden))
 
             # lib.time.ticker also clears the snap cache
             async with await core.snap() as snap:
@@ -3522,6 +3526,10 @@ class StormTypesTest(s_test.SynTest):
             await self.asyncraises(s_exc.CantMergeView, core.nodes(f'$lib.view.get().merge()'))
             await self.asyncraises(s_exc.NoSuchLayer, core.nodes(f'view.add --layers {s_common.guid()}'))
             await self.asyncraises(s_exc.SynErr, core.nodes('$lib.view.del($lib.view.get().iden)'))
+            await self.asyncraises(s_exc.SchemaViolation, core.nodes('$lib.view.add(([]))'))
+
+            q = '$iden = $lib.layer.get().iden $lib.view.add(([$iden, $iden]))'
+            await self.asyncraises(s_exc.SchemaViolation, core.nodes(q))
 
             # Check helper commands
             # Get the main view

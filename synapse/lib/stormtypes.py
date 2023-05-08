@@ -644,53 +644,54 @@ class LibDmon(Lib):
          'type': {'type': 'function', '_funcname': '_libDmonAdd',
                   'args': (
                       {'name': 'text', 'type': ['str', 'storm:query'],
-                       'desc': 'The Storm query to execute in the Dmon loop.', },
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname', },
+                       'desc': 'The Storm query to execute in the Dmon loop.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname'},
+                      {'name': 'ddef', 'type': 'dict', 'desc': 'Additional daemon definition fields. ', 'default': None},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.', }}},
+                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.'}}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A Storm Dmon definition dict.', }}},
         {'name': 'del', 'desc': 'Delete a Storm Dmon by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonDel',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to delete.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to delete.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'log', 'desc': 'Get the messages from a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonLog',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get logs for.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get logs for.'},
                   ),
-                  'returns': {'type': 'list', 'desc': 'A list of messages from the StormDmon.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of messages from the StormDmon.'}}},
         {'name': 'list', 'desc': 'Get a list of Storm Dmons.',
          'type': {
              'type': 'function', '_funcname': '_libDmonList',
-             'returns': {'type': 'list', 'desc': 'A list of Storm Dmon definitions.', }}},
+             'returns': {'type': 'list', 'desc': 'A list of Storm Dmon definitions.'}}},
         {'name': 'bump', 'desc': 'Restart the Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonBump',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.', }}},
+                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.'}}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '$lib.true unless the dmon does not exist or was already stopped.', }}},
+                              'desc': '$lib.true unless the dmon does not exist or was already stopped.'}}},
         {'name': 'start', 'desc': 'Start a storm dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStart',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '$lib.true unless the dmon does not exist or was already started.', }}},
+                              'desc': '$lib.true unless the dmon does not exist or was already started.'}}},
     )
     _storm_lib_path = ('dmon',)
 
@@ -727,8 +728,9 @@ class LibDmon(Lib):
         self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
-    async def _libDmonAdd(self, text, name='noname'):
+    async def _libDmonAdd(self, text, name='noname', ddef=None):
         text = await tostr(text)
+        ddef = await toprim(ddef)
         varz = await toprim(self.runt.vars)
 
         viewiden = self.runt.snap.view.iden
@@ -739,13 +741,15 @@ class LibDmon(Lib):
 
         opts = {'vars': varz, 'view': viewiden}
 
-        ddef = {
-            'name': name,
-            'user': self.runt.user.iden,
-            'storm': text,
-            'enabled': True,
-            'stormopts': opts,
-        }
+        if ddef is None:
+            ddef = {}
+
+        ddef['name'] = name
+        ddef['user'] = self.runt.user.iden
+        ddef['storm'] = text
+        ddef['stormopts'] = opts
+
+        ddef.setdefault('enabled', True)
 
         return await self.runt.snap.core.addStormDmon(ddef)
 
@@ -8067,7 +8071,10 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to add to the User.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
+                       'default': None, },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the rule as a 0 based index.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the User.',
@@ -8312,11 +8319,12 @@ class User(Prim):
         user = self.runt.snap.core.auth.user(self.valu)
         return user.getRules(gateiden=gateiden)
 
-    async def _methUserAddRule(self, rule, gateiden=None):
+    async def _methUserAddRule(self, rule, gateiden=None, indx=None):
         rule = await toprim(rule)
+        indx = await toint(indx, noneok=True)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
         rule = await toprim(rule)
@@ -8403,6 +8411,8 @@ class Role(Prim):
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to added to the Role.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
                        'default': None, },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the rule as a 0 based index.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the Role.',
@@ -8510,11 +8520,12 @@ class Role(Prim):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
-    async def _methRoleAddRule(self, rule, gateiden=None):
+    async def _methRoleAddRule(self, rule, gateiden=None, indx=None):
         rule = await toprim(rule)
+        indx = await toint(indx, noneok=True)
         gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
         rule = await toprim(rule)
