@@ -247,5 +247,5 @@ class CsvToolTest(s_t_utils.SynTest):
 
             argv = ['--cortex', url, '--view', 'newp', '--export', stormpath, csvpath]
             outp = self.getTestOutp()
-            self.eq(-1, await s_csvtool.main(argv, outp=outp))
+            self.eq(1, await s_csvtool.main(argv, outp=outp))
             self.true(outp.expect('View is not a guid'))

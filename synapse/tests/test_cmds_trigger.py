@@ -92,11 +92,8 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add')
             self.true(outp.expect('Add triggers in a cortex.'))
 
-            await cmdr.runCmdLine('trigger add tag:add #foo #bar')
-            self.true(outp.expect('single tag'))
-
             await cmdr.runCmdLine('trigger add tag:add {test:str} {test:str}')
-            self.true(outp.expect('single query'))
+            self.true(outp.expect('Missing tag param'))
 
             await cmdr.runCmdLine('trigger add node:add test:str #foo {test:str}')
             self.true(outp.expect('node:* does not support'))
@@ -113,14 +110,8 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger add prop:set test:type10.intprop test:str {test:str}')
             self.true(outp.expect('single prop'))
 
-            await cmdr.runCmdLine('trigger add tag:add #tag test:int')
-            self.true(outp.expect('Missing query'))
-
             await cmdr.runCmdLine('trigger add node:add #tag1 {test:str}')
             self.true(outp.expect('Missing form'))
-
-            await cmdr.runCmdLine(f'trigger mod {goodbuid2} test:str')
-            self.true(outp.expect('start with {'))
 
             # Bad storm syntax
             await cmdr.runCmdLine('trigger add node:add test:str {[ | | test:int=1 ] }')
