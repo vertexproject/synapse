@@ -128,25 +128,21 @@ def getForms():
     return sorted(_regexes.keys())
 
 FANGS = {
+    'fxp:': 'ftp:',
+    'fxps:': 'ftps:',
     'hxxp:': 'http:',
     'hxxps:': 'https:',
-    'http[:]': 'http:',
-    'hxxp[:]': 'http:',
-    'https[:]': 'https:',
-    'hxxps[:]': 'https:',
-    'http[://]': 'http://',
-    'hxxp[://]': 'http://',
-    'https[://]': 'https://',
-    'hxxps[://]': 'https://',
-    'http[:': 'http:',
-    'hxxp[:': 'http:',
-    'https[:': 'https:',
-    'hxxps[:': 'https:',
-    'http(:)': 'http:',
-    'hxxp(:)': 'http:',
-    'https(:)': 'https:',
-    'hxxps(:)': 'https:',
-    'hxxp[s]:': 'https:',
+    'fxp[s]:': 'ftps:',
+    'hxxp[s]:': 'https:'
+}
+
+for fang in ('[:]', '[://]', '[:', '(:)'):
+    for scheme in ('ftp', 'fxp', 'ftps', 'fxps', 'http', 'hxxp', 'https', 'hxxps'):
+        fanged = f'{scheme}{fang}'
+        defanged = regex.sub(r'[\[\]\(\)]', '', fanged.replace('x', 't'))
+        FANGS[fanged] = defanged
+
+FANGS.update({
     '[.]': '.',
     '.]': '.',
     '[.': '.',
@@ -158,12 +154,10 @@ FANGS = {
     '(。)': '。',
     '(｡)': '｡',
     '[:]': ':',
-    'fxp': 'ftp',
-    'fxps': 'ftps',
     '[at]': '@',
     '[@]': '@',
     '\\.': '.',
-}
+})
 
 def genFangRegex(fangs, flags=regex.IGNORECASE):
     # Fangs must be matches of equal or smaller length in order for the
@@ -338,7 +332,7 @@ def contextScrape(text, form=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        form (str): Optional form to scrape. If present, only scrape items which match the provided form.
+        form (str, tuple): Optional forms to scrape. If present, only scrape items which match the provided form or forms.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
         first (bool): If true, only yield the first item scraped.
 
@@ -365,8 +359,11 @@ def contextScrape(text, form=None, refang=True, first=False):
     if refang:
         scrape_text, offsets = refang_text2(text)
 
+    if isinstance(form, str):
+        form = (form,)
+
     for ruletype, blobs in _regexes.items():
-        if form and form != ruletype:
+        if form and ruletype not in form:
             continue
 
         for (regx, opts) in blobs:
@@ -389,7 +386,7 @@ def scrape(text, ptype=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        ptype (str, tuple): Optional ptypes to scrape. If present, only scrape items which match the provided type or types.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
         first (bool): If true, only yield the first item scraped.
 

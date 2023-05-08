@@ -4994,6 +4994,8 @@ class ScrapeCmd(Cmd):
                           help='Include newly scraped nodes in the output')
         pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
                           help='Do not remove de-fanging from text before scraping')
+        pars.add_argument('--forms', default=[], nargs='*',
+                          help='Only attempt to scrape values which match specific forms.')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
@@ -5004,6 +5006,8 @@ class ScrapeCmd(Cmd):
         async for node, path in genr:  # type: s_node.Node, s_node.Path
 
             refs = await s_stormtypes.toprim(self.opts.refs)
+            forms = await s_stormtypes.toprim(self.opts.forms)
+            refang = await s_stormtypes.tobool(self.opts.dorefang)
 
             # TODO some kind of repr or as-string option on toprims
             todo = await s_stormtypes.toprim(self.opts.values)
@@ -5016,7 +5020,7 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
+                for form, valu in s_scrape.scrape(text, ptype=forms, refang=refang):
 
                     try:
                         nnode = await node.snap.addNode(form, valu)
@@ -5040,11 +5044,14 @@ class ScrapeCmd(Cmd):
 
         if self.runtsafe and node is None:
 
+            forms = await s_stormtypes.toprim(self.opts.forms)
+            refang = await s_stormtypes.tobool(self.opts.dorefang)
+
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
                 try:
-                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
+                    for form, valu in s_scrape.scrape(text, ptype=forms, refang=refang):
                         addnode = await runt.snap.addNode(form, valu)
                         if self.opts.doyield:
                             yield addnode, runt.initPath(addnode)

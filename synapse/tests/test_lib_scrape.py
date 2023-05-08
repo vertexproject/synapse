@@ -63,6 +63,8 @@ and BOB@WOOT.COM is another
     baz.com．
 
     bar.com．
+
+    fxp.com
 '''
 
 data1 = '''
@@ -314,7 +316,7 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(26, nodes)
+        self.len(27, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
@@ -338,6 +340,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', 'sign3.com'))
         nodes.remove(('inet:fqdn', 'sign4.com'))
         nodes.remove(('inet:fqdn', 'tilde.com'))
+        nodes.remove(('inet:fqdn', 'fxp.com'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
