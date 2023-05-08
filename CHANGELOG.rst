@@ -82,7 +82,7 @@ Model Changes
 Features and Enhancements
 -------------------------
 - Add a ``highlight`` parameter to BadSyntaxError and some exceptions raised
-  during the exection of a Storm block. This contains detailed information
+  during the execution of a Storm block. This contains detailed information
   about where an error occurred in the Storm code.
   (`#3063 <https://github.com/vertexproject/synapse/pull/3063>`_)
 - Allow callers to specify an ``iden`` value when creating a Storm Dmon or a
