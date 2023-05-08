@@ -88,14 +88,14 @@ Features and Enhancements
 - Allow callers to specify an ``iden`` value when creating a Storm Dmon or a
   trigger.
   (`#3121 <https://github.com/vertexproject/synapse/pull/3121>`_)
-- Add support for STIX export configs to specify pivots to incude additional
+- Add support for STIX export configs to specify pivots to include additional
   nodes.
   (`#3122 <https://github.com/vertexproject/synapse/pull/3122>`_)
 - The Storm ``auth.user.addrule`` and ``auth.role.addrule`` now have an
   optional ``--index`` argument that allows specifying the rule location
   as a 0-based index value.
   (`#3124 <https://github.com/vertexproject/synapse/pull/3124>`_)
-- The Storm ``auth.user.show`` command now shows the users ``admin`` status
+- The Storm ``auth.user.show`` command now shows the user's ``admin`` status
   on authgates.
   (`#3124 <https://github.com/vertexproject/synapse/pull/3124>`_)
 - Add a ``--only-url`` flag to the ``synapse.tools.aha.provision.service`` and
@@ -107,7 +107,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Ensure the CLI tools ``synapse.tools.cellauth````synapse.tools.csvtool``,
+- Ensure the CLI tools ``synapse.tools.cellauth``, ``synapse.tools.csvtool``,
   and ``synapse.tools.easycert`` now return ``1`` on a execution failure. In
   some cases they previously returned ``-1``.
   (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
