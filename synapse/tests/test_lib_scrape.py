@@ -601,6 +601,10 @@ class ScrapeTest(s_t_utils.SynTest):
         refanged = 'foo@bar.com'
         self.eq({refanged, 'bar.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = 'https://foo[dot]com/'
+        refanged = 'https://foo.com/'
+        self.eq({refanged, 'foo.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
         defanged = 'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]yowza(.)baz[.]edu/foofaz'
         exp = {
             'yowza.baz.edu',
