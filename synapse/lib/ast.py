@@ -1323,9 +1323,6 @@ class LiftTag(LiftOper):
     async def lift(self, runt, path):
 
         tag = await self.kids[0].compute(runt, path)
-        if not isinstance(tag, str):
-            mesg = 'Invalid tag lift, tag name must be a string'
-            raise s_exc.BadTypeValu(mesg=mesg)
 
         if len(self.kids) == 3:
 
@@ -1382,9 +1379,6 @@ class LiftFormTagProp(LiftOper):
     async def lift(self, runt, path):
 
         form, tag, prop = await self.kids[0].compute(runt, path)
-        if not isinstance(tag, str):
-            mesg = 'Invalid tag name, must be a string'
-            raise s_exc.BadTypeValu(mesg=mesg)
 
         if not runt.model.form(form):
             raise self.kids[0].kids[0].addExcInfo(s_exc.NoSuchForm.init(form))
@@ -1410,9 +1404,6 @@ class LiftTagTag(LiftOper):
     async def lift(self, runt, path):
 
         tagname = await self.kids[0].compute(runt, path)
-        if not isinstance(tagname, str):
-            mesg = 'Invalid tag lift, tag name must be a string'
-            raise s_exc.BadTypeValu(mesg=mesg)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
         if node is None:
@@ -1458,9 +1449,6 @@ class LiftFormTag(LiftOper):
             raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(form))
 
         tag = await self.kids[1].compute(runt, path)
-        if not isinstance(tag, str):
-            mesg = 'Invalid tag name, must be a string'
-            raise s_exc.BadTypeValu(mesg=mesg)
 
         if len(self.kids) == 4:
 
@@ -2425,9 +2413,6 @@ class TagCond(Cond):
         # kid is a non-runtsafe VarValue: dynamically evaluate value of variable for each node
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
-            if not isinstance(name, str):
-                mesg = 'Invalid tag name, must be a string'
-                raise s_exc.BadTypeValu(mesg=mesg)
 
             if name == '*':
                 return bool(node.tags)
@@ -2524,10 +2509,6 @@ class HasTagPropCond(Cond):
 
         async def cond(node, path):
             tag = await self.kids[0].compute(runt, path)
-            if not isinstance(tag, str):
-                mesg = 'Invalid tag name, must be a string'
-                raise s_exc.BadTypeValu(mesg=mesg)
-
             name = await self.kids[1].compute(runt, path)
 
             if tag == '*':
@@ -2659,10 +2640,6 @@ class TagValuCond(Cond):
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
-                if not isinstance(name, str):
-                    mesg = 'Invalid tag name, must be a string'
-                    raise s_exc.BadTypeValu(mesg=mesg)
-
                 valu = await rnode.compute(runt, path)
                 return cmprctor(valu)(node.tags.get(name))
 
@@ -2747,10 +2724,6 @@ class TagPropCond(Cond):
         async def cond(node, path):
 
             tag = await self.kids[0].compute(runt, path)
-            if not isinstance(tag, str):
-                mesg = 'Invalid tag name, must be a string'
-                raise s_exc.BadTypeValu(mesg=mesg)
-
             name = await self.kids[1].compute(runt, path)
 
             prop = runt.model.getTagProp(name)
@@ -2890,9 +2863,6 @@ class TagValue(Value):
 
     async def compute(self, runt, path):
         valu = await self.kids[0].compute(runt, path)
-        if not isinstance(valu, str):
-            mesg = 'Invalid tag name, must be a string'
-            raise s_exc.BadTypeValu(mesg=mesg)
         return path.node.getTag(valu)
 
 class TagProp(Value):
@@ -2913,9 +2883,6 @@ class FormTagProp(Value):
 class TagPropValue(Value):
     async def compute(self, runt, path):
         tag, prop = await self.kids[0].compute(runt, path)
-        if not isinstance(tag, str):
-            mesg = 'Invalid tag name, must be a string'
-            raise s_exc.BadTypeValu(mesg=mesg)
         return path.node.getTagProp(tag, prop)
 
 class CallArgs(Value):
@@ -3133,26 +3100,17 @@ class TagName(Value):
             return self.constval
 
         if not isinstance(self.kids[0], Const):
-            tags = []
-            vals = await self.kids[0].compute(runt, path)
-            vals = await s_stormtypes.toprim(vals)
+            valu = await self.kids[0].compute(runt, path)
+            valu = await s_stormtypes.toprim(valu)
 
-            if not isinstance(vals, (tuple, list, set)):
-                vals = (vals,)
+            if not isinstance(valu, str):
+                mesg = 'Invalid value type for tag name, tag names must be strings.'
+                raise s_exc.BadTypeValu(mesg=mesg)
 
-            for valu in vals:
-                if not isinstance(valu, str):
-                    mesg = 'Invalid value type for tag name, tag names must be strings.'
-                    raise s_exc.BadTypeValu(mesg=mesg)
-
-                normtupl = await runt.snap.getTagNorm(valu)
-                if normtupl is None:
-                    continue
-
-                tags.append(normtupl[0])
-            if len(tags) == 1:
-                return tags[0]
-            return tags
+            normtupl = await runt.snap.getTagNorm(valu)
+            if normtupl is None:
+                return
+            return normtupl[0]
 
         vals = []
         for kid in self.kids:
@@ -3167,6 +3125,47 @@ class TagName(Value):
 
         return '.'.join(vals)
 
+    async def compute_array(self, runt, path, excignore=()):
+
+        if self.isconst:
+            return (self.constval,)
+
+        if not isinstance(self.kids[0], Const):
+            tags = []
+            vals = await self.kids[0].compute(runt, path)
+            vals = await s_stormtypes.toprim(vals)
+
+            if not isinstance(vals, (tuple, list, set)):
+                vals = (vals,)
+
+            for valu in vals:
+                try:
+                    if not isinstance(valu, str):
+                        mesg = 'Invalid value type for tag name, tag names must be strings.'
+                        raise s_exc.BadTypeValu(mesg=mesg)
+
+                    normtupl = await runt.snap.getTagNorm(valu)
+                    if normtupl is None:
+                        continue
+
+                    tags.append(normtupl[0])
+                except excignore:
+                    pass
+            return tags
+
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
+
+            part = await tostr(part)
+            partnorm = await runt.snap.getTagNorm(part)
+            vals.append(partnorm[0])
+
+        return ('.'.join(vals),)
+
 class TagMatch(TagName):
     '''
     Like TagName, but can have asterisks
@@ -3180,6 +3179,16 @@ class TagMatch(TagName):
 
         if self.isconst:
             return self.constval
+
+        if not isinstance(self.kids[0], Const):
+            valu = await self.kids[0].compute(runt, path)
+            valu = await s_stormtypes.toprim(valu)
+
+            if not isinstance(valu, str):
+                mesg = 'Invalid value type for tag name, tag names must be strings.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            return valu
 
         vals = []
         for kid in self.kids:
@@ -3843,15 +3852,12 @@ class EditTagAdd(Edit):
         async for node, path in genr:
 
             try:
-                names = await self.kids[oper_offset].compute(runt, path)
+                names = await self.kids[oper_offset].compute_array(runt, path, excignore=excignore)
                 names = await s_stormtypes.toprim(names)
             except excignore:
                 yield node, path
                 await asyncio.sleep(0)
                 continue
-
-            if not isinstance(names, tuple):
-                names = (names,)
 
             for name in names:
 
@@ -3859,11 +3865,6 @@ class EditTagAdd(Edit):
                     if name is None:
                         raise self.addExcInfo(s_exc.BadTypeValu(mesg='Null tag names are not allowed.'))
 
-                    normtupl = await runt.snap.getTagNorm(name)
-                    if normtupl is None:
-                        continue
-
-                    name, info = normtupl
                     parts = name.split('.')
 
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
@@ -3889,21 +3890,13 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[0].compute(runt, path)
+            names = await self.kids[0].compute_array(runt, path)
             names = await s_stormtypes.toprim(names)
-
-            if not isinstance(names, tuple):
-                names = (names,)
 
             for name in names:
 
                 # special case for backward compatibility
                 if name:
-                    normtupl = await runt.snap.getTagNorm(name)
-                    if normtupl is None:
-                        continue
-
-                    name, info = normtupl
                     parts = name.split('.')
 
                     runt.layerConfirm(('node', 'tag', 'del', *parts))
@@ -3930,18 +3923,10 @@ class EditTagPropSet(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(runt, path)
-            if not isinstance(tag, str):
-                mesg = 'Invalid tag name, must be a string'
-                raise s_exc.BadTypeValu(mesg=mesg)
 
             valu = await self.kids[2].compute(runt, path)
             valu = await s_stormtypes.tostor(valu)
 
-            normtupl = await runt.snap.getTagNorm(tag)
-            if normtupl is None:
-                continue
-
-            tag, info = normtupl
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
@@ -3971,16 +3956,6 @@ class EditTagPropDel(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(runt, path)
-            if not isinstance(tag, str):
-                mesg = 'Invalid tag name, must be a string'
-                raise s_exc.BadTypeValu(mesg=mesg)
-
-            normtupl = await runt.snap.getTagNorm(tag)
-            if normtupl is None:
-                continue
-
-            tag, info = normtupl
-
             tagparts = tag.split('.')
 
             # for now, use the tag add perms

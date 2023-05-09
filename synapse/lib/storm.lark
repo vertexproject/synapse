@@ -123,10 +123,10 @@ opervarlist: varlist "=" _valu
 
 // Pivots
 _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | formpivot_
-formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | (_HASH | _HASHSPACE) (_varvalu | tagmatch))
-formpivot_jointags: _RIGHTJOIN (ALLTAGS | (_HASH | _HASHSPACE) (_varvalu | tagmatch))
+formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | tagmatch)
+formpivot_jointags: _RIGHTJOIN (ALLTAGS | tagmatch)
 // The special symbol that indicates to pivot to syn:tag nodes
-ALLTAGS.2: /#(?=\/[\/\*]|\s|$|\})/
+ALLTAGS.3: /#(?=\/[\/\*]|\s|$|\})/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
 formpivot_:            _RIGHTPIVOT ABSPROP
@@ -235,8 +235,10 @@ _tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
-tagmatch:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
+tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*)
 WILDTAGSEGNOVAR: /[\w*]+/
+_MATCHHASH.3: /(?<!\s)#/
+_MATCHHASHSPACE.3: /(?<=\s)#/
 
 // A comparison operator
 _cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
@@ -289,12 +291,6 @@ exprtagname: _HASH (_exprvarvalu | _exprtagsegs) -> tagname
 exprtagnamewithspace: _HASHSPACE (_exprvarvalu | _exprtagsegs) -> tagname
 _exprtagsegs:  EXPRTAGSEGNOVAR ( "." (EXPRTAGSEGNOVAR | "$" exprvarvalue))*
 EXPRTAGSEGNOVAR: /[\w]+/
-
-_exprtagmatch: (_EXPRHASH | _EXPRHASHSPACE) (_exprvarvalu | exprtagmatch)
-_EXPRHASH.2: /(?<!\s)#/
-_EXPRHASHSPACE.2: /(?<=\s)#/
-
-exprtagmatch:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" exprvarvalue))* -> tagmatch
 
 exprtagpropvalu: exprtagprop -> tagpropvalu
     | exprtagpropwithspace -> tagpropvalu
@@ -375,11 +371,11 @@ relpropvalue:   relprop | univprop
 abspropcond:  ABSPROPNOUNIV _cmpr _valu
 hasabspropcond: ABSPROPNOUNIV
 
-tagpropcond:  (_HASH | _HASHSPACE) (_varvalu | tagmatch) _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
-hastagpropcond: (_HASH | _HASHSPACE) (_varvalu | tagmatch) _COLONNOSPACE (BASEPROP | _varvalu)
+tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
+hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
 
-tagvalucond: (_HASH | _HASHSPACE) (_varvalu | tagmatch) _cmpr _valu
-tagcond: (_HASH | _HASHSPACE) (_varvalu | tagmatch)
+tagvalucond: tagmatch _cmpr _valu
+tagcond: tagmatch
 
 condsubq: "{" query "}" [ _cmpr _valu]
 arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
