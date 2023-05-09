@@ -10,7 +10,7 @@ v2.133.1 - 2023-05-09
 Bugfixes
 --------
 - Fix an issue where the Storm query hashing added in ``v2.133.0`` did not
-  account for surrogate pairs in query text.
+  account for handling erroneous surrogate pairs in query text.
   (`#3130 <https://github.com/vertexproject/synapse/pull/3130>`_)
 
 Improved Documentation
