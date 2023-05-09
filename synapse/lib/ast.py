@@ -3107,8 +3107,6 @@ class TagName(Value):
                 raise s_exc.BadTypeValu(mesg=mesg)
 
             normtupl = await runt.snap.getTagNorm(valu)
-            if normtupl is None:
-                return
             return normtupl[0]
 
         vals = []
@@ -3860,9 +3858,6 @@ class EditTagAdd(Edit):
             for name in names:
 
                 try:
-                    if name is None:
-                        raise self.addExcInfo(s_exc.BadTypeValu(mesg='Null tag names are not allowed.'))
-
                     parts = name.split('.')
 
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
@@ -3892,13 +3887,11 @@ class EditTagDel(Edit):
 
             for name in names:
 
-                # special case for backward compatibility
-                if name:
-                    parts = name.split('.')
+                parts = name.split('.')
 
-                    runt.layerConfirm(('node', 'tag', 'del', *parts))
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
 
-                    await node.delTag(name)
+                await node.delTag(name)
 
             yield node, path
 
