@@ -4,6 +4,19 @@
 Synapse Changelog
 *****************
 
+v2.133.1 - 2023-05-09
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the Storm query hashing added in ``v2.133.0`` did not
+  account for surrogate pairs in query text.
+
+Improved Documentation
+----------------------
+- Update the Storm API Guide to include the ``hash`` key in the ``init``
+  message.
+
 v2.133.0 - 2023-05-08
 =====================
 
