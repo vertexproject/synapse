@@ -235,10 +235,11 @@ _tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
-tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*)
-WILDTAGSEGNOVAR: /[\w*]+/
+tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | _wildtagsegs)
 _MATCHHASH.3: /(?<!\s)#/
 _MATCHHASHSPACE.3: /(?<=\s)#/
+_wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
+WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
 _cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER

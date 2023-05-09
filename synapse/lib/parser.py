@@ -701,7 +701,6 @@ ruleClassMap = {
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
-    'tagsegs': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,
     'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,

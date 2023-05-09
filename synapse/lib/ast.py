@@ -2413,7 +2413,6 @@ class TagCond(Cond):
         # kid is a non-runtsafe VarValue: dynamically evaluate value of variable for each node
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
-
             if name == '*':
                 return bool(node.tags)
 
@@ -3853,7 +3852,6 @@ class EditTagAdd(Edit):
 
             try:
                 names = await self.kids[oper_offset].compute_array(runt, path, excignore=excignore)
-                names = await s_stormtypes.toprim(names)
             except excignore:
                 yield node, path
                 await asyncio.sleep(0)
@@ -3891,7 +3889,6 @@ class EditTagDel(Edit):
         async for node, path in genr:
 
             names = await self.kids[0].compute_array(runt, path)
-            names = await s_stormtypes.toprim(names)
 
             for name in names:
 
