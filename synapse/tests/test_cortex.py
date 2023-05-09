@@ -4928,7 +4928,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag1'))
             self.nn(nodes[0].getTag('tag3'))
 
-            q = '$t2="" $t3=tag3 [test:str=x +?#$t2 +?#$t3]'
+            q = '$t1="" $t2="" $t3=tag3 [test:str=x -#$t1 +?#$t2 +?#$t3]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.nn(nodes[0].getTag('tag3'))
