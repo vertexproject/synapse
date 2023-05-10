@@ -48,7 +48,8 @@ class ViewTest(s_t_utils.SynTest):
 
             # test the storm APIs for setting view parent
             opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
-            await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
 
             # test that merging selected nodes works correctly
             self.len(0, await view02.nodes('inet:fqdn=vertex.link'))

@@ -201,17 +201,21 @@ stormcmds = (
 
                 // add a deny rule to the user "visi" for permission "foo.bar.baz"
                 auth.user.addrule visi "!foo.bar.baz"
+
+                // add an allow rule to the user "visi" for permission "baz" at the first index.
+                auth.user.addrule visi baz --indx 0
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
             ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
+            ('--index', {'type': 'int', 'help': 'Specify the rule location as a 0 based index.', 'default': None}),
         ),
         'storm': '''
             $user = $lib.auth.users.byname($cmdopts.name)
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $user {
-                $user.addRule($rule, gateiden=$cmdopts.gate)
+                $user.addRule($rule, gateiden=$cmdopts.gate, indx=$cmdopts.index)
                 $lib.print(`Added rule {$cmdopts.rule} to user {$cmdopts.name}.`)
             } else {
                 $lib.warn('User ({name}) not found!', name=$cmdopts.name)
@@ -269,17 +273,21 @@ stormcmds = (
 
                 // add a deny rule to the role "ninjas" for permission "foo.bar.baz"
                 auth.role.addrule ninjas "!foo.bar.baz"
+
+                // add an allow rule to the role "ninjas" for permission "baz" at the first index.
+                auth.role.addrule ninjas baz --indx 0
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
             ('--gate', {'type': 'str', 'help': 'The auth gate id to add the rule to.', 'default': None}),
+            ('--index', {'type': 'int', 'help': 'Specify the rule location as a 0 based index.', 'default': None}),
         ),
         'storm': '''
             $role = $lib.auth.roles.byname($cmdopts.name)
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $role {
-                $role.addRule($rule, gateiden=$cmdopts.gate)
+                $role.addRule($rule, gateiden=$cmdopts.gate, indx=$cmdopts.index)
                 $lib.print(`Added rule {$cmdopts.rule} to role {$cmdopts.name}.`)
             } else {
                 $lib.warn('Role ({name}) not found!', name=$cmdopts.name)
@@ -418,7 +426,13 @@ stormcmds = (
             $lib.print("")
             $lib.print("  Gates:")
             for $gate in $user.gates() {
+                for $gateuser in $gate.users {
+                    if  ( $gateuser.iden = $user.iden ) {
+                        break
+                    }
+                }
                 $lib.print(`    {$gate.iden} - ({$gate.type})`)
+                $lib.print(`      Admin: {$gateuser.admin}`)
                 for ($indx, $rule) in $lib.iters.enum($user.getRules(gateiden=$gate.iden)) {
                     $ruletext = $lib.auth.textFromRule($rule)
                     $indxtext = $lib.cast(str, $indx).ljust(3)

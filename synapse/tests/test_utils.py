@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import unittest
 
 import synapse.common as s_common
 
@@ -93,6 +94,10 @@ class TestUtils(s_t_utils.SynTest):
 
         outp = self.getTestOutp()
         self.isinstance(outp, s_output.OutPut)
+
+        with self.raises(unittest.SkipTest) as cm:
+            self.skipIfNoPath('newpDoesNotExist', mesg='hehe')
+        self.isin('newpDoesNotExist mesg=hehe', str(cm.exception))
 
     def test_syntest_logstream(self):
         with self.getLoggerStream('synapse.tests.test_utils') as stream:

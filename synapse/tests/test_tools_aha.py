@@ -138,6 +138,7 @@ class AhaToolsTest(s_t_utils.SynTest):
 
                         argv = ['--again', '--url', aha.getLocalUrl(), 'visi']
                         retn, outp = await self.execToolMain(s_a_provision_user.main, argv)
+                        self.eq(retn, 0)
                         self.isin('one-time use URL:', str(outp))
 
                         provurl = str(outp).split(':', 1)[1].strip()
@@ -150,3 +151,9 @@ class AhaToolsTest(s_t_utils.SynTest):
 
                         teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                         self.sorteq(teleyaml.get('aha:servers'), servers)
+
+                        # Just return the URL
+                        retn, outp = await self.execToolMain(s_a_provision_user.main, argv + ['--only-url'])
+                        self.eq(retn, 0)
+                        self.notin('one-time use URL:', str(outp))
+                        self.isin('ssl://', str(outp))

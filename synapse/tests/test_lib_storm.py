@@ -507,14 +507,19 @@ class StormTest(s_t_utils.SynTest):
 
             # test storm background command
             await core.nodes('''
-                $lib.queue.add(foo)
-                [inet:ipv4=1.2.3.4]
-                background {
-                    [it:dev:str=haha]
-                    fini{
-                        $lib.queue.get(foo).put(hehe)
+                $x = foo
+                $lib.queue.add($x)
+                function stuff() {
+                    [inet:ipv4=1.2.3.4]
+                    background {
+                        [it:dev:str=haha]
+                        fini{
+                            $lib.queue.get($x).put(hehe)
+                        }
                     }
-                }''')
+                }
+                yield $stuff()
+            ''')
             self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
 
             await core.nodes('''$lib.queue.gen(bar)
@@ -1196,6 +1201,11 @@ class StormTest(s_t_utils.SynTest):
                     /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
                 ))
             '''))
+
+            # surrogate escapes are allowed
+            nodes = await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'pluto\udcbaneptune'))
 
     async def test_storm_diff_merge(self):
 
@@ -4365,11 +4375,11 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'media:news:org#test'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:org', msgs)
 
             q = 'media:news:org#test:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:org', msgs)
 
             q = 'media:news:org#test.*.bar'
             msgs = await core.stormlist(q)

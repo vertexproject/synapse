@@ -11,7 +11,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
-import synapse.lib.output as s_output
 
 import synapse.tools.aha.list as s_a_list
 import synapse.tools.backup as s_tools_backup
@@ -525,7 +524,7 @@ class AhaTest(s_test.SynTest):
 
                 url = aha.getLocalUrl()
 
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'foobar'), outp=outp)
                 self.isin('one-time use URL: ', str(outp))
 
@@ -605,7 +604,7 @@ class AhaTest(s_test.SynTest):
 
                     unfo = await axon.addUser('visi')
 
-                    outp = s_output.OutPutStr()
+                    outp = self.getTestOutp()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
                     self.isin('one-time use URL:', str(outp))
 
@@ -619,7 +618,7 @@ class AhaTest(s_test.SynTest):
                         for path in (capath, crtpath, keypath):
                             s_common.genfile(path)
 
-                        outp = s_output.OutPutStr()
+                        outp = self.getTestOutp()
                         await s_tools_enroll.main((provurl,), outp=outp)
 
                         for path in (capath, crtpath, keypath):
@@ -641,11 +640,11 @@ class AhaTest(s_test.SynTest):
                                 self.eq(axon.iden, await prox.getCellIden())
                         self.isin('locked', cm.exception.get('mesg'))
 
-                    outp = s_output.OutPutStr()
+                    outp = self.getTestOutp()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
                     self.isin('Need --again', str(outp))
 
-                    outp = s_output.OutPutStr()
+                    outp = self.getTestOutp()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), '--again', 'visi'), outp=outp)
                     self.isin('one-time use URL:', str(outp))
 
@@ -688,11 +687,13 @@ class AhaTest(s_test.SynTest):
                 # With one axon up, we can provision a mirror of him.
                 axn2path = s_common.genpath(dirn, 'axon2')
 
-                argv = ['--url', aha.getLocalUrl(), '01.axon', '--mirror', 'axon']
-                outp = s_output.OutPutStr()
-                await s_tools_provision_service.main(argv, outp=outp)
-                self.isin('one-time use URL: ', str(outp))
-                provurl = str(outp).split(':', 1)[1].strip()
+                argv = ['--url', aha.getLocalUrl(), '01.axon', '--mirror', 'axon', '--only-url']
+                outp = self.getTestOutp()
+                retn = await s_tools_provision_service.main(argv, outp=outp)
+                self.eq(0, retn)
+                provurl = str(outp).strip()
+                self.notin('one-time use URL: ', provurl)
+                self.isin('ssl://', provurl)
                 urlinfo = s_telepath.chopurl(provurl)
                 providen = urlinfo.get('path').strip('/')
 
@@ -726,7 +727,7 @@ class AhaTest(s_test.SynTest):
                 axn3path = s_common.genpath(dirn, 'axon3')
 
                 argv = ['--url', aha.getLocalUrl(), '02.axon', '--mirror', 'axon']
-                outp = s_output.OutPutStr()
+                outp = self.getTestOutp()
                 await s_tools_provision_service.main(argv, outp=outp)
                 self.isin('one-time use URL: ', str(outp))
                 provurl = str(outp).split(':', 1)[1].strip()
@@ -774,14 +775,27 @@ class AhaTest(s_test.SynTest):
                         outp.expect('axon                 loop.vertex.link               True')
 
                 # Ensure we can provision a service on a given listening ports
-                with self.raises(AssertionError):
-                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456'),
-                                                         outp=outp)
+                outp.clear()
+                args = ('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456')
+                ret = await s_tools_provision_service.main(args, outp=outp)
+                self.eq(1, ret)
+                outp.expect('ERROR: Invalid dmon port: 123456')
 
-                with self.raises(AssertionError):
-                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--https-port', '123456'),
-                                                         outp=outp)
-                outp = s_output.OutPutStr()
+                outp.clear()
+                args = ('--url', aha.getLocalUrl(), 'bazfaz', '--https-port', '123456')
+                ret = await s_tools_provision_service.main(args, outp=outp)
+                outp.expect('ERROR: Invalid HTTPS port: 123456')
+                self.eq(1, ret)
+
+                outp.clear()
+                bad_conf_path = s_common.genpath(dirn, 'badconf.yaml')
+                s_common.yamlsave({'aha:network': 'aha.newp.net'}, bad_conf_path)
+                args = ('--url', aha.getLocalUrl(), 'bazfaz', '--cellyaml', bad_conf_path)
+                ret = await s_tools_provision_service.main(args, outp=outp)
+                outp.expect('ERROR: Provisioning aha:network must be equal to the Aha servers network')
+                self.eq(1, ret)
+
+                outp = self.getTestOutp()
                 argv = ('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '1234', '--https-port', '443')
                 await s_tools_provision_service.main(argv, outp=outp)
                 self.isin('one-time use URL: ', str(outp))
