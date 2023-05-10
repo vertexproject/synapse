@@ -612,7 +612,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 if view.isForkOf(self.iden):
                     await view._calcForkLayers()
 
-            await self.core._calcViewsByLayer()
+            self.core._calcViewsByLayer()
 
         else:
             await self.info.set(name, valu)
