@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an exception that was raised when setting the parent of a View.
+  (`#3131 <https://github.com/vertexproject/synapse/pull/3131>`_)
+
 v2.133.1 - 2023-05-09
 =====================
 
