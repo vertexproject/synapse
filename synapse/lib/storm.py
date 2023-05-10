@@ -4981,6 +4981,9 @@ class ScrapeCmd(Cmd):
 
         # Skip re-fanging text before scraping.
         inet:search:query | scrape --skiprefang
+
+        # Limit scrape to specific forms.
+        inet:search:query | scrape --forms (inet:fqdn, inet:ipv4)
     '''
 
     name = 'scrape'
@@ -4994,7 +4997,7 @@ class ScrapeCmd(Cmd):
                           help='Include newly scraped nodes in the output')
         pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
                           help='Do not remove de-fanging from text before scraping')
-        pars.add_argument('--forms', default=[], nargs='*',
+        pars.add_argument('--forms', default=[],
                           help='Only scrape values which match specific forms.')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
@@ -5008,6 +5011,9 @@ class ScrapeCmd(Cmd):
             refs = await s_stormtypes.toprim(self.opts.refs)
             forms = await s_stormtypes.toprim(self.opts.forms)
             refang = await s_stormtypes.tobool(self.opts.dorefang)
+
+            if not isinstance(forms, (tuple, list, set)):
+                forms = (forms,)
 
             # TODO some kind of repr or as-string option on toprims
             todo = await s_stormtypes.toprim(self.opts.values)

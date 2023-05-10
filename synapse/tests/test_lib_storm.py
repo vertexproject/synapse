@@ -2567,7 +2567,15 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield --skiprefang')
             self.len(0, nodes)
 
-            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms inet:fqdn inet:ipv4'
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms (inet:fqdn, inet:ipv4)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
+            q = '''
+            $foo="http://fxp.com 1.2.3.4" $forms=(inet:fqdn, inet:ipv4)
+            | scrape $foo --yield --forms $forms'''
             nodes = await core.nodes(q)
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
