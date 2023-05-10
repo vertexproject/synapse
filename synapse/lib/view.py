@@ -571,6 +571,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def delTrigQueue(self, offs):
         self.trigqueue.pop(offs)
 
+    @s_nexus.Pusher.onPushAuto('view:set')
     async def setViewInfo(self, name, valu):
         '''
         Set a mutable view property.
@@ -602,14 +603,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 mesg = 'You may not set parent on a view which has more than one layer.'
                 raise s_exc.BadArg(mesg=mesg)
 
-        return await self._push('view:set', name, valu)
-
-    @s_nexus.Pusher.onPush('view:set')
-    async def _setViewInfo(self, name, valu):
-
-        if name == 'parent':
-
-            parent = self.core.getView(valu)
             self.parent = parent
             await self.info.set(name, valu)
 
@@ -620,11 +613,11 @@ class View(s_nexus.Pusher):  # type: ignore
                     await view._calcForkLayers()
 
             self.core._calcViewsByLayer()
+
         else:
             await self.info.set(name, valu)
 
-        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
-                                     gates=[self.iden, self.layers[0].iden])
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden, self.layers[0].iden])
         return valu
 
     async def addLayer(self, layriden, indx=None):
