@@ -12,6 +12,8 @@ import synapse.lib.base as s_base
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.msgpack as s_msgpack
 
+import synapse.tools.storm as s_t_storm
+
 loggers_to_supress = (
     'synapse.lib.view',
 )
@@ -121,7 +123,6 @@ async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
     with s_common.getTempDir() as dirn:
 
         async with await svcctor(dirn, conf=conf) as svc:
-            svc.dmon.share(svcname, svc)
 
             root = await svc.auth.getUserByName('root')
             await root.setPasswd('secret')
@@ -129,7 +130,7 @@ async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
             info = await svc.dmon.listen('tcp://127.0.0.1:0/')
             svc.dmon.test_addr = info
             host, port = info
-            surl = f'tcp://root:secret@127.0.0.1:{port}/{svcname}'
+            surl = f'tcp://root:secret@127.0.0.1:{port}/'
 
             await cmdrcore.storm(f'service.add {svcname} {surl}')
             await cmdrcore.storm(f'$lib.service.wait({svcname})')
@@ -139,6 +140,12 @@ async def genTempStormsvcProxy(cmdrcore, svcname, svcctor, conf=None):
                 object.__setattr__(prox, '_svc', svc)
                 yield prox
 
+async def getItemStorm(prox, outp=None):
+    '''Get a Storm CLI instance with prepopulated locs'''
+    storm = await s_t_storm.StormCli.anit(prox, outp=outp)
+    storm.echoline = True
+    return storm
+
 async def getItemCmdr(prox, outp=None, locs=None):
     '''Get a Cmdr instance with prepopulated locs'''
     cmdr = await s_cmdr.getItemCmdr(prox, outp=outp)
@@ -147,9 +154,103 @@ async def getItemCmdr(prox, outp=None, locs=None):
         cmdr.locs.update(locs)
     return cmdr
 
-class CmdrCore(s_base.Base):
+@contextlib.contextmanager
+def suppress_logging(suppress):
+    '''
+    Context manager to suppress specific loggers.
+    '''
+    logs = {}
+    if not suppress:
+        yield None
+    else:
+        try:
+            for logname in loggers_to_supress:
+                logger = logging.getLogger(logname)
+                if logger is not None:
+                    logs[logname] = (logger, logger.level)
+                    logger.setLevel(logger.level + 100)
+            yield None
+        finally:
+            for (logger, level) in logs.values():
+                logger.setLevel(level)
+
+class StormCore(s_base.Base):
     '''
     A helper for jupyter/storm CLI interaction
+    '''
+    async def __anit__(self, core, outp=None):
+        await s_base.Base.__anit__(self)
+        self.core = core
+        self.stormcli = await getItemStorm(self.core, outp=outp)
+        self.onfini(self._onCmdrCoreFini)
+        self.acm = None  # A placeholder for the context manager
+
+    async def _onCmdrCoreFini(self):
+        await self.stormcli.fini()
+        # await self.core.fini()
+        # If self.acm is set, acm.__aexit should handle the self.core fini.
+        if self.acm:
+            await self.acm.__aexit__(None, None, None)
+
+    @contextlib.contextmanager
+    def suppress_logging(self, suppress):
+        '''
+        Context manager to suppress specific loggers.
+        '''
+        with suppress_logging(suppress):
+            yield None
+
+    async def runCmdLine(self, text, opts=None):
+        '''
+        Run a line of text directly via storm cli.
+        '''
+        await self.stormcli.runCmdLine(text, opts=opts)
+
+    async def _runStorm(self, text, opts=None, cli=False, suppress_logging=False):
+        mesgs = []
+        with self.suppress_logging(suppress_logging):
+            if cli:
+                def onEvent(event):
+                    mesg = event[1].get('mesg')
+                    mesgs.append(mesg)
+
+                with self.stormcli.onWith('storm:mesg', onEvent):
+                    await self.runCmdLine(text, opts=opts)
+
+            else:
+                async for mesg in self.core.storm(text, opts=opts):
+                    mesgs.append(mesg)
+
+        return mesgs
+
+    async def storm(self, text, opts=None, num=None, cli=False, suppress_logging=False):
+        '''
+        A helper for executing a storm command and getting a list of storm messages.
+
+        Args:
+            text (str): Storm command to execute.
+            opts (dict): Opt to pass to the cortex during execution.
+            num (int): Number of nodes to expect in the output query. Checks that with an assert statement.
+            cli (bool): If True, executes the line via the Storm CLI and will send output to outp.
+            suppress_logging (bool): If True, suppresses some logging related to Storm runtime exceptions.
+
+        Notes:
+            The opts dictionary will not be used if cmdr=True.
+
+        Returns:
+            list: A list of storm messages.
+        '''
+        mesgs = await self._runStorm(text, opts, cli, suppress_logging)
+        if num is not None:
+            nodes = [m for m in mesgs if m[0] == 'node']
+            if len(nodes) != num:
+                raise AssertionError(f'Expected {num} nodes, got {len(nodes)}')
+
+        return mesgs
+
+class CmdrCore(s_base.Base):
+    '''
+    A helper for jupyter/cmdr CLI interaction
     '''
     async def __anit__(self, core, outp=None):
         await s_base.Base.__anit__(self)
@@ -177,20 +278,8 @@ class CmdrCore(s_base.Base):
         '''
         Context manager to suppress specific loggers.
         '''
-        logs = {}
-        if not suppress:
+        with suppress_logging(suppress):
             yield None
-        else:
-            try:
-                for logname in loggers_to_supress:
-                    logger = logging.getLogger(logname)
-                    if logger is not None:
-                        logs[logname] = (logger, logger.level)
-                        logger.setLevel(logger.level + 100)
-                yield None
-            finally:
-                for (logger, level) in logs.values():
-                    logger.setLevel(level)
 
     async def _runStorm(self, text, opts=None, cmdr=False, suppress_logging=False):
         mesgs = []
@@ -296,6 +385,26 @@ async def getTempCoreProx(mods=None):
     prox.onfini(onfini)
     return prox
 
+async def getTempCoreStorm(mods=None, outp=None):
+    '''
+    Get a StormCore instance which is backed by a temporary Cortex.
+
+    Args:
+        mods (list): A list of additional CoreModules to load in the Cortex.
+        outp: A output helper.  Will be used for the Cmdr instance.
+
+    Notes:
+        The StormCore returned by this should be fini()'d to tear down the temporary Cortex.
+
+    Returns:
+        StormCore: A StormCore instance.
+    '''
+    acm = genTempCoreProxy(mods)
+    prox = await acm.__aenter__()
+    stormcore = await StormCore.anit(prox, outp=outp)
+    stormcore.acm = acm
+    return stormcore
+
 async def getTempCoreCmdr(mods=None, outp=None):
     '''
     Get a CmdrCore instance which is backed by a temporary Cortex.
@@ -344,3 +453,32 @@ async def getTempCoreCmdrStormsvc(svcname, svcctor, svcconf=None, outp=None):
     svcprox.onfini(onfini)
 
     return cmdrcore, svcprox
+
+async def getTempCoreStormStormsvc(svcname, svcctor, svcconf=None, outp=None):
+    '''
+    Get a proxy to a Storm service and a StormCore instance backed by a temporary Cortex with the service added.
+
+    Args:
+        svcname (str): Storm service name
+        svcctor: Storm service constructor (e.g. Example.anit)
+        svcconf: Optional conf for the Storm service
+        outp: A output helper for the Cmdr instance
+
+    Notes:
+        Both the StormCore and Storm service proxy should be fini()'d for proper teardown
+
+    Returns:
+        (StormCore, Proxy): A StormCore instance and proxy to the Storm service
+    '''
+    stormcore = await getTempCoreStorm(outp=outp)
+
+    acm = genTempStormsvcProxy(stormcore, svcname, svcctor, svcconf)
+    svcprox = await acm.__aenter__()
+    # Use object.__setattr__ to hulk smash and avoid proxy getattr magick
+    object.__setattr__(svcprox, '_acm', acm)
+
+    async def onfini():
+        await svcprox._acm.__aexit__(None, None, None)
+    svcprox.onfini(onfini)
+
+    return stormcore, svcprox
