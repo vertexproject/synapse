@@ -163,6 +163,7 @@ permissions (rules).
 - `auth.user.add`_
 - `auth.user.addrule`_
 - `auth.user.delrule`_
+- `auth.user.allowed`_
 - `auth.user.grant`_
 - `auth.user.list`_
 - `auth.user.mod`_
@@ -304,6 +305,19 @@ The ``auth.user.delrule`` command removes a rule (permission) from a user.
 **Syntax:**
 
 .. storm-cli:: auth.user.delrule --help
+
+
+.. _storm-auth-user-allowed:
+
+auth.user.allowed
++++++++++++++++++
+
+The ``auth.user.allowed`` command checks whether a user has a specified permission and provides the source (e.g.,
+rule, role, and optional gate) if found.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.allowed --help
 
 
 .. _storm-auth-user-grant:

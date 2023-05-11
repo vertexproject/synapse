@@ -507,7 +507,8 @@ in the following order:
 **Roles** (granted to a user) and **rules** (assigned to a user or role) are **also ordered:**
 
 - When granting roles to a user, each new role is added to the **end** of the list of roles.
-- When assigning rules to a role or user, each new rule is added to the **end** of the list of rules.
+- When assigning rules to a role or user, each new rule is added to the **end** of the list of rules
+  **unless** a location (index) for the  rule is specified.
 
 Rules and roles are evaluated in the following order:
 
@@ -584,20 +585,20 @@ Data in a Cortex is stored in one or more **layers** (see :ref:`gloss-layer`). T
 a role can see is defined by a :ref:`gloss-view` that is composed of one or more ordered layers. (A
 standard installation of Synapse consists of the default view, which contains one layer.)
 
-The ability to see (read) data in a view is "all or nothing" - you cannot allow users to see some nodes in
-a view but not others. If you need to segregate data (based on sensitivity or other criteria), you can use
-multiple layers to do this. The layers can be composed into different views, allowing different users to see
-(read) only the data in the view(s) they should have access to.
+**Views** define the data that a user or role can **see** - they act as a **read** boundary. The ability to
+see (read) data in a view is "all or nothing" - you cannot allow users to see some nodes in a view but not
+others. If you need to segregate data (based on sensitivity or other criteria), you can use multiple **layers**
+to do this. The layers can be composed into different views, allowing different users or roles to see (read)
+only the data in the view(s) they should have access to.
 
-Views act as a **read** boundary for the data a user or role can **see.** Granting the ``view.read`` permission
-on a view allows users to see (read) data in any of the view's layers; you do not need to explicitly grant
-"read" access to the individual layers themselves.
+Granting the ``view.read`` permission on a view allows users to see (read) data in any of the view's layers;
+you do not need to explicitly grant "read" access to the individual layers themselves.
 
-Layers act as a **write** boundary for the data a user or role can **modify** (create / edit / delete). In
-normal circumstances, only the top layer in a view is writable. The ability to write data **to** a layer is
-controlled by the various ``node.*`` permissions, which specify the forms / properties / tags / light edges a
-user or role can work with (create / modify / delete). Permissions to modify data must be assigned at the
-appropriate **layer.**
+**Layers** define the changes (if any) that a user or role can make to data in Synapse - they act as a **write**
+boundary for the data a user or role is allowed to **modify** (create / edit / delete). In normal circumstances,
+only the top layer in a view is writable. The ability to write data **to** a layer is controlled by the various
+``node.*`` permissions, which specify the forms / properties / tags / light edges a user or role can work with
+(create / modify / delete). Permissions to modify data must be assigned at the appropriate **layer.**
 
 
 .. _admin_assign_perms:
@@ -606,7 +607,7 @@ Assign Permissions
 ------------------
 
 You assign (allow or deny) permissions in Synapse by adding rules to (or removing rules from) roles or users.
-Recall that **order matters** when adding rules (see :ref:`admin_bkd_precedence`).
+Recall that **order matters** when adding and evaluating rules (see :ref:`admin_bkd_precedence`).
 
 From a Synapse Admin perspective, managing permissions within Synapse commonly involves:
 
@@ -682,13 +683,20 @@ Specifying rules at the global (Cortex) level may be sufficient for many basic S
 
 .. NOTE::
   
-  Recall that **order matters** when adding rules; each rule is added to the end of the list of rules assigned
-  to a user or role, and rules are evaluated in order of precedence. To reorder rules, you must:
+  Recall that **order matters** when adding rules:
   
-  - remove and re-add them in the new order;
+  - by default, each rule is added to the **end** of the list of rules assigned to a user or role; and
+  - rules are evaluated in order of precedence.
+  
+  To reorder rules, you must:
+  
+  - use the ``--index`` option with ``auth.user.addrule`` or ``auth.role.addrule`` to specify a location to
+    insert a specific rule;
+  - remove and re-add the rules in the desired order;
   - use :ref:`stormprims-storm-auth-user-setRules` or :ref:`stormprims-storm-auth-role-setRules` to replace the
     rules for a user or role with a new set of rules;
   - use the commercial Synapse UI (Optic) to reorder rules using drag-and-drop.
+
 
 Assign Permissions
 ******************
@@ -717,6 +725,10 @@ Prevent the "all" role from deleting nodes:
 
 .. storm-cli:: auth.role.addrule all "!node.del"
 
+Prevent the "all" role from deleting nodes, and insert this as the first rule for the role:
+
+.. storm-cli:: auth.role.addrule --index 0 all "!node.del"
+
 .. TIP::
   
   Recall that you can :ref:`admin_user_show` or :ref:`admin_role_show` with the :ref:`storm-auth-user-show`
@@ -742,6 +754,48 @@ Revoke the rule that allows "junior analysts" to apply tags in the ``cno.threat`
 
 .. storm-cli:: auth.role.delrule "junior analysts" node.tag.cno.threat
 
+
+Check Permissions
+*****************
+
+The ``auth.user.allowed`` command can be used to check whether a user has a particular permission (i.e., is
+allowed to perform the associated operation). If an appropriate ``allow`` rule exists, the command will show
+the source (i.e., the rule, role, and / or associated Auth Gate) where the permission has been assigned.
+
+.. TIP::
+  
+  The ``auth.user.allowed`` command will only check permissions for the specified scope (e.g., either globally
+  or for the specified Auth Gate). Keep the following in mind:
+  
+  - A user may have permissions locally (e.g., to a specific Auth Gate) that they do not have globally. In other
+    words a **global** check may (correctly) show that a user does not have an expected permission globally, but
+    the permission will show as "allowed" when the appropriate Auth Gate is checked.
+  - When checking whether a user can see (read) data or manipulate (e.g., fork) a view, check the relevant **view.**
+  - When checking whether a user can modify (write or delete) data, check the relevant **layer.**
+  
+
+**Examples:**
+
+Check whether user 'ron' is allowed to apply tags in the ``cno`` tag tree **globally:**
+
+.. storm-pre:: auth.role.addrule "cattribution analyst" node.tag.add.cno
+
+.. storm-cli:: auth.user.allowed ron node.tag.add.cno
+
+Check whether user 'ron' is allowed to apply tags in the ``cno`` tag tree in the **current layer:**
+
+.. storm-cli:: auth.user.allowed --gate $lib.layer.get().iden ron node.tag.add.cno
+
+**Note** that the response for each of the commands above is identical, even though the first example performed
+a global check (no ``--gate`` option) while the second example checked the current layer (retrieved with
+``$lib.layer.get()``). The response in the second example shows that Ron can apply tags in the current layer because
+he has **global** permissions for this action - indicated by the **absence** of an iden in the response. If Ron's
+permissions were restricted to the queried gate (in this case, the layer), the associated iden would have been
+included in the command output.
+
+Check whether user 'ron' is allowed to fork the **current view:**
+
+.. storm-cli:: auth.user.allowed --gate $lib.view.get().iden ron view.add
 
 .. _admin_authgate_perms:
 
@@ -787,6 +841,60 @@ Display information for the current view:
 Display information for the current layer:
 
 .. storm-cli:: auth.gate.show $lib.layer.get().iden
+
+
+.. _admin_perms_best:
+
+Permissions Best Practices
+--------------------------
+
+- Synapse Admins who are also Synapse users should use a designated admin account (where ``admin = true``) for
+  administrative tasks and a separate account for their user tasks.
+
+- Where possible, assign permissions to roles and grant roles to users vs. assigning permissions to users
+  directly.
+
+- Segregate data with different access requirements into different **layers.** Grant access to data sets by
+  composing those layers into **views** and granting access to the appropriate view(s).
+
+- The ability to delete nodes in Synapse should be granted to a limited number of trusted individuals; we
+  recommend creating a dedicated role for this purpose.
+
+- Recall that in the majority of cases, any permission that is not explicitly granted is implicitly denied:
+
+  - If a role or user will have limited permissions, it is generally easier to explicitly **allow** only those
+    actions; everything else will be denied by default.
+  
+  - If a role or user will have broad permissions with a few exceptions, it is generally easier to explicitly
+    **deny** those specific things and then **grant** broad permissions. Because permissions rules are checked
+    in order, Synapse will encounter any deny rules first, blocking the prohibited action while allowing
+    anything not specifically denied.
+
+
+.. _admin_sample_perms:
+
+Example Permissions
+-------------------
+
+The examples below illustrate a few common use cases for roles and permissions within Synapse. For simplicity
+in demonstrating various combinations of permissions, all permissions below are granted **globally** except
+where specifying an Auth Gate (such as a view or layer) is relevant to the example.
+
+Case 1 - Create a role that can delete nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Allow the role ``here be dragons`` to delete nodes.
+- Prevent all other users (via the ``all`` role) from deleting nodes.
+
+::
+  
+
+
+Case 2 - Grant users common permissions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Case 3 - Moar
+~~~~~~~~~~~~~
 
 
 .. _admin_axon_perms:
