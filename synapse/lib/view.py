@@ -596,6 +596,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise s_exc.BadArg(mesg=mesg)
 
             if self.parent is not None:
+                if self.parent.iden == parent.iden:
+                    return valu
                 mesg = 'You may not set parent on a view which already has one.'
                 raise s_exc.BadArg(mesg=mesg)
 
@@ -617,7 +619,8 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             await self.info.set(name, valu)
 
-        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden, self.layers[0].iden])
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
+                                     gates=[self.iden, self.layers[0].iden])
         return valu
 
     async def addLayer(self, layriden, indx=None):
