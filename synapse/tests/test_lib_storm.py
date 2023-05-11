@@ -2613,6 +2613,12 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:fqdn')
             self.len(0, nodes)
 
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms (1)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('$foo="1.2.3.4" | scrape $foo --yield --forms (1)')
+            self.len(0, nodes)
+
             msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormHasNoWarnErr(msgs)
             msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
