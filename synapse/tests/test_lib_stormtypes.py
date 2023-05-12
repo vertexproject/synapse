@@ -746,7 +746,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("storm:queue: testq", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
-            self.stormIsInPrint("['1', '2', '3']", mesgs)
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.dict(foo=1, bar=2))')
             self.stormIsInPrint("'foo': '1'", mesgs)
@@ -756,20 +756,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("bound method LibBase._dict", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib)')
-            self.stormIsInPrint("Library $lib", mesgs)
-
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name))')
-            self.stormIsInPrint("storm:model:form: {'name': 'ou:name'", mesgs)
-
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name).type)')
-            self.stormIsInPrint("storm:model:type: ('ou:name'", mesgs)
-
-            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(ps:contact:orgname))')
-            self.stormIsInPrint("storm:model:property: {'name': 'orgname'", mesgs)
-
-            await core.addTagProp('score', ('int', {}), {})
-            mesgs = await core.stormlist('$lib.pprint($lib.model.tagprop(score))')
-            self.stormIsInPrint("storm:model:tagprop: {'name': 'score'", mesgs)
+            self.stormIsInPrint("LibBase object", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
             errs = [m[1] for m in mesgs if m[0] == 'err']

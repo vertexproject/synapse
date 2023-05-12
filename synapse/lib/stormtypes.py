@@ -1586,7 +1586,7 @@ class LibBase(Lib):
                 raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
 
         try:
-            item = await torepr(item)
+            item = await toprim(item)
         except s_exc.NoSuchType:
             pass
 

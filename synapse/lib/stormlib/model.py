@@ -395,6 +395,9 @@ class ModelForm(s_stormtypes.Prim):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu.pack()}'
 
+    def value(self):
+        return self.valu.pack()
+
 @s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
     '''
@@ -435,6 +438,9 @@ class ModelProp(s_stormtypes.Prim):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu.pack()}'
 
+    def value(self):
+        return self.valu.pack()
+
 @s_stormtypes.registry.registerType
 class ModelTagProp(s_stormtypes.Prim):
     '''
@@ -462,6 +468,9 @@ class ModelTagProp(s_stormtypes.Prim):
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu.pack()}'
+
+    def value(self):
+        return self.valu.pack()
 
 @s_stormtypes.registry.registerType
 class ModelType(s_stormtypes.Prim):
@@ -504,6 +513,9 @@ class ModelType(s_stormtypes.Prim):
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu.getTypeDef()}'
+
+    def value(self):
+        return self.valu.getTypeDef()
 
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
