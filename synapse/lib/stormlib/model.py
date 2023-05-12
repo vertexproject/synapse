@@ -392,9 +392,6 @@ class ModelForm(s_stormtypes.Prim):
         if prop is not None:
             return ModelProp(prop)
 
-    async def stormrepr(self):
-        return f'{self._storm_typename}: {self.valu.pack()}'
-
     def value(self):
         return self.valu.pack()
 
@@ -435,9 +432,6 @@ class ModelProp(s_stormtypes.Prim):
 
         return ModelForm(self.valu.form, path=path)
 
-    async def stormrepr(self):
-        return f'{self._storm_typename}: {self.valu.pack()}'
-
     def value(self):
         return self.valu.pack()
 
@@ -465,9 +459,6 @@ class ModelTagProp(s_stormtypes.Prim):
 
     def _ctorTagPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
-
-    async def stormrepr(self):
-        return f'{self._storm_typename}: {self.valu.pack()}'
 
     def value(self):
         return self.valu.pack()
@@ -510,9 +501,6 @@ class ModelType(s_stormtypes.Prim):
 
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
-
-    async def stormrepr(self):
-        return f'{self._storm_typename}: {self.valu.getTypeDef()}'
 
     def value(self):
         return self.valu.getTypeDef()
