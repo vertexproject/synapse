@@ -392,6 +392,9 @@ class ModelForm(s_stormtypes.Prim):
         if prop is not None:
             return ModelProp(prop)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.valu.pack()}'
+
 @s_stormtypes.registry.registerType
 class ModelProp(s_stormtypes.Prim):
     '''
@@ -429,6 +432,9 @@ class ModelProp(s_stormtypes.Prim):
 
         return ModelForm(self.valu.form, path=path)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.valu.pack()}'
+
 @s_stormtypes.registry.registerType
 class ModelTagProp(s_stormtypes.Prim):
     '''
@@ -453,6 +459,9 @@ class ModelTagProp(s_stormtypes.Prim):
 
     def _ctorTagPropType(self, path=None):
         return ModelType(self.valu.type, path=path)
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.valu.pack()}'
 
 @s_stormtypes.registry.registerType
 class ModelType(s_stormtypes.Prim):
@@ -492,6 +501,9 @@ class ModelType(s_stormtypes.Prim):
 
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.valu.getTypeDef()}'
 
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
