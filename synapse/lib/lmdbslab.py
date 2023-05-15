@@ -839,6 +839,10 @@ class Slab(s_base.Base):
         self.onfini(mq)
         return mq
 
+    async def getSlabDict(self, name):
+        db = self.initdb(f'_sd:{name}')
+        return await SlabDict.anit(self, db=db)
+
     def statinfo(self):
         return {
             'locking_memory': self.locking_memory,  # whether the memory lock loop was started and hasn't ended

@@ -115,6 +115,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
+        self.merge_to_hooks = self.viewslab.getSlabDict('hooks:merge:to')
+        self.merge_from_hooks = self.viewslab.getSlabDict('hooks:merge:from')
+
         trignode = await node.open(('triggers',))
         self.trigdict = await trignode.dict()
 
@@ -142,6 +145,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.trigtask = None
         await self.initTrigTask()
+
+    async def runMergeFromHooks(self):
+        for hdef in self.merge_from_hooks.values():
+            user = hdef.get('user')
+            storm = hdef.get('storm')
+
+    async def runMergeToHooks(self, view):
+        pass
 
     async def mergeStormIface(self, name, todo):
         '''
