@@ -3122,7 +3122,7 @@ class TagName(Value):
 
         return '.'.join(vals)
 
-    async def compute_array(self, runt, path, excignore=()):
+    async def computeTagArray(self, runt, path, excignore=()):
 
         if self.isconst:
             return (self.constval,)
@@ -3849,7 +3849,7 @@ class EditTagAdd(Edit):
         async for node, path in genr:
 
             try:
-                names = await self.kids[oper_offset].compute_array(runt, path, excignore=excignore)
+                names = await self.kids[oper_offset].computeTagArray(runt, path, excignore=excignore)
             except excignore:
                 yield node, path
                 await asyncio.sleep(0)
@@ -3883,7 +3883,7 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[0].compute_array(runt, path, excignore=(s_exc.BadTypeValu,))
+            names = await self.kids[0].computeTagArray(runt, path, excignore=(s_exc.BadTypeValu,))
 
             for name in names:
 
