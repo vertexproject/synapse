@@ -104,6 +104,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The tool uses the target node.'}),
                 (('risk:compromise', 'stole', None), {
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+                (('risk:mitigation', 'addresses', 'ou:technique'), {
+                    'doc': 'The mitigation addresses the technique.'}),
             ),
             'forms': (
 
