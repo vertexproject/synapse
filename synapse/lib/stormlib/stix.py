@@ -1034,6 +1034,10 @@ class LibStixExport(s_stormtypes.Lib):
                                         "rels": (
                                             ( <relname>, <target_stixtype>, <storm> ),
                                             ...
+                                        ),
+                                        "revs": (
+                                            ( <revname>, <source_stixtype>, <storm> ),
+                                            ...
                                         )
                                     },
                                     <stixtype1>: ...
