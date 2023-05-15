@@ -789,18 +789,16 @@ Display information for the current layer:
 .. storm-cli:: auth.gate.show $lib.layer.get().iden
 
 
-.. _admin_axon_perms:
+.. _admin_cortex_perms:
 
-Axon Permissions
-----------------
+Cortex Permissions
+------------------
 
-You must specifically grant users or roles permission to access (upload, check, or retrieve) files within a
-storage Axon.
+The following is a list of the Cortex permissions that may be granted to a user or role. If a gate other
+than ``cortex`` is specified, the permission will be checked against the specific gate instance and if no
+match is found, it will be checked against the global rules.
 
-- See the :ref:`deploy_axon` section of the :ref:`deploymentguide` for information on Axon deployment.
-- See the :ref:`devops-svc-axon` section of the :ref:`devopsguide` for information on Axon configuration,
-  including a description of Axon permissions.
-
+.. storm-cli:: auth.perms.list
 
 .. _admin_optic_perms:
 

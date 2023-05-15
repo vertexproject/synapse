@@ -566,10 +566,14 @@ stormcmds = (
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
-                $perm = $pdef.perm.join('.').ljust(50)
-                $gate = $pdef.gate.ljust(20)
-                $lib.print(`{$perm} - ({$gate})`)
-                $lib.print(`    {$pdef.desc}')
+                $perm = $lib.str.join(".", $pdef.perm)
+
+                $lib.print($perm)
+                $lib.print(`    {$pdef.desc}`)
+                $lib.print(`    gate: {$pdef.gate}`)
+                $lib.print(`    default: {$pdef.default}`)
+                if $pdef.ex { $lib.print(`    example: {$pdef.ex}`) }
+                $lib.print('')
             }
         '''
     },

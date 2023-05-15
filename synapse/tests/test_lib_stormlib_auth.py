@@ -294,3 +294,8 @@ class StormLibAuthTest(s_test.SynTest):
 
             msgs = await core.stormlist('auth.role.del admins')
             self.stormIsInWarn('Role (admins) not found!', msgs)
+
+            msgs = await core.stormlist('auth.perms.list')
+            self.stormIsInPrint('node.add.<form>', msgs)
+            self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
+            self.stormIsInPrint('default: false', msgs)

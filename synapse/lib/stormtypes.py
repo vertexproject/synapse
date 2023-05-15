@@ -1938,6 +1938,18 @@ class LibAxon(Lib):
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
     )
     _storm_lib_path = ('axon',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to remove a file from the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to retrieve a file from the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
+            'desc': 'Controls the ability to check if the Axon contains a file.'},
+        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
+            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
+            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -3442,6 +3454,12 @@ class LibTelepath(Lib):
                   'returns': {'type': 'storm:proxy', 'desc': 'A object representing a Telepath Proxy.', }}},
     )
     _storm_lib_path = ('telepath',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
+         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
+        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
+         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -3451,7 +3469,8 @@ class LibTelepath(Lib):
     async def _methTeleOpen(self, url):
         url = await tostr(url)
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
         return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
@@ -6379,7 +6398,8 @@ class Layer(Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -6418,7 +6438,9 @@ class Layer(Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -7427,6 +7449,12 @@ class LibUsers(Lib):
                               'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'users')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
+         'desc': 'Controlls the ability to add a user to the system. USE WITH CAUTION!'},
+        {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
+         'desc': 'Controlls the ability to remove a user from the system. USE WITH CAUTION!'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7454,7 +7482,8 @@ class LibUsers(Lib):
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        self.runt.confirm(('auth', 'user', 'add'))
+        if not self.runt.allowed(('auth', 'user', 'add')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'add'))
         name = await tostr(name)
         iden = await tostr(iden, True)
         email = await tostr(email, True)
@@ -7463,7 +7492,8 @@ class LibUsers(Lib):
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        self.runt.confirm(('auth', 'user', 'del'))
+        if not self.runt.allowed(('auth', 'user', 'del')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'del'))
         await self.runt.snap.core.delUser(iden)
 
 @registry.registerLib
@@ -7503,6 +7533,12 @@ class LibRoles(Lib):
                               'desc': 'The role by name, or null if it does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'roles')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'auth', 'roles', 'add'), 'gate': 'cortex',
+         'desc': 'Controlls the ability to add a role to the system. USE WITH CAUTION!'},
+        {'perm': ('storm', 'lib', 'auth', 'roles', 'del'), 'gate': 'cortex',
+         'desc': 'Controlls the ability to remove a role from the system. USE WITH CAUTION!'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7530,12 +7566,14 @@ class LibRoles(Lib):
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
-        self.runt.confirm(('auth', 'role', 'add'))
+        if not self.runt.allowed(('auth', 'role', 'add')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        self.runt.confirm(('auth', 'role', 'del'))
+        if not self.runt.allowed(('auth', 'role', 'del')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'del'))
         await self.runt.snap.core.delRole(iden)
 
 @registry.registerLib
