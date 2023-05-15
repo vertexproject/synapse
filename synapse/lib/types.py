@@ -160,7 +160,11 @@ class Type:
         }
 
     def getTypeDef(self):
-        basename = self.info['bases'][-1]
+        if len(self.info['bases']) > 0:
+            basename = self.info['bases'][-1]
+        else:
+            basename = 'base'
+
         info = self.info.copy()
         info['stortype'] = self.stortype
         return (self.name, (basename, self.opts), info)
