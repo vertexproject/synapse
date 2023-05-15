@@ -7,12 +7,34 @@ Synapse Changelog
 Unreleased - YYYY-MM-DD
 =======================
 
+Features and Enhancements
+-------------------------
+- Normalize tag names when performing lift and filter operations.
+(`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+
 Bugfixes
 --------
 - Fix an issue where attempting a tag lift with a variable containing
   a zero-length string would raise an MDB error.
   (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
-  
+- Fix an exception that was raised when setting the parent of a View.
+  (`#3131 <https://github.com/vertexproject/synapse/pull/3131>`_)
+
+v2.133.1 - 2023-05-09
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the Storm query hashing added in ``v2.133.0`` did not
+  account for handling erroneous surrogate pairs in query text.
+  (`#3130 <https://github.com/vertexproject/synapse/pull/3130>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm API Guide to include the ``hash`` key in the ``init``
+  message.
+  (`#3130 <https://github.com/vertexproject/synapse/pull/3130>`_)
+
 v2.133.0 - 2023-05-08
 =====================
 

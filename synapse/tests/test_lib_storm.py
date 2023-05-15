@@ -1202,6 +1202,11 @@ class StormTest(s_t_utils.SynTest):
                 ))
             '''))
 
+            # surrogate escapes are allowed
+            nodes = await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'pluto\udcbaneptune'))
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:

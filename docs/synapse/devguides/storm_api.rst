@@ -69,11 +69,15 @@ tick
 text
     The Storm query text.
 
+hash
+    The md5sum of the Storm query text.
+
 Example::
 
     ('init',
      {'task': '8c90c67e37a30101a2f6a7dfb2fa0805',
       'text': '.created | limit 3',
+      'hash': '2d16e12e80be53e0e79e7c7af9bda12b',
       'tick': 1539221678859})
 
 

@@ -251,6 +251,8 @@ class StormCli(s_cli.Cli):
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
     async def runCmdLine(self, line, opts=None):
+        if self.echoline:
+            self.outp.printf(f'{self.cmdprompt}{line}')
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
@@ -293,6 +295,8 @@ class StormCli(s_cli.Cli):
             realopts.update(opts)
 
         async for mesg in self.item.storm(text, opts=realopts):
+
+            await self.fire('storm:mesg', mesg=mesg)
 
             mtyp = mesg[0]
 
