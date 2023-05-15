@@ -46,7 +46,7 @@ class Type:
         self.form = None  # this will reference a Form() if the type is a form
         self.subof = None  # This references the name that a type was extended from.
 
-        self.info.setdefault('bases', ())
+        self.info.setdefault('bases', ('base',))
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -160,11 +160,7 @@ class Type:
         }
 
     def getTypeDef(self):
-        if len(self.info['bases']) > 0:
-            basename = self.info['bases'][-1]
-        else:
-            basename = 'base'
-
+        basename = self.info['bases'][-1]
         info = self.info.copy()
         info['stortype'] = self.stortype
         return (self.name, (basename, self.opts), info)
