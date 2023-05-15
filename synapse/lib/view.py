@@ -985,10 +985,10 @@ class View(s_nexus.Pusher):  # type: ignore
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
 
-    async def scrapeIface(self, text, unique=False):
+    async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, refang=True, first=False):
+            for item in s_scrape.contextScrape(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:
@@ -1001,7 +1001,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     tobj = self.core.model.type(form)
                     valu, _ = tobj.norm(valu)
-                except s_exc.BadTypeValu:  # pragma: no cover
+                except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
 

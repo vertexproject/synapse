@@ -4981,6 +4981,9 @@ class ScrapeCmd(Cmd):
 
         # Skip re-fanging text before scraping.
         inet:search:query | scrape --skiprefang
+
+        # Limit scrape to specific forms.
+        inet:search:query | scrape --forms (inet:fqdn, inet:ipv4)
     '''
 
     name = 'scrape'
@@ -4994,6 +4997,8 @@ class ScrapeCmd(Cmd):
                           help='Include newly scraped nodes in the output')
         pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
                           help='Do not remove de-fanging from text before scraping')
+        pars.add_argument('--forms', default=[],
+                          help='Only scrape values which match specific forms.')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
@@ -5004,6 +5009,13 @@ class ScrapeCmd(Cmd):
         async for node, path in genr:  # type: s_node.Node, s_node.Path
 
             refs = await s_stormtypes.toprim(self.opts.refs)
+            forms = await s_stormtypes.toprim(self.opts.forms)
+            refang = await s_stormtypes.tobool(self.opts.dorefang)
+
+            if isinstance(forms, str):
+                forms = forms.split(',')
+            elif not isinstance(forms, (tuple, list, set)):
+                forms = (forms,)
 
             # TODO some kind of repr or as-string option on toprims
             todo = await s_stormtypes.toprim(self.opts.values)
@@ -5016,41 +5028,46 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
+                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                    if forms and form not in forms:
+                        continue
 
-                    try:
-                        nnode = await node.snap.addNode(form, valu)
-                        npath = path.fork(nnode)
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
 
-                        if refs:
-                            if node.form.isrunt:
-                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
-                                await runt.warn(mesg)
-                            else:
-                                await node.addEdge('refs', nnode.iden())
+                    if refs:
+                        if node.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                            await runt.warn(mesg)
+                        else:
+                            await node.addEdge('refs', nnode.iden())
 
-                        if self.opts.doyield:
-                            yield nnode, npath
-
-                    except s_exc.BadTypeValu as e:
-                        await runt.warn(f'BadTypeValue for {form}="{valu}"')
+                    if self.opts.doyield:
+                        yield nnode, npath
 
             if not self.opts.doyield:
                 yield node, path
 
         if self.runtsafe and node is None:
 
+            forms = await s_stormtypes.toprim(self.opts.forms)
+            refang = await s_stormtypes.tobool(self.opts.dorefang)
+
+            if isinstance(forms, str):
+                forms = forms.split(',')
+            elif not isinstance(forms, (tuple, list, set)):
+                forms = (forms,)
+
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                try:
-                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
-                        addnode = await runt.snap.addNode(form, valu)
-                        if self.opts.doyield:
-                            yield addnode, runt.initPath(addnode)
+                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                    if forms and form not in forms:
+                        continue
 
-                except s_exc.BadTypeValu as e:
-                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
+                    addnode = await runt.snap.addNode(form, valu)
+                    if self.opts.doyield:
+                        yield addnode, runt.initPath(addnode)
 
 class SpliceListCmd(Cmd):
     '''
