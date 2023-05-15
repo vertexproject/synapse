@@ -5012,7 +5012,9 @@ class ScrapeCmd(Cmd):
             forms = await s_stormtypes.toprim(self.opts.forms)
             refang = await s_stormtypes.tobool(self.opts.dorefang)
 
-            if not isinstance(forms, (tuple, list, set)):
+            if isinstance(forms, str):
+                forms = forms.split(',')
+            elif not isinstance(forms, (tuple, list, set)):
                 forms = (forms,)
 
             # TODO some kind of repr or as-string option on toprims
@@ -5051,7 +5053,9 @@ class ScrapeCmd(Cmd):
             forms = await s_stormtypes.toprim(self.opts.forms)
             refang = await s_stormtypes.tobool(self.opts.dorefang)
 
-            if not isinstance(forms, (tuple, list, set)):
+            if isinstance(forms, str):
+                forms = forms.split(',')
+            elif not isinstance(forms, (tuple, list, set)):
                 forms = (forms,)
 
             for item in self.opts.values:

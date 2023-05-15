@@ -2578,6 +2578,12 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
             self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
 
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms inet:fqdn,inet:ipv4'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
             q = '''
             $foo="http://fxp.com 1.2.3.4" $forms=(inet:fqdn, inet:ipv4)
             | scrape $foo --yield --forms $forms'''
@@ -2607,6 +2613,10 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
             nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4,inet:fqdn')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
