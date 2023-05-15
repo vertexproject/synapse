@@ -198,6 +198,8 @@ class Prop:
 
     def pack(self):
         info = {
+            'name': self.name,
+            'full': self.full,
             'type': self.typedef,
             'stortype': self.type.stortype,
         }
@@ -408,6 +410,7 @@ class Form:
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
         info = {
+            'name': self.name,
             'props': props,
             'stortype': self.type.stortype,
         }
