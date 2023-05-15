@@ -354,7 +354,7 @@ From a Synapse Admin perspective, you will primarily be concerned with managing 
   roles in a Cortex, and permissions to a Cortex and its associated objects.
   
   Depending on your Synapse deployment, you may need to grant or manage permissions to additional Synapse services.
-  See the sections on :ref:`admin_axon_perms`, :ref:`admin_optic_perms`, and :ref:`admin_power_perms` for details.
+  See the sections on :ref:`admin_optic_perms` and :ref:`admin_power_perms` for details.
 
 .. _admin_bkd_cortex:
 
