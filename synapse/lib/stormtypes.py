@@ -7451,9 +7451,9 @@ class LibUsers(Lib):
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
         {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
-         'desc': 'Controlls the ability to add a user to the system. USE WITH CAUTION!'},
+         'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
         {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
-         'desc': 'Controlls the ability to remove a user from the system. USE WITH CAUTION!'},
+         'desc': 'Controls the ability to remove a user from the system. USE WITH CAUTION!'},
     )
 
     def getObjLocals(self):
@@ -7535,9 +7535,9 @@ class LibRoles(Lib):
     _storm_lib_path = ('auth', 'roles')
     _storm_lib_perms = (
         {'perm': ('storm', 'lib', 'auth', 'roles', 'add'), 'gate': 'cortex',
-         'desc': 'Controlls the ability to add a role to the system. USE WITH CAUTION!'},
+         'desc': 'Controls the ability to add a role to the system. USE WITH CAUTION!'},
         {'perm': ('storm', 'lib', 'auth', 'roles', 'del'), 'gate': 'cortex',
-         'desc': 'Controlls the ability to remove a role from the system. USE WITH CAUTION!'},
+         'desc': 'Controls the ability to remove a role from the system. USE WITH CAUTION!'},
     )
 
     def getObjLocals(self):
