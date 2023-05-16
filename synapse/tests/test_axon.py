@@ -330,9 +330,11 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
         evt = asyncio.Event()
         origlink = s_axon.Axon._sha256ToLink
-        async def fakelink(self, sha256, link):
+        async def fakelink(self, sha256_, link):
             link.onfini(evt.set)
-            await origlink(self, sha256, link)
+            if sha256_ == pennhash:
+                sha256_ = b'newp'
+            await origlink(self, sha256_, link)
 
         newdata = '\n'.join([data for i in range(500)])
         size, sha256 = await axon.put(newdata.encode())
@@ -346,6 +348,10 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             async for row in axon.readlines(s_common.ehex(sha256)):
                 break
             self.true(await s_coro.event_wait(evt, 5))
+
+            # make sure exceptions within sha256tolink get re-raised
+            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.csvrows(pennhash)))
+            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.readlines(pennhash)))
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
