@@ -395,7 +395,7 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
-    _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
+    _storm_locals = ()  # type: Any # To be overridden for deref constants that need documentation
     _ismutable = True
     _storm_typename = 'storm:unknown'
 
@@ -1191,7 +1191,7 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_print',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'String to print.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword argumetns to substitue into the mesg.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'range', 'desc': '''
@@ -2363,7 +2363,7 @@ class LibTime(Lib):
                       {'name': 'errok', 'type': 'boolean', 'default': False,
                        'desc': 'If set, parsing errors will return ``$lib.null`` instead of raising an exception.'}
                   ),
-                  'returns': {'type': 'int', 'desc': 'The epoch timetsamp for the string.', }}},
+                  'returns': {'type': 'int', 'desc': 'The epoch timestamp for the string.', }}},
         {'name': 'format', 'desc': '''
             Format a Synapse timestamp into a string value using ``datetime.strftime()``.
 
@@ -3740,7 +3740,7 @@ class Str(Prim):
                   'args': (
                       {'name': 'oldv', 'type': 'str', 'desc': 'The value to replace.', },
                       {'name': 'newv', 'type': 'str', 'desc': 'The value to add into the string.', },
-                      {'name': 'maxv', 'type': 'int', 'desc': 'The maximum number of occurances to replace.',
+                      {'name': 'maxv', 'type': 'int', 'desc': 'The maximum number of occurrences to replace.',
                        'default': None, },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with replaced instances.', }}},
@@ -3853,7 +3853,7 @@ class Str(Prim):
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The substring to find.'},
                   ),
-                  'returns': {'type': 'int', 'desc': 'The first offset of subsgring or null.'}}},
+                  'returns': {'type': 'int', 'desc': 'The first offset of substring or null.'}}},
         {'name': 'size', 'desc': 'Return the length of the string.',
          'type': {'type': 'function', '_funcname': '_methStrSize',
                   'returns': {'type': 'int', 'desc': 'The size of the string.', }}},
@@ -5221,7 +5221,7 @@ class NodeProps(Prim):
 
         Raises:
             s_exc:NoSuchProp: If the property being set is not valid for the node.
-            s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
+            s_exc.BadTypeValu: If the value of the property fails to normalize.
         '''
         name = await tostr(name)
         formprop = self.valu.form.prop(name)
@@ -6739,7 +6739,7 @@ class View(Prim):
                   'returns': {'type': 'storm:view', 'desc': 'The ``storm:view`` object for the new View.', }}},
         {'name': 'pack', 'desc': 'Get the View definition.',
          'type': {'type': 'function', '_funcname': '_methViewPack',
-                  'returns': {'type': 'dict', 'desc': 'Dictionary continaing the View definition.', }}},
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the View definition.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the View.',
          'type': {'type': 'function', '_funcname': '_methViewRepr',
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
@@ -8063,7 +8063,7 @@ class User(Prim):
         {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
          'type': {'type': 'function', '_funcname': '_methUserNotify',
                   'args': (
-                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notfication type.', },
+                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
                       {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -8442,7 +8442,7 @@ class Role(Prim):
          'type': {'type': 'function', '_funcname': '_methRoleSetRules',
                   'args': (
                       {'name': 'rules', 'type': 'list', 'desc': 'A list of rules to set on the Role.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'Ahe gate iden used for the rules.',
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rules.',
                        'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
