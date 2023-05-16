@@ -4474,3 +4474,30 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
             self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
+
+    async def test_lib_storm_delnode(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('node',)))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            await core.nodes(f'file:bytes={sha256} | delnode')
+            self.len(0, await core.nodes(f'file:bytes={sha256}'))
+            self.true(await core.axon.has(s_common.uhex(sha256)))
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+
+                await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+                self.len(0, await core.nodes(f'file:bytes={sha256}'))
+                self.false(await core.axon.has(s_common.uhex(sha256)))
