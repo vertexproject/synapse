@@ -3199,7 +3199,26 @@ class CopyToCmd(Cmd):
 
                 async with snap.getEditor() as editor:
 
-                    proto = await editor.addNode(node.ndef[0], node.ndef[1], props=node.props)
+                    proto = await editor.addNode(node.ndef[0], node.ndef[1])
+
+                    for name, valu in node.props.items():
+
+                        prop = node.form.prop(name)
+                        if prop.info.get('ro'):
+                            if name == '.created':
+                                proto.props['.created'] = valu
+                                continue
+
+                            curv = proto.get(name)
+                            if curv is not None and curv != valu:
+                                valurepr = prop.type.repr(curv)
+                                mesg = f'Cannot overwrite read only property with conflicting ' \
+                                       f'value: {node.iden()} {prop.full} = {valurepr}'
+                                await runt.snap.warn(mesg)
+                                continue
+
+                        await proto.set(name, valu)
+
                     for name, valu in node.tags.items():
                         await proto.addTag(name, valu=valu)
 
