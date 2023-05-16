@@ -4171,10 +4171,6 @@ class DelNodeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runtsafe:
-            mesg = 'batch arguments must be runtsafe.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
-
         force = await s_stormtypes.tobool(self.opts.force)
         delbytes = await s_stormtypes.tobool(self.opts.delbytes)
 
