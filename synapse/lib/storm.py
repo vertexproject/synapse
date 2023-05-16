@@ -4183,14 +4183,25 @@ class DelNodeCmd(Cmd):
         pars = Cmd.getArgParser(self)
         forcehelp = 'Force delete even if it causes broken references (requires admin).'
         pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
+        pars.add_argument('--delbytes', default=False, action='store_true',
+                          help='For file:bytes nodes, remove the bytes associated with the '
+                               'sha256 property from the axon as well if present.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if self.opts.force:
+        force = await s_stormtypes.tobool(self.opts.force)
+        delbytes = await s_stormtypes.tobool(self.opts.delbytes)
+
+        if force:
             if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        if delbytes:
+            runt.confirm(('storm', 'lib', 'axon', 'del'))
+            await runt.snap.core.getAxon()
+            axon = runt.snap.core.axon
 
         async for node, path in genr:
 
@@ -4200,7 +4211,13 @@ class DelNodeCmd(Cmd):
 
             runt.layerConfirm(('node', 'del', node.form.name))
 
-            await node.delete(force=self.opts.force)
+            if delbytes and node.form.name == 'file:bytes':
+                sha256 = node.props.get('sha256')
+                if sha256:
+                    sha256b = s_common.uhex(sha256)
+                    await axon.del_(sha256b)
+
+            await node.delete(force=force)
 
             await asyncio.sleep(0)
 
