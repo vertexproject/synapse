@@ -351,7 +351,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
             # make sure exceptions within sha256tolink get re-raised
             await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.csvrows(pennhash)))
-            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.readlines(pennhash)))
+            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.readlines(s_common.ehex(pennhash))))
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
