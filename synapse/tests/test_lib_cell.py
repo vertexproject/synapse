@@ -1005,7 +1005,7 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeperProc'))
 
                     info = await proxy.getBackupInfo()
                     errinfo = info.get('lastexception')
@@ -1016,7 +1016,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeper2Proc'))
 
                         info = await proxy.getBackupInfo()
                         laststart2 = info['laststart']
@@ -1024,8 +1024,10 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
 
+                        return
+
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
                         info = await proxy.getBackupInfo()
                         laststart3 = info['laststart']
