@@ -63,6 +63,12 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist('$lib.print($lib.model.type(int))')
             self.stormIsInPrint("storm:model:type: ('int', ('base'", mesgs)
 
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.pprint($item.type)")
+            self.stormIsInPrint("('int',\n ('base',", mesgs)
+
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
+            self.stormIsInPrint("storm:model:type: ('int', ('base'", mesgs)
+
     async def test_stormlib_model_edge(self):
 
         with self.getTestDir() as dirn:
