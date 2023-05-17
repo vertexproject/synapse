@@ -1024,8 +1024,6 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
 
-                        return
-
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
                             await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
@@ -1043,6 +1041,10 @@ class CellTest(s_t_utils.SynTest):
                     slabpath = s_common.genpath(coredirn, 'randodirn', 'randoslab2')
                     async with await s_lmdbslab.Slab.anit(slabpath):
                         pass
+
+                    await proxy.delBackup('_sleeperProc')
+                    await proxy.delBackup('_sleeper2Proc')
+                    await proxy.delBackup('_exiterProc')
 
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
