@@ -1092,6 +1092,20 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch('shutil.disk_usage', lowspace):
                         await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
 
+            def fileerr(path):
+                raise Exception('boom')
+
+            with mock.patch('os.path.isfile', fileerr):
+                with self.raises(Exception):
+                    s_tools_backup.backup(coredirn, os.path.join(backdirn, 'partial'))
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+                    self.isin('partial', await proxy.getBackups())
+
+                    await proxy.delBackup(name='partial')
+                    self.notin('partial', await proxy.getBackups())
+
     async def test_cell_tls_client(self):
 
         with self.getTestDir() as dirn:
