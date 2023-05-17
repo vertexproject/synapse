@@ -4474,6 +4474,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
 
             oldn = await core.nodes('[ inet:ipv4=2.2.2.2 ]', opts=opts)
+            await asyncio.sleep(0.1)
             newn = await core.nodes('[ inet:ipv4=2.2.2.2 ]')
             self.ne(oldn[0].props['.created'], newn[0].props['.created'])
 
