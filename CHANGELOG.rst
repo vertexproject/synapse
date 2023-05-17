@@ -4,13 +4,53 @@
 Synapse Changelog
 *****************
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.134.0 - YYYY-MM-DD
+=====================
+
+Model Changes
+-------------
+- Updates to the ``risk`` model.
+  (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
+
+  Light Edges
+  -----------
+
+  ``addresses``
+    When used with an ``risk:mitigation`` and an ``ou:technique`` node, the
+    edge indicates the mitigation addresses the technique.
+
+Features and Enhancements
+-------------------------
+- Add a ``--forms`` option to the Storm ``scrape`` command. This can be used
+  to limit the forms that are made from scraping the input text. The
+  ``scrape`` command now uses the View scrape interface to generate its
+  matches, which may include scrape functionality added via power-ups.
+  The ``scrape`` command  no longer produces warning messages when matched
+  text is not valid for making nodes.
+  (`#3127 <https://github.com/vertexproject/synapse/pull/3127>`_)
+- Add a ``revs`` definition to the STIX export configuration, to allow for
+  adding in reverse relationships.
+  (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
+- Add a ``--delbytes`` option to the Storm ``delnode`` command. This can be
+  used to delete the bytes from an Axon when deleting a ``file:bytes`` node.
+  (`#3140 <https://github.com/vertexproject/synapse/pull/3140>`_)
+- Add support for printing nice versions of the Storm ``storm:model:form``,
+  ``storm:model:property``, ``storm:model:tagprop``, and ``storm:model:type``
+  objects.
+  (`#3134 <https://github.com/vertexproject/synapse/pull/3134>`_)
+  (`#3139 <https://github.com/vertexproject/synapse/pull/3139>`_)
 
 Bugfixes
 --------
 - Fix an exception that was raised when setting the parent of a View.
   (`#3131 <https://github.com/vertexproject/synapse/pull/3131>`_)
+  (`#3132 <https://github.com/vertexproject/synapse/pull/3132>`_)
+- Fix an issue with the text scrape regular expressions misidentifying the
+  ``ftp://`` scheme.
+  (`#3127 <https://github.com/vertexproject/synapse/pull/3127>`_)
+- Correctly handle ``readonly`` properties in the Storm ``copyto`` command.
+  (`#3142 <https://github.com/vertexproject/synapse/pull/3142>`_)
+
 
 v2.133.1 - 2023-05-09
 =====================
