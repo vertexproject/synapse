@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.134.0 - YYYY-MM-DD
+v2.134.0 - 2023-05-17
 =====================
 
 Model Changes
@@ -16,7 +16,7 @@ Model Changes
   -----------
 
   ``addresses``
-    When used with an ``risk:mitigation`` and an ``ou:technique`` node, the
+    When used with a ``risk:mitigation`` and a ``ou:technique`` node, the
     edge indicates the mitigation addresses the technique.
 
 Features and Enhancements
@@ -25,7 +25,7 @@ Features and Enhancements
   to limit the forms that are made from scraping the input text. The
   ``scrape`` command now uses the View scrape interface to generate its
   matches, which may include scrape functionality added via power-ups.
-  The ``scrape`` command  no longer produces warning messages when matched
+  The ``scrape`` command no longer produces warning messages when matched
   text is not valid for making nodes.
   (`#3127 <https://github.com/vertexproject/synapse/pull/3127>`_)
 - Add a ``revs`` definition to the STIX export configuration, to allow for
