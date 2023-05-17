@@ -1092,15 +1092,17 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch('shutil.disk_usage', lowspace):
                         await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
 
-            def fileerr(path):
-                raise Exception('boom')
-
-            with mock.patch('os.path.isfile', fileerr):
-                with self.raises(Exception):
-                    s_tools_backup.backup(coredirn, os.path.join(backdirn, 'partial'))
+            async def err(*args, **kwargs):
+                raise RuntimeError('boom')
 
             async with self.getTestCore(dirn=coredirn) as core:
                 async with core.getLocalProxy() as proxy:
+
+                    with mock.patch('synapse.lib.coro.executor', err):
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.runBackup('partial')
+                        self.eq(cm.exception.get('errx'), 'RuntimeError')
+
                     self.isin('partial', await proxy.getBackups())
 
                     await proxy.delBackup(name='partial')
