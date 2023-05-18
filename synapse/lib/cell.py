@@ -1954,6 +1954,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 logger.debug('Starting backup process')
 
+                # Copy cell.guid first to ensure the backup can be deleted
+                dstdir = s_common.gendir(dirn)
+                shutil.copy(os.path.join(self.dirn, 'cell.guid'), os.path.join(dstdir, 'cell.guid'))
+
                 args = (child_pipe, self.dirn, dirn, paths, logconf)
 
                 def waitforproc1():

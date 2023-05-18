@@ -1005,7 +1005,7 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeperProc'))
 
                     info = await proxy.getBackupInfo()
                     errinfo = info.get('lastexception')
@@ -1016,7 +1016,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeper2Proc'))
 
                         info = await proxy.getBackupInfo()
                         laststart2 = info['laststart']
@@ -1025,7 +1025,7 @@ class CellTest(s_t_utils.SynTest):
                         self.eq(errinfo['err'], 'SynErr')
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
                         info = await proxy.getBackupInfo()
                         laststart3 = info['laststart']
@@ -1041,6 +1041,10 @@ class CellTest(s_t_utils.SynTest):
                     slabpath = s_common.genpath(coredirn, 'randodirn', 'randoslab2')
                     async with await s_lmdbslab.Slab.anit(slabpath):
                         pass
+
+                    await proxy.delBackup('_sleeperProc')
+                    await proxy.delBackup('_sleeper2Proc')
+                    await proxy.delBackup('_exiterProc')
 
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
@@ -1091,6 +1095,22 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch('shutil.disk_usage', lowspace):
                         await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
+            async def err(*args, **kwargs):
+                raise RuntimeError('boom')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    with mock.patch('synapse.lib.coro.executor', err):
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.runBackup('partial')
+                        self.eq(cm.exception.get('errx'), 'RuntimeError')
+
+                    self.isin('partial', await proxy.getBackups())
+
+                    await proxy.delBackup(name='partial')
+                    self.notin('partial', await proxy.getBackups())
 
     async def test_cell_tls_client(self):
 
