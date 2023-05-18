@@ -50,7 +50,9 @@ Bugfixes
   (`#3127 <https://github.com/vertexproject/synapse/pull/3127>`_)
 - Correctly handle ``readonly`` properties in the Storm ``copyto`` command.
   (`#3142 <https://github.com/vertexproject/synapse/pull/3142>`_)
-
+- Fix an issue were partial service backups were not able to be removed.
+  (`#3143 <https://github.com/vertexproject/synapse/pull/3143>`_)
+  (`#3145 <https://github.com/vertexproject/synapse/pull/3145>`_)
 
 v2.133.1 - 2023-05-09
 =====================
