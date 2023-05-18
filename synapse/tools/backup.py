@@ -88,9 +88,6 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
     srcdir = s_common.reqdir(srcdir)
     dstdir = s_common.gendir(dstdir)
 
-    # Copy cell.guid first to ensure the backup can be deleted
-    shutil.copy(os.path.join(srcdir, 'cell.guid'), os.path.join(dstdir, 'cell.guid'))
-
     if skipdirs is None:
         skipdirs = []
 
