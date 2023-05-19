@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
+  where certain exceptions would not be raised.
+  (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
+
 v2.134.0 - 2023-05-17
 =====================
 
