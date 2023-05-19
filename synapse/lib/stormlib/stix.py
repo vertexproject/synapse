@@ -401,6 +401,33 @@ _DefaultConfig = {
             }
         },
 
+        'ou:technique': {
+            'default': 'attack-pattern',
+            'stix': {
+                'attack-pattern': {
+                    'props': {
+                        'name': '{ +:name return(:name) } return($node.repr())',
+                        'description': '+:desc return(:desc)',
+                    },
+                    'revs': (
+                        ('mitigates', 'course-of-action', '<(addresses)- risk:mitigation'),
+                    ),
+                },
+            },
+        },
+
+        'risk:mitigation': {
+            'default': 'course-of-action',
+            'stix': {
+                'course-of-action': {
+                    'props': {
+                        'name': '{ +:name return(:name) } return($node.repr())',
+                        'description': '+:desc return(:desc)',
+                    },
+                },
+            },
+        },
+
         'media:news': {
             'default': 'report',
             'stix': {
@@ -529,6 +556,13 @@ def _validateConfig(core, config):
                 for stixrel in stixrels:
                     if len(stixrel) != 3:
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
+                        raise s_exc.BadConfValu(mesg=mesg)
+
+            stixrevs = stixinfo.get('revs')
+            if stixrevs is not None:
+                for stixrev in stixrevs:
+                    if len(stixrev) != 3:
+                        mesg = f'STIX Bundle config has invalid rev entry {formname} {stixtype} {stixrev}.'
                         raise s_exc.BadConfValu(mesg=mesg)
 
             stixpivs = stixinfo.get('pivots')
@@ -999,6 +1033,10 @@ class LibStixExport(s_stormtypes.Lib):
                                         "rels": (
                                             ( <relname>, <target_stixtype>, <storm> ),
                                             ...
+                                        ),
+                                        "revs": (
+                                            ( <revname>, <source_stixtype>, <storm> ),
+                                            ...
                                         )
                                     },
                                     <stixtype1>: ...
@@ -1275,6 +1313,11 @@ class StixBundle(s_stormtypes.Prim):
             async for relnode, relpath in node.storm(self.runt, relstorm):
                 n2id = await self.add(relnode, stixtype=reltype)
                 await self._addRel(stixid, relname, n2id)
+
+        for (revname, revtype, revstorm) in stixconf.get('revs', ()):
+            async for revnode, revpath in node.storm(self.runt, revstorm):
+                n1id = await self.add(revnode, stixtype=revtype)
+                await self._addRel(n1id, revname, stixid)
 
         for pivdef in stixconf.get('pivots', ()):
             pivtype = pivdef.get('stixtype')

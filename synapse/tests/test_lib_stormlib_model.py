@@ -36,6 +36,39 @@ class StormlibModelTest(s_test.SynTest):
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
 
+            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name))')
+            self.stormIsInPrint("storm:model:form: {'name': 'ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name))')
+            self.stormIsInPrint("{'name': 'ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name).type)')
+            self.stormIsInPrint("storm:model:type: ('ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name).type)')
+            self.stormIsInPrint("('ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.prop(ps:contact:orgname))')
+            self.stormIsInPrint("storm:model:property: {'name': 'orgname'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(ps:contact:orgname))')
+            self.stormIsInPrint("'type': ('ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
+            self.stormIsInPrint("storm:model:tagprop: {'name': 'score'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.tagprop(score))')
+            self.stormIsInPrint("'name': 'score'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.type(int))')
+            self.stormIsInPrint("storm:model:type: ('int', ('base'", mesgs)
+
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.pprint($item.type)")
+            self.stormIsInPrint("('int',\n ('base',", mesgs)
+
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
+            self.stormIsInPrint("storm:model:type: ('int', ('base'", mesgs)
+
     async def test_stormlib_model_edge(self):
 
         with self.getTestDir() as dirn:

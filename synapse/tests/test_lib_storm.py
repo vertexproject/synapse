@@ -2572,6 +2572,26 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield --skiprefang')
             self.len(0, nodes)
 
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms (inet:fqdn, inet:ipv4)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms inet:fqdn,inet:ipv4'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
+            q = '''
+            $foo="http://fxp.com 1.2.3.4" $forms=(inet:fqdn, inet:ipv4)
+            | scrape $foo --yield --forms $forms'''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
             # per-node tests
 
             guid = s_common.guid()
@@ -2592,11 +2612,27 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
-            # test runtsafe and non-runtsafe failure to create node
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4,inet:fqdn')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:fqdn')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms (1)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('$foo="1.2.3.4" | scrape $foo --yield --forms (1)')
+            self.len(0, nodes)
+
             msgs = await core.stormlist('scrape "https://t.c\\\\"')
-            self.stormIsInWarn('BadTypeValue', msgs)
+            self.stormHasNoWarnErr(msgs)
             msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
-            self.stormIsInWarn('BadTypeValue', msgs)
+            self.stormHasNoWarnErr(msgs)
 
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')
             msgs = await core.stormlist('syn:trigger | scrape :storm --refs')
@@ -4423,11 +4459,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ inet:ipv4=1.1.1.1 inet:ipv4=5.5.5.5 ]', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-            opts = {'vars': {'view': view}}
-            msgs = await core.stormlist('media:news | copyto $view', opts=opts)
+            msgs = await core.stormlist('media:news | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
-            opts = {'view': view}
             self.len(1, await core.nodes('media:news +#foo.bar:score>1'))
             self.len(1, await core.nodes('media:news +:title=vertex :url -> inet:url', opts=opts))
             nodes = await core.nodes('media:news +:title=vertex -(refs)> inet:ipv4', opts=opts)
@@ -4438,3 +4472,50 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
             self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
+
+            oldn = await core.nodes('[ inet:ipv4=2.2.2.2 ]', opts=opts)
+            await asyncio.sleep(0.1)
+            newn = await core.nodes('[ inet:ipv4=2.2.2.2 ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            msgs = await core.stormlist('inet:ipv4=2.2.2.2 | copyto $view', opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+
+            oldn = await core.nodes('inet:ipv4=2.2.2.2', opts=opts)
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
+            await core.nodes('[ test:ro=bad :readable=bar ]')
+
+            msgs = await core.stormlist('test:ro=bad | copyto $view', opts={'vars': {'view': view}})
+            self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
+
+            nodes = await core.nodes('test:ro=bad', opts=opts)
+            self.eq(nodes[0].props.get('readable'), 'foo')
+
+    async def test_lib_storm_delnode(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('node',)))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            await core.nodes(f'file:bytes={sha256} | delnode')
+            self.len(0, await core.nodes(f'file:bytes={sha256}'))
+            self.true(await core.axon.has(s_common.uhex(sha256)))
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+
+                await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+                self.len(0, await core.nodes(f'file:bytes={sha256}'))
+                self.false(await core.axon.has(s_common.uhex(sha256)))

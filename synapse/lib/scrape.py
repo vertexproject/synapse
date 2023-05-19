@@ -128,25 +128,21 @@ def getForms():
     return sorted(_regexes.keys())
 
 FANGS = {
+    'fxp:': 'ftp:',
+    'fxps:': 'ftps:',
     'hxxp:': 'http:',
     'hxxps:': 'https:',
-    'http[:]': 'http:',
-    'hxxp[:]': 'http:',
-    'https[:]': 'https:',
-    'hxxps[:]': 'https:',
-    'http[://]': 'http://',
-    'hxxp[://]': 'http://',
-    'https[://]': 'https://',
-    'hxxps[://]': 'https://',
-    'http[:': 'http:',
-    'hxxp[:': 'http:',
-    'https[:': 'https:',
-    'hxxps[:': 'https:',
-    'http(:)': 'http:',
-    'hxxp(:)': 'http:',
-    'https(:)': 'https:',
-    'hxxps(:)': 'https:',
-    'hxxp[s]:': 'https:',
+    'fxp[s]:': 'ftps:',
+    'hxxp[s]:': 'https:'
+}
+
+for fang in ('[:]', '[://]', '[:', '(:)'):
+    for scheme in ('ftp', 'fxp', 'ftps', 'fxps', 'http', 'hxxp', 'https', 'hxxps'):
+        fanged = f'{scheme}{fang}'
+        defanged = regex.sub(r'[\[\]\(\)]', '', fanged.replace('x', 't'))
+        FANGS[fanged] = defanged
+
+FANGS.update({
     '[.]': '.',
     '.]': '.',
     '[.': '.',
@@ -157,13 +153,12 @@ FANGS = {
     '(．)': '．',
     '(。)': '。',
     '(｡)': '｡',
+    '[dot]': '.',
     '[:]': ':',
-    'fxp': 'ftp',
-    'fxps': 'ftps',
     '[at]': '@',
     '[@]': '@',
     '\\.': '.',
-}
+})
 
 def genFangRegex(fangs, flags=regex.IGNORECASE):
     # Fangs must be matches of equal or smaller length in order for the

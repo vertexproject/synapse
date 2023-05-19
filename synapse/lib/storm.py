@@ -3199,7 +3199,26 @@ class CopyToCmd(Cmd):
 
                 async with snap.getEditor() as editor:
 
-                    proto = await editor.addNode(node.ndef[0], node.ndef[1], props=node.props)
+                    proto = await editor.addNode(node.ndef[0], node.ndef[1])
+
+                    for name, valu in node.props.items():
+
+                        prop = node.form.prop(name)
+                        if prop.info.get('ro'):
+                            if name == '.created':
+                                proto.props['.created'] = valu
+                                continue
+
+                            curv = proto.get(name)
+                            if curv is not None and curv != valu:
+                                valurepr = prop.type.repr(curv)
+                                mesg = f'Cannot overwrite read only property with conflicting ' \
+                                       f'value: {node.iden()} {prop.full} = {valurepr}'
+                                await runt.snap.warn(mesg)
+                                continue
+
+                        await proto.set(name, valu)
+
                     for name, valu in node.tags.items():
                         await proto.addTag(name, valu=valu)
 
@@ -4164,14 +4183,25 @@ class DelNodeCmd(Cmd):
         pars = Cmd.getArgParser(self)
         forcehelp = 'Force delete even if it causes broken references (requires admin).'
         pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
+        pars.add_argument('--delbytes', default=False, action='store_true',
+                          help='For file:bytes nodes, remove the bytes associated with the '
+                               'sha256 property from the axon as well if present.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if self.opts.force:
+        force = await s_stormtypes.tobool(self.opts.force)
+        delbytes = await s_stormtypes.tobool(self.opts.delbytes)
+
+        if force:
             if runt.user is not None and not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        if delbytes:
+            runt.confirm(('storm', 'lib', 'axon', 'del'))
+            await runt.snap.core.getAxon()
+            axon = runt.snap.core.axon
 
         async for node, path in genr:
 
@@ -4181,7 +4211,13 @@ class DelNodeCmd(Cmd):
 
             runt.layerConfirm(('node', 'del', node.form.name))
 
-            await node.delete(force=self.opts.force)
+            if delbytes and node.form.name == 'file:bytes':
+                sha256 = node.props.get('sha256')
+                if sha256:
+                    sha256b = s_common.uhex(sha256)
+                    await axon.del_(sha256b)
+
+            await node.delete(force=force)
 
             await asyncio.sleep(0)
 
@@ -4981,6 +5017,9 @@ class ScrapeCmd(Cmd):
 
         # Skip re-fanging text before scraping.
         inet:search:query | scrape --skiprefang
+
+        # Limit scrape to specific forms.
+        inet:search:query | scrape --forms (inet:fqdn, inet:ipv4)
     '''
 
     name = 'scrape'
@@ -4994,6 +5033,8 @@ class ScrapeCmd(Cmd):
                           help='Include newly scraped nodes in the output')
         pars.add_argument('--skiprefang', dest='dorefang', default=True, action='store_false',
                           help='Do not remove de-fanging from text before scraping')
+        pars.add_argument('--forms', default=[],
+                          help='Only scrape values which match specific forms.')
         pars.add_argument('values', nargs='*',
                           help='Specific relative properties or variables to scrape')
         return pars
@@ -5004,6 +5045,13 @@ class ScrapeCmd(Cmd):
         async for node, path in genr:  # type: s_node.Node, s_node.Path
 
             refs = await s_stormtypes.toprim(self.opts.refs)
+            forms = await s_stormtypes.toprim(self.opts.forms)
+            refang = await s_stormtypes.tobool(self.opts.dorefang)
+
+            if isinstance(forms, str):
+                forms = forms.split(',')
+            elif not isinstance(forms, (tuple, list, set)):
+                forms = (forms,)
 
             # TODO some kind of repr or as-string option on toprims
             todo = await s_stormtypes.toprim(self.opts.values)
@@ -5016,41 +5064,46 @@ class ScrapeCmd(Cmd):
 
                 text = str(text)
 
-                for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
+                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                    if forms and form not in forms:
+                        continue
 
-                    try:
-                        nnode = await node.snap.addNode(form, valu)
-                        npath = path.fork(nnode)
+                    nnode = await node.snap.addNode(form, valu)
+                    npath = path.fork(nnode)
 
-                        if refs:
-                            if node.form.isrunt:
-                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
-                                await runt.warn(mesg)
-                            else:
-                                await node.addEdge('refs', nnode.iden())
+                    if refs:
+                        if node.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                            await runt.warn(mesg)
+                        else:
+                            await node.addEdge('refs', nnode.iden())
 
-                        if self.opts.doyield:
-                            yield nnode, npath
-
-                    except s_exc.BadTypeValu as e:
-                        await runt.warn(f'BadTypeValue for {form}="{valu}"')
+                    if self.opts.doyield:
+                        yield nnode, npath
 
             if not self.opts.doyield:
                 yield node, path
 
         if self.runtsafe and node is None:
 
+            forms = await s_stormtypes.toprim(self.opts.forms)
+            refang = await s_stormtypes.tobool(self.opts.dorefang)
+
+            if isinstance(forms, str):
+                forms = forms.split(',')
+            elif not isinstance(forms, (tuple, list, set)):
+                forms = (forms,)
+
             for item in self.opts.values:
                 text = str(await s_stormtypes.toprim(item))
 
-                try:
-                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
-                        addnode = await runt.snap.addNode(form, valu)
-                        if self.opts.doyield:
-                            yield addnode, runt.initPath(addnode)
+                async for (form, valu, _) in self.runt.snap.view.scrapeIface(text, refang=refang):
+                    if forms and form not in forms:
+                        continue
 
-                except s_exc.BadTypeValu as e:
-                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
+                    addnode = await runt.snap.addNode(form, valu)
+                    if self.opts.doyield:
+                        yield addnode, runt.initPath(addnode)
 
 class SpliceListCmd(Cmd):
     '''
