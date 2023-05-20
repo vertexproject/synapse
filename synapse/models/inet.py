@@ -3,6 +3,7 @@ import hashlib
 import logging
 import ipaddress
 import email.utils
+import urllib.parse
 
 import idna
 import regex
@@ -838,9 +839,9 @@ class Url(s_types.Str):
         if len(parts) == 2:
             authparts, valu = parts
             userpass = authparts.split(':', 1)
-            subs['user'] = userpass[0]
+            subs['user'] = urllib.parse.unquote_plus(userpass[0])
             if len(userpass) == 2:
-                subs['passwd'] = userpass[1]
+                subs['passwd'] = urllib.parse.unquote_plus(userpass[1])
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
