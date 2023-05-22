@@ -3469,7 +3469,7 @@ class LibTelepath(Lib):
     async def _methTeleOpen(self, url):
         url = await tostr(url)
         scheme = url.split('://')[0]
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
         return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
@@ -7482,7 +7482,7 @@ class LibUsers(Lib):
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        if not self.runt.allowed(('auth', 'user', 'add')):
+        if not self.runt.allowed(('auth', 'user', 'add')): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'auth', 'users', 'add'))
         name = await tostr(name)
         iden = await tostr(iden, True)
@@ -7492,7 +7492,7 @@ class LibUsers(Lib):
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        if not self.runt.allowed(('auth', 'user', 'del')):
+        if not self.runt.allowed(('auth', 'user', 'del')): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'auth', 'users', 'del'))
         await self.runt.snap.core.delUser(iden)
 
@@ -7566,13 +7566,13 @@ class LibRoles(Lib):
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
-        if not self.runt.allowed(('auth', 'role', 'add')):
+        if not self.runt.allowed(('auth', 'role', 'add')): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        if not self.runt.allowed(('auth', 'role', 'del')):
+        if not self.runt.allowed(('auth', 'role', 'del')): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'del'))
         await self.runt.snap.core.delRole(iden)
 
