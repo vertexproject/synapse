@@ -5388,7 +5388,7 @@ class SpliceUndoCmd(Cmd):
         await runt.snap.warn(mesg)
 
         if self.opts.force:
-            if not runt.isAdmin():
+            if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
