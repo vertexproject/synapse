@@ -339,6 +339,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK element status.',
                     'ex': 'current',
                 }),
+                ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
+                    'doc': 'An enumeration of ATT&CK matrix values.',
+                    'ex': 'enterprise',
+                }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
                     'doc': 'A Mitre ATT&CK Group ID.',
                     'ex': 'G0100',
@@ -443,6 +447,11 @@ class ItModule(s_module.CoreModule):
                                             ('soft', 'it:prod:softver'),
                                             ('file', 'file:bytes'))}), {
                     'doc': 'A file is distributed by a specific software version.'}),
+
+                ('it:prod:softreg', ('comp', {'fields': (
+                                            ('soft', 'it:prod:softver'),
+                                            ('regval', 'it:dev:regval'))}), {
+                    'doc': 'A registry entry is created by a specific software version.'}),
 
                 ('it:prod:softlib', ('comp', {'fields': (
                                             ('soft', 'it:prod:softver'),
@@ -589,6 +598,10 @@ class ItModule(s_module.CoreModule):
             'edges': (
                 (('it:prod:soft', 'uses', 'ou:technique'), {
                     'doc': 'The software uses the technique.'}),
+                (('it:prod:softver', 'uses', 'ou:technique'), {
+                    'doc': 'The software uses the technique.'}),
+                (('it:prod:softver', 'creates', 'it:dev:regval'), {
+                    'doc': 'The software creates the given registry entry.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
             ),
@@ -924,6 +937,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK tactic.',
                     }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the tactic.',
+                    }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the ATT&CK tactic.',
                         'disp': {'hint': 'text'},
@@ -942,6 +958,9 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
+                    }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the technique.',
                     }),
                     ('status', ('it:mitre:attack:status', {}), {
                         'doc': 'The status of this ATT&CK technique.',
@@ -981,6 +1000,9 @@ class ItModule(s_module.CoreModule):
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Associated names for the ATT&CK software.',
                     }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the software.',
+                    }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
@@ -1007,6 +1029,9 @@ class ItModule(s_module.CoreModule):
                     # TODO map to an eventual risk:mitigation
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK mitigation.',
+                    }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the mitigation.',
                     }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK mitigation.',
@@ -1267,6 +1292,15 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file distributed by the software.'}),
                     ('path', ('file:path', {}), {
                         'doc': 'The default installation path of the file.'}),
+                )),
+
+                ('it:prod:softreg', {}, (
+
+                    ('soft', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The software which creates the registry entry.'}),
+
+                    ('regval', ('it:dev:regval', {}), {'ro': True,
+                        'doc': 'The registry entry created by the software.'}),
                 )),
 
                 ('it:hostsoft', {}, (

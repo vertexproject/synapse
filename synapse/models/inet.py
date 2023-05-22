@@ -1188,9 +1188,12 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A password string.'
                     }),
 
+                    ('inet:tls:service', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An X509 certificate presented by a server.'}),
+
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                        'doc': 'An SSL certificate file served by a server.',
-                        'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
