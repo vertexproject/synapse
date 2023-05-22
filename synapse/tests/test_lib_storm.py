@@ -4141,6 +4141,22 @@ class StormTest(s_t_utils.SynTest):
             }
             await core.setStormCmd(cmd0)
             await core.setStormCmd(cmd1)
+            await core.addStormPkg({
+                'name': 'synapse-woot',
+                'version': (0, 0, 1),
+                'modules': (
+                    {'name': 'woot.runas',
+                     'asroot:perms': [['power-ups', 'woot', 'user']],
+                     'storm': 'function asroot () { runas root { $lib.print(woot) return() }}'},
+                ),
+            })
+
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
+
+            await core.stormlist('auth.user.addrule visi power-ups.woot.user')
+            await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
 
             await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
 
@@ -4459,11 +4475,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ inet:ipv4=1.1.1.1 inet:ipv4=5.5.5.5 ]', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-            opts = {'vars': {'view': view}}
-            msgs = await core.stormlist('media:news | copyto $view', opts=opts)
+            msgs = await core.stormlist('media:news | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
-            opts = {'view': view}
             self.len(1, await core.nodes('media:news +#foo.bar:score>1'))
             self.len(1, await core.nodes('media:news +:title=vertex :url -> inet:url', opts=opts))
             nodes = await core.nodes('media:news +:title=vertex -(refs)> inet:ipv4', opts=opts)
@@ -4474,3 +4488,50 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
             self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
+
+            oldn = await core.nodes('[ inet:ipv4=2.2.2.2 ]', opts=opts)
+            await asyncio.sleep(0.1)
+            newn = await core.nodes('[ inet:ipv4=2.2.2.2 ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            msgs = await core.stormlist('inet:ipv4=2.2.2.2 | copyto $view', opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+
+            oldn = await core.nodes('inet:ipv4=2.2.2.2', opts=opts)
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
+            await core.nodes('[ test:ro=bad :readable=bar ]')
+
+            msgs = await core.stormlist('test:ro=bad | copyto $view', opts={'vars': {'view': view}})
+            self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
+
+            nodes = await core.nodes('test:ro=bad', opts=opts)
+            self.eq(nodes[0].props.get('readable'), 'foo')
+
+    async def test_lib_storm_delnode(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('node',)))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            await core.nodes(f'file:bytes={sha256} | delnode')
+            self.len(0, await core.nodes(f'file:bytes={sha256}'))
+            self.true(await core.axon.has(s_common.uhex(sha256)))
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+
+                await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+                self.len(0, await core.nodes(f'file:bytes={sha256}'))
+                self.false(await core.axon.has(s_common.uhex(sha256)))
