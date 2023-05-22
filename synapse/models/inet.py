@@ -2218,6 +2218,8 @@ class InetModule(s_module.CoreModule):
                             'ex': 'google',
                             'doc': 'A simple name for the search engine used.',
                         }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request used to issue the query.'}),
                     )),
 
                     ('inet:search:result', {}, (
