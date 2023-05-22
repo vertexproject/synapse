@@ -2483,7 +2483,10 @@ class Layer(s_nexus.Pusher):
             self.logedits = valu
 
         # TODO when we can set more props, we may need to parse values.
-        await self.layrinfo.set(name, valu)
+        if valu is None:
+            await self.layrinfo.pop(name)
+        else:
+            await self.layrinfo.set(name, valu)
 
         await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
