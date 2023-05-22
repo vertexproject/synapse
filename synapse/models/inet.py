@@ -1141,6 +1141,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:tunnel', ('guid', {}), {
                         'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
 
+                    ('inet:egress', ('comp', {'fields': (('host', 'it:host'), ('client', 'inet:client'))}), {
+                        'doc': 'A host using a specific network egress client address.'}),
+
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
@@ -1780,6 +1783,25 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The server where client traffic leaves the tunnel.'}),
                         ('operator', ('ps:contact', {}), {
                             'doc': 'The contact information for the tunnel operator.'}),
+                    )),
+
+                    ('inet:egress', {}, (
+
+                        ('host', ('it:host', {}), {
+                            'ro': True,
+                            'doc': 'The host that used the network egress.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client address the host used as a network egress.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The client IPv4 address the host used as a network egress.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The client IPv6 address the host used as a network egress.'}),
                     )),
 
                     ('inet:fqdn', {}, (
