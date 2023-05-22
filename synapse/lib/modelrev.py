@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 19)
+maxvers = (0, 2, 20)
 
 class ModelRev:
 
@@ -33,6 +33,7 @@ class ModelRev:
             ((0, 2, 17), self.revModel20230209),
             ((0, 2, 18), self.revModel_0_2_18),
             ((0, 2, 19), self.revModel_0_2_19),
+            ((0, 2, 20), self.revModel_0_2_20),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -709,6 +710,9 @@ class ModelRev:
         await self._normPropValu(layers, 'risk:vuln:type')
         await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
 
+    async def revModel_0_2_20(self, layers):
+        await self._normFormSubs(layers, 'inet:url', liftprop='inet:url:user')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -826,13 +830,16 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    async def _normFormSubs(self, layers, formname):
+    async def _normFormSubs(self, layers, formname, liftprop=None):
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         subprops = {}
 
         form = self.core.model.form(formname)
+
+        if liftprop = None:
+            liftprop = formname
 
         nodeedits = []
         for layr in layers:
@@ -841,7 +848,7 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            async for lkey, buid, sode in layr.liftByProp(formname, None):
+            async for lkey, buid, sode in layr.liftByProp(liftprop, None):
 
                 sodevalu = sode.get('valu')
                 if sodevalu is None: # pragma: no cover

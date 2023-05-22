@@ -1689,7 +1689,7 @@ class InetModelTest(s_t_utils.SynTest):
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
         expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
             'proto': 'calrissian', 'path': '',
-            'user': 'visi%40vertex.link', 'passwd': 'surround%40',
+            'user': 'visi@vertex.link', 'passwd': 'surround@',
             'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
             'port': 44343,
             'params': '',

@@ -11,6 +11,12 @@ class TransportModule(s_module.CoreModule):
                 ('transport:land:vehicle', ('guid', {}), {
                     'doc': 'An individual vehicle.'}),
 
+                ('transport:land:registration', ('guid', {}), {
+                    'doc': 'Registration issued to a contact for a land vehicle.'}),
+
+                ('transport:land:license', ('guid', {}), {
+                    'doc': 'A license to operate a land vehicle issued to a contact.'}),
+
                 ('transport:air:craft', ('guid', {}), {
                     'doc': 'An individual aircraft.'}),
 
