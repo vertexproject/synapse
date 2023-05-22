@@ -617,7 +617,10 @@ class View(s_nexus.Pusher):  # type: ignore
             self.core._calcViewsByLayer()
 
         else:
-            await self.info.set(name, valu)
+            if valu is None:
+                await self.info.pop(name)
+            else:
+                await self.info.set(name, valu)
 
         await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
                                      gates=[self.iden, self.layers[0].iden])
