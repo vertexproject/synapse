@@ -6562,10 +6562,11 @@ class Layer(Prim):
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
 
-        if name == 'name':
-            valu = await tostr(valu)
-        elif name == 'desc':
-            valu = await tostr(valu)
+        if name in ('name', 'desc'):
+            if valu is undef:
+                valu = None
+            else:
+                valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
             valu = await tobool(valu)
         else:
@@ -6921,12 +6922,12 @@ class View(Prim):
 
         name = await tostr(name)
 
-        if name == 'name':
-            valu = await tostr(valu)
-        elif name == 'desc':
-            valu = await tostr(valu)
-        elif name == 'parent':
-            valu = await tostr(valu)
+        if name in ('name', 'desc', 'parent'):
+            if valu is undef:
+                valu = None
+            else:
+                valu = await tostr(await toprim(valu), noneok=True)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
         elif name == 'layers':

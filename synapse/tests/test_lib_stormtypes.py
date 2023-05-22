@@ -3548,6 +3548,22 @@ class StormTypesTest(s_test.SynTest):
             self.eq(await core.callStorm('return( $lib.layer.get().get(name))'), 'test layer')
             self.eq(await core.callStorm('return( $lib.layer.get().get(desc))'), 'test layer desc')
 
+            await core.stormlist('$lib.view.get().set(name, $lib.null)')
+            vdef = await core.callStorm('return($lib.view.get())')
+            self.notin('name', vdef)
+            await core.stormlist('$lib.view.get().set(name, "test view")')
+            await core.stormlist('$lib.view.get().set(name, $lib.undef)')
+            vdef = await core.callStorm('return($lib.view.get())')
+            self.notin('name', vdef)
+
+            await core.stormlist('$lib.layer.get().set(name, $lib.null)')
+            ldef = await core.callStorm('return($lib.layer.get())')
+            self.notin('name', ldef)
+            await core.stormlist('$lib.layer.get().set(name, "test layer")')
+            await core.stormlist('$lib.layer.get().set(name, $lib.undef)')
+            ldef = await core.callStorm('return($lib.layer.get())')
+            self.notin('name', ldef)
+
             with self.raises(s_exc.BadOptValu):
                 await core.nodes('$lib.view.get().set(hehe, haha)')
 
