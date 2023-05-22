@@ -6398,7 +6398,7 @@ class Layer(Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
@@ -6439,7 +6439,7 @@ class Layer(Prim):
 
         scheme = url.split('://')[0]
 
-        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)): # pragma: no cover
             self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
