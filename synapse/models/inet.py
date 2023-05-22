@@ -1189,8 +1189,11 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A password string.'
                     }),
 
-                    ('inet:tls:service', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
-                        'doc': 'An X509 certificate presented by a server.'}),
+                    ('inet:tls:server:cert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An X509 certificate presented by a TLS enabled server.'}),
+
+                    ('inet:tls:client:cert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                        'doc': 'An X509 certificate presented by a TLS enabled client.'}),
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
                         'deprecated': True,

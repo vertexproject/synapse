@@ -604,6 +604,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The software creates the given registry entry.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
+                (('it:app:snort:rule', 'detects', None), {
+                    'doc': 'The snort rule is intended for use in detecting the target node.'}),
+                (('it:app:yara:rule', 'detects', None), {
+                    'doc': 'The YARA rule is intended for use in detecting the target node.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -1897,6 +1901,9 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A brief description of the snort rule.'}),
+
+                    ('engine', ('int', {}), {
+                        'doc': 'The snort engine ID which can parse and evaluate the rule text.'}),
 
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
