@@ -17,7 +17,7 @@ class TypesTest(s_t_utils.SynTest):
         # Base type tests, mainly sad paths
         model = s_datamodel.Model()
         t = model.type('bool')
-        self.eq(t.info.get('bases'), ())
+        self.eq(t.info.get('bases'), ('base',))
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
@@ -201,7 +201,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('bar'), 'haha')
 
             typ = core.model.type(t)
-            self.eq(typ.info.get('bases'), ('comp',))
+            self.eq(typ.info.get('bases'), ('base', 'comp'))
             self.raises(s_exc.BadTypeValu, typ.norm,
                         (123, 'haha', 'newp'))
             self.eq(0, typ.getCompOffs('foo'))
