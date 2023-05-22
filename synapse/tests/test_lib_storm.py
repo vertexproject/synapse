@@ -4141,6 +4141,22 @@ class StormTest(s_t_utils.SynTest):
             }
             await core.setStormCmd(cmd0)
             await core.setStormCmd(cmd1)
+            await core.addStormPkg({
+                'name': 'synapse-woot',
+                'version': (0, 0, 1),
+                'modules': (
+                    {'name': 'woot.runas',
+                     'asroot:perms': [['power-ups', 'woot', 'user']],
+                     'storm': 'function asroot () { runas root { $lib.print(woot) return() }}'},
+                ),
+            })
+
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
+
+            await core.stormlist('auth.user.addrule visi power-ups.woot.user')
+            await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
 
             await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
 
