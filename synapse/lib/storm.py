@@ -5765,7 +5765,8 @@ class RunAsCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
-        if not runt.user.isAdmin():
+
+        if not runt.isAdmin():
             mesg = 'The runas command requires admin privileges.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
