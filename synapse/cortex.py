@@ -1479,8 +1479,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         permdefs = list(await s_cell.Cell._getPermDefs(self))
         permdefs.extend((
-            {'perm': ('view',), 'gate': 'view',
-                'desc': 'Used to control all view permissions.'},
+            {'perm': ('view',), 'gate': 'cortex',
+                'desc': 'Controls all view permissions.'},
+            {'perm': ('view', 'add'), 'gate': 'cortex',
+                'desc': 'Controls access to add a new view including forks.'},
             {'perm': ('view', 'read'), 'gate': 'view',
                 'desc': 'Used to control read access to a view.'},
 
@@ -1527,13 +1529,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 'desc': 'Controls removing a specific property from a node in a layer.'},
         ))
 
-        # TODO declare perm defs in storm libraries and include them here...
-
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
 
         for (path, ctor) in self.stormlibs:
             permdefs.extend(getattr(ctor, '_storm_lib_perms', ()))
+
+        permdefs.sort(key=lambda x: x['perm'])
 
         return tuple(permdefs)
 
