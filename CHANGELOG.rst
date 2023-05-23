@@ -50,6 +50,8 @@ Bugfixes
 - Fix an isuse with the Storm ``runas`` command to allow it to be used
   with an elevated Storm runtime.
   (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+- Fix support for heavy Storm objects in ``$lib.max()`` and ``$lib.min()``.
+  (`#3153 <https://github.com/vertexproject/synapse/pull/3153>`_)
 
 v2.134.0 - 2023-05-17
 =====================
