@@ -611,11 +611,11 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
 
             await core.addStormPkg(pdef)
-            nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, $lib.list(0x30)) ]')
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
 
-            nodes = await core.nodes('[ inet:asn=$lib.min(20, (10, 30)) ]')
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, $lib.list(10, 30)) ]')
             self.len(1, nodes)
             self.eq(10, nodes[0].ndef[1])
 
