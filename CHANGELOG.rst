@@ -7,11 +7,21 @@ Synapse Changelog
 Unreleased - YYYY-MM-DD
 =======================
 
+Features
+--------
+- Add a ``--index`` option to the Storm ``auth.user.grant`` command.
+  (`#3150 <https://github.com/vertexproject/synapse/pull/3150>`_)
+- Add additional type handling in the Storm view and layer ``set()`` APIS.
+  (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+
 Bugfixes
 --------
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
+- Fix an isuse with the Storm ``runas`` command to allow it to be used
+  with an elevated Storm runtime.
+  (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
 
 v2.134.0 - 2023-05-17
 =====================
