@@ -56,6 +56,12 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    def test_stormtypes_perms_schema(self):
+        # Ensure all stormlib perms are schema compliant
+        for (path, lib) in s_stormtypes.registry.iterLibs():
+            for perm in lib._storm_lib_perms:
+                s_storm.reqValidPermDef(perm)
+
     async def test_stormtypes_copy(self):
 
         async with self.getTestCore() as core:
