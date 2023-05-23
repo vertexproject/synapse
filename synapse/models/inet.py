@@ -1884,6 +1884,9 @@ class InetModule(s_module.CoreModule):
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
+                        ('referer', ('inet:url', {}), {
+                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+
                         ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
 
