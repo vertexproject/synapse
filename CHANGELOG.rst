@@ -21,6 +21,20 @@ updated to Python 3.11+.
 Unreleased - YYYY-MM-DD
 =======================
 
+Announcement
+------------
+
+Due to the introduction of several powerful new APIs and performance
+improvements, Synapse will be updating to *only* support Python >=3.11.
+Our current plan is to drop support for Python <=3.10 in ~4 weeks on
+2023-06-19. The next release after 2023-06-19 will include changes that
+are not backward compatible to earlier versions of Python.
+
+If you currently deploy Synapse Open-Source or Synapse Enterprise via
+the standard docker containers, you will be unaffected.  If you install
+Synapse via PyPI, you will need to ensure that your environment is
+updated to Python 3.11+.
+
 Features
 --------
 - Add a ``--index`` option to the Storm ``auth.user.grant`` command.
