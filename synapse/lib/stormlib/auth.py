@@ -561,11 +561,7 @@ stormcmds = (
     },
     {
         'name': 'auth.perms.list',
-        'descr': '''
-
-            Display a list of the current permissions defined within the Cortex.
-
-        ''',
+        'descr': 'Display a list of the current permissions defined within the Cortex.',
         'cmdargs': (),
         'storm': '''
 

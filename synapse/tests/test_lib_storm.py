@@ -3879,6 +3879,25 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadArg):
                     await layr.waitEditOffs(200)
 
+                await core.addUserRule(visi.iden, (True, ('layer', 'add')))
+                l1 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
+                l2 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
+                varz = {'iden': l1.get('iden'), 'tgt': l2.get('iden'), 'port': port}
+                pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
+
+                await core.addUserRule(visi.iden, (True, ('storm', 'lib', 'telepath', 'open', 'tcp')))
+
+                msgs = await core.stormlist(pullq, opts={'user': visi.iden, 'vars': varz})
+                self.stormHasNoWarnErr(msgs)
+
+                msgs = await core.stormlist(pushq, opts={'user': visi.iden, 'vars': varz})
+                self.stormHasNoWarnErr(msgs)
+
     async def test_storm_tagprune(self):
 
         async with self.getTestCore() as core:

@@ -2535,7 +2535,8 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
 
-            opts = {'vars': {'url': lurl}}
+            varz = {'url': lurl}
+            opts = {'vars': varz}
 
             q = '[ inet:ipv4=1.2.3.4 :asn=20 ] $asn = $lib.telepath.open($url).doit(:asn) [ :asn=$asn ]'
             nodes = await core.nodes(q, opts=opts)
@@ -2558,6 +2559,15 @@ class StormTypesTest(s_test.SynTest):
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).fqdns)', opts=opts)
             self.stormIsInPrint("storm:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
+
+            unfo = await core.addUser('lowuesr')
+            user = unfo.get('iden')
+
+            opts = {'user': user, 'vars': varz}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts)
+            await core.addUserRule(user, (True, ('storm', 'lib', 'telepath', 'open', 'cell')))
+            self.len(2, await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts))
 
     async def test_storm_lib_queue(self):
 
@@ -5245,6 +5255,33 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint("('hehe', 'haha')", msgs)
             self.stormIsInPrint("('d', {'foo': 'bar'})", msgs)
+
+            # lowuser can perform auth auctions with the correct permissions
+            lowuser = await core.addUser('lowuser')
+            aslowuser = {'user': lowuser.get('iden')}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.auth.users.add(hehe) )', opts=aslowuser)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.auth.users.del(puser) )', opts=aslowuser)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.auth.roles.add(yes) )', opts=aslowuser)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return ( $lib.auth.roles.del(ninjas) )', opts=aslowuser)
+
+            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'del')))
+            unfo = await core.callStorm('return ( $lib.auth.users.add(giggles) )', opts=aslowuser)
+            iden = unfo.get('iden')
+            msgs = await core.stormlist(f'$lib.auth.users.del({iden})', opts=aslowuser)
+            self.stormHasNoWarnErr(msgs)
+
+            rnfo = await core.callStorm('return ( $lib.auth.roles.add(giggles) )', opts=aslowuser)
+            iden = rnfo.get('iden')
+            msgs = await core.stormlist(f'$lib.auth.roles.del({iden})', opts=aslowuser)
+            self.stormHasNoWarnErr(msgs)
 
     async def test_stormtypes_auth_gateadmin(self):
 

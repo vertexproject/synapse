@@ -1529,8 +1529,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 'desc': 'Controls removing a specific property from a node in a layer.'},
         ))
 
-        # TODO declare perm defs in storm libraries and include them here...
-
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
 
