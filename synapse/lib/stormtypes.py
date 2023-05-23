@@ -8035,6 +8035,8 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserGrant',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the Role as a 0 based index.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setRoles', 'desc': '''
@@ -8295,9 +8297,10 @@ class User(Prim):
         user = await self.runt.snap.core.auth.reqUser(self.valu)
         return user.getAllowedReason(perm, gateiden=gateiden, default=default)
 
-    async def _methUserGrant(self, iden):
+    async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
-        await self.runt.snap.core.addUserRole(self.valu, iden)
+        indx = await toint(indx, noneok=True)
+        await self.runt.snap.core.addUserRole(self.valu, iden, indx=indx)
 
     async def _methUserSetRoles(self, idens):
         self.runt.confirm(('auth', 'user', 'grant'))
