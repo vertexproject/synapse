@@ -570,8 +570,8 @@ class CellApi(s_base.Base):
         return await self.cell.setUserEmail(useriden, email)
 
     @adminapi(log=True)
-    async def addUserRole(self, useriden, roleiden):
-        return await self.cell.addUserRole(useriden, roleiden)
+    async def addUserRole(self, useriden, roleiden, indx=None):
+        return await self.cell.addUserRole(useriden, roleiden, indx=indx)
 
     @adminapi(log=True)
     async def setUserRoles(self, useriden, roleidens):
@@ -2286,10 +2286,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  gateiden=gateiden))
 
-    async def addUserRole(self, useriden, roleiden):
+    async def addUserRole(self, useriden, roleiden, indx=None):
         user = await self.auth.reqUser(useriden)
         role = await self.auth.reqRole(roleiden)
-        await user.grant(roleiden)
+        await user.grant(roleiden, indx=indx)
         logger.info(f'Granted role {role.name} to user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  target_role=role.iden, target_rolename=role.name))
