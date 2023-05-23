@@ -8,7 +8,7 @@ Announcement
 ============
 
 Due to the introduction of several powerful new APIs and performance
-improvments, Synapse will be updating to *only* support Python >=3.11.
+improvements, Synapse will be updating to *only* support Python >=3.11.
 Our current plan is to drop support for Python <= 3.10 in ~4 weeks on
 2023-06-19. The next release after 2023-06-19 will include changes that
 are not backward compatible to earlier versions of Python.
