@@ -1506,6 +1506,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _min(self, *args):
+        args = await toprim(args)
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1519,6 +1520,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _max(self, *args):
+        args = await toprim(args)
         # allow passing in a list of ints
         vals = []
         for arg in args:
