@@ -8035,7 +8035,8 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserGrant',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
-                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the Role as a 0 based index.', },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the Role as a 0 based index.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setRoles', 'desc': '''
