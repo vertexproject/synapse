@@ -50,7 +50,7 @@ Bugfixes
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
-- Fix an issue with the Storm ``runas`` command which prevent it being used
+- Fix an issue with the Storm ``runas`` command which prevented it being used
   with a privileged Storm runtime.
   (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
 - Fix support for Storm list objects in ``$lib.max()`` and ``$lib.min()``.
