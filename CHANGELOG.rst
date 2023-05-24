@@ -18,8 +18,8 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.135.0 - 2023-05-24
+=====================
 
 Announcement
 ------------
