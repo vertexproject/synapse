@@ -2,6 +2,7 @@ import re
 import bz2
 import gzip
 import json
+import zlib
 import base64
 import asyncio
 import hashlib
@@ -1344,6 +1345,22 @@ class StormTypesTest(s_test.SynTest):
                 nodes = await snap.nodes('graph:node=$iden', opts=opts)
                 self.len(1, nodes)
                 self.eq(ggstr, nodes[0].props['data'])
+
+    async def test_storm_lib_bytes_zlib(self):
+        async with self.getTestCore() as core:
+            hstr = 'ohhai'
+            ghstr = base64.urlsafe_b64encode((zlib.compress(hstr.encode()))).decode()
+            mstr = 'ohgood'
+            ggstr = base64.urlsafe_b64encode((zlib.compress(mstr.encode()))).decode()
+
+            await core.nodes(f'[ graph:node=(node1,) :data="{ghstr}" ]')
+            await core.nodes(f'[ graph:node=(node2,) :data="{mstr}" ]')
+
+            q = 'graph:node=(node1,) return($lib.base64.decode(:data).zdecompress().decode())'
+            self.eq('ohhai', await core.callStorm(q))
+
+            q = 'graph:node=(node2,) return($lib.base64.encode((:data).encode().zcompress()))'
+            self.eq(ggstr, await core.callStorm(q))
 
     async def test_storm_lib_bytes_json(self):
         async with self.getTestCore() as core:

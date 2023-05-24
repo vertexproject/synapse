@@ -3,6 +3,7 @@ import copy
 import gzip
 import json
 import time
+import zlib
 import regex
 import types
 import base64
@@ -953,7 +954,6 @@ class LibTags(Lib):
             Normalize and prefix a list of syn:tag:part values so they can be applied.
 
             Examples:
-
                 Add tag prefixes and then use them to tag nodes::
 
                     $tags = $lib.tags.prefix($result.tags, vtx.visi)
@@ -4059,6 +4059,7 @@ class Bytes(Prim):
 
             Example:
                 Compress bytes with gzip::
+
                     $foo = $mybytez.gzip()''',
          'type': {'type': 'function', '_funcname': '_methGzip',
                   'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.', }}},
@@ -4070,6 +4071,7 @@ class Bytes(Prim):
 
             Example:
                 Load bytes to a object::
+
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
@@ -4103,8 +4105,9 @@ class Bytes(Prim):
             Unpack structures from bytes using python struct.unpack syntax.
 
             Examples:
-                # unpack 3 unsigned 16 bit integers in little endian format
-                ($x, $y, $z) = $byts.unpack("<HHH")
+                Unpack 3 unsigned 16 bit integers in little endian format::
+
+                    ($x, $y, $z) = $byts.unpack("<HHH")
             ''',
          'type': {'type': 'function', '_funcname': 'unpack',
                   'args': (
@@ -4112,6 +4115,24 @@ class Bytes(Prim):
                       {'name': 'offset', 'type': 'int', 'desc': 'An offset to begin unpacking from.', 'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
+        {'name': 'zcompress', 'desc': '''
+            Compress the bytes using zlib and return them.
+
+            Example:
+                Compress bytes with zlib::
+
+                    $foo = $mybytez.zcompress()''',
+         'type': {'type': 'function', '_funcname': '_methZcompress',
+                  'returns': {'type': 'bytes', 'desc': 'The zlib compressed bytes.', }}},
+        {'name': 'zdecompress', 'desc': '''
+            Decompress the bytes using zlib and return them.
+
+            Example:
+                Decompress bytes with zlib::
+
+                $foo = $mybytez.zdecompress()''',
+         'type': {'type': 'function', '_funcname': '_methZdecompress',
+                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
     )
     _storm_typename = 'bytes'
     _ismutable = False
@@ -4127,6 +4148,8 @@ class Bytes(Prim):
             'gunzip': self._methGunzip,
             'bzip': self._methBzip,
             'gzip': self._methGzip,
+            'zcompress': self._methZcompress,
+            'zdecompress': self._methZdecompress,
             'json': self._methJsonLoad,
             'slice': self.slice,
             'unpack': self.unpack,
@@ -4185,6 +4208,12 @@ class Bytes(Prim):
 
     async def _methGzip(self):
         return gzip.compress(self.valu)
+
+    async def _methZcompress(self):
+        return zlib.compress(self.valu)
+
+    async def _methZdecompress(self):
+        return zlib.decompress(self.valu)
 
     async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
         try:
@@ -7421,8 +7450,8 @@ class LibUsers(Lib):
          'type': {'type': 'function', '_funcname': '_methUsersAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
-                      {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
-                      {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                      {'name': 'passwd', 'type': 'str', 'desc': "The user's password.", 'default': None, },
+                      {'name': 'email', 'type': 'str', 'desc': "The user's email address.", 'default': None, },
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
                   'returns': {'type': 'storm:auth:user',
@@ -8183,20 +8212,20 @@ class User(Prim):
                   'returns': {'type': 'list',
                               'desc': 'A list of ``storm:auth:gates`` that the user has rules for.', }}},
         {'name': 'name', 'desc': '''
-        A users name. This can also be used to set a users name.
+        A user's name. This can also be used to set a user's name.
 
         Example:
-                Change a users name::
+                Change a user's name::
 
                     $user=$lib.auth.users.byname(bob) $user.name=robert
         ''',
          'type': {'type': 'stor', '_storfunc': '_storUserName',
                   'returns': {'type': 'str', }}},
         {'name': 'email', 'desc': '''
-        A users email. This can also be used to set the users email.
+        A user's email. This can also be used to set the user's email.
 
         Example:
-                Change a users email address::
+                Change a user's email address::
 
                     $user=$lib.auth.users.byname(bob) $user.email="robert@bobcorp.net"
         ''',
@@ -8491,10 +8520,10 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'name', 'desc': '''
-            A roles name. This can also be used to set the role name.
+            A role's name. This can also be used to set the role name.
 
             Example:
-                    Change a roles name::
+                    Change a role's name::
 
                         $role=$lib.auth.roles.byname(analyst) $role.name=superheroes
             ''',
