@@ -442,7 +442,7 @@ class GeoModule(s_module.CoreModule):
                     ((None, 'seenat', 'geo:telem'), {
                         'doc': 'The source node was seen at the geo:telem node place and time.'}),
                     (('geo:place', 'contains', 'geo:place'), {
-                        'doc': 'The source place partially or completely contains the target place.'}),
+                        'doc': 'The source place completely contains the target place.'}),
                 ),
 
                 'forms': (

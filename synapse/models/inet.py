@@ -2115,6 +2115,28 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
+                    ('inet:tls:server:cert', {}, (
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The X509 certificate presented by the server.'}),
+
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that presented the X509 certificate.'}),
+
+                        ('server:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The IPv4 address of the server.'}),
+
+                        ('server:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The IPv6 address of the server.'}),
+
+                        ('server:port', ('inet:port', {}), {
+                            'ro': True,
+                            'doc': 'The port number that the server is listening on.'}),
+                    )),
+
                     ('inet:url', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
