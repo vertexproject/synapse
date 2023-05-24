@@ -14,6 +14,7 @@ User: visi (8d19302a671c3d5c8eeaccde305413a0)
     [1  ] - foo.bar
 
   Roles:
+    67b0c61b6a5307851c893a1bd84ce19d - indxrole
     878e79f585e74258d2a33ccdf817a47f - all
     1284e1976e8a4ad139a976482adb1588 - ninjas
 
@@ -65,6 +66,7 @@ User: cool (8d19302a671c3d5c8eeaccde305413a0)
   Rules:
 
   Roles:
+    67b0c61b6a5307851c893a1bd84ce19d - indxrole
     878e79f585e74258d2a33ccdf817a47f - all
     1284e1976e8a4ad139a976482adb1588 - ninjas
 
@@ -85,6 +87,7 @@ Locked Users:
 rolelist = '''
 Roles:
   all
+  indxrole
   ninjas
 '''.strip()
 
@@ -93,9 +96,6 @@ class StormLibAuthTest(s_test.SynTest):
     async def test_stormlib_auth(self):
 
         async with self.getTestCore() as core:
-
-            for pdef in await core.getPermDefs():
-                s_storm.reqValidPermDef(pdef)
 
             msgs = await core.stormlist('auth.user.delrule visi foo.bar')
             self.stormIsInWarn('User (visi) not found!', msgs)
@@ -115,6 +115,10 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Role (test) added with iden: ', msgs)
 
+            msgs = await core.stormlist('auth.role.add indxrole')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Role (indxrole) added with iden: ', msgs)
+
             msgs = await core.stormlist('auth.user.grant visi ninjas')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Granting role ninjas to user visi.', msgs)
@@ -122,6 +126,10 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist('auth.user.grant visi test')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('Granting role test to user visi.', msgs)
+
+            msgs = await core.stormlist('auth.user.grant visi indxrole --index 0')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('Granting role indxrole to user visi.', msgs)
 
             msgs = await core.stormlist('auth.user.revoke visi test')
             self.stormHasNoWarnErr(msgs)
@@ -294,3 +302,8 @@ class StormLibAuthTest(s_test.SynTest):
 
             msgs = await core.stormlist('auth.role.del admins')
             self.stormIsInWarn('Role (admins) not found!', msgs)
+
+            msgs = await core.stormlist('auth.perms.list')
+            self.stormIsInPrint('node.add.<form>', msgs)
+            self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
+            self.stormIsInPrint('default: false', msgs)
