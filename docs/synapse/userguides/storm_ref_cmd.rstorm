@@ -153,6 +153,7 @@ Storm includes ``auth.*`` commands that allow you create and manage users and ro
 permissions (rules).
 
 - `auth.gate.show`_
+- `auth.perms.list`_
 - `auth.role.add`_
 - `auth.role.addrule`_
 - `auth.role.del`_
@@ -163,6 +164,7 @@ permissions (rules).
 - `auth.user.add`_
 - `auth.user.addrule`_
 - `auth.user.delrule`_
+- `auth.user.allowed`_
 - `auth.user.grant`_
 - `auth.user.list`_
 - `auth.user.mod`_
@@ -184,6 +186,19 @@ The ``auth.gate.show`` command displays the user, roles, and permissions associa
 **Syntax**
 
 .. storm-cli:: auth.gate.show --help
+
+
+.. _storm-auth-perms-list:
+
+auth.perms.list
++++++++++++++++
+
+The ``auth.perms.list`` command displays a list of the current Cortex perimission that can be granted
+to user or role.
+
+**Syntax**
+
+.. storm-cli:: auth.perms.list --help
 
 
 .. _storm-auth-role-add:
@@ -304,6 +319,19 @@ The ``auth.user.delrule`` command removes a rule (permission) from a user.
 **Syntax:**
 
 .. storm-cli:: auth.user.delrule --help
+
+
+.. _storm-auth-user-allowed:
+
+auth.user.allowed
++++++++++++++++++
+
+The ``auth.user.allowed`` command checks whether a user has a specified permission and provides the source (e.g.,
+rule, role, and optional gate) if found.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.allowed --help
 
 
 .. _storm-auth-user-grant:
