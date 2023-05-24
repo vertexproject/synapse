@@ -180,6 +180,7 @@ permdef_schema = {
         'perm': {'type': 'array', 'items': {'type': 'string'}},
         'desc': {'type': 'string'},
         'gate': {'type': 'string'},
+        'ex': {'type': 'string'},  # Example string
         'workflowconfig': {'type': 'boolean'},
         'default': {'type': 'boolean', 'default': False},
     },
