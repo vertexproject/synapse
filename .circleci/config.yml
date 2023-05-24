@@ -140,38 +140,6 @@ commands:
       - store_artifacts:
           path: test-reports
 
-  test_steps_osx:
-    description: "OSX Test Steps"
-    steps:
-      - checkout
-
-      - restore_cache:
-          keys:
-            - v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-      - do_venv_setup
-
-      - save_cache:
-          paths:
-            - ./venv
-          key: v5-osx-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-      - run:
-          name: run tests
-          command: |
-            ulimit -Sn 4096
-            . venv/bin/activate
-            mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
-
-      - do_report_coverage
-
-      - store_test_results:
-          path: test-reports
-
-      - store_artifacts:
-          path: test-reports
-
   deploy_pypi_prologue:
     description: "Common Pypi prologue"
     steps:
@@ -413,56 +381,6 @@ commands:
 
 jobs:
 
-  osx38:
-    parallelism: 4
-    macos:
-      xcode: "12.2.0"
-
-    environment:
-      PYVERS: 3.8
-      CODECOV_FLAG: osx
-      CODECOV_PREFIX: osx
-      COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-
-    working_directory: /Users/distiller/repo
-
-    steps:
-      - test_steps_osx
-
-  python37:
-    parallelism: 8
-    docker:
-      - image: cimg/python:3.7
-        environment:
-          PYVERS: 3.7
-          RUN_SYNTAX: 1
-          SYN_VENDOR_TEST: 1
-          CODECOV_FLAG: linux
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python38:
-    parallelism: 8
-    docker:
-      - image: cimg/python:3.8
-        environment:
-          PYVERS: 3.8
-          RUN_SYNTAX: 1
-          SYN_VENDOR_TEST: 1
-          CODECOV_FLAG: linux
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
   python311:
     parallelism: 8
     docker:
@@ -474,74 +392,6 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python310:
-    parallelism: 8
-    docker:
-      - image: cimg/python:3.10
-        environment:
-          PYVERS: 3.10
-          RUN_SYNTAX: 1
-          SYN_VENDOR_TEST: 1
-          CODECOV_FLAG: linux
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python37_replay:
-    parallelism: 6
-    docker:
-      - image: cimg/python:3.7
-        environment:
-          PYVERS: 3.7
-          RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          SYNDEV_NEXUS_REPLAY: 1
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python38_replay:
-    parallelism: 6
-    docker:
-      - image: cimg/python:3.8
-        environment:
-          PYVERS: 3.8
-          RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          SYNDEV_NEXUS_REPLAY: 1
-
-    working_directory: ~/repo
-
-    steps:
-      - test_steps_python
-
-  python310_replay:
-    parallelism: 6
-    docker:
-      - image: cimg/python:3.10
-        environment:
-          PYVERS: 3.10
-          RUN_SYNTAX: 1
-          CODECOV_FLAG: linux_replay
-          SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-          SYNDEV_NEXUS_REPLAY: 1
 
     working_directory: ~/repo
 
@@ -601,45 +451,6 @@ jobs:
       - deploy_pypi_tag_verify
       - deploy_pypi_wheel_build
       - deploy_pypi_sdist_build
-      - deploy_pypi_upload
-
-  deploy_pypi_37:
-    docker:
-      - image: cimg/python:3.7
-        environment:
-          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py37
-
-    steps:
-      - deploy_pypi_prologue
-      - deploy_pypi_tag_verify
-      - deploy_pypi_wheel_build
-      - deploy_pypi_upload
-
-  deploy_pypi_38:
-    docker:
-      - image: cimg/python:3.8
-        environment:
-          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py38
-
-    steps:
-      - deploy_pypi_prologue
-      - deploy_pypi_tag_verify
-      - deploy_pypi_wheel_build
-      - deploy_pypi_upload
-
-  deploy_pypi_310:
-    docker:
-      - image: cimg/python:3.10
-        environment:
-          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py310
-
-    steps:
-      - deploy_pypi_prologue
-      - deploy_pypi_tag_verify
-      - deploy_pypi_wheel_build
       - deploy_pypi_upload
 
   build_docker_branch:
@@ -737,64 +548,12 @@ workflows:
             branches:
                only: /.*/
 
-      - osx38:
-          filters:
-            tags:
-              ignore: /.*/
-            branches:
-              ignore: /.*/
-
-      - python37:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
-      - python38:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
-      - python310:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
       - python311:
           filters:
             tags:
               only: /.*/
             branches:
               only: /.*/
-
-      - python37_replay:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - master
-
-      - python38_replay:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - master
-
-      - python310_replay:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only:
-                - master
 
       - python311_replay:
           filters:
@@ -815,73 +574,7 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python37
-            - python38
-            - python310
             - python311
-            - python37_replay
-            - python38_replay
-            - python310_replay
-            - python311_replay
-            - python_package_smoketest
-          context:
-            - PublicPypiAccess
-          filters:
-            tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
-            branches:
-              ignore: /.*/
-
-      - deploy_pypi_37:
-          requires:
-            - doctests
-            - python37
-            - python38
-            - python310
-            - python311
-            - python37_replay
-            - python38_replay
-            - python310_replay
-            - python311_replay
-            - python_package_smoketest
-          context:
-            - PublicPypiAccess
-          filters:
-            tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
-            branches:
-              ignore: /.*/
-
-      - deploy_pypi_38:
-          requires:
-            - doctests
-            - python37
-            - python38
-            - python310
-            - python311
-            - python37_replay
-            - python38_replay
-            - python310_replay
-            - python311_replay
-            - python_package_smoketest
-          context:
-            - PublicPypiAccess
-          filters:
-            tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
-            branches:
-              ignore: /.*/
-
-      - deploy_pypi_310:
-          requires:
-            - doctests
-            - python37
-            - python38
-            - python310
-            - python311
-            - python37_replay
-            - python38_replay
-            - python310_replay
             - python311_replay
             - python_package_smoketest
           context:
@@ -895,13 +588,7 @@ workflows:
       - gh-release/dorelease:
           requires:
             - doctests
-            - python37
-            - python38
-            - python310
             - python311
-            - python37_replay
-            - python38_replay
-            - python310_replay
             - python311_replay
             - python_package_smoketest
           context:
@@ -916,9 +603,6 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
-            - python37
-            - python38
-            - python310
             - python311
           filters:
             branches:
@@ -945,9 +629,6 @@ workflows:
       - build_docker_tag:
           requires:
             - doctests
-            - python37
-            - python38
-            - python310
             - python311
           filters:
             tags:
@@ -997,9 +678,6 @@ workflows:
                 - master
     jobs:
       - doctests
-      - python37
-      - python38
-      - python310
       - python311
 
   weekly:
@@ -1011,8 +689,4 @@ workflows:
               only:
                 - master
     jobs:
-      - osx38
-      - python37_replay
-      - python38_replay
-      - python310_replay
       - python311_replay
