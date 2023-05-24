@@ -44,6 +44,7 @@ Features
 - Add a new Storm command, ``auth.perms.list``, to list all of the permissions
   registered with the Cortex.
   (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
+  (`#3154 <https://github.com/vertexproject/synapse/pull/3154>`_)
 
 Bugfixes
 --------
