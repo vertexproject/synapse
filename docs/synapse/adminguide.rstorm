@@ -412,7 +412,14 @@ Permissions related to objects such as nodes or tags can optionally extend the p
 specific, referencing particular forms, properties, tags/tag trees, or light edges. This allows you to set highly
 granular permissions.
 
-For example:
+Granular permissions may be useful for organizations with specialized users or teams, where certain individuals
+are responsible for specific types of analysis (e.g., strategic analysis vs. tactical threat tracking) and should
+be the only users authorized to create, modify, and tag certain types of data.
+  
+Granular permissions can also be used to differentiate between senior and junior roles; for example, only senior
+analysts may be allowed to apply tags representing certain assessments (such as attribution).
+
+**Examples:**
 
 +-----------------------------------------------------------------+---------------------------------+
 | **Description**                                                 | **Permission**                  |
@@ -465,14 +472,11 @@ For example:
 |                                                                 |                                 |
 +-----------------------------------------------------------------+---------------------------------+
 
-.. TIP::
+.. NOTE::
   
-  Granular permissions may be useful for organizations with specialized users or teams, where certain
-  individuals are responsible for specific types of analysis (e.g., strategic analysis vs. tactical
-  threat tracking) and should be the only users authorized to create, modify, and tag certain types of data.
-  
-  Granular permissions can also be used to differentiate between senior and junior roles; for example,
-  only senior analysts may be allowed to apply tags representing certain assessments (such as attribution).
+  Permissions strings **do not** support wildcards (``*``). For example, you cannot specify
+  ``node.tag.*.mytag`` to allow users to both add and delete tags in the ``mytag`` tree.
+
 
 .. _admin_bkd_rule:
 
