@@ -1177,6 +1177,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
+        self._cortex_permdefs = []
+        self._initCorePerms()
+
         # Reset the storm:log:level from the config value to an int for internal use.
         self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
@@ -1476,65 +1479,70 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface[name] = tuple(mods)
         return mods
 
+    def _initCorePerms(self):
+        self._cortex_permdefs.extend((
+            {'perm': ('view',), 'gate': 'cortex',
+             'desc': 'Controls all view permissions.'},
+            {'perm': ('view', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to add a new view including forks.'},
+            {'perm': ('view', 'read'), 'gate': 'view',
+             'desc': 'Used to control read access to a view.'},
+
+            {'perm': ('node',), 'gate': 'layer',
+             'desc': 'Controls all node edits in a layer.'},
+            {'perm': ('node', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding any form of node in a layer.'},
+            {'perm': ('node', 'del'), 'gate': 'layer',
+             'desc': 'Controls removing any form of node in a layer.'},
+
+            {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
+             'ex': 'node.add.inet:ipv4',
+             'desc': 'Controls adding a specific form of node in a layer.'},
+            {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
+             'desc': 'Controls removing a specific form of node in a layer.'},
+
+            {'perm': ('node', 'tag'), 'gate': 'layer',
+             'desc': 'Controls editing any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
+             'desc': 'Controls removing any tag on any node in a layer.'},
+
+            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
+             'ex': 'node.tag.add.cno.mal.redtree',
+             'desc': 'Controls adding a specific tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
+             'ex': 'node.tag.del.cno.mal.redtree',
+             'desc': 'Controls removing a specific tag on any node in a layer.'},
+
+            {'perm': ('node', 'prop'), 'gate': 'layer',
+             'desc': 'Controls editing any prop on any node in the layer.'},
+
+            {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
+             'desc': 'Controls setting any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4:asn',
+             'desc': 'Controls setting a specific property on a node in a layer.'},
+
+            {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
+             'desc': 'Controls removing any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.del.inet:ipv4:asn',
+             'desc': 'Controls removing a specific property from a node in a layer.'},
+        ))
+        for pdef in self._cortex_permdefs:
+            s_storm.reqValidPermDef(pdef)
+
     async def _getPermDefs(self):
 
         permdefs = list(await s_cell.Cell._getPermDefs(self))
-        permdefs.extend((
-            {'perm': ('view',), 'gate': 'cortex',
-                'desc': 'Controls all view permissions.'},
-            {'perm': ('view', 'add'), 'gate': 'cortex',
-                'desc': 'Controls access to add a new view including forks.'},
-            {'perm': ('view', 'read'), 'gate': 'view',
-                'desc': 'Used to control read access to a view.'},
-
-            {'perm': ('node',), 'gate': 'layer',
-                'desc': 'Controls all node edits in a layer.'},
-            {'perm': ('node', 'add'), 'gate': 'layer',
-                'desc': 'Controls adding any form of node in a layer.'},
-            {'perm': ('node', 'del'), 'gate': 'layer',
-                'desc': 'Controls removing any form of node in a layer.'},
-
-            {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
-                'ex': 'node.add.inet:ipv4',
-                'desc': 'Controls adding a specific form of node in a layer.'},
-            {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
-                'desc': 'Controls removing a specific form of node in a layer.'},
-
-            {'perm': ('node', 'tag'), 'gate': 'layer',
-                'desc': 'Controls editing any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
-                'desc': 'Controls adding any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
-                'desc': 'Controls removing any tag on any node in a layer.'},
-
-            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
-                'ex': 'node.tag.add.cno.mal.redtree',
-                'desc': 'Controls adding a specific tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
-                'ex': 'node.tag.del.cno.mal.redtree',
-                'desc': 'Controls removing a specific tag on any node in a layer.'},
-
-            {'perm': ('node', 'prop'), 'gate': 'layer',
-                'desc': 'Controls editing any prop on any node in the layer.'},
-
-            {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
-                'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
-                'ex': 'node.prop.set.inet:ipv4:asn',
-                'desc': 'Controls setting a specific property on a node in a layer.'},
-
-            {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
-                'desc': 'Controls removing any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
-                'ex': 'node.prop.del.inet:ipv4:asn',
-                'desc': 'Controls removing a specific property from a node in a layer.'},
-        ))
+        permdefs.extend(self._cortex_permdefs)
 
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
 
         for (path, ctor) in self.stormlibs:
-            permdefs.extend(getattr(ctor, '_storm_lib_perms', ()))
+            permdefs.extend(ctor._storm_lib_perms)
 
         permdefs.sort(key=lambda x: x['perm'])
 
@@ -3877,6 +3885,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
 
         for path, ctor in s_stormtypes.registry.iterLibs():
+            # Ensure each ctor's permdefs are valid
+            for pdef in ctor._storm_lib_perms:
+                s_storm.reqValidPermDef(pdef)
             # Skip libbase which is registered as a default ctor in the storm Runtime
             if path:
                 self.addStormLib(path, ctor)

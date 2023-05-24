@@ -97,9 +97,6 @@ class StormLibAuthTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            for pdef in await core.getPermDefs():
-                s_storm.reqValidPermDef(pdef)
-
             msgs = await core.stormlist('auth.user.delrule visi foo.bar')
             self.stormIsInWarn('User (visi) not found!', msgs)
 
