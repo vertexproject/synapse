@@ -97,9 +97,6 @@ class StormLibAuthTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            for pdef in await core.getPermDefs():
-                s_storm.reqValidPermDef(pdef)
-
             msgs = await core.stormlist('auth.user.delrule visi foo.bar')
             self.stormIsInWarn('User (visi) not found!', msgs)
 
@@ -305,3 +302,8 @@ class StormLibAuthTest(s_test.SynTest):
 
             msgs = await core.stormlist('auth.role.del admins')
             self.stormIsInWarn('Role (admins) not found!', msgs)
+
+            msgs = await core.stormlist('auth.perms.list')
+            self.stormIsInPrint('node.add.<form>', msgs)
+            self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
+            self.stormIsInPrint('default: false', msgs)

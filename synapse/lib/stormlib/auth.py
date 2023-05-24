@@ -559,4 +559,22 @@ stormcmds = (
             }
         '''
     },
+    {
+        'name': 'auth.perms.list',
+        'descr': 'Display a list of the current permissions defined within the Cortex.',
+        'cmdargs': (),
+        'storm': '''
+
+            for $pdef in $lib.auth.getPermDefs() {
+                $perm = $lib.str.join(".", $pdef.perm)
+
+                $lib.print($perm)
+                $lib.print(`    {$pdef.desc}`)
+                $lib.print(`    gate: {$pdef.gate}`)
+                $lib.print(`    default: {$pdef.default}`)
+                if $pdef.ex { $lib.print(`    example: {$pdef.ex}`) }
+                $lib.print('')
+            }
+        '''
+    },
 )

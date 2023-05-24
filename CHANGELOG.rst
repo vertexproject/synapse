@@ -18,14 +18,50 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-Unreleased - YYYY-MM-DD
-=======================
+v2.135.0 - 2023-05-24
+=====================
+
+Announcement
+------------
+
+Due to the introduction of several powerful new APIs and performance
+improvements, Synapse will be updating to *only* support Python >=3.11.
+Our current plan is to drop support for Python <=3.10 in ~4 weeks on
+2023-06-19. The next release after 2023-06-19 will include changes that
+are not backward compatible to earlier versions of Python.
+
+If you currently deploy Synapse Open-Source or Synapse Enterprise via
+the standard docker containers, you will be unaffected.  If you install
+Synapse via PyPI, you will need to ensure that your environment is
+updated to Python 3.11+.
+
+Features
+--------
+- Add a ``--index`` option to the Storm ``auth.user.grant`` command.
+  (`#3150 <https://github.com/vertexproject/synapse/pull/3150>`_)
+- Add additional type handling in the Storm view and layer ``set()`` APIs.
+  (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+- Add a new Storm command, ``auth.perms.list``, to list all of the permissions
+  registered with the Cortex.
+  (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
+  (`#3154 <https://github.com/vertexproject/synapse/pull/3154>`_)
 
 Bugfixes
 --------
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
+- Fix an issue with the Storm ``runas`` command which prevented it being used
+  with a privileged Storm runtime.
+  (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+- Fix support for Storm list objects in ``$lib.max()`` and ``$lib.min()``.
+  (`#3153 <https://github.com/vertexproject/synapse/pull/3153>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide to include the output of the
+  ``auth.perms.list`` command.
+  (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
 
 v2.134.0 - 2023-05-17
 =====================
