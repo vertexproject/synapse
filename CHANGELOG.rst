@@ -41,17 +41,26 @@ Features
   (`#3150 <https://github.com/vertexproject/synapse/pull/3150>`_)
 - Add additional type handling in the Storm view and layer ``set()`` APIs.
   (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+- Add a new Storm command, ``auth.perms.list``, to list all of the permissions
+  registered with the Cortex.
+  (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
 
 Bugfixes
 --------
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
-- Fix an isuse with the Storm ``runas`` command to allow it to be used
-  with an elevated Storm runtime.
+- Fix an issue with the Storm ``runas`` command which prevent it being used
+  with a privileged Storm runtime.
   (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
-- Fix support for heavy Storm objects in ``$lib.max()`` and ``$lib.min()``.
+- Fix support for Storm list objects in ``$lib.max()`` and ``$lib.min()``.
   (`#3153 <https://github.com/vertexproject/synapse/pull/3153>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide to include the output of the
+  ``auth.perms.list`` command.
+  (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
 
 v2.134.0 - 2023-05-17
 =====================
