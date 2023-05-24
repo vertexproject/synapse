@@ -21,7 +21,7 @@ class Bzip2Lib(s_stormtypes.Lib):
 
                     $foo = $lib.compression.bzip2.en($mybytez)''',
          'type': {'type': 'function', '_funcname': 'en',
-                  'returns': {'type': 'bytes', 'desc': 'The bzip2 compressed bytes.', }}},
+                  'returns': {'type': 'bytes', 'desc': 'The bzip2 compressed bytes.'}}},
         {'name': 'un', 'desc': '''
             Decompress bytes using bzip2 and return them.
 
@@ -30,7 +30,7 @@ class Bzip2Lib(s_stormtypes.Lib):
 
                 $foo = $lib.compression.bzip2.un($mybytez)''',
          'type': {'type': 'function', '_funcname': 'un',
-                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
+                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.'}}},
     )
 
     _storm_lib_path = ('compression', 'bzip2')
@@ -71,7 +71,7 @@ class GzipLib(s_stormtypes.Lib):
 
                     $foo = $lib.compression.gzip.en($mybytez)''',
          'type': {'type': 'function', '_funcname': 'en',
-                  'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.', }}},
+                  'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.'}}},
         {'name': 'un', 'desc': '''
             Decompress bytes using gzip and return them.
 
@@ -80,7 +80,7 @@ class GzipLib(s_stormtypes.Lib):
 
                 $foo = $lib.compression.gzip.un($mybytez)''',
          'type': {'type': 'function', '_funcname': 'un',
-                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
+                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.'}}},
     )
 
     _storm_lib_path = ('compression', 'gzip')
@@ -121,7 +121,7 @@ class ZlibLib(s_stormtypes.Lib):
 
                     $foo = $lib.compression.zlib.en($mybytez)''',
          'type': {'type': 'function', '_funcname': 'en',
-                  'returns': {'type': 'bytes', 'desc': 'The zlib compressed bytes.', }}},
+                  'returns': {'type': 'bytes', 'desc': 'The zlib compressed bytes.'}}},
         {'name': 'un', 'desc': '''
             Decompress bytes using zlib and return them.
 
@@ -130,7 +130,7 @@ class ZlibLib(s_stormtypes.Lib):
 
                 $foo = $lib.compression.zlib.un($mybytez)''',
          'type': {'type': 'function', '_funcname': 'un',
-                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
+                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.'}}},
     )
 
     _storm_lib_path = ('compression', 'zlib')
