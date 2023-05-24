@@ -3,7 +3,6 @@ import copy
 import gzip
 import json
 import time
-import zlib
 import regex
 import types
 import base64
@@ -4115,24 +4114,6 @@ class Bytes(Prim):
                       {'name': 'offset', 'type': 'int', 'desc': 'An offset to begin unpacking from.', 'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
-        {'name': 'zcompress', 'desc': '''
-            Compress the bytes using zlib and return them.
-
-            Example:
-                Compress bytes with zlib::
-
-                    $foo = $mybytez.zcompress()''',
-         'type': {'type': 'function', '_funcname': '_methZcompress',
-                  'returns': {'type': 'bytes', 'desc': 'The zlib compressed bytes.', }}},
-        {'name': 'zdecompress', 'desc': '''
-            Decompress the bytes using zlib and return them.
-
-            Example:
-                Decompress bytes with zlib::
-
-                $foo = $mybytez.zdecompress()''',
-         'type': {'type': 'function', '_funcname': '_methZdecompress',
-                  'returns': {'type': 'bytes', 'desc': 'Decompressed bytes.', }}},
     )
     _storm_typename = 'bytes'
     _ismutable = False
@@ -4148,8 +4129,6 @@ class Bytes(Prim):
             'gunzip': self._methGunzip,
             'bzip': self._methBzip,
             'gzip': self._methGzip,
-            'zcompress': self._methZcompress,
-            'zdecompress': self._methZdecompress,
             'json': self._methJsonLoad,
             'slice': self.slice,
             'unpack': self.unpack,
@@ -4208,12 +4187,6 @@ class Bytes(Prim):
 
     async def _methGzip(self):
         return gzip.compress(self.valu)
-
-    async def _methZcompress(self):
-        return zlib.compress(self.valu)
-
-    async def _methZdecompress(self):
-        return zlib.decompress(self.valu)
 
     async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
         try:
