@@ -88,6 +88,8 @@ class GraphLib(s_stormtypes.Lib):
             Add a graph projection to the Cortex.
 
             Example:
+                Add a graph projection named "Test Projection"::
+
                     $rules = ({
                         "name": "Test Projection",
                         "desc": "My test projection",
