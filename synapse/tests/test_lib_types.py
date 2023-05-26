@@ -185,8 +185,8 @@ class TypesTest(s_t_utils.SynTest):
 
         self.raises(s_exc.BadTypeValu, t.norm, 'a')
 
-        self.eq(t.repr(1), 'True')
-        self.eq(t.repr(0), 'False')
+        self.eq(t.repr(1), 'true')
+        self.eq(t.repr(0), 'false')
 
     async def test_comp(self):
         async with self.getTestCore() as core:
