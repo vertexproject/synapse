@@ -127,6 +127,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.b-a-r.baz.')[0])
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.  b   a   r  .baz.')[0])
 
+        self.eq('foo.bar.baz', taxo.repr('foo.bar.baz.'))
+
         with self.raises(s_exc.BadTypeValu):
             taxo.norm('foo.---.baz')
 

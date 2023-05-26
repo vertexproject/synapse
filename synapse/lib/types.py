@@ -385,7 +385,7 @@ class Bool(Type):
         return int(bool(valu)), {}
 
     def repr(self, valu):
-        return repr(bool(valu))
+        return repr(bool(valu)).lower()
 
 class Array(Type):
 
@@ -1731,6 +1731,9 @@ class Taxonomy(Str):
 
     def _normPyStr(self, text):
         return self._normPyList(text.strip().strip('.').split('.'))
+
+    def repr(self, norm):
+        return norm.rstrip('.')
 
 class Tag(Str):
 
