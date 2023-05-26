@@ -466,6 +466,10 @@ class ItModule(s_module.CoreModule):
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
+
+                ('it:av:scan', ('guid', {}), {
+                    'doc': 'An instance of running an AV scanner or multi-scanner on a file or process.'}),
+
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
                    'doc': 'A signature name within the namespace of an antivirus engine name.'
                 }),
@@ -608,6 +612,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The snort rule is intended for use in detecting the target node.'}),
                 (('it:app:yara:rule', 'detects', None), {
                     'doc': 'The YARA rule is intended for use in detecting the target node.'}),
+                (('it:av:scan', 'has', 'it:av:filehit'), {
+                    'doc': 'The scan results contain the target it:av:filehit node.'}),
+                (('it:av:scan', 'has', 'it:av:prochit'), {
+                    'doc': 'The scan results contain the target it:av:prochit node.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -1316,6 +1324,38 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software on the host.'})
 
                 )),
+                ('it:av:scan', {}, (
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file the scan was run on.'})
+
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The file the scan was run on.'})
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the scan was run.'})
+
+                    ('engine', ('it:prod:softver', {}), {
+                        'doc': 'The virus scanning engine.'})
+
+                    ('engine:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the virus scanning engine.'})
+
+                    ('multi:scanners', ('int', {}), {
+                        'doc': 'The total number of scanners run by a multi-scanner.'}),
+
+                    ('multi:results:benign', ('int', {}), {
+                        'doc': 'The total number of scanners which reported the file as benign.'}),
+
+                    ('multi:results:malicious', ('int', {}), {
+                        'doc': 'The total number of scanners which reported the file as malicious.'}),
+
+                    ('multi:results:unsupported', ('int', {}), {
+                        'doc': 'The total number of scanners which reported the file as unsupported.'}),
+
+                    ('multi:results:failure', ('int', {}), {
+                        'doc': 'The total number of scanners which reported the file failed to parse.'}),
+                )),
                 ('it:av:sig', {}, (
                     ('soft', ('it:prod:soft', {}), {
                         'ro': True,
@@ -1974,22 +2014,35 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:yara:rule', {}, (
+
                     ('text', ('str', {}), {
-                        'doc': 'The YARA rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The YARA rule text.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'The YARA rule ID from an external system.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the YARA rule.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the YARA rule.'}),
+
                     ('author', ('ps:contact', {}), {
                         'doc': 'Contact info for the author of the YARA rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time the YARA rule was initially created.'}),
+
                     ('updated', ('time', {}), {
                         'doc': 'The time the YARA rule was most recently modified.'}),
+
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
+
                     ('family', ('it:prod:softname', {}), {
                         'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),

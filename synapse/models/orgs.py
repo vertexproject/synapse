@@ -612,6 +612,8 @@ class OuModule(s_module.CoreModule):
                     ('locations', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts for facilities operated by the org.',
                     }),
+                    ('country', ('pol:country', {}), {
+                        'doc': "The organization's country of origin."}),
                     ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),

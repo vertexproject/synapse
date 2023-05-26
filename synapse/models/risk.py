@@ -145,20 +145,23 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The authoritative organization for the threat cluster.'}),
 
                     ('org:loc', ('loc', {}), {
-                        'doc': 'The reporting organization\'s assessed location of the threat cluster.'}),
+                        'doc': "The reporting organization's assessed location of the threat cluster."}),
 
                     ('org:name', ('ou:name', {}), {
                         'ex': 'apt1',
-                        'doc': 'The reporting organization\'s name for the threat cluster.'}),
+                        'doc': "The reporting organization's name for the threat cluster."}),
 
                     ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the threat cluster, according to the reporting organization.'}),
 
+                    ('country', ('pol:country', {}), {
+                        'doc': "The reporting orgnaization's assessed country of origin of the threat cluster."}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The reporting organization\'s assessed goals of the threat cluster.'}),
+                        'doc': "The reporting organization's assessed goals of the threat cluster."}),
 
                     ('sophistication', ('meta:sophistication', {}), {
-                        'doc': 'The reporting organization\'s assessed sophistication of the threat cluster.'}),
+                        'doc': "The reporting organization's assessed sophistication of the threat cluster."}),
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,

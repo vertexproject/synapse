@@ -1192,10 +1192,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A password string.'
                     }),
 
-                    ('inet:tls:server:cert', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
+                    ('inet:tls:server:certificate', ('comp', {'fields': (('server', 'inet:server'), ('cert', 'crypto:x509:cert'))}), {
                         'doc': 'An X509 certificate presented by a TLS enabled server.'}),
 
-                    ('inet:tls:client:cert', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
+                    ('inet:tls:client:certificate', ('comp', {'fields': (('client', 'inet:client'), ('cert', 'crypto:x509:cert'))}), {
                         'doc': 'An X509 certificate presented by a TLS enabled client.'}),
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
@@ -2115,7 +2115,8 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:tls:server:cert', {}, (
+                    ('inet:tls:server:certificate', {}, (
+
                         ('cert', ('crypto:x509:cert', {}), {
                             'ro': True,
                             'doc': 'The X509 certificate presented by the server.'}),
@@ -2135,6 +2136,29 @@ class InetModule(s_module.CoreModule):
                         ('server:port', ('inet:port', {}), {
                             'ro': True,
                             'doc': 'The port number that the server is listening on.'}),
+                    )),
+
+                    ('inet:tls:client:certificate', {}, (
+
+                        ('cert', ('crypto:x509:cert', {}), {
+                            'ro': True,
+                            'doc': 'The X509 certificate presented by the client.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'ro': True,
+                            'doc': 'The client that presented the X509 certificate.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'ro': True,
+                            'doc': 'The IPv4 address of the client.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'ro': True,
+                            'doc': 'The IPv6 address of the client.'}),
+
+                        ('client:port', ('inet:port', {}), {
+                            'ro': True,
+                            'doc': 'The port number that the client is listening on.'}),
                     )),
 
                     ('inet:url', {}, (
