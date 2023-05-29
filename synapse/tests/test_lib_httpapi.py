@@ -1724,7 +1724,7 @@ class HttpApiTest(s_tests.SynTest):
                 with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
 
                     async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
-                                         json=info, headers={'X-Forwardd-For': '1.2.3.4'}) as resp:
+                                         json=info, headers={'X-Forwarded-For': '1.2.3.4'}) as resp:
                         item = await resp.json()
                         self.nn(item.get('result').get('iden'))
                         visiiden = item['result']['iden']
