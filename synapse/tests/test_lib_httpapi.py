@@ -1723,7 +1723,8 @@ class HttpApiTest(s_tests.SynTest):
 
                 with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
 
-                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
+                                         json=info, headers={'X-Forwardd-For': '1.2.3.4'}) as resp:
                         item = await resp.json()
                         self.nn(item.get('result').get('iden'))
                         visiiden = item['result']['iden']
@@ -1737,6 +1738,7 @@ class HttpApiTest(s_tests.SynTest):
                 self.isin('remoteip', mesg)
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+                self.notin('1.2.3.4', mesg.get('message'))
 
                 # No auth provided
                 with self.getStructuredAsyncLoggerStream(logname, 'api/v1/active') as stream:
@@ -1775,3 +1777,53 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(mesg.get('uri'), '/api/v1/auth/users')
                     self.eq(mesg.get('username'), 'visi')
                     self.eq(mesg.get('user'), visiiden)
+
+        async with self.getTestCore(conf={'https:parse:xheaders': True}) as core:
+
+            # structlog tests
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            async with self.getHttpSess() as sess:
+
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                logname = 'tornado.access'
+
+                # Basic-auth
+
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
+                                         json=info, headers={'X-Forwarded-For': '1.2.3.4'}) as resp:
+                        item = await resp.json()
+                        self.nn(item.get('result').get('iden'))
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg.get('username'), 'root')
+                self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.eq(mesg.get('remoteip'), '1.2.3.4')
+                self.isin('(root)', mesg.get('message'))
+                self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+
+                info = {'name': 'charles', 'passwd': 'secret', 'admin': True}
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
+                                         json=info, headers={'X-Real-Ip': '8.8.8.8'}) as resp:
+                        item = await resp.json()
+                        self.nn(item.get('result').get('iden'))
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg.get('username'), 'root')
+                self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.eq(mesg.get('remoteip'), '8.8.8.8')
+                self.isin('(root)', mesg.get('message'))
+                self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))

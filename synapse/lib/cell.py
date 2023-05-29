@@ -884,6 +884,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hidecmdl': True,
         },
+        'https:parse:xheaders': {
+            'description': 'Enable the HTTPS server to parse X-Forwarded-For and X-Real-IP headers to determine requester IP addresses.',
+            'type': 'boolean',
+            'default': False,
+        },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
@@ -2584,7 +2589,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             sslctx = self.initSslCtx(certpath, pkeypath)
 
-        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
+        kwargs = {
+            'xheaders': self.conf.reqConfValu('https:parse:xheaders')
+        }
+        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 
