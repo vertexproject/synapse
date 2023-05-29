@@ -889,6 +889,14 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
+        async with self.getTestCore() as core:
+            await core.addTagProp('tval', ('ival', {}), {})
+
+            await core.nodes('[test:str=tagprop +#foo:tval=2021]')
+            await core.nodes('test:str=tagprop [+#foo:tval=2023]')
+
+            self.eq(1, await core.count('#foo:tval@=2022'))
+
     async def test_layer_stortype_latlon(self):
         stor = s_layer.StorTypeLatLon(self)
 
@@ -974,6 +982,20 @@ class LayerTest(s_t_utils.SynTest):
 
             retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, 'range=', (minv - 1, maxv + 1))]
             self.eq(retn, vals)
+
+            await core.addTagProp('mintime', ('time', {'ismin': True}), {})
+            await core.addTagProp('maxtime', ('time', {'ismax': True}), {})
+
+            await core.nodes('[test:str=tagprop +#foo:mintime=2021 +#foo:maxtime=2013]')
+            await core.nodes('test:str=tagprop [+#foo:mintime=2023 +#foo:maxtime=2011]')
+
+            self.eq(1, await core.count('#foo:mintime=2021'))
+            self.eq(1, await core.count('#foo:maxtime=2013'))
+
+            await core.nodes('test:str=tagprop [+#foo:mintime=2020 +#foo:maxtime=2015]')
+
+            self.eq(1, await core.count('#foo:mintime=2020'))
+            self.eq(1, await core.count('#foo:maxtime=2015'))
 
     async def test_layer_stortype_float(self):
         async with self.getTestCore() as core:
