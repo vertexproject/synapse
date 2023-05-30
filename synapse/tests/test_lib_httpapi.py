@@ -1778,7 +1778,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(mesg.get('username'), 'visi')
                     self.eq(mesg.get('user'), visiiden)
 
-        async with self.getTestCore(conf={'https:parse:xheaders': True}) as core:
+        async with self.getTestCore(conf={'https:parse:proxy:remoteip': True}) as core:
 
             # structlog tests
 
