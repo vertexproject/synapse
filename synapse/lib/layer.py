@@ -2483,7 +2483,10 @@ class Layer(s_nexus.Pusher):
             self.logedits = valu
 
         # TODO when we can set more props, we may need to parse values.
-        await self.layrinfo.set(name, valu)
+        if valu is None:
+            await self.layrinfo.pop(name)
+        else:
+            await self.layrinfo.set(name, valu)
 
         await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
@@ -3246,6 +3249,15 @@ class Layer(s_nexus.Pusher):
         if tp_dict:
             oldv, oldt = tp_dict.get(prop, (None, None))
             if oldv is not None:
+
+                if stortype == STOR_TYPE_IVAL:
+                    valu = (min(*oldv, *valu), max(*oldv, *valu))
+
+                elif stortype == STOR_TYPE_MINTIME:
+                    valu = min(valu, oldv)
+
+                elif stortype == STOR_TYPE_MAXTIME:
+                    valu = max(valu, oldv)
 
                 if valu == oldv and stortype == oldt:
                     return ()
