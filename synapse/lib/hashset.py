@@ -8,7 +8,7 @@ class HashSet:
 
         # BEWARE ORDER MATTERS FOR guid()
         self.hashes = (
-            ('md5', hashlib.md5()),
+            ('md5', hashlib.md5(usedforsecurity=False)),
             ('sha1', hashlib.sha1()),
             ('sha256', hashlib.sha256()),
             ('sha512', hashlib.sha512())
@@ -19,7 +19,7 @@ class HashSet:
         Use elements from this hash set to create a unique
         (re)identifier.
         '''
-        iden = hashlib.md5()
+        iden = hashlib.md5(usedforsecurity=False)
         props = {'size': self.size}
 
         for name, item in self.hashes:

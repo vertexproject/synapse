@@ -145,7 +145,7 @@ class AstConverter(lark.Transformer):
 
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
-        self.texthash = hashlib.md5(text.encode(errors='surrogatepass')).hexdigest()
+        self.texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
     def metaToAstInfo(self, meta, isterm=False):
         if isinstance(meta, lark.tree.Meta) and meta.empty:

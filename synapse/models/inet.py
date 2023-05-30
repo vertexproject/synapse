@@ -949,7 +949,7 @@ class InetModule(s_module.CoreModule):
     async def _onAddPasswd(self, node):
 
         byts = node.ndef[1].encode('utf8')
-        await node.set('md5', hashlib.md5(byts).hexdigest())
+        await node.set('md5', hashlib.md5(byts, usedforsecurity=False).hexdigest())
         await node.set('sha1', hashlib.sha1(byts).hexdigest())
         await node.set('sha256', hashlib.sha256(byts).hexdigest())
 
