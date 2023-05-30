@@ -4454,15 +4454,15 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'media:news:org#test.*.bar'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
             q = '#test.*.bar'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
             q = 'media:news:org#test.*.bar:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
     async def test_storm_copyto(self):
 

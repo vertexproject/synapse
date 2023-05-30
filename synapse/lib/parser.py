@@ -56,6 +56,7 @@ terminalEnglishMap = {
     'EXPRNEG': '-',
     'EXPRPLUS': '+',
     'EXPRPOW': '**',
+    'EXPRTAGSEGNOVAR': 'non-variable tag segment',
     'EXPRTIMES': '*',
     'FOR': 'for',
     'FORMATSTRING': 'backtick-quoted format string',
@@ -84,8 +85,8 @@ terminalEnglishMap = {
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
+    'TAGSEGNOVAR': 'non-variable tag segment',
     'TRY': 'try',
-    'TAGMATCH': 'tag name potentially with asterisks',
     'TRIPLEQUOTEDSTRING': 'triple-quoted string',
     'TRYSET': '?=',
     'TRYSETPLUS': '?+=',
@@ -98,6 +99,7 @@ terminalEnglishMap = {
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
     'WILDCARD': '*',
+    'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
     '_COLONDOLLAR': ':$',
@@ -111,21 +113,21 @@ terminalEnglishMap = {
     '_EDGEN2FINI': ')-',
     '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
+    '_EXPRCOLONNOSPACE': ':',
     '_EMIT': 'emit',
     '_FINI': 'fini',
     '_HASH': '#',
-    '_EXPRHASH': '#',
     '_HASHSPACE': '#',
-    '_EXPRHASHSPACE': '#',
     '_INIT': 'init',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_LPARNOSPACE': '(',
+    '_MATCHHASH': '#',
+    '_MATCHHASHSPACE': '#',
     '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_STOP': 'stop',
-    '_TAGSEGNOVAR': 'tag segment potentially with asterisks',
     '_WALKNPIVON1': '-->',
     '_WALKNPIVON2': '<--',
     '$END': 'end of input',
@@ -404,25 +406,6 @@ class AstConverter(lark.Transformer):
 
         return argv
 
-    @classmethod
-    def _tagsplit(cls, astinfo, tag):
-
-        if '$' not in tag:
-            return [s_ast.Const(astinfo, tag)]
-
-        kids = []
-        segs = tag.split('.')
-
-        for seg in segs:
-
-            if seg[0] == '$':
-                kids.append(s_ast.VarValue(astinfo, kids=[s_ast.Const(astinfo, seg[1:])]))
-                continue
-
-            kids.append(s_ast.Const(astinfo, seg))
-
-        return kids
-
     @lark.v_args(meta=True)
     def varderef(self, meta, kids):
         assert kids and len(kids) in (3, 4)
@@ -434,22 +417,6 @@ class AstConverter(lark.Transformer):
         else:
             newkid = self._convert_child(kids[2])
         return s_ast.VarDeref(astinfo, kids=(kids[0], newkid))
-
-    @lark.v_args(meta=True)
-    def tagname(self, meta, kids):
-        assert kids and len(kids) == 1
-        astinfo = self.metaToAstInfo(meta)
-        kid = kids[0]
-        if not isinstance(kid, lark.lexer.Token):
-            return self._convert_child(kid)
-
-        valu = kid.value
-        if '*' in valu:
-            mesg = f"Invalid wildcard usage in tag {valu}"
-            self.raiseBadSyntax(mesg, astinfo)
-
-        kids = self._tagsplit(astinfo, valu)
-        return s_ast.TagName(astinfo, kids=kids)
 
     @lark.v_args(meta=True)
     def switchcase(self, meta, kids):
@@ -639,7 +606,6 @@ terminalClassMap = {
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
-    'TAGMATCH': lambda astinfo, x: s_ast.TagMatch(astinfo, kids=AstConverter._tagsplit(astinfo, x)),
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
     'EXPRVARTOKN': massage_vartokn,
@@ -734,6 +700,8 @@ ruleClassMap = {
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
+    'tagname': s_ast.TagName,
+    'tagmatch': s_ast.TagMatch,
     'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,
