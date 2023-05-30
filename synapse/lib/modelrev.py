@@ -838,7 +838,7 @@ class ModelRev:
 
         form = self.core.model.form(formname)
 
-        if liftprop = None:
+        if liftprop is None:
             liftprop = formname
 
         nodeedits = []

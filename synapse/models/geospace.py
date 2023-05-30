@@ -499,6 +499,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'An array of alternative place names.'}),
 
                         ('parent', ('geo:place', {}), {
+                            'deprecated': True,
                             'doc': 'Deprecated. Please use a -(contains)> edge.'}),
 
                         ('desc', ('str', {}), {
