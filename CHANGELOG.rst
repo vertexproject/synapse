@@ -58,7 +58,8 @@ Features and Enhancements
   (`#3160 <https://github.com/vertexproject/synapse/pull/3160>`_)
 - Update the allowed versions of the ``fastjsonschema`` and ``pycryptodome``
   libraries. Update the required version of the ``vcrpy`` library to account
-  for changes in ``urllib3``. Remove the pinned of the ``requests`` library.
+  for changes in ``urllib3``. Remove the pinned requirement for the
+  ``requests`` library.
   (`#3164 <https://github.com/vertexproject/synapse/pull/3164>`_)
 
 Bugfixes
@@ -66,7 +67,7 @@ Bugfixes
 - Prevent zero length tag lift operations.
   (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
 - Fix an issue where tag properties with the type ``ival``, or ``time``
-  types with ``ismin`` or ``ismax`` options set, were not propely merged
+  types with ``ismin`` or ``ismax`` options set, were not properly merged
   when being set.
   (`#3161 <https://github.com/vertexproject/synapse/pull/3161>`_)
 - Fix a missing ``mesg`` value on ``NoSuchForm`` exception raised by
