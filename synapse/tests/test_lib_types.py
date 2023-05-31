@@ -127,6 +127,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.b-a-r.baz.')[0])
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.  b   a   r  .baz.')[0])
 
+        self.eq('foo.bar.baz', taxo.repr('foo.bar.baz.'))
+
         with self.raises(s_exc.BadTypeValu):
             taxo.norm('foo.---.baz')
 
@@ -183,8 +185,8 @@ class TypesTest(s_t_utils.SynTest):
 
         self.raises(s_exc.BadTypeValu, t.norm, 'a')
 
-        self.eq(t.repr(1), 'True')
-        self.eq(t.repr(0), 'False')
+        self.eq(t.repr(1), 'true')
+        self.eq(t.repr(0), 'false')
 
     async def test_comp(self):
         async with self.getTestCore() as core:
