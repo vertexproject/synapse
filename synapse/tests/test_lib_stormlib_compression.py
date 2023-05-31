@@ -37,8 +37,8 @@ class StormlibCompressionTest(s_test.SynTest):
             q = 'graph:node=(node1,) return($lib.compression.gzip.un($lib.base64.decode(:data)).decode())'
             self.eq(text, await core.callStorm(q))
 
-            q = 'graph:node=(node2,) return($lib.base64.encode($lib.compression.gzip.en((:data).encode())))'
-            self.eq(tenc, await core.callStorm(q))
+            q = 'graph:node=(node2,) return($lib.compression.gzip.en((:data).encode()))'
+            self.eq(text.encode(), gzip.decompress(await core.callStorm(q)))
 
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.gzip.en(foo)'))
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes('$lib.compression.gzip.un(foo)'))

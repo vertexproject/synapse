@@ -46,8 +46,16 @@ Features
   (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
   (`#3154 <https://github.com/vertexproject/synapse/pull/3154>`_)
 
+Features and Enhancements
+-------------------------
+- Normalize tag names when performing lift and filter operations.
+(`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+
 Bugfixes
 --------
+- Fix an issue where attempting a tag lift with a variable containing
+  a zero-length string would raise an MDB error.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
