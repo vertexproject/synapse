@@ -3877,9 +3877,9 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('trigger.list')
             self.stormHasNoWarnErr(msgs)
             trgs = ('iden                             en?    async? cond      object',
-                    '8af9a5b134d08fded3edb667f8d8bbc2 True   True   tag:add   inet:ipv4',
-                    '99b637036016dadd6db513552a1174b8 True   False  tag:add            ',
-                    'bc1cbf350d151bba5936e6654dd13ff5 True   False  node:add  inet:ipv4',
+                    '8af9a5b134d08fded3edb667f8d8bbc2 true   true   tag:add   inet:ipv4',
+                    '99b637036016dadd6db513552a1174b8 true   false  tag:add            ',
+                    'bc1cbf350d151bba5936e6654dd13ff5 true   false  node:add  inet:ipv4',
                     )
             for m in trgs:
                 self.stormIsInPrint(m, msgs)
