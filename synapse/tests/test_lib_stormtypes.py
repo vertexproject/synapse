@@ -351,6 +351,9 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint("('foo', 'barvalu')", msgs)
 
+            await core.callStorm('$lib.auth.users.byname(visi).vars.foo=$lib.undef')
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).vars.foo)'))
+
     async def test_stormtypes_registry(self):
 
         class NewpType(s_stormtypes.StormType):

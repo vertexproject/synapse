@@ -39,8 +39,11 @@ class StormlibEasyPermTest(s_test.SynTest):
             q = 'return($lib.auth.easyperm.allowed($edef, $lib.auth.easyperm.level.admin))'
             self.false(await core.callStorm(q, opts=opts))
 
+            q = 'return($lib.auth.easyperm.allowed($edef, $lib.auth.easyperm.level.admin))'
+            self.true(await core.callStorm(q, opts={'vars': {'edef': retn}}))
+
             q = '$lib.auth.easyperm.confirm($edef, $lib.auth.easyperm.level.admin)'
-            self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
 
             opts = {'user': visi.iden, 'vars': {'edef': retn, 'role': alliden}}
             exp['permissions']['roles'][alliden] = s_cell.PERM_DENY
