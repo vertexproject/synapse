@@ -18,7 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-v2.135.0 - 2023-05-24
+v2.136.0 - YYYY-MM-DD
 =====================
 
 Announcement
@@ -35,8 +35,50 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-Features
+Model Changes
+-------------
+- Boolean values in the Synapse model now have lowercase ``true`` and
+  ``false`` repr values.
+  (`#3159 <https://github.com/vertexproject/synapse/pull/3159>`_)
+- The trailing ``.`` on the taxonomy repr has been removed.
+  (`#3159 <https://github.com/vertexproject/synapse/pull/3159>`_)
+
+Features and Enhancements
+-------------------------
+- Normalize tag names when performing lift and filter operations.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Add ``$lib.compression.bzip2``, ``$lib.compression.gzip``, and
+  ``$lib.compression.zlib`` Storm libraries to assist with compressing
+  and decompressing bytes.
+  (`#3155 <https://github.com/vertexproject/synapse/pull/3155>`_)
+- Add a new Cell configuration option, ``https:parse:proxy:remoteip``. When
+  this is set to ``true``, the Cell HTTPS server will parse
+  ``X-Forwarded-For`` and ``X-Real-IP`` headers to determine the remote IP
+  of an request.
+  (`#3160 <https://github.com/vertexproject/synapse/pull/3160>`_)
+- Update the allowed versions of the ``fastjsonschema`` and ``pycryptodome``
+  libraries. Update the required version of the ``vcrpy`` library to account
+  for changes in ``urllib3``. Remove the pinned requirement for the
+  ``requests`` library.
+  (`#3164 <https://github.com/vertexproject/synapse/pull/3164>`_)
+
+Bugfixes
 --------
+- Prevent zero length tag lift operations.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Fix an issue where tag properties with the type ``ival``, or ``time``
+  types with ``ismin`` or ``ismax`` options set, were not properly merged
+  when being set.
+  (`#3161 <https://github.com/vertexproject/synapse/pull/3161>`_)
+- Fix a missing ``mesg`` value on ``NoSuchForm`` exception raised by
+  the ``storm:layer`` ``liftByTag()`` API.
+  (`#3165 <https://github.com/vertexproject/synapse/pull/3165>`_)
+
+v2.135.0 - 2023-05-24
+=====================
+
+Features and Enhancements
+-------------------------
 - Add a ``--index`` option to the Storm ``auth.user.grant`` command.
   (`#3150 <https://github.com/vertexproject/synapse/pull/3150>`_)
 - Add additional type handling in the Storm view and layer ``set()`` APIs.
@@ -48,6 +90,9 @@ Features
 
 Bugfixes
 --------
+- Fix an issue where attempting a tag lift with a variable containing
+  a zero-length string would raise an MDB error.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
