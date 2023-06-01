@@ -6340,7 +6340,7 @@ class Layer(Prim):
         formname = await tostr(formname, noneok=True)
 
         if formname is not None and self.runt.snap.core.model.form(formname) is None:
-            raise s_exc.NoSuchForm(formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
