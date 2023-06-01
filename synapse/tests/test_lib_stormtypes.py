@@ -329,6 +329,28 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe))'))
             self.false(await core.callStorm('return($lib.auth.users.byname(visi).json.has(hehe))'))
 
+    async def test_stormtypes_uservars(self):
+
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            othr = await core.auth.addUser('othr')
+            asothr = {'user': othr.iden}
+
+            await core.callStorm('$lib.user.vars.set(foo, foovalu)', opts=asvisi)
+
+            q = 'return($lib.auth.users.byname(visi).vars.foo)'
+            self.eq('foovalu', await core.callStorm(q, opts=asvisi))
+
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=asothr))
+
+            await core.callStorm('$lib.auth.users.byname(visi).vars.foo=barvalu')
+
+            q = 'for $valu in $lib.auth.users.byname(visi).vars { $lib.print($valu) }'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("('foo', 'barvalu')", msgs)
+
     async def test_stormtypes_registry(self):
 
         class NewpType(s_stormtypes.StormType):

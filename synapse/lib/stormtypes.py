@@ -4829,9 +4829,9 @@ class LibUser(Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': 'Get a Hive dictionary representing the current users persistent variables.',
+        {'name': 'vars', 'desc': "Get a Hive dictionary representing the current user's persistent variables.",
          'type': 'storm:hive:dict', },
-        {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
+        {'name': 'profile', 'desc': "Get a Hive dictionary representing the current user's profile information.",
          'type': 'storm:hive:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
@@ -8038,6 +8038,37 @@ class UserJson(Prim):
             yield path, item
 
 @registry.registerType
+class UserVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of User vars information.
+    '''
+    _storm_typename = 'storm:auth:user:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    async def deref(self, name):
+        return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
+
+    async def setitem(self, name, valu):
+        if valu is undef:
+            await self.runt.snap.core.popUserVarValu(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
+
+    async def iter(self):
+        varz = await self.value()
+        for item in list(varz.items()):
+            yield item
+
+    async def value(self):
+        return copy.deepcopy(await self.runt.snap.core.getUserVars(self.valu))
+
+@registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -8217,7 +8248,11 @@ class User(Prim):
                 $user=$lib.auth.users.byname(bob) $value = $user.profile.somekey
         ''',
         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
-                  'returns': {'type': 'storm:auth:user:profile', }}},
+                 'returns': {'type': 'storm:auth:user:profile', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the user's persistent variables.",
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
+                  'returns': {'type': 'storm:auth:user:vars'}}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -8235,6 +8270,7 @@ class User(Prim):
         })
         self.ctors.update({
             'json': self._ctorUserJson,
+            'vars': self._ctorUserVars,
             'profile': self._ctorUserProfile,
         })
 
@@ -8246,6 +8282,12 @@ class User(Prim):
 
     def _ctorUserProfile(self, path=None):
         return UserProfile(self.runt, self.valu)
+
+    def _ctorUserVars(self, path=None):
+        if self.runt.user.iden != self.valu and not self.runt.isAdmin():
+            mesg = '$user.vars requires admin privs when $user is not the current user.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        return UserVars(self.runt, self.valu)
 
     def getObjLocals(self):
         return {
