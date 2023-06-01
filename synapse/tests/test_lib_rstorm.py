@@ -104,7 +104,7 @@ multi_rst_in_http_opts = '''
 .. storm-vcr-opts:: {"record_mode": "none"}
 .. storm-vcr-callback:: synapse.tests.test_lib_rstorm.vcrcallbacktst
 .. storm-mock-http:: /this/path/does/not/exist.yaml
-.. storm:: $resp = $lib.inet.http.get("http://example.com") if $resp.body { $lib.print('unexpected results') } else { $lib.print($lib.str.concat('this', ' test', ' passed')) }
+.. storm:: $resp = $lib.inet.http.get("http://example.com") if $resp.body { $lib.print('unexpected results') } else { $lib.print('this test passed') }
 '''
 
 storm_http_sadpath_callback = '''
