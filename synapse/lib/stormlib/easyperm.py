@@ -18,7 +18,8 @@ class LibEasyPerm(s_stormtypes.Lib):
         ''',
          'type': {'type': 'function', '_funcname': '_initEasyPerm',
                   'args': (
-                      {'name': 'edef', 'type': 'dict', 'desc': 'A dictionary to add easy perms to.'},
+                      {'name': 'edef', 'type': 'dict', 'default': None,
+                       'desc': 'A dictionary to add easy perms to.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary with the easy perm structure.'}}},
         {'name': 'set', 'desc': 'Set the permission level for a user or role in an easy perm dictionary.',
