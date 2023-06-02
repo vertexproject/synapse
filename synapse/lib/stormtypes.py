@@ -4808,6 +4808,22 @@ class Number(Prim):
 
     __rpow__ = __pow__
 
+    def __mod__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, Number):
+            return Number(s_common.hugemod(self.value(), othr.value())[1])
+
+        mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rmod__(self, othr):
+        othr = Number(othr)
+        return othr.__mod__(self)
+
     async def stormrepr(self):
         return str(self.value())
 

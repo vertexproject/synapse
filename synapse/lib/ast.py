@@ -2980,6 +2980,8 @@ async def expr_add(x, y):
     return await tonumber(x) + await tonumber(y)
 async def expr_sub(x, y):
     return await tonumber(x) - await tonumber(y)
+async def expr_mod(x, y):
+    return await tonumber(x) % await tonumber(y)
 async def expr_mul(x, y):
     return await tonumber(x) * await tonumber(y)
 
@@ -3016,6 +3018,7 @@ async def expr_re(x, y):
 _ExprFuncMap = {
     '+': expr_add,
     '-': expr_sub,
+    '%': expr_mod,
     '*': expr_mul,
     '/': expr_div,
     '**': expr_pow,

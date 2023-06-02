@@ -430,6 +430,7 @@ EXPRMINUS.2: /(?<!-)-/
 EXPRNEG.2: /-(?![^$:.#(\-]|(?>(?<EXPRNEGRECUR>\(((?>[^()"'`]+|(?&EXPRNEGRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
+EXPRMODULO.2: "%"
 EXPRPOW.2: "**"
 NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![^\s})*\/+\-=><!~]|(?>(?<NUMBERRECUR>\(((?>[^()"'`]+|(?&NUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
 HEXNUMBER.1: /-?0x[0-9a-fA-F]+(?![^\s})*\/+\-=><!~]|(?>(?<HEXNUMBERRECUR>\(((?>[^()"'`]+|(?&HEXNUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
@@ -444,7 +445,7 @@ AND.2: "and"
 ?exprnot: exprcmp | NOT exprcmp
 ?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
-?exprproduct: exprunary | exprproduct (EXPRTIMES | EXPRDIVIDE) exprunary
+?exprproduct: exprunary | exprproduct (EXPRTIMES | EXPRDIVIDE | EXPRMODULO) exprunary
 ?exprunary: exprpow | EXPRNEG exprunary
 ?exprpow: _expratom | exprpow EXPRPOW _expratom
 _expratom: _exprvalu
