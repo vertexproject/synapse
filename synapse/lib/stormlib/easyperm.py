@@ -13,8 +13,9 @@ class LibEasyPerm(s_stormtypes.Lib):
         {'name': 'init', 'desc': '''
             Add the easy perm structure to a new or existing dictionary.
 
-            Note: The current user will be given admin permission in the new
-            easy perm structure.
+            Note:
+                The current user will be given admin permission in the new
+                easy perm structure.
         ''',
          'type': {'type': 'function', '_funcname': '_initEasyPerm',
                   'args': (
@@ -69,6 +70,9 @@ class LibEasyPerm(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         level = await s_stormtypes.toint(level, noneok=True)
 
+        if not isinstance(edef, dict):
+            raise s_exc.BadArg(mesg='Object to set easy perms on must be a dictionary.')
+
         await self.runt.snap.core._setEasyPerm(edef, scope, iden, level)
         return edef
 
@@ -77,17 +81,28 @@ class LibEasyPerm(s_stormtypes.Lib):
         if edef is None:
             edef = {}
 
+        if not isinstance(edef, dict):
+            raise s_exc.BadArg(mesg='Object to add easy perms to must be a dictionary.')
+
         self.runt.snap.core._initEasyPerm(edef)
 
-        if self.runt.user is not None:
-            await self.runt.snap.core._setEasyPerm(edef, 'users', self.runt.user.iden, s_cell.PERM_ADMIN)
+        await self.runt.snap.core._setEasyPerm(edef, 'users', self.runt.user.iden, s_cell.PERM_ADMIN)
         return edef
 
     async def _allowedEasyPerm(self, edef, level):
-        if self.runt.user:
-            return self.runt.snap.core._hasEasyPerm(edef, self.runt.user, level)
-        return True
+        edef = await s_stormtypes.toprim(edef)
+        level = await s_stormtypes.toint(level)
+
+        if not isinstance(edef, dict):
+            raise s_exc.BadArg(mesg='Object to check easy perms on must be a dictionary.')
+
+        return self.runt.snap.core._hasEasyPerm(edef, self.runt.user, level)
 
     async def _confirmEasyPerm(self, edef, level):
-        if self.runt.user:
-            self.runt.snap.core._reqEasyPerm(edef, self.runt.user, level)
+        edef = await s_stormtypes.toprim(edef)
+        level = await s_stormtypes.toint(level)
+
+        if not isinstance(edef, dict):
+            raise s_exc.BadArg(mesg='Object to check easy perms on must be a dictionary.')
+
+        self.runt.snap.core._reqEasyPerm(edef, self.runt.user, level)

@@ -57,3 +57,15 @@ class StormlibEasyPermTest(s_test.SynTest):
             q = 'return($lib.auth.easyperm.set($edef, roles, $role, $lib.null))'
             retn = await core.callStorm(q, opts=opts)
             self.eq(retn, exp)
+
+            q = '$lib.auth.easyperm.init(foo)'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+
+            q = '$lib.auth.easyperm.set(foo, roles, bar, $lib.auth.easyperm.level.deny)'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+
+            q = '$lib.auth.easyperm.allowed(foo, $lib.auth.easyperm.level.admin)'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
+
+            q = '$lib.auth.easyperm.confirm(foo, $lib.auth.easyperm.level.admin)'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q))
