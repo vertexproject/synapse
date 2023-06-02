@@ -62,8 +62,6 @@ Features and Enhancements
   for changes in ``urllib3``. Remove the pinned requirement for the
   ``requests`` library.
   (`#3164 <https://github.com/vertexproject/synapse/pull/3164>`_)
-- Add support for modulo operations in storm.
-  (`#3168 <https://github.com/vertexproject/synapse/pull/3168>`_)
 
 Bugfixes
 --------

@@ -4817,7 +4817,7 @@ class Number(Prim):
         elif isinstance(othr, Number):
             return Number(s_common.hugemod(self.value(), othr.value())[1])
 
-        mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        mesg = f"'%' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
     def __rmod__(self, othr):

@@ -529,6 +529,19 @@ Queries = [
     '$x = (5 - 100 % 3)',
     '$x = (5 * 100 % 3)',
     '$x = (5 / 100 % 3)',
+
+    # This group of expressions is for checking the lookaheads in the NUMBER.1
+    # and HEXNUMBER.1 regular expressions in storm.lark. These two regexes allow
+    # for no spaces between the numbers and the operators (+-*/%)
+    '$x = (5+100%3)',
+    '$x = (5-100%3)',
+    '$x = (5*100%3)',
+    '$x = (5/100%3)',
+    '$x = (0x5+0x100%0x3)',
+    '$x = (0x5-0x100%0x3)',
+    '$x = (0x5*0x100%0x3)',
+    '$x = (0x5/0x100%0x3)',
+
     '$foo=42 $foo2=43 $x = $($foo * $foo2)',
     '$yep=$(42 < 43)',
     '$yep=$(42 > 43)',
@@ -1141,6 +1154,14 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: -, ExprNode: [Const: 100, Const: %, Const: 3]]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: *, Const: 100], Const: %, Const: 3]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: /, Const: 100], Const: %, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: +, ExprNode: [Const: 100, Const: %, Const: 3]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: -, ExprNode: [Const: 100, Const: %, Const: 3]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: *, Const: 100], Const: %, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: /, Const: 100], Const: %, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: +, ExprNode: [Const: 256, Const: %, Const: 3]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: -, ExprNode: [Const: 256, Const: %, Const: 3]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: *, Const: 256], Const: %, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: /, Const: 256], Const: %, Const: 3]]]]',
     'Query: [SetVarOper: [Const: foo, Const: 42], SetVarOper: [Const: foo2, Const: 43], SetVarOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
     'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: <, Const: 43]]]]',
     'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >, Const: 43]]]]',
