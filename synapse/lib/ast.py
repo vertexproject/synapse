@@ -2978,10 +2978,13 @@ class DollarExpr(Value):
 
 async def expr_add(x, y):
     return await tonumber(x) + await tonumber(y)
+
 async def expr_sub(x, y):
     return await tonumber(x) - await tonumber(y)
+
 async def expr_mod(x, y):
     return await tonumber(x) % await tonumber(y)
+
 async def expr_mul(x, y):
     return await tonumber(x) * await tonumber(y)
 
@@ -2997,19 +3000,26 @@ async def expr_pow(x, y):
 
 async def expr_eq(x, y):
     return await tocmprvalu(x) == await tocmprvalu(y)
+
 async def expr_ne(x, y):
     return await tocmprvalu(x) != await tocmprvalu(y)
+
 async def expr_gt(x, y):
     return await tonumber(x) > await tonumber(y)
+
 async def expr_lt(x, y):
     return await tonumber(x) < await tonumber(y)
+
 async def expr_ge(x, y):
     return await tonumber(x) >= await tonumber(y)
+
 async def expr_le(x, y):
     return await tonumber(x) <= await tonumber(y)
+
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
     return x.startswith(y)
+
 async def expr_re(x, y):
     if regex.search(await tostr(y), await tostr(x)):
         return True
