@@ -711,7 +711,9 @@ class ModelRev:
         await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
 
     async def revModel_0_2_20(self, layers):
-        await self._normFormSubs(layers, 'inet:url', liftprop='inet:url:user')
+        await self._normFormSubs(layers, 'inet:url', liftprop='user')
+        await self._propToForm(layers, 'inet:url:user', 'inet:user')
+        await self._propToForm(layers, 'inet:url:passwd', 'inet:passwd')
 
     async def runStorm(self, text, opts=None):
         '''
@@ -838,9 +840,6 @@ class ModelRev:
 
         form = self.core.model.form(formname)
 
-        if liftprop is None:
-            liftprop = formname
-
         nodeedits = []
         for layr in layers:
 
@@ -848,7 +847,7 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            async for lkey, buid, sode in layr.liftByProp(liftprop, None):
+            async for lkey, buid, sode in layr.liftByProp(form.name, liftprop):
 
                 sodevalu = sode.get('valu')
                 if sodevalu is None: # pragma: no cover
@@ -884,7 +883,10 @@ class ModelRev:
                             continue
 
                         subcurv = sode['props'].get(subprop.name)
-                        if subcurv == subnorm: # pragma: no cover
+                        if subcurv is not None:
+                            subcurv = subcurv[0]
+
+                        if subcurv == subnorm:
                             continue
 
                         edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))

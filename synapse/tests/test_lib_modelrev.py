@@ -396,4 +396,4 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.20') as core:
             self.len(1, await core.nodes('inet:user="visi@vertex.link" -> inet:url'))
-            # self.len(1, await core.nodes('inet:user="visi@vertex.link" -> inet:url'))
+            self.len(1, await core.nodes('inet:passwd="secret@" -> inet:url'))
