@@ -2683,3 +2683,21 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:web:attachment :file -> file:bytes'))
             self.len(1, await core.nodes('inet:web:attachment :post -> inet:web:post'))
             self.len(1, await core.nodes('inet:web:attachment :mesg -> inet:web:mesg'))
+
+    async def test_model_inet_egress(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+            [ inet:egress=*
+                :host = *
+                :client=1.2.3.4
+                :client:ipv6="::1"
+            ]
+            ''')
+
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.eq(nodes[0].get('client:ipv4'), 0x01020304)
+            self.eq(nodes[0].get('client:ipv6'), '::1')

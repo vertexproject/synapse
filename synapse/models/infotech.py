@@ -449,7 +449,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A file is distributed by a specific software version.'}),
 
                 ('it:prod:softreg', ('comp', {'fields': (
-                                            ('soft', 'it:prod:softver'),
+                                            ('softver', 'it:prod:softver'),
                                             ('regval', 'it:dev:regval'))}), {
                     'doc': 'A registry entry is created by a specific software version.'}),
 
@@ -1000,9 +1000,6 @@ class ItModule(s_module.CoreModule):
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Associated names for the ATT&CK software.',
                     }),
-                    ('matrix', ('it:mitre:attack:matrix', {}), {
-                        'doc': 'The ATT&CK matrix which defines the software.',
-                    }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
@@ -1296,7 +1293,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:prod:softreg', {}, (
 
-                    ('soft', ('it:prod:softver', {}), {'ro': True,
+                    ('softver', ('it:prod:softver', {}), {'ro': True,
                         'doc': 'The software which creates the registry entry.'}),
 
                     ('regval', ('it:dev:regval', {}), {'ro': True,

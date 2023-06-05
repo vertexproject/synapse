@@ -146,3 +146,65 @@ class TransportTest(s_test.SynTest):
             self.eq('visi', airport.ndef[1])
             self.eq('visi airport', airport.get('name'))
             self.nn(airport.get('place'))
+
+            nodes = await core.nodes('''
+                $regid = $lib.guid()
+
+                [ transport:land:registration=$regid
+
+                    :id=zeroday
+                    :issued=20150202
+                    :expires=20230202
+                    :issuer={gen.ou.org "virginia dmv"}
+                    :issuer:name="virginia dmv"
+
+                    :contact={gen.ps.contact.email us.va.dmv visi@vertex.link}
+
+                    :vehicle={[ transport:land:vehicle=*
+                        :serial=V-31337
+                        :built=2005
+                        :make=lotus
+                        :model=elise
+                        :registration=$regid
+                        :owner={gen.ps.contact.email us.va.dmv visi@vertex.link}
+                    ]}
+
+                    :license={[ transport:land:license=*
+                        :id=V-31337
+                        :contact={gen.ps.contact.email us.va.dmv visi@vertex.link}
+                        :issued=20221217
+                        :expires=20251217
+                        :issuer={gen.ou.org "virginia dmv"}
+                        :issuer:name="virginia dmv"
+                    ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('id'), 'zeroday')
+            self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
+            self.eq(nodes[0].get('issued'), 1422835200000)
+            self.eq(nodes[0].get('expires'), 1675296000000)
+
+            self.nn(nodes[0].get('issuer'))
+            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('license'))
+            self.nn(nodes[0].get('vehicle'))
+
+            nodes = await core.nodes('transport:land:registration:id=zeroday :vehicle -> transport:land:vehicle')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('make'), 'lotus')
+            self.eq(nodes[0].get('model'), 'elise')
+            self.eq(nodes[0].get('serial'), 'V-31337')
+            self.eq(nodes[0].get('built'), 1104537600000)
+            self.nn(nodes[0].get('owner'))
+            self.nn(nodes[0].get('registration'))
+
+            nodes = await core.nodes('transport:land:registration:id=zeroday -> transport:land:license')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('id'), 'V-31337')
+            self.eq(nodes[0].get('issued'), 1671235200000)
+            self.eq(nodes[0].get('expires'), 1765929600000)
+            self.eq(nodes[0].get('issuer:name'), 'virginia dmv')
+
+            self.nn(nodes[0].get('issuer'))
+            self.nn(nodes[0].get('contact'))

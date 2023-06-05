@@ -74,10 +74,12 @@ class OuModelTest(s_t_utils.SynTest):
                     'success': 1,
                     'techniques': teqs,
                     'sophistication': 'high',
+                    'tag': 'cno.camp.31337',
                     'reporter': '*',
                     'reporter:name': 'vertex',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
+                self.eq(node.get('tag'), 'cno.camp.31337')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
@@ -220,6 +222,9 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
+
+                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } ]')
+                self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')

@@ -258,6 +258,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                     risk:compromise=*
+                    :vector=*
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
@@ -306,6 +307,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
+            self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
 
