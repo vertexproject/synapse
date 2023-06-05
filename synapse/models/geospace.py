@@ -441,6 +441,8 @@ class GeoModule(s_module.CoreModule):
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
                         'doc': 'The source node was seen at the geo:telem node place and time.'}),
+                    (('geo:place', 'contains', 'geo:place'), {
+                        'doc': 'The source place completely contains the target place.'}),
                 ),
 
                 'forms': (
@@ -497,7 +499,8 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'An array of alternative place names.'}),
 
                         ('parent', ('geo:place', {}), {
-                            'doc': 'A parent place, possibly from reverse geocoding.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use a -(contains)> edge.'}),
 
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),
