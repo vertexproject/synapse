@@ -391,3 +391,9 @@ class ModelRevTest(s_tests.SynTest):
                 node = nodes[0]
                 self.none(node.get('type'))
                 self.eq(node.nodedata.get('_migrated:risk:vuln:type'), 'foo.bar...newp')
+
+    async def test_modelrev_0_2_20(self):
+
+        async with self.getRegrCore('model-0.2.20') as core:
+            self.len(1, await core.nodes('inet:user="visi@vertex.link" -> inet:url'))
+            # self.len(1, await core.nodes('inet:user="visi@vertex.link" -> inet:url'))
