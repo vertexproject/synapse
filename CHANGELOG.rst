@@ -18,6 +18,14 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue where raising an integer value to a fractional power
+  in Storm was not handled correctly.
+
 v2.136.0 - 2023-06-02
 =====================
 

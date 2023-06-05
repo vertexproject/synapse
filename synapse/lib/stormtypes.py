@@ -4806,7 +4806,9 @@ class Number(Prim):
         mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
-    __rpow__ = __pow__
+    def __rpow__(self, othr):
+        othr = Number(othr)
+        return othr.__pow__(self)
 
     def __mod__(self, othr):
         if isinstance(othr, float):
