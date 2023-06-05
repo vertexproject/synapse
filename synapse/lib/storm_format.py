@@ -36,6 +36,7 @@ TerminalPygMap = {
     'EQUAL': p_t.Punctuation,
     'EXPRDIVIDE': p_t.Operator,
     'EXPRMINUS': p_t.Operator,
+    'EXPRMODULO': p_t.Operator,
     'EXPRNEG': p_t.Operator,
     'EXPRPLUS': p_t.Operator,
     'EXPRPOW': p_t.Operator,

@@ -18,7 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-v2.136.0 - YYYY-MM-DD
+v2.136.0 - 2023-06-02
 =====================
 
 Announcement
@@ -51,6 +51,7 @@ Features and Enhancements
   ``$lib.compression.zlib`` Storm libraries to assist with compressing
   and decompressing bytes.
   (`#3155 <https://github.com/vertexproject/synapse/pull/3155>`_)
+  (`#3162 <https://github.com/vertexproject/synapse/pull/3162>`_)
 - Add a new Cell configuration option, ``https:parse:proxy:remoteip``. When
   this is set to ``true``, the Cell HTTPS server will parse
   ``X-Forwarded-For`` and ``X-Real-IP`` headers to determine the remote IP
