@@ -1879,7 +1879,7 @@ class AstTest(s_test.SynTest):
 
             self.eq(8, await core.callStorm('return((2 ** 3))'))
             self.eq(4.84, await core.callStorm('return((2.2 ** 2))'))
-            self.eq(5.76, await core.callStorm('return((2 ** 2.4))'))
+            self.eq(2 ** 2.4, await core.callStorm('return((2 ** 2.4))'))
 
             self.eq(1, await core.callStorm('return((3 % 2))'))
             self.eq(1.0, await core.callStorm('return((3.0 % 2))'))
