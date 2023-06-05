@@ -8077,12 +8077,9 @@ class UserVars(Prim):
         await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
 
     async def iter(self):
-        varz = await self.value()
-        for item in list(varz.items()):
-            yield item
-
-    async def value(self):
-        return copy.deepcopy(await self.runt.snap.core.getUserVars(self.valu))
+        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+            yield name, copy.deepcopy(valu)
+            await asyncio.sleep(0)
 
 @registry.registerType
 class User(Prim):
