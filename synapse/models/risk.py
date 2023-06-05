@@ -155,7 +155,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'An array of alternate names for the threat cluster, according to the reporting organization.'}),
 
                     ('country', ('pol:country', {}), {
-                        'doc': "The reporting orgnaization's assessed country of origin of the threat cluster."}),
+                        'doc': "The reporting organization's assessed country of origin of the threat cluster."}),
 
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': "The reporting organization's assessed goals of the threat cluster."}),
