@@ -53,6 +53,7 @@ terminalEnglishMap = {
     'EQUAL': '=',
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
+    'EXPRMODULO': '%',
     'EXPRNEG': '-',
     'EXPRPLUS': '+',
     'EXPRPOW': '**',
