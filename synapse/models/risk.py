@@ -573,7 +573,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A type for the compromise, as a taxonomy entry.'}),
 
                     ('vector', ('risk:attack', {}), {
-                        'doc': 'The attack assessed to be the successful initial vector.'}),
+                        'doc': 'The attack assessed to be the initial compromise vector.'}),
 
                     ('target', ('ps:contact', {}), {
                         'doc': 'Contact information representing the target.'}),
