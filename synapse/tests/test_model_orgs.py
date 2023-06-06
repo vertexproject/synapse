@@ -223,7 +223,8 @@ class OuModelTest(s_t_utils.SynTest):
 
                 self.nn(node.get('logo'))
 
-                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } ]')
+                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
+                self.len(1, await core.nodes('ou:org:country:code=ua'))
                 self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 

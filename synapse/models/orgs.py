@@ -614,6 +614,10 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('country', ('pol:country', {}), {
                         'doc': "The organization's country of origin."}),
+
+                    ('country:code', ('pol:iso2', {}), {
+                        'doc': "The 2 digit ISO 3166 country code for the organization's country of origin."}),
+
                     ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),

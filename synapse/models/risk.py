@@ -157,6 +157,9 @@ class RiskModule(s_module.CoreModule):
                     ('country', ('pol:country', {}), {
                         'doc': "The reporting organization's assessed country of origin of the threat cluster."}),
 
+                    ('country:code', ('pol:iso2', {}), {
+                        'doc': "The 2 digit ISO 3166 country code for the threat cluster's assessed country of origin."}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': "The reporting organization's assessed goals of the threat cluster."}),
 
