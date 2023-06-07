@@ -138,10 +138,11 @@ CVSS_UNDEFINED = {
     CVSS3_1_STR: 'X',
 }
 
+CTX = decimal.Context(rounding=decimal.ROUND_HALF_UP)
+
 def CVSS2_round(x):
-    with decimal.localcontext(rounding=decimal.ROUND_HALF_UP):
-        d = decimal.Decimal(str(x))
-        return float(d.quantize(decimal.Decimal('0.1')))
+    d = decimal.Decimal(str(x))
+    return float(d.quantize(decimal.Decimal('0.1'), context=CTX))
 
 def CVSS3_0_round(x):
     '''
@@ -449,22 +450,22 @@ def validate(vect, vers):
     METRICS = CVSS_METRICS[vers]
 
     # Do some canonicalization of the vector for easier parsing
-    vect = vect
-    vect = vect.strip('(')
-    vect = vect.strip(')')
+    _vect = vect
+    _vect = _vect.strip('(')
+    _vect = _vect.strip(')')
 
-    if vect.startswith(TAG):
-        vect = vect[len(TAG):]
+    if _vect.startswith(TAG):
+        _vect = _vect[len(TAG):]
 
     try:
         # Parse out metrics
-        mets_vals = [k.split(':') for k in vect.split('/')]
+        mets_vals = [k.split(':') for k in _vect.split('/')]
 
         # Convert metrics into a dictionary
         vdict = dict(mets_vals)
 
     except ValueError:
-        raise s_exc.BadDataValu(mesg='Malformed vector string')
+        raise s_exc.BadDataValu(mesg=f'Provided vector {vect} malformed')
 
     # Check that each metric is only specified once
     if len(mets_vals) != len(set(k[0] for k in mets_vals)):
@@ -477,21 +478,22 @@ def validate(vect, vers):
 
             seen.append(met)
 
-        raise s_exc.BadDataValu(mesg=f'Duplicate metrics not allowed in CVSS vectors: {repeated}')
+        raise s_exc.BadDataValu(mesg=f'Provided vectors {vect} contains duplicate metrics: {repeated}')
 
     for metric in vdict:
         # Check that provided metrics are valid
         if metric not in METRICS:
-            raise s_exc.BadDataValu(mesg=f'Invalid metrics in CVSS vector: {invalid}')
+            raise s_exc.BadDataValu(mesg=f'Provided vector {vect} contains invalid metrics: {invalid}')
 
     for metric, (valids, mandatory, _) in METRICS.items():
         # Check for mandatory metrics
         if mandatory and metric not in vdict:
-            raise s_exc.BadDataValu(mesg=f'Missing mandatory metric in CVSS vector: {metric}')
+            raise s_exc.BadDataValu(mesg=f'Provided vector {vect} missing mandatory metric(s): {metric}')
 
         # Check if metric value is valid
-        if metric in vdict and (val := vdict[metric]) not in valids:
-            raise s_exc.BadDataValu(mesg=f'Bad metric value in CVSS vector: {metric}:{val}')
+        val = vdict.get(metric, None)
+        if metric in vdict and val not in valids:
+            raise s_exc.BadDataValu(mesg=f'Provided vector {vect} contains invalid metric value: {metric}:{val}')
 
     return vdict
 
