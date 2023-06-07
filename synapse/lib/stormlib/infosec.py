@@ -239,7 +239,7 @@ def CVSS2_calc(vdict):
         if Impact == 0:
             fImpact = 0.0
 
-        return ROUND(((0.6 * Impact) + (0.4 * Exploitability) - 1.5) * fImpact)
+        return ((0.6 * Impact) + (0.4 * Exploitability) - 1.5) * fImpact
 
     # Calculate the base score per the equation listed here:
     # https://www.first.org/cvss/v2/guide#3-2-1-Base-Equation
@@ -249,7 +249,7 @@ def CVSS2_calc(vdict):
 
     Impact = 10.41 * (1 - (1 - ConfImpact) * (1 - IntegImpact) * (1 - AvailImpact))
 
-    BaseScore = _base(Impact)
+    BaseScore = ROUND(_base(Impact))
 
     # Calculate the temporal score per the equation listed here:
     # https://www.first.org/cvss/v2/guide#3-2-2-Temporal-Equation

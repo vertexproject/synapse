@@ -57,10 +57,10 @@ VECTORS = [
         '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:TF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
         {'version': '2', 'base': 5.0, 'temporal': 4.5, 'environmental': 4.5}
     ),
-    # (
-    #     '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:OF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
-    #     {'version': '2', 'base': 5.0, 'temporal': 4.4, 'environmental': 4.3}
-    # ),
+    (
+        '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:OF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
+        {'version': '2', 'base': 5.0, 'temporal': 4.4, 'environmental': 4.3}
+    ),
     (
         'AV:N/AC:L/Au:N/C:N/I:N/A:C/E:F/RL:OF/RC:C/AR:H/CR:M/IR:M/CDP:H/TD:H',
         {'version': '2', 'base': 7.8, 'temporal': 6.4, 'environmental': 9.2}
