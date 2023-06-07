@@ -953,7 +953,6 @@ class LibTags(Lib):
             Normalize and prefix a list of syn:tag:part values so they can be applied.
 
             Examples:
-
                 Add tag prefixes and then use them to tag nodes::
 
                     $tags = $lib.tags.prefix($result.tags, vtx.visi)
@@ -1506,6 +1505,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _min(self, *args):
+        args = await toprim(args)
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1519,6 +1519,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _max(self, *args):
+        args = await toprim(args)
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1938,6 +1939,18 @@ class LibAxon(Lib):
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
     )
     _storm_lib_path = ('axon',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to remove a file from the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to retrieve a file from the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
+            'desc': 'Controls the ability to check if the Axon contains a file.'},
+        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
+            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
+            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -3442,6 +3455,12 @@ class LibTelepath(Lib):
                   'returns': {'type': 'storm:proxy', 'desc': 'A object representing a Telepath Proxy.', }}},
     )
     _storm_lib_path = ('telepath',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
+         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
+        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
+         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -3451,7 +3470,8 @@ class LibTelepath(Lib):
     async def _methTeleOpen(self, url):
         url = await tostr(url)
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
         return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
@@ -4038,6 +4058,7 @@ class Bytes(Prim):
 
             Example:
                 Compress bytes with gzip::
+
                     $foo = $mybytez.gzip()''',
          'type': {'type': 'function', '_funcname': '_methGzip',
                   'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.', }}},
@@ -4049,6 +4070,7 @@ class Bytes(Prim):
 
             Example:
                 Load bytes to a object::
+
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
@@ -4082,8 +4104,9 @@ class Bytes(Prim):
             Unpack structures from bytes using python struct.unpack syntax.
 
             Examples:
-                # unpack 3 unsigned 16 bit integers in little endian format
-                ($x, $y, $z) = $byts.unpack("<HHH")
+                Unpack 3 unsigned 16 bit integers in little endian format::
+
+                    ($x, $y, $z) = $byts.unpack("<HHH")
             ''',
          'type': {'type': 'function', '_funcname': 'unpack',
                   'args': (
@@ -4783,7 +4806,25 @@ class Number(Prim):
         mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
-    __rpow__ = __pow__
+    def __rpow__(self, othr):
+        othr = Number(othr)
+        return othr.__pow__(self)
+
+    def __mod__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, Number):
+            return Number(s_common.hugemod(self.value(), othr.value())[1])
+
+        mesg = f"'%' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rmod__(self, othr):
+        othr = Number(othr)
+        return othr.__mod__(self)
 
     async def stormrepr(self):
         return str(self.value())
@@ -4806,9 +4847,9 @@ class LibUser(Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': 'Get a Hive dictionary representing the current users persistent variables.',
+        {'name': 'vars', 'desc': "Get a Hive dictionary representing the current user's persistent variables.",
          'type': 'storm:hive:dict', },
-        {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
+        {'name': 'profile', 'desc': "Get a Hive dictionary representing the current user's profile information.",
          'type': 'storm:hive:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
@@ -6317,7 +6358,7 @@ class Layer(Prim):
         formname = await tostr(formname, noneok=True)
 
         if formname is not None and self.runt.snap.core.model.form(formname) is None:
-            raise s_exc.NoSuchForm(formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
@@ -6379,7 +6420,8 @@ class Layer(Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -6418,7 +6460,9 @@ class Layer(Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -6540,10 +6584,11 @@ class Layer(Prim):
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
 
-        if name == 'name':
-            valu = await tostr(valu)
-        elif name == 'desc':
-            valu = await tostr(valu)
+        if name in ('name', 'desc'):
+            if valu is undef:
+                valu = None
+            else:
+                valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
             valu = await tobool(valu)
         else:
@@ -6899,12 +6944,12 @@ class View(Prim):
 
         name = await tostr(name)
 
-        if name == 'name':
-            valu = await tostr(valu)
-        elif name == 'desc':
-            valu = await tostr(valu)
-        elif name == 'parent':
-            valu = await tostr(valu)
+        if name in ('name', 'desc', 'parent'):
+            if valu is undef:
+                valu = None
+            else:
+                valu = await tostr(await toprim(valu), noneok=True)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
         elif name == 'layers':
@@ -7396,8 +7441,8 @@ class LibUsers(Lib):
          'type': {'type': 'function', '_funcname': '_methUsersAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
-                      {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
-                      {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                      {'name': 'passwd', 'type': 'str', 'desc': "The user's password.", 'default': None, },
+                      {'name': 'email', 'type': 'str', 'desc': "The user's email address.", 'default': None, },
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
                   'returns': {'type': 'storm:auth:user',
@@ -7427,6 +7472,12 @@ class LibUsers(Lib):
                               'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'users')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
+         'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
+        {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
+         'desc': 'Controls the ability to remove a user from the system. USE WITH CAUTION!'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7454,7 +7505,8 @@ class LibUsers(Lib):
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        self.runt.confirm(('auth', 'user', 'add'))
+        if not self.runt.allowed(('auth', 'user', 'add')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'add'))
         name = await tostr(name)
         iden = await tostr(iden, True)
         email = await tostr(email, True)
@@ -7463,7 +7515,8 @@ class LibUsers(Lib):
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        self.runt.confirm(('auth', 'user', 'del'))
+        if not self.runt.allowed(('auth', 'user', 'del')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'del'))
         await self.runt.snap.core.delUser(iden)
 
 @registry.registerLib
@@ -7503,6 +7556,12 @@ class LibRoles(Lib):
                               'desc': 'The role by name, or null if it does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'roles')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'auth', 'roles', 'add'), 'gate': 'cortex',
+         'desc': 'Controls the ability to add a role to the system. USE WITH CAUTION!'},
+        {'perm': ('storm', 'lib', 'auth', 'roles', 'del'), 'gate': 'cortex',
+         'desc': 'Controls the ability to remove a role from the system. USE WITH CAUTION!'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7530,12 +7589,14 @@ class LibRoles(Lib):
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
-        self.runt.confirm(('auth', 'role', 'add'))
+        if not self.runt.allowed(('auth', 'role', 'add')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        self.runt.confirm(('auth', 'role', 'del'))
+        if not self.runt.allowed(('auth', 'role', 'del')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'del'))
         await self.runt.snap.core.delRole(iden)
 
 @registry.registerLib
@@ -7995,6 +8056,34 @@ class UserJson(Prim):
             yield path, item
 
 @registry.registerType
+class UserVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of User vars information.
+    '''
+    _storm_typename = 'storm:auth:user:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    async def deref(self, name):
+        return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
+
+    async def setitem(self, name, valu):
+        if valu is undef:
+            await self.runt.snap.core.popUserVarValu(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
+
+    async def iter(self):
+        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+            yield name, copy.deepcopy(valu)
+            await asyncio.sleep(0)
+
+@registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -8034,6 +8123,8 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserGrant',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the Role as a 0 based index.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setRoles', 'desc': '''
@@ -8140,20 +8231,20 @@ class User(Prim):
                   'returns': {'type': 'list',
                               'desc': 'A list of ``storm:auth:gates`` that the user has rules for.', }}},
         {'name': 'name', 'desc': '''
-        A users name. This can also be used to set a users name.
+        A user's name. This can also be used to set a user's name.
 
         Example:
-                Change a users name::
+                Change a user's name::
 
                     $user=$lib.auth.users.byname(bob) $user.name=robert
         ''',
          'type': {'type': 'stor', '_storfunc': '_storUserName',
                   'returns': {'type': 'str', }}},
         {'name': 'email', 'desc': '''
-        A users email. This can also be used to set the users email.
+        A user's email. This can also be used to set the user's email.
 
         Example:
-                Change a users email address::
+                Change a user's email address::
 
                     $user=$lib.auth.users.byname(bob) $user.email="robert@bobcorp.net"
         ''',
@@ -8172,7 +8263,11 @@ class User(Prim):
                 $user=$lib.auth.users.byname(bob) $value = $user.profile.somekey
         ''',
         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
-                  'returns': {'type': 'storm:auth:user:profile', }}},
+                 'returns': {'type': 'storm:auth:user:profile', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the user's persistent variables.",
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
+                  'returns': {'type': 'storm:auth:user:vars'}}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -8190,6 +8285,7 @@ class User(Prim):
         })
         self.ctors.update({
             'json': self._ctorUserJson,
+            'vars': self._ctorUserVars,
             'profile': self._ctorUserProfile,
         })
 
@@ -8201,6 +8297,12 @@ class User(Prim):
 
     def _ctorUserProfile(self, path=None):
         return UserProfile(self.runt, self.valu)
+
+    def _ctorUserVars(self, path=None):
+        if self.runt.user.iden != self.valu and not self.runt.isAdmin():
+            mesg = '$user.vars requires admin privs when $user is not the current user.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        return UserVars(self.runt, self.valu)
 
     def getObjLocals(self):
         return {
@@ -8294,9 +8396,10 @@ class User(Prim):
         user = await self.runt.snap.core.auth.reqUser(self.valu)
         return user.getAllowedReason(perm, gateiden=gateiden, default=default)
 
-    async def _methUserGrant(self, iden):
+    async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
-        await self.runt.snap.core.addUserRole(self.valu, iden)
+        indx = await toint(indx, noneok=True)
+        await self.runt.snap.core.addUserRole(self.valu, iden, indx=indx)
 
     async def _methUserSetRoles(self, idens):
         self.runt.confirm(('auth', 'user', 'grant'))
@@ -8447,10 +8550,10 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'name', 'desc': '''
-            A roles name. This can also be used to set the role name.
+            A role's name. This can also be used to set the role name.
 
             Example:
-                    Change a roles name::
+                    Change a role's name::
 
                         $role=$lib.auth.roles.byname(analyst) $role.name=superheroes
             ''',

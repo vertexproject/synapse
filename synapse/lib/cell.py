@@ -570,8 +570,8 @@ class CellApi(s_base.Base):
         return await self.cell.setUserEmail(useriden, email)
 
     @adminapi(log=True)
-    async def addUserRole(self, useriden, roleiden):
-        return await self.cell.addUserRole(useriden, roleiden)
+    async def addUserRole(self, useriden, roleiden, indx=None):
+        return await self.cell.addUserRole(useriden, roleiden, indx=indx)
 
     @adminapi(log=True)
     async def setUserRoles(self, useriden, roleidens):
@@ -883,6 +883,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Headers to add to all HTTPS server responses.',
             'type': 'object',
             'hidecmdl': True,
+        },
+        'https:parse:proxy:remoteip': {
+            'description': 'Enable the HTTPS server to parse X-Forwarded-For and X-Real-IP headers to determine requester IP addresses.',
+            'type': 'boolean',
+            'default': False,
         },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
@@ -2228,6 +2233,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         return await user.profile.pop(name, default=default)
 
+    async def iterUserVars(self, iden):
+        user = await self.auth.reqUser(iden)
+        for item in user.vars.items():
+            yield item
+
+    async def getUserVarValu(self, iden, name):
+        user = await self.auth.reqUser(iden)
+        return user.vars.get(name)
+
+    async def setUserVarValu(self, iden, name, valu):
+        user = await self.auth.reqUser(iden)
+        return await user.vars.set(name, valu)
+
+    async def popUserVarValu(self, iden, name, default=None):
+        user = await self.auth.reqUser(iden)
+        return await user.vars.pop(name, default=default)
+
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
@@ -2286,10 +2308,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  gateiden=gateiden))
 
-    async def addUserRole(self, useriden, roleiden):
+    async def addUserRole(self, useriden, roleiden, indx=None):
         user = await self.auth.reqUser(useriden)
         role = await self.auth.reqRole(roleiden)
-        await user.grant(roleiden)
+        await user.grant(roleiden, indx=indx)
         logger.info(f'Granted role {role.name} to user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  target_role=role.iden, target_rolename=role.name))
@@ -2584,7 +2606,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             sslctx = self.initSslCtx(certpath, pkeypath)
 
-        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
+        kwargs = {
+            'xheaders': self.conf.reqConfValu('https:parse:proxy:remoteip')
+        }
+        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 

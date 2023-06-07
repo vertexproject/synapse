@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.134.0'
+VERSION = '2.136.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -94,12 +94,12 @@ setup(
         'lark==1.1.5',
         'Pygments>=2.7.4,<2.16.0',
         'packaging>=20.0,<24.0',
-        'fastjsonschema>=2.16.3,<2.17.0',
+        'fastjsonschema>=2.16.3,<2.18.0',
         'stix2-validator>=3.0.0,<4.0.0',
-        'vcrpy>=4.1.1,<4.3.0',
+        'vcrpy>=4.3.1,<4.4.0',
         'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib>=0.11.0,<0.13.0',
-        'pycryptodome>=3.11.0,<3.18.0',
+        'pycryptodome>=3.11.0,<3.19.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
         'scalecodec>=1.0.2,<1.3.0',  # synapse.vendor.substrateinterface req
         'cbor2>=5.4.1,<5.4.7',
@@ -109,7 +109,7 @@ setup(
         'python-dateutil>=2.8,<3.0',
         'pytz>=2023.3,<2024.1',
         'beautifulsoup4[html5lib]>=4.11.1,<5.0',
-        'requests<2.30.0',  # temporary pin until https://github.com/kevin1024/vcrpy/issues/688 is resolved
+        # 'requests<2.30.0',  # temporary pin until https://github.com/kevin1024/vcrpy/issues/688 is resolved
     ],
 
     extras_require={

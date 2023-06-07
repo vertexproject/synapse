@@ -17,7 +17,7 @@ class StormlibModelTest(s_test.SynTest):
             q = '$val = $lib.model.type(bool).repr(1) [test:str=$val]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'True'))
+            self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
             self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))

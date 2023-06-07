@@ -203,7 +203,7 @@ stormcmds = (
                 auth.user.addrule visi "!foo.bar.baz"
 
                 // add an allow rule to the user "visi" for permission "baz" at the first index.
-                auth.user.addrule visi baz --indx 0
+                auth.user.addrule visi baz --index 0
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
@@ -275,7 +275,7 @@ stormcmds = (
                 auth.role.addrule ninjas "!foo.bar.baz"
 
                 // add an allow rule to the role "ninjas" for permission "baz" at the first index.
-                auth.role.addrule ninjas baz --indx 0
+                auth.role.addrule ninjas baz --index 0
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
@@ -343,10 +343,14 @@ stormcmds = (
                 // Grant the role "ninjas" to the user "visi"
                 auth.user.grant visi ninjas
 
+                // Grant the role "ninjas" to the user "visi" at the first index.
+                auth.user.grant visi ninjas --index 0
+
         ''',
         'cmdargs': (
             ('username', {'type': 'str', 'help': 'The name of the user.'}),
             ('rolename', {'type': 'str', 'help': 'The name of the role.'}),
+            ('--index', {'type': 'int', 'help': 'Specify the role location as a 0 based index.', 'default': None}),
         ),
         'storm': '''
             $user = $lib.auth.users.byname($cmdopts.username)
@@ -356,7 +360,7 @@ stormcmds = (
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
 
             $lib.print(`Granting role {$role.name} to user {$user.name}.`)
-            $user.grant($role.iden)
+            $user.grant($role.iden, indx=$cmdopts.index)
         ''',
     },
     {
@@ -552,6 +556,24 @@ stormcmds = (
                     $indxtext = $lib.cast(str, $indx).ljust(3)
                     $lib.print(`      [{$indxtext}] - {$ruletext}`)
                 }
+            }
+        '''
+    },
+    {
+        'name': 'auth.perms.list',
+        'descr': 'Display a list of the current permissions defined within the Cortex.',
+        'cmdargs': (),
+        'storm': '''
+
+            for $pdef in $lib.auth.getPermDefs() {
+                $perm = $lib.str.join(".", $pdef.perm)
+
+                $lib.print($perm)
+                $lib.print(`    {$pdef.desc}`)
+                $lib.print(`    gate: {$pdef.gate}`)
+                $lib.print(`    default: {$pdef.default}`)
+                if $pdef.ex { $lib.print(`    example: {$pdef.ex}`) }
+                $lib.print('')
             }
         '''
     },

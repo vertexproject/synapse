@@ -891,8 +891,8 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn = mvmnasde.com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:host = mvmnasde', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:domain = com', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = False', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = True', msgs)
+            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = false', msgs)
+            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = true', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
 
             # test that a user without perms can diff but not apply
@@ -3879,6 +3879,25 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadArg):
                     await layr.waitEditOffs(200)
 
+                await core.addUserRule(visi.iden, (True, ('layer', 'add')))
+                l1 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
+                l2 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
+                varz = {'iden': l1.get('iden'), 'tgt': l2.get('iden'), 'port': port}
+                pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
+
+                await core.addUserRule(visi.iden, (True, ('storm', 'lib', 'telepath', 'open', 'tcp')))
+
+                msgs = await core.stormlist(pullq, opts={'user': visi.iden, 'vars': varz})
+                self.stormHasNoWarnErr(msgs)
+
+                msgs = await core.stormlist(pushq, opts={'user': visi.iden, 'vars': varz})
+                self.stormHasNoWarnErr(msgs)
+
     async def test_storm_tagprune(self):
 
         async with self.getTestCore() as core:
@@ -4141,6 +4160,22 @@ class StormTest(s_t_utils.SynTest):
             }
             await core.setStormCmd(cmd0)
             await core.setStormCmd(cmd1)
+            await core.addStormPkg({
+                'name': 'synapse-woot',
+                'version': (0, 0, 1),
+                'modules': (
+                    {'name': 'woot.runas',
+                     'asroot:perms': [['power-ups', 'woot', 'user']],
+                     'storm': 'function asroot () { runas root { $lib.print(woot) return() }}'},
+                ),
+            })
+
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
+
+            await core.stormlist('auth.user.addrule visi power-ups.woot.user')
+            await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
 
             await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
 
@@ -4419,15 +4454,15 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'media:news:org#test.*.bar'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
             q = '#test.*.bar'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
             q = 'media:news:org#test.*.bar:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
     async def test_storm_copyto(self):
 
