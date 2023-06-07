@@ -733,7 +733,7 @@ def unescape(valu):
     '''
     try:
         ret = ast.literal_eval(valu)
-    except ValueError as e:
+    except (SyntaxError, ValueError) as e:
         mesg = f"Invalid character in string {repr(valu)}: {e}"
         raise s_exc.BadSyntax(mesg=mesg, valu=repr(valu)) from None
 
