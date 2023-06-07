@@ -323,16 +323,20 @@ class InfoSecTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             cmd = 'return($lib.infosec.cvss.vectToScore($vect))'
+            vercmd = 'return($lib.infosec.cvss.vectToScore($vect, $vers))'
 
             for vect, score in VECTORS:
                 valu = await core.callStorm(cmd, opts={'vars': {'vect': vect}})
                 self.eq(score, valu)
 
+            # test for invalid version being specified
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(vercmd, opts={'vars': {'vect': 'DOESNT_MATTER', 'vers': '1.0'}})
+
             # test for vector/version mismatches
             for vect, vers in VECTORS_BAD_VERSION:
-                vercmd = 'return($lib.infosec.cvss.vectToScore($vect, $vers))'
                 with self.raises(s_exc.BadDataValu) as exc:
-                    await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': vers}})
+                    await core.callStorm(vercmd, opts={'vars': {'vect': vect, 'vers': vers}})
 
             # test for missing mandatory metrics
             for vect in VECTORS_MISSING_MANDATORY:

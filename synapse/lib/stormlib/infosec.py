@@ -51,126 +51,24 @@ vect2prop = {
     'MUI': 'cvss:mui',
 }
 
-class CVSSBase:
-    VERSION = ''
-    TAG = ''
-    METRICS = {}
-    UNDEFINED = ''
+CVSS2_STR = '2'
+CVSS3_0_STR = '3.0'
+CVSS3_1_STR = '3.1'
 
-    def __init__(self, vect):
-        self._vdict = self.validate(vect)
+CVSS_VERSIONS = [
+    CVSS2_STR,
+    CVSS3_0_STR,
+    CVSS3_1_STR,
+]
 
-    def _getval(self, metric, scope=None):
-        '''
-        Get the metric value from the vector dictionary. This handles optional
-        metrics which are not specified or undefined. If `scope` is provided,
-        then do an additional lookup by the scope value. Scope value is used by
-        PR and MPR in CVSS3.0/3.1.
-        '''
-        val = self._vdict.get(metric, self.UNDEFINED)
+CVSS_TAGS = {
+    CVSS2_STR: 'CVSS2#',
+    CVSS3_0_STR: 'CVSS:3.0/',
+    CVSS3_1_STR: 'CVSS:3.1/',
+}
 
-        if scope:
-            return self.METRICS[metric][2][scope][val]
-        else:
-            return self.METRICS[metric][2][val]
-
-    def _getmval(self, metric, base_metric, scope=None):
-        '''
-        Similar to _getval above but retrieves the modified metric value. This
-        is used by metrics such as MAV, MAC, MPR, etc in CVSS3.0/3.1.
-
-        If a modified metric value exists in the vector dictionary, that value
-        is used. If the value is not specified or undefined, the original metric
-        value is used.
-        '''
-        val = self._vdict.get(metric, self.UNDEFINED)
-
-        if val == self.UNDEFINED:
-            return self._getval(base_metric, scope)
-        else:
-            return self._getval(metric, scope)
-
-    @classmethod
-    def validate(cls, vect):
-        '''
-        Validate (as best as possible) the vector string. Look for issues such as:
-            - No duplicated metrics
-            - Invalid metrics
-            - Invalid metric values
-            - Missing mandatory metrics
-
-        Returns a dictionary with the parsed metric:value pairs.
-        '''
-
-        missing = []
-        badvals = []
-        invalid = []
-
-        # Do some canonicalization of the vector for easier parsing
-        vect = vect
-        vect = vect.strip('(')
-        vect = vect.strip(')')
-
-        if vect.startswith(cls.TAG):
-            vect = vect[len(cls.TAG):]
-
-        try:
-            # Parse out metrics
-            mets_vals = [k.split(':') for k in vect.split('/')]
-
-            # Convert metrics into a dictionary
-            vdict = dict(mets_vals)
-
-        except ValueError:
-            raise s_exc.BadDataValu(mesg='Malformed vector string')
-
-        # Check that each metric is only specified once
-        if len(mets_vals) != len(set(k[0] for k in mets_vals)):
-            seen = []
-            repeated = []
-
-            for met, val in mets_vals:
-                if met in seen:
-                    repeated.append(met)
-
-                seen.append(met)
-
-            raise s_exc.BadDataValu(mesg=f'Duplicate metrics not allowed in CVSS vectors: {repeated}')
-
-        for metric in vdict:
-            # Check that provided metrics are valid
-            if metric not in cls.METRICS:
-                raise s_exc.BadDataValu(mesg=f'Invalid metrics in CVSS vector: {invalid}')
-
-        for metric, (valids, mandatory, _) in cls.METRICS.items():
-            # Check for mandatory metrics
-            if mandatory and metric not in vdict:
-                raise s_exc.BadDataValu(mesg=f'Missing mandatory metric in CVSS vector: {metric}')
-
-            # Check if metric value is valid
-            if metric in vdict and (val := vdict[metric]) not in valids:
-                raise s_exc.BadDataValu(mesg=f'Bad metric value in CVSS vector: {metric}:{val}')
-
-        return vdict
-
-    @property
-    def base(self):
-        raise NotImplementedError
-
-    @property
-    def temporal(self):
-        raise NotImplementedError
-
-    @property
-    def environmental(self):
-        raise NotImplementedError
-
-class CVSS2(CVSSBase):
-    # Metrics and score equations from: https://www.first.org/cvss/v2/guide
-    VERSION = '2'
-    TAG = 'CVSS2#'
-    UNDEFINED = 'ND'
-    METRICS = {
+CVSS_METRICS = {
+    CVSS2_STR: {
         # ID,   valid values,                       reqd?   values
 
         # Base metrics
@@ -192,95 +90,9 @@ class CVSS2(CVSSBase):
         'CR': (('L', 'M', 'H', 'ND'), False, {'L': 0.5, 'M': 1.0, 'H': 1.51, 'ND': 1.0}),
         'IR': (('L', 'M', 'H', 'ND'), False, {'L': 0.5, 'M': 1.0, 'H': 1.51, 'ND': 1.0}),
         'AR': (('L', 'M', 'H', 'ND'), False, {'L': 0.5, 'M': 1.0, 'H': 1.51, 'ND': 1.0}),
-    } # nopep8: E501
+    },
 
-    @staticmethod
-    def _round(x):
-        with decimal.localcontext(rounding=decimal.ROUND_HALF_UP):
-            d = decimal.Decimal(str(x))
-            f = float(d.quantize(decimal.Decimal('0.1')))
-            print(f'X {x}, D {d}, F {f}')
-            return f
-
-    def _base(self, Impact):
-        AccessVector = self._getval('AV')
-        AccessComplexity = self._getval('AC')
-        Authentication = self._getval('Au')
-
-        Exploitability = 20 * AccessVector * AccessComplexity * Authentication
-
-        fImpact = 1.176
-        if Impact == 0:
-            fImpact = 0.0
-
-        return self._round(((0.6 * Impact) + (0.4 * Exploitability) - 1.5) * fImpact)
-
-    @property
-    def base(self):
-        '''
-        Calculate the base score per the equation listed here:
-        https://www.first.org/cvss/v2/guide#3-2-1-Base-Equation
-        '''
-        ConfImpact = self._getval('C')
-        IntegImpact = self._getval('I')
-        AvailImpact = self._getval('A')
-
-        Impact = 10.41 * (1 - (1 - ConfImpact) * (1 - IntegImpact) * (1 - AvailImpact))
-
-        return self._base(Impact)
-
-    @property
-    def temporal(self):
-        '''
-        Calculate the temporal score per the equation listed here:
-        https://www.first.org/cvss/v2/guide#3-2-2-Temporal-Equation
-        '''
-        E = self._vdict.get('E', self.UNDEFINED)
-        RL = self._vdict.get('RL', self.UNDEFINED)
-        RC = self._vdict.get('RC', self.UNDEFINED)
-
-        Exploitability = self._getval('E')
-        RemediationLevel = self._getval('RL')
-        ReportConfidence = self._getval('RC')
-
-        return self._round(self.base * Exploitability * RemediationLevel * ReportConfidence)
-
-    @property
-    def environmental(self):
-        '''
-        Calculate the environmental score per the equation listed here:
-        https://www.first.org/cvss/v2/guide#3-2-3-Environmental-Equation
-        '''
-        ConfImpact = self._getval('C')
-        IntegImpact = self._getval('I')
-        AvailImpact = self._getval('A')
-
-        ConfReq = self._getval('CR')
-        IntegReq = self._getval('IR')
-        AvailReq = self._getval('AR')
-
-        AdjustedImpact = min(
-            10.0,
-            10.41 * (1.0 - (1.0 - ConfImpact * ConfReq) * (1.0 - IntegImpact * IntegReq) * (1.0 - AvailImpact * AvailReq))
-        )
-
-        Exploitability = self._getval('E')
-        RemediationLevel = self._getval('RL')
-        ReportConfidence = self._getval('RC')
-
-        AdjustedTemporal = self._round(self._base(AdjustedImpact) * Exploitability * RemediationLevel * ReportConfidence)
-
-        CollateralDamagePotential = self._getval('CDP')
-        TargetDistribution = self._getval('TD')
-
-        return self._round((AdjustedTemporal + (10 - AdjustedTemporal) * CollateralDamagePotential) * TargetDistribution)
-
-class CVSS3_0(CVSSBase):
-    # Metrics and score equations from: https://www.first.org/cvss/v3.0/specification-document
-    VERSION = '3.0'
-    TAG = 'CVSS:3.0/'
-    UNDEFINED = 'X'
-    METRICS = {
+    CVSS3_0_STR: {
         # ID,   valid values,               reqd?   values
 
         # Base metrics
@@ -303,183 +115,385 @@ class CVSS3_0(CVSSBase):
         'CR': (('X', 'H', 'M', 'L'), False, {'X': 1.0, 'L': 0.5, 'M': 1.0, 'H': 1.5}),
         'IR': (('X', 'H', 'M', 'L'), False, {'X': 1.0, 'L': 0.5, 'M': 1.0, 'H': 1.5}),
         'AR': (('X', 'H', 'M', 'L'), False, {'X': 1.0, 'L': 0.5, 'M': 1.0, 'H': 1.5}),
-        'MAV': (('X', 'N', 'A', 'L', 'P'), False, {'N': 0.85, 'A': 0.62, 'L': 0.55, 'P': 0.2}),
-        'MAC': (('X', 'L', 'H'), False, {'H': 0.44, 'L': 0.77}),
+        'MAV': (('X', 'N', 'A', 'L', 'P'), False, {'X': 1.0, 'N': 0.85, 'A': 0.62, 'L': 0.55, 'P': 0.2}),
+        'MAC': (('X', 'L', 'H'), False, {'X': 1.0, 'H': 0.44, 'L': 0.77}),
         'MPR': (('X', 'N', 'L', 'H'), False, {'U': {'N': 0.85, 'L': 0.62, 'H': 0.27}, # If Scope is Unchanged
                                               'C': {'N': 0.85, 'L': 0.68, 'H': 0.5}}), # If Scope is Changed
-        'MUI': (('X', 'N', 'R'), False, {'N': 0.85, 'R': 0.62}),
-        'MS': (('X', 'U', 'C'), False, {'U': 6.42, 'C': 7.52}),
-        'MC': (('X', 'N', 'L', 'H'), False, {'N': 0.0, 'L': 0.22, 'H': 0.56}),
-        'MI': (('X', 'N', 'L', 'H'), False, {'N': 0.0, 'L': 0.22, 'H': 0.56}),
-        'MA': (('X', 'N', 'L', 'H'), False, {'N': 0.0, 'L': 0.22, 'H': 0.56}),
-    }
+        'MUI': (('X', 'N', 'R'), False, {'X': 1.0, 'N': 0.85, 'R': 0.62}),
+        'MS': (('X', 'U', 'C'), False, {'X': 1.0, 'U': 6.42, 'C': 7.52}),
+        'MC': (('X', 'N', 'L', 'H'), False, {'X': 1.0, 'N': 0.0, 'L': 0.22, 'H': 0.56}),
+        'MI': (('X', 'N', 'L', 'H'), False, {'X': 1.0, 'N': 0.0, 'L': 0.22, 'H': 0.56}),
+        'MA': (('X', 'N', 'L', 'H'), False, {'X': 1.0, 'N': 0.0, 'L': 0.22, 'H': 0.56}),
+    },
 
-    @staticmethod
-    def roundup(x):
-        '''
-        Round up to the nearest one decimal place. From the JS reference implementation:
-        https://www.first.org/cvss/calculator/cvsscalc30.js
-        '''
-        return (math.ceil(x * 10) / 10.0)
+    CVSS3_1_STR: {},
+}
 
-    @property
-    def base(self):
-        '''
-        Calculate the base score per the equation listed here:
-        https://www.first.org/cvss/v3.1/specification-document#7-1-Base-Metrics-Equations
+# Copy the CVSS3.0 metrics to the CVSS3.1 key
+CVSS_METRICS[CVSS3_1_STR] = CVSS_METRICS[CVSS3_0_STR]
 
-        We use the CVSS3.1 spec because it's more clear than the CVSS3.0 spec
-        but the equations are the same.
-        '''
-        _Scope = self._vdict['S']
+CVSS_UNDEFINED = {
+    CVSS2_STR: 'ND',
+    CVSS3_0_STR: 'X',
+    CVSS3_1_STR: 'X',
+}
 
-        Confidentiality = self._getval('C')
-        Integrity = self._getval('I')
-        Availability = self._getval('A')
+def CVSS2_round(x):
+    with decimal.localcontext(rounding=decimal.ROUND_HALF_UP):
+        d = decimal.Decimal(str(x))
+        return float(d.quantize(decimal.Decimal('0.1')))
 
-        ISS = 1 - ((1 - Confidentiality) * (1 - Integrity) * (1 - Availability))
+def CVSS3_0_round(x):
+    '''
+    Round up to the nearest one decimal place. From the JS reference implementation:
+    https://www.first.org/cvss/calculator/cvsscalc30.js
+    '''
+    return (math.ceil(x * 10) / 10.0)
 
-        if _Scope == 'U':
-            Impact = 6.42 * ISS
+def CVSS3_1_round(x):
+    '''
+    Round up to the nearest one decimal place. From the JS reference implementation:
+    https://www.first.org/cvss/calculator/cvsscalc31.js
+    '''
+    i = int(x * 100000)
+
+    if i % 10000 == 0:
+        return i / 100000
+
+    return (math.floor(i / 10000) + 1) / 10.0
+
+CVSS_ROUND = {
+    CVSS2_STR: CVSS2_round,
+    CVSS3_0_STR: CVSS3_0_round,
+    CVSS3_1_STR: CVSS3_1_round,
+}
+
+def CVSS_get_coefficients(vdict, vers):
+    ret = {}
+
+    METRICS = CVSS_METRICS[vers]
+    UNDEFINED = CVSS_UNDEFINED[vers]
+
+    Scope = None
+    ModifiedScope = None
+
+    if vers in (CVSS3_0_STR, CVSS3_1_STR):
+        Scope = vdict['S']
+
+        ModifiedScope = vdict.get('MS', UNDEFINED)
+        if ModifiedScope == UNDEFINED:
+            ModifiedScope = Scope
+
+    for metric in METRICS:
+        # These are special case lookups using the Scope/ModifiedScope value,
+        # handle them later
+        if metric in ('PR', 'MPR'):
+            continue
+
+        val = vdict.get(metric, UNDEFINED)
+        ret[metric] = METRICS[metric][2][val]
+
+    # This block handles the special case lookups in CVSS3.0/CVSS3.1. Specifically:
+    #   - The extra Scope/ModifiedScope extra lookup for PR/MPR
+    #   - The "modified" values in the environment metrics that (if
+    #     present) modify the base metrics.
+    if vers in (CVSS3_0_STR, CVSS3_1_STR):
+        PR = vdict.get('PR')
+        ret['PR'] = METRICS['PR'][2][Scope][PR]
+
+        MPR = vdict.get('MPR', UNDEFINED)
+        if MPR == UNDEFINED:
+            ret['MPR'] = ret['PR']
         else:
-            Impact = 7.52 * (ISS - 0.029) - 3.25 * (ISS - 0.02) ** 15
+            ret['MPR'] = METRICS['MPR'][2][ModifiedScope][MPR]
 
-        AttackVector = self._getval('AV')
-        AttackComplexity = self._getval('AC')
-        PrivilegesRequired = self._getval('PR', _Scope)
-        UserInteraction = self._getval('UI')
-
-        Exploitability = 8.22 * AttackVector * AttackComplexity * PrivilegesRequired * UserInteraction
-
-        if Impact <= 0:
-            BaseScore = 0.0
-        else:
-            if _Scope == 'U':
-                BaseScore = self.roundup(min(Impact + Exploitability, 10.0))
+        def set_modval(metric, base_metric):
+            val = vdict.get(metric, UNDEFINED)
+            if val == UNDEFINED:
+                ret[metric] = ret[base_metric]
             else:
-                BaseScore = self.roundup(min(1.08 * (Impact + Exploitability), 10.0))
+                ret[metric] = METRICS[metric][2][val]
 
-        return BaseScore
+        set_modval('MAV', 'AV')
+        set_modval('MAC', 'AC')
+        set_modval('MUI', 'UI')
+        set_modval('MC', 'C')
+        set_modval('MI', 'I')
+        set_modval('MA', 'A')
 
-    @property
-    def temporal(self):
-        '''
-        Calculate the base score per the equation listed here:
-        https://www.first.org/cvss/v3.1/specification-document#7-2-Temporal-Metrics-Equations
+    return ret
 
-        We use the CVSS3.1 spec because it's more clear than the CVSS3.0 spec
-        but the equations are the same.
-        '''
-        E = self._vdict.get('E', self.UNDEFINED)
-        RL = self._vdict.get('RL', self.UNDEFINED)
-        RC = self._vdict.get('RC', self.UNDEFINED)
+def CVSS2_calc(vdict):
+    ROUND = CVSS_ROUND[CVSS2_STR]
+    UNDEFINED = CVSS_UNDEFINED[CVSS2_STR]
+    COEFFS = CVSS_get_coefficients(vdict, CVSS2_STR)
 
-        if (E, RL, RC) == (self.UNDEFINED, self.UNDEFINED, self.UNDEFINED):
-            return None
+    def _base(Impact):
+        AccessVector = COEFFS['AV']
+        AccessComplexity = COEFFS['AC']
+        Authentication = COEFFS['Au']
 
-        ExploitCodeMaturity = self._getval('E')
-        RemediationLevel = self._getval('RL')
-        ReportConfidence = self._getval('RC')
+        Exploitability = 20 * AccessVector * AccessComplexity * Authentication
 
-        ret = self.roundup(self.base * ExploitCodeMaturity * RemediationLevel * ReportConfidence)
-        return ret
+        fImpact = 1.176
+        if Impact == 0:
+            fImpact = 0.0
 
-    @property
-    def environmental(self):
-        '''
-        Calculate the base score per the equation listed here:
-        https://www.first.org/cvss/v3.1/specification-document#7-3-Environmental-Metrics-Equations
+        return ROUND(((0.6 * Impact) + (0.4 * Exploitability) - 1.5) * fImpact)
 
-        We use the CVSS3.1 spec because it's more clear than the CVSS3.0 spec
-        but the equations are the same.
-        '''
-        _ModifiedScope = self._vdict.get('MS', self.UNDEFINED)
-        if _ModifiedScope == self.UNDEFINED:
-            _ModifiedScope = self._vdict['S']
+    # Calculate the base score per the equation listed here:
+    # https://www.first.org/cvss/v2/guide#3-2-1-Base-Equation
+    ConfImpact = COEFFS['C']
+    IntegImpact = COEFFS['I']
+    AvailImpact = COEFFS['A']
 
-        ConfidentialityRequirement = self._getval('CR')
-        ModifiedConfidentiality = self._getmval('MC', 'C')
-        IntegrityRequirement = self._getval('IR')
-        ModifiedIntegrity = self._getmval('MI', 'I')
-        AvailabilityRequirement = self._getval('AR')
-        ModifiedAvailability = self._getmval('MA', 'A')
+    Impact = 10.41 * (1 - (1 - ConfImpact) * (1 - IntegImpact) * (1 - AvailImpact))
 
-        MISS = min(
-            1.0 - ((1.0 - ConfidentialityRequirement * ModifiedConfidentiality) *
-                   (1.0 - IntegrityRequirement * ModifiedIntegrity) *
-                   (1.0 - AvailabilityRequirement * ModifiedAvailability)
-            ),
-            0.915
-        )
+    BaseScore = _base(Impact)
+
+    # Calculate the temporal score per the equation listed here:
+    # https://www.first.org/cvss/v2/guide#3-2-2-Temporal-Equation
+    Exploitability = COEFFS['E']
+    RemediationLevel = COEFFS['RL']
+    ReportConfidence = COEFFS['RC']
+
+    TemporalScore = ROUND(BaseScore * Exploitability * RemediationLevel * ReportConfidence)
+
+    '''
+    Calculate the environmental score per the equation listed here:
+    https://www.first.org/cvss/v2/guide#3-2-3-Environmental-Equation
+    '''
+    ConfImpact = COEFFS['C']
+    IntegImpact = COEFFS['I']
+    AvailImpact = COEFFS['A']
+
+    ConfReq = COEFFS['CR']
+    IntegReq = COEFFS['IR']
+    AvailReq = COEFFS['AR']
+
+    AdjustedImpact = min(
+        10.0,
+        10.41 * (1.0 - (1.0 - ConfImpact * ConfReq) * (1.0 - IntegImpact * IntegReq) * (1.0 - AvailImpact * AvailReq))
+    )
+
+    Exploitability = COEFFS['E']
+    RemediationLevel = COEFFS['RL']
+    ReportConfidence = COEFFS['RC']
+
+    AdjustedTemporal = ROUND(_base(AdjustedImpact) * Exploitability * RemediationLevel * ReportConfidence)
+
+    CollateralDamagePotential = COEFFS['CDP']
+    TargetDistribution = COEFFS['TD']
+
+    EnvironmentalScore = ROUND((AdjustedTemporal + (10 - AdjustedTemporal) * CollateralDamagePotential) * TargetDistribution)
+
+    return BaseScore, TemporalScore, EnvironmentalScore
+
+def _CVSS3_calc(vdict, vers):
+
+    ROUND = CVSS_ROUND[vers]
+    UNDEFINED = CVSS_UNDEFINED[vers]
+    COEFFS = CVSS_get_coefficients(vdict, vers)
+
+    # Calculate the base score per the equation listed here:
+    # https://www.first.org/cvss/v3.1/specification-document#7-1-Base-Metrics-Equations
+
+    # We use the CVSS3.1 spec because it's more clear than the CVSS3.0 spec
+    # but the equations are the same.
+    _Scope = vdict['S']
+
+    _ModifiedScope = vdict.get('MS', UNDEFINED)
+    if _ModifiedScope == UNDEFINED:
+        _ModifiedScope = _Scope
+
+    Confidentiality = COEFFS['C']
+    Integrity = COEFFS['I']
+    Availability = COEFFS['A']
+
+    ISS = 1 - ((1 - Confidentiality) * (1 - Integrity) * (1 - Availability))
+
+    if _Scope == 'U':
+        Impact = 6.42 * ISS
+    else:
+        Impact = 7.52 * (ISS - 0.029) - 3.25 * (ISS - 0.02) ** 15
+
+    AttackVector = COEFFS['AV']
+    AttackComplexity = COEFFS['AC']
+    PrivilegesRequired = COEFFS['PR']
+    UserInteraction = COEFFS['UI']
+
+    Exploitability = 8.22 * AttackVector * AttackComplexity * PrivilegesRequired * UserInteraction
+
+    if Impact <= 0:
+        BaseScore = 0.0
+    else:
+        if _Scope == 'U':
+            BaseScore = ROUND(min(Impact + Exploitability, 10.0))
+        else:
+            BaseScore = ROUND(min(1.08 * (Impact + Exploitability), 10.0))
+
+    # Calculate the base score per the equation listed here:
+    # https://www.first.org/cvss/v3.1/specification-document#7-2-Temporal-Metrics-Equations
+
+    # We use the CVSS3.1 spec because it's more clear than the CVSS3.0 spec
+    # but the equations are the same.
+
+    E = vdict.get('E', UNDEFINED)
+    RL = vdict.get('RL', UNDEFINED)
+    RC = vdict.get('RC', UNDEFINED)
+
+    if (E, RL, RC) == (UNDEFINED, UNDEFINED, UNDEFINED):
+        TemporalScore = None
+
+    else:
+        ExploitCodeMaturity = COEFFS['E']
+        RemediationLevel = COEFFS['RL']
+        ReportConfidence = COEFFS['RC']
+
+        TemporalScore = ROUND(BaseScore * ExploitCodeMaturity * RemediationLevel * ReportConfidence)
+
+    # Calculate the base score per the equation listed here:
+    # https://www.first.org/cvss/v3.1/specification-document#7-3-Environmental-Metrics-Equations
+
+    # We use the CVSS3.1 spec because it's more clear than the CVSS3.0 spec
+    # but the equations are the same.
+
+    ConfidentialityRequirement = COEFFS['CR']
+    ModifiedConfidentiality = COEFFS['MC']
+    IntegrityRequirement = COEFFS['IR']
+    ModifiedIntegrity = COEFFS['MI']
+    AvailabilityRequirement = COEFFS['AR']
+    ModifiedAvailability = COEFFS['MA']
+
+    MISS = min(
+        1.0 - ((1.0 - ConfidentialityRequirement * ModifiedConfidentiality) *
+                (1.0 - IntegrityRequirement * ModifiedIntegrity) *
+                (1.0 - AvailabilityRequirement * ModifiedAvailability)
+        ),
+        0.915
+    )
+
+    if _ModifiedScope == 'U':
+        ModifiedImpact = 6.42 * MISS
+    else:
+        ModifiedImpact = 7.52 * (MISS - 0.029) - 3.25 * (MISS * 0.9731 - 0.02) ** 13
+
+    ModifiedAttackVector = COEFFS['MAV']
+    ModifiedAttackComplexity = COEFFS['MAC']
+    ModifiedPrivilegesRequired = COEFFS['MPR']
+    ModifiedUserInteraction = COEFFS['MUI']
+
+    ModifiedExploitability = (
+        8.22 *
+        ModifiedAttackVector *
+        ModifiedAttackComplexity *
+        ModifiedPrivilegesRequired *
+        ModifiedUserInteraction
+    )
+
+    if ModifiedImpact <= 0:
+        EnvironmentalScore = 0.0
+    else:
+        ExploitCodeMaturity = COEFFS['E']
+        RemediationLevel = COEFFS['RL']
+        ReportConfidence = COEFFS['RC']
 
         if _ModifiedScope == 'U':
-            ModifiedImpact = 6.42 * MISS
+            EnvironmentalScore = ROUND(
+                ROUND(
+                    min(ModifiedImpact + ModifiedExploitability, 10)) *
+                ExploitCodeMaturity *
+                RemediationLevel *
+                ReportConfidence
+            )
+
         else:
-            ModifiedImpact = 7.52 * (MISS - 0.029) - 3.25 * (MISS * 0.9731 - 0.02) ** 13
+            EnvironmentalScore = ROUND(
+                ROUND(
+                    min(1.08 * (ModifiedImpact + ModifiedExploitability), 10)) *
+                ExploitCodeMaturity *
+                RemediationLevel *
+                ReportConfidence
+            )
 
-        ModifiedAttackVector = self._getmval('MAV', 'AV')
-        ModifiedAttackComplexity = self._getmval('MAC', 'AC')
-        ModifiedPrivilegesRequired = self._getmval('MPR', 'PR', _ModifiedScope)
-        ModifiedUserInteraction = self._getmval('MUI', 'UI')
+    return BaseScore, TemporalScore, EnvironmentalScore
 
-        ModifiedExploitability = (
-            8.22 *
-            ModifiedAttackVector *
-            ModifiedAttackComplexity *
-            ModifiedPrivilegesRequired *
-            ModifiedUserInteraction
-        )
+def CVSS3_0_calc(vdict):
+    return _CVSS3_calc(vdict, CVSS3_0_STR)
 
-        if ModifiedImpact <= 0:
-            EnvironmentalScore = 0.0
-        else:
-            ExploitCodeMaturity = self._getval('E')
-            RemediationLevel = self._getval('RL')
-            ReportConfidence = self._getval('RC')
+def CVSS3_1_calc(vdict):
+    return _CVSS3_calc(vdict, CVSS3_1_STR)
 
-            if _ModifiedScope == 'U':
-                EnvironmentalScore = self.roundup(
-                    self.roundup(min(ModifiedImpact + ModifiedExploitability, 10)) *
-                    ExploitCodeMaturity *
-                    RemediationLevel *
-                    ReportConfidence
-                )
+CVSS_CALC = {
+    CVSS2_STR: CVSS2_calc,
+    CVSS3_0_STR: CVSS3_0_calc,
+    CVSS3_1_STR: CVSS3_1_calc,
+}
 
-            else:
-                EnvironmentalScore = self.roundup(
-                    self.roundup(min(1.08 * (ModifiedImpact + ModifiedExploitability), 10)) *
-                    ExploitCodeMaturity *
-                    RemediationLevel *
-                    ReportConfidence
-                )
+def validate(vect, vers):
+    '''
+    Validate (as best as possible) the vector string. Look for issues such as:
+        - No duplicated metrics
+        - Invalid metrics
+        - Invalid metric values
+        - Missing mandatory metrics
 
-        return EnvironmentalScore
+    Returns a dictionary with the parsed metric:value pairs.
+    '''
 
-class CVSS3_1(CVSS3_0):
-    VERSION = '3.1'
-    TAG = 'CVSS:3.1/'
+    missing = []
+    badvals = []
+    invalid = []
 
-    @staticmethod
-    def roundup(x):
-        '''
-        Round up to the nearest one decimal place. From the JS reference implementation:
-        https://www.first.org/cvss/calculator/cvsscalc31.js
-        '''
-        i = int(x * 100000)
+    TAG = CVSS_TAGS[vers]
+    METRICS = CVSS_METRICS[vers]
 
-        if i % 10000 == 0:
-            return i / 100000
+    # Do some canonicalization of the vector for easier parsing
+    vect = vect
+    vect = vect.strip('(')
+    vect = vect.strip(')')
 
-        return (math.floor(i / 10000) + 1) / 10.0
+    if vect.startswith(TAG):
+        vect = vect[len(TAG):]
 
+    try:
+        # Parse out metrics
+        mets_vals = [k.split(':') for k in vect.split('/')]
 
-CVSS_VERSIONS = [
-    CVSS2,
-    CVSS3_0,
-    CVSS3_1,
-]
+        # Convert metrics into a dictionary
+        vdict = dict(mets_vals)
 
-CVSS_VALID_VERS_STRS = [k.VERSION for k in CVSS_VERSIONS] + [None]
+    except ValueError:
+        raise s_exc.BadDataValu(mesg='Malformed vector string')
+
+    # Check that each metric is only specified once
+    if len(mets_vals) != len(set(k[0] for k in mets_vals)):
+        seen = []
+        repeated = []
+
+        for met, val in mets_vals:
+            if met in seen:
+                repeated.append(met)
+
+            seen.append(met)
+
+        raise s_exc.BadDataValu(mesg=f'Duplicate metrics not allowed in CVSS vectors: {repeated}')
+
+    for metric in vdict:
+        # Check that provided metrics are valid
+        if metric not in METRICS:
+            raise s_exc.BadDataValu(mesg=f'Invalid metrics in CVSS vector: {invalid}')
+
+    for metric, (valids, mandatory, _) in METRICS.items():
+        # Check for mandatory metrics
+        if mandatory and metric not in vdict:
+            raise s_exc.BadDataValu(mesg=f'Missing mandatory metric in CVSS vector: {metric}')
+
+        # Check if metric value is valid
+        if metric in vdict and (val := vdict[metric]) not in valids:
+            raise s_exc.BadDataValu(mesg=f'Bad metric value in CVSS vector: {metric}:{val}')
+
+    return vdict
 
 def roundup(x):
     return (math.ceil(x * 10) / 10.0)
@@ -528,17 +542,51 @@ class CvssLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'null', }
         }},
-        {'name': 'vectToScore', 'desc': 'Parse a CVSS vector and calculate and return base, temporal, and environmental scores.',
+        {'name': 'vectToScore',
+         'desc': '''Compute CVSS scores from a vector string.
+
+                    Takes a CVSS vector string, attempts to automatically detect the version
+                    (defaults to CVSS3.1 if it cannot), and calculates the base, temporal,
+                    and environmental scores.
+
+                    Note: This function does not add/delete/modify nodes in any way.
+
+                    Raises:
+                        - BadArg: An invalid `vers` string is provided
+                        - BadDataValu: The vector string is invalid in some way.
+                        Possible reasons are malformed string, duplicated
+                        metrics, missing mandatory metrics, and invalid metric
+                        values.''',
          'type': {'type': 'function', '_funcname': 'vectToScore',
                   'args': (
                       {'name': 'vect', 'type': 'str',
-                       'desc': 'A CVSS vector string.'},
-                      {'name': 'vers', 'type': 'str',
-                       'desc': 'A CVSS version string.',
-                       'default': None,
-                       'choices': CVSS_VALID_VERS_STRS}
+                       'desc': '''A valid CVSS vector string.
+
+                           The following examples are valid formats:
+                               - CVSS 2 with version: `CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N`
+                               - CVSS 2 with parentheses: `(AV:L/AC:L/Au:M/C:P/I:C/A:N)`
+                               - CVSS 2 without parentheses: `AV:L/AC:L/Au:M/C:P/I:C/A:N`
+                               - CVSS 3.0 with version: `CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
+                               - CVSS 3.1 with version: `CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
+                               - CVSS 3.0/3.1 with parentheses: `(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L)`
+                               - CVSS 3.0/3.1 without parentheses: `AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`'''},
+                      {'name': 'vers',
+                       'type': 'str',
+                       'desc': f'''A valid version string or None to autodetect the
+                                   version from the vector string. Accepted values
+                                   are: { ', '.join(CVSS_VERSIONS) }, None.''',
+                       'default': None}
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary of detected version, base, temporal, and environmental scores.'}
+                  'returns': {'type': 'dict',
+                              'desc': '''A dictionary with the detected version, base
+                                         score, temporal score, and environmental score. Example:
+                                            {{
+                                                'version': '3.1',
+                                                'base': 5.0,
+                                                'temporal': 4.4,
+                                                'environmental': 4.3
+                                            }}
+                              '''}
         }},
     )
     _storm_lib_path = ('infosec', 'cvss',)
@@ -742,75 +790,34 @@ class CvssLib(s_stormtypes.Lib):
         return rval
 
     async def vectToScore(self, vect, vers=None):
-        f'''
-        Compute CVSS scores from a vector string.
-
-        Takes a CVSS vector string, attempts to automatically detect the version
-        (defaults to CVSS3.1 if it cannot), and calculates the base, temporal,
-        and environmental scores.
-
-        Note: This function does not add/delete/modify nodes in any way.
-
-        Args:
-            vect (str): A valid CVSS vector string.
-                The following examples are valid formats:
-                    - CVSS 2 with version: `CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N`
-                    - CVSS 2 with parentheses: `(AV:L/AC:L/Au:M/C:P/I:C/A:N)`
-                    - CVSS 2 without parentheses: `AV:L/AC:L/Au:M/C:P/I:C/A:N`
-                    - CVSS 3.0 with version: `CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
-                    - CVSS 3.1 with version: `CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
-                    - CVSS 3.0/3.1 with parentheses: `(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L)`
-                    - CVSS 3.0/3.1 without parentheses: `AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
-
-            vers (str, optional): A valid version string or None to autodetect
-                the version from the vector string. Accepted version strings
-                are: { ', '.join(k.VERSION for k in CVSS_VERSIONS) }
-
-        Returns:
-            dict: A dictionary with the detected version, base
-            score, temporal score, and environmental score. Example:
-                {{
-                    'version': '3.1',
-                    'base': 5.0,
-                    'temporal': 4.4,
-                    'environmental': 4.3
-                }}
-
-        Raises:
-            synapse.exc.BadArg: An invalid `vers` string is provided
-            synapse.exc.BadDataValu: The vector string is invalid in some way.
-                Possible reasons are malformed string, duplicated metrics,
-                missing mandatory metrics, and invalid metric values.
-        '''
-
         vers = await s_stormtypes.tostr(vers, noneok=True)
 
-        valid_vers = CVSS_VALID_VERS_STRS
-        if vers not in valid_vers:
-            raise s_exc.BadArg(mesg=f'Valid values for vers are: {valid_vers}.')
+        if vers not in CVSS_VERSIONS + [None]:
+            raise s_exc.BadArg(mesg=f'Valid values for vers are: {CVSS_VERSIONS + [None]}.')
 
-        detected = CVSS3_1
+        detected = CVSS3_1_STR
 
         if vers is None:
             if 'Au:' in vect or vect.startswith('CVSS#2'):
-                detected = CVSS2
+                detected = CVSS2_STR
 
             elif vect.startswith('CVSS:3.0/'):
-                detected = CVSS3_0
+                detected = CVSS3_0_STR
 
             elif vect.startswith('CVSS:3.1/'):
-                detected = CVSS3_1
+                detected = CVSS3_1_STR
 
         else:
-            detected = {
-                k.VERSION: k for k in CVSS_VERSIONS
-            }.get(vers)
+            detected = vers
 
-        cvss = detected(vect)
+        vdict = validate(vect, detected)
+
+        calc = CVSS_CALC[detected]
+        base, temporal, environmental = calc(vdict)
 
         return {
-            'version': cvss.VERSION,
-            'base': cvss.base,
-            'temporal': cvss.temporal,
-            'environmental': cvss.environmental
+            'version': detected,
+            'base': base,
+            'temporal': temporal,
+            'environmental': environmental
         }
