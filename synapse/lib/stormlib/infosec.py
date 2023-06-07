@@ -545,49 +545,50 @@ class CvssLib(s_stormtypes.Lib):
                   'returns': {'type': 'null', }
         }},
         {'name': 'vectToScore',
-         'desc': '''Compute CVSS scores from a vector string.
+         'desc': '''
+            Compute CVSS scores from a vector string.
 
-                    Takes a CVSS vector string, attempts to automatically detect the version
-                    (defaults to CVSS3.1 if it cannot), and calculates the base, temporal,
-                    and environmental scores.
+            Takes a CVSS vector string, attempts to automatically detect the version
+            (defaults to CVSS3.1 if it cannot), and calculates the base, temporal,
+            and environmental scores.
 
-                    Note: This function does not add/delete/modify nodes in any way.
+            Note: This function does not add/delete/modify nodes in any way.
 
-                    Raises:
-                        - BadArg: An invalid `vers` string is provided
-                        - BadDataValu: The vector string is invalid in some way.
-                        Possible reasons are malformed string, duplicated
-                        metrics, missing mandatory metrics, and invalid metric
-                        values.''',
+            Raises:
+                - BadArg: An invalid `vers` string is provided
+                - BadDataValu: The vector string is invalid in some way.
+                  Possible reasons are malformed string, duplicated
+                  metrics, missing mandatory metrics, and invalid metric
+                  values.''',
          'type': {'type': 'function', '_funcname': 'vectToScore',
                   'args': (
                       {'name': 'vect', 'type': 'str',
-                       'desc': '''A valid CVSS vector string.
+                       'desc': '''
+                            A valid CVSS vector string.
 
-                           The following examples are valid formats:
-                               - CVSS 2 with version: `CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N`
-                               - CVSS 2 with parentheses: `(AV:L/AC:L/Au:M/C:P/I:C/A:N)`
-                               - CVSS 2 without parentheses: `AV:L/AC:L/Au:M/C:P/I:C/A:N`
-                               - CVSS 3.0 with version: `CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
-                               - CVSS 3.1 with version: `CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
-                               - CVSS 3.0/3.1 with parentheses: `(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L)`
-                               - CVSS 3.0/3.1 without parentheses: `AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`'''},
+                            The following examples are valid formats:
+
+                                - CVSS 2 with version: `CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N`
+                                - CVSS 2 with parentheses: `(AV:L/AC:L/Au:M/C:P/I:C/A:N)`
+                                - CVSS 2 without parentheses: `AV:L/AC:L/Au:M/C:P/I:C/A:N`
+                                - CVSS 3.0 with version: `CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
+                                - CVSS 3.1 with version: `CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`
+                                - CVSS 3.0/3.1 with parentheses: `(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L)`
+                                - CVSS 3.0/3.1 without parentheses: `AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L`'''},
                       {'name': 'vers',
                        'type': 'str',
-                       'desc': f'''A valid version string or None to autodetect the
-                                   version from the vector string. Accepted values
-                                   are: { ', '.join(CVSS_VERSIONS) }, None.''',
+                       'desc': f'''
+                            A valid version string or None to autodetect the
+                            version from the vector string. Accepted values
+                            are: { ', '.join(CVSS_VERSIONS) }, None.''',
                        'default': None}
                   ),
                   'returns': {'type': 'dict',
-                              'desc': '''A dictionary with the detected version, base
-                                         score, temporal score, and environmental score. Example:
-                                            {{
-                                                'version': '3.1',
-                                                'base': 5.0,
-                                                'temporal': 4.4,
-                                                'environmental': 4.3
-                                            }}
+                              'desc': '''
+                                A dictionary with the detected version, base
+                                score, temporal score, and environmental score. Example:
+
+                                    { 'version': '3.1', 'base': 5.0, 'temporal': 4.4, 'environmental': 4.3 }
                               '''}
         }},
     )
