@@ -1546,17 +1546,17 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.null()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.stormIsInErr("'NoneType' object is not callable.", msgs)
+            self.stormIsInErr("'NoneType' object is not callable: lib.null()", msgs)
 
             msgs = await core.stormlist('$foo=bar $foo()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.stormIsInErr("'str' object is not callable.", msgs)
+            self.stormIsInErr("'str' object is not callable: foo()", msgs)
 
             msgs = await core.stormlist('$foo=$lib $foo()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.stormIsInErr("'LibBase' object is not callable.", msgs)
+            self.stormIsInErr("'LibBase' object is not callable: foo()", msgs)
 
     async def test_ast_function_scope(self):
 

@@ -2957,7 +2957,10 @@ class FuncCall(Value):
 
         func = await self.kids[0].compute(runt, path)
         if not callable(func):
-            raise s_exc.StormRuntimeError(mesg=f"'{type(func).__name__}' object is not callable.")
+            text = self.getAstText()
+            styp = type(func).__name__
+            mesg = f"'{styp}' object is not callable: {text}"
+            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         if runt.readonly and not getattr(func, '_storm_readonly', False):
             mesg = f'Function ({func.__name__}) is not marked readonly safe.'
