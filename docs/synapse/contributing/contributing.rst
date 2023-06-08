@@ -88,7 +88,7 @@ The following items should be considered when contributing to Synapse:
     at the `examples here <http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html>`_.
   - We use Napoleon for parsing these doc strings. More info `here <https://sphinxcontrib-napoleon.readthedocs.io>`_.
   - Synapse as a project is not written using the Napoleon format currently
-    but all new modules should audhere to that format.
+    but all new modules should adhere to that format.
   - Synapse acceptable example:
 
     ::
