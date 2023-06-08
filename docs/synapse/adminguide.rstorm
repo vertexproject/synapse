@@ -354,7 +354,7 @@ From a Synapse Admin perspective, you will primarily be concerned with managing 
   roles in a Cortex, and permissions to a Cortex and its associated objects.
   
   Depending on your Synapse deployment, you may need to grant or manage permissions to additional Synapse services.
-  See the sections on :ref:`admin_axon_perms`, :ref:`admin_optic_perms`, and :ref:`admin_power_perms` for details.
+  See the sections on :ref:`admin_optic_perms` and :ref:`admin_power_perms` for details.
 
 .. _admin_bkd_cortex:
 
@@ -789,18 +789,16 @@ Display information for the current layer:
 .. storm-cli:: auth.gate.show $lib.layer.get().iden
 
 
-.. _admin_axon_perms:
+.. _admin_cortex_perms:
 
-Axon Permissions
-----------------
+Cortex Permissions
+------------------
 
-You must specifically grant users or roles permission to access (upload, check, or retrieve) files within a
-storage Axon.
+The following is a list of the Cortex permissions that may be granted to a user or role. If a gate other
+than ``cortex`` is specified, the permission will be checked against the specific gate instance and if no
+match is found, it will be checked against the global rules.
 
-- See the :ref:`deploy_axon` section of the :ref:`deploymentguide` for information on Axon deployment.
-- See the :ref:`devops-svc-axon` section of the :ref:`devopsguide` for information on Axon configuration,
-  including a description of Axon permissions.
-
+.. storm-cli:: auth.perms.list
 
 .. _admin_optic_perms:
 
@@ -975,6 +973,46 @@ Extended Universal Properties
 
 Similar to ``$lib.model.ext.addFormProp``, ``$lib.model.ext.addUnivProp`` takes the same ``propname``,
 ``typedef``, and ``propinfo`` arguments, but applies to all forms.
+
+
+.. _admin_manage_deprecations:
+
+Manage Model Deprecations
+=========================
+
+As the Synapse Data Model grows and evolves, model elements (types, forms, and properties) may be
+deprecated and should no longer be used for new data modeling. The Storm ``model.deprecated`` commands
+can be used to prepare for the eventual removal of deprecated model elements.
+
+Lock Deprecated Model Elements
+------------------------------
+
+The :ref:`storm-model-deprecated-lock` command edits the lock status of deprecated model elements. Locked
+model elements can still be viewed or deleted, but can no longer be added. Attempting to add a locked
+model element will cause an ``IsDeprLocked`` error. The :ref:`storm-model-deprecated-locks` command can
+be used to show the current lock status of all deprecated model elements.
+
+**Examples:**
+
+Lock the ``ps:person:img`` property:
+
+.. storm-cli:: model.deprecated.lock ps:person:img
+
+Unlock the ``ps:person:img`` property:
+
+.. storm-cli:: model.deprecated.lock --unlock ps:person:img
+
+Lock all deprecated model elements:
+
+.. storm-cli:: model.deprecated.lock *
+
+Check for Deprecated Model Elements
+-----------------------------------
+
+The :ref:`storm-model-deprecated-check` command checks for lock status and the existence of deprecated
+model elements in the Cortex. Warnings will be produced for any deprecated model elements which are
+unlocked or still in use in the Cortex. Once all warnings have been resolved, your Cortex will be
+ready for future model updates.
 
 
 .. _admin_config_mirror:

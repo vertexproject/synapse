@@ -100,7 +100,7 @@ class CortexTest(s_t_utils.SynTest):
 
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
-                        await s_tools_promote.main(argv, outp=outp)
+                        await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
@@ -1196,6 +1196,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
+                self.len(1, await core.nodes('test:int +#*:score'))
+                self.len(1, await core.nodes('test:int +#foo.*:score'))
+                self.len(1, await core.nodes('$tag=* test:int +#*:score'))
+                self.len(1, await core.nodes('$tag=foo.* test:int +#foo.*:score'))
 
                 self.len(0, await core.nodes('test:int -#foo.bar'))
                 self.len(0, await core.nodes('test:int -#foo.bar:score'))
@@ -1316,6 +1320,24 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addTagProp('derp', ('derp', {}), {})
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int#$tag:prop")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int +#$tag:prop")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int +#$tag:prop=5")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) $lib.print(#$tag:prop)")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) [ +#$tag:prop=foo ]")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) [ -#$tag:prop ]")
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:
@@ -1496,7 +1518,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
-            with self.raises(AttributeError):
+            with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$foo=(('foo', 'bar.baz'),) [test:int=2 +#$foo]")
 
             # Can set a list of tags directly
@@ -1508,8 +1530,20 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
-            with self.raises(TypeError):
-                await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
+            nodes = await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
+
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) #$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) ##$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=$lib.null +#foo.$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020"))
 
     async def test_base_types1(self):
 
@@ -2191,6 +2225,10 @@ class CortexTest(s_t_utils.SynTest):
                                mesgs)
             self.len(0, [m for m in mesgs if m[0] == 'node'])
 
+            # Do a PivotInFrom with a bad form
+            with self.raises(s_exc.NoSuchForm) as cm:
+                await core.nodes('.created <- test:newp')
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await wcore.nodes('[ test:comp=(127,newp) ] [test:comp=(127,127)]')
@@ -2312,6 +2350,9 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await wcore.nodes('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
 
             self.len(1, await core.nodes('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +.seen@=$fqdnbad'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#foo==(2022,2023)')
 
     async def test_cortex_storm_tagform(self):
 
@@ -3827,6 +3868,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 1 '))
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 '))
 
+            with self.raises(s_exc.NoSuchCmpr) as cm:
+                await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } @ 2')
+
             await core.nodes('[ risk:attack=* +(foo)> {[ test:str=foo ]} ]')
             await core.nodes('[ risk:attack=* +(foo)> {[ test:str=bar ]} ]')
 
@@ -4187,6 +4231,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             await alist(core.addNodes((node,)))
 
             self.nn(await core.getNodeByNdef(('test:str', 'foo')))
+            with self.raises(s_exc.NoSuchForm):
+                await core.getNodeByNdef(('test:newp', 'hehe'))
 
     async def test_cortex_storm_vars(self):
 
@@ -4895,7 +4941,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
-            mesgs = await core.stormlist('$var="" test:str=foo [+?#$var=2019] $lib.print(#$var)')
+            mesgs = await core.stormlist('$var="" test:str=foo [+?#$var=2019]')
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -5421,7 +5467,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 # remove the mirrorness from the Cortex and ensure that we can
                 # write to the Cortex. This will move the core01 ahead of
-                # core00 & core01 can become the leader.
+                # core00 & core01 can become the leader. By default this is
+                # not a graceful promotion.
                 await core01.promote()
                 self.false(core01.nexsroot._mirready.is_set())
 
@@ -5839,8 +5886,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $q.cull($offs)
                 }
                 '''
-                ddef = {'user': visi.iden, 'storm': q}
+                ddef = {'user': visi.iden, 'storm': q, 'iden': s_common.guid()}
                 await core.addStormDmon(ddef)
+
+                with self.raises(s_exc.DupIden):
+                    await core.addStormDmon(ddef)
 
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
                 with self.getAsyncLoggerStream('synapse.lib.storm',
@@ -6488,7 +6538,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'storm'] properties")
+                        "data.modules[0] must contain ['name', 'storm'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
@@ -6506,7 +6556,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain only specified items")
+                        "data.commands[0].cmdargs[0] must contain only specified items")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['configvars'] = (

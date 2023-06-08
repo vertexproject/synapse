@@ -1,5 +1,9 @@
 import synapse.lib.module as s_module
 
+cvss_v2_re = r'AV:(L|A|N)\/AC:(H|M|L)\/Au:(M|S|N)\/C:(N|P|C)\/I:(N|P|C)\/A:(N|P|C)(\/E:(ND|U|POC|F|H)\/RL:(ND|OF|TF|W|U)\/RC:(ND|UC|UR|C))?(\/CDP:(ND|N|L|LM|MH|H)\/TD:(ND|N|L|M|H)\/CR:(ND|L|M|H)\/IR:(ND|L|M|H)\/AR:(ND|L|M|H))?'
+
+cvss_v3_re = r'AV:(N|A|L|P)\/AC:(L|H)\/PR:(N|L|H)\/UI:(N|R)\/S:(U|C)\/C:(N|L|H)\/I:(N|L|H)\/A:(N|L|H)(\/E:(X|U|P|F|H)\/RL:(X|O|T|W|U)\/RC:(X|U|R|C))?(\/CR:(X|L|M|H)\/IR:(X|L|M|H)\/AR:(X|L|M|H)\/MAV:(X|N|A|L|P)\/MAC:(X|L|H)\/MPR:(X|N|L|H)\/MUI:(X|N|R)\/MS:(X|U|C)\/MC:(X|N|L|H)\/MI:(X|N|L|H)\/MA:(X|N|L|H))?'
+
 class RiskModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -7,8 +11,15 @@ class RiskModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('risk:vuln', ('guid', {}), {
-                    'doc': 'A unique vulnerability.',
-                }),
+                    'doc': 'A unique vulnerability.'}),
+
+                ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of vulnerability types.'}),
+
+                ('risk:vuln:soft:range', ('guid', {}), {
+                    'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
+
                 ('risk:hasvuln', ('guid', {}), {
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
@@ -93,6 +104,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The tool uses the target node.'}),
                 (('risk:compromise', 'stole', None), {
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+                (('risk:mitigation', 'addresses', 'ou:technique'), {
+                    'doc': 'The mitigation addresses the technique.'}),
             ),
             'forms': (
 
@@ -113,11 +126,20 @@ class RiskModule(s_module.CoreModule):
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are associated with the threat cluster.'}),
 
+                    ('active', ('ival', {}), {
+                        'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the threat cluster.'}),
+
+                    ('reporter:discovered', ('time', {}), {
+                        'doc': 'The time that the reporting organization first discovered the threat cluster.'}),
+
+                    ('reporter:published', ('time', {}), {
+                        'doc': 'The time that the reporting organization first publicly disclosed the threat cluster.'}),
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The authoritative organization for the threat cluster.'}),
@@ -162,6 +184,9 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('risk:tool:software:taxonomy', {}), {
                         'doc': 'A type for the tool, as a taxonomy entry.'}),
 
+                    ('used', ('ival', {}), {
+                        'doc': 'An interval for when the tool is assessed to have been deployed.'}),
+
                     ('availability', ('risk:availability', {}), {
                         'doc': 'The reporting organization\'s assessed availability of the tool.'}),
 
@@ -173,6 +198,12 @@ class RiskModule(s_module.CoreModule):
 
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the tool.'}),
+
+                    ('reporter:discovered', ('time', {}), {
+                        'doc': 'The time that the reporting organization first discovered the tool.'}),
+
+                    ('reporter:published', ('time', {}), {
+                        'doc': 'The time that the reporting organization first publicly disclosed the tool.'}),
 
                     ('soft', ('it:prod:soft', {}), {
                         'doc': 'The authoritative software family for the tool.'}),
@@ -201,12 +232,13 @@ class RiskModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
                 )),
+                ('risk:vuln:type:taxonomy', {}, ()),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.'}),
 
-                    ('type', ('str', {}), {
-                        'doc': 'A user specified type for the vulnerability.'}),
+                    ('type', ('risk:vuln:type:taxonomy', {}), {
+                        'doc': 'A taxonomy type entry for the vulnerability.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -282,12 +314,56 @@ class RiskModule(s_module.CoreModule):
                     ('cisa:kev:duedate', ('time', {}), {
                         'doc': 'The date the action is due according to the CISA KEV database.'}),
 
+                    ('cvss:v2', ('str', {'regex': cvss_v2_re}), {
+                        'doc': 'The CVSS v2 vector for the vulnerability.'}),
+
+                    ('cvss:v2_0:score', ('float', {}), {
+                        'doc': 'The CVSS v2.0 overall score for the vulnerability.'}),
+
+                    ('cvss:v2_0:score:base', ('float', {}), {
+                        'doc': 'The CVSS v2.0 base score for the vulnerability.'}),
+
+                    ('cvss:v2_0:score:temporal', ('float', {}), {
+                        'doc': 'The CVSS v2.0 temporal score for the vulnerability.'}),
+
+                    ('cvss:v2_0:score:environmental', ('float', {}), {
+                        'doc': 'The CVSS v2.0 environmental score for the vulnerability.'}),
+
+                    ('cvss:v3', ('str', {'regex': cvss_v3_re}), {
+                        'doc': 'The CVSS v3 vector for the vulnerability.'}),
+
+                    ('cvss:v3_0:score', ('float', {}), {
+                        'doc': 'The CVSS v3.0 overall score for the vulnerability.'}),
+
+                    ('cvss:v3_0:score:base', ('float', {}), {
+                        'doc': 'The CVSS v3.0 base score for the vulnerability.'}),
+
+                    ('cvss:v3_0:score:temporal', ('float', {}), {
+                        'doc': 'The CVSS v3.0 temporal score for the vulnerability.'}),
+
+                    ('cvss:v3_0:score:environmental', ('float', {}), {
+                        'doc': 'The CVSS v3.0 environmental score for the vulnerability.'}),
+
+                    ('cvss:v3_1:score', ('float', {}), {
+                        'doc': 'The CVSS v3.1 overall score for the vulnerability.'}),
+
+                    ('cvss:v3_1:score:base', ('float', {}), {
+                        'doc': 'The CVSS v3.1 base score for the vulnerability.'}),
+
+                    ('cvss:v3_1:score:temporal', ('float', {}), {
+                        'doc': 'The CVSS v3.1 temporal score for the vulnerability.'}),
+
+                    ('cvss:v3_1:score:environmental', ('float', {}), {
+                        'doc': 'The CVSS v3.1 environmental score for the vulnerability.'}),
+
                     ('cvss:av', ('str', {'enums': 'N,A,P,L'}), {
-                        'doc': 'The CVSS Attack Vector (AV) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:ac', ('str', {'enums': 'L,H'}), {
                         'disp': {'enums': (('Low', 'L'), ('High', 'H'))},
-                        'doc': 'The CVSS Attack Complexity (AC) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:pr', ('str', {'enums': 'N,L,H'}), {
                         'disp': {'enums': (
@@ -295,79 +371,112 @@ class RiskModule(s_module.CoreModule):
                             {'title': 'Low', 'value': 'L', 'doc': 'FIXME privs stuff'},
                             {'title': 'High', 'value': 'H', 'doc': 'FIXME privs stuff'},
                         )},
-                        'doc': 'The CVSS Privileges Required (PR) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:ui', ('str', {'enums': 'N,R'}), {
-                        'doc': 'The CVSS User Interaction (UI) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:s', ('str', {'enums': 'U,C'}), {
-                        'doc': 'The CVSS Scope (S) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:c', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Confidentiality Impact (C) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:i', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Integrity Impact (I) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:a', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Availability Impact (A) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:e', ('str', {'enums': 'X,U,P,F,H'}), {
-                        'doc': 'The CVSS Exploit Code Maturity (E) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:rl', ('str', {'enums': 'X,O,T,W,U'}), {
-                        'doc': 'The CVSS Remediation Level (RL) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:rc', ('str', {'enums': 'X,U,R,C'}), {
-                        'doc': 'The CVSS Report Confidence (AV) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:mav', ('str', {'enums': 'X,N,A,L,P'}), {
-                        'doc': 'The CVSS Environmental Attack Vector (MAV) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:mac', ('str', {'enums': 'X,L,H'}), {
-                        'doc': 'The CVSS Environmental Attack Complexity (MAC) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:mpr', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Privileges Required (MPR) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:mui', ('str', {'enums': 'X,N,R'}), {
-                        'doc': 'The CVSS Environmental User Interaction (MUI) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:ms', ('str', {'enums': 'X,U,C'}), {
-                        'doc': 'The CVSS Environmental Scope (MS) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:mc', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Confidentiality Impact (MC) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:mi', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Integrity Impact (MI) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:ma', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Accessibility Impact (MA) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:cr', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Confidentiality Requirement (CR) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:ir', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Integrity Requirement (IR) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:ar', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Availability Requirement (AR) value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :cvss:v3.'}),
 
                     ('cvss:score', ('float', {}), {
-                        'doc': 'The Overall CVSS Score value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use version specific score properties.'}),
 
                     ('cvss:score:base', ('float', {}), {
-                        'doc': 'The CVSS Base Score value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use version specific score properties.'}),
 
                     ('cvss:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS Temporal Score value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use version specific score properties.'}),
 
                     ('cvss:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS Environmental Score value.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use version specific score properties.'}),
 
                     ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MITRE CWE values that apply to the vulnerability.'}),
+                )),
+
+                ('risk:vuln:soft:range', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability present in this software version range.'}),
+                    ('version:min', ('it:prod:softver', {}), {
+                        'doc': 'The minimum version which is vulnerable in this range.'}),
+                    ('version:max', ('it:prod:softver', {}), {
+                        'doc': 'The maximum version which is vulnerable in this range.'}),
                 )),
 
                 ('risk:hasvuln', {}, (

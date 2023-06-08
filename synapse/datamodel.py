@@ -198,6 +198,8 @@ class Prop:
 
     def pack(self):
         info = {
+            'name': self.name,
+            'full': self.full,
             'type': self.typedef,
             'stortype': self.type.stortype,
         }
@@ -408,6 +410,7 @@ class Form:
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
         info = {
+            'name': self.name,
             'props': props,
             'stortype': self.type.stortype,
         }
@@ -755,8 +758,7 @@ class Model:
     def _reqFormName(self, name):
         form = self.forms.get(name)
         if form is None:
-            mesg = f'No form named {name}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm.init(name)
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
@@ -869,7 +871,7 @@ class Model:
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
         return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
@@ -927,7 +929,7 @@ class Model:
 
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         prop = form.delProp(propname)
         if prop is None:

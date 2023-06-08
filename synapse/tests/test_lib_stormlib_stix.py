@@ -422,3 +422,69 @@ class StormLibStixTest(s_test.SynTest):
                     }
                     fini { return($bundle) }
                 ''')
+
+    async def test_stix_export_pivots(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+
+            with self.raises(s_exc.BadConfValu):
+                await core.callStorm('''
+                    $config = $lib.stix.export.config()
+                    $config.forms."inet:fqdn".stix."domain-name".pivots = ([
+                        {"storm": 10}
+                    ])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                ''')
+
+            with self.raises(s_exc.BadConfValu):
+                await core.callStorm('''
+                    $config = $lib.stix.export.config()
+                    $config.forms."inet:fqdn".stix."domain-name".pivots = ([
+                        {"storm": "woot", "stixtype": "newp"}
+                    ])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                ''')
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+                    $config.forms."inet:fqdn".stix."domain-name".pivots = ([
+                        {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                    ])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                inet:fqdn=vertex.link
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+            stixids = [obj['id'] for obj in bund['objects']]
+            self.isin('ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db', stixids)
+
+    async def test_stix_revs(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ ou:technique=* :name=foo ]} ]')
+
+            with self.raises(s_exc.BadConfValu):
+                bund = await core.callStorm('''
+                    $config = $lib.stix.export.config()
+                    $config.forms."ou:technique".stix."attack-pattern".revs = (["a"])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                    ou:technique
+                    $bundle.add($node, "attack-pattern")
+                    fini { return($bundle.pack()) }
+                ''')
+
+            bund = await core.callStorm('''
+                $bundle = $lib.stix.export.bundle()
+                ou:technique
+                $bundle.add($node, "attack-pattern")
+                fini { return($bundle.pack()) }
+            ''')
+            rels = [sobj for sobj in bund['objects'] if sobj.get('relationship_type') == 'mitigates']
+            self.len(1, rels)
+            self.true(rels[0]['target_ref'].startswith('attack-pattern--'))
+            self.true(rels[0]['source_ref'].startswith('course-of-action--'))

@@ -136,10 +136,28 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cisa:kev:product=KevProduct
                     :cisa:kev:added=2022-01-02
                     :cisa:kev:duedate=2022-01-02
+
+                    :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
+                    :cvss:v2_0:score=1.0
+                    :cvss:v2_0:score:base=1.1
+                    :cvss:v2_0:score:temporal=1.2
+                    :cvss:v2_0:score:environmental=1.3
+
+                    :cvss:v3 = AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MUI:X/MS:C/MC:N/MI:N/MA:N
+
+                    :cvss:v3_0:score=2.0
+                    :cvss:v3_0:score:base=2.1
+                    :cvss:v3_0:score:temporal=2.2
+                    :cvss:v3_0:score:environmental=2.3
+
+                    :cvss:v3_1:score=3.0
+                    :cvss:v3_1:score:base=3.1
+                    :cvss:v3_1:score:temporal=3.2
+                    :cvss:v3_1:score:environmental=3.3
             ]''')
             self.eq(node.ndef, ('risk:vuln', vuln))
             self.eq(node.get('name'), 'myvuln')
-            self.eq(node.get('type'), 'mytype')
+            self.eq(node.get('type'), 'mytype.')
             self.eq(node.get('desc'), 'mydesc')
 
             self.eq(node.get('exploited'), True)
@@ -160,6 +178,25 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('nist:nvd:source'), 'nistsource')
             self.eq(node.get('nist:nvd:published'), 1633910400000)
             self.eq(node.get('nist:nvd:modified'), 1633910400000)
+
+            self.eq(node.get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
+            cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MUI:X/MS:C/MC:N/MI:N/MA:N'
+            self.eq(node.get('cvss:v3'), cvssv3)
+
+            self.eq(node.get('cvss:v2_0:score'), 1.0)
+            self.eq(node.get('cvss:v2_0:score:base'), 1.1)
+            self.eq(node.get('cvss:v2_0:score:temporal'), 1.2)
+            self.eq(node.get('cvss:v2_0:score:environmental'), 1.3)
+
+            self.eq(node.get('cvss:v3_0:score'), 2.0)
+            self.eq(node.get('cvss:v3_0:score:base'), 2.1)
+            self.eq(node.get('cvss:v3_0:score:temporal'), 2.2)
+            self.eq(node.get('cvss:v3_0:score:environmental'), 2.3)
+
+            self.eq(node.get('cvss:v3_1:score'), 3.0)
+            self.eq(node.get('cvss:v3_1:score:base'), 3.1)
+            self.eq(node.get('cvss:v3_1:score:temporal'), 3.2)
+            self.eq(node.get('cvss:v3_1:score:environmental'), 3.3)
 
             self.eq(node.get('cisa:kev:name'), 'KevName')
             self.eq(node.get('cisa:kev:desc'), 'KevDesc')
@@ -277,8 +314,11 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=VTX-APT1
                     :desc=VTX-APT1
                     :tag=cno.threat.apt1
+                    :active=(2012,2023)
                     :reporter=*
                     :reporter:name=mandiant
+                    :reporter:discovered=202202
+                    :reporter:published=202302
                     :org=*
                     :org:loc=cn.shanghai
                     :org:name=apt1
@@ -302,7 +342,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('org'))
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('merged:isnow'))
+            self.eq((1325376000000, 1672531200000), nodes[0].get('active'))
             self.eq(1673395200000, nodes[0].get('merged:time'))
+            self.eq(1643673600000, nodes[0].get('reporter:discovered'))
+            self.eq(1675209600000, nodes[0].get('reporter:published'))
 
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
@@ -330,10 +373,13 @@ class RiskModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ risk:tool:software=*
                     :soft=*
+                    :used=(2012,?)
                     :soft:name=cobaltstrike
                     :soft:names=(beacon,)
                     :reporter=*
                     :reporter:name=vertex
+                    :reporter:discovered=202202
+                    :reporter:published=202302
                     :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
 
@@ -348,6 +394,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('public.', nodes[0].get('availability'))
+            self.eq((1325376000000, 9223372036854775807), nodes[0].get('used'))
+            self.eq(1643673600000, nodes[0].get('reporter:discovered'))
+            self.eq(1675209600000, nodes[0].get('reporter:published'))
 
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
             self.eq(('beacon',), nodes[0].get('soft:names'))
@@ -357,3 +406,16 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:tool:software -> it:prod:soft'))
             self.len(1, await core.nodes('risk:tool:software -> ou:technique'))
             self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
+
+            nodes = await core.nodes('''
+                [ risk:vuln:soft:range=*
+                    :vuln={[ risk:vuln=* :name=woot ]}
+                    :version:min={[ it:prod:softver=* :name=visisoft :vers=1.2.3 ]}
+                    :version:max={[ it:prod:softver=* :name=visisoft :vers=1.3.0 ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('vuln'))
+            self.nn(nodes[0].get('version:min'))
+            self.nn(nodes[0].get('version:max'))
+            self.len(2, await core.nodes('risk:vuln:name=woot -> risk:vuln:soft:range -> it:prod:softver'))

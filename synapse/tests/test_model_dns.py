@@ -315,3 +315,28 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(wild.ndef, ('inet:dns:wild:aaaa', ('vertex.link', '2001:db8:85a3::8a2e:370:7334')))
                 self.eq(wild.get('ipv6'), '2001:db8:85a3::8a2e:370:7334')
                 self.eq(wild.get('fqdn'), 'vertex.link')
+
+    async def test_model_dyndns(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ inet:dns:dynreg=*
+                    :created=202202
+                    :fqdn=vertex.dyndns.com
+                    :contact={[ ps:contact=* :name=visi ]}
+                    :client=tcp://1.2.3.4
+                    :provider={[ ou:org=* :name=dyndns ]}
+                    :provider:name=dyndns
+                    :provider:fqdn=dyndns.com
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(1643673600000, nodes[0].get('created'))
+            self.eq('vertex.dyndns.com', nodes[0].get('fqdn'))
+            self.eq('tcp://1.2.3.4', nodes[0].get('client'))
+            self.eq(0x01020304, nodes[0].get('client:ipv4'))
+            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('provider'))
+            self.eq('dyndns', nodes[0].get('provider:name'))
+            self.eq('dyndns.com', nodes[0].get('provider:fqdn'))

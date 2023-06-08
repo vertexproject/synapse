@@ -128,10 +128,6 @@ class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
 
 class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
-    def axon(self):
-        s_common.deprecated('AxonFileHandler.axon(), use getAxon() instead', eolv='2.130.0')
-        return self.getAxon()
-
     async def getAxonInfo(self):
         return await self.getAxon().getCellInfo()
 
@@ -1359,12 +1355,14 @@ class Axon(s_cell.Cell):
 
         link00, sock00 = await s_link.linksock(forceclose=True)
 
+        feedtask = None
+
         try:
             todo = s_common.todo(_spawn_readlines, sock00)
             async with await s_base.Base.anit() as scope:
 
                 scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
-                scope.schedCoro(self._sha256ToLink(sha256, link00))
+                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
 
@@ -1381,6 +1379,8 @@ class Axon(s_cell.Cell):
         finally:
             sock00.close()
             await link00.fini()
+            if feedtask is not None:
+                await feedtask
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
         await self._reqHas(sha256)
@@ -1389,12 +1389,14 @@ class Axon(s_cell.Cell):
 
         link00, sock00 = await s_link.linksock(forceclose=True)
 
+        feedtask = None
+
         try:
             todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
             async with await s_base.Base.anit() as scope:
 
                 scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
-                scope.schedCoro(self._sha256ToLink(sha256, link00))
+                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
 
@@ -1411,6 +1413,8 @@ class Axon(s_cell.Cell):
         finally:
             sock00.close()
             await link00.fini()
+            if feedtask is not None:
+                await feedtask
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):

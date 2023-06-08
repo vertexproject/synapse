@@ -115,8 +115,8 @@ class StormTest(s_t_utils.SynTest):
 
                 $lib.print(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)
             ''')
-            self.stormIsInPrint('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) True', msgs)
-            self.stormIsInPrint('ip=1.1.1.1 asn=6 .seen=(1, 2) foo=(3, 4) False', msgs)
+            self.stormIsInPrint('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) true', msgs)
+            self.stormIsInPrint('ip=1.1.1.1 asn=6 .seen=(1, 2) foo=(3, 4) false', msgs)
 
             retn = await core.callStorm('''
                 $foo = mystr
@@ -153,6 +153,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(retn, '''foo=bar
             baz=faz
             ''')
+
+            self.eq("foo 'bar'", await core.callStorm("$foo=bar return(`foo '{$foo}'`)"))
+            self.eq(r"\'''''bar'''", await core.callStorm(r"$foo=bar return(`\\'\''''{$foo}'''`)"))
 
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
@@ -504,14 +507,19 @@ class StormTest(s_t_utils.SynTest):
 
             # test storm background command
             await core.nodes('''
-                $lib.queue.add(foo)
-                [inet:ipv4=1.2.3.4]
-                background {
-                    [it:dev:str=haha]
-                    fini{
-                        $lib.queue.get(foo).put(hehe)
+                $x = foo
+                $lib.queue.add($x)
+                function stuff() {
+                    [inet:ipv4=1.2.3.4]
+                    background {
+                        [it:dev:str=haha]
+                        fini{
+                            $lib.queue.get($x).put(hehe)
+                        }
                     }
-                }''')
+                }
+                yield $stuff()
+            ''')
             self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
 
             await core.nodes('''$lib.queue.gen(bar)
@@ -883,8 +891,8 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn = mvmnasde.com', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:host = mvmnasde', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:domain = com', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = False', msgs)
-            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = True', msgs)
+            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:issuffix = false', msgs)
+            self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:iszone = true', msgs)
             self.stormIsInPrint('3496c02183961db4fbc179f0ceb5526347b37d8ff278279917b6eb6d39e1e272 inet:fqdn:zone = mvmnasde.com', msgs)
 
             # test that a user without perms can diff but not apply
@@ -1193,6 +1201,11 @@ class StormTest(s_t_utils.SynTest):
                     /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
                 ))
             '''))
+
+            # surrogate escapes are allowed
+            nodes = await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'pluto\udcbaneptune'))
 
     async def test_storm_diff_merge(self):
 
@@ -2559,6 +2572,26 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('$foo="6[.]5[.]4[.]3" | scrape $foo --yield --skiprefang')
             self.len(0, nodes)
 
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms (inet:fqdn, inet:ipv4)'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
+            q = '$foo="http://fxp.com 1.2.3.4" | scrape $foo --yield --forms inet:fqdn,inet:ipv4'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
+            q = '''
+            $foo="http://fxp.com 1.2.3.4" $forms=(inet:fqdn, inet:ipv4)
+            | scrape $foo --yield --forms $forms'''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:fqdn', 'fxp.com'))
+
             # per-node tests
 
             guid = s_common.guid()
@@ -2579,11 +2612,27 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
-            # test runtsafe and non-runtsafe failure to create node
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:ipv4,inet:fqdn')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms inet:fqdn')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:search:query | scrape :text --yield --forms (1)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('$foo="1.2.3.4" | scrape $foo --yield --forms (1)')
+            self.len(0, nodes)
+
             msgs = await core.stormlist('scrape "https://t.c\\\\"')
-            self.stormIsInWarn('BadTypeValue', msgs)
+            self.stormHasNoWarnErr(msgs)
             msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
-            self.stormIsInWarn('BadTypeValue', msgs)
+            self.stormHasNoWarnErr(msgs)
 
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')
             msgs = await core.stormlist('syn:trigger | scrape :storm --refs')
@@ -3830,6 +3879,25 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadArg):
                     await layr.waitEditOffs(200)
 
+                await core.addUserRule(visi.iden, (True, ('layer', 'add')))
+                l1 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
+                l2 = await core.callStorm('$layer=$lib.layer.add() return ($layer) ', opts={'user': visi.iden})
+                varz = {'iden': l1.get('iden'), 'tgt': l2.get('iden'), 'port': port}
+                pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
+
+                await core.addUserRule(visi.iden, (True, ('storm', 'lib', 'telepath', 'open', 'tcp')))
+
+                msgs = await core.stormlist(pullq, opts={'user': visi.iden, 'vars': varz})
+                self.stormHasNoWarnErr(msgs)
+
+                msgs = await core.stormlist(pushq, opts={'user': visi.iden, 'vars': varz})
+                self.stormHasNoWarnErr(msgs)
+
     async def test_storm_tagprune(self):
 
         async with self.getTestCore() as core:
@@ -4092,6 +4160,22 @@ class StormTest(s_t_utils.SynTest):
             }
             await core.setStormCmd(cmd0)
             await core.setStormCmd(cmd1)
+            await core.addStormPkg({
+                'name': 'synapse-woot',
+                'version': (0, 0, 1),
+                'modules': (
+                    {'name': 'woot.runas',
+                     'asroot:perms': [['power-ups', 'woot', 'user']],
+                     'storm': 'function asroot () { runas root { $lib.print(woot) return() }}'},
+                ),
+            })
+
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
+
+            await core.stormlist('auth.user.addrule visi power-ups.woot.user')
+            await core.callStorm('return($lib.import(woot.runas).asroot())', opts=asvisi)
 
             await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
 
@@ -4362,23 +4446,23 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'media:news:org#test'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:org', msgs)
 
             q = 'media:news:org#test:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:org', msgs)
 
             q = 'media:news:org#test.*.bar'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
             q = '#test.*.bar'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
             q = 'media:news:org#test.*.bar:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+            self.stormIsInErr("Unexpected token 'default case'", msgs)
 
     async def test_storm_copyto(self):
 
@@ -4410,11 +4494,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ inet:ipv4=1.1.1.1 inet:ipv4=5.5.5.5 ]', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-            opts = {'vars': {'view': view}}
-            msgs = await core.stormlist('media:news | copyto $view', opts=opts)
+            msgs = await core.stormlist('media:news | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
-            opts = {'view': view}
             self.len(1, await core.nodes('media:news +#foo.bar:score>1'))
             self.len(1, await core.nodes('media:news +:title=vertex :url -> inet:url', opts=opts))
             nodes = await core.nodes('media:news +:title=vertex -(refs)> inet:ipv4', opts=opts)
@@ -4425,3 +4507,50 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
             self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
+
+            oldn = await core.nodes('[ inet:ipv4=2.2.2.2 ]', opts=opts)
+            await asyncio.sleep(0.1)
+            newn = await core.nodes('[ inet:ipv4=2.2.2.2 ]')
+            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+
+            msgs = await core.stormlist('inet:ipv4=2.2.2.2 | copyto $view', opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+
+            oldn = await core.nodes('inet:ipv4=2.2.2.2', opts=opts)
+            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+
+            await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
+            await core.nodes('[ test:ro=bad :readable=bar ]')
+
+            msgs = await core.stormlist('test:ro=bad | copyto $view', opts={'vars': {'view': view}})
+            self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
+
+            nodes = await core.nodes('test:ro=bad', opts=opts)
+            self.eq(nodes[0].props.get('readable'), 'foo')
+
+    async def test_lib_storm_delnode(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('node',)))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', {'vars': {'buf': b'asdfasdf'}})
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            await core.nodes(f'file:bytes={sha256} | delnode')
+            self.len(0, await core.nodes(f'file:bytes={sha256}'))
+            self.true(await core.axon.has(s_common.uhex(sha256)))
+
+            self.len(1, await core.nodes(f'[ file:bytes={sha256} ]'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+
+                with self.raises(s_exc.AuthDeny):
+                    await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+
+                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+
+                await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
+                self.len(0, await core.nodes(f'file:bytes={sha256}'))
+                self.false(await core.axon.has(s_common.uhex(sha256)))

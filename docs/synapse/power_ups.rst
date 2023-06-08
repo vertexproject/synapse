@@ -71,6 +71,7 @@ Documentation for specific Advanced Power-Ups can be found here:
 - `Synapse Sidepocket <https://synapse.docs.vertex.link/projects/sidepocket/en/latest/>`_
 - `Synapse Swarm <https://synapse.docs.vertex.link/projects/swarm/en/latest/>`_
 - `Synapse Yara <https://synapse.docs.vertex.link/projects/yara/en/latest/>`_
+- `Synapse Axon Azure <https://synapse.docs.vertex.link/projects/axon-azure/en/latest/>`_
 
 .. _video: https://vimeo.com/595344430
 .. _Slack: https://v.vtx.lk/join-slack
