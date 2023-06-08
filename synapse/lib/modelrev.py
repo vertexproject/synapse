@@ -715,6 +715,8 @@ class ModelRev:
         await self._propToForm(layers, 'inet:url:user', 'inet:user')
         await self._propToForm(layers, 'inet:url:passwd', 'inet:passwd')
 
+        await self._updatePropStortype(layers, 'file:bytes:mime:pe:imphash')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -823,6 +825,37 @@ class ModelRev:
                 nodeedits.append(
                     (buid, prop.form.name, (
                         (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def _updatePropStortype(self, layers, propfull):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop(propfull)
+            stortype = prop.type.stortype
+
+            async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
+                curv = sode['props'].get(prop.name)
+                if curv is None or curv[1] == stortype:
+                    continue
+
+                nodeedits.append(
+                    (buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype), ()),
                     )),
                 )
 
