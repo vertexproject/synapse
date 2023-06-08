@@ -67,15 +67,15 @@ VECTORS = [
     ),
     (
         'CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N',
-        {'version': '2', 'base': 5.0, 'temporal': 5.0, 'environmental': 5.0}
+        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': 5.0}
     ),
     (
         '(AV:L/AC:L/Au:M/C:P/I:C/A:N)',
-        {'version': '2', 'base': 5.0, 'temporal': 5.0, 'environmental': 5.0}
+        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': 5.0}
     ),
     (
         'AV:L/AC:L/Au:M/C:P/I:C/A:N',
-        {'version': '2', 'base': 5.0, 'temporal': 5.0, 'environmental': 5.0}
+        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': 5.0}
     ),
     (
         'CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
@@ -93,6 +93,18 @@ VECTORS = [
         'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
         {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': 4.6}
     ),
+    (
+        'AV:N/AC:H/PR:H/UI:R/S:C/C:N/I:N/A:N/E:H/RL:U/RC:C/CR:H/IR:H/AR:H/MAV:A/MAC:H/MPR:H/MUI:R/MS:C/MC:N/MI:N/MA:N',
+        {'version': '3.1', 'base': 0.0, 'temporal': 0.0, 'environmental': 0.0}
+    ),
+    (
+        '(AV:N/AC:L/Au:N/C:N/I:N/A:N/E:U/RL:OF/RC:UC/CDP:H/TD:H/CR:H/IR:H/AR:H)',
+        {'version': '2', 'base': 0.0, 'temporal': 0.0, 'environmental': 5.0}
+    ),
+    (
+        '(AV:N/AC:L/Au:N/C:N/I:N/A:N/CDP:H/TD:H/CR:H/IR:H/AR:H)',
+        {'version': '2', 'base': 0.0, 'temporal': None, 'environmental': 5.0}
+    )
 ]
 
 VECTORS_BAD_VERSION = [

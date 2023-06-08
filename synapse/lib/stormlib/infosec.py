@@ -258,7 +258,14 @@ def CVSS2_calc(vdict):
     RemediationLevel = COEFFS['RL']
     ReportConfidence = COEFFS['RC']
 
-    TemporalScore = ROUND(BaseScore * Exploitability * RemediationLevel * ReportConfidence)
+    E = vdict.get('E', UNDEFINED)
+    RL = vdict.get('RL', UNDEFINED)
+    RC = vdict.get('RC', UNDEFINED)
+
+    if (E, RL, RC) == (UNDEFINED, UNDEFINED, UNDEFINED):
+        TemporalScore = None
+    else:
+        TemporalScore = ROUND(BaseScore * Exploitability * RemediationLevel * ReportConfidence)
 
     '''
     Calculate the environmental score per the equation listed here:
