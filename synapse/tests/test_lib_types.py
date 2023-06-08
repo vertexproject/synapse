@@ -957,6 +957,11 @@ class TypesTest(s_t_utils.SynTest):
         norm, info = strsubs.norm('aabbzxxxxxz')
         self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
 
+        flt = model.type('str').clone({})
+        self.eq('2.65', flt.norm(2.65)[0])
+        self.eq('0.65', flt.norm(00.65)[0])
+        self.eq('1234.56789', flt.norm(1234.567890)[0])
+
     def test_syntag(self):
 
         model = s_datamodel.Model()

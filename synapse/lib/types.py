@@ -1582,6 +1582,7 @@ class Str(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
+        self.setNormFunc(float, self._normPyInt)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
 
         self.storlifts.update({
