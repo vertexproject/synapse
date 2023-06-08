@@ -834,6 +834,9 @@ class ModelRev:
 
     async def _normFormSubs(self, layers, formname, liftprop=None):
 
+        # NOTE: this API may be used to re-normalize subs but *not* to change their storage types
+        # and will *not* auto-populate linked forms from subs which are form types.
+
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         subprops = {}
@@ -884,6 +887,9 @@ class ModelRev:
 
                         subcurv = sode['props'].get(subprop.name)
                         if subcurv is not None:
+                            if subcurv[1] != subprop.type.stortype: # pragma: no cover
+                                logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')
+                                continue
                             subcurv = subcurv[0]
 
                         if subcurv == subnorm:
