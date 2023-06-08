@@ -196,7 +196,7 @@ class StormLibStixTest(s_test.SynTest):
             bund_noext = await core.callStorm('''
             init {
                 $config = $lib.stix.export.config()
-                $config.synapse_extension=$lib.false  // Disabble synapse extension
+                $config.synapse_extension=$lib.false  // Disable synapse extension
                 $config.forms."syn:tag".stix.malware.rels.append(
                     (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
                 )
