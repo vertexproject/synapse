@@ -1454,11 +1454,11 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 71)
-        self.eq(errinfo.get('line'), 3)
+        self.eq(errinfo.get('at'), 81)
+        self.eq(errinfo.get('line'), 5)
         self.eq(errinfo.get('column'), 18)
         self.eq(errinfo.get('token'), ':network')
-        self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 3, column 18"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 5, column 18"))
 
         query = 'inet:ipv4 | tee { -> foo '
         parser = s_parser.Parser(query)

@@ -96,7 +96,7 @@ class TestUtilsStormcov(s_utils.SynTest):
                 async def pullgenr():
                     frame = inspect.currentframe()
                     assert 'spin.storm' in stormtracer.dynamic_source_filename(None, frame)
-                    assert (2, 2) == stormtracer.line_number_range(frame)
+                    assert (3, 3) == stormtracer.line_number_range(frame)
 
                     if gotone is None:
                         return
