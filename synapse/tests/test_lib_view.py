@@ -45,10 +45,13 @@ class ViewTest(s_t_utils.SynTest):
             layr02 = await core.addLayer()
             vdef02 = {'layers': [layr02['iden']]}
             view02 = core.getView((await core.addView(vdef=vdef02))['iden'])
+            view03 = await core.callStorm('$view=$lib.view.get($view02).fork() return ( $view.iden )',
+                                          opts={'vars': {'view02': view02.iden}})
 
             # test the storm APIs for setting view parent
             opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
-            await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
 
             # test that merging selected nodes works correctly
             self.len(0, await view02.nodes('inet:fqdn=vertex.link'))
@@ -61,8 +64,13 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await view00.nodes('#bar'))
             self.len(1, await view01.nodes('#bar'))
 
-            # test that the API prevents you from setting view parent that's already set
+            # setting the parent value the the existing value is okay
             opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            # test that the API prevents you from setting view parent that's already set
+            opts = {'vars': {'base': view03, 'fork': view00.iden}}
             msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
             self.stormIsInErr('You may not set parent on a view which already has one', msgs)
 

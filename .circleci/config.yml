@@ -568,9 +568,9 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11
         environment:
-          PYVERS: 3.10
+          PYVERS: 3.11
 
     working_directory: ~/repo
 
@@ -579,10 +579,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py310
+          PYTHON_TAG: py311
 
     steps:
       - deploy_pypi_prologue
@@ -591,10 +591,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.10
+      - image: cimg/python:3.11
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py310
+          PYTHON_TAG: py311
 
     steps:
       - deploy_pypi_prologue
@@ -622,6 +622,19 @@ jobs:
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
+
+    steps:
+      - deploy_pypi_prologue
+      - deploy_pypi_tag_verify
+      - deploy_pypi_wheel_build
+      - deploy_pypi_upload
+
+  deploy_pypi_310:
+    docker:
+      - image: cimg/python:3.10
+        environment:
+          PYPI_SMOKE_CODE: import synapse; print(synapse.version)
+          PYTHON_TAG: py310
 
     steps:
       - deploy_pypi_prologue
@@ -805,9 +818,11 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
             - python37_replay
             - python38_replay
             - python310_replay
+            - python311_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -823,9 +838,11 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
             - python37_replay
             - python38_replay
             - python310_replay
+            - python311_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -841,9 +858,31 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
             - python37_replay
             - python38_replay
             - python310_replay
+            - python311_replay
+            - python_package_smoketest
+          context:
+            - PublicPypiAccess
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
+
+      - deploy_pypi_310:
+          requires:
+            - doctests
+            - python37
+            - python38
+            - python310
+            - python311
+            - python37_replay
+            - python38_replay
+            - python310_replay
+            - python311_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -859,9 +898,11 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
             - python37_replay
             - python38_replay
             - python310_replay
+            - python311_replay
             - python_package_smoketest
           context:
             - GithubMachine
@@ -878,6 +919,7 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
           filters:
             branches:
               only:
@@ -906,6 +948,7 @@ workflows:
             - python37
             - python38
             - python310
+            - python311
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -957,6 +1000,7 @@ workflows:
       - python37
       - python38
       - python310
+      - python311
 
   weekly:
     triggers:
@@ -971,3 +1015,4 @@ workflows:
       - python37_replay
       - python38_replay
       - python310_replay
+      - python311_replay

@@ -372,3 +372,33 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('file:bytes:mime:pe:imphash -> hash:md5')
             self.len(1, nodes)
             self.eq(('hash:md5', 'c734c107793b4222ee690fed85e2ad4d'), nodes[0].ndef)
+
+    async def test_modelrev_0_2_19(self):
+
+        async with self.getRegrCore('model-0.2.19') as core:
+            self.len(1, await core.nodes('ou:campname="operation overlord"'))
+            self.len(1, await core.nodes('ou:campname="operation overlord" -> ou:campaign'))
+            self.len(1, await core.nodes('risk:vuln:type:taxonomy="cyber.int_overflow" -> risk:vuln'))
+
+        with self.getAsyncLoggerStream('synapse.lib.modelrev',
+                                       'error re-norming risk:vuln:type=foo.bar...newp') as stream:
+            async with self.getRegrCore('model-0.2.19-bad-risk-types') as core:
+                self.true(await stream.wait(timeout=6))
+                self.len(5, await core.nodes('risk:vuln'))
+                self.len(4, await core.nodes('risk:vuln:type'))
+                nodes = await core.nodes('yield $lib.lift.byNodeData(_migrated:risk:vuln:type)')
+                self.len(1, nodes)
+                node = nodes[0]
+                self.none(node.get('type'))
+                self.eq(node.nodedata.get('_migrated:risk:vuln:type'), 'foo.bar...newp')
+
+    async def test_modelrev_0_2_20(self):
+
+        async with self.getRegrCore('model-0.2.20') as core:
+            self.len(1, await core.nodes('inet:user="visi@vertex.link" -> inet:url'))
+            self.len(1, await core.nodes('inet:passwd="secret@" -> inet:url'))
+
+            md5 = 'e66a62b251fcfbbc930b074503d08542'
+            nodes = await core.nodes(f'hash:md5={md5} -> file:bytes')
+            self.len(1, nodes)
+            self.eq(md5, nodes[0].props.get('mime:pe:imphash'))

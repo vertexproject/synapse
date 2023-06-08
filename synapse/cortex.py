@@ -80,8 +80,10 @@ import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
+import synapse.lib.stormlib.easyperm as s_stormlib_easyperm  # NOQA
 import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
+import synapse.lib.stormlib.compression as s_stormlib_compression  # NOQA
 import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
 logger = logging.getLogger(__name__)
@@ -1176,6 +1178,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.view = None  # The default/main view
 
+        self._cortex_permdefs = []
+        self._initCorePerms()
+
         # Reset the storm:log:level from the config value to an int for internal use.
         self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
@@ -1475,65 +1480,72 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface[name] = tuple(mods)
         return mods
 
+    def _initCorePerms(self):
+        self._cortex_permdefs.extend((
+            {'perm': ('view',), 'gate': 'cortex',
+             'desc': 'Controls all view permissions.'},
+            {'perm': ('view', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to add a new view including forks.'},
+            {'perm': ('view', 'read'), 'gate': 'view',
+             'desc': 'Used to control read access to a view.'},
+
+            {'perm': ('node',), 'gate': 'layer',
+             'desc': 'Controls all node edits in a layer.'},
+            {'perm': ('node', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding any form of node in a layer.'},
+            {'perm': ('node', 'del'), 'gate': 'layer',
+             'desc': 'Controls removing any form of node in a layer.'},
+
+            {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
+             'ex': 'node.add.inet:ipv4',
+             'desc': 'Controls adding a specific form of node in a layer.'},
+            {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
+             'desc': 'Controls removing a specific form of node in a layer.'},
+
+            {'perm': ('node', 'tag'), 'gate': 'layer',
+             'desc': 'Controls editing any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
+             'desc': 'Controls removing any tag on any node in a layer.'},
+
+            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
+             'ex': 'node.tag.add.cno.mal.redtree',
+             'desc': 'Controls adding a specific tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
+             'ex': 'node.tag.del.cno.mal.redtree',
+             'desc': 'Controls removing a specific tag on any node in a layer.'},
+
+            {'perm': ('node', 'prop'), 'gate': 'layer',
+             'desc': 'Controls editing any prop on any node in the layer.'},
+
+            {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
+             'desc': 'Controls setting any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.set.inet:ipv4:asn',
+             'desc': 'Controls setting a specific property on a node in a layer.'},
+
+            {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
+             'desc': 'Controls removing any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
+             'ex': 'node.prop.del.inet:ipv4:asn',
+             'desc': 'Controls removing a specific property from a node in a layer.'},
+        ))
+        for pdef in self._cortex_permdefs:
+            s_storm.reqValidPermDef(pdef)
+
     async def _getPermDefs(self):
 
         permdefs = list(await s_cell.Cell._getPermDefs(self))
-        permdefs.extend((
-            {'perm': ('view',), 'gate': 'view',
-                'desc': 'Used to control all view permissions.'},
-            {'perm': ('view', 'read'), 'gate': 'view',
-                'desc': 'Used to control read access to a view.'},
-
-            {'perm': ('node',), 'gate': 'layer',
-                'desc': 'Controls all node edits in a layer.'},
-            {'perm': ('node', 'add'), 'gate': 'layer',
-                'desc': 'Controls adding any form of node in a layer.'},
-            {'perm': ('node', 'del'), 'gate': 'layer',
-                'desc': 'Controls removing any form of node in a layer.'},
-
-            {'perm': ('node', 'add', '<form>'), 'gate': 'layer',
-                'ex': 'node.add.inet:ipv4',
-                'desc': 'Controls adding a specific form of node in a layer.'},
-            {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
-                'desc': 'Controls removing a specific form of node in a layer.'},
-
-            {'perm': ('node', 'tag'), 'gate': 'layer',
-                'desc': 'Controls editing any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
-                'desc': 'Controls adding any tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del'), 'gate': 'layer',
-                'desc': 'Controls removing any tag on any node in a layer.'},
-
-            {'perm': ('node', 'tag', 'add', '<tag...>'), 'gate': 'layer',
-                'ex': 'node.tag.add.cno.mal.redtree',
-                'desc': 'Controls adding a specific tag on any node in a layer.'},
-            {'perm': ('node', 'tag', 'del', '<tag...>'), 'gate': 'layer',
-                'ex': 'node.tag.del.cno.mal.redtree',
-                'desc': 'Controls removing a specific tag on any node in a layer.'},
-
-            {'perm': ('node', 'prop'), 'gate': 'layer',
-                'desc': 'Controls editing any prop on any node in the layer.'},
-
-            {'perm': ('node', 'prop', 'set'), 'gate': 'layer',
-                'desc': 'Controls setting any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'set', '<prop>'), 'gate': 'layer',
-                'ex': 'node.prop.set.inet:ipv4:asn',
-                'desc': 'Controls setting a specific property on a node in a layer.'},
-
-            {'perm': ('node', 'prop', 'del'), 'gate': 'layer',
-                'desc': 'Controls removing any prop on any node in a layer.'},
-            {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
-                'ex': 'node.prop.del.inet:ipv4:asn',
-                'desc': 'Controls removing a specific property from a node in a layer.'},
-        ))
-
-        # TODO declare perm defs in storm libraries and include them here...
+        permdefs.extend(self._cortex_permdefs)
 
         for spkg in await self.getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
 
         for (path, ctor) in self.stormlibs:
-            permdefs.extend(getattr(ctor, '_storm_lib_perms', ()))
+            permdefs.extend(ctor._storm_lib_perms)
+
+        permdefs.sort(key=lambda x: x['perm'])
 
         return tuple(permdefs)
 
@@ -1640,7 +1652,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for form, rule in gdef.get('forms', {}).items():
             if form != '*' and self.model.form(form) is None:
-                raise s_exc.NoSuchForm(name=form)
+                raise s_exc.NoSuchForm.init(form)
 
             for filt in rule.get('filters', ()):
                 await self.getStormQuery(filt)
@@ -2201,6 +2213,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if sodelist is not None:
                 yield sodelist
 
+    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None):
+        lastbuid = None
+        sodes = {}
+        async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
+            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
+                if buid in uniqset:
+                    continue
+
+                if not buid == lastbuid or layr in sodes:
+                    if lastbuid is not None:
+                        sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                        if sodelist is not None:
+                            yield sodelist
+                        sodes.clear()
+
+                    await uniqset.add(lastbuid)
+                    lastbuid = buid
+
+                sodes[layr] = sode
+
+            if lastbuid is not None:
+                sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                if sodelist is not None:
+                    yield sodelist
+
     async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
@@ -2226,7 +2263,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
@@ -2343,7 +2380,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
@@ -3173,7 +3210,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
 
         if self.model.form(formname) is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         return await self._push('model:form:del', formname)
 
@@ -3197,7 +3234,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         _form = self.model.form(form)
         if _form is None:
-            raise s_exc.NoSuchForm(mesg=f'Form {form} does not exist.', name=form)
+            raise s_exc.NoSuchForm.init(form)
         if _form.prop(prop):
             raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
                                      form=form, prop=prop)
@@ -3849,6 +3886,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
 
         for path, ctor in s_stormtypes.registry.iterLibs():
+            # Ensure each ctor's permdefs are valid
+            for pdef in ctor._storm_lib_perms:
+                s_storm.reqValidPermDef(pdef)
             # Skip libbase which is registered as a default ctor in the storm Runtime
             if path:
                 self.addStormLib(path, ctor)
@@ -4717,8 +4757,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Add a storm dmon task.
         '''
-        iden = s_common.guid()
-        ddef['iden'] = iden
+        if ddef.get('iden') is None:
+            ddef['iden'] = s_common.guid()
+
+        if await self.getStormDmon(ddef['iden']) is not None:
+            mesg = f'Duplicate iden specified for dmon: {ddef["iden"]}'
+            raise s_exc.DupIden(mesg=mesg)
+
         return await self._push('storm:dmon:add', ddef)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:bump')
@@ -5125,29 +5170,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        spooldict = await s_spooled.Dict.anit(dirn=self.dirn, cell=self)
-        async with await self.snap(user=user, view=view) as snap:
+        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+            async with await self.snap(user=user, view=view) as snap:
 
-            async for pode in snap.iterStormPodes(text, opts=opts):
-                await spooldict.set(pode[1]['iden'], pode)
-                await asyncio.sleep(0)
-
-            for iden, pode in spooldict.items():
-                await asyncio.sleep(0)
-
-                edges = []
-                async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                async for pode in snap.iterStormPodes(text, opts=opts):
+                    await spooldict.set(pode[1]['iden'], pode)
                     await asyncio.sleep(0)
 
-                    if not spooldict.has(n2iden):
-                        continue
+                for iden, pode in spooldict.items():
+                    await asyncio.sleep(0)
 
-                    edges.append((verb, n2iden))
+                    edges = []
+                    async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                        await asyncio.sleep(0)
 
-                if edges:
-                    pode[1]['edges'] = edges
+                        if not spooldict.has(n2iden):
+                            continue
 
-                yield pode
+                        edges.append((verb, n2iden))
+
+                    if edges:
+                        pode[1]['edges'] = edges
+
+                    yield pode
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
@@ -5304,7 +5349,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         form = self.model.forms.get(name)
         if form is None:
-            raise s_exc.NoSuchForm(name=name)
+            raise s_exc.NoSuchForm.init(name)
 
         norm, info = form.type.norm(valu)
 
@@ -5759,7 +5804,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO make this generic and check cdef
 
         if name == 'creator':
-            self.auth.reqUser(valu)
+            await self.auth.reqUser(valu)
             appt.creator = valu
             await appt._save()
 

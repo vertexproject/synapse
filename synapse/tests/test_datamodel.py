@@ -112,6 +112,9 @@ class DataModelTest(s_t_utils.SynTest):
         modl.addForm('foo:foo', {}, ())
         modl.addFormProp('foo:foo', 'bar', ('bar', {}), {})
 
+        with self.raises(s_exc.NoSuchForm):
+            modl.addFormProp('foo:newp', 'bar', ('bar', {}), {})
+
         with self.raises(s_exc.CantDelType):
             modl.delType('bar')
 

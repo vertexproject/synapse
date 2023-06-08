@@ -77,6 +77,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://archer.link
                     :tag=cno.mitre.ta0100
                     :references=(https://foo.com,https://bar.com)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
@@ -85,6 +86,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tag'), 'cno.mitre.ta0100')
             self.eq(nodes[0].get('url'), 'https://archer.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:technique=T0100
@@ -97,6 +99,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :status=deprecated
                     :isnow=T1110
                     :tactics=(TA0200,TA0100,TA0100)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
@@ -109,6 +112,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
             self.eq(nodes[0].get('status'), 'deprecated')
             self.eq(nodes[0].get('isnow'), 'T1110')
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100
@@ -143,6 +147,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.m0100
                     :references=(https://foo.com,https://bar.com)
                     :addresses=(T0200,T0100,T0100)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:mitigation', 'M0100'))
@@ -152,6 +157,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://wsus.com')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:exec:thread=*
@@ -548,6 +554,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(softfile.get('file'), f'sha256:{file0}')
                 self.eq('/path/to/nowhere', softfile.get('path'))
                 self.len(1, await core.nodes('it:prod:softfile -> file:path'))
+                nodes = await core.nodes('''
+                    [ it:prod:softreg=(*, *) ]
+                    { -> it:prod:softver [ :name=woot ] }
+                    { -> it:dev:regval [ :key=HKEY_LOCAL_MACHINE/visi :int=31337 ] }
+                ''')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('regval'))
+                self.nn(nodes[0].get('softver'))
+                self.len(1, await core.nodes('it:prod:softver:name=woot -> it:prod:softreg -> it:dev:regval +:int=31337'))
 
                 ver1 = s_common.guid()
                 softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
@@ -1112,6 +1127,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:app:yara:rule=$rule
+                    :ext:id=V-31337
+                    :url=https://vertex.link/yara-lolz/V-31337
                     :family=Beacon
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk :author=* :name=foo :version=1.2.3 ]
@@ -1119,6 +1136,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
+            self.eq('V-31337', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/yara-lolz/V-31337', nodes[0].get('url'))
             self.eq(True, nodes[0].get('enabled'))
             self.eq(1580601600000, nodes[0].get('created'))
             self.eq(1648771200000, nodes[0].get('updated'))
@@ -1144,12 +1163,31 @@ class InfotechModelTest(s_t_utils.SynTest):
             host = s_common.guid()
             opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
 
-            nodes = await core.nodes('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''
+            [ it:app:snort:rule=$rule
+                :id=999
+                :engine=1
+                :text=gronk
+                :name=foo
+                :author = {[ ps:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :family=redtree
+                :version=1.2.3 ]
+            ''', opts=opts)
 
             self.len(1, nodes)
+            self.eq('999', nodes[0].get('id'))
+            self.eq(1, nodes[0].get('engine'))
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
+            self.eq('redtree', nodes[0].get('family'))
+            self.eq(True, nodes[0].get('enabled'))
             self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq(1325376000000, nodes[0].get('created'))
+            self.eq(1640995200000, nodes[0].get('updated'))
+            self.nn(nodes[0].get('author'))
 
             nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
@@ -1320,3 +1358,22 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+    async def test_infotech_softid(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:prod:softid=*
+                    :id=Woot
+                    :host=*
+                    :soft={[ it:prod:softver=* :name=beacon ]}
+                    :soft:name=beacon
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('Woot', nodes[0].get('id'))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('soft'))
+            self.len(1, await core.nodes('it:host -> it:prod:softid'))
+            self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))

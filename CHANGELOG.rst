@@ -4,6 +4,462 @@
 Synapse Changelog
 *****************
 
+Announcement
+============
+
+Due to the introduction of several powerful new APIs and performance
+improvements, Synapse will be updating to *only* support Python >=3.11.
+Our current plan is to drop support for Python <=3.10 in ~4 weeks on
+2023-06-19. The next release after 2023-06-19 will include changes that
+are not backward compatible to earlier versions of Python.
+
+If you currently deploy Synapse Open-Source or Synapse Enterprise via
+the standard docker containers, you will be unaffected.  If you install
+Synapse via PyPI, you will need to ensure that your environment is
+updated to Python 3.11+.
+
+Unreleased - YYYY-MM-DD
+=======================
+
+Bugfixes
+--------
+- Fix an issue where raising an integer value to a fractional power
+  in Storm was not handled correctly.
+
+v2.136.0 - 2023-06-02
+=====================
+
+Announcement
+------------
+
+Due to the introduction of several powerful new APIs and performance
+improvements, Synapse will be updating to *only* support Python >=3.11.
+Our current plan is to drop support for Python <=3.10 in ~4 weeks on
+2023-06-19. The next release after 2023-06-19 will include changes that
+are not backward compatible to earlier versions of Python.
+
+If you currently deploy Synapse Open-Source or Synapse Enterprise via
+the standard docker containers, you will be unaffected.  If you install
+Synapse via PyPI, you will need to ensure that your environment is
+updated to Python 3.11+.
+
+Model Changes
+-------------
+- Boolean values in the Synapse model now have lowercase ``true`` and
+  ``false`` repr values.
+  (`#3159 <https://github.com/vertexproject/synapse/pull/3159>`_)
+- The trailing ``.`` on the taxonomy repr has been removed.
+  (`#3159 <https://github.com/vertexproject/synapse/pull/3159>`_)
+
+Features and Enhancements
+-------------------------
+- Normalize tag names when performing lift and filter operations.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Add ``$lib.compression.bzip2``, ``$lib.compression.gzip``, and
+  ``$lib.compression.zlib`` Storm libraries to assist with compressing
+  and decompressing bytes.
+  (`#3155 <https://github.com/vertexproject/synapse/pull/3155>`_)
+  (`#3162 <https://github.com/vertexproject/synapse/pull/3162>`_)
+- Add a new Cell configuration option, ``https:parse:proxy:remoteip``. When
+  this is set to ``true``, the Cell HTTPS server will parse
+  ``X-Forwarded-For`` and ``X-Real-IP`` headers to determine the remote IP
+  of an request.
+  (`#3160 <https://github.com/vertexproject/synapse/pull/3160>`_)
+- Update the allowed versions of the ``fastjsonschema`` and ``pycryptodome``
+  libraries. Update the required version of the ``vcrpy`` library to account
+  for changes in ``urllib3``. Remove the pinned requirement for the
+  ``requests`` library.
+  (`#3164 <https://github.com/vertexproject/synapse/pull/3164>`_)
+
+Bugfixes
+--------
+- Prevent zero length tag lift operations.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Fix an issue where tag properties with the type ``ival``, or ``time``
+  types with ``ismin`` or ``ismax`` options set, were not properly merged
+  when being set.
+  (`#3161 <https://github.com/vertexproject/synapse/pull/3161>`_)
+- Fix a missing ``mesg`` value on ``NoSuchForm`` exception raised by
+  the ``storm:layer`` ``liftByTag()`` API.
+  (`#3165 <https://github.com/vertexproject/synapse/pull/3165>`_)
+
+v2.135.0 - 2023-05-24
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--index`` option to the Storm ``auth.user.grant`` command.
+  (`#3150 <https://github.com/vertexproject/synapse/pull/3150>`_)
+- Add additional type handling in the Storm view and layer ``set()`` APIs.
+  (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+- Add a new Storm command, ``auth.perms.list``, to list all of the permissions
+  registered with the Cortex.
+  (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
+  (`#3154 <https://github.com/vertexproject/synapse/pull/3154>`_)
+
+Bugfixes
+--------
+- Fix an issue where attempting a tag lift with a variable containing
+  a zero-length string would raise an MDB error.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
+  where certain exceptions would not be raised.
+  (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)
+- Fix an issue with the Storm ``runas`` command which prevented it being used
+  with a privileged Storm runtime.
+  (`#3147 <https://github.com/vertexproject/synapse/pull/3147>`_)
+- Fix support for Storm list objects in ``$lib.max()`` and ``$lib.min()``.
+  (`#3153 <https://github.com/vertexproject/synapse/pull/3153>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide to include the output of the
+  ``auth.perms.list`` command.
+  (`#3135 <https://github.com/vertexproject/synapse/pull/3135>`_)
+
+v2.134.0 - 2023-05-17
+=====================
+
+Model Changes
+-------------
+- Updates to the ``risk`` model.
+  (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
+
+  Light Edges
+  -----------
+
+  ``addresses``
+    When used with a ``risk:mitigation`` and a ``ou:technique`` node, the
+    edge indicates the mitigation addresses the technique.
+
+Features and Enhancements
+-------------------------
+- Add a ``--forms`` option to the Storm ``scrape`` command. This can be used
+  to limit the forms that are made from scraping the input text. The
+  ``scrape`` command now uses the View scrape interface to generate its
+  matches, which may include scrape functionality added via power-ups.
+  The ``scrape`` command no longer produces warning messages when matched
+  text is not valid for making nodes.
+  (`#3127 <https://github.com/vertexproject/synapse/pull/3127>`_)
+- Add a ``revs`` definition to the STIX export configuration, to allow for
+  adding in reverse relationships.
+  (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
+- Add a ``--delbytes`` option to the Storm ``delnode`` command. This can be
+  used to delete the bytes from an Axon when deleting a ``file:bytes`` node.
+  (`#3140 <https://github.com/vertexproject/synapse/pull/3140>`_)
+- Add support for printing nice versions of the Storm ``storm:model:form``,
+  ``storm:model:property``, ``storm:model:tagprop``, and ``storm:model:type``
+  objects.
+  (`#3134 <https://github.com/vertexproject/synapse/pull/3134>`_)
+  (`#3139 <https://github.com/vertexproject/synapse/pull/3139>`_)
+
+Bugfixes
+--------
+- Fix an exception that was raised when setting the parent of a View.
+  (`#3131 <https://github.com/vertexproject/synapse/pull/3131>`_)
+  (`#3132 <https://github.com/vertexproject/synapse/pull/3132>`_)
+- Fix an issue with the text scrape regular expressions misidentifying the
+  ``ftp://`` scheme.
+  (`#3127 <https://github.com/vertexproject/synapse/pull/3127>`_)
+- Correctly handle ``readonly`` properties in the Storm ``copyto`` command.
+  (`#3142 <https://github.com/vertexproject/synapse/pull/3142>`_)
+- Fix an issue were partial service backups were not able to be removed.
+  (`#3143 <https://github.com/vertexproject/synapse/pull/3143>`_)
+  (`#3145 <https://github.com/vertexproject/synapse/pull/3145>`_)
+
+v2.133.1 - 2023-05-09
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the Storm query hashing added in ``v2.133.0`` did not
+  account for handling erroneous surrogate pairs in query text.
+  (`#3130 <https://github.com/vertexproject/synapse/pull/3130>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm API Guide to include the ``hash`` key in the ``init``
+  message.
+  (`#3130 <https://github.com/vertexproject/synapse/pull/3130>`_)
+
+v2.133.0 - 2023-05-08
+=====================
+
+Model Changes
+-------------
+- Updates to the ``risk`` model.
+  (`#3123 <https://github.com/vertexproject/synapse/pull/3123>`_)
+
+  New Properties
+  --------------
+
+  ``risk:vuln``
+    The ``risk:vuln`` form had the following properties added to it:
+
+    ``cvss:v2``
+        The CVSS v2 vector for the vulnerability.
+    ``cvss:v2_0:score``
+        The CVSS v2.0 overall score for the vulnerability.
+    ``cvss:v2_0:score:base``
+        The CVSS v2.0 base score for the vulnerability.
+    ``cvss:v2_0:score:temporal``
+        The CVSS v2.0 temporal score for the vulnerability.
+    ``cvss:v2_0:score:environmental``
+        The CVSS v2.0 environmental score for the vulnerability.
+    ``cvss:v3``
+        The CVSS v3 vector for the vulnerability.
+    ``cvss:v3_0:score``
+        The CVSS v3.0 overall score for the vulnerability.
+    ``cvss:v3_0:score:base``
+        The CVSS v3.0 base score for the vulnerability.
+    ``cvss:v3_0:scare:temporal``
+        The CVSS v3.0 temporal score for the vulnerability.
+    ``cvss:v3_0:score:environmental``
+        The CVSS v3.0 environmental score for the vulnerability.
+    ``cvss:v3_1:score``
+        The CVSS v3.1 overall score for the vulnerability.
+    ``cvss:v3_1:score:base``
+        The CVSS v3.1 base score for the vulnerability.
+    ``cvss:v3_1:scare:temporal``
+        The CVSS v3.1 temporal score for the vulnerability.
+    ``cvss:v3_1:score:environmental``
+        The CVSS v3.1 environmental score for the vulnerability.
+
+  Deprecated Properties
+  ---------------------
+
+  ``risk:vuln``
+    The ``risk:vuln`` form had the following properties marked as deprecated:
+
+    * ``cvss:av``
+    * ``cvss:ac``
+    * ``cvss:pr``
+    * ``cvss:ui``
+    * ``cvss:s``
+    * ``cvss:c``
+    * ``cvss:i``
+    * ``cvss:a``
+    * ``cvss:e``
+    * ``cvss:rl``
+    * ``cvss:rc``
+    * ``cvss:mav``
+    * ``cvss:mac``
+    * ``cvss:mpr``
+    * ``cvss:mui``
+    * ``cvss:ms``
+    * ``cvss:mc``
+    * ``cvss:mi``
+    * ``cvss:ma``
+    * ``cvss:cr``
+    * ``cvss:ir``
+    * ``cvss:ar``
+    * ``cvss:score``
+    * ``cvss:score:temporal``
+    * ``cvss:score:environmental``
+
+Features and Enhancements
+-------------------------
+- Update the base Synapse images to use Debian bookworm and use Python 3.11
+  as the Python runtime. For users which build custom images from our
+  published images, see additional information at
+  :ref:`dev_docker_working_with_images` for changes which may affect you.
+  (`#3025 <https://github.com/vertexproject/synapse/pull/3025>`_)
+- Add a ``highlight`` parameter to BadSyntaxError and some exceptions raised
+  during the execution of a Storm block. This contains detailed information
+  about where an error occurred in the Storm code.
+  (`#3063 <https://github.com/vertexproject/synapse/pull/3063>`_)
+- Allow callers to specify an ``iden`` value when creating a Storm Dmon or a
+  trigger.
+  (`#3121 <https://github.com/vertexproject/synapse/pull/3121>`_)
+- Add support for STIX export configs to specify pivots to include additional
+  nodes.
+  (`#3122 <https://github.com/vertexproject/synapse/pull/3122>`_)
+- The Storm ``auth.user.addrule`` and ``auth.role.addrule`` now have an
+  optional ``--index`` argument that allows specifying the rule location
+  as a 0-based index value.
+  (`#3124 <https://github.com/vertexproject/synapse/pull/3124>`_)
+- The Storm ``auth.user.show`` command now shows the user's ``admin`` status
+  on authgates.
+  (`#3124 <https://github.com/vertexproject/synapse/pull/3124>`_)
+- Add a ``--only-url`` flag to the ``synapse.tools.aha.provision.service`` and
+  ``synapse.tools.aha.provision.user`` CLI tools. When set, the tool only
+  prints the URL to stdout.
+  (`#3125 <https://github.com/vertexproject/synapse/pull/3125>`_)
+- Add additional layer validation in the View schema.
+  (`#3128 <https://github.com/vertexproject/synapse/pull/3128>`_)
+- Update the allowed version of the ``cryptography``, ``coverage``,
+  ``idna``,  ``pycryptodome``, ``python-bitcoin``, and ``vcrpy`` libraries.
+  (`#3025 <https://github.com/vertexproject/synapse/pull/3025>`_)
+
+Bugfixes
+--------
+- Ensure the CLI tools ``synapse.tools.cellauth``, ``synapse.tools.csvtool``,
+  and ``synapse.tools.easycert`` now return ``1`` on an execution failure. In
+  some cases they previously returned ``-1``.
+  (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
+
+v2.132.0 - 2023-05-02
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the minimum required version of the ``fastjsonschema``, ``lark``,
+  and ``pytz`` libraries. Update the allowed version of the ``packaging`` and
+  ``scalecodec`` libraries.
+  (`#3118 <https://github.com/vertexproject/synapse/pull/3118>`_)
+
+Bugfixes
+--------
+- Cap the maximum version of the ``requests`` library until downstream use of
+  that library has been updated to account for changes in ``urllib3``.
+  (`#3119 <https://github.com/vertexproject/synapse/pull/3119>`_)
+
+- Properly add parent scope vars to ``background`` command context.
+  (`#3120 <https://github.com/vertexproject/synapse/pull/3120>`_)
+
+v2.131.0 - 2023-05-02
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate the ``ou:campaign:name`` property from a ``str`` to an
+  ``ou:campname`` type and create the ``ou:campname`` nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Migrate the ``risk:vuln:type`` property from a ``str`` to a
+  ``risk:vuln:type:taxonomy`` type and create the ``risk:vuln:type:taxonomy``
+  nodes as needed.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
+  models.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+  (`#3108 <https://github.com/vertexproject/synapse/pull/3108>`_)
+  (`#3113 <https://github.com/vertexproject/synapse/pull/3113>`_)
+
+  ``inet:dns:answer``
+    Add a ``mx:priority`` property to record the priority of the MX response.
+
+  ``inet:dns:dynreg``
+    Add a form to record the registration of a domain with a dynamic DNS
+    provider.
+
+  ``inet:proto``
+    Add a form to record a network protocol name.
+
+  ``inet:web:attachment``
+    Add a form to record the instance of a file being sent to a web service
+    by an account.
+
+  ``inet:web:file``
+    Deprecate the ``client``, ``client:ipv4``, and ``client:ipv6`` properties
+    in favor of using ``inet:web:attachment``.
+
+  ``inet:web:logon``
+    Remove incorrect ``readonly`` markings for properties.
+
+  ``it:app:snort:rule``
+    Add an ``id`` property to record the snort rule id.
+    Add an ``author`` property to record contact information for the rule
+    author.
+    Add ``created`` and ``updated`` properties to track when the rule was
+    created and last updated.
+    Add an ``enabled`` property to record if the rule should be used for
+    snort evaluation engines.
+    Add a ``family`` property to record the software family the rule is
+    designed to detect.
+
+  ``it:prod:softid``
+    Add a form to record an identifier issued to a given host by a specific
+    software application.
+
+  ``ou:campname``
+    Add a form to record the name of campaigns.
+
+  ``ou:campaign``
+    Change the ``name`` and ``names`` secondary properties from ``str`` to
+    ``ou:campname`` types.
+
+  ``ps:contact``
+    Add a ``place:name`` to record the name of the place associated with the
+    contact.
+
+  ``risk:threat``
+    Add an ``active`` property to record the interval of time when the threat
+    cluster is assessed to have been active.
+    Add a ``reporter:published`` property to record the time that a reporting
+    organization first publicly disclosed the threat cluster.
+
+  ``risk:tool:software``
+    Add a ``used`` property to record the interval when the tool is assessed
+    to have been deployed.
+    Add a ``reporter:discovered`` property to record the time that a reporting
+    organization first discovered the tool.
+    Add a ``reporter:published`` property to record the time that a reporting
+    organization first publicly disclosed the tool.
+
+  ``risk:vuln:soft:range``
+    Add a form to record a contiguous range of software versions which
+    contain a vulnerability.
+
+  ``risk:vuln``
+    Change the ``type`` property from a ``str`` to a
+    ``risk:vuln:type:taxonomy``.
+
+  ``risk:vuln:type:taxonomy``
+    Add a form to record a taxonomy of vulnerability types.
+
+- Add a new Storm command, ``auth.user.allowed`` that can be used to check
+  if a user is allowed to use a given permission and why.
+  (`#3114 <https://github.com/vertexproject/synapse/pull/3114>`_)
+- Add a new Storm command, ``gen.ou.campaign``, to assist with generating or
+  creating ``ou:campaign`` nodes.
+  (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
+- Add a boolean ``default`` key to the permissions schema definition. This
+  allows a Storm package permission to note what its default value is.
+  (`#3099 <https://github.com/vertexproject/synapse/pull/3099>`_)
+- Data model migrations which fail to normalize existing secondary values into
+  their new types now store those values in Node data on the affected nodes
+  and remove those bad properties from the affected nodes.
+  (`#3117 <https://github.com/vertexproject/synapse/pull/3117>`_)
+
+Bugfixes
+--------
+- Fix an issue with the search functionality in our documentation missing
+  the required jQuery library.
+  (`#3111 <https://github.com/vertexproject/synapse/pull/3111>`_)
+- Unique nodes when performing multi-layer lifts on secondary properties
+  without a value.
+  (`#3110 <https://github.com/vertexproject/synapse/pull/3110>`_)
+
+Improved Documentation
+----------------------
+- Add a section about managing data model deprecations to the Synapse
+  Admin guide.
+  (`#3102 <https://github.com/vertexproject/synapse/pull/3102>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.lib.httpapi.HandlerBase.user()`` and
+  ``synapse.lib.httpapi.HandlerBase.getUserBody()`` functions. Remove the
+  deprecated ``synapse.axon.AxonFileHandler.axon()`` function.
+  (`#3115 <https://github.com/vertexproject/synapse/pull/3115>`_)
+
+v2.130.2 - 2023-04-26
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the ``proxy`` argument was not being passed to the Axon
+  when attempting to post a file via Storm with the ``$lib.inet.http.post()``
+  API.
+  (`#3109 <https://github.com/vertexproject/synapse/pull/3109>`_)
+- Fix an issue where adding a readonly layer that does not already exist
+  would raise an error.
+  (`#3106 <https://github.com/vertexproject/synapse/pull/3106>`_)
+
 v2.130.1 - 2023-04-25
 =====================
 

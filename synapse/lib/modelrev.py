@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 18)
+maxvers = (0, 2, 20)
 
 class ModelRev:
 
@@ -32,6 +32,8 @@ class ModelRev:
             ((0, 2, 16), self.revModel20221220),
             ((0, 2, 17), self.revModel20230209),
             ((0, 2, 18), self.revModel_0_2_18),
+            ((0, 2, 19), self.revModel_0_2_19),
+            ((0, 2, 20), self.revModel_0_2_20),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -702,6 +704,19 @@ class ModelRev:
         await self._normPropValu(layers, 'ou:goal:name')
         await self._propToForm(layers, 'ou:goal:name', 'ou:goalname')
 
+    async def revModel_0_2_19(self, layers):
+        await self._normPropValu(layers, 'ou:campaign:name')
+        await self._propToForm(layers, 'ou:campaign:name', 'ou:campname')
+        await self._normPropValu(layers, 'risk:vuln:type')
+        await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
+
+    async def revModel_0_2_20(self, layers):
+        await self._normFormSubs(layers, 'inet:url', liftprop='user')
+        await self._propToForm(layers, 'inet:url:user', 'inet:user')
+        await self._propToForm(layers, 'inet:url:passwd', 'inet:passwd')
+
+        await self._updatePropStortype(layers, 'file:bytes:mime:pe:imphash')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -791,9 +806,17 @@ class ModelRev:
             async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
-                except s_exc.BadTypeValu as e: # pragma: no cover
+                except s_exc.BadTypeValu as e:
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                    iden = s_common.ehex(buid)
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
                     continue
 
                 if norm == propvalu:
@@ -811,7 +834,41 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    async def _normFormSubs(self, layers, formname):
+    async def _updatePropStortype(self, layers, propfull):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop(propfull)
+            stortype = prop.type.stortype
+
+            async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
+                curv = sode['props'].get(prop.name)
+                if curv is None or curv[1] == stortype:
+                    continue
+
+                nodeedits.append(
+                    (buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normFormSubs(self, layers, formname, liftprop=None):
+
+        # NOTE: this API may be used to re-normalize subs but *not* to change their storage types
+        # and will *not* auto-populate linked forms from subs which are form types.
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
@@ -826,7 +883,7 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            async for lkey, buid, sode in layr.liftByProp(formname, None):
+            async for lkey, buid, sode in layr.liftByProp(form.name, liftprop):
 
                 sodevalu = sode.get('valu')
                 if sodevalu is None: # pragma: no cover
@@ -862,7 +919,13 @@ class ModelRev:
                             continue
 
                         subcurv = sode['props'].get(subprop.name)
-                        if subcurv == subnorm: # pragma: no cover
+                        if subcurv is not None:
+                            if subcurv[1] != subprop.type.stortype: # pragma: no cover
+                                logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')
+                                continue
+                            subcurv = subcurv[0]
+
+                        if subcurv == subnorm:
                             continue
 
                         edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
@@ -879,8 +942,6 @@ class ModelRev:
                 await save()
 
     async def _propToForm(self, layers, propfull, formname):
-
-        propname = self.core.model.prop(propfull).name
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
@@ -906,8 +967,6 @@ class ModelRev:
         await self.runStorm(storm, opts=opts)
 
     async def _propArrayToForm(self, layers, propfull, formname):
-
-        propname = self.core.model.prop(propfull).name
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],

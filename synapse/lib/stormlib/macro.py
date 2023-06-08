@@ -221,7 +221,7 @@ class LibMacro(s_stormtypes.Lib):
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
         if not isinstance(info, dict):
-            raise s_exc.BadArg('Macro info must be a dictionary object.')
+            raise s_exc.BadArg(mesg='Macro info must be a dictionary object.')
 
         for prop, valu in info.items():
             if prop not in ('name', 'desc', 'storm'):

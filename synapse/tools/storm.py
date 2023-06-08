@@ -201,10 +201,9 @@ class ExportCmd(StormCliCmd):
             queryopts['scrub'] = {'include': {'tags': []}}
 
         try:
-            query = opts.query[1:-1]
             with s_common.genfile(opts.filepath) as fd:
                 cnt = 0
-                async for pode in self._cmd_cli.item.exportStorm(query, opts=queryopts):
+                async for pode in self._cmd_cli.item.exportStorm(opts.query, opts=queryopts):
                     byts = fd.write(s_msgpack.en(pode))
                     cnt += 1
 
@@ -252,6 +251,8 @@ class StormCli(s_cli.Cli):
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
     async def runCmdLine(self, line, opts=None):
+        if self.echoline:
+            self.outp.printf(f'{self.cmdprompt}{line}')
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
@@ -294,6 +295,8 @@ class StormCli(s_cli.Cli):
             realopts.update(opts)
 
         async for mesg in self.item.storm(text, opts=realopts):
+
+            await self.fire('storm:mesg', mesg=mesg)
 
             mtyp = mesg[0]
 

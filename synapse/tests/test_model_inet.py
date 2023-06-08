@@ -1689,7 +1689,7 @@ class InetModelTest(s_t_utils.SynTest):
         url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
         expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
             'proto': 'calrissian', 'path': '',
-            'user': 'visi%40vertex.link', 'passwd': 'surround%40',
+            'user': 'visi@vertex.link', 'passwd': 'surround@',
             'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
             'port': 44343,
             'params': '',
@@ -2648,3 +2648,56 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq('tcp://1.2.3.4:443', nodes[0].get('ingress'))
 
             self.len(1, await core.nodes('inet:tunnel -> ps:contact +:email=visi@vertex.link'))
+
+    async def test_model_inet_proto(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:proto=https :port=443 ]')
+            self.len(1, nodes)
+            self.eq(('inet:proto', 'https'), nodes[0].ndef)
+            self.eq(443, nodes[0].get('port'))
+
+    async def test_model_inet_web_attachment(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+            [ inet:web:attachment=*
+                :acct=twitter.com/invisig0th
+                :client=tcp://1.2.3.4
+                :file=*
+                :name=beacon.exe
+                :time=20230202
+                :post=*
+                :mesg=(twitter.com/invisig0th, twitter.com/vtxproject, 20230202)
+            ]''')
+            self.len(1, nodes)
+            self.eq(1675296000000, nodes[0].get('time'))
+            self.eq('beacon.exe', nodes[0].get('name'))
+            self.eq('tcp://1.2.3.4', nodes[0].get('client'))
+            self.eq(0x01020304, nodes[0].get('client:ipv4'))
+
+            self.nn(nodes[0].get('post'))
+            self.nn(nodes[0].get('mesg'))
+            self.nn(nodes[0].get('file'))
+
+            self.len(1, await core.nodes('inet:web:attachment :file -> file:bytes'))
+            self.len(1, await core.nodes('inet:web:attachment :post -> inet:web:post'))
+            self.len(1, await core.nodes('inet:web:attachment :mesg -> inet:web:mesg'))
+
+    async def test_model_inet_egress(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+            [ inet:egress=*
+                :host = *
+                :client=1.2.3.4
+                :client:ipv6="::1"
+            ]
+            ''')
+
+            self.len(1, nodes)
+            self.nn(nodes[0].get('host'))
+            self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
+            self.eq(nodes[0].get('client:ipv4'), 0x01020304)
+            self.eq(nodes[0].get('client:ipv6'), '::1')

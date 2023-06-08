@@ -63,7 +63,7 @@ class JupyterTest(s_t_utils.SynTest):
         self.false(svcprox.isfini)
 
         mesgs = await cmdrcore.storm('service.list')
-        self.true(any(['True (testsvc)' in str(mesg) for mesg in mesgs]))
+        self.true(any(['true (testsvc)' in str(mesg) for mesg in mesgs]))
 
         nodes = await cmdrcore.eval('testsvc.magic')
         self.len(1, nodes)
@@ -193,3 +193,32 @@ class JupyterTest(s_t_utils.SynTest):
             self.raises(ValueError, s_jupyter.getDocData, 'newp.bin', root)
             self.raises(ValueError, s_jupyter.getDocData,
                         '../../../../../../etc/passwd', root)
+
+    async def test_stormcore(self):
+        outp = self.getTestOutp()
+        stormcore, svcprox = await s_jupyter.getTempCoreStormStormsvc('testsvc', Tstsvc.anit, outp=outp)
+
+        self.false(stormcore.isfini)
+        self.false(svcprox.isfini)
+
+        msgs = await stormcore.storm('service.list')
+        self.stormIsInPrint('true (testsvc)', msgs)
+
+        await stormcore.storm('testsvc.magic', num=1)
+
+        with self.raises(AssertionError):
+            await stormcore.storm('testsvc.magic', num=999)
+
+        outp.clear()
+        msgs = await stormcore.storm('$lib.print(hello)', cli=True)
+        self.stormIsInPrint('hello', msgs)
+        outp.expect('storm> $lib.print(hello)')
+        outp.expect('storm> $lib.print(hello)\nhello')
+
+        self.eq('shazam', await svcprox.testmeth())
+
+        await stormcore.fini()
+        self.true(stormcore.isfini)
+
+        await svcprox.fini()
+        self.true(svcprox.isfini)

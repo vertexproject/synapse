@@ -99,6 +99,7 @@ reqValidLdef = s_config.getJsValidator({
         'lmdb:growsize': {'type': 'integer'},
         'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
+        'readonly': {'type': 'boolean', 'default': False},
     },
     'additionalProperties': True,
     'required': ['iden', 'creator', 'lockmemory'],
@@ -2357,18 +2358,7 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
-    async def _initLayerStorage(self):
-
-        slabopts = {
-            'readonly': self.readonly,
-            'readahead': True,
-            'lockmemory': self.lockmemory,
-            'map_async': self.mapasync,
-            'max_replay_log': self.maxreplaylog,
-        }
-
-        if self.growsize is not None:
-            slabopts['growsize'] = self.growsize
+    async def _initSlabs(self, slabopts):
 
         otherslabopts = {
             **slabopts,
@@ -2382,29 +2372,19 @@ class Layer(s_nexus.Pusher):
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
         self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
 
-        self.layrslab.addResizeCallback(self.core.checkFreeSpace)
-        self.dataslab.addResizeCallback(self.core.checkFreeSpace)
-
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
-        if self.fresh:
-            self.meta.set('version', 9)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
-        path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, **otherslabopts)
-        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
+        nodeeditpath = s_common.genpath(self.dirn, 'nodeedits.lmdb')
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(nodeeditpath, **otherslabopts)
 
         self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
-
-        self.onfini(self.layrslab)
-        self.onfini(self.nodeeditslab)
-        self.onfini(self.dataslab)
 
         self.bybuidv3 = self.layrslab.initdb('bybuidv3')
 
@@ -2422,6 +2402,39 @@ class Layer(s_nexus.Pusher):
         self.dataname = self.dataslab.initdb('dataname', dupsort=True)
 
         self.nodeeditlog = self.nodeeditctor(self.nodeeditslab, 'nodeedits')
+
+    async def _initLayerStorage(self):
+
+        slabopts = {
+            'readahead': True,
+            'lockmemory': self.lockmemory,
+            'map_async': self.mapasync,
+            'max_replay_log': self.maxreplaylog,
+        }
+
+        if self.growsize is not None:
+            slabopts['growsize'] = self.growsize
+
+        await self._initSlabs(slabopts)
+
+        if self.fresh:
+            self.meta.set('version', 9)
+
+        if self.readonly:
+            await self.layrslab.fini()
+            await self.dataslab.fini()
+            await self.nodeeditslab.fini()
+
+            slabopts['readonly'] = True
+            await self._initSlabs(slabopts)
+
+        self.layrslab.addResizeCallback(self.core.checkFreeSpace)
+        self.dataslab.addResizeCallback(self.core.checkFreeSpace)
+        self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
+
+        self.onfini(self.layrslab)
+        self.onfini(self.dataslab)
+        self.onfini(self.nodeeditslab)
 
         self.layrslab.on('commit', self._onLayrSlabCommit)
 
@@ -2470,7 +2483,10 @@ class Layer(s_nexus.Pusher):
             self.logedits = valu
 
         # TODO when we can set more props, we may need to parse values.
-        await self.layrinfo.set(name, valu)
+        if valu is None:
+            await self.layrinfo.pop(name)
+        else:
+            await self.layrinfo.set(name, valu)
 
         await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
@@ -3071,7 +3087,7 @@ class Layer(s_nexus.Pusher):
             elif stortype == STOR_TYPE_MAXTIME:
                 valu = max(valu, oldv)
 
-            if valu == oldv:
+            if valu == oldv and stortype == oldt:
                 return ()
 
             if oldt & STOR_FLAG_ARRAY:
@@ -3233,6 +3249,15 @@ class Layer(s_nexus.Pusher):
         if tp_dict:
             oldv, oldt = tp_dict.get(prop, (None, None))
             if oldv is not None:
+
+                if stortype == STOR_TYPE_IVAL:
+                    valu = (min(*oldv, *valu), max(*oldv, *valu))
+
+                elif stortype == STOR_TYPE_MINTIME:
+                    valu = min(valu, oldv)
+
+                elif stortype == STOR_TYPE_MAXTIME:
+                    valu = max(valu, oldv)
 
                 if valu == oldv and stortype == oldt:
                     return ()

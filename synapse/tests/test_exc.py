@@ -2,11 +2,15 @@ import logging
 
 import synapse.exc as s_exc
 
+import synapse.lib.coro as s_coro
 import synapse.lib.parser as s_parser
 
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
+
+def raiseNoSuchForm(name, mesg=None):
+    raise s_exc.NoSuchForm.init(name, mesg)
 
 class ExcTest(s_t_utils.SynTest):
     def test_basic(self):
@@ -33,6 +37,12 @@ class ExcTest(s_t_utils.SynTest):
             _ = await s_parser._forkedParseEval('| | | ')
         self.isin('BadSyntax', str(cm.exception))
         self.isin('Unexpected token', str(cm.exception))
+
+        # init() pattern
+        with self.raises(s_exc.NoSuchForm) as cm:
+            _ = await s_coro.forked(raiseNoSuchForm, 'test:newp', mesg='test:newp pickle!')
+        self.isin('NoSuchForm', str(cm.exception))
+        self.isin('test:newp pickle', str(cm.exception))
 
     def test_stormraise(self):
         e = s_exc.StormRaise(mesg='hehe', errname='fooErr', info={'key': 'valu'})

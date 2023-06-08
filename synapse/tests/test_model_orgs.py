@@ -68,20 +68,24 @@ class OuModelTest(s_t_utils.SynTest):
                     'actors': (acto,),
                     'camptype': 'get.pizza',
                     'name': 'MyName',
+                    'names': ('foo', 'bar', 'Bar'),
                     'type': 'MyType',
                     'desc': 'MyDesc',
                     'success': 1,
                     'techniques': teqs,
                     'sophistication': 'high',
+                    'tag': 'cno.camp.31337',
                     'reporter': '*',
                     'reporter:name': 'vertex',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
+                self.eq(node.get('tag'), 'cno.camp.31337')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
                 self.eq(node.get('actors'), (acto,))
-                self.eq(node.get('name'), 'MyName')
+                self.eq(node.get('name'), 'myname')
+                self.eq(node.get('names'), ('bar', 'foo'))
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('success'), 1)
@@ -218,6 +222,10 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
+
+                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
+                self.len(1, await core.nodes('ou:org:country:code=ua'))
+                self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')
@@ -794,8 +802,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('World War III', nodes[0].get('name'))
             self.len(1, await core.nodes('ou:conflict -> meta:timeline'))
 
-            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :conflict={ou:conflict} ]')
+            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={ou:conflict} ]')
             self.len(1, await core.nodes('ou:campaign -> ou:conflict'))
+            self.len(1, await core.nodes('ou:campaign:names*[="pacific campaign"]'))
 
             nodes = await core.nodes('''
                 [ ou:contribution=*

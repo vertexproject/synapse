@@ -46,7 +46,7 @@ class Type:
         self.form = None  # this will reference a Form() if the type is a form
         self.subof = None  # This references the name that a type was extended from.
 
-        self.info.setdefault('bases', ())
+        self.info.setdefault('bases', ('base',))
 
         self.opts = dict(self._opt_defs)
         self.opts.update(opts)
@@ -385,7 +385,7 @@ class Bool(Type):
         return int(bool(valu)), {}
 
     def repr(self, valu):
-        return repr(bool(valu))
+        return repr(bool(valu)).lower()
 
 class Array(Type):
 
@@ -1349,7 +1349,7 @@ class Ndef(Type):
 
         form = self.modl.form(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=self.name, form=formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
@@ -1363,7 +1363,7 @@ class Ndef(Type):
         formname, formvalu = norm
         form = self.modl.form(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=self.name, form=formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         repv = form.type.repr(formvalu)
         return (formname, repv)
@@ -1731,6 +1731,9 @@ class Taxonomy(Str):
 
     def _normPyStr(self, text):
         return self._normPyList(text.strip().strip('.').split('.'))
+
+    def repr(self, norm):
+        return norm.rstrip('.')
 
 class Tag(Str):
 

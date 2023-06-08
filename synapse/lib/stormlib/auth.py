@@ -201,17 +201,21 @@ stormcmds = (
 
                 // add a deny rule to the user "visi" for permission "foo.bar.baz"
                 auth.user.addrule visi "!foo.bar.baz"
+
+                // add an allow rule to the user "visi" for permission "baz" at the first index.
+                auth.user.addrule visi baz --index 0
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
             ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
+            ('--index', {'type': 'int', 'help': 'Specify the rule location as a 0 based index.', 'default': None}),
         ),
         'storm': '''
             $user = $lib.auth.users.byname($cmdopts.name)
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $user {
-                $user.addRule($rule, gateiden=$cmdopts.gate)
+                $user.addRule($rule, gateiden=$cmdopts.gate, indx=$cmdopts.index)
                 $lib.print(`Added rule {$cmdopts.rule} to user {$cmdopts.name}.`)
             } else {
                 $lib.warn('User ({name}) not found!', name=$cmdopts.name)
@@ -269,17 +273,21 @@ stormcmds = (
 
                 // add a deny rule to the role "ninjas" for permission "foo.bar.baz"
                 auth.role.addrule ninjas "!foo.bar.baz"
+
+                // add an allow rule to the role "ninjas" for permission "baz" at the first index.
+                auth.role.addrule ninjas baz --index 0
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
             ('--gate', {'type': 'str', 'help': 'The auth gate id to add the rule to.', 'default': None}),
+            ('--index', {'type': 'int', 'help': 'Specify the rule location as a 0 based index.', 'default': None}),
         ),
         'storm': '''
             $role = $lib.auth.roles.byname($cmdopts.name)
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $role {
-                $role.addRule($rule, gateiden=$cmdopts.gate)
+                $role.addRule($rule, gateiden=$cmdopts.gate, indx=$cmdopts.index)
                 $lib.print(`Added rule {$cmdopts.rule} to role {$cmdopts.name}.`)
             } else {
                 $lib.warn('Role ({name}) not found!', name=$cmdopts.name)
@@ -335,10 +343,14 @@ stormcmds = (
                 // Grant the role "ninjas" to the user "visi"
                 auth.user.grant visi ninjas
 
+                // Grant the role "ninjas" to the user "visi" at the first index.
+                auth.user.grant visi ninjas --index 0
+
         ''',
         'cmdargs': (
             ('username', {'type': 'str', 'help': 'The name of the user.'}),
             ('rolename', {'type': 'str', 'help': 'The name of the role.'}),
+            ('--index', {'type': 'int', 'help': 'Specify the role location as a 0 based index.', 'default': None}),
         ),
         'storm': '''
             $user = $lib.auth.users.byname($cmdopts.username)
@@ -348,7 +360,7 @@ stormcmds = (
             if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
 
             $lib.print(`Granting role {$role.name} to user {$user.name}.`)
-            $user.grant($role.iden)
+            $user.grant($role.iden, indx=$cmdopts.index)
         ''',
     },
     {
@@ -418,13 +430,41 @@ stormcmds = (
             $lib.print("")
             $lib.print("  Gates:")
             for $gate in $user.gates() {
+                for $gateuser in $gate.users {
+                    if  ( $gateuser.iden = $user.iden ) {
+                        break
+                    }
+                }
                 $lib.print(`    {$gate.iden} - ({$gate.type})`)
+                $lib.print(`      Admin: {$gateuser.admin}`)
                 for ($indx, $rule) in $lib.iters.enum($user.getRules(gateiden=$gate.iden)) {
                     $ruletext = $lib.auth.textFromRule($rule)
                     $indxtext = $lib.cast(str, $indx).ljust(3)
                     $lib.print(`      [{$indxtext}] - {$ruletext}`)
                 }
             }
+        ''',
+    },
+    {
+        'name': 'auth.user.allowed',
+        'descr': '''
+            Show whether the user is allowed the given permission and why.
+
+            Examples:
+
+                auth.user.allowed visi foo.bar
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+            ('permname', {'type': 'str', 'help': 'The permission string.'}),
+            ('--gate', {'type': 'str', 'help': 'An auth gate to test the perms against.'}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
+
+            ($allow, $reason) = $user.getAllowedReason($cmdopts.permname, gateiden=$cmdopts.gate)
+            $lib.print(`allowed: {$allow} - {$reason}`)
         ''',
     },
     {
@@ -516,6 +556,24 @@ stormcmds = (
                     $indxtext = $lib.cast(str, $indx).ljust(3)
                     $lib.print(`      [{$indxtext}] - {$ruletext}`)
                 }
+            }
+        '''
+    },
+    {
+        'name': 'auth.perms.list',
+        'descr': 'Display a list of the current permissions defined within the Cortex.',
+        'cmdargs': (),
+        'storm': '''
+
+            for $pdef in $lib.auth.getPermDefs() {
+                $perm = $lib.str.join(".", $pdef.perm)
+
+                $lib.print($perm)
+                $lib.print(`    {$pdef.desc}`)
+                $lib.print(`    gate: {$pdef.gate}`)
+                $lib.print(`    default: {$pdef.default}`)
+                if $pdef.ex { $lib.print(`    example: {$pdef.ex}`) }
+                $lib.print('')
             }
         '''
     },

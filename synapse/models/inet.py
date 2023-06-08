@@ -3,6 +3,7 @@ import hashlib
 import logging
 import ipaddress
 import email.utils
+import urllib.parse
 
 import idna
 import regex
@@ -838,9 +839,9 @@ class Url(s_types.Str):
         if len(parts) == 2:
             authparts, valu = parts
             userpass = authparts.split(':', 1)
-            subs['user'] = userpass[0]
+            subs['user'] = urllib.parse.unquote(userpass[0])
             if len(userpass) == 2:
-                subs['passwd'] = userpass[1]
+                subs['passwd'] = urllib.parse.unquote(userpass[1])
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
@@ -1107,8 +1108,10 @@ class InetModule(s_module.CoreModule):
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An Autonomous System Number (ASN).'
-                    }),
+                        'doc': 'An Autonomous System Number (ASN).'}),
+
+                    ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
+                        'doc': 'A network protocol name.'}),
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
@@ -1137,6 +1140,9 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:tunnel', ('guid', {}), {
                         'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
+
+                    ('inet:egress', ('guid', {}), {
+                        'doc': 'A host using a specific network egress client address.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
@@ -1250,6 +1256,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:file', ('comp', {'fields': (('acct', 'inet:web:acct'), ('file', 'file:bytes'))}), {
                         'doc': 'A file posted by a web account.'
                     }),
+
+                    ('inet:web:attachment', ('guid', {}), {
+                        'doc': 'An instance of a file being sent to a web service by an account.'}),
 
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
@@ -1405,6 +1414,11 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 'forms': (
+
+                    ('inet:proto', {}, (
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The default port this protocol typically uses if applicable.'}),
+                    )),
 
                     ('inet:email:message', {}, (
 
@@ -1765,6 +1779,21 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The contact information for the tunnel operator.'}),
                     )),
 
+                    ('inet:egress', {}, (
+
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host that used the network egress.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address the host used as a network egress.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The client IPv4 address the host used as a network egress.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The client IPv6 address the host used as a network egress.'}),
+                    )),
+
                     ('inet:fqdn', {}, (
                         ('domain', ('inet:fqdn', {}), {
                             'ro': True,
@@ -1844,6 +1873,9 @@ class InetModule(s_module.CoreModule):
 
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
+
+                        ('referer', ('inet:url', {}), {
+                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
 
                         ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
@@ -2179,6 +2211,8 @@ class InetModule(s_module.CoreModule):
                             'ex': 'google',
                             'doc': 'A simple name for the search engine used.',
                         }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request used to issue the query.'}),
                     )),
 
                     ('inet:search:result', {}, (
@@ -2375,17 +2409,66 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the file owned by or associated with the account.'
                         }),
                         ('posted', ('time', {}), {
-                            'doc': 'The date and time the file was posted / submitted.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client', ('inet:client', {}), {
-                            'doc': 'The source client address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+                    )),
+
+                    ('inet:web:attachment', {}, (
+
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that uploaded the file.'}),
+
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The optional web post that the file was attached to.'}),
+
+                        ('mesg', ('inet:web:mesg', {}), {
+                            'doc': 'The optional web message that the file was attached to.'}),
+
+                        ('proto', ('inet:proto', {}), {
+                            'ex': 'https',
+                            'doc': 'The protocol used to transmit the file to the web service.'}),
+
+                        ('interactive', ('bool', {}), {
+                            'doc': 'Set to true if the upload was interactive. False if automated.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was sent.'}),
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the file at the time it was sent.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the file was sent.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address which initiated the upload.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address of the client that initiated the upload.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address of the client that initiated the upload.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place the file was sent from.'}),
+
+                        ('place:loc', ('loc', {}), {
+                            'doc': 'The geopolitical location that the file was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The reported name of the place that the file was sent from.'}),
                     )),
 
                     ('inet:web:follows', {}, (
@@ -2457,19 +2540,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the logon event.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged into the service.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -2482,7 +2561,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged out of the service.'
                         }),
                         ('loc', ('loc', {}), {

@@ -330,9 +330,11 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
         evt = asyncio.Event()
         origlink = s_axon.Axon._sha256ToLink
-        async def fakelink(self, sha256, link):
+        async def fakelink(self, sha256_, link):
             link.onfini(evt.set)
-            await origlink(self, sha256, link)
+            if sha256_ == pennhash:
+                sha256_ = b'newp'
+            await origlink(self, sha256_, link)
 
         newdata = '\n'.join([data for i in range(500)])
         size, sha256 = await axon.put(newdata.encode())
@@ -346,6 +348,10 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             async for row in axon.readlines(s_common.ehex(sha256)):
                 break
             self.true(await s_coro.event_wait(evt, 5))
+
+            # make sure exceptions within sha256tolink get re-raised
+            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.csvrows(pennhash)))
+            await self.asyncraises(s_exc.NoSuchFile, s_t_utils.alist(axon.readlines(s_common.ehex(pennhash))))
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
@@ -990,6 +996,15 @@ bar baz",vv
 
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
+
+            axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+
+            async with await axon.upload() as fd:
+                await fd.write(b'asdfasdf')
+                size, sha256 = await fd.save()
+
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
                 self.false(resp.get('ok'))
@@ -1002,6 +1017,27 @@ bar baz",vv
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
             self.isin('InvalidURL: vertex.link', resp.get('err', ''))
+
+            # Bypass the Axon proxy configuration from Storm
+            url = axon.getLocalUrl()
+            async with self.getTestCore(conf={'axon': url}) as core:
+                q = f'''
+                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                            fields=$fields, ssl_verify=(0))
+                return($resp)
+                '''
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+
+                q = f'''
+                $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                            fields=$fields, ssl_verify=(0), proxy=$lib.false)
+                return($resp)
+                '''
+                resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
+                self.true(resp.get('ok'))
+                self.eq(resp.get('code'), 200)
 
     async def test_axon_tlscapath(self):
 
