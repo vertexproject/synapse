@@ -193,7 +193,7 @@ Features and Enhancements
   use a simplified permissions model.
   (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
 - Add  ``.vars`` attribute to the Storm ``storm:auth:user`` object. This can
-  used to access user variables.
+  be used to access user variables.
   (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
 - Add ``$lib.infosec.cvss.vectToScore()`` to calculate CVSS scores.
   (`#3171 <https://github.com/vertexproject/synapse/pull/3171>`_)
