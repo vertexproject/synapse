@@ -2,6 +2,7 @@ import math
 import decimal
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 
@@ -559,8 +560,6 @@ class CvssLib(s_stormtypes.Lib):
             (defaults to CVSS3.1 if it cannot), and calculates the base, temporal,
             and environmental scores.
 
-            Note: This function does not add/delete/modify nodes in any way.
-
             Raises:
                 - BadArg: An invalid `vers` string is provided
                 - BadDataValu: The vector string is invalid in some way.
@@ -611,6 +610,11 @@ class CvssLib(s_stormtypes.Lib):
         }
 
     async def vectToProps(self, text):
+        s_common.deprecated('$lib.infosec.cvss.vectToProps()', '2.137.0', '3.0.0')
+        await self.runt.snap.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
+        return await self._vectToProps(text)
+
+    async def _vectToProps(self, text):
         text = await s_stormtypes.tostr(text)
         props = {}
 
@@ -638,7 +642,9 @@ class CvssLib(s_stormtypes.Lib):
         return props
 
     async def saveVectToNode(self, node, text):
-        props = await self.vectToProps(text)
+        s_common.deprecated('$lib.infosec.cvss.saveVectToNode()', '2.137.0', '3.0.0')
+        await self.runt.snap.warnonce('$lib.infosec.cvss.saveVectToNode() is deprecated.')
+        props = await self._vectToProps(text)
         for prop, valu in props.items():
             await node.set(prop, valu)
 

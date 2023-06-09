@@ -3,6 +3,7 @@ import copy
 import json
 import time
 import asyncio
+import hashlib
 import logging
 
 from unittest.mock import patch
@@ -1850,6 +1851,9 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await alist(core.storm(' | | | '))
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+            # We still get a texthash
+            texthash = [mesg for mesg in mesgs if mesg[0] == 'init'][0][1].get('hash')
+            self.eq(texthash, hashlib.md5(' | | | '.encode()).hexdigest())
             # Lark sensitive test
             self.stormIsInErr("Unexpected token '|'", mesgs)
             errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
