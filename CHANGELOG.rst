@@ -218,18 +218,19 @@ Bugfixes
   in CPython 3.11.4.
   (`#3170 <https://github.com/vertexproject/synapse/pull/3170>`_)
 - The ``inet:url`` type now URL decodes the ``user`` and ``passwd``
-  properties when normalizing them.
+  properties when normalizing them. Thank you ``captainGeech42`` for the
+  bug report.
   (`#2568 <https://github.com/vertexproject/synapse/issue/2568>`_)
   (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
 - The URL parser in ``synapse.lib.urlhelp`` now URL decodes the ``user``
   and ``passwd`` values when parsing URLs.
-  FIXME
+  (`#3178 <https://github.com/vertexproject/synapse/issue/3178>`_)
 
 Deprecations
 ------------
 - Mark the Storm functions ``$lib.infosec.cvss.saveVectToNode()`` and
   ``$lib.infosec.cvss.vectToProps()`` as deprecated.
-  FIXME
+  (`#3178 <https://github.com/vertexproject/synapse/issue/3178>`_)
 
 v2.136.0 - 2023-06-02
 =====================
