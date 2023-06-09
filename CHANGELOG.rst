@@ -166,10 +166,10 @@ Model Changes
     When used with a ``meta:rule`` node, the edge indicates the rule was
     designed to detect instances of the target node.
 
-    When used with a ``it:app:snort:rule`` node, the edge indicates the rule
+    When used with an ``it:app:snort:rule`` node, the edge indicates the rule
     was designed to detect instances of the target node.
 
-    When used with a ``it:app:yara:rule`` node, the edge indicates the rule
+    When used with an ``it:app:yara:rule`` node, the edge indicates the rule
     was designed to detect instances of the target node.
 
   ``contains``
@@ -187,7 +187,7 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Add a module arithmetic operator ( ``%`` ) to Storm expression parsing.
+- Add a modulo arithmetic operator ( ``%`` ) to Storm expression parsing.
   (`#3168 <https://github.com/vertexproject/synapse/pull/3168>`_)
 - Add ``$lib.auth.easyperm`` Storm library for interacting with objects that
   use a simplified permissions model.
@@ -196,7 +196,7 @@ Features and Enhancements
   used to access user variables.
   (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
 - Add ``$lib.infosec.cvss.vectToScore()`` to calculate CVSS scores.
-  (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
+  (`#3171 <https://github.com/vertexproject/synapse/pull/3171>`_)
 - The Storm ``delnode`` command node now requires the use of ``--force`` to
   delete a node which has lightweight edges pointing to it.
   (`#3176 <https://github.com/vertexproject/synapse/pull/3176>`_)
