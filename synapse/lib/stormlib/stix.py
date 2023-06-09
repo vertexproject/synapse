@@ -1248,6 +1248,7 @@ class StixBundle(s_stormtypes.Prim):
         self.config = config
         self.locls.update(self.getObjLocals())
         self.objs = {}  # id -> STIX obj(dict)
+        self.synextension = config.get('synapse_extension', True)
         self.maxsize = config.get('maxsize', 10000)
 
     async def value(self):
@@ -1333,14 +1334,14 @@ class StixBundle(s_stormtypes.Prim):
             'id': stixid,
             'type': stixtype,
             'spec_version': '2.1',
-            'extensions': {
+        }
+        if self.synextension:
+            retn['extensions'] = {
                 SYN_STIX_EXTENSION_ID: {
                     "extension_type": "property-extension",
                     'synapse_ndef': ndef
                 }
             }
-
-        }
         return retn
 
     async def _addRel(self, srcid, reltype, targid):
@@ -1381,7 +1382,8 @@ class StixBundle(s_stormtypes.Prim):
 
     def pack(self):
         objects = list(self.objs.values())
-        objects.insert(0, self._getSynapseExtensionDefinition())
+        if self.synextension:
+            objects.insert(0, self._getSynapseExtensionDefinition())
         bundle = {
             'type': 'bundle',
             'id': f'bundle--{uuid4()}',
