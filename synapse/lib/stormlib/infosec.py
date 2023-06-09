@@ -611,6 +611,7 @@ class CvssLib(s_stormtypes.Lib):
 
     async def vectToProps(self, text):
         s_common.deprecated('$lib.infosec.cvss.vectToProps()', '2.137.0', '3.0.0')
+        await self.runt.snap.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
         return await self._vectToProps(text)
 
     async def _vectToProps(self, text):
@@ -642,6 +643,7 @@ class CvssLib(s_stormtypes.Lib):
 
     async def saveVectToNode(self, node, text):
         s_common.deprecated('$lib.infosec.cvss.saveVectToNode()', '2.137.0', '3.0.0')
+        await self.runt.snap.warnonce('$lib.infosec.cvss.saveVectToNode() is deprecated.')
         props = await self._vectToProps(text)
         for prop, valu in props.items():
             await node.set(prop, valu)

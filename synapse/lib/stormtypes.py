@@ -4562,6 +4562,7 @@ class List(Prim):
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
+        await self.runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
         return len(self)
 
     async def _methListSort(self, reverse=False):
