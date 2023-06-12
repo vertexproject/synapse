@@ -2590,21 +2590,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         addr = socket.gethostbyname(host)
 
         if sslctx is None:
-
-            pkeypath = os.path.join(self.dirn, 'sslkey.pem')
-            certpath = os.path.join(self.dirn, 'sslcert.pem')
-
-            if not os.path.isfile(certpath):
-                logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
-
-                tdir = s_common.gendir(self.dirn, 'tmp')
-                with s_common.getTempDir(dirn=tdir) as dirn:
-                    cdir = s_certdir.CertDir(path=(dirn,))
-                    pkey, cert = cdir.genHostCert(self.getCellType())
-                    cdir.savePkeyPem(pkey, pkeypath)
-                    cdir.saveCertPem(cert, certpath)
-
-            sslctx = self.initSslCtx(certpath, pkeypath)
+            sslctx = self._genHttpSslCtx()
 
         kwargs = {
             'xheaders': self.conf.reqConfValu('https:parse:proxy:remoteip')
@@ -2612,6 +2598,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
+
+    def _genHttpSslCtx(self):
+        pkeypath = os.path.join(self.dirn, 'sslkey.pem')
+        certpath = os.path.join(self.dirn, 'sslcert.pem')
+
+        if not os.path.isfile(certpath):
+            logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
+
+            tdir = s_common.gendir(self.dirn, 'tmp')
+            with s_common.getTempDir(dirn=tdir) as dirn:
+                cdir = s_certdir.CertDir(path=(dirn,))
+                pkey, cert = cdir.genHostCert(self.getCellType())
+                cdir.savePkeyPem(pkey, pkeypath)
+                cdir.saveCertPem(cert, certpath)
+
+        sslctx = self.initSslCtx(certpath, pkeypath)
+        return sslctx
 
     def initSslCtx(self, certpath, keypath):
 
