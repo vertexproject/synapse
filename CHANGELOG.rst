@@ -18,15 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-Unreleased - YYYY-MM-DD
-=======================
-
-Bugfixes
---------
-- Fix an issue where raising an integer value to a fractional power
-  in Storm was not handled correctly.
-
-v2.136.0 - 2023-06-02
+v2.137.0 - 2023-06-09
 =====================
 
 Announcement
@@ -42,6 +34,206 @@ If you currently deploy Synapse Open-Source or Synapse Enterprise via
 the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
+
+Automatic Migrations
+--------------------
+- Migrate any ``inet:url`` nodes with ``:user`` and ``:passwd`` properties
+  which may have been URL encoded. These values are now decoded.
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+- Migrate the storage type for the ``file:bytes:mime:pe:imphash`` property.
+  (`#3173 <https://github.com/vertexproject/synapse/pull/3173>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``geospace``, ``inet``, ``infotech``, ``org``, ``risk``,
+  and ``transport`` models.
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+
+  New Types
+  ---------
+
+  ``it:mitre:attack:matrix``
+    Add a type to capture the enumeration of MITRE ATT&CK matrix values.
+
+  New Forms
+  ---------
+
+  ``inet:egress``
+    Add a form to capture a host using a specific network egress client
+    address.
+
+  ``it:prod:softreg``
+    Add a form to capture a registry entry is created by a specific software
+    version.
+
+  ``transport:land:vehicle``
+    Add a form to capture an individual vehicle.
+
+  ``transport:land:registration``
+    Add a form to capture the registration issued to a contact for a land
+    vehicle.
+
+  ``transport:land:license``
+    Add a form to capture the license to operate a land vehicle issued to a
+    contact.
+
+  New Properties
+  --------------
+
+  ``inet:http:request``
+    The form had the following property added to it:
+
+    ``referer``
+      The referer URL parsed from the "Referer:" header in the request.
+
+  ``inet:search:query``
+    The form had the following property added to it:
+
+    ``request``
+      The HTTP request used to issue the query.
+
+  ``it:mitre:attack:tactic``
+    The form had the following property added to it:
+
+    ``matrix``
+      The ATT&CK matrix which defines the tactic.
+
+  ``it:mitre:attack:technique``
+    The form had the following property added to it:
+
+    ``matrix``
+      The ATT&CK matrix which defines the technique.
+
+  ``it:mitre:attack:mitigation``
+    The form had the following property added to it:
+
+    ``matrix``
+      The ATT&CK matrix which defines the mitigation.
+
+  ``it:app:snort:rule``
+    The form had the following property added to it:
+
+    ``engine``
+      The snort engine ID which can parse and evaluate the rule text.
+
+  ``it:app:yara:rule``
+    The form had the following properties added to it:
+
+    ``ext:id``
+      The YARA rule ID from an external system.
+
+    ``url``
+      A URL which documents the YARA rule.
+
+  ``ou:campaign``
+    The form had the following property added to it:
+
+    ``tag``
+      The tag used to annotate nodes that are associated with the campaign.
+
+  ``ou:org``
+    The form had the following properties added to it:
+
+      ``country``
+        The organization's country of origin.
+
+      ``country:code``
+        The 2 digit ISO 3166 country code for the organization's country of
+        origin.
+
+  ``risk:threat``
+    The form had the following properties added to it:
+
+      ``country``
+        The reporting organization's assessed country of origin of the threat
+        cluster.
+
+      ``country:code``
+        The 2 digit ISO 3166 country code for the threat cluster's assessed
+        country of origin.
+
+  ``risk:compromise``
+    The form had the following property added to it:
+
+    ``vector``
+      The attack assessed to be the initial compromise vector.
+
+  Light Edges
+  -----------
+
+  ``detects``
+    When used with a ``meta:rule`` node, the edge indicates the rule was
+    designed to detect instances of the target node.
+
+    When used with an ``it:app:snort:rule`` node, the edge indicates the rule
+    was designed to detect instances of the target node.
+
+    When used with an ``it:app:yara:rule`` node, the edge indicates the rule
+    was designed to detect instances of the target node.
+
+  ``contains``
+    When used between two ``geo:place`` nodes, the edge indicates the source
+    place completely contains the target place.
+
+
+  Deprecated Properties
+  ---------------------
+
+  ``geo:place``
+    The form had the following property marked as deprecated:
+
+    * ``parent``
+
+Features and Enhancements
+-------------------------
+- Add a modulo arithmetic operator ( ``%`` ) to Storm expression parsing.
+  (`#3168 <https://github.com/vertexproject/synapse/pull/3168>`_)
+- Add ``$lib.auth.easyperm`` Storm library for interacting with objects that
+  use a simplified permissions model.
+  (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
+- Add  ``.vars`` attribute to the Storm ``storm:auth:user`` object. This can
+  be used to access user variables.
+  (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
+- Add ``$lib.infosec.cvss.vectToScore()`` to calculate CVSS scores.
+  (`#3171 <https://github.com/vertexproject/synapse/pull/3171>`_)
+- The Storm ``delnode`` command node now requires the use of ``--force`` to
+  delete a node which has lightweight edges pointing to it.
+  (`#3176 <https://github.com/vertexproject/synapse/pull/3176>`_)
+- The STIX export configuration may now include a ``synapse_extension`` value
+  set to ``$lib.false`` to disable the Synapse STIX extension data from being
+  added to objects in the bundle.
+  (`#3177 <https://github.com/vertexproject/synapse/pull/3177>`_)
+- Remove whitespace stripping from Storm queries prior to parsing them. This
+  allows any error highlighting information to accurately reflect the query
+  submitted to the Cortex.
+  (`#3175 <https://github.com/vertexproject/synapse/pull/3175>`_)
+
+Bugfixes
+--------
+- Fix an issue where raising an integer value to a fractional power
+  in Storm was not handled correctly.
+  (`#3170 <https://github.com/vertexproject/synapse/pull/3170>`_)
+- Handle a SyntaxError that may occur during Storm parsing due to a change
+  in CPython 3.11.4.
+  (`#3170 <https://github.com/vertexproject/synapse/pull/3170>`_)
+- The ``inet:url`` type now URL decodes the ``user`` and ``passwd``
+  properties when normalizing them. Thank you ``captainGeech42`` for the
+  bug report.
+  (`#2568 <https://github.com/vertexproject/synapse/issue/2568>`_)
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+- The URL parser in ``synapse.lib.urlhelp`` now URL decodes the ``user``
+  and ``passwd`` values when parsing URLs.
+  (`#3178 <https://github.com/vertexproject/synapse/issue/3178>`_)
+
+Deprecations
+------------
+- Mark the Storm functions ``$lib.infosec.cvss.saveVectToNode()`` and
+  ``$lib.infosec.cvss.vectToProps()`` as deprecated.
+  (`#3178 <https://github.com/vertexproject/synapse/issue/3178>`_)
+
+v2.136.0 - 2023-06-02
+=====================
 
 Model Changes
 -------------

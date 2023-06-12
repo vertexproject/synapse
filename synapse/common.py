@@ -1152,6 +1152,8 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
     sslctx = ssl.create_default_context(purpose=purpose)
     for name in os.listdir(cadir):
         certpath = os.path.join(cadir, name)
+        if not os.path.isfile(certpath):
+            continue
         try:
             sslctx.load_verify_locations(cafile=certpath)
         except Exception:  # pragma: no cover
