@@ -958,6 +958,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
 
         flt = model.type('str').clone({})
+        self.eq('0.0', flt.norm(0.0)[0])
+        self.eq('-0.0', flt.norm(-0.0)[0])
         self.eq('2.65', flt.norm(2.65)[0])
         self.eq('2.65', flt.norm(2.65000000)[0])
         self.eq('0.65', flt.norm(00.65)[0])
@@ -973,6 +975,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789)[0])
         self.eq('1234567891.1234567', flt.norm(1234567890.123456790123456790123456789 + 1)[0])
         self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789 + 0.0000000001)[0])
+        self.eq('2.718281828459045', flt.norm(2.718281828459045)[0])
 
     def test_syntag(self):
 
