@@ -419,6 +419,7 @@ def lockfile(path):
     Yields:
         None
     '''
+    deprecated('synapse.common.lockfile()', curv='v2.138.0', eolv='v2.140.0')
     with genfile(path) as fd:
         fcntl.lockf(fd, fcntl.LOCK_EX)
         yield None
