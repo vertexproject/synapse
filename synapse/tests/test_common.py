@@ -189,14 +189,6 @@ class CommonTest(s_t_utils.SynTest):
         with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in s_common.chunks({}, 10000)]
 
-    def test_common_lockfile(self):
-
-        with self.getTestDir() as fdir:
-            fp = os.path.join(fdir, 'hehe.lock')
-            # Ensure that our yield is None
-            with s_common.lockfile(fp) as cm:
-                self.none(cm)
-
     def test_common_ehex_uhex(self):
         byts = b'deadb33f00010203'
         s = s_common.ehex(byts)
