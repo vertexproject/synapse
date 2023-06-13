@@ -18,7 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-v2.137.0 - 2023-06-09
+v2.138.0 - 2023-06-13
 =====================
 
 Announcement
@@ -34,6 +34,36 @@ If you currently deploy Synapse Open-Source or Synapse Enterprise via
 the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
+
+Features and Enhancements
+-------------------------
+- Add ``it:sec:cwe`` to the list of types identified with scrape APIs.
+  (`#3182 <https://github.com/vertexproject/synapse/pull/3182>`_)
+- Update the calculations done by ``$lib.infosec.cvss.vectToScore()`` to more
+  closely emulate the NVD CVS calculator.
+  (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
+
+Bugfixes
+--------
+- Fix an issue with ``synapse.tools.storm`` where the ``!export`` command did
+  not use the view specified when starting the tool.
+  (`#3184 <https://github.com/vertexproject/synapse/pull/3184>`_)
+- The ``synapse.common.getSslCtx()`` API now only attempts to load files in
+  the target directory. This avoids confusing errors that may be logged when
+  the target directory contains sub directories.
+  (`#3179 <https://github.com/vertexproject/synapse/pull/3179>`_)
+- Fix an edge case in ``$lib.infosec.cvss.vectToScore()``  when calculating
+  CVSS v2 scores.
+  (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
+
+Deprecations
+------------
+- Mark the Python function ``synapse.common.lockfile()`` as deprecated. It
+ will be removed in ``v2.140.0``.
+  (`#3183 <https://github.com/vertexproject/synapse/issue/3183>`_)
+
+v2.137.0 - 2023-06-09
+=====================
 
 Automatic Migrations
 --------------------
