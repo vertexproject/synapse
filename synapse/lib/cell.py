@@ -2681,6 +2681,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(fini)
 
+        opts = await self._initCellHttpOpts()
+
+        self.wapp = t_web.Application(**opts)
+        self._initCellHttpApis()
+
+    async def _initCellHttpOpts(self):
         # Generate/Load a Cookie Secret
         secpath = os.path.join(self.dirn, 'cookie.secret')
         if not os.path.isfile(secpath):
@@ -2695,9 +2701,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
-
-        self.wapp = t_web.Application(**opts)
-        self._initCellHttpApis()
+        return opts
 
     def _initCellHttpApis(self):
 
