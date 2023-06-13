@@ -34,76 +34,115 @@ res7 = {'ok': True, 'version': '3.1', 'score': 3.4, 'scores': {
 
 VECTORS = [
     (
+        # Simple CVSS 3.x
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N&version=3.1
         'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N',
-        {'version': '3.1', 'base': 6.5, 'temporal': 5.4, 'environmental': 5.6}
+        {'version': '3.1', 'base': 6.5, 'temporal': 5.4, 'environmental': 5.6, 'score': 5.6}
     ),
     (
+        # Simple CVSS 3.x
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:A/AC:L/PR:H/UI:R/S:U/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:C/MC:H/MI:L/MA:N&version=3.1
         'AV:A/AC:L/PR:H/UI:R/S:U/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:C/MC:H/MI:L/MA:N',
-        {'version': '3.1', 'base': 4.9, 'temporal': 4.1, 'environmental': 6.6}
+        {'version': '3.1', 'base': 4.9, 'temporal': 4.1, 'environmental': 6.6, 'score': 6.6}
     ),
     (
         # no temporal; partial environmental
         # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X&version=3.1
         'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X',
-        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': 4.2}
+        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': 4.2, 'score': 4.2}
     ),
     (
         # temporal fully populated; partial environmental (only CR)
         # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X&version=3.1
         'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X',
-        {'version': '3.1', 'base': 4.6, 'temporal': 3.7, 'environmental': 3.4}
+        {'version': '3.1', 'base': 4.6, 'temporal': 3.7, 'environmental': 3.4, 'score': 3.4}
     ),
     (
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:TF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)
         '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:TF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
-        {'version': '2', 'base': 5.0, 'temporal': 4.5, 'environmental': 4.5}
+        {'version': '2', 'base': 5.0, 'temporal': 4.5, 'environmental': 4.5, 'score': 4.5}
     ),
     (
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:OF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)
         '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:OF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
-        {'version': '2', 'base': 5.0, 'temporal': 4.4, 'environmental': 4.3}
+        {'version': '2', 'base': 5.0, 'temporal': 4.4, 'environmental': 4.3, 'score': 4.3}
     ),
     (
-        'AV:N/AC:L/Au:N/C:N/I:N/A:C/E:F/RL:OF/RC:C/AR:H/CR:M/IR:M/CDP:H/TD:H',
-        {'version': '2', 'base': 7.8, 'temporal': 6.4, 'environmental': 9.2}
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=(AV:N/AC:L/Au:N/C:N/I:N/A:C/E:F/RL:OF/RC:C/CDP:H/TD:H/CR:M/IR:M/AR:H)
+        '(AV:N/AC:L/Au:N/C:N/I:N/A:C/E:F/RL:OF/RC:C/CDP:H/TD:H/CR:M/IR:M/AR:H)',
+        {'version': '2', 'base': 7.8, 'temporal': 6.4, 'environmental': 9.1, 'score': 9.1}
     ),
     (
+        # CVSS2 format #1
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=AV:L/AC:L/Au:M/C:P/I:C/A:N
         'CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N',
-        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': 5.0}
+        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': None, 'score': 5.0}
     ),
     (
+        # CVSS2 format #2
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=AV:L/AC:L/Au:M/C:P/I:C/A:N
         '(AV:L/AC:L/Au:M/C:P/I:C/A:N)',
-        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': 5.0}
+        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': None, 'score': 5.0}
     ),
     (
+        # CVSS2 format #3
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=AV:L/AC:L/Au:M/C:P/I:C/A:N
         'AV:L/AC:L/Au:M/C:P/I:C/A:N',
-        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': 5.0}
+        {'version': '2', 'base': 5.0, 'temporal': None, 'environmental': None, 'score': 5.0}
     ),
     (
+        # CVSS 3.0
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L&version=3.0
         'CVSS:3.0/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
-        {'version': '3.0', 'base': 4.6, 'temporal': None, 'environmental': 4.6}
+        {'version': '3.0', 'base': 4.6, 'temporal': None, 'environmental': None, 'score': 4.6}
     ),
     (
+        # CVSS 3.1 format #1 (same vector as CVSS 3.0 above)
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L&version=3.1
         'CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
-        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': 4.6}
+        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': None, 'score': 4.6}
     ),
     (
+        # CVSS 3.1 format #2 (same vector as CVSS 3.0 above)
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L)&version=3.1
         '(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L)',
-        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': 4.6}
+        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': None, 'score': 4.6}
     ),
     (
+        # CVSS 3.1 format #3 (same vector as CVSS 3.0 above)
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L&version=3.1
         'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
-        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': 4.6}
+        {'version': '3.1', 'base': 4.6, 'temporal': None, 'environmental': None, 'score': 4.6}
     ),
     (
+        # Scores are all zeroes
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:R/S:C/C:N/I:N/A:N/E:H/RL:U/RC:C/CR:H/IR:H/AR:H/MAV:A/MAC:H/MPR:H/MUI:R/MS:C/MC:N/MI:N/MA:N&version=3.1
         'AV:N/AC:H/PR:H/UI:R/S:C/C:N/I:N/A:N/E:H/RL:U/RC:C/CR:H/IR:H/AR:H/MAV:A/MAC:H/MPR:H/MUI:R/MS:C/MC:N/MI:N/MA:N',
-        {'version': '3.1', 'base': 0.0, 'temporal': 0.0, 'environmental': 0.0}
+        {'version': '3.1', 'base': 0.0, 'temporal': 0.0, 'environmental': 0.0, 'score': 0.0}
     ),
     (
+        # Base and temporal are zero, environmental and overall non-zero
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=(AV:N/AC:L/Au:N/C:N/I:N/A:N/E:U/RL:OF/RC:UC/CDP:H/TD:H/CR:H/IR:H/AR:H)
         '(AV:N/AC:L/Au:N/C:N/I:N/A:N/E:U/RL:OF/RC:UC/CDP:H/TD:H/CR:H/IR:H/AR:H)',
-        {'version': '2', 'base': 0.0, 'temporal': 0.0, 'environmental': 5.0}
+        {'version': '2', 'base': 0.0, 'temporal': 0.0, 'environmental': 5.0, 'score': 5.0}
     ),
     (
+        # CVSS 2, no temporal score, overall from environmental
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=(AV:N/AC:L/Au:N/C:N/I:N/A:N/CDP:H/TD:H/CR:H/IR:H/AR:H)
         '(AV:N/AC:L/Au:N/C:N/I:N/A:N/CDP:H/TD:H/CR:H/IR:H/AR:H)',
-        {'version': '2', 'base': 0.0, 'temporal': None, 'environmental': 5.0}
+        {'version': '2', 'base': 0.0, 'temporal': None, 'environmental': 5.0, 'score': 5.0}
+    ),
+    (
+        # CVSS 3.x, no environmental score, overall from temporal
+        # https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:A/AC:H/PR:H/UI:R/S:C/C:H/I:H/A:L/E:F/RL:U/RC:C&version=3.1
+        'CVSS:3.1/AV:A/AC:H/PR:H/UI:R/S:C/C:H/I:H/A:L/E:F/RL:U/RC:C',
+        {'version': '3.1', 'base': 7.2, 'temporal': 7.0, 'environmental': None, 'score': 7.0}
+    ),
+    (
+        # CVSS 2, no environmental score, overall from temporal
+        # https://nvd.nist.gov/vuln-metrics/cvss/v2-calculator?vector=(AV:N/AC:L/Au:N/C:N/I:N/A:N/CDP:H/TD:H/CR:H/IR:H/AR:H)
+        '(AV:N/AC:L/Au:N/C:C/I:N/A:N/E:POC/RL:ND/RC:ND)',
+        {'version': '2', 'base': 7.8, 'temporal': 7.0, 'environmental': None, 'score': 7.0}
     )
 ]
 

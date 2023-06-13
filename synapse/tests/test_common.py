@@ -417,5 +417,5 @@ class CommonTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.common', f'Error loading {cadir}/ca.key') as stream:
                 ctx = s_common.getSslCtx(cadir)
                 self.true(stream.wait(10))
-            stats = ctx.cert_store_stats()
-            self.eq(1, stats.get('x509_ca'))
+            ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
+            self.isin(((('commonName', 'test'),),), ca_subjects)
