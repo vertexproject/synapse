@@ -1582,7 +1582,7 @@ class Str(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
-        self.setNormFunc(float, self._normPyInt)
+        self.setNormFunc(float, self._normPyFloat)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
 
         self.storlifts.update({
@@ -1648,6 +1648,10 @@ class Str(Type):
 
     def _normPyInt(self, valu):
         return self._normPyStr(str(valu))
+
+    def _normPyFloat(self, valu):
+        deci = s_common.hugectx.create_decimal(str(valu))
+        return format(deci, 'f'), {}
 
     def _normPyStr(self, valu):
 
