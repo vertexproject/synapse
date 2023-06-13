@@ -1947,6 +1947,11 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return((1.23 <= $lib.cast(float, 2.34)))'))
             self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
 
+            self.eq(await core.callStorm('return(($lib.cast(str, (5.3 / 2))))'), '2.65')
+            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.0')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.00000000000000001))))'), '0.00000000000000001')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.3333333333333333')
+
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')
 
