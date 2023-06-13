@@ -40,7 +40,7 @@ Features and Enhancements
 - Add ``it:sec:cwe`` to the list of types identified with scrape APIs.
   (`#3182 <https://github.com/vertexproject/synapse/pull/3182>`_)
 - Update the calculations done by ``$lib.infosec.cvss.vectToScore()`` to more
-  closely emulate the NVD CVS calculator.
+  closely emulate the NVD CVSS calculator.
   (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
 
 Bugfixes
