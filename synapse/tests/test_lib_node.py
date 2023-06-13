@@ -449,3 +449,28 @@ class NodeTest(s_t_utils.SynTest):
                 await nodes[0].addEdge('foo', 'bar')
             with self.raises(s_exc.BadArg):
                 await nodes[0].delEdge('foo', 'bar')
+
+    async def test_node_delete(self):
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=foo +(baz)> { [test:str=baz] } ]')
+            await core.nodes('test:str=foo | delnode')
+            self.len(0, await core.nodes('test:str=foo'))
+
+            await core.nodes('[ test:str=foo <(bar)+ { test:str=foo } ]')
+            await core.nodes('test:str=foo | delnode')
+            self.len(0, await core.nodes('test:str=foo'))
+
+            edgeq = 'for $edge in $lib.layer.get().getEdges() { $lib.print($edge) }'
+
+            msgs = await core.stormlist(edgeq)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            await core.nodes('[ test:str=foo <(baz)+ { [test:str=baz] } ]')
+            await self.asyncraises(s_exc.CantDelNode, core.nodes('test:str=foo | delnode'))
+
+            await core.nodes('test:str=foo | delnode --force')
+            self.len(0, await core.nodes('test:str=foo'))
+
+            msgs = await core.stormlist(edgeq)
+            self.len(1, [m for m in msgs if m[0] == 'print'])

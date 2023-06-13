@@ -458,7 +458,7 @@ class Parser:
 
         self.offs = offs
         assert text is not None
-        self.text = text.strip()
+        self.text = text
         self.size = len(self.text)
 
     def _larkToSynExc(self, e):

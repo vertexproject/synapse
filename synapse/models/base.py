@@ -93,6 +93,8 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'The meta:ruleset includes the meta:rule.'}),
                 (('meta:rule', 'matches', None), {
                     'doc': 'The meta:rule has matched on target node.'}),
+                (('meta:rule', 'detects', None), {
+                    'doc': 'The meta:rule is designed to detect instances of the target node.'}),
             ),
             'forms': (
 

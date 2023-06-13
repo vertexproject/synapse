@@ -1469,8 +1469,11 @@ class SynTest(unittest.TestCase):
         This destroys the directory afterwards.
 
         Args:
-            mirror (str): A directory to mirror into the test directory.
-            startdir (str): The directory under which to place the temporary kdirectory
+            mirror (str): A Synapse test directory to mirror into the test directory.
+            copyfrom (str): An arbitrary directory to copy into the test directory.
+            chdir (boolean): If true, chdir the current process to that directory. This is undone when the context
+                             manager exits.
+            startdir (str): The directory under which to place the temporary directory
 
         Notes:
             The mirror argument is normally used to mirror test directory

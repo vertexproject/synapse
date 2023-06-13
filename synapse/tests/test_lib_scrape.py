@@ -65,6 +65,12 @@ and BOB@WOOT.COM is another
     bar.com．
 
     fxp.com
+
+    CWE # no match
+    CWE-1
+    CWE-12345678
+    CWE-123456789 # no match
+
 '''
 
 data1 = '''
@@ -316,7 +322,7 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(27, nodes)
+        self.len(29, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
@@ -344,6 +350,8 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:server', '5.6.7.8:16'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
+        nodes.remove(('it:sec:cwe', 'CWE-1'))
+        nodes.remove(('it:sec:cwe', 'CWE-12345678'))
         self.len(0, nodes)
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))

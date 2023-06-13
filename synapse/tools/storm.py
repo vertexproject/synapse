@@ -193,7 +193,7 @@ class ExportCmd(StormCliCmd):
 
         self.printf(f'exporting nodes')
 
-        queryopts = {}
+        queryopts = copy.deepcopy(self._cmd_cli.stormopts)
         if opts.include_tags:
             queryopts['scrub'] = {'include': {'tags': opts.include_tags}}
 

@@ -391,3 +391,14 @@ class ModelRevTest(s_tests.SynTest):
                 node = nodes[0]
                 self.none(node.get('type'))
                 self.eq(node.nodedata.get('_migrated:risk:vuln:type'), 'foo.bar...newp')
+
+    async def test_modelrev_0_2_20(self):
+
+        async with self.getRegrCore('model-0.2.20') as core:
+            self.len(1, await core.nodes('inet:user="visi@vertex.link" -> inet:url'))
+            self.len(1, await core.nodes('inet:passwd="secret@" -> inet:url'))
+
+            md5 = 'e66a62b251fcfbbc930b074503d08542'
+            nodes = await core.nodes(f'hash:md5={md5} -> file:bytes')
+            self.len(1, nodes)
+            self.eq(md5, nodes[0].props.get('mime:pe:imphash'))

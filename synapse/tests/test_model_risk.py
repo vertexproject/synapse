@@ -258,6 +258,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                     risk:compromise=*
+                    :vector=*
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
@@ -306,6 +307,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
+            self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
 
@@ -323,6 +325,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :org:loc=cn.shanghai
                     :org:name=apt1
                     :org:names=(comment crew,)
+                    :country={gen.pol.country ua}
+                    :country:code=ua
                     :goals=(*,)
                     :techniques=(*,)
                     :sophistication=high
@@ -334,12 +338,14 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vtx-apt1', nodes[0].get('name'))
             self.eq('VTX-APT1', nodes[0].get('desc'))
             self.eq('apt1', nodes[0].get('org:name'))
+            self.eq('ua', nodes[0].get('country:code'))
             self.eq('cn.shanghai', nodes[0].get('org:loc'))
             self.eq(('comment crew',), nodes[0].get('org:names'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
             self.eq('mandiant', nodes[0].get('reporter:name'))
             self.eq(40, nodes[0].get('sophistication'))
             self.nn(nodes[0].get('org'))
+            self.nn(nodes[0].get('country'))
             self.nn(nodes[0].get('reporter'))
             self.nn(nodes[0].get('merged:isnow'))
             self.eq((1325376000000, 1672531200000), nodes[0].get('active'))

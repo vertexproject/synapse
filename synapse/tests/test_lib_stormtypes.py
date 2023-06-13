@@ -1447,6 +1447,8 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('StormType List.length() is deprecated', msgs)
 
             # Reverse a list
             q = '$v=(foo,bar,baz) $v.reverse() return ($v)'
