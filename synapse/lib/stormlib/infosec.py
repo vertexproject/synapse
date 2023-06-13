@@ -2,6 +2,7 @@ import math
 import decimal
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 
@@ -229,6 +230,8 @@ def CVSS2_calc(vdict):
     UNDEFINED = CVSS_UNDEFINED[CVSS2_STR]
     COEFFS = CVSS_get_coefficients(vdict, CVSS2_STR)
 
+    OverallScore = None
+
     def _base(Impact):
         AccessVector = COEFFS['AV']
         AccessComplexity = COEFFS['AC']
@@ -251,6 +254,7 @@ def CVSS2_calc(vdict):
     Impact = 10.41 * (1 - (1 - ConfImpact) * (1 - IntegImpact) * (1 - AvailImpact))
 
     BaseScore = ROUND(_base(Impact))
+    OverallScore = BaseScore
 
     # Calculate the temporal score per the equation listed here:
     # https://www.first.org/cvss/v2/guide#3-2-2-Temporal-Equation
@@ -262,7 +266,9 @@ def CVSS2_calc(vdict):
     RL = vdict.get('RL', UNDEFINED)
     RC = vdict.get('RC', UNDEFINED)
 
-    if (E, RL, RC) == (UNDEFINED, UNDEFINED, UNDEFINED):
+    TemporalMetrics = (E, RL, RC)
+
+    if TemporalMetrics.count(UNDEFINED) == len(TemporalMetrics):
         TemporalScore = None
     else:
         TemporalScore = ROUND(BaseScore * Exploitability * RemediationLevel * ReportConfidence)
@@ -288,14 +294,31 @@ def CVSS2_calc(vdict):
     RemediationLevel = COEFFS['RL']
     ReportConfidence = COEFFS['RC']
 
-    AdjustedTemporal = ROUND(_base(AdjustedImpact) * Exploitability * RemediationLevel * ReportConfidence)
+    AdjustedTemporal = _base(AdjustedImpact) * Exploitability * RemediationLevel * ReportConfidence
 
     CollateralDamagePotential = COEFFS['CDP']
     TargetDistribution = COEFFS['TD']
 
-    EnvironmentalScore = ROUND((AdjustedTemporal + (10 - AdjustedTemporal) * CollateralDamagePotential) * TargetDistribution)
+    CDP = vdict.get('CDP', UNDEFINED)
+    TD = vdict.get('TD', UNDEFINED)
+    CR = vdict.get('CR', UNDEFINED)
+    IR = vdict.get('IR', UNDEFINED)
+    AR = vdict.get('AR', UNDEFINED)
 
-    return BaseScore, TemporalScore, EnvironmentalScore
+    EnvironmentalMetrics = (CDP, TD, CR, IR, AR)
+
+    if EnvironmentalMetrics.count(UNDEFINED) == len(EnvironmentalMetrics):
+        EnvironmentalScore = None
+    else:
+        EnvironmentalScore = ROUND((AdjustedTemporal + (10 - AdjustedTemporal) * CollateralDamagePotential) * TargetDistribution)
+
+    if TemporalScore:
+        OverallScore = TemporalScore
+
+    if EnvironmentalScore:
+        OverallScore = EnvironmentalScore
+
+    return BaseScore, TemporalScore, EnvironmentalScore, OverallScore
 
 def _CVSS3_calc(vdict, vers):
 
@@ -340,6 +363,8 @@ def _CVSS3_calc(vdict, vers):
         else:
             BaseScore = ROUND(min(1.08 * (Impact + Exploitability), 10.0))
 
+    OverallScore = BaseScore
+
     # Calculate the base score per the equation listed here:
     # https://www.first.org/cvss/v3.1/specification-document#7-2-Temporal-Metrics-Equations
 
@@ -350,7 +375,9 @@ def _CVSS3_calc(vdict, vers):
     RL = vdict.get('RL', UNDEFINED)
     RC = vdict.get('RC', UNDEFINED)
 
-    if (E, RL, RC) == (UNDEFINED, UNDEFINED, UNDEFINED):
+    TemporalMetrics = (E, RL, RC)
+
+    if TemporalMetrics.count(UNDEFINED) == len(TemporalMetrics):
         TemporalScore = None
 
     else:
@@ -399,8 +426,26 @@ def _CVSS3_calc(vdict, vers):
         ModifiedUserInteraction
     )
 
-    if ModifiedImpact <= 0:
+    MAV = vdict.get('MAV', UNDEFINED)
+    MAC = vdict.get('MAC', UNDEFINED)
+    MPR = vdict.get('MPR', UNDEFINED)
+    MUI = vdict.get('MUI', UNDEFINED)
+    MS = vdict.get('MS', UNDEFINED)
+    MC = vdict.get('MC', UNDEFINED)
+    MI = vdict.get('MI', UNDEFINED)
+    MA = vdict.get('MA', UNDEFINED)
+    CR = vdict.get('CR', UNDEFINED)
+    IR = vdict.get('IR', UNDEFINED)
+    AR = vdict.get('AR', UNDEFINED)
+
+    EnvironmentalMetrics = (MAV, MAC, MPR, MUI, MS, MC, MI, MA, CR, IR, AR)
+
+    if EnvironmentalMetrics.count(UNDEFINED) == len(EnvironmentalMetrics):
+        EnvironmentalScore = None
+
+    elif ModifiedImpact <= 0:
         EnvironmentalScore = 0.0
+
     else:
         ExploitCodeMaturity = COEFFS['E']
         RemediationLevel = COEFFS['RL']
@@ -424,7 +469,13 @@ def _CVSS3_calc(vdict, vers):
                 ReportConfidence
             )
 
-    return BaseScore, TemporalScore, EnvironmentalScore
+    if TemporalScore:
+        OverallScore = TemporalScore
+
+    if EnvironmentalScore:
+        OverallScore = EnvironmentalScore
+
+    return BaseScore, TemporalScore, EnvironmentalScore, OverallScore
 
 def CVSS3_0_calc(vdict):
     return _CVSS3_calc(vdict, CVSS3_0_STR)
@@ -559,8 +610,6 @@ class CvssLib(s_stormtypes.Lib):
             (defaults to CVSS3.1 if it cannot), and calculates the base, temporal,
             and environmental scores.
 
-            Note: This function does not add/delete/modify nodes in any way.
-
             Raises:
                 - BadArg: An invalid `vers` string is provided
                 - BadDataValu: The vector string is invalid in some way.
@@ -611,6 +660,11 @@ class CvssLib(s_stormtypes.Lib):
         }
 
     async def vectToProps(self, text):
+        s_common.deprecated('$lib.infosec.cvss.vectToProps()', '2.137.0', '3.0.0')
+        await self.runt.snap.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
+        return await self._vectToProps(text)
+
+    async def _vectToProps(self, text):
         text = await s_stormtypes.tostr(text)
         props = {}
 
@@ -638,7 +692,9 @@ class CvssLib(s_stormtypes.Lib):
         return props
 
     async def saveVectToNode(self, node, text):
-        props = await self.vectToProps(text)
+        s_common.deprecated('$lib.infosec.cvss.saveVectToNode()', '2.137.0', '3.0.0')
+        await self.runt.snap.warnonce('$lib.infosec.cvss.saveVectToNode() is deprecated.')
+        props = await self._vectToProps(text)
         for prop, valu in props.items():
             await node.set(prop, valu)
 
@@ -823,10 +879,12 @@ class CvssLib(s_stormtypes.Lib):
         vdict = validate(vect, detected)
 
         calc = CVSS_CALC[detected]
-        base, temporal, environmental = calc(vdict)
+        base, temporal, environmental, overall = calc(vdict)
 
         return {
             'version': detected,
+            'score': overall,
+
             'base': base,
             'temporal': temporal,
             'environmental': environmental

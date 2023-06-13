@@ -22,10 +22,10 @@ class PolModule(s_module.CoreModule):
                         'doc': 'A set of vital statistics about a country.'}),
 
                     ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
-                        'doc': 'The 2 digit ISO country code.', 'ex': 'us'}),
+                        'doc': 'The 2 digit ISO 3166 country code.', 'ex': 'us'}),
 
                     ('pol:iso3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}), {
-                        'doc': 'The 3 digit ISO country code.', 'ex': 'usa'}),
+                        'doc': 'The 3 digit ISO 3166 country code.', 'ex': 'usa'}),
 
                     ('pol:isonum', ('int', {}), {
                         'doc': 'The ISO integer country code.', 'ex': '840'}),

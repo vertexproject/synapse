@@ -8,6 +8,15 @@ class TransportModule(s_module.CoreModule):
                 ('transport:direction', ('hugenum', {'modulo': 360}), {
                     'doc': 'A direction measured in degrees with 0.0 being true North.'}),
 
+                ('transport:land:vehicle', ('guid', {}), {
+                    'doc': 'An individual vehicle.'}),
+
+                ('transport:land:registration', ('guid', {}), {
+                    'doc': 'Registration issued to a contact for a land vehicle.'}),
+
+                ('transport:land:license', ('guid', {}), {
+                    'doc': 'A license to operate a land vehicle issued to a contact.'}),
+
                 ('transport:air:craft', ('guid', {}), {
                     'doc': 'An individual aircraft.'}),
 
@@ -48,6 +57,53 @@ class TransportModule(s_module.CoreModule):
                 # ('transport:sea:port',
             ),
             'forms': (
+                ('transport:land:license', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The license ID.'}),
+                    # TODO type ( drivers license, commercial trucking, etc? )
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact info of the registrant.'}),
+                    ('issued', ('time', {}), {
+                        'doc': 'The time the license was issued.'}),
+                    ('expires', ('time', {}), {
+                        'doc': 'The time the license expires.'}),
+                    ('issuer', ('ou:org', {}), {
+                        'doc': 'The org which issued the license.'}),
+                    ('issuer:name', ('ou:name', {}), {
+                        'doc': 'The name of the org which issued the license.'}),
+                )),
+                ('transport:land:registration', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The vehicle registration ID or license plate.'}),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact info of the registrant.'}),
+                    ('license', ('transport:land:license', {}), {
+                        'doc': 'The license used to register the vehicle.'}),
+                    ('issued', ('time', {}), {
+                        'doc': 'The time the vehicle registration was issued.'}),
+                    ('expires', ('time', {}), {
+                        'doc': 'The time the vehicle registration expires.'}),
+                    ('vehicle', ('transport:land:vehicle', {}), {
+                        'doc': 'The vehicle being registered.'}),
+                    ('issuer', ('ou:org', {}), {
+                        'doc': 'The org which issued the registration.'}),
+                    ('issuer:name', ('ou:name', {}), {
+                        'doc': 'The name of the org which issued the registration.'}),
+                )),
+                ('transport:land:vehicle', {}, (
+                    ('serial', ('str', {'strip': True}), {
+                        'doc': 'The serial number or VIN of the vehicle.'}),
+                    ('built', ('time', {}), {
+                        'doc': 'The date the vehicle was constructed.'}),
+                    ('make', ('ou:name', {}), {
+                        'doc': 'The make of the vehicle.'}),
+                    ('model', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The model of the vehicle.'}),
+                    ('registration', ('transport:land:registration', {}), {
+                        'doc': 'The current vehicle registration information.'}),
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'The contact info of the owner of the vehicle.'}),
+                )),
                 ('transport:air:craft', {}, (
                     ('tailnum', ('transport:air:tailnum', {}), {
                         'doc': 'The aircraft tail number.'}),

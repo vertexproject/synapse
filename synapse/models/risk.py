@@ -145,20 +145,26 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The authoritative organization for the threat cluster.'}),
 
                     ('org:loc', ('loc', {}), {
-                        'doc': 'The reporting organization\'s assessed location of the threat cluster.'}),
+                        'doc': "The reporting organization's assessed location of the threat cluster."}),
 
                     ('org:name', ('ou:name', {}), {
                         'ex': 'apt1',
-                        'doc': 'The reporting organization\'s name for the threat cluster.'}),
+                        'doc': "The reporting organization's name for the threat cluster."}),
 
                     ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the threat cluster, according to the reporting organization.'}),
 
+                    ('country', ('pol:country', {}), {
+                        'doc': "The reporting organization's assessed country of origin of the threat cluster."}),
+
+                    ('country:code', ('pol:iso2', {}), {
+                        'doc': "The 2 digit ISO 3166 country code for the threat cluster's assessed country of origin."}),
+
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The reporting organization\'s assessed goals of the threat cluster.'}),
+                        'doc': "The reporting organization's assessed goals of the threat cluster."}),
 
                     ('sophistication', ('meta:sophistication', {}), {
-                        'doc': 'The reporting organization\'s assessed sophistication of the threat cluster.'}),
+                        'doc': "The reporting organization's assessed sophistication of the threat cluster."}),
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
@@ -568,6 +574,9 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
                         'doc': 'A type for the compromise, as a taxonomy entry.'}),
+
+                    ('vector', ('risk:attack', {}), {
+                        'doc': 'The attack assessed to be the initial compromise vector.'}),
 
                     ('target', ('ps:contact', {}), {
                         'doc': 'Contact information representing the target.'}),

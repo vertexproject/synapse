@@ -4562,6 +4562,9 @@ class List(Prim):
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
         return len(self)
 
     async def _methListSort(self, reverse=False):
@@ -5144,8 +5147,6 @@ class Query(Prim):
     _storm_typename = 'storm:query'
 
     def __init__(self, text, varz, runt, path=None):
-
-        text = text.strip()
 
         Prim.__init__(self, text, path=path)
 

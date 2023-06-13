@@ -3087,7 +3087,7 @@ class Layer(s_nexus.Pusher):
             elif stortype == STOR_TYPE_MAXTIME:
                 valu = max(valu, oldv)
 
-            if valu == oldv:
+            if valu == oldv and stortype == oldt:
                 return ()
 
             if oldt & STOR_FLAG_ARRAY:
