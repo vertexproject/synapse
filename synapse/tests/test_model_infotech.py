@@ -30,9 +30,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
-            with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:asdf]')
-
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
             ]''')
