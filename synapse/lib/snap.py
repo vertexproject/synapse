@@ -1317,7 +1317,7 @@ class Snap(s_base.Base):
 
         async for edge in s_common.merggenr2(gens):
 
-            if edge == last:
+            if edge == last: # pragma: no cover
                 await asyncio.sleep(0)
                 continue
 
@@ -1331,7 +1331,7 @@ class Snap(s_base.Base):
 
         async for edge in s_common.merggenr2(gens):
 
-            if edge == last:
+            if edge == last: # pragma: no cover
                 await asyncio.sleep(0)
                 continue
 
