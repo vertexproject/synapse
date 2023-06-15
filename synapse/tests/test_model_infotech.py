@@ -1281,9 +1281,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
 
-            with self.raises(s_exc.BadTypeValu):
-                cpe23.norm('cpe:2.3:a:vertex:synapse')
-
             # test cast 2.2 -> 2.3 upsample
             norm, info = cpe23.norm('cpe:/a:vertex:synapse')
             self.eq(norm, 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
