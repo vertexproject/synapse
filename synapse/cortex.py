@@ -3042,7 +3042,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if code is None:
             return
 
-        vars = evnt.get('vars')
+        vars = evnt.get('vars', {})
 
         vars['cmdconf'] = {'svciden': iden}
         opts = {'vars': vars}
