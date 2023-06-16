@@ -1358,10 +1358,9 @@ class Axon(s_cell.Cell):
         feedtask = None
 
         try:
-            todo = s_common.todo(_spawn_readlines, sock00)
             async with await s_base.Base.anit() as scope:
 
-                scope.schedCoro(s_coro.forked(todo, log_conf=await self._getSpawnLogConf()))
+                scope.schedCoro(s_coro.forked(_spawn_readlines, sock00))
                 feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
@@ -1392,10 +1391,9 @@ class Axon(s_cell.Cell):
         feedtask = None
 
         try:
-            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
             async with await s_base.Base.anit() as scope:
 
-                scope.schedCoro(s_coro.forked(todo, log_conf=await self._getSpawnLogConf()))
+                scope.schedCoro(s_coro.forked(_spawn_readrows, sock00, dialect, fmtparams))
                 feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
