@@ -3034,7 +3034,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
-        evnt = sdef.get('evts', {}).get(name, None)
+        evnt = sdef.get('evts', {}).get(name)
         if evnt is None:
             return
 
