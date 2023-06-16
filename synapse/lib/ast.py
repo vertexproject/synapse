@@ -421,10 +421,8 @@ class SubGraph:
                 yield (pivonode, path.fork(pivonode))
 
         for pivq in self.rules.get('pivots'):
-
             async for pivo in node.storm(runt, pivq):
                 yield pivo
-            await asyncio.sleep(0)
 
         rules = self.rules['forms'].get(node.form.name)
         if rules is None:
@@ -436,7 +434,6 @@ class SubGraph:
         for pivq in rules.get('pivots', ()):
             async for pivo in node.storm(runt, pivq):
                 yield pivo
-            await asyncio.sleep(0)
 
     async def run(self, runt, genr):
 
@@ -466,8 +463,9 @@ class SubGraph:
 
             async for node, path, dist in todogenr():
 
+                await asyncio.sleep(0)
+
                 if node.buid in done:
-                    await asyncio.sleep(0)
                     continue
 
                 await done.add(node.buid)
@@ -478,7 +476,6 @@ class SubGraph:
                     omitted = await self.omit(runt, node)
 
                 if omitted and not yieldfiltered:
-                    await asyncio.sleep(0)
                     continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
@@ -486,6 +483,8 @@ class SubGraph:
 
                 pivoedges = set()
                 async for pivn, pivp in self.pivots(runt, node, path):
+
+                    await asyncio.sleep(0)
 
                     pivoedges.add(pivn.iden())
 
@@ -511,6 +510,7 @@ class SubGraph:
                 if doedges:
                     async for verb, n2iden in node.iterEdgesN1():
                         edges.append((n2iden, {'verb': verb}))
+                        await asyncio.sleep(0)
 
                 path.meta('edges', edges)
                 yield node, path
