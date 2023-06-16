@@ -50,7 +50,7 @@ Bugfixes
 - Fix an issue where the ``file:bytes:sha256`` property set handler could fail
   during data merging.
   (`#3180 <https://github.com/vertexproject/synapse/pull/3180>`_)
-- Fix an issue where iterating light edges on Nodes could result in degraded
+- Fix an issue where iterating light edges on nodes could result in degraded
   Cortex performance.
   (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
 
