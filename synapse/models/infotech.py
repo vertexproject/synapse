@@ -112,6 +112,10 @@ class Cpe23Str(s_types.Str):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
             parts = cpesplit(text[8:])
+            if len(parts) > 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
+                raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
         elif text.startswith('cpe:/'):
