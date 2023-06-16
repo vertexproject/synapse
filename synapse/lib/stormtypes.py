@@ -3052,17 +3052,12 @@ class LibPipe(Lib):
 
         pipe = Pipe(self.runt, size)
 
-        varz = self.runt.vars.copy()
-        varz['pipe'] = pipe
-
-        opts = {'vars': varz}
-
+        opts = {'vars': {'pipe': pipe}}
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getModRuntime(query, opts=opts)
 
         async def coro():
             try:
-                async with runt:
+                async with self.runt.getSubRuntime(query, opts=opts) as runt:
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
