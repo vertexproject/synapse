@@ -18,7 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-v2.138.0 - 2023-06-13
+v2.139.0 - 2023-06-16
 =====================
 
 Announcement
@@ -34,6 +34,34 @@ If you currently deploy Synapse Open-Source or Synapse Enterprise via
 the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
+
+Model Changes
+-------------
+- Update ``it:sec:cpe`` normalization to extend truncated CPE2.3 strings.
+  (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
+
+Features and Enhancements
+-------------------------
+- The ``str`` type now accepts ``float`` values to normalize.
+  (`#3174 <https://github.com/vertexproject/synapse/pull/3174>`_)
+
+Bugfixes
+--------
+- Fix an issue where the ``file:bytes:sha256`` property set handler could fail
+  during data merging.
+  (`#3180 <https://github.com/vertexproject/synapse/pull/3180>`_)
+- Fix an issue where iterating light edges on Nodes could result in degraded
+  Cortex performance.
+  (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide to include additional examples for setting up
+  user and role permissions.
+  (`#3187 <https://github.com/vertexproject/synapse/pull/3187>`_)
+
+v2.138.0 - 2023-06-13
+=====================
 
 Features and Enhancements
 -------------------------
