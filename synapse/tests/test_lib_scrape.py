@@ -704,3 +704,15 @@ class ScrapeTest(s_t_utils.SynTest):
             offs = r.get('offset')
             fv = data3[offs:offs + len(erv)]
             self.eq(erv, fv)
+
+    def test_scrape_cpe(self):
+        print('SCRAPE GOT:')
+        cpedata = '''
+        cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*
+        cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:foo
+        cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*:baz
+        cpe:2.3:a:vertex:synapse:*:*:*:*:*:baz
+        '''
+        nodes = sorted(set(s_scrape.scrape(cpedata)))
+        for node in nodes:
+            print(node)
