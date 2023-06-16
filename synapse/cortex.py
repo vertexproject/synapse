@@ -3034,12 +3034,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'No storm service with iden: {iden}'
             raise s_exc.NoSuchStormSvc(mesg=mesg)
 
-        evnt = sdef.get('evts', {}).get(name, {}).get('storm')
+        evnt = sdef.get('evts', {}).get(name, None)
         if evnt is None:
             return
 
-        opts = {'vars': {'cmdconf': {'svciden': iden}}}
-        coro = s_common.aspin(self.storm(evnt, opts=opts))
+        code = evnt.get('storm')
+        if code is None:
+            return
+
+        vars = evnt.get('vars')
+
+        vars['cmdconf'] = {'svciden': iden}
+        opts = {'vars': vars}
+        coro = s_common.aspin(self.storm(code, opts=opts))
         if name == 'add':
             await coro
         else:

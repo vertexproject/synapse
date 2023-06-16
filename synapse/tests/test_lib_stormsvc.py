@@ -163,7 +163,8 @@ class RealService(s_stormsvc.StormSvc):
 
     _storm_svc_evts = {
         'add': {
-            'storm': '$lib.queue.add(vertex)',
+            'storm': '$lib.queue.add($name)',
+            'vars': {'name': 'vertex'}
         },
         'del': {
             'storm': '$que=$lib.queue.get(vertex) $que.put(done)',
