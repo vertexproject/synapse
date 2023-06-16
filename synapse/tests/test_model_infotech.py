@@ -35,8 +35,6 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
             self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
-            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse:: ]')
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*

@@ -118,7 +118,6 @@ class Cpe23Str(s_types.Str):
 
             extsize = 11 - len(parts)
             parts.extend(['*' for _ in range(extsize)])
-            parts = [p if p else '*' for p in parts]
         elif text.startswith('cpe:/'):
             # automatically normalize CPE 2.2 format to CPE 2.3
             parts = chopCpe22(text)
