@@ -154,7 +154,7 @@ commands:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip twine
+            python3 -m pip install -U wheel pip twine build
             python3 -m pip install -U -r requirements_dev.txt
 
       - save_cache:
@@ -185,7 +185,7 @@ commands:
           command: |
             . venv/bin/activate
             python ./scripts/replace_commit.py
-            python setup.py sdist
+            python -m build --sdist
 
       - run:
           name: smoke packages
@@ -209,7 +209,7 @@ commands:
           command: |
             . venv/bin/activate
             python ./scripts/replace_commit.py
-            python setup.py bdist_wheel --python-tag=$PYTHON_TAG
+            python -m build --wheel "-C=--build-option=--python-tag $PYTHON_TAG"
 
       - run:
           name: smoke packages
