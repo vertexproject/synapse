@@ -11,7 +11,7 @@ authors = [
 ]
 description = 'Synapse Intelligence Analysis Framework'
 readme = 'README.rst'
-requires-python = '>=3.11,<3.12'
+requires-python = '>=3.11'
 license = { text = 'Apache License 2.0' }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -96,4 +96,4 @@ include-package-data = true
 ]
 
 [tool.setuptools.packages.find]
-include = ["synapse*"]  # package names should match these glob patterns (["*"] by default)
+include = ["synapse*"]
