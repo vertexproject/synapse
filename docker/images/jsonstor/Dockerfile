@@ -2,8 +2,7 @@
 FROM vertexproject/vtx-base-image:py311
 
 COPY synapse /build/synapse/synapse
-COPY setup.py /build/synapse/setup.py
-COPY MANIFEST.in /build/synapse/MANIFEST.in
+COPY pyproject.toml /build/synapse/pyproject.toml
 
 COPY docker/rmlist.txt /build/synapse/rmlist.txt
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
