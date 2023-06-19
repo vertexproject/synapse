@@ -1,16 +1,17 @@
 [build-system]
-requires = ['setuptools']
+requires = ['setuptools>=68.0.0', 'wheel']
+
 build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
 version = '2.139.0'
 authors = [
-    { name = 'The Vertex Project LLC', email = 'root@vertex.link''},
+    { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
 description = 'Synapse Intelligence Analysis Framework'
 readme = 'README.rst'
-requires-python = '=3.11'
+requires-python = '>=3.11,<3.12'
 license = { text = 'Apache License 2.0' }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -77,7 +78,22 @@ docs = [
 ]
 
 [project.urls]
-Homepage = 'https://vertex.link
+Homepage = 'https://vertex.link'
 Documentation = 'https://synapse.docs.vertex.link'
 Repository = 'https://github.com/vertexproject/synapse'
 Changelog = 'https://synapse.docs.vertex.link/en/latest/synapse/changelog.html'
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+'synapse' = [
+    'data/*.mpk',
+    'data/certs*',
+    'lib/storm.lark',
+    'tests/files/*',
+    'vendor/*/LICENSE'
+]
+
+[tool.setuptools.packages.find]
+include = ["synapse*"]  # package names should match these glob patterns (["*"] by default)
