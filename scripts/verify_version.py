@@ -2,7 +2,7 @@ import os
 import sys
 import tomllib
 
-# Ensure
+# Ensure our CI tag value matches our pyproject.toml value
 
 def main(argv):
     envar = 'CIRCLE_TAG'
