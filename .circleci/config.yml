@@ -87,9 +87,7 @@ commands:
           name: install synapse requirements
           command: |
             . venv/bin/activate
-            python3 setup.py egg_info
-            grep -v -E "^\[" synapse.egg-info/requires.txt > _requirements.txt
-            python3 -m pip install -U --upgrade-strategy=eager -r _requirements.txt
+            python3 -m pip install -U --upgrade-strategy=eager -r requirements_doc.txt
 
       - save_cache:
           paths:
