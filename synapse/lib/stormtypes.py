@@ -953,7 +953,6 @@ class LibTags(Lib):
             Normalize and prefix a list of syn:tag:part values so they can be applied.
 
             Examples:
-
                 Add tag prefixes and then use them to tag nodes::
 
                     $tags = $lib.tags.prefix($result.tags, vtx.visi)
@@ -3053,17 +3052,12 @@ class LibPipe(Lib):
 
         pipe = Pipe(self.runt, size)
 
-        varz = self.runt.vars.copy()
-        varz['pipe'] = pipe
-
-        opts = {'vars': varz}
-
+        opts = {'vars': {'pipe': pipe}}
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getModRuntime(query, opts=opts)
 
         async def coro():
             try:
-                async with runt:
+                async with self.runt.getSubRuntime(query, opts=opts) as runt:
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
@@ -4059,6 +4053,7 @@ class Bytes(Prim):
 
             Example:
                 Compress bytes with gzip::
+
                     $foo = $mybytez.gzip()''',
          'type': {'type': 'function', '_funcname': '_methGzip',
                   'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.', }}},
@@ -4070,6 +4065,7 @@ class Bytes(Prim):
 
             Example:
                 Load bytes to a object::
+
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
@@ -4103,8 +4099,9 @@ class Bytes(Prim):
             Unpack structures from bytes using python struct.unpack syntax.
 
             Examples:
-                # unpack 3 unsigned 16 bit integers in little endian format
-                ($x, $y, $z) = $byts.unpack("<HHH")
+                Unpack 3 unsigned 16 bit integers in little endian format::
+
+                    ($x, $y, $z) = $byts.unpack("<HHH")
             ''',
          'type': {'type': 'function', '_funcname': 'unpack',
                   'args': (
@@ -4560,6 +4557,9 @@ class List(Prim):
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
         return len(self)
 
     async def _methListSort(self, reverse=False):
@@ -4804,7 +4804,25 @@ class Number(Prim):
         mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
-    __rpow__ = __pow__
+    def __rpow__(self, othr):
+        othr = Number(othr)
+        return othr.__pow__(self)
+
+    def __mod__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, Number):
+            return Number(s_common.hugemod(self.value(), othr.value())[1])
+
+        mesg = f"'%' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rmod__(self, othr):
+        othr = Number(othr)
+        return othr.__mod__(self)
 
     async def stormrepr(self):
         return str(self.value())
@@ -4827,9 +4845,9 @@ class LibUser(Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': 'Get a Hive dictionary representing the current users persistent variables.',
+        {'name': 'vars', 'desc': "Get a Hive dictionary representing the current user's persistent variables.",
          'type': 'storm:hive:dict', },
-        {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
+        {'name': 'profile', 'desc': "Get a Hive dictionary representing the current user's profile information.",
          'type': 'storm:hive:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
@@ -5124,8 +5142,6 @@ class Query(Prim):
     _storm_typename = 'storm:query'
 
     def __init__(self, text, varz, runt, path=None):
-
-        text = text.strip()
 
         Prim.__init__(self, text, path=path)
 
@@ -6338,7 +6354,7 @@ class Layer(Prim):
         formname = await tostr(formname, noneok=True)
 
         if formname is not None and self.runt.snap.core.model.form(formname) is None:
-            raise s_exc.NoSuchForm(formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
@@ -7421,8 +7437,8 @@ class LibUsers(Lib):
          'type': {'type': 'function', '_funcname': '_methUsersAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
-                      {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
-                      {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                      {'name': 'passwd', 'type': 'str', 'desc': "The user's password.", 'default': None, },
+                      {'name': 'email', 'type': 'str', 'desc': "The user's email address.", 'default': None, },
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
                   'returns': {'type': 'storm:auth:user',
@@ -8036,6 +8052,34 @@ class UserJson(Prim):
             yield path, item
 
 @registry.registerType
+class UserVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of User vars information.
+    '''
+    _storm_typename = 'storm:auth:user:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    async def deref(self, name):
+        return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
+
+    async def setitem(self, name, valu):
+        if valu is undef:
+            await self.runt.snap.core.popUserVarValu(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
+
+    async def iter(self):
+        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+            yield name, copy.deepcopy(valu)
+            await asyncio.sleep(0)
+
+@registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -8183,20 +8227,20 @@ class User(Prim):
                   'returns': {'type': 'list',
                               'desc': 'A list of ``storm:auth:gates`` that the user has rules for.', }}},
         {'name': 'name', 'desc': '''
-        A users name. This can also be used to set a users name.
+        A user's name. This can also be used to set a user's name.
 
         Example:
-                Change a users name::
+                Change a user's name::
 
                     $user=$lib.auth.users.byname(bob) $user.name=robert
         ''',
          'type': {'type': 'stor', '_storfunc': '_storUserName',
                   'returns': {'type': 'str', }}},
         {'name': 'email', 'desc': '''
-        A users email. This can also be used to set the users email.
+        A user's email. This can also be used to set the user's email.
 
         Example:
-                Change a users email address::
+                Change a user's email address::
 
                     $user=$lib.auth.users.byname(bob) $user.email="robert@bobcorp.net"
         ''',
@@ -8215,7 +8259,11 @@ class User(Prim):
                 $user=$lib.auth.users.byname(bob) $value = $user.profile.somekey
         ''',
         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
-                  'returns': {'type': 'storm:auth:user:profile', }}},
+                 'returns': {'type': 'storm:auth:user:profile', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the user's persistent variables.",
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
+                  'returns': {'type': 'storm:auth:user:vars'}}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -8233,6 +8281,7 @@ class User(Prim):
         })
         self.ctors.update({
             'json': self._ctorUserJson,
+            'vars': self._ctorUserVars,
             'profile': self._ctorUserProfile,
         })
 
@@ -8244,6 +8293,12 @@ class User(Prim):
 
     def _ctorUserProfile(self, path=None):
         return UserProfile(self.runt, self.valu)
+
+    def _ctorUserVars(self, path=None):
+        if self.runt.user.iden != self.valu and not self.runt.isAdmin():
+            mesg = '$user.vars requires admin privs when $user is not the current user.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        return UserVars(self.runt, self.valu)
 
     def getObjLocals(self):
         return {
@@ -8491,10 +8546,10 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'name', 'desc': '''
-            A roles name. This can also be used to set the role name.
+            A role's name. This can also be used to set the role name.
 
             Example:
-                    Change a roles name::
+                    Change a role's name::
 
                         $role=$lib.auth.roles.byname(analyst) $role.name=superheroes
             ''',

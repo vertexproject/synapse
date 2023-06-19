@@ -3087,7 +3087,7 @@ class Layer(s_nexus.Pusher):
             elif stortype == STOR_TYPE_MAXTIME:
                 valu = max(valu, oldv)
 
-            if valu == oldv:
+            if valu == oldv and stortype == oldt:
                 return ()
 
             if oldt & STOR_FLAG_ARRAY:
@@ -3249,6 +3249,15 @@ class Layer(s_nexus.Pusher):
         if tp_dict:
             oldv, oldt = tp_dict.get(prop, (None, None))
             if oldv is not None:
+
+                if stortype == STOR_TYPE_IVAL:
+                    valu = (min(*oldv, *valu), max(*oldv, *valu))
+
+                elif stortype == STOR_TYPE_MINTIME:
+                    valu = min(valu, oldv)
+
+                elif stortype == STOR_TYPE_MAXTIME:
+                    valu = max(valu, oldv)
 
                 if valu == oldv and stortype == oldt:
                     return ()

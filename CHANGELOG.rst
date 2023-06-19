@@ -18,7 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-v2.135.0 - 2023-05-24
+v2.139.0 - 2023-06-16
 =====================
 
 Announcement
@@ -35,8 +35,309 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-Features
+Model Changes
+-------------
+- Update ``it:sec:cpe`` normalization to extend truncated CPE2.3 strings.
+  (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
+
+Features and Enhancements
+-------------------------
+- The ``str`` type now accepts ``float`` values to normalize.
+  (`#3174 <https://github.com/vertexproject/synapse/pull/3174>`_)
+
+Bugfixes
 --------
+- Fix an issue where the ``file:bytes:sha256`` property set handler could fail
+  during data merging.
+  (`#3180 <https://github.com/vertexproject/synapse/pull/3180>`_)
+- Fix an issue where iterating light edges on nodes could result in degraded
+  Cortex performance.
+  (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide to include additional examples for setting up
+  user and role permissions.
+  (`#3187 <https://github.com/vertexproject/synapse/pull/3187>`_)
+
+v2.138.0 - 2023-06-13
+=====================
+
+Features and Enhancements
+-------------------------
+- Add ``it:sec:cwe`` to the list of types identified with scrape APIs.
+  (`#3182 <https://github.com/vertexproject/synapse/pull/3182>`_)
+- Update the calculations done by ``$lib.infosec.cvss.vectToScore()`` to more
+  closely emulate the NVD CVSS calculator.
+  (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
+
+Bugfixes
+--------
+- Fix an issue with ``synapse.tools.storm`` where the ``!export`` command did
+  not use the view specified when starting the tool.
+  (`#3184 <https://github.com/vertexproject/synapse/pull/3184>`_)
+- The ``synapse.common.getSslCtx()`` API now only attempts to load files in
+  the target directory. This avoids confusing errors that may be logged when
+  the target directory contains sub directories.
+  (`#3179 <https://github.com/vertexproject/synapse/pull/3179>`_)
+- Fix an edge case in ``$lib.infosec.cvss.vectToScore()``  when calculating
+  CVSS v2 scores.
+  (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
+
+Deprecations
+------------
+- Mark the Python function ``synapse.common.lockfile()`` as deprecated. It
+ will be removed in ``v2.140.0``.
+  (`#3183 <https://github.com/vertexproject/synapse/issue/3183>`_)
+
+v2.137.0 - 2023-06-09
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate any ``inet:url`` nodes with ``:user`` and ``:passwd`` properties
+  which may have been URL encoded. These values are now decoded.
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+- Migrate the storage type for the ``file:bytes:mime:pe:imphash`` property.
+  (`#3173 <https://github.com/vertexproject/synapse/pull/3173>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Updates to the ``geospace``, ``inet``, ``infotech``, ``org``, ``risk``,
+  and ``transport`` models.
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+
+  New Types
+  ---------
+
+  ``it:mitre:attack:matrix``
+    Add a type to capture the enumeration of MITRE ATT&CK matrix values.
+
+  New Forms
+  ---------
+
+  ``inet:egress``
+    Add a form to capture a host using a specific network egress client
+    address.
+
+  ``it:prod:softreg``
+    Add a form to capture a registry entry is created by a specific software
+    version.
+
+  ``transport:land:vehicle``
+    Add a form to capture an individual vehicle.
+
+  ``transport:land:registration``
+    Add a form to capture the registration issued to a contact for a land
+    vehicle.
+
+  ``transport:land:license``
+    Add a form to capture the license to operate a land vehicle issued to a
+    contact.
+
+  New Properties
+  --------------
+
+  ``inet:http:request``
+    The form had the following property added to it:
+
+    ``referer``
+      The referer URL parsed from the "Referer:" header in the request.
+
+  ``inet:search:query``
+    The form had the following property added to it:
+
+    ``request``
+      The HTTP request used to issue the query.
+
+  ``it:mitre:attack:tactic``
+    The form had the following property added to it:
+
+    ``matrix``
+      The ATT&CK matrix which defines the tactic.
+
+  ``it:mitre:attack:technique``
+    The form had the following property added to it:
+
+    ``matrix``
+      The ATT&CK matrix which defines the technique.
+
+  ``it:mitre:attack:mitigation``
+    The form had the following property added to it:
+
+    ``matrix``
+      The ATT&CK matrix which defines the mitigation.
+
+  ``it:app:snort:rule``
+    The form had the following property added to it:
+
+    ``engine``
+      The snort engine ID which can parse and evaluate the rule text.
+
+  ``it:app:yara:rule``
+    The form had the following properties added to it:
+
+    ``ext:id``
+      The YARA rule ID from an external system.
+
+    ``url``
+      A URL which documents the YARA rule.
+
+  ``ou:campaign``
+    The form had the following property added to it:
+
+    ``tag``
+      The tag used to annotate nodes that are associated with the campaign.
+
+  ``ou:org``
+    The form had the following properties added to it:
+
+      ``country``
+        The organization's country of origin.
+
+      ``country:code``
+        The 2 digit ISO 3166 country code for the organization's country of
+        origin.
+
+  ``risk:threat``
+    The form had the following properties added to it:
+
+      ``country``
+        The reporting organization's assessed country of origin of the threat
+        cluster.
+
+      ``country:code``
+        The 2 digit ISO 3166 country code for the threat cluster's assessed
+        country of origin.
+
+  ``risk:compromise``
+    The form had the following property added to it:
+
+    ``vector``
+      The attack assessed to be the initial compromise vector.
+
+  Light Edges
+  -----------
+
+  ``detects``
+    When used with a ``meta:rule`` node, the edge indicates the rule was
+    designed to detect instances of the target node.
+
+    When used with an ``it:app:snort:rule`` node, the edge indicates the rule
+    was designed to detect instances of the target node.
+
+    When used with an ``it:app:yara:rule`` node, the edge indicates the rule
+    was designed to detect instances of the target node.
+
+  ``contains``
+    When used between two ``geo:place`` nodes, the edge indicates the source
+    place completely contains the target place.
+
+
+  Deprecated Properties
+  ---------------------
+
+  ``geo:place``
+    The form had the following property marked as deprecated:
+
+    * ``parent``
+
+Features and Enhancements
+-------------------------
+- Add a modulo arithmetic operator ( ``%`` ) to Storm expression parsing.
+  (`#3168 <https://github.com/vertexproject/synapse/pull/3168>`_)
+- Add ``$lib.auth.easyperm`` Storm library for interacting with objects that
+  use a simplified permissions model.
+  (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
+- Add  ``.vars`` attribute to the Storm ``storm:auth:user`` object. This can
+  be used to access user variables.
+  (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
+- Add ``$lib.infosec.cvss.vectToScore()`` to calculate CVSS scores.
+  (`#3171 <https://github.com/vertexproject/synapse/pull/3171>`_)
+- The Storm ``delnode`` command node now requires the use of ``--force`` to
+  delete a node which has lightweight edges pointing to it.
+  (`#3176 <https://github.com/vertexproject/synapse/pull/3176>`_)
+- The STIX export configuration may now include a ``synapse_extension`` value
+  set to ``$lib.false`` to disable the Synapse STIX extension data from being
+  added to objects in the bundle.
+  (`#3177 <https://github.com/vertexproject/synapse/pull/3177>`_)
+- Remove whitespace stripping from Storm queries prior to parsing them. This
+  allows any error highlighting information to accurately reflect the query
+  submitted to the Cortex.
+  (`#3175 <https://github.com/vertexproject/synapse/pull/3175>`_)
+
+Bugfixes
+--------
+- Fix an issue where raising an integer value to a fractional power
+  in Storm was not handled correctly.
+  (`#3170 <https://github.com/vertexproject/synapse/pull/3170>`_)
+- Handle a SyntaxError that may occur during Storm parsing due to a change
+  in CPython 3.11.4.
+  (`#3170 <https://github.com/vertexproject/synapse/pull/3170>`_)
+- The ``inet:url`` type now URL decodes the ``user`` and ``passwd``
+  properties when normalizing them. Thank you ``captainGeech42`` for the
+  bug report.
+  (`#2568 <https://github.com/vertexproject/synapse/issue/2568>`_)
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+- The URL parser in ``synapse.lib.urlhelp`` now URL decodes the ``user``
+  and ``passwd`` values when parsing URLs.
+  (`#3178 <https://github.com/vertexproject/synapse/issue/3178>`_)
+
+Deprecations
+------------
+- Mark the Storm functions ``$lib.infosec.cvss.saveVectToNode()`` and
+  ``$lib.infosec.cvss.vectToProps()`` as deprecated.
+  (`#3178 <https://github.com/vertexproject/synapse/issue/3178>`_)
+
+v2.136.0 - 2023-06-02
+=====================
+
+Model Changes
+-------------
+- Boolean values in the Synapse model now have lowercase ``true`` and
+  ``false`` repr values.
+  (`#3159 <https://github.com/vertexproject/synapse/pull/3159>`_)
+- The trailing ``.`` on the taxonomy repr has been removed.
+  (`#3159 <https://github.com/vertexproject/synapse/pull/3159>`_)
+
+Features and Enhancements
+-------------------------
+- Normalize tag names when performing lift and filter operations.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Add ``$lib.compression.bzip2``, ``$lib.compression.gzip``, and
+  ``$lib.compression.zlib`` Storm libraries to assist with compressing
+  and decompressing bytes.
+  (`#3155 <https://github.com/vertexproject/synapse/pull/3155>`_)
+  (`#3162 <https://github.com/vertexproject/synapse/pull/3162>`_)
+- Add a new Cell configuration option, ``https:parse:proxy:remoteip``. When
+  this is set to ``true``, the Cell HTTPS server will parse
+  ``X-Forwarded-For`` and ``X-Real-IP`` headers to determine the remote IP
+  of an request.
+  (`#3160 <https://github.com/vertexproject/synapse/pull/3160>`_)
+- Update the allowed versions of the ``fastjsonschema`` and ``pycryptodome``
+  libraries. Update the required version of the ``vcrpy`` library to account
+  for changes in ``urllib3``. Remove the pinned requirement for the
+  ``requests`` library.
+  (`#3164 <https://github.com/vertexproject/synapse/pull/3164>`_)
+
+Bugfixes
+--------
+- Prevent zero length tag lift operations.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
+- Fix an issue where tag properties with the type ``ival``, or ``time``
+  types with ``ismin`` or ``ismax`` options set, were not properly merged
+  when being set.
+  (`#3161 <https://github.com/vertexproject/synapse/pull/3161>`_)
+- Fix a missing ``mesg`` value on ``NoSuchForm`` exception raised by
+  the ``storm:layer`` ``liftByTag()`` API.
+  (`#3165 <https://github.com/vertexproject/synapse/pull/3165>`_)
+
+v2.135.0 - 2023-05-24
+=====================
+
+Features and Enhancements
+-------------------------
 - Add a ``--index`` option to the Storm ``auth.user.grant`` command.
   (`#3150 <https://github.com/vertexproject/synapse/pull/3150>`_)
 - Add additional type handling in the Storm view and layer ``set()`` APIs.
@@ -48,6 +349,9 @@ Features
 
 Bugfixes
 --------
+- Fix an issue where attempting a tag lift with a variable containing
+  a zero-length string would raise an MDB error.
+  (`#3094 <https://github.com/vertexproject/synapse/pull/3094>`_)
 - Fix an issue in the Axon ``csvrows()`` and ``readlines()`` APIs
   where certain exceptions would not be raised.
   (`#3141 <https://github.com/vertexproject/synapse/pull/3141>`_)

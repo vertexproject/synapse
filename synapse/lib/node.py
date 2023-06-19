@@ -659,6 +659,15 @@ class Node:
                 return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
                                                       iden=self.iden())
 
+            async for edge in self.iterEdgesN2():
+
+                if self.iden() == edge[1]:
+                    continue
+
+                mesg = 'Other nodes still have light edges to this node.'
+                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
+                                                      iden=self.iden())
+
         edits = []
         for tag in tags:
             edits.extend(await self._getTagDelEdits(tag, init=True))

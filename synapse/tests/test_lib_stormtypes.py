@@ -329,6 +329,31 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe))'))
             self.false(await core.callStorm('return($lib.auth.users.byname(visi).json.has(hehe))'))
 
+    async def test_stormtypes_uservars(self):
+
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            othr = await core.auth.addUser('othr')
+            asothr = {'user': othr.iden}
+
+            await core.callStorm('$lib.user.vars.set(foo, foovalu)', opts=asvisi)
+
+            q = 'return($lib.auth.users.byname(visi).vars.foo)'
+            self.eq('foovalu', await core.callStorm(q, opts=asvisi))
+
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=asothr))
+
+            await core.callStorm('$lib.auth.users.byname(visi).vars.foo=barvalu')
+
+            q = 'for $valu in $lib.auth.users.byname(visi).vars { $lib.print($valu) }'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("('foo', 'barvalu')", msgs)
+
+            await core.callStorm('$lib.auth.users.byname(visi).vars.foo=$lib.undef')
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).vars.foo)'))
+
     async def test_stormtypes_registry(self):
 
         class NewpType(s_stormtypes.StormType):
@@ -1422,6 +1447,8 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('StormType List.length() is deprecated', msgs)
 
             # Reverse a list
             q = '$v=(foo,bar,baz) $v.reverse() return ($v)'
@@ -3877,9 +3904,9 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('trigger.list')
             self.stormHasNoWarnErr(msgs)
             trgs = ('iden                             en?    async? cond      object',
-                    '8af9a5b134d08fded3edb667f8d8bbc2 True   True   tag:add   inet:ipv4',
-                    '99b637036016dadd6db513552a1174b8 True   False  tag:add            ',
-                    'bc1cbf350d151bba5936e6654dd13ff5 True   False  node:add  inet:ipv4',
+                    '8af9a5b134d08fded3edb667f8d8bbc2 true   true   tag:add   inet:ipv4',
+                    '99b637036016dadd6db513552a1174b8 true   false  tag:add            ',
+                    'bc1cbf350d151bba5936e6654dd13ff5 true   false  node:add  inet:ipv4',
                     )
             for m in trgs:
                 self.stormIsInPrint(m, msgs)
@@ -6172,6 +6199,7 @@ words\tword\twrd'''
             self.eq(huge - 0.23, 1.0)
             self.eq(huge * 1.0, 1.23)
             self.eq(huge / 1.0, 1.23)
+            self.eq(huge % 1.0, 0.23)
             self.eq(huge ** 2, 1.5129)
             self.eq(huge ** 2.0, 1.5129)
             self.eq(huge ** s_stormtypes.Number(2), 1.5129)
@@ -6194,6 +6222,9 @@ words\tword\twrd'''
 
             with self.assertRaises(TypeError):
                 huge ** 'foo'
+
+            with self.assertRaises(TypeError):
+                huge % 'foo'
 
             self.eq(15.0, await core.callStorm('return($lib.math.number(0xf))'))
             self.eq(1.23, await core.callStorm('return($lib.math.number(1.23).tofloat())'))

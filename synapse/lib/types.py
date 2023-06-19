@@ -385,7 +385,7 @@ class Bool(Type):
         return int(bool(valu)), {}
 
     def repr(self, valu):
-        return repr(bool(valu))
+        return repr(bool(valu)).lower()
 
 class Array(Type):
 
@@ -1582,6 +1582,7 @@ class Str(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
+        self.setNormFunc(float, self._normPyFloat)
         self.setNormFunc(decimal.Decimal, self._normPyInt)
 
         self.storlifts.update({
@@ -1647,6 +1648,10 @@ class Str(Type):
 
     def _normPyInt(self, valu):
         return self._normPyStr(str(valu))
+
+    def _normPyFloat(self, valu):
+        deci = s_common.hugectx.create_decimal(str(valu))
+        return format(deci, 'f'), {}
 
     def _normPyStr(self, valu):
 
@@ -1731,6 +1736,9 @@ class Taxonomy(Str):
 
     def _normPyStr(self, text):
         return self._normPyList(text.strip().strip('.').split('.'))
+
+    def repr(self, norm):
+        return norm.rstrip('.')
 
 class Tag(Str):
 

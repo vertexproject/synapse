@@ -421,10 +421,8 @@ class SubGraph:
                 yield (pivonode, path.fork(pivonode))
 
         for pivq in self.rules.get('pivots'):
-
             async for pivo in node.storm(runt, pivq):
                 yield pivo
-            await asyncio.sleep(0)
 
         rules = self.rules['forms'].get(node.form.name)
         if rules is None:
@@ -436,7 +434,6 @@ class SubGraph:
         for pivq in rules.get('pivots', ()):
             async for pivo in node.storm(runt, pivq):
                 yield pivo
-            await asyncio.sleep(0)
 
     async def run(self, runt, genr):
 
@@ -466,8 +463,9 @@ class SubGraph:
 
             async for node, path, dist in todogenr():
 
+                await asyncio.sleep(0)
+
                 if node.buid in done:
-                    await asyncio.sleep(0)
                     continue
 
                 await done.add(node.buid)
@@ -478,7 +476,6 @@ class SubGraph:
                     omitted = await self.omit(runt, node)
 
                 if omitted and not yieldfiltered:
-                    await asyncio.sleep(0)
                     continue
 
                 # we must traverse the pivots for the node *regardless* of degrees
@@ -486,6 +483,8 @@ class SubGraph:
 
                 pivoedges = set()
                 async for pivn, pivp in self.pivots(runt, node, path):
+
+                    await asyncio.sleep(0)
 
                     pivoedges.add(pivn.iden())
 
@@ -511,6 +510,7 @@ class SubGraph:
                 if doedges:
                     async for verb, n2iden in node.iterEdgesN1():
                         edges.append((n2iden, {'verb': verb}))
+                        await asyncio.sleep(0)
 
                 path.meta('edges', edges)
                 yield node, path
@@ -1322,7 +1322,7 @@ class LiftTag(LiftOper):
 
     async def lift(self, runt, path):
 
-        tag = await tostr(await self.kids[0].compute(runt, path))
+        tag = await self.kids[0].compute(runt, path)
 
         if len(self.kids) == 3:
 
@@ -1403,7 +1403,7 @@ class LiftTagTag(LiftOper):
 
     async def lift(self, runt, path):
 
-        tagname = await tostr(await self.kids[0].compute(runt, path))
+        tagname = await self.kids[0].compute(runt, path)
 
         node = await runt.snap.getNodeByNdef(('syn:tag', tagname))
         if node is None:
@@ -1448,7 +1448,7 @@ class LiftFormTag(LiftOper):
         if not runt.model.form(form):
             raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(form))
 
-        tag = await tostr(await self.kids[1].compute(runt, path))
+        tag = await self.kids[1].compute(runt, path)
 
         if len(self.kids) == 4:
 
@@ -2507,7 +2507,18 @@ class HasTagPropCond(Cond):
     async def getCondEval(self, runt):
 
         async def cond(node, path):
-            tag, name = await self.kids[0].compute(runt, path)
+            tag = await self.kids[0].compute(runt, path)
+            name = await self.kids[1].compute(runt, path)
+
+            if tag == '*':
+                return any(name in props for props in node.tagprops.values())
+
+            if '*' in tag:
+                reobj = s_cache.getTagGlobRegx(tag)
+                for tagname, props in node.tagprops.items():
+                    if reobj.fullmatch(tagname) and name in props:
+                        return True
+
             return node.hasTagProp(tag, name)
 
         return cond
@@ -2707,11 +2718,12 @@ class TagPropCond(Cond):
 
     async def getCondEval(self, runt):
 
-        cmpr = await self.kids[1].compute(runt, None)
+        cmpr = await self.kids[2].compute(runt, None)
 
         async def cond(node, path):
 
-            tag, name = await self.kids[0].compute(runt, path)
+            tag = await self.kids[0].compute(runt, path)
+            name = await self.kids[1].compute(runt, path)
 
             prop = runt.model.getTagProp(name)
             if prop is None:
@@ -2719,7 +2731,7 @@ class TagPropCond(Cond):
                 raise self.kids[0].addExcInfo(s_exc.NoSuchTagProp(name=name, mesg=mesg))
 
             # TODO cache on (cmpr, valu) for perf?
-            valu = await self.kids[2].compute(runt, path)
+            valu = await self.kids[3].compute(runt, path)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
@@ -2966,8 +2978,13 @@ class DollarExpr(Value):
 
 async def expr_add(x, y):
     return await tonumber(x) + await tonumber(y)
+
 async def expr_sub(x, y):
     return await tonumber(x) - await tonumber(y)
+
+async def expr_mod(x, y):
+    return await tonumber(x) % await tonumber(y)
+
 async def expr_mul(x, y):
     return await tonumber(x) * await tonumber(y)
 
@@ -2983,19 +3000,26 @@ async def expr_pow(x, y):
 
 async def expr_eq(x, y):
     return await tocmprvalu(x) == await tocmprvalu(y)
+
 async def expr_ne(x, y):
     return await tocmprvalu(x) != await tocmprvalu(y)
+
 async def expr_gt(x, y):
     return await tonumber(x) > await tonumber(y)
+
 async def expr_lt(x, y):
     return await tonumber(x) < await tonumber(y)
+
 async def expr_ge(x, y):
     return await tonumber(x) >= await tonumber(y)
+
 async def expr_le(x, y):
     return await tonumber(x) <= await tonumber(y)
+
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
     return x.startswith(y)
+
 async def expr_re(x, y):
     if regex.search(await tostr(y), await tostr(x)):
         return True
@@ -3004,6 +3028,7 @@ async def expr_re(x, y):
 _ExprFuncMap = {
     '+': expr_add,
     '-': expr_sub,
+    '%': expr_mod,
     '*': expr_mul,
     '/': expr_div,
     '**': expr_pow,
@@ -3086,15 +3111,70 @@ class TagName(Value):
         if self.isconst:
             return self.constval
 
+        if not isinstance(self.kids[0], Const):
+            valu = await self.kids[0].compute(runt, path)
+            valu = await s_stormtypes.toprim(valu)
+
+            if not isinstance(valu, str):
+                mesg = 'Invalid value type for tag name, tag names must be strings.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            normtupl = await runt.snap.getTagNorm(valu)
+            return normtupl[0]
+
         vals = []
         for kid in self.kids:
             part = await kid.compute(runt, path)
             if part is None:
                 mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
                 raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
-            vals.append(await tostr(part))
+
+            part = await tostr(part)
+            partnorm = await runt.snap.getTagNorm(part)
+            vals.append(partnorm[0])
 
         return '.'.join(vals)
+
+    async def computeTagArray(self, runt, path, excignore=()):
+
+        if self.isconst:
+            return (self.constval,)
+
+        if not isinstance(self.kids[0], Const):
+            tags = []
+            vals = await self.kids[0].compute(runt, path)
+            vals = await s_stormtypes.toprim(vals)
+
+            if not isinstance(vals, (tuple, list, set)):
+                vals = (vals,)
+
+            for valu in vals:
+                try:
+                    if not isinstance(valu, str):
+                        mesg = 'Invalid value type for tag name, tag names must be strings.'
+                        raise s_exc.BadTypeValu(mesg=mesg)
+
+                    normtupl = await runt.snap.getTagNorm(valu)
+                    if normtupl is None:
+                        continue
+
+                    tags.append(normtupl[0])
+                except excignore:
+                    pass
+            return tags
+
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise kid.addExcInfo(s_exc.BadTypeValu(mesg=mesg))
+
+            part = await tostr(part)
+            partnorm = await runt.snap.getTagNorm(part)
+            vals.append(partnorm[0])
+
+        return ('.'.join(vals),)
 
 class TagMatch(TagName):
     '''
@@ -3104,6 +3184,32 @@ class TagMatch(TagName):
         assert self.kids
         # TODO support vars with asterisks?
         return any('*' in kid.valu for kid in self.kids if isinstance(kid, Const))
+
+    async def compute(self, runt, path):
+
+        if self.isconst:
+            return self.constval
+
+        if not isinstance(self.kids[0], Const):
+            valu = await self.kids[0].compute(runt, path)
+            valu = await s_stormtypes.toprim(valu)
+
+            if not isinstance(valu, str):
+                mesg = 'Invalid value type for tag name, tag names must be strings.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            return valu
+
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            vals.append(await tostr(part))
+
+        return '.'.join(vals)
 
 class Const(Value):
 
@@ -3756,27 +3862,15 @@ class EditTagAdd(Edit):
         async for node, path in genr:
 
             try:
-                names = await self.kids[oper_offset].compute(runt, path)
-                names = await s_stormtypes.toprim(names)
+                names = await self.kids[oper_offset].computeTagArray(runt, path, excignore=excignore)
             except excignore:
                 yield node, path
                 await asyncio.sleep(0)
                 continue
 
-            if not isinstance(names, tuple):
-                names = (names,)
-
             for name in names:
 
                 try:
-                    if name is None:
-                        raise self.addExcInfo(s_exc.BadTypeValu(mesg='Null tag names are not allowed.'))
-
-                    normtupl = await runt.snap.getTagNorm(name)
-                    if normtupl is None:
-                        continue
-
-                    name, info = normtupl
                     parts = name.split('.')
 
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
@@ -3802,26 +3896,15 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[0].compute(runt, path)
-            names = await s_stormtypes.toprim(names)
-
-            if not isinstance(names, tuple):
-                names = (names,)
+            names = await self.kids[0].computeTagArray(runt, path, excignore=(s_exc.BadTypeValu,))
 
             for name in names:
 
-                # special case for backward compatibility
-                if name:
-                    normtupl = await runt.snap.getTagNorm(name)
-                    if normtupl is None:
-                        continue
+                parts = name.split('.')
 
-                    name, info = normtupl
-                    parts = name.split('.')
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
 
-                    runt.layerConfirm(('node', 'tag', 'del', *parts))
-
-                    await node.delTag(name)
+                await node.delTag(name)
 
             yield node, path
 
@@ -3847,11 +3930,6 @@ class EditTagPropSet(Edit):
             valu = await self.kids[2].compute(runt, path)
             valu = await s_stormtypes.tostor(valu)
 
-            normtupl = await runt.snap.getTagNorm(tag)
-            if normtupl is None:
-                continue
-
-            tag, info = normtupl
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
@@ -3881,13 +3959,6 @@ class EditTagPropDel(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(runt, path)
-
-            normtupl = await runt.snap.getTagNorm(tag)
-            if normtupl is None:
-                continue
-
-            tag, info = normtupl
-
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
