@@ -74,7 +74,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v3-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: setup venv
@@ -94,7 +94,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v2-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+          key: v2-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: executing docs jupyter notebooks
@@ -114,14 +114,14 @@ commands:
 
       - restore_cache:
           keys:
-            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: syntax
@@ -147,7 +147,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: install python dependencies
@@ -160,7 +160,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+          key: v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: init .pypirc
