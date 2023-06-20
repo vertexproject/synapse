@@ -188,3 +188,10 @@ class StormCliTest(s_test.SynTest):
             await s_t_storm.main(('--view', view, url, f'[file:bytes={"a"*64}]'), outp=outp)
             self.len(0, await core.nodes('file:bytes'))
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
+
+            with self.getTestDir() as dirn:
+                path = os.path.join(dirn, 'export.nodes')
+                q = f'!export {path} {{ file:bytes }}'
+                await s_t_storm.main(('--view', view, url, q), outp=outp)
+                text = str(outp)
+                self.isin(f'saved 1 nodes to: {path}', text)

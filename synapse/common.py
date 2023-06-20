@@ -5,7 +5,6 @@ import sys
 import json
 import stat
 import time
-import fcntl
 import heapq
 import types
 import base64

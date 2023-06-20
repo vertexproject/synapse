@@ -168,6 +168,7 @@ permissions (rules).
 - `auth.user.mod`_
 - `auth.user.revoke`_
 - `auth.user.show`_
+- `auth.user.allowed`_
 
 Help for individual ``auth.*`` commands can be displayed using:
 
@@ -364,6 +365,23 @@ The ``auth.user.show`` command displays information for a specific user.
 **Syntax:**
 
 .. storm-cli:: auth.user.show --help
+
+
+.. _storm-auth-user-allowed:
+
+auth.user.allowed
++++++++++++++++++
+
+The ``auth.user.allowed`` command checks whether a user has a permission for the specified scope
+(view or layer; if no scope is specified with the ``--gate`` option, the permission is checked
+globally).
+
+The command retuns whether the permission is allowed (true) the source of the permission (e.g.,
+if the permission is due to having a particular role).
+
+**Syntax:**
+
+.. storm-cli:: auth.user.allowed --help
 
 
 .. _storm-background:

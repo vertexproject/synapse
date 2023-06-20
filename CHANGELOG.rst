@@ -18,7 +18,7 @@ the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
 
-v2.137.0 - 2023-06-09
+v2.139.0 - 2023-06-16
 =====================
 
 Announcement
@@ -34,6 +34,64 @@ If you currently deploy Synapse Open-Source or Synapse Enterprise via
 the standard docker containers, you will be unaffected.  If you install
 Synapse via PyPI, you will need to ensure that your environment is
 updated to Python 3.11+.
+
+Model Changes
+-------------
+- Update ``it:sec:cpe`` normalization to extend truncated CPE2.3 strings.
+  (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
+
+Features and Enhancements
+-------------------------
+- The ``str`` type now accepts ``float`` values to normalize.
+  (`#3174 <https://github.com/vertexproject/synapse/pull/3174>`_)
+
+Bugfixes
+--------
+- Fix an issue where the ``file:bytes:sha256`` property set handler could fail
+  during data merging.
+  (`#3180 <https://github.com/vertexproject/synapse/pull/3180>`_)
+- Fix an issue where iterating light edges on nodes could result in degraded
+  Cortex performance.
+  (`#3186 <https://github.com/vertexproject/synapse/pull/3186>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex admin guide to include additional examples for setting up
+  user and role permissions.
+  (`#3187 <https://github.com/vertexproject/synapse/pull/3187>`_)
+
+v2.138.0 - 2023-06-13
+=====================
+
+Features and Enhancements
+-------------------------
+- Add ``it:sec:cwe`` to the list of types identified with scrape APIs.
+  (`#3182 <https://github.com/vertexproject/synapse/pull/3182>`_)
+- Update the calculations done by ``$lib.infosec.cvss.vectToScore()`` to more
+  closely emulate the NVD CVSS calculator.
+  (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
+
+Bugfixes
+--------
+- Fix an issue with ``synapse.tools.storm`` where the ``!export`` command did
+  not use the view specified when starting the tool.
+  (`#3184 <https://github.com/vertexproject/synapse/pull/3184>`_)
+- The ``synapse.common.getSslCtx()`` API now only attempts to load files in
+  the target directory. This avoids confusing errors that may be logged when
+  the target directory contains sub directories.
+  (`#3179 <https://github.com/vertexproject/synapse/pull/3179>`_)
+- Fix an edge case in ``$lib.infosec.cvss.vectToScore()``  when calculating
+  CVSS v2 scores.
+  (`#3181 <https://github.com/vertexproject/synapse/pull/3181>`_)
+
+Deprecations
+------------
+- Mark the Python function ``synapse.common.lockfile()`` as deprecated. It
+ will be removed in ``v2.140.0``.
+  (`#3183 <https://github.com/vertexproject/synapse/issue/3183>`_)
+
+v2.137.0 - 2023-06-09
+=====================
 
 Automatic Migrations
 --------------------
