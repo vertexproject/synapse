@@ -18,7 +18,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The four digit Standard Industrial Classification Code.',
                     'ex': '0111',
                 }),
-                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{4}[0-9]?$'}), {
+                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$', 'strip': True}), {
                     'doc': 'The five or six digit North American Industry Classification System code.',
                     'ex': '541715',
                 }),
