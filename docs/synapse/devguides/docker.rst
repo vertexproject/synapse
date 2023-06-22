@@ -97,4 +97,20 @@ Developers working with Synapse images should consider the following items:
 
     python -m pip install --break-system-packages yourTargetPackage
 
+Verifying image signatures
+--------------------------
+
+Synapse docker images which are release tagged ( e.g. ``:v2.1.3`` or
+``v2.x.x`` ) are accompanied with cosign_ signatures which can be used to
+assert that the image was produced by The Vertex Project. Branch builds, such
+as development ``master`` tags are not guaranteed to be signed.
+
+You can use the Python script ``synapse.tools.docker_validate`` to confirm
+that a given image has a ``cosign`` signature which was signed by a Vertex Project
+code signing certificate. This does require having the ``cosign`` version v2.x.x
+available.
+
+
+
 .. _PEP668: https://peps.python.org/pep-0668/
+.. _cosign: https://docs.sigstore.dev/cosign/overview/
