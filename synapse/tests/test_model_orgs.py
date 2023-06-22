@@ -107,8 +107,12 @@ class OuModelTest(s_t_utils.SynTest):
             norm, subs = t.norm(541715)
             self.eq(norm, '541715')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, '1')
             self.raises(s_exc.BadTypeValu, t.norm, 1000000)
-            self.raises(s_exc.BadTypeValu, t.norm, 1000)
+            self.eq('10', t.norm('10')[0])
+            self.eq('100', t.norm('  100  ')[0])
+            self.eq('1000', t.norm('1000')[0])
+            self.eq('10000', t.norm('10000')[0])
 
             # ou:sic
             t = core.model.type('ou:sic')
