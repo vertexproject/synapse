@@ -127,6 +127,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.b-a-r.baz.')[0])
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.  b   a   r  .baz.')[0])
 
+        self.eq('foo.bar.baz', taxo.repr('foo.bar.baz.'))
+
         with self.raises(s_exc.BadTypeValu):
             taxo.norm('foo.---.baz')
 
@@ -183,8 +185,8 @@ class TypesTest(s_t_utils.SynTest):
 
         self.raises(s_exc.BadTypeValu, t.norm, 'a')
 
-        self.eq(t.repr(1), 'True')
-        self.eq(t.repr(0), 'False')
+        self.eq(t.repr(1), 'true')
+        self.eq(t.repr(0), 'false')
 
     async def test_comp(self):
         async with self.getTestCore() as core:
@@ -954,6 +956,26 @@ class TypesTest(s_t_utils.SynTest):
         strsubs = model.type('str').clone({'regex': r'(?P<first>[ab]+)(?P<last>[zx]+)'})
         norm, info = strsubs.norm('aabbzxxxxxz')
         self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
+
+        flt = model.type('str').clone({})
+        self.eq('0.0', flt.norm(0.0)[0])
+        self.eq('-0.0', flt.norm(-0.0)[0])
+        self.eq('2.65', flt.norm(2.65)[0])
+        self.eq('2.65', flt.norm(2.65000000)[0])
+        self.eq('0.65', flt.norm(00.65)[0])
+        self.eq('42.0', flt.norm(42.0)[0])
+        self.eq('42.0', flt.norm(42.)[0])
+        self.eq('42.0', flt.norm(00042.00000)[0])
+        self.eq('0.000000000000000000000000001', flt.norm(0.000000000000000000000000001)[0])
+        self.eq('0.0000000000000000000000000000000000001', flt.norm(0.0000000000000000000000000000000000001)[0])
+        self.eq('0.00000000000000000000000000000000000000000000001',
+                flt.norm(0.00000000000000000000000000000000000000000000001)[0])
+        self.eq('0.3333333333333333', flt.norm(0.333333333333333333333333333)[0])
+        self.eq('0.4444444444444444', flt.norm(0.444444444444444444444444444)[0])
+        self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789)[0])
+        self.eq('1234567891.1234567', flt.norm(1234567890.123456790123456790123456789 + 1)[0])
+        self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789 + 0.0000000001)[0])
+        self.eq('2.718281828459045', flt.norm(2.718281828459045)[0])
 
     def test_syntag(self):
 

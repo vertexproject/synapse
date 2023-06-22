@@ -112,9 +112,12 @@ class Cpe23Str(s_types.Str):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
             parts = cpesplit(text[8:])
-            if len(parts) != 11:
-                mesg = f'CPE 2.3 string has {len(parts)} fields, expected 11.'
+            if len(parts) > 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
                 raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
         elif text.startswith('cpe:/'):
             # automatically normalize CPE 2.2 format to CPE 2.3
             parts = chopCpe22(text)
@@ -339,6 +342,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK element status.',
                     'ex': 'current',
                 }),
+                ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
+                    'doc': 'An enumeration of ATT&CK matrix values.',
+                    'ex': 'enterprise',
+                }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
                     'doc': 'A Mitre ATT&CK Group ID.',
                     'ex': 'G0100',
@@ -443,6 +450,11 @@ class ItModule(s_module.CoreModule):
                                             ('soft', 'it:prod:softver'),
                                             ('file', 'file:bytes'))}), {
                     'doc': 'A file is distributed by a specific software version.'}),
+
+                ('it:prod:softreg', ('comp', {'fields': (
+                                            ('softver', 'it:prod:softver'),
+                                            ('regval', 'it:dev:regval'))}), {
+                    'doc': 'A registry entry is created by a specific software version.'}),
 
                 ('it:prod:softlib', ('comp', {'fields': (
                                             ('soft', 'it:prod:softver'),
@@ -591,6 +603,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The software uses the technique.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
+                (('it:app:snort:rule', 'detects', None), {
+                    'doc': 'The snort rule is intended for use in detecting the target node.'}),
+                (('it:app:yara:rule', 'detects', None), {
+                    'doc': 'The YARA rule is intended for use in detecting the target node.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -924,6 +940,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK tactic.',
                     }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the tactic.',
+                    }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the ATT&CK tactic.',
                         'disp': {'hint': 'text'},
@@ -942,6 +961,9 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
+                    }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the technique.',
                     }),
                     ('status', ('it:mitre:attack:status', {}), {
                         'doc': 'The status of this ATT&CK technique.',
@@ -1007,6 +1029,9 @@ class ItModule(s_module.CoreModule):
                     # TODO map to an eventual risk:mitigation
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK mitigation.',
+                    }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the mitigation.',
                     }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK mitigation.',
@@ -1269,6 +1294,15 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The default installation path of the file.'}),
                 )),
 
+                ('it:prod:softreg', {}, (
+
+                    ('softver', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The software which creates the registry entry.'}),
+
+                    ('regval', ('it:dev:regval', {}), {'ro': True,
+                        'doc': 'The registry entry created by the software.'}),
+                )),
+
                 ('it:hostsoft', {}, (
 
                     ('host', ('it:host', {}), {'ro': True,
@@ -1296,6 +1330,7 @@ class ItModule(s_module.CoreModule):
                     })
                 )),
                 ('it:av:signame', {}, ()),
+
                 ('it:av:filehit', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
@@ -1864,6 +1899,9 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A brief description of the snort rule.'}),
 
+                    ('engine', ('int', {}), {
+                        'doc': 'The snort engine ID which can parse and evaluate the rule text.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
 
@@ -1933,22 +1971,35 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:yara:rule', {}, (
+
                     ('text', ('str', {}), {
-                        'doc': 'The YARA rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The YARA rule text.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'The YARA rule ID from an external system.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the YARA rule.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the YARA rule.'}),
+
                     ('author', ('ps:contact', {}), {
                         'doc': 'Contact info for the author of the YARA rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time the YARA rule was initially created.'}),
+
                     ('updated', ('time', {}), {
                         'doc': 'The time the YARA rule was most recently modified.'}),
+
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
+
                     ('family', ('it:prod:softname', {}), {
                         'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),

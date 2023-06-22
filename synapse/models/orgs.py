@@ -18,8 +18,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The four digit Standard Industrial Classification Code.',
                     'ex': '0111',
                 }),
-                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{4}[0-9]?$'}), {
-                    'doc': 'The five or six digit North American Industry Classification System code.',
+                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$', 'strip': True}), {
+                    'doc': 'North American Industry Classification System codes and prefixes.',
                     'ex': '541715',
                 }),
                 ('ou:isic', ('str', {'regex': r'^[A-Z]([0-9]{2}[0-9]{0,2})?$'}), {
@@ -492,6 +492,9 @@ class OuModule(s_module.CoreModule):
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
@@ -609,6 +612,12 @@ class OuModule(s_module.CoreModule):
                     ('locations', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts for facilities operated by the org.',
                     }),
+                    ('country', ('pol:country', {}), {
+                        'doc': "The organization's country of origin."}),
+
+                    ('country:code', ('pol:iso2', {}), {
+                        'doc': "The 2 digit ISO 3166 country code for the organization's country of origin."}),
+
                     ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),

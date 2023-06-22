@@ -3,6 +3,7 @@ import copy
 import json
 import time
 import asyncio
+import hashlib
 import logging
 
 from unittest.mock import patch
@@ -1196,6 +1197,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int +#foo.bar:score<=30'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score>=10'))
                 self.len(1, await core.nodes('test:int +#foo.bar:score*range=(10, 30)'))
+                self.len(1, await core.nodes('test:int +#*:score'))
+                self.len(1, await core.nodes('test:int +#foo.*:score'))
+                self.len(1, await core.nodes('$tag=* test:int +#*:score'))
+                self.len(1, await core.nodes('$tag=foo.* test:int +#foo.*:score'))
 
                 self.len(0, await core.nodes('test:int -#foo.bar'))
                 self.len(0, await core.nodes('test:int -#foo.bar:score'))
@@ -1316,6 +1321,24 @@ class CortexTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchType):
                     await core.addTagProp('derp', ('derp', {}), {})
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int#$tag:prop")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int +#$tag:prop")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("$tag=(foo, bar) test:int +#$tag:prop=5")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) $lib.print(#$tag:prop)")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) [ +#$tag:prop=foo ]")
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes("test:int $tag=(foo, bar) [ -#$tag:prop ]")
 
             # Ensure that the tagprops persist
             async with self.getTestCore(dirn=dirn) as core:
@@ -1496,7 +1519,7 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
-            with self.raises(AttributeError):
+            with self.raises(s_exc.BadTypeValu):
                 await wcore.nodes("$foo=(('foo', 'bar.baz'),) [test:int=2 +#$foo]")
 
             # Can set a list of tags directly
@@ -1508,8 +1531,20 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
-            with self.raises(TypeError):
-                await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
+            nodes = await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
+
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=$lib.null #foo.$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) #$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) ##$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag=(foo, bar) inet:fqdn#$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=$lib.null +#foo.$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) $lib.print(#$tag)"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag"))
+            await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("test:int $tag=(foo, bar) +#$tag=2020"))
 
     async def test_base_types1(self):
 
@@ -1816,6 +1851,9 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await alist(core.storm(' | | | '))
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
+            # We still get a texthash
+            texthash = [mesg for mesg in mesgs if mesg[0] == 'init'][0][1].get('hash')
+            self.eq(texthash, hashlib.md5(' | | | '.encode()).hexdigest())
             # Lark sensitive test
             self.stormIsInErr("Unexpected token '|'", mesgs)
             errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
@@ -4907,7 +4945,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             pode = podes[0]
             self.true(s_node.tagged(pode, '#foo'))
 
-            mesgs = await core.stormlist('$var="" test:str=foo [+?#$var=2019] $lib.print(#$var)')
+            mesgs = await core.stormlist('$var="" test:str=foo [+?#$var=2019]')
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]

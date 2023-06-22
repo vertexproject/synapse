@@ -884,6 +884,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hidecmdl': True,
         },
+        'https:parse:proxy:remoteip': {
+            'description': 'Enable the HTTPS server to parse X-Forwarded-For and X-Real-IP headers to determine requester IP addresses.',
+            'type': 'boolean',
+            'default': False,
+        },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
@@ -2228,6 +2233,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         return await user.profile.pop(name, default=default)
 
+    async def iterUserVars(self, iden):
+        user = await self.auth.reqUser(iden)
+        for item in user.vars.items():
+            yield item
+
+    async def getUserVarValu(self, iden, name):
+        user = await self.auth.reqUser(iden)
+        return user.vars.get(name)
+
+    async def setUserVarValu(self, iden, name, valu):
+        user = await self.auth.reqUser(iden)
+        return await user.vars.set(name, valu)
+
+    async def popUserVarValu(self, iden, name, default=None):
+        user = await self.auth.reqUser(iden)
+        return await user.vars.pop(name, default=default)
+
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
@@ -2584,7 +2606,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             sslctx = self.initSslCtx(certpath, pkeypath)
 
-        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
+        kwargs = {
+            'xheaders': self.conf.reqConfValu('https:parse:proxy:remoteip')
+        }
+        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
         return list(serv._sockets.values())[0].getsockname()
 

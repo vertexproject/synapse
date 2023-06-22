@@ -1,4 +1,5 @@
 import json
+import math
 import asyncio
 import contextlib
 import collections
@@ -1879,7 +1880,13 @@ class AstTest(s_test.SynTest):
 
             self.eq(8, await core.callStorm('return((2 ** 3))'))
             self.eq(4.84, await core.callStorm('return((2.2 ** 2))'))
-            self.eq(5.76, await core.callStorm('return((2 ** 2.4))'))
+            self.eq(2 ** 2.4, await core.callStorm('return((2 ** 2.4))'))
+
+            self.eq(1, await core.callStorm('return((3 % 2))'))
+            self.eq(1.0, await core.callStorm('return((3.0 % 2))'))
+            self.eq(1.0, await core.callStorm('return((3 % 2.0))'))
+            self.eq(0.75, await core.callStorm('return((3.0 % 2.25))'))
+            self.eq(0.9, await core.callStorm('return((3.0 % 2.1))'))
 
             self.eq(-5.2, await core.callStorm('$foo=5.2 return((-$foo))'))
             self.eq(5.2, await core.callStorm('$foo=5.2 return((--$foo))'))
@@ -1891,6 +1898,7 @@ class AstTest(s_test.SynTest):
             self.eq(0.03, await core.callStorm('return((1.23 - $lib.cast(float, 1.2)))'))
             self.eq(1.476, await core.callStorm('return((1.23 * $lib.cast(float, 1.2)))'))
             self.eq(1.025, await core.callStorm('return((1.23 / $lib.cast(float, 1.2)))'))
+            self.eq(0.03, await core.callStorm('return((1.23 % $lib.cast(float, 1.2)))'))
 
             self.false(await core.callStorm('return((1.23 = 1))'))
             self.false(await core.callStorm('return((1 = 1.23))'))
@@ -1939,6 +1947,14 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return((1.23 <= 2.34))'))
             self.true(await core.callStorm('return((1.23 <= $lib.cast(float, 2.34)))'))
             self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
+
+            self.eq(await core.callStorm('return(($lib.cast(str, (5.3 / 2))))'), '2.65')
+            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.0')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.00000000000000001))))'), '0.00000000000000001')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.3333333333333333')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.nan}}), 'NaN')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.inf}}), 'Infinity')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': -math.inf}}), '-Infinity')
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')

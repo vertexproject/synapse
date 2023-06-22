@@ -3,6 +3,7 @@ import hashlib
 import logging
 import ipaddress
 import email.utils
+import urllib.parse
 
 import idna
 import regex
@@ -838,9 +839,9 @@ class Url(s_types.Str):
         if len(parts) == 2:
             authparts, valu = parts
             userpass = authparts.split(':', 1)
-            subs['user'] = userpass[0]
+            subs['user'] = urllib.parse.unquote(userpass[0])
             if len(userpass) == 2:
-                subs['passwd'] = userpass[1]
+                subs['passwd'] = urllib.parse.unquote(userpass[1])
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
@@ -1139,6 +1140,9 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:tunnel', ('guid', {}), {
                         'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
+
+                    ('inet:egress', ('guid', {}), {
+                        'doc': 'A host using a specific network egress client address.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
@@ -1775,6 +1779,21 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The contact information for the tunnel operator.'}),
                     )),
 
+                    ('inet:egress', {}, (
+
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host that used the network egress.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address the host used as a network egress.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The client IPv4 address the host used as a network egress.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The client IPv6 address the host used as a network egress.'}),
+                    )),
+
                     ('inet:fqdn', {}, (
                         ('domain', ('inet:fqdn', {}), {
                             'ro': True,
@@ -1854,6 +1873,9 @@ class InetModule(s_module.CoreModule):
 
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
+
+                        ('referer', ('inet:url', {}), {
+                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
 
                         ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
@@ -2189,6 +2211,8 @@ class InetModule(s_module.CoreModule):
                             'ex': 'google',
                             'doc': 'A simple name for the search engine used.',
                         }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request used to issue the query.'}),
                     )),
 
                     ('inet:search:result', {}, (

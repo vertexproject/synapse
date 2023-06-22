@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -d /build/synapse ]; then
-    python -m pip install --break-system-packages /build/synapse
+    python -m pip install --verbose --break-system-packages /build/synapse
 fi
 
 if [ -f /build/synapse/rmlist.txt ]; then

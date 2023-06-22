@@ -1312,31 +1312,31 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
+        last = None
+        gens = [layr.iterNodeEdgesN1(buid, verb=verb) for layr in self.layers]
 
-            for layr in self.layers:
+        async for edge in s_common.merggenr2(gens):
 
-                async for edge in layr.iterNodeEdgesN1(buid, verb=verb):
-                    if edge in edgeset:
-                        await asyncio.sleep(0)
-                        continue
+            if edge == last: # pragma: no cover
+                await asyncio.sleep(0)
+                continue
 
-                    await edgeset.add(edge)
-                    yield edge
+            last = edge
+            yield edge
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
+        last = None
+        gens = [layr.iterNodeEdgesN2(buid, verb=verb) for layr in self.layers]
 
-            for layr in self.layers:
+        async for edge in s_common.merggenr2(gens):
 
-                async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
-                    if edge in edgeset:
-                        await asyncio.sleep(0)
-                        continue
+            if edge == last: # pragma: no cover
+                await asyncio.sleep(0)
+                continue
 
-                    await edgeset.add(edge)
-                    yield edge
+            last = edge
+            yield edge
 
     async def hasNodeEdge(self, buid1, verb, buid2):
         for layr in self.layers:
