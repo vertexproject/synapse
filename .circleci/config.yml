@@ -341,7 +341,7 @@ commands:
                   cat imageDigests.txt | while read IMAGETOSIGN
                   do
                     echo 'Signing $IMAGETOSIGN'
-                    cosign sign --certificate-chain /mnt/ramdisk/certdir/cas/fullchain.crt --cert /mnt/ramdisk/certdir/code/signer.crt --key /mnt/ramdisk/certdir/cosign/signer.key --tlog-upload=false $IMAGETOSIGN
+                    cosign sign -a commit=<<pipeline.git.revision>> -a jobid=$CIRCLE_WORKFLOW_JOB_ID --certificate-chain /mnt/ramdisk/certdir/cas/fullchain.crt --cert /mnt/ramdisk/certdir/code/signer.crt --key /mnt/ramdisk/certdir/cosign/signer.key --tlog-upload=false $IMAGETOSIGN
                   done
 
             - run:
