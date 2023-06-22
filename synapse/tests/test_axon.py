@@ -395,16 +395,8 @@ bar baz",vv
 
         # Python 3.11+ - csv handles null bytes in an acceptable fashion.
         # See https://github.com/python/cpython/issues/71767 for discussion
-        if sys.version_info.major >= 3 and sys.version_info.minor >= 11:
-
-            rows = [row async for row in axon.csvrows(bin256)]
-            self.eq(rows, (('/$A\x00_v4\x1b',),))
-
-        else:
-
-            # data that has null bytes is not handled by cpython csv < 3.11
-            with self.raises(s_exc.BadDataValu) as cm:
-                rows = [row async for row in axon.csvrows(bin256)]
+        rows = [row async for row in axon.csvrows(bin256)]
+        self.eq(rows, (('/$A\x00_v4\x1b',),))
 
         with self.raises(s_exc.NoSuchFile):
             lines = [item async for item in axon.csvrows(newphash)]
