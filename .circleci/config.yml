@@ -608,6 +608,7 @@ workflows:
             branches:
               only:
                 - master
+                - forkpool-general # fixme: remove before merge
 
       - push_docker_branch:
           requires:
