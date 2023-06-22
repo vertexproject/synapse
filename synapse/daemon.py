@@ -388,7 +388,7 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except asyncio.CancelledError:  # pragma: no cover  # TODO: remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
 
         except ConnectionResetError:

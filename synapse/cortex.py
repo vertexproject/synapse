@@ -2084,7 +2084,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self.runStormDmon(iden, ddef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
 
             except Exception as e:
@@ -2097,7 +2097,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self._setStormSvc(sdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
 
             except Exception as e:
@@ -2633,7 +2633,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._normStormPkg(pkgdef, validstorm=False)
             await self.loadStormPkg(pkgdef)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
 
         except Exception as e:
@@ -2931,7 +2931,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             if self.isactive:
                 await self.runStormSvcEvent(iden, 'del')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
+        except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.exception(f'service.del hook for service {iden} failed with error: {e}')
@@ -3017,7 +3017,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await self.runStormSvcEvent(iden, 'add')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
+        except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.exception(f'runStormSvcEvent service.add failed with error {e}')
@@ -3090,7 +3090,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 self.model.addType(formname, basetype, typeopts, typeinfo)
                 form = self.model.addForm(formname, {}, ())
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning(f'Extended form ({formname}) error: {e}')
@@ -3103,7 +3103,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning(f'ext prop ({form}:{prop}) error: {e}')
@@ -3116,7 +3116,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning(f'ext univ ({prop}) error: {e}')
@@ -3124,7 +3124,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
@@ -4974,7 +4974,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             try:
                 await func(snap, item)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception as e:
                 logger.exception('splice error')
@@ -5471,7 +5471,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception(f'module preCoreModule failed: {ctor}')
@@ -5486,7 +5486,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.initCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception(f'module initCoreModule failed: {ctor}')
@@ -5525,7 +5525,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
         except Exception:
             logger.exception(f'module preCoreModule failed: {ctor}')
@@ -5546,7 +5546,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 try:
                     await s_coro.ornot(modu.initCoreModule)
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                except asyncio.CancelledError:
                     raise
                 except Exception:
                     logger.exception(f'module initCoreModule failed: {ctor}')

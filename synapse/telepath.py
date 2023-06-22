@@ -901,7 +901,7 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                except asyncio.CancelledError:
                     raise
 
                 except Exception:
@@ -1050,7 +1050,7 @@ class Client(s_base.Base):
                 self._setNextUrl(e.errinfo.get('url'))
                 continue
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
 
             except Exception as e:

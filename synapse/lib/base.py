@@ -329,7 +329,7 @@ class Base:
 
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
@@ -337,7 +337,7 @@ class Base:
         for func in self._syn_links:
             try:
                 ret.append(await s_coro.ornot(func, mesg))
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception('base %s error with mesg %s', self, mesg)
@@ -407,7 +407,7 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
@@ -500,7 +500,7 @@ class Base:
             try:
                 if not task.done():
                     task.result()
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 pass
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
@@ -776,7 +776,7 @@ async def schedGenr(genr, maxsize=100):
 
             await q.put((False, None))
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
 
         except Exception:

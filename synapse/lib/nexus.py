@@ -257,7 +257,7 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
 
         except Exception:
@@ -506,7 +506,7 @@ class NexsRoot(s_base.Base):
                     try:
                         retn = await self.eat(*args)
 
-                    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                    except asyncio.CancelledError:
                         raise
 
                     except Exception as e:
@@ -520,7 +520,7 @@ class NexsRoot(s_base.Base):
                         if respfutu is not None:
                             respfutu.set_result(retn)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
 
             except Exception:  # pragma: no cover
@@ -544,7 +544,7 @@ class NexsRoot(s_base.Base):
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
                 await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+        except asyncio.CancelledError:
             raise
 
         except Exception as e: # pragma: no cover

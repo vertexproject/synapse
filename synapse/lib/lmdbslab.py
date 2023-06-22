@@ -664,7 +664,7 @@ class Slab(s_base.Base):
 
                 await clas.syncLoopOnce()
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            except asyncio.CancelledError:
                 raise
 
             except Exception:  # pragma: no cover
