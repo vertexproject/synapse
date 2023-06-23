@@ -289,7 +289,6 @@ commands:
       - checkout
       - setup_remote_docker
       - do_docker_prep
-      - do_docker_bash
       - run:
           name: build images
           command: |
