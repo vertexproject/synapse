@@ -575,6 +575,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_cosign
 
       - build_docker_tag:
           requires:
