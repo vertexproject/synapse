@@ -22,7 +22,7 @@ set -x # debugging
 
 TAG=${1}
 REGISTRY=${2}
-DIGESTFILE=${2}
+DIGESTFILE=${3}
 
 [ ! $TAG ] && echo "Tag not provided, exiting" && false
 [ ! $REGISTRY ] && echo "registry not provided, exiting" && false
