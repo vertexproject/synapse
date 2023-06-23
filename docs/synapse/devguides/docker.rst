@@ -68,11 +68,11 @@ The bare image with only Synapse installed on it can be built like the following
 
     ::
 
-        $ docker build --pull -t vertexproject/synapse:$TAG -f docker/images/synapse/Dockerfile .
+        $ docker build --progress plain --pull -t vertexproject/synapse:$TAG -f docker/images/synapse/Dockerfile .
 
         # Example of building directly with the tag mytag
 
-        $ docker build --pull -t vertexproject/synapse:mytag -f docker/images/synapse/Dockerfile .
+        $ docker build --progress --pull -t vertexproject/synapse:mytag -f docker/images/synapse/Dockerfile .
 
 .. _dev_docker_working_with_images:
 
