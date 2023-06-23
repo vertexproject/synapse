@@ -21,7 +21,7 @@ set -x # debugging
 
 TAG=${1}
 REGISTRY=${2}
-DESTREG=${2}
+DESTREG=${3}
 
 [ ! $TAG ] && echo "Tag not provided, exiting" && false
 [ ! $REGISTRY ] && echo "registry not provided, exiting" && false
