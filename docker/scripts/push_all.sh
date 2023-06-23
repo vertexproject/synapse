@@ -46,13 +46,13 @@ docker push ${REGISTRY}vertexproject/synapse-aha:${TAG}
 # docker push ${REGISTRY}vertexproject/synapse-jsonstor:${TAG}
 
 # Record the pushed files
-docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse:${TAG} > $DIGESTFILE
-docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse-aha:${TAG} >> $DIGESTFILE
-# docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse-axon:${TAG} >> $DIGESTFILE
-# docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse-cortex:${TAG} >> $DIGESTFILE
-# docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse-cryotank:${TAG} >> $DIGESTFILE
-# docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse-stemcell:${TAG} >> $DIGESTFILE
-# docker image inspect --format='{{index .RepoDigests 0}} ${REGISTRY}vertexproject/synapse-jsonstor:${TAG} >> $DIGESTFILE
+docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse:${TAG} > $DIGESTFILE
+docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-aha:${TAG} >> $DIGESTFILE
+# docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-axon:${TAG} >> $DIGESTFILE
+# docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-cortex:${TAG} >> $DIGESTFILE
+# docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-cryotank:${TAG} >> $DIGESTFILE
+# docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-stemcell:${TAG} >> $DIGESTFILE
+# docker image inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}vertexproject/synapse-jsonstor:${TAG} >> $DIGESTFILE
 
 echo "image digests:"
 cat $DIGESTFILE
