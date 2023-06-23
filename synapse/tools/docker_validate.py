@@ -123,7 +123,6 @@ def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
 def main(argv, outp=s_outp.stdout):
     pars = getArgParser()
     opts = pars.parse_args(argv)
-    outp.printf(f'{opts}')
 
     image_to_verify = opts.image
     outp.printf(f'Verifying: {image_to_verify}')

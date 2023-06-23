@@ -114,7 +114,6 @@ The following shows an example of verifying a signed image, referenced by its re
 content hash::
 
     $ python -m synapse.tools.docker_validate vertexproject/synapse@sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8
-    Namespace(certdir=None, image='vertexproject/synapse@sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8')
     Verifying: vertexproject/synapse@sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8
     Using Cosign with GitVersion:    v2.0.2
     Loading certdir from /hehe/haha/synapse/synapse/data/certs
