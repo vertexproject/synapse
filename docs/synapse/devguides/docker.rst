@@ -113,14 +113,14 @@ by the certificate. This does require having the ``cosign`` version v2.x.x avail
 The following shows an example of verifying a signed image, referenced by its registry
 content hash::
 
-    $ python -m synapse.tools.docker_validate vertexproject/synapse@sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8
-    Verifying: vertexproject/synapse@sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8
+    $ python -m synapse.tools.docker_validate vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
+    Verifying: vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
     Using Cosign with GitVersion:    v2.0.2
     Loading certdir from /hehe/haha/synapse/synapse/data/certs
     Verified certificate embedded in the signature.
     Copying certificates to /tmp/tmp7jrig60g
-    Cosign output: [{"critical":{"identity":{"docker-reference":"index.docker.io/vertexproject/synapse"},"image":{"docker-manifest-digest":"sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8"},"type":"cosign container image signature"},"optional":{"Subject":""}}]
-    Verified: vertexproject/synapse@sha256:4f932d9ef23a635a099cb53b4ec5d97e1bbdb49971f5c1d520a81371021ef4c8
+    Cosign output: [{"critical":{"identity":{"docker-reference":"index.docker.io/vertexproject/synapse"},"image":{"docker-manifest-digest":"sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b"},"type":"cosign container image signature"},"optional":{"Subject":""}}]
+    Verified: vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
 
 Devops teams can use this as the basis to write admissions controllers that can
 ensure that only signed images are allowed to be used in their environments.
