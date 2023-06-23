@@ -98,12 +98,12 @@ def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
         pubk_path = s_common.genpath(dirn, 'pubkey.pem')
         with s_common.genfile(pubk_path) as fd:
             fd.write(pubk_byts)
-        # Write out the fullchain...
-        fullchain_path = s_common.genpath(dirn, 'fullchain.pem')
-        with s_common.genfile(fullchain_path) as fd:
-            for cert in certdir.getCaCerts():
-                fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-                fd.write(b'\n')
+        # # Write out the fullchain...
+        # fullchain_path = s_common.genpath(dirn, 'fullchain.pem')
+        # with s_common.genfile(fullchain_path) as fd:
+        #     for cert in certdir.getCaCerts():
+        #         fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        #         fd.write(b'\n')
         # Do the image verification
         args = ('cosign', 'verify', "--rekor-url=''", '--insecure-ignore-sct', '--insecure-ignore-tlog',
                 '--key', pubk_path, image_to_verify)
