@@ -29,8 +29,8 @@ DESTREG=${2}
 
 cosign copy ${REGISTRY}vertexproject/synapse:${TAG} ${DESTREG}vertexproject/synapse:${TAG}
 cosign copy ${REGISTRY}vertexproject/synapse-aha:${TAG} ${DESTREG}vertexproject/synapse-aha:${TAG}
-cosign copy ${REGISTRY}vertexproject/synapse-axon:${TAG} ${DESTREG}vertexproject/synapse-axon:${TAG}
-cosign copy ${REGISTRY}vertexproject/synapse-cortex:${TAG} ${DESTREG}vertexproject/synapse-cortex:${TAG}
-cosign copy ${REGISTRY}vertexproject/synapse-cryotank:${TAG} ${DESTREG}vertexproject/synapse-cryotank:${TAG}
-cosign copy ${REGISTRY}vertexproject/synapse-stemcell:${TAG} ${DESTREG}vertexproject/synapse-stemcell:${TAG}
-cosign copy ${REGISTRY}vertexproject/synapse-jsonstor:${TAG} ${DESTREG}vertexproject/synapse-jsonstor:${TAG}
+# cosign copy ${REGISTRY}vertexproject/synapse-axon:${TAG} ${DESTREG}vertexproject/synapse-axon:${TAG}
+# cosign copy ${REGISTRY}vertexproject/synapse-cortex:${TAG} ${DESTREG}vertexproject/synapse-cortex:${TAG}
+# cosign copy ${REGISTRY}vertexproject/synapse-cryotank:${TAG} ${DESTREG}vertexproject/synapse-cryotank:${TAG}
+# cosign copy ${REGISTRY}vertexproject/synapse-stemcell:${TAG} ${DESTREG}vertexproject/synapse-stemcell:${TAG}
+# cosign copy ${REGISTRY}vertexproject/synapse-jsonstor:${TAG} ${DESTREG}vertexproject/synapse-jsonstor:${TAG}
