@@ -167,6 +167,12 @@ commands:
             echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
             echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
 
+      - run:
+          name: set commit
+          command: |
+            . venv/bin/activate
+            python ./scripts/replace_commit.py
+
   deploy_pypi_tag_verify:
     description: "Verify the git tag"
     steps:
@@ -182,7 +188,6 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
-            python ./scripts/replace_commit.py
             python -m build --sdist
 
       - run:
@@ -206,7 +211,6 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
-            python ./scripts/replace_commit.py
             python -m build --wheel "-C=--build-option=--python-tag $PYTHON_TAG"
 
       - run:
