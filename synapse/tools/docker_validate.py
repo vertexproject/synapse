@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import base64
+import argparse
 import subprocess
 
 import synapse.exc as s_exc
@@ -56,9 +57,6 @@ def getCosignSignature(outp, image):
         outp.printf(f'Expected dictionary, got {sigd} from {blob}')
         return None
 
-    from pprint import pprint
-    pprint(sigd)
-
     return sigd
 
 def checkCRL(outp, sigd, certdir):
@@ -73,7 +71,7 @@ def checkCRL(outp, sigd, certdir):
         # Unwrap pyopenssl's exception_from_error_queue
         estr = ''
         for argv in e.args:
-            if estr:  # pragma: no cover
+            if estr:
                 estr += ', '
             estr += ' '.join((arg for arg in argv[0] if arg))
         outp.printf(f'Failed to load signature bytes: {byts}')
@@ -90,13 +88,45 @@ def checkCRL(outp, sigd, certdir):
         outp.printf(mesg)
         return False
 
-    return pem_byts
+    # Return the pubkey bytes in PEM format
+    return crypto.dump_publickey(crypto.FILETYPE_PEM, cert.get_pubkey())
+
+def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
+    with s_common.getTempDir() as dirn:
+        outp.printf(f'Copying certificates to {dirn}')
+        # Write certificate out
+        pubk_path = s_common.genpath(dirn, 'pubkey.pem')
+        with s_common.genfile(pubk_path) as fd:
+            fd.write(pubk_byts)
+        # Write out the fullchain...
+        fullchain_path = s_common.genpath(dirn, 'fullchain.pem')
+        with s_common.genfile(fullchain_path) as fd:
+            for cert in certdir.getCaCerts():
+                fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+                fd.write(b'\n')
+        # Do the image verification
+        args = ('cosign', 'verify', "--rekor-url=''", '--insecure-ignore-sct', '--insecure-ignore-tlog',
+                '--key', pubk_path, image_to_verify)
+
+        # env = {'SIGSTORE_ROOT_FILE': fullchain_path}
+        # TODO: Confirm the SIGSTORE_ROOT_FILE behavior!
+        env = None
+        try:
+            proc = subprocess.run(args=args, capture_output=True, env=env)
+            proc.check_returncode()
+        except subprocess.CalledProcessError as e:
+            outp.printf(f'Error calling {" ".join(args)}: {e}')
+            return None
+        outp.printf(f'Cosign output: {proc.stdout.decode().strip()}')
+        return True
 
 def main(argv, outp=s_outp.stdout):
-    outp.printf(f'{argv}')
+    pars = getArgParser()
+    opts = pars.parse_args(argv)
+    outp.printf(f'{opts}')
 
-    # image
-    image_to_verify = argv[0]
+    image_to_verify = opts.image
+    outp.printf(f'Verifying: {image_to_verify}')
 
     if not checkCosign(outp):
         outp.printf('Failed to confirm cosign v2.x.x is available.')
@@ -107,19 +137,31 @@ def main(argv, outp=s_outp.stdout):
         outp.printf(f'Failed to get signature for {image_to_verify}')
         return 1
 
-    syncerts = s_data.path('certs')
-    certdir = s_certdir.CertDir(path=(syncerts,))
+    if opts.certdir:
+        certpath = opts.certdir
+    else:
+        certpath = s_data.path('certs')
+    outp.printf(f'Loading certdir from {certpath}')
+    certdir = s_certdir.CertDir(path=(certpath,))
 
-    cert_byts = checkCRL(outp, sigd, certdir)
-    if not cert_byts:
+    pubk_byts = checkCRL(outp, sigd, certdir)
+    if not pubk_byts:
         outp.printf(f'CRL check failed for {image_to_verify}')
         return 1
+    outp.printf('Verified certificate embedded in the signature.')
 
-    # Save the data to disk, extract annotations, verify the image signature
-
-    # Confirm we have cosign available?
-    # consirm we have docker available?
+    if not checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
+        outp.printf(f'Failed to verify: {image_to_verify}')
+        return 1
+    outp.printf(f'Verified: {image_to_verify}')
     return 0
+
+def getArgParser():
+    pars = argparse.ArgumentParser(description='Verify Docker images are signed by The Vertex Project.')
+    pars.add_argument('--certdir', '-c', action='store', default=None,
+                      help='Alternative certdir to use for signature verification.')
+    pars.add_argument('image', help="Docker image to verify.")
+    return pars
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
