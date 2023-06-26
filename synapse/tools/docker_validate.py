@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import base64
+import pprint
 import argparse
 import subprocess
 
@@ -93,31 +94,23 @@ def checkCRL(outp, sigd, certdir):
 
 def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
     with s_common.getTempDir() as dirn:
-        outp.printf(f'Copying certificates to {dirn}')
         # Write certificate out
         pubk_path = s_common.genpath(dirn, 'pubkey.pem')
         with s_common.genfile(pubk_path) as fd:
             fd.write(pubk_byts)
-        # # Write out the fullchain...
-        # fullchain_path = s_common.genpath(dirn, 'fullchain.pem')
-        # with s_common.genfile(fullchain_path) as fd:
-        #     for cert in certdir.getCaCerts():
-        #         fd.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-        #         fd.write(b'\n')
+
         # Do the image verification
         args = ('cosign', 'verify', "--rekor-url=''", '--insecure-ignore-sct', '--insecure-ignore-tlog',
                 '--key', pubk_path, image_to_verify)
-
-        # env = {'SIGSTORE_ROOT_FILE': fullchain_path}
-        # TODO: Confirm the SIGSTORE_ROOT_FILE behavior!
-        env = None
         try:
-            proc = subprocess.run(args=args, capture_output=True, env=env)
+            proc = subprocess.run(args=args, capture_output=True)
             proc.check_returncode()
         except subprocess.CalledProcessError as e:
             outp.printf(f'Error calling {" ".join(args)}: {e}')
             return None
-        outp.printf(f'Cosign output: {proc.stdout.decode().strip()}')
+        blob = json.loads(proc.stdout.decode())
+        outp.printf(f'Cosign output:')
+        outp.printf(pprint.pformat(blob))
         return True
 
 def main(argv, outp=s_outp.stdout):
