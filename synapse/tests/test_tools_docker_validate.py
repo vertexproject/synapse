@@ -16,14 +16,14 @@ class TestDockerValidate(s_t_utils.SynTest):
         outp = self.getTestOutp()
         with mock.patch('subprocess.run') as patch:
 
-            mock_stdout = mock.MagicMock(stderr=b'Hhehe\nGitVersion:    v2.0.2\nhaha')
+            mock_stdout = mock.MagicMock(stdout=b'Hhehe\nGitVersion:    v2.0.2\nhaha', stderr=b'')
             patch.return_value = mock_stdout
             ret = s_t_dv.checkCosign(outp)
             outp.expect('2.0.2')
             self.true(ret)
 
             outp.clear()
-            mock_stdout = mock.MagicMock(stderr=b'Hhehe\nGitVersion:    v1.13.1\nhaha')
+            mock_stdout = mock.MagicMock(stdout=b'Hhehe\nGitVersion:    v1.13.1\nhaha', stderr=b'')
             patch.return_value = mock_stdout
             ret = s_t_dv.checkCosign(outp)
             outp.expect('Did not find cosign version v2.x.x')
