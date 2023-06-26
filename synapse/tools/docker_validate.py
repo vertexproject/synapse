@@ -21,22 +21,22 @@ def checkCosign(outp):
     try:
         proc = subprocess.run(args, capture_output=True)
         proc.check_returncode()
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:  # pragma: no cover
         outp.printf(f'Error calling {" ".join(args)}: {e}')
         return False
 
     stderr = proc.stderr.decode()
     if 'GitVersion' not in stderr:
-        outp.printf('Cannot find GitVersion in output:')
+        outp.printf(f'Cannot find GitVersion in output: {stderr}')
         outp.printf(stderr)
-        return 1
+        return False
 
     vline = [line for line in stderr.splitlines() if line.startswith('GitVersion')][0]
     if re.search('v2\\.[0-9]+\\.[0-9]+', vline):
         outp.printf(f'Using Cosign with {vline}')
         return True
 
-    outp.printf('Found cosign version 2.x.x in "{vline}"')
+    outp.printf(f'Did not find cosign version v2.x.x in "{vline}"')
     return False
 
 def getCosignSignature(outp, image):
@@ -44,7 +44,7 @@ def getCosignSignature(outp, image):
     try:
         proc = subprocess.run(args, capture_output=True)
         proc.check_returncode()
-    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:  # pragma: no cover
         outp.printf(f'Error calling {" ".join(args)}: {e}')
         return None
 
@@ -68,7 +68,7 @@ def checkCRL(outp, sigd, certdir):
     try:
         cert = crypto.load_certificate(crypto.FILETYPE_ASN1, byts)
         pem_byts = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
-    except crypto.Error as e:
+    except crypto.Error as e:  # pragma: no cover
         # Unwrap pyopenssl's exception_from_error_queue
         estr = ''
         for argv in e.args:
@@ -92,7 +92,7 @@ def checkCRL(outp, sigd, certdir):
     # Return the pubkey bytes in PEM format
     return crypto.dump_publickey(crypto.FILETYPE_PEM, cert.get_pubkey())
 
-def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
+def checkCosignSignature(outp, pubk_byts, image_to_verify):
     with s_common.getTempDir() as dirn:
         # Write certificate out
         pubk_path = s_common.genpath(dirn, 'pubkey.pem')
@@ -105,7 +105,7 @@ def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
         try:
             proc = subprocess.run(args=args, capture_output=True)
             proc.check_returncode()
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError as e:  # pragma: no cover
             outp.printf(f'Error calling {" ".join(args)}: {e}')
             return None
         blob = json.loads(proc.stdout.decode())
@@ -113,7 +113,7 @@ def checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
         outp.printf(pprint.pformat(blob))
         return True
 
-def main(argv, outp=s_outp.stdout):
+def main(argv, outp=s_outp.stdout):  # pragma: no cover
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
@@ -148,12 +148,12 @@ def main(argv, outp=s_outp.stdout):
     outp.printf(f'Verified: {image_to_verify}')
     return 0
 
-def getArgParser():
+def getArgParser():  # pragma: no cover
     pars = argparse.ArgumentParser(description='Verify Docker images are signed by The Vertex Project.')
     pars.add_argument('--certdir', '-c', action='store', default=None,
                       help='Alternative certdir to use for signature verification.')
     pars.add_argument('image', help="Docker image to verify.")
     return pars
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(main(sys.argv[1:]))
