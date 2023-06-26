@@ -66,7 +66,11 @@ def getTotalMemory():
     fp = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     if os.path.isfile(fp):
         with open(fp) as f:
-            return int(f.read())
+            valu = int(f.read())
+            # Skip a known value on cgroupsv1 where there has not been
+            # a limit set, so we will fallback to /proc/meminfo instead.
+            if valu != 9223372036854771712:
+                return valu
     # A host (or container) using cgroupv2 with a max memory enabled will have
     # a memory.max file available.
     # Reference
