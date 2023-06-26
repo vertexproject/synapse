@@ -24,14 +24,13 @@ def checkCosign(outp):
     except (FileNotFoundError, subprocess.CalledProcessError) as e:  # pragma: no cover
         outp.printf(f'Error calling {" ".join(args)}: {e}')
         return False
-
-    stderr = proc.stderr.decode()
-    if 'GitVersion' not in stderr:
-        outp.printf(f'Cannot find GitVersion in output: {stderr}')
-        outp.printf(stderr)
+    data = '\n'.join((proc.stdout.decode(), proc.stderr.decode()))
+    if 'GitVersion' not in data:
+        outp.printf(f'Cannot find GitVersion in output: {data}')
+        outp.printf(data)
         return False
 
-    vline = [line for line in stderr.splitlines() if line.startswith('GitVersion')][0]
+    vline = [line for line in data.splitlines() if line.startswith('GitVersion')][0]
     if re.search('v2\\.[0-9]+\\.[0-9]+', vline):
         outp.printf(f'Using Cosign with {vline}')
         return True
@@ -142,7 +141,7 @@ def main(argv, outp=s_outp.stdout):  # pragma: no cover
         return 1
     outp.printf('Verified certificate embedded in the signature.')
 
-    if not checkCosignSignature(outp, pubk_byts, certdir, image_to_verify):
+    if not checkCosignSignature(outp, pubk_byts, image_to_verify):
         outp.printf(f'Failed to verify: {image_to_verify}')
         return 1
     outp.printf(f'Verified: {image_to_verify}')

@@ -115,11 +115,16 @@ content hash::
 
     $ python -m synapse.tools.docker_validate vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
     Verifying: vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
-    Using Cosign with GitVersion:    v2.0.2
+    Using Cosign with GitVersion:    v2.1.0
     Loading certdir from /your/python/site-lib/synapse/synapse/data/certs
     Verified certificate embedded in the signature.
-    Copying certificates to /tmp/tmp7jrig60g
-    Cosign output: [{"critical":{"identity":{"docker-reference":"index.docker.io/vertexproject/synapse"},"image":{"docker-manifest-digest":"sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b"},"type":"cosign container image signature"},"optional":{"Subject":""}}]
+    Cosign output:
+    [{'critical': {'identity': {'docker-reference': 'index.docker.io/vertexproject/synapse'},
+                   'image': {'docker-manifest-digest': 'sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b'},
+                   'type': 'cosign container image signature'},
+      'optional': {'Subject': '',
+                   'commit': '07ab34bbeb04cf0e96e7ba7b65c5a7d7baeda151',
+                   'jobid': '9b78fab5-d364-43b3-8fb0-3f0c82a795cd'}}]
     Verified: vertexproject/synapse@sha256:4ec5d97e1bbdb49971f5c1d520a81371021ef4c84f932d9ef23a635a099cb53b
 
 Devops teams can use this tool_ as the basis to create or update an admissions
