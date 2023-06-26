@@ -29,11 +29,11 @@ docker run --rm -it --entrypoint python vertexproject/synapse:${TAG} -m synapse.
 dstatus00=$?
 if [ $dstatus00 != "0" ]; then exit 1; fi
 docker run --rm -d --name test-aha vertexproject/synapse-aha:${TAG}
-# docker run --rm -d --name test-axon vertexproject/synapse-axon:${TAG}
-# docker run --rm -d --name test-cortex vertexproject/synapse-cortex:${TAG}
-# docker run --rm -d --name test-cryotank vertexproject/synapse-cryotank:${TAG}
-# docker run --rm -d --name test-stemcell -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${TAG}
-# docker run --rm -d --name test-jsonstor vertexproject/synapse-jsonstor:${TAG}
+docker run --rm -d --name test-axon vertexproject/synapse-axon:${TAG}
+docker run --rm -d --name test-cortex vertexproject/synapse-cortex:${TAG}
+docker run --rm -d --name test-cryotank vertexproject/synapse-cryotank:${TAG}
+docker run --rm -d --name test-stemcell -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${TAG}
+docker run --rm -d --name test-jsonstor vertexproject/synapse-jsonstor:${TAG}
 
 # Let them run and allow health checks to fire
 DELAY=45
@@ -45,31 +45,31 @@ echo "Docker information"
 docker container ls -a
 
 docker logs test-aha
-# docker logs test-axon
-# docker logs test-cortex
-# docker logs test-cryotank
-# docker logs test-stemcell
-# docker logs test-jsonstor
+docker logs test-axon
+docker logs test-cortex
+docker logs test-cryotank
+docker logs test-stemcell
+docker logs test-jsonstor
 
 dstatus01=`docker inspect test-aha --format '{{.State.Health.Status}}'`
-# dstatus02=`docker inspect test-axon --format '{{.State.Health.Status}}'`
-# dstatus03=`docker inspect test-cortex --format '{{.State.Health.Status}}'`
-# dstatus04=`docker inspect test-cryotank --format '{{.State.Health.Status}}'`
-# dstatus05=`docker inspect test-stemcell --format '{{.State.Health.Status}}'`
-# dstatus06=`docker inspect test-jsonstor --format '{{.State.Health.Status}}'`
+dstatus02=`docker inspect test-axon --format '{{.State.Health.Status}}'`
+dstatus03=`docker inspect test-cortex --format '{{.State.Health.Status}}'`
+dstatus04=`docker inspect test-cryotank --format '{{.State.Health.Status}}'`
+dstatus05=`docker inspect test-stemcell --format '{{.State.Health.Status}}'`
+dstatus06=`docker inspect test-jsonstor --format '{{.State.Health.Status}}'`
 
 docker stop test-aha
-# docker stop test-axon
-# docker stop test-cortex
-# docker stop test-cryotank
-# docker stop test-stemcell
-# docker stop test-jsonstor
+docker stop test-axon
+docker stop test-cortex
+docker stop test-cryotank
+docker stop test-stemcell
+docker stop test-jsonstor
 
 if [ $dstatus01 != "healthy" ]; then exit 1; fi
-# if [ $dstatus02 != "healthy" ]; then exit 1; fi
-# if [ $dstatus03 != "healthy" ]; then exit 1; fi
-# if [ $dstatus04 != "healthy" ]; then exit 1; fi
-# if [ $dstatus05 != "healthy" ]; then exit 1; fi
-# if [ $dstatus06 != "healthy" ]; then exit 1; fi
+if [ $dstatus02 != "healthy" ]; then exit 1; fi
+if [ $dstatus03 != "healthy" ]; then exit 1; fi
+if [ $dstatus04 != "healthy" ]; then exit 1; fi
+if [ $dstatus05 != "healthy" ]; then exit 1; fi
+if [ $dstatus06 != "healthy" ]; then exit 1; fi
 
 exit 0
