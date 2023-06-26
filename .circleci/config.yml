@@ -474,8 +474,6 @@ jobs:
           image-tag: ${CIRCLE_BRANCH}
       - push_docker_image:
           image-tag: ${CIRCLE_BRANCH}
-          # Temporary for testing
-          cosign: true
           registry: ${DOCKER_PRIMARY_REGISTRY}
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
