@@ -30,7 +30,7 @@ class TestDockerValidate(s_t_utils.SynTest):
             self.false(ret)
 
             outp.clear()
-            mock_stdout = mock.MagicMock(stderr=b'Hhehe\nnewp\n\nhaha')
+            mock_stdout = mock.MagicMock(stdout=b'Hhehe\nnewp\n\nhaha', stderr=b'')
             patch.return_value = mock_stdout
             ret = s_t_dv.checkCosign(outp)
             outp.expect('Cannot find GitVersion')
