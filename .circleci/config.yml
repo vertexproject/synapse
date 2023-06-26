@@ -566,7 +566,6 @@ workflows:
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
-            - VTXCodeSign
             - VTXDockerControl
           filters:
             branches:
