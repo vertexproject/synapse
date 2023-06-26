@@ -27,8 +27,8 @@ class Node:
         # Tracks which property is retrieved from which layer
         self.bylayer = bylayer
 
-        # if set, the node is complete.
-        self.ndef = sode[1].get('ndef')
+        self.nid = sode[1].get('nid')
+        self.ndef = sode[1].get('ndef') # if set, the node is complete.
         self.form = snap.core.model.form(self.ndef[0])
 
         self.props = sode[1].get('props')

@@ -1225,6 +1225,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.agenda)
         await self._initStormDmons()
         await self._initStormGraphs()
+        await self._initLayerV3Stor()
 
         self.trigson = self.conf.get('trigger:enable')
 
@@ -2112,6 +2113,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
     async def _initStormGraphs(self):
+        # TODO we should probably just store this in the cell.slab to save a file handle :D
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
 
         slab = await s_lmdbslab.Slab.anit(path)
@@ -2119,6 +2121,69 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.pkggraphs = {}
         self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
+
+    async def _initLayerV3Stor(self):
+
+        path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
+        self.v3stor = await s_lmdbslab.Slab.anit(path)
+
+        # TODO move sodes to being keyed by nid integerkey=True
+        self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
+        self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
+        self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
+        self.buid2nid = self.v3stor.initdb('buid2nid')
+
+        self.nextnid = 0
+        byts = self.v3stor.lastkey(db=self.nidrefs)
+
+    def setNidNdef(self, nid, ndef):
+        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+
+    def getBuidByNid(self, nid):
+        return self.v3stor.get(nid, db=self.nid2buid)
+
+    def getNidByBuid(self, buid):
+        return self.v3stor.get(buid, db=self.buid2nid)
+
+    def genBuidNid(self, buid, inc=1):
+
+        nid = self.v3stor.get(buid, db=self.buid2nid)
+        if nid is not None:
+            refsbyts = self.v3stor.get(nid, db=self.nidrefs)
+            refs = int.from_bytes(refsbyts) + inc
+            self.v3stor.put(nid, s_common.int64en(refs), db=self.nidrefs)
+            return nid
+
+        nid = self.nextnid.to_bytes(8)
+        self.nextnid += 1
+
+        refsbyts = s_common.int64en(inc)
+
+        self.v3stor.put(nid, buid, db=self.nid2buid)
+        self.v3stor.put(nid, refsbyts, db=self.nidrefs)
+        self.v3stor.put(buid, nid, buid, db=self.buid2nid)
+
+        return nid
+
+    def incBuidNid(self, nid, inc=1):
+
+        refsbyts = self.v3stor.get(nid, db=self.nidrefs)
+        print(f'NO REFS BYTS {nid}')
+        if refsbyts is None:
+            return 0
+
+        refs = int.from_bytes(refsbyts) + inc
+
+        if refs <= 0:
+            buid = self.v3stor.pop(nid, db=self.nid2buid)
+            print(f'REFS 0: {nid} {s_common.ehex(buid)}')
+            self.v3stor.delete(nid, db=self.nidrefs)
+            self.v3stor.delete(nid, db=self.nid2ndef)
+            self.v3stor.delete(buid, db=self.buid2nid)
+            return 0
+
+        self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
+        return refs
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2196,53 +2261,54 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return (buid, sodelist)
 
     async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None):
-        lastbuid = None
+        lastnid = None
         sodes = {}
-        async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
-            if not buid == lastbuid or layr in sodes:
-                if lastbuid is not None:
-                    sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+        async for layr, (_, nid), sode in s_common.merggenr2(genrs, cmprkey):
+            if not nid == lastnid or layr in sodes:
+                if lastnid is not None:
+                    sodelist = await self._genSodeList(lastnid, sodes, layers, filtercmpr)
                     if sodelist is not None:
                         yield sodelist
                     sodes.clear()
-                lastbuid = buid
+                lastnid = nid
             sodes[layr] = sode
 
-        if lastbuid is not None:
-            sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+        if lastnid is not None:
+            sodelist = await self._genSodeList(lastnid, sodes, layers, filtercmpr)
             if sodelist is not None:
                 yield sodelist
 
+    # TODO does this differ from the above? both seem to be uniqd
     async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None):
-        lastbuid = None
+        lastnid = None
         sodes = {}
         async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
-            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
-                if buid in uniqset:
+            async for layr, (_, nid), sode in s_common.merggenr2(genrs, cmprkey):
+                if nid in uniqset:
                     continue
 
-                if not buid == lastbuid or layr in sodes:
-                    if lastbuid is not None:
-                        sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+                if not nid == lastnid or layr in sodes:
+                    if lastnid is not None:
+                        sodelist = await self._genSodeList(lastnid, sodes, layers, filtercmpr)
                         if sodelist is not None:
                             yield sodelist
                         sodes.clear()
 
-                    await uniqset.add(lastbuid)
-                    lastbuid = buid
+                    await uniqset.add(lastnid)
+                    lastnid = nid
 
                 sodes[layr] = sode
 
-            if lastbuid is not None:
-                sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
+            if lastnid is not None:
+                sodelist = await self._genSodeList(lastnid, sodes, layers, filtercmpr)
                 if sodelist is not None:
                     yield sodelist
 
     async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByDataName(name):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByDataName(name):
+                yield (nid, [(layr, sode)])
             return
 
         genrs = []
@@ -2255,8 +2321,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByProp(self, form, prop, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByProp(form, prop):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByProp(form, prop):
+                yield (nid, [(layr, sode)])
             return
 
         genrs = []
@@ -2269,8 +2335,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByPropValu(self, form, prop, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropValu(form, prop, cmprvals):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByPropValu(form, prop, cmprvals):
+                yield (nid, [(layr, sode)])
             return
 
         def filtercmpr(sode):
@@ -2290,8 +2356,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByPropArray(self, form, prop, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropArray(form, prop, cmprvals):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByPropArray(form, prop, cmprvals):
+                yield (nid, [(layr, sode)])
             return
 
         if prop is None:
@@ -2314,8 +2380,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByFormValu(self, form, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByFormValu(form, cmprvals):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByFormValu(form, cmprvals):
+                yield (nid, [(layr, sode)])
             return
 
         for cval in cmprvals:
@@ -2329,8 +2395,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByTag(self, tag, form, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTag(tag, form):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByTag(tag, form):
+                yield (nid, [(layr, sode)])
             return
 
         if form is None:
@@ -2352,8 +2418,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form):
+                yield (nid, [(layr, sode)])
             return
 
         def filtercmpr(sode):
@@ -2372,8 +2438,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByTagProp(self, form, tag, prop, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagProp(form, tag, prop):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByTagProp(form, tag, prop):
+                yield (nid, [(layr, sode)])
             return
 
         genrs = []
@@ -2386,8 +2452,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
-                yield (buid, [(layr, sode)])
+            async for _, nid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
+                yield (nid, [(layr, sode)])
             return
 
         def filtercmpr(sode):

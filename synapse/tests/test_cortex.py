@@ -892,8 +892,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # we should now be able to edge walk *and* refs in
             nodes = await core.nodes('inet:ipv4=1.2.3.4 <-- *')
-            self.eq(nodes[0].ndef[0], 'inet:dns:a')
-            self.eq(nodes[1].ndef[0], 'media:news')
+            forms = [n.ndef[0] for n in nodes]
+            self.isin('inet:dns:a', forms)
+            self.isin('media:news', forms)
 
             msgs = await core.stormlist('for $verb in $lib.view.get().getEdgeVerbs() { $lib.print($verb) }')
             self.stormIsInPrint('refs', msgs)
@@ -1909,8 +1910,10 @@ class CortexTest(s_t_utils.SynTest):
                 await tstr.set('tick', 100)
                 await tstr.addTag('hehe')
 
+                print('WOOT')
                 nodes = await snap.nodes('[ test:str=baz :tick=$(100) +#hehe ]')
                 self.len(1, nodes)
+                print(repr(nodes))
                 self.eq(100, nodes[0].get('tick'))
                 self.eq((None, None), nodes[0].getTag('hehe'))
 
@@ -3492,6 +3495,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
             await core.nodes('[ inet:dns:a=(woot.com, 1.2.3.4) +#yepr ]')
             await core.nodes('[ inet:dns:a=(vertex.link, 5.5.5.5) +#nope ]')
+            await core.nodes('[ inet:fqdn=vertex.link <(refs)+ {[ media:news=cd5d6bff3fd78bbf1eee91afc80a50dd ]} ]')
 
             rules = {
 
@@ -3522,7 +3526,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             def checkGraph(seeds, alldefs):
                 # our TLDs should be omits
                 self.len(2, seeds)
-                self.len(4, alldefs)
+                self.len(6, alldefs)
 
                 self.isin(('inet:fqdn', 'woot.com'), seeds)
                 self.isin(('inet:fqdn', 'vertex.link'), seeds)
@@ -3653,7 +3657,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # our TLDs are no longer omits
             self.len(4, seeds)
-            self.len(6, alldefs)
+            self.len(8, alldefs)
             self.isin(('inet:fqdn', 'com'), seeds)
             self.isin(('inet:fqdn', 'link'), seeds)
             self.isin(('inet:fqdn', 'woot.com'), seeds)
@@ -3677,7 +3681,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # we still get the seeds. We also get an inet:dns:a node we
             # previously omitted.
             self.len(4, seeds)
-            self.len(7, alldefs)
+            self.len(9, alldefs)
             self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
 
             # refs
@@ -3767,6 +3771,28 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '$lib.graph.add(({"name": "foo", "forms": {"newp": {}}}))'
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
+
+            # default to full pivots including
+            # iden = s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))
+            rules = {
+                'refs': True,
+                'edges': True,
+                'degrees': 1,
+            }
+            msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
+
+            nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
+            # [print(repr(n)) for n in nodes.values()]
+            self.len(3, nodes)
+
+            edgeinfo = nodes[('inet:fqdn', 'vertex.link')][1]['path']['edges'][0][1]
+            self.eq({'type': 'prop', 'name': 'zone'}, edgeinfo)
+
+            edgeinfo = nodes[('inet:fqdn', 'vertex.link')][1]['path']['edges'][1][1]
+            self.eq({'type': 'prop', 'name': 'domain'}, edgeinfo)
+
+            edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][0][1]
+            self.eq({'type': 'edge', 'verb': 'refs'}, edgeinfo)
 
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:

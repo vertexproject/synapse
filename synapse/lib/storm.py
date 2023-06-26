@@ -4555,7 +4555,11 @@ class GraphCmd(Cmd):
                           help='Specify a <form> <filter> form specific filter.')
 
         pars.add_argument('--refs', default=False, action='store_true',
-                          help='Do automatic in-model pivoting with node.getNodeRefs().')
+                          help='Deprecated. This is now enabled by default.')
+
+        pars.add_argument('--no-refs', default=False, action='store_true',
+                          help='Disable automatic in-model pivoting with node.getNodeRefs().')
+
         pars.add_argument('--yield-filtered', default=False, action='store_true', dest='yieldfiltered',
                           help='Yield nodes which would be filtered. This still performs pivots to collect edge data,'
                                'but does not yield pivoted nodes.')
@@ -4578,7 +4582,7 @@ class GraphCmd(Cmd):
 
             'forms': {},
 
-            'refs': self.opts.refs,
+            'refs': not self.opts.no_refs,
             'filterinput': self.opts.filterinput,
             'yieldfiltered': self.opts.yieldfiltered,
 

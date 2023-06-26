@@ -631,7 +631,10 @@ class Snap(s_base.Base):
             Optional[s_node.Node]: The node object or None.
 
         '''
-        return await self._joinStorNode(buid, {})
+        nid = self.core.getNidByBuid(buid)
+        if nid is None:
+            return None
+        return await self._joinStorNode(nid, {})
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -653,8 +656,8 @@ class Snap(s_base.Base):
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        async for (buid, sodes) in self.core._liftByTagProp(form, tag, name, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByTagProp(form, tag, name, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
@@ -669,14 +672,14 @@ class Snap(s_base.Base):
         if not cmprvals:
             return
 
-        async for (buid, sodes) in self.core._liftByTagPropValu(form, tag, name, cmprvals, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByTagPropValu(form, tag, name, cmprvals, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
-    async def _joinStorNode(self, buid, cache):
+    async def _joinStorNode(self, nid, cache):
 
-        node = self.livenodes.get(buid)
+        node = self.livenodes.get(nid)
         if node is not None:
             await asyncio.sleep(0)
             return node
@@ -684,7 +687,7 @@ class Snap(s_base.Base):
         layrs = [layr for layr in self.layers if layr.iden not in cache]
         if layrs:
             indx = 0
-            newsodes = await self.core._getStorNodes(buid, layrs)
+            newsodes = await self.core._getStorNodes(nid, layrs)
 
         sodes = []
         for layr in self.layers:
@@ -694,12 +697,14 @@ class Snap(s_base.Base):
                 indx += 1
             sodes.append((layr.iden, sode))
 
-        return await self._joinSodes(buid, sodes)
+        return await self._joinSodes(nid, sodes)
 
-    async def _joinSodes(self, buid, sodes):
+    async def _joinSodes(self, nid, sodes):
 
-        node = self.livenodes.get(buid)
+        print('JOIN')
+        node = self.livenodes.get(nid)
         if node is not None:
+            print(f'NID CACHE: {node}')
             await asyncio.sleep(0)
             return node
 
@@ -717,6 +722,7 @@ class Snap(s_base.Base):
         }
 
         for (layr, sode) in sodes:
+            print(f'SODE: {sode}')
 
             form = sode.get('form')
             valt = sode.get('valu')
@@ -749,10 +755,12 @@ class Snap(s_base.Base):
                 nodedata.update(stordata)
 
         if ndef is None:
+            print('NDEF IS NONE')
             await asyncio.sleep(0)
             return None
 
-        pode = (buid, {
+        pode = (s_common.buid(ndef), {
+            'nid': nid,
             'ndef': ndef,
             'tags': tags,
             'props': props,
@@ -762,15 +770,15 @@ class Snap(s_base.Base):
 
         node = s_node.Node(self, pode, bylayer=bylayer)
         if self.cachebuids:
-            self.livenodes[buid] = node
+            self.livenodes[nid] = node
             self.buidcache.append(node)
 
         await asyncio.sleep(0)
         return node
 
     async def nodesByDataName(self, name):
-        async for (buid, sodes) in self.core._liftByDataName(name, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByDataName(name, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
@@ -787,15 +795,15 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-            async for (buid, sodes) in self.core._liftByProp(prop.name, None, self.layers):
-                node = await self._joinSodes(buid, sodes)
+            async for (nid, sodes) in self.core._liftByProp(prop.name, None, self.layers):
+                node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     yield node
             return
 
         if prop.isuniv:
-            async for (buid, sodes) in self.core._liftByProp(None, prop.name, self.layers):
-                node = await self._joinSodes(buid, sodes)
+            async for (nid, sodes) in self.core._liftByProp(None, prop.name, self.layers):
+                node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     yield node
             return
@@ -805,8 +813,8 @@ class Snap(s_base.Base):
             formname = prop.form.name
 
         # Prop is secondary prop
-        async for (buid, sodes) in self.core._liftByProp(formname, prop.name, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByProp(formname, prop.name, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
@@ -838,8 +846,8 @@ class Snap(s_base.Base):
         if prop.isform:
 
             found = 0
-            async for (buid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
-                node = await self._joinSodes(buid, sodes)
+            async for (nid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
+                node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     found += 1
                     yield node
@@ -847,27 +855,27 @@ class Snap(s_base.Base):
             return
 
         if prop.isuniv:
-            async for (buid, sodes) in self.core._liftByPropValu(None, prop.name, cmprvals, self.layers):
-                node = await self._joinSodes(buid, sodes)
+            async for (nid, sodes) in self.core._liftByPropValu(None, prop.name, cmprvals, self.layers):
+                node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     yield node
             return
 
-        async for (buid, sodes) in self.core._liftByPropValu(prop.form.name, prop.name, cmprvals, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByPropValu(prop.form.name, prop.name, cmprvals, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
     async def nodesByTag(self, tag, form=None):
-        async for (buid, sodes) in self.core._liftByTag(tag, form, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByTag(tag, form, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None):
         norm, info = self.core.model.type('ival').norm(valu)
-        async for (buid, sodes) in self.core._liftByTagValu(tag, cmpr, norm, form, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByTagValu(tag, cmpr, norm, form, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
@@ -899,8 +907,8 @@ class Snap(s_base.Base):
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
         if prop.isform:
-            async for (buid, sodes) in self.core._liftByPropArray(prop.name, None, cmprvals, self.layers):
-                node = await self._joinSodes(buid, sodes)
+            async for (nid, sodes) in self.core._liftByPropArray(prop.name, None, cmprvals, self.layers):
+                node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     yield node
             return
@@ -909,8 +917,8 @@ class Snap(s_base.Base):
         if prop.form is not None:
             formname = prop.form.name
 
-        async for (buid, sodes) in self.core._liftByPropArray(formname, prop.name, cmprvals, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for (nid, sodes) in self.core._liftByPropArray(formname, prop.name, cmprvals, self.layers):
+            node = await self._joinSodes(nid, sodes)
             if node is not None:
                 yield node
 
@@ -988,7 +996,8 @@ class Snap(s_base.Base):
 
             cache = {wlyr.iden: sode}
 
-            node = await self._joinStorNode(buid, cache)
+            nid = sode.get('nid')
+            node = await self._joinStorNode(nid, cache)
 
             if node is None:
                 # We got part of a node but no ndef
@@ -1343,6 +1352,20 @@ class Snap(s_base.Base):
             if await layr.hasNodeEdge(buid1, verb, buid2):
                 return True
         return False
+
+    async def iterNodeEdgesN1N2(self, buid1, buid2):
+
+        last = None
+        gens = [layr.iterNodeEdgesN1N2(buid1, buid2) for layr in self.layers]
+
+        async for edge in s_common.merggenr2(gens):
+
+            if edge == last: # pragma: no cover
+                await asyncio.sleep(0)
+                continue
+
+            last = edge
+            yield edge
 
     async def hasNodeData(self, buid, name):
         '''
