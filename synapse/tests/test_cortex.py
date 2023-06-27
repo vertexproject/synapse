@@ -5968,6 +5968,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): error', msgs)
 
+            # invalid storm query
+            await self.asyncraises(s_exc.BadSyntax, core.nodes('$lib.dmon.add(" | | | ")'))
+
     async def test_cortex_storm_dmon_exit(self):
 
         async with self.getTestCore() as core:
