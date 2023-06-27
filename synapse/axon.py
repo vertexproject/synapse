@@ -1498,7 +1498,8 @@ class Axon(s_cell.Cell):
 
                     name = field.get('name')
                     if not isinstance(name, str):
-                        raise s_exc.BadArg(mesg=f'Field name must be a string', name=name)
+                        mesg = f'Each field requires a "name" key with a string value: {name}'
+                        raise s_exc.BadArg(mesg=mesg, name=name)
 
                     sha256 = field.get('sha256')
                     if sha256:
