@@ -2136,6 +2136,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.nextnid = 0
         byts = self.v3stor.lastkey(db=self.nidrefs)
 
+    def getNidNdef(self, nid):
+        return self.v3stor.get(nid, db=self.nid2ndef)
+
     def setNidNdef(self, nid, ndef):
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
@@ -2147,10 +2150,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def genBuidNid(self, buid, inc=1):
 
+        print(f'genBuidNid {s_common.ehex(buid)} {inc}')
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
             refsbyts = self.v3stor.get(nid, db=self.nidrefs)
-            refs = int.from_bytes(refsbyts) + inc
+            refs = s_common.int64un(refsbyts) + inc
             self.v3stor.put(nid, s_common.int64en(refs), db=self.nidrefs)
             return nid
 
@@ -2168,11 +2172,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def incBuidNid(self, nid, inc=1):
 
         refsbyts = self.v3stor.get(nid, db=self.nidrefs)
-        print(f'NO REFS BYTS {nid}')
         if refsbyts is None:
+            print(f'NO REFS BYTS {nid}')
             return 0
 
         refs = int.from_bytes(refsbyts) + inc
+        print(f'REF COUNT: {nid} {refs}')
 
         if refs <= 0:
             buid = self.v3stor.pop(nid, db=self.nid2buid)
@@ -2380,10 +2385,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByFormValu(self, form, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
+            print('SINGLETON')
             async for _, nid, sode in layers[0].liftByFormValu(form, cmprvals):
+                print(f'SINGLETON {nid}')
                 yield (nid, [(layr, sode)])
             return
 
+        print('NOT SINGLETON')
         for cval in cmprvals:
             genrs = []
             for layr in layers:

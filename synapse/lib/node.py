@@ -631,6 +631,7 @@ class Node:
         '''
 
         formname, formvalu = self.ndef
+        print(f'DELETE {self.ndef}')
 
         if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',

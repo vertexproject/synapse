@@ -326,8 +326,8 @@ class IndxByForm(IndxBy):
 
         self.form = form
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
+    def getNodeValu(self, nid):
+        sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
             return None
 
@@ -347,8 +347,8 @@ class IndxByProp(IndxBy):
         self.form = form
         self.prop = prop
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
+    def getNodeValu(self, nid):
+        sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
             return None
 
@@ -368,8 +368,8 @@ class IndxByPropArray(IndxBy):
         self.form = form
         self.prop = prop
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
+    def getNodeValu(self, nid):
+        sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
             return None
         valt = sode['props'].get(self.prop)
@@ -393,7 +393,7 @@ class IndxByTag(IndxBy):
         self.form = form
         self.tag = tag
 
-    def getNodeValuForm(self, buid):
+    def getNodeValuForm(self, nid):
         sode = self.layr._getStorNode(buid)
         if sode is None: # pragma: no cover
             return None
@@ -414,8 +414,8 @@ class IndxByTagProp(IndxBy):
         self.prop = prop
         self.tag = tag
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
+    def getNodeValu(self, nid):
+        sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
             return None
         props = sode['tagprops'].get(self.tag)
@@ -510,7 +510,7 @@ class StorType:
 
             if storvalu == s_common.novalu:
 
-                storvalu = liftby.getNodeValu(buid)
+                storvalu = liftby.getNodeValu(nid)
 
                 if isarray:
                     for sval in storvalu:
@@ -1392,17 +1392,17 @@ class Layer(s_nexus.Pusher):
     def _testDelTagStor(self, nid, form, tag):
         sode = self._getStorNode(nid)
         sode['tags'].pop(tag, None)
-        self.setSodeDirty(nid, sode, form)
+        self.setSodeDirty(sode)
 
     def _testDelPropStor(self, nid, form, prop):
         sode = self._getStorNode(nid)
         sode['props'].pop(prop, None)
-        self.setSodeDirty(nid, sode, form)
+        self.setSodeDirty(sode)
 
     def _testDelFormValuStor(self, nid, form):
         sode = self._getStorNode(nid)
         sode['valu'] = None
-        self.setSodeDirty(nid, sode, form)
+        self.setSodeDirty(sode)
 
     def _testAddPropIndx(self, nid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
@@ -1546,7 +1546,7 @@ class Layer(s_nexus.Pusher):
                 sode = self._genStorNode(nid)
                 sode.setdefault('form', form)
                 sode['tags'][tag] = (None, None)
-                self.setSodeDirty(nid, sode, form)
+                self.setSodeDirty(sode)
             elif autofix == 'index':
                 self.layrslab.delete(lkey, nid, db=self.bytag)
 
@@ -2564,9 +2564,8 @@ class Layer(s_nexus.Pusher):
             return None
         return sode.get('form')
 
-    def setSodeDirty(self, nid, sode, form):
-        sode['form'] = form
-        self.dirty[nid] = sode
+    def setSodeDirty(self, sode):
+        self.dirty[sode['nid']] = sode
 
     async def _onLayrSlabCommit(self, mesg):
         await self._saveDirtySodes()
@@ -2794,12 +2793,14 @@ class Layer(s_nexus.Pusher):
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
+            print(f'liftByFormValu {cmpr} {valu}')
 
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
             async for lkey, nid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 sode = self._getStorNode(nid)
+                print(f'NID SODE: {nid} {sode}')
                 if sode is None: # pragma: no cover
                     # logger.warning(f'FormValuIndex for {form} has {s_common.ehex(buid)} but no storage node.')
                     continue
@@ -2874,6 +2875,7 @@ class Layer(s_nexus.Pusher):
             nid = self.core.getNidByBuid(buid)
             if nid is None:
                 import pprint; pprint.pprint(edits)
+            assert nid is not None
             sode = await self.getStorNode(nid)
             retn.append((buid, sode, edits))
 
@@ -2904,6 +2906,27 @@ class Layer(s_nexus.Pusher):
 
         return await self.saveToNexs('edits', edits, meta)
 
+    def _incSodeRefs(self, buid, sode, inc=1):
+
+        nid = sode.get('nid')
+        refs = sode.get('refs', 0)
+
+        refs = refs + inc
+
+        if refs <= 0:
+            print(f'NID {nid}')
+            self.dirty.pop(nid, None)
+            self.buidcache.pop(nid, None)
+            self.layrslab.delete(nid, db=self.bybuidv3)
+            self.core.incBuidNid(nid, inc=-1)
+            return 0
+
+        if nid is None:
+            nid = sode['nid'] = self.core.genBuidNid(buid)
+
+        sode['refs'] = refs
+        self.setSodeDirty(sode)
+
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):
         '''
@@ -2928,9 +2951,12 @@ class Layer(s_nexus.Pusher):
             nid = self.core.getNidByBuid(buid)
             print(f'EDIT LOOP: {form} {nid} {buid}')
             import pprint; pprint.pprint(edits)
+
+            sode = None
             if nid is not None:
                 sode = self._genStorNode(nid)
-            else:
+
+            if sode is None:
                 print('NEW SODE')
                 sode = collections.defaultdict(dict)
 
@@ -2968,33 +2994,6 @@ class Layer(s_nexus.Pusher):
 
         return flatedits
 
-    def mayDelBuid(self, buid, sode):
-
-        if sode.get('valu'):
-            return
-
-        if sode.get('props'):
-            return
-
-        if sode.get('tags'):
-            return
-
-        if sode.get('tagprops'):
-            return
-
-        if self.dataslab.prefexists(buid, self.nodedata):
-            return
-
-        if self.layrslab.prefexists(buid, db=self.edgesn1):
-            return
-
-        # no more refs in this layer.  time to pop it...
-        nid = sode.get('nid')
-
-        self.dirty.pop(nid, None)
-        self.buidcache.pop(nid, None)
-        self.layrslab.delete(nid, db=self.bybuidv3)
-
     async def storNodeEditsNoLift(self, nodeedits, meta):
         '''
         Execute a series of node edit operations.
@@ -3012,27 +3011,25 @@ class Layer(s_nexus.Pusher):
             return ()
 
         sode['valu'] = valt
-        sode['nid'] = self.core.genBuidNid(buid, inc=1)
+        self._incSodeRefs(buid, sode)
 
         nid = sode.get('nid')
         self.core.setNidNdef(nid, (form, valu))
-
-        self.setSodeDirty(nid, sode, form)
 
         abrv = self.setPropAbrv(form, None)
 
         if stortype & STOR_FLAG_ARRAY:
 
             for indx in self.getStorIndx(stortype, valu):
-                self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                self.layrslab.put(abrv + indx, nid, db=self.byarray)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
-                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                self.layrslab.put(abrv + indx, nid, db=self.byprop)
 
         else:
 
             for indx in self.getStorIndx(stortype, valu):
-                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                self.layrslab.put(abrv + indx, nid, db=self.byprop)
 
         self.formcounts.inc(form)
         if self.nodeAddHook is not None:
@@ -3056,12 +3053,9 @@ class Layer(s_nexus.Pusher):
         valt = sode.pop('valu', None)
         if valt is None:
             # TODO tombstone
-            self.mayDelBuid(buid, sode)
             return ()
 
         nid = sode.get('nid')
-        self.core.incBuidNid(nid, inc=-1)
-        self.setSodeDirty(nid, sode, form)
 
         valu, stortype = valt
 
@@ -3070,26 +3064,24 @@ class Layer(s_nexus.Pusher):
         if stortype & STOR_FLAG_ARRAY:
 
             for indx in self.getStorIndx(stortype, valu):
-                self.layrslab.delete(abrv + indx, buid, db=self.byarray)
+                self.layrslab.delete(abrv + indx, nid, db=self.byarray)
 
             for indx in self.getStorIndx(STOR_TYPE_MSGP, valu):
-                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+                self.layrslab.delete(abrv + indx, nid, db=self.byprop)
 
         else:
 
             for indx in self.getStorIndx(stortype, valu):
-                self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+                self.layrslab.delete(abrv + indx, nid, db=self.byprop)
 
         self.formcounts.inc(form, valu=-1)
         if self.nodeDelHook is not None:
             self.nodeDelHook()
 
-        await self._wipeNodeData(nid)
-        await self._delNodeEdges(nid)
+        self._incSodeRefs(buid, sode, inc=-1)
 
-        self.buidcache.pop(buid, None)
-
-        self.mayDelBuid(buid, sode)
+        await self._wipeNodeData(buid, sode)
+        await self._delNodeEdges(buid, sode)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -3110,7 +3102,7 @@ class Layer(s_nexus.Pusher):
             univabrv = self.setPropAbrv(None, prop)
 
         if oldv is None:
-            sode['nid'] = self.core.genBuidNid(buid)
+            self._incSodeRefs(buid, sode)
 
         nid = sode.get('nid')
 
@@ -3150,9 +3142,8 @@ class Layer(s_nexus.Pusher):
 
         print(f'PROP SET: {nid} {form} {prop} {valu}')
         import pprint; pprint.pprint(sode)
-        sode['props'][prop] = (valu, stortype)
 
-        self.setSodeDirty(nid, sode, form)
+        sode['props'][prop] = (valu, stortype)
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3190,13 +3181,9 @@ class Layer(s_nexus.Pusher):
         valt = sode['props'].pop(prop, None)
         if valt is None:
             # FIXME tombstone
-            self.mayDelBuid(buid, sode)
             return ()
 
         nid = sode.get('nid')
-
-        self.core.incBuidNid(nid, inc=-1)
-        self.setSodeDirty(nid, sode, form)
 
         valu, stortype = valt
 
@@ -3222,7 +3209,8 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.byprop)
 
-        self.mayDelBuid(buid, sode)
+        self._incSodeRefs(sode, inc=-1)
+
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
         )
@@ -3240,7 +3228,7 @@ class Layer(s_nexus.Pusher):
 
         oldv = sode['tags'].get(tag)
         if oldv is None:
-            sode['nid'] = self.core.genBuidNid(buid)
+            self._incSodeRefs(buid, sode)
 
         nid = sode.get('nid')
         if oldv is not None:
@@ -3253,7 +3241,7 @@ class Layer(s_nexus.Pusher):
                 return ()
 
         sode['tags'][tag] = valu
-        self.setSodeDirty(nid, sode, form)
+        self.setSodeDirty(sode)
 
         self.layrslab.put(tagabrv + formabrv, nid, db=self.bytag)
 
@@ -3269,19 +3257,16 @@ class Layer(s_nexus.Pusher):
         oldv = sode['tags'].pop(tag, None)
         if oldv is None:
             # TODO tombstone
-            self.mayDelBuid(buid, sode)
             return ()
 
         nid = sode.get('nid')
-        self.core.incBuidNid(nid, inc=-1)
-
-        self.setSodeDirty(nid, sode, form)
 
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
 
         self.layrslab.delete(tagabrv + formabrv, nid, db=self.bytag)
 
-        self.mayDelBuid(buid, sode)
+        self.core._incSodeRefs(buid, sode, inc=-1)
+
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
         )
@@ -3301,7 +3286,7 @@ class Layer(s_nexus.Pusher):
         if tp_dict:
             oldv, oldt = tp_dict.get(prop, (None, None))
             if oldv is None:
-                sode['nid'] = self.core.genBuidNid(buid)
+                self._incSodeRefs(buid, sode)
 
             nid = snode.get('nid')
             if oldv is not None:
@@ -3326,7 +3311,7 @@ class Layer(s_nexus.Pusher):
             sode['tagprops'][tag] = {}
 
         sode['tagprops'][tag][prop] = (valu, stortype)
-        self.setSodeDirty(nid, sode, form)
+        self.setSodeDirty(sode)
 
         kvpairs = []
         for indx in self.getStorIndx(stortype, valu):
@@ -3344,19 +3329,16 @@ class Layer(s_nexus.Pusher):
 
         tp_dict = sode['tagprops'].get(tag)
         if not tp_dict:
-            self.mayDelBuid(buid, sode)
             return ()
 
         oldv, oldt = tp_dict.pop(prop, (None, None))
         if not tp_dict.get(tag):
             sode['tagprops'].pop(tag, None)
+
         if oldv is None:
-            self.mayDelBuid(buid, sode)
             return ()
 
         nid = sode.get('nid')
-        self.core.incBuidNid(nid, inc=-1)
-        self.setSodeDirty(nid, sode, form)
 
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
@@ -3365,7 +3347,8 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
 
-        self.mayDelBuid(buid, sode)
+        self._incSodeRefs(buid, sode, inc=-1)
+
         return (
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
         )
@@ -3381,15 +3364,11 @@ class Layer(s_nexus.Pusher):
             return ()
 
         if oldb is None:
-            sode['nid'] = self.core.genBuidNid(buid)
+            self._incSodeRefs(buid, sode)
 
         nid = sode.get('nid')
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
-
-        # a bit of special case...
-        if sode.get('form') is None:
-            self.setSodeDirty(nid, sode, form)
 
         self.dataslab.put(abrv, nid, db=self.dataname)
 
@@ -3406,15 +3385,12 @@ class Layer(s_nexus.Pusher):
 
         oldb = self.dataslab.pop(nid + abrv, db=self.nodedata)
         if oldb is None:
-            self.mayDelBuid(buid, sode)
             return ()
-
-        self.core.incBuidNid(nid, inc=-1)
 
         oldv = s_msgpack.un(oldb)
         self.dataslab.delete(abrv, nid, db=self.dataname)
 
-        self.mayDelBuid(buid, sode)
+        self._incSodeRefs(sode, inc=-1)
 
         return (
             (EDIT_NODEDATA_DEL, (name, oldv), ()),
@@ -3431,19 +3407,18 @@ class Layer(s_nexus.Pusher):
         venc = verb.encode()
         n2buid = s_common.uhex(n2iden)
 
-        n1nid = self.core.genBuidNid(buid)
+        n1nid = sode.get('nid')
+        n2nid = self.core.getNidByBuid(n2buid)
+
+        if n1nid is not None and n2nid is not None:
+            if self.layrslab.hasdup(n1nid + n2nid, venc, db=self.edgesn1n2):
+                return ()
+
+        # we are creating a new edge for this layer.
+        self._incSodeRefs(buid, sode)
         n2nid = self.core.genBuidNid(n2buid)
 
         n1n2nid = n1nid + n2nid
-
-        if self.layrslab.hasdup(n1n2nid, venc, db=self.edgesn1n2):
-            self.core.incBuidNid(n1nid, inc=-1)
-            self.core.incBuidNid(n2nid, inc=-1)
-            return ()
-
-        # a bit of special case...
-        if sode.get('form') is None:
-            self.setSodeDirty(n1nid, sode, form)
 
         self.layrslab.put(venc, n1n2nid, db=self.byverb)
         self.layrslab.put(n1nid + venc, n2nid, db=self.edgesn1)
@@ -3467,17 +3442,15 @@ class Layer(s_nexus.Pusher):
         n1n2nid = n1nid + n2nid
 
         if not self.layrslab.delete(n1n2nid, venc, db=self.edgesn1n2):
-            self.mayDelBuid(buid, sode)
             return ()
-
-        n1refs = self.core.incBuidNid(buid, inc=-1)
-        n2refs = self.core.incBuidNid(n2buid, inc=-1)
 
         self.layrslab.delete(venc, n1n2nid, db=self.byverb)
         self.layrslab.delete(n1nid + venc, n2nid, db=self.edgesn1)
         self.layrslab.delete(n2nid + venc, n1nid, db=self.edgesn2)
 
-        self.mayDelBuid(buid, sode)
+        self._incSodeRefs(buid, sode, inc=-1)
+        self.core.incBuidNid(n2buid, inc=-1)
+
         return (
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
         )
@@ -3509,7 +3482,8 @@ class Layer(s_nexus.Pusher):
             n2buid = self.core.getBuidByNid(lval[8:])
             yield (s_common.ehex(n1buid), verb, s_common.ehex(n2buid))
 
-    async def _delNodeEdges(self, nid):
+    async def _delNodeEdges(self, buid, sode):
+        nid = sode.get('nid')
         for lkey, n2nid in self.layrslab.scanByPref(nid, db=self.edgesn1):
             await asyncio.sleep(0)
             venc = lkey[8:]
@@ -3517,6 +3491,9 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(lkey, n2nid, db=self.edgesn1)
             self.layrslab.delete(n2nid + venc, nid, db=self.edgesn2)
             self.layrslab.delete(nid + n2nid, venc, db=self.edgesn1n2)
+
+            self._incSodeRefs(buid, sode, inc=-1)
+            self.core.incBuidNid(n2nid, inc=-1)
 
     def getStorIndx(self, stortype, valu):
 
@@ -3661,8 +3638,7 @@ class Layer(s_nexus.Pusher):
 
         for _, nid in self.layrslab.scanByPref(abrv, startkey=startkey, startvalu=startvalu, db=indxby.db):
 
-            buid = self.core.getBuidByNid(nid)
-            item = indxby.getNodeValuForm(buid)
+            item = indxby.getNodeValuForm(nid)
 
             await asyncio.sleep(0)
             if item is None:
@@ -3726,7 +3702,7 @@ class Layer(s_nexus.Pusher):
                     yield buid, valu
                     continue
 
-            valu = indxby.getNodeValu(buid)
+            valu = indxby.getNodeValu(nid)
 
             await asyncio.sleep(0)
 
@@ -3916,13 +3892,14 @@ class Layer(s_nexus.Pusher):
 
             await self.waitfini(1)
 
-    async def _wipeNodeData(self, nid):
+    async def _wipeNodeData(self, buid, sode):
         '''
         Remove all node data for a buid
         '''
+        nid = sode.get('nid')
         for lkey, _ in self.dataslab.scanByPref(nid, db=self.nodedata):
             await asyncio.sleep(0)
-            self.core.incBuidNid(nid, inc=-1)
+            self._incSodeRefs(buid, sode, inc=-1)
             self.dataslab.delete(lkey, db=self.nodedata)
 
     async def getModelVers(self):

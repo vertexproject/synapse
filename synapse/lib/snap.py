@@ -819,6 +819,7 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByPropValu(self, full, cmpr, valu):
+        print(f'nodesByPropValu {full} {cmpr} {valu}')
         if cmpr == 'type=':
             async for node in self.nodesByPropValu(full, '=', valu):
                 yield node
@@ -844,9 +845,11 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
+            print('IS FORM')
 
             found = 0
             async for (nid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
+                print(f'NID {nid}')
                 node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     found += 1
