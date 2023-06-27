@@ -5188,6 +5188,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1 / 0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1 % 0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1.0 / 0.0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
     async def test_storm_filter_vars(self):
         '''
         Test variable filters (e.g. +$foo) and expression filters (e.g. +$(:hehe < 4))
