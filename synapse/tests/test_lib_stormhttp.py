@@ -420,6 +420,16 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'foo': ('bar', 'bar2'), 'baz': ('cool',)})
 
+            q = '''
+            $fields = ([
+                {"forgot": "name", "sha256": "newp"},
+            ])
+            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            experr = "BadArg: BadArg: mesg=\'Each field requires a \"name\" key with a string value: None\' name=None"
+            self.eq(experr, resp['err'])
+
     async def test_storm_http_post_file(self):
 
         async with self.getTestCore() as core:
