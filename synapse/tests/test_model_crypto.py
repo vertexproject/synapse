@@ -28,7 +28,7 @@ HEXSTR_PRIVATE_PRIME_Q = 'c53b9c8dfb3dda04d16c7f779a02b3b8c7b44bf876dc88ad562778
                          '8dd33a96c7f80e23719e77a11075d337bf9cc47d7dbf98e341b81c23f165dd15ccfd2973ab'
 
 TEST_MD5 = hashlib.md5(b'test', usedforsecurity=False).hexdigest()
-TEST_SHA1 = hashlib.sha1(b'test').hexdigest()
+TEST_SHA1 = hashlib.sha1(b'test', usedforsecurity=False).hexdigest()
 TEST_SHA256 = hashlib.sha256(b'test').hexdigest()
 TEST_SHA384 = hashlib.sha384(b'test').hexdigest()
 TEST_SHA512 = hashlib.sha512(b'test').hexdigest()

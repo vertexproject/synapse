@@ -9,7 +9,7 @@ class HashSet:
         # BEWARE ORDER MATTERS FOR guid()
         self.hashes = (
             ('md5', hashlib.md5(usedforsecurity=False)),
-            ('sha1', hashlib.sha1()),
+            ('sha1', hashlib.sha1(sedforsecurity=False)),
             ('sha256', hashlib.sha256()),
             ('sha512', hashlib.sha512())
         )

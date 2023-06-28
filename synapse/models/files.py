@@ -167,7 +167,7 @@ class FileBytes(s_types.Str):
 
         subs = {
             'md5': hashlib.md5(valu, usedforsecurity=False).hexdigest(),
-            'sha1': hashlib.sha1(valu).hexdigest(),
+            'sha1': hashlib.sha1(valu, usedforsecurity=False).hexdigest(),
             'sha256': sha256,
             'sha512': hashlib.sha512(valu).hexdigest(),
             'size': len(valu),
