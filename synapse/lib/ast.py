@@ -52,7 +52,7 @@ class AstNode:
 
     def getPosInfo(self):
         return {
-            'hash': hashlib.md5(self.astinfo.text.encode()).hexdigest(),
+            'hash': hashlib.md5(self.astinfo.text.encode(), usedforsecurity=False).hexdigest(),
             'lines': (self.astinfo.sline, self.astinfo.eline),
             'columns': (self.astinfo.scol, self.astinfo.ecol),
             'offsets': (self.astinfo.soff, self.astinfo.eoff),

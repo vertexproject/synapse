@@ -154,7 +154,7 @@ class FeedTest(s_t_utils.SynTest):
 
                 # sad path
                 outp = self.getTestOutp()
-                badview = hashlib.md5(newview.encode()).hexdigest()
+                badview = hashlib.md5(newview.encode(), usedforsecurity=False).hexdigest()
                 argv = base + ['--view', badview, mpkfp]
                 with self.raises(s_exc.NoSuchView):
                     await s_feed.main(argv, outp=outp)

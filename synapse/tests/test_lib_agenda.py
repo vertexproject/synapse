@@ -564,7 +564,7 @@ class AgendaTest(s_t_utils.SynTest):
             # no existing view
             await core.callStorm('$lib.queue.add(testq)')
             defview = core.getView()
-            fakeiden = hashlib.md5(defview.iden.encode('utf-8')).hexdigest()
+            fakeiden = hashlib.md5(defview.iden.encode('utf-8'), usedforsecurity=False).hexdigest()
             opts = {'vars': {'fakeiden': fakeiden}}
             with self.raises(s_exc.NoSuchView):
                 await prox.callStorm('cron.add --view $fakeiden --minute +2 { $lib.queue.get(testq).put((43)) }', opts=opts)
