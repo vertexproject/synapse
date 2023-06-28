@@ -1,0 +1,12 @@
+.. highlight:: none
+
+.. storm-cortex:: default
+
+.. _storm-adv-functions:
+
+Storm Reference - Advanced - Functions
+======================================
+
+
+
+emit and stop are keywords that make a function into a data generator vs a node generator
