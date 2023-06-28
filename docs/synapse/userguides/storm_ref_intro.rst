@@ -6,41 +6,21 @@ Storm Reference - Introduction
 ==============================
 
 **Storm** is the query language used to interact with data in Synapse. Storm allows you to ask about,
-retrieve, annotate, add, modify, and delete data within a Synapse Cortex. If you are using the community
-version of Synapse, you will access Synapse via the Storm command-line interface (**Storm CLI**)
+retrieve, annotate, add, modify, and delete data within a Synapse Cortex. If you are using the `open source`_
+or `Quickstart`_ versions of Synapse, you will access Synapse via the Storm command-line interface (**Storm CLI**)
 (see :ref:`syn-tools-storm`):
 
 ::
   
   storm> <query>
 
-If you are a Vertex Project customer, you will access Synapse via the Synapse webUI (also known as
-`Optic`_.
-
-.. NOTE::
-
-  If you're just getting started with Synapse, you can use the Synapse `Quickstart`_ to quickly set up and
-  connect to a local Cortex using the Storm CLI.
-
-This section covers several important high-level Storm concepts:
-
-- `Storm Background`_
-- `Basic Storm Operations`_
-
-  - `Lift, Filter, and Pivot Criteria`_
-
-- `Whitespace and Literals in Storm`_
-
-  - `Backtick Format Strings`_
-
-- `Storm Operating Concepts`_
-
-  - `Working Set`_
-  - `Operation Chaining`_
-  - `Node Consumption`_
-  - `Storm as a Pipeline`_
+If you are a Synapse Enterprise customer or have requested a Synapse Enterprise `demo instance`_ you will
+access Synapse via the Synapse UI (also known as `Optic`_) and use Storm from the Storm query bar.
   
-- `Advanced Storm Operations`_
+.. TIP::
+  
+  If you're not sure which version of Synapse to start with, check out our `Getting Started guide`_.
+  
 
 .. _storm-bkgd:
 
@@ -87,29 +67,24 @@ Basic Storm Operations
 
 Storm allows users to perform all of the common operations used to interact with data in Synapse:
 
-- **Lift:** – retrieve data based on specified criteria. (:ref:`storm-ref-lift`)
-- **Filter:** – refine your results by including or excluding a subset of nodes based on specified criteria.
+- **Lift:** retrieve data based on specified criteria. (:ref:`storm-ref-lift`)
+- **Filter:** refine your results by including or excluding a subset of nodes based on specified criteria.
   (:ref:`storm-ref-filter`)
-- **Pivot:** – take a set of nodes and identify other nodes that share one or more property values with the
+- **Pivot:** take a set of nodes and identify other nodes that share one or more property values with the
   lifted set. (:ref:`storm-ref-pivot`)
-- **Data modification:** – add, modify, annotate, and delete nodes from Synapse. (:ref:`storm-ref-data-mod`)
+- **Data modification:** add, modify, annotate, and delete nodes from Synapse. (:ref:`storm-ref-data-mod`)
 
 Additional operations include:
 
 - **Traverse** light edges. (:ref:`data-light-edge`, :ref:`walk-light-edge`)
-- **Pipe** (send) nodes to Storm commands (:ref:`storm-ref-cmd`). Storm supports an extensible set of commands
-  such as :ref:`storm-limit`, :ref:`storm-max`, or :ref:`storm-uniq`. These commands provide specific functionality
-  to further extend the analytical power of Storm. Additional Storm commands allow management of permissions for
-  users and roles, Synapse views and layers, and Synapse's automation features (:ref:`storm-ref-automation`).
-  Available commands can be displayed by running ``help`` from the Storm CLI.
+- **Run commands.** Storm supports an extensible set of `commands`_. Many commands provide specific
+  functionality to extend the analytical power of Storm. Other Storm commands allow management of permissions
+  for users and roles, Synapse views and layers, and Synapse's `automation`_ features. You can display available
+  commands by running ``help`` from the Storm CLI.
 
-Storm also incorporates a number of :ref:`storm-ops-adv` that provide even greater power and flexibility.
-
-.. NOTE::
-
-  While Storm queries can range from the very simple to the highly complex, all Storm queries are constructed
-  from this relatively small set of "building blocks". Most users, especially when they first start, only need
-  the handful of blocks listed above!
+Many Storm queries - even "complex" ones - can be constructed from this simple set of "building blocks". For
+users who want to expand their Storm capabilities, there are additional :ref:`storm-ops-adv` that provide even
+greater power and flexibility.
 
 
 Lift, Filter, and Pivot Criteria
@@ -326,10 +301,13 @@ or newline (``\n``), or to include a backtick (`````) or curly brace (``{``) in 
 Storm Operating Concepts
 ------------------------
 
-Storm has several notable features in the way it interacts with and operates on data. We mention these concepts
-briefly here to familiarize you with them; they're important but also pretty intuitive, so you don't need to worry
-about them too much for standard Storm queries and operations. These concepts are much more important if you're
-using more advanced Storm constructs such as variables or control flow, but we want to introduce the concepts here.
+Storm has several notable features in the way it interacts with and operates on data. These concepts are
+important but also pretty intuitive; it's good to be familiar with them, but you don't need to worry about
+them too much for standard Storm queries and operations (day-to-day interaction with Synapse data).
+
+These concepts are much more important if you're using more `advanced Storm`_ constructs such as variables
+or control flow; if you're writing advanced Storm queries, automation, or custom Power-Ups, you should be
+comfortable with these terms and behaviors.
 
 .. _storm-op-work-set:
 
@@ -376,8 +354,8 @@ next operation.
 You do not have to write (or execute) Storm queries "one operation at a time" - this example is simply meant to
 illustrate how you can chain individual Storm operations together to form longer queries. If you know that the question
 you want Storm to answer is "show me the unicast IPv4 addresses that the FQDN vertex.link has resolved to", you can
-simply run the final query. But you can also "build" queries one operation at a time if you're exploring the data or
-aren't sure yet where your analysis can take you.
+simply run the final query in its entirety. But you can also "build" queries one operation at a time if you're
+exploring the data or aren't sure yet where your analysis will take you.
 
 The ability to build queries operation by operation means that a Storm query can parallel an analyst's natural
 thought process: you perform one Storm operation and then consider the "next step" you want to take in your analysis.
@@ -413,24 +391,33 @@ For standard Storm queries this process should be fairly intuitive ("now that yo
 is what's happening"). However, the idea of node consumption and the transformation of your current working set is
 important to keep in mind for more advanced Storm.
 
+.. TIP::
+  
+  Storm `commands`_ (built-in commands, or commands that may be added by Power-Ups) that operate on nodes
+  generally do **not** consume nodes - the nodes that "go into" the command are the same nodes that "come out"
+  by default. This allows you to chain multiple commands together that all operate on the same inbound nodes.
+  Commands may include a ``--yield`` option to modify this behavior and drop (consume) the inbound nodes and
+  return the node(s) (or primary node(s)) produced by the command.
+
+
 .. _storm-pipeline:
 
 Storm as a Pipeline
 +++++++++++++++++++
 
 Just as each Storm **operation** in the chain is processed individually from left to right, **each node** in your
-working set is evaluated **individually** against a given Storm operation. You can think of your Storm query as a 
-**pipeline** of operations, with each node "fired" one at a time through the pipeline. Whether you start with one
-node or 10,000 nodes, they are evaluated against your Storm query one by one.
+working set is evaluated **individually** against a given Storm operation in a query. You can think of your Storm
+query as a **pipeline** of operations, with each node "fired" one at a time through the pipeline. Whether you start
+with one node or 10,000 nodes, they are evaluated against your Storm query one by one.
 
-A key advantage to processing nodes one by one is that it significantly reduces Synapse's latency and memory use - this
-is a big part of what makes Synapse so fast and responsive. Synapse can start providing you with results for the
-initial nodes processed right away, while it continues processing the remaining nodes. In other words, you don't
-have to wait for your entire query to complete for **all** of your nodes before getting your answer.
+A key advantage to processing nodes one by one is that it significantly reduces Synapse's latency and memory use:
+this is a big part of what makes Synapse so fast and responsive. Synapse can immediately provide you with results
+for the initial nodes while it continues processing the remaining nodes. In other words, you don't have to wait
+for your entire query to complete for **all** of your nodes before starting to see results.
 
 For standard Storm, this behavior is transparent to you as the user - you run a Storm query, you get a response.
-However, this pipeline behavior can be important to understand when working with (or troubleshooting) Storm
-queries that leverage features such as subqueries, variables, or control flow operations.
+However, this pipeline behavior is important to understand when working with (or troubleshooting) Storm queries
+that leverage features such as subqueries, variables, or control flow operations.
 
 .. _storm-ops-adv:
 
@@ -441,9 +428,10 @@ In our experience, the more analysts use Storm, the more they want even greater 
 language to support their analytical workflow! To meet these demands, Storm evolved a number of advanced features,
 including:
 
-- Variables (:ref:`storm-adv-vars`)
-- Methods (:ref:`storm-adv-methods`)
-- Control Flow (:ref:`storm-adv-control`)
+- `Variables`_
+- `Methods`_
+- `Control Flow`_
+- `Functions`_
 - :ref:`stormtypes-libs-header`
 - :ref:`stormtypes-prim-header`
 
@@ -462,6 +450,18 @@ features are available to both "power users" and developers as needed:
   Synapse's **Rapid Power-Ups** (:ref:`gloss-power-up`), are written entirely in Storm and exposed to Synapse
   users as Storm commands!
 
-.. _Optic: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
-
+.. _open source: https://github.com/vertexproject/synapse
 .. _Quickstart: https://github.com/vertexproject/synapse-quickstart
+.. _demo instance: https://vertex.link/request-a-demo
+.. _Optic: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _Getting Started guide: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html
+
+.. _commands: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html
+.. _automation: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_automation.html
+
+.. _advanced Storm: https://synapse.docs.vertex.link/en/latest/synapse/userguides/index_storm_adv.html
+
+.. _Variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
+.. _Methods: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_methods.html
+.. _Control Flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
+.. _Functions: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_functions.html
