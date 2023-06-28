@@ -3085,9 +3085,12 @@ class ExprNode(Value):
         parm2 = await self.kids[2].compute(runt, path)
         try:
             return await self._operfunc(parm1, parm2)
-        except (ZeroDivisionError, decimal.DivisionByZero):
+        except ZeroDivisionError:
             exc = s_exc.StormRuntimeError(mesg='Cannot divide by zero')
             raise self.kids[2].addExcInfo(exc)
+        except decimal.InvalidOperation:
+            exc = s_exc.StormRuntimeError(mesg='Invalid operation on a Number')
+            raise self.addExcInfo(exc)
 
 class ExprOrNode(Value):
     async def compute(self, runt, path):
