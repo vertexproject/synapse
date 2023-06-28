@@ -30,6 +30,7 @@ Bugfixes
   (`#3097 <https://github.com/vertexproject/synapse/pull/3097>`_)
 
 v2.139.0 - 2023-06-16
+=====================
 
 Announcement
 ------------
