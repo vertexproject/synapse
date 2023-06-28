@@ -189,14 +189,6 @@ class CommonTest(s_t_utils.SynTest):
         with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in s_common.chunks({}, 10000)]
 
-    def test_common_lockfile(self):
-
-        with self.getTestDir() as fdir:
-            fp = os.path.join(fdir, 'hehe.lock')
-            # Ensure that our yield is None
-            with s_common.lockfile(fp) as cm:
-                self.none(cm)
-
     def test_common_ehex_uhex(self):
         byts = b'deadb33f00010203'
         s = s_common.ehex(byts)
@@ -409,3 +401,13 @@ class CommonTest(s_t_utils.SynTest):
             else:
                 with self.raises(eret):
                     s_common.reqJsonSafeStrict(item)
+
+    def test_sslctx(self):
+        with self.getTestDir(mirror='certdir') as dirn:
+            cadir = s_common.genpath(dirn, 'cas')
+            os.makedirs(s_common.genpath(cadir, 'newp'))
+            with self.getLoggerStream('synapse.common', f'Error loading {cadir}/ca.key') as stream:
+                ctx = s_common.getSslCtx(cadir)
+                self.true(stream.wait(10))
+            ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
+            self.isin(((('commonName', 'test'),),), ca_subjects)

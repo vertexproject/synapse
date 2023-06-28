@@ -31,7 +31,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
             with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:asdf]')
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
@@ -77,6 +80,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://archer.link
                     :tag=cno.mitre.ta0100
                     :references=(https://foo.com,https://bar.com)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
@@ -85,6 +89,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tag'), 'cno.mitre.ta0100')
             self.eq(nodes[0].get('url'), 'https://archer.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:technique=T0100
@@ -97,6 +102,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :status=deprecated
                     :isnow=T1110
                     :tactics=(TA0200,TA0100,TA0100)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
@@ -109,6 +115,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
             self.eq(nodes[0].get('status'), 'deprecated')
             self.eq(nodes[0].get('isnow'), 'T1110')
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100
@@ -143,6 +150,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.m0100
                     :references=(https://foo.com,https://bar.com)
                     :addresses=(T0200,T0100,T0100)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:mitigation', 'M0100'))
@@ -152,6 +160,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://wsus.com')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:exec:thread=*
@@ -548,6 +557,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(softfile.get('file'), f'sha256:{file0}')
                 self.eq('/path/to/nowhere', softfile.get('path'))
                 self.len(1, await core.nodes('it:prod:softfile -> file:path'))
+                nodes = await core.nodes('''
+                    [ it:prod:softreg=(*, *) ]
+                    { -> it:prod:softver [ :name=woot ] }
+                    { -> it:dev:regval [ :key=HKEY_LOCAL_MACHINE/visi :int=31337 ] }
+                ''')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('regval'))
+                self.nn(nodes[0].get('softver'))
+                self.len(1, await core.nodes('it:prod:softver:name=woot -> it:prod:softreg -> it:dev:regval +:int=31337'))
 
                 ver1 = s_common.guid()
                 softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
@@ -1112,6 +1130,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:app:yara:rule=$rule
+                    :ext:id=V-31337
+                    :url=https://vertex.link/yara-lolz/V-31337
                     :family=Beacon
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk :author=* :name=foo :version=1.2.3 ]
@@ -1119,6 +1139,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
+            self.eq('V-31337', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/yara-lolz/V-31337', nodes[0].get('url'))
             self.eq(True, nodes[0].get('enabled'))
             self.eq(1580601600000, nodes[0].get('created'))
             self.eq(1648771200000, nodes[0].get('updated'))
@@ -1147,6 +1169,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
             [ it:app:snort:rule=$rule
                 :id=999
+                :engine=1
                 :text=gronk
                 :name=foo
                 :author = {[ ps:contact=* :name=visi ]}
@@ -1159,6 +1182,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('999', nodes[0].get('id'))
+            self.eq(1, nodes[0].get('engine'))
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq('redtree', nodes[0].get('family'))
@@ -1262,9 +1286,6 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
-
-            with self.raises(s_exc.BadTypeValu):
-                cpe23.norm('cpe:2.3:a:vertex:synapse')
 
             # test cast 2.2 -> 2.3 upsample
             norm, info = cpe23.norm('cpe:/a:vertex:synapse')

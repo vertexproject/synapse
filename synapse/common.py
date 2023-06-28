@@ -5,7 +5,6 @@ import sys
 import json
 import stat
 import time
-import fcntl
 import heapq
 import types
 import base64
@@ -393,35 +392,6 @@ def getTempDir(dirn=None):
 
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
-
-@contextlib.contextmanager
-def lockfile(path):
-    '''
-    A file lock with-block helper.
-
-    Args:
-        path (str): A path to a lock file.
-
-    Examples:
-
-        Get the lock on a file and dostuff while having the lock::
-
-            path = '/hehe/haha.lock'
-            with lockfile(path):
-                dostuff()
-
-    Notes:
-        This is curently based on fcntl.lockf(), and as such, it is purely
-        advisory locking. If multiple processes are attempting to obtain a
-        lock on the same file, this will block until the process which has
-        the current lock releases it.
-
-    Yields:
-        None
-    '''
-    with genfile(path) as fd:
-        fcntl.lockf(fd, fcntl.LOCK_EX)
-        yield None
 
 def listdir(*paths, glob=None):
     '''
@@ -1152,6 +1122,8 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
     sslctx = ssl.create_default_context(purpose=purpose)
     for name in os.listdir(cadir):
         certpath = os.path.join(cadir, name)
+        if not os.path.isfile(certpath):
+            continue
         try:
             sslctx.load_verify_locations(cafile=certpath)
         except Exception:  # pragma: no cover

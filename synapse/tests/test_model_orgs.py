@@ -74,10 +74,12 @@ class OuModelTest(s_t_utils.SynTest):
                     'success': 1,
                     'techniques': teqs,
                     'sophistication': 'high',
+                    'tag': 'cno.camp.31337',
                     'reporter': '*',
                     'reporter:name': 'vertex',
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
+                self.eq(node.get('tag'), 'cno.camp.31337')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
@@ -105,8 +107,12 @@ class OuModelTest(s_t_utils.SynTest):
             norm, subs = t.norm(541715)
             self.eq(norm, '541715')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, '1')
             self.raises(s_exc.BadTypeValu, t.norm, 1000000)
-            self.raises(s_exc.BadTypeValu, t.norm, 1000)
+            self.eq('10', t.norm('10')[0])
+            self.eq('100', t.norm('  100  ')[0])
+            self.eq('1000', t.norm('1000')[0])
+            self.eq('10000', t.norm('10000')[0])
 
             # ou:sic
             t = core.model.type('ou:sic')
@@ -220,6 +226,10 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
+
+                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
+                self.len(1, await core.nodes('ou:org:country:code=ua'))
+                self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')

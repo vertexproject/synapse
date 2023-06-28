@@ -3052,17 +3052,12 @@ class LibPipe(Lib):
 
         pipe = Pipe(self.runt, size)
 
-        varz = self.runt.vars.copy()
-        varz['pipe'] = pipe
-
-        opts = {'vars': varz}
-
+        opts = {'vars': {'pipe': pipe}}
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getModRuntime(query, opts=opts)
 
         async def coro():
             try:
-                async with runt:
+                async with self.runt.getSubRuntime(query, opts=opts) as runt:
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
@@ -4562,6 +4557,9 @@ class List(Prim):
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
         return len(self)
 
     async def _methListSort(self, reverse=False):
@@ -5144,8 +5142,6 @@ class Query(Prim):
     _storm_typename = 'storm:query'
 
     def __init__(self, text, varz, runt, path=None):
-
-        text = text.strip()
 
         Prim.__init__(self, text, path=path)
 
