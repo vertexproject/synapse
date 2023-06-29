@@ -4,19 +4,62 @@
 Synapse Changelog
 *****************
 
+
+v2.140.0 - Unreleased
+=====================
+
 Announcement
-============
+------------
 
-Due to the introduction of several powerful new APIs and performance
-improvements, Synapse will be updating to *only* support Python >=3.11.
-Our current plan is to drop support for Python <=3.10 in ~4 weeks on
-2023-06-19. The next release after 2023-06-19 will include changes that
-are not backward compatible to earlier versions of Python.
+Synapse now only supports Python 3.11+.
 
-If you currently deploy Synapse Open-Source or Synapse Enterprise via
-the standard docker containers, you will be unaffected.  If you install
-Synapse via PyPI, you will need to ensure that your environment is
-updated to Python 3.11+.
+Model Changes
+-------------
+- Update to the ``org`` model.
+  (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
+
+  Updated Types
+  -------------
+
+  ``ou:naics``
+    Update the type to allow recording NIACS sector and subsector prefixes.
+
+Features and Enhancements
+-------------------------
+- Synapse now only supports Python 3.11+.  The library will now fail to import
+  on earlier Python interpeters, and the published modules on PyPI will no
+  longer install on Python versions < 3.11.
+  (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
+- Replace ``setup.py`` with a ``pyproject.toml`` file.
+  (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
+  (`#3195 <https://github.com/vertexproject/synapse/pull/3195>`_)
+- Usages of ``hashlib.md5()`` and ``hashlib.sha1()`` have been updated to add
+  the ``usedforsecurity=False`` argument.
+  (`#3163 <https://github.com/vertexproject/synapse/pull/3163>`_)
+
+Bugfixes
+--------
+- Catch ``ZeroDivisionError`` and ``decimal.InvalidOperation`` errors in Storm
+  expressions and raise a ``StormRuntimeError``.
+  (`#3203 <https://github.com/vertexproject/synapse/pull/3203>`_)
+- Fix a bug where ``synapse.lib.platforms.linux.getTotalMemory()`` did not
+  return the correct value in a process running in cgroupsv1 without a
+  maximum memory limit set.
+  (`#3198 <https://github.com/vertexproject/synapse/pull/3198>`_)
+- Fix a bug where a Cron job could be created with a invalid Storm query. Cron
+  jobs now have their queries parsed as part of creation to ensure that they
+  are valid Storm.
+  (`#3201 <https://github.com/vertexproject/synapse/pull/3201>`_)
+- Field data sent via Storm ``$lib.inet.http`` APIs that uses a multipart
+  upload without a valid ``name`` field now raises a ``BadArg`` error.
+  Previously this would result in a Python ``TypeError``.
+  (`#3199 <https://github.com/vertexproject/synapse/pull/3199>`_)
+  (`#3206 <https://github.com/vertexproject/synapse/pull/3206>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.common.lockfile()`` function.
+  (`#3191 <https://github.com/vertexproject/synapse/issue/3191>`_)
 
 v2.139.0 - 2023-06-16
 =====================
@@ -87,7 +130,7 @@ Bugfixes
 Deprecations
 ------------
 - Mark the Python function ``synapse.common.lockfile()`` as deprecated. It
- will be removed in ``v2.140.0``.
+  will be removed in ``v2.140.0``.
   (`#3183 <https://github.com/vertexproject/synapse/issue/3183>`_)
 
 v2.137.0 - 2023-06-09
