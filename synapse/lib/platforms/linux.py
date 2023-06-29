@@ -70,7 +70,7 @@ def getTotalMemory():
             # Skip a known value on cgroupsv1 where there has not been
             # a limit set, so we will resort to using /proc/meminfo instead.
             # We assume a 64 bit long in our platform. Mimic the linux kernel
-            # havior of using a rounded integer division of
+            # behavior of using a rounded integer division of
             # LONG_MAX / PAGE_SIZE; which is later multiplied by PAGE_SIZE
             # For more see https://unix.stackexchange.com/q/420906
             _ps = os.sysconf('SC_PAGESIZE')
