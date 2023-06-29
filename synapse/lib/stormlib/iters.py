@@ -3,7 +3,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class LibIters(s_stormtypes.Lib):
     '''
-    A Storm library for providing some iterator helpers.
+    A Storm library for providing iterator helpers.
     '''
 
     _storm_lib_path = ('iters', )
