@@ -66,7 +66,16 @@ def getTotalMemory():
     fp = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     if os.path.isfile(fp):
         with open(fp) as f:
-            return int(f.read())
+            valu = int(f.read())
+            # Skip a known value on cgroupsv1 where there has not been
+            # a limit set, so we will resort to using /proc/meminfo instead.
+            # We assume a 64 bit long in our platform. Mimic the linux kernel
+            # behavior of using a rounded integer division of
+            # LONG_MAX / PAGE_SIZE; which is later multiplied by PAGE_SIZE
+            # For more see https://unix.stackexchange.com/q/420906
+            _ps = os.sysconf('SC_PAGESIZE')
+            if valu != ((2 ** 63 - 1) // _ps) * _ps:
+                return valu
     # A host (or container) using cgroupv2 with a max memory enabled will have
     # a memory.max file available.
     # Reference

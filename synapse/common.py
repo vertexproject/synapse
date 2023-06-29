@@ -85,7 +85,7 @@ def guid(valu=None):
         return binascii.hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = s_msgpack.en(valu)
-    return hashlib.md5(byts).hexdigest()
+    return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
 def buid(valu=None):
     '''
