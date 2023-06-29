@@ -47,10 +47,10 @@ class LibHashes(s_stormtypes.Lib):
         }
 
     async def _md5(self, byts):
-        return hashlib.md5(byts).hexdigest()
+        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
     async def _sha1(self, byts):
-        return hashlib.sha1(byts).hexdigest()
+        return hashlib.sha1(byts, usedforsecurity=False).hexdigest()
 
     async def _sha256(self, byts):
         return hashlib.sha256(byts).hexdigest()

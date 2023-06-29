@@ -2217,7 +2217,7 @@ class SynTest(unittest.TestCase):
             return retn
 
         byts = s_msgpack.en(valu)
-        return hashlib.md5(byts).hexdigest()
+        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
     @contextlib.contextmanager
     def withStableUids(self):

@@ -1493,6 +1493,12 @@ class Axon(s_cell.Cell):
                 data._is_multipart = True
 
                 for field in fields:
+
+                    name = field.get('name')
+                    if not isinstance(name, str):
+                        mesg = f'Each field requires a "name" key with a string value: {name}'
+                        raise s_exc.BadArg(mesg=mesg, name=name)
+
                     sha256 = field.get('sha256')
                     if sha256:
                         valu = self.get(s_common.uhex(sha256))
@@ -1501,7 +1507,7 @@ class Axon(s_cell.Cell):
                         if not isinstance(valu, (bytes, str)):
                             valu = json.dumps(valu)
 
-                    data.add_field(field.get('name'),
+                    data.add_field(name,
                                    valu,
                                    content_type=field.get('content_type'),
                                    filename=field.get('filename'),

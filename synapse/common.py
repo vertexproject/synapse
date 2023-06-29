@@ -5,7 +5,6 @@ import sys
 import json
 import stat
 import time
-import fcntl
 import heapq
 import types
 import base64
@@ -86,7 +85,7 @@ def guid(valu=None):
         return binascii.hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = s_msgpack.en(valu)
-    return hashlib.md5(byts).hexdigest()
+    return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
 def buid(valu=None):
     '''
@@ -393,36 +392,6 @@ def getTempDir(dirn=None):
 
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
-
-@contextlib.contextmanager
-def lockfile(path):
-    '''
-    A file lock with-block helper.
-
-    Args:
-        path (str): A path to a lock file.
-
-    Examples:
-
-        Get the lock on a file and dostuff while having the lock::
-
-            path = '/hehe/haha.lock'
-            with lockfile(path):
-                dostuff()
-
-    Notes:
-        This is curently based on fcntl.lockf(), and as such, it is purely
-        advisory locking. If multiple processes are attempting to obtain a
-        lock on the same file, this will block until the process which has
-        the current lock releases it.
-
-    Yields:
-        None
-    '''
-    deprecated('synapse.common.lockfile()', curv='v2.138.0', eolv='v2.140.0')
-    with genfile(path) as fd:
-        fcntl.lockf(fd, fcntl.LOCK_EX)
-        yield None
 
 def listdir(*paths, glob=None):
     '''
