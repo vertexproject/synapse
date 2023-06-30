@@ -1,5 +1,7 @@
 import synapse.exc as s_exc
 
+import synapse.lookup.cvss as s_cvss
+
 import synapse.tests.utils as s_test
 
 res0 = {'ok': True, 'version': '3.1', 'score': None, 'scores': {
@@ -147,41 +149,49 @@ VECTORS = [
 ]
 
 VECTORS_BAD_VERSION = [
-    ('CVSS2#AV:L/AC:L/C:P/I:C/A:N', '3.1'),
-    ('(AV:L/AC:L/Au:M/I:C/A:N)', '3.1'),
-    ('AV:L/AC:L/Au:M/C:P/A:N', '3.1'),
-    ('CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L', '2'),
-    ('CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L', '2'),
-    ('(AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L)', '2'),
-    ('AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L', '2'),
+    ('CVSS2#AV:L/Au:L/C:P/I:C/A:N', '3.1', 'Provided vector CVSS2#AV:L/Au:L/C:P/I:C/A:N contains invalid metrics: CVSS2#AV, Au'),
+    ('(AV:L/AC:L/Au:M/I:C/A:N)', '3.1', 'Provided vector (AV:L/AC:L/Au:M/I:C/A:N) contains invalid metrics: Au'),
+    ('AV:L/AC:L/Au:M/C:P/A:N', '3.1', 'Provided vector AV:L/AC:L/Au:M/C:P/A:N contains invalid metrics: Au'),
+    ('CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L', '2', 'Provided vector CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L contains invalid metrics: CVSS, UI, S'),
+    ('CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L', '2', 'Provided vector CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L contains invalid metrics: CVSS, PR, S'),
+    ('(AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L)', '2', 'Provided vector (AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L) contains invalid metrics: PR, UI, S'),
+    ('AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L', '2', 'Provided vector AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L contains invalid metrics: PR, UI, S'),
 ]
 
 VECTORS_MISSING_MANDATORY = [
-    'CVSS2#AV:L/AC:L/C:P/I:C/A:N',
-    '(AV:L/AC:L/Au:M/I:C/A:N)',
-    'AV:L/AC:L/Au:M/C:P/A:N',
-    'CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L',
-    'CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L',
-    '(AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L)',
-    'AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L',
+    ('CVSS2#AV:L/Au:L/C:P/I:C/A:N', 'AC'),
+    ('(AV:L/AC:L/Au:M/I:C/A:N)', 'C'),
+    ('AV:L/AC:L/Au:M/C:P/A:N', 'I'),
+    ('CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L', 'PR'),
+    ('CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L', 'UI'),
+    ('(AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L)', 'C'),
+    ('AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L', 'AC'),
+    ('PR:L/UI:R/S:U/C:L/I:L/A:L', 'AV, AC'),
+    ('UI:R/S:U/C:L/I:L/A:L', 'AV, AC, PR'),
 ]
+
 VECTORS_INVALID_VALUE = [
-    'CVSS2#AV:L/AC:L/Au:Z/C:P/I:C/A:N',
-    '(AV:L/AC:L/Au:M/C:Z/I:C/A:N)',
-    'AV:L/AC:L/Au:M/C:P/I:Z/A:N',
-    'CVSS:3.0/AV:N/AC:H/PR:Z/UI:R/S:U/C:L/I:L/A:L',
-    'CVSS:3.1/AV:N/AC:Z/PR:L/UI:R/S:U/C:L/I:L/A:L',
-    '(AV:N/AC:H/PR:L/UI:Z/S:U/C:L/I:L/A:L)',
-    'AV:N/AC:H/PR:L/UI:R/S:Z/C:L/I:L/A:L',
+    ('CVSS2#AV:L/AC:L/Au:Z/C:P/I:C/A:N', 'Au:Z'),
+    ('(AV:L/AC:L/Au:M/C:Z/I:C/A:N)', 'C:Z'),
+    ('AV:L/AC:L/Au:M/C:P/I:Z/A:N', 'I:Z'),
+    ('CVSS:3.0/AV:N/AC:H/PR:Z/UI:R/S:U/C:L/I:L/A:L', 'PR:Z'),
+    ('CVSS:3.1/AV:N/AC:Z/PR:L/UI:R/S:U/C:L/I:L/A:L', 'AC:Z'),
+    ('(AV:N/AC:H/PR:L/UI:Z/S:U/C:L/I:L/A:L)', 'UI:Z'),
+    ('AV:N/AC:H/PR:L/UI:R/S:Z/C:L/I:L/A:L', 'S:Z'),
+    ('AV:N/AC:H/PR:L/UI:R/S:Z/C:Z/I:L/A:L', 'S:Z, C:Z'),
+    ('AV:N/AC:H/PR:L/UI:R/S:Z/C:Z/I:Z/A:L', 'S:Z, C:Z, I:Z'),
 ]
+
 VECTORS_DUPLICATE_METRIC = [
-    'CVSS2#AV:L/AC:L/Au:M/Au:M/C:P/I:C/A:N',
-    '(AV:L/AC:L/Au:M/C:P/C:P/I:C/A:N)',
-    'AV:L/AC:L/Au:M/C:P/I:C/I:C/A:N',
-    'CVSS:3.0/AV:N/AC:H/PR:L/PR:L/UI:R/S:U/C:L/I:L/A:L',
-    'CVSS:3.1/AV:N/AC:H/PR:L/UI:R/UI:R/S:U/C:L/I:L/A:L',
-    '(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/A:L)',
-    'AV:N/AC:H/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L',
+    ('CVSS2#AV:L/AC:L/Au:M/Au:M/C:P/I:C/A:N', 'Au'),
+    ('(AV:L/AC:L/Au:M/C:P/C:P/I:C/A:N)', 'C'),
+    ('AV:L/AC:L/Au:M/C:P/I:C/I:C/A:N', 'I'),
+    ('CVSS:3.0/AV:N/AC:H/PR:L/PR:L/UI:R/S:U/C:L/I:L/A:L', 'PR'),
+    ('CVSS:3.1/AV:N/AC:H/PR:L/UI:R/UI:R/S:U/C:L/I:L/A:L', 'UI'),
+    ('(AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/A:L)', 'A'),
+    ('AV:N/AC:H/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L', 'AC'),
+    ('AV:N/AC:H/AC:H/PR:L/PR:L/UI:R/S:U/C:L/I:L/A:L', 'AC, PR'),
+    ('AV:N/AC:H/AC:H/PR:L/PR:L/UI:R/UI:R/S:U/C:L/I:L/A:L', 'AC, PR, UI'),
 ]
 
 VECTORS_MALFORMED = [
@@ -220,6 +230,73 @@ VECTORS_MALFORMED = [
     'CVSS:3.1/AV:N/AC:H/PR:L/UIR/S:U/C:L/I:L/A:L',
     '(AV:N/AC:H/PR:L/UI:R/S:U/C:L/IL/A:L)',
     'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/AL',
+]
+
+VECTORS_UNNORMAL = [
+    (
+        'S:C/C:H/I:N/A:L/E:P/RL:T/AV:A/AC:L/PR:H/UI:R/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N',
+        'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
+    ),
+    (
+        'AV:A/AC:L/PR:H/UI:R/S:U/RC:U/CR:H/IR:L/AR:M/MAV:X/C:H/I:N/A:L/E:P/RL:T/MAC:H/MPR:L/MUI:N/MS:C/MC:H/MI:L/MA:N',
+        'AV:A/AC:L/PR:H/UI:R/S:U/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAC:H/MPR:L/MUI:N/MS:C/MC:H/MI:L/MA:N'
+    ),
+    (
+        'MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X',
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L'
+    ),
+    (
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X',
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L'
+    ),
+    (
+        '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:TF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
+        'AV:L/AC:L/Au:M/C:P/I:C/A:N/RL:TF/CDP:N'
+    ),
+    (
+        '(AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:OF/RC:ND/CDP:N/TD:ND/CR:ND/IR:ND/AR:ND)',
+        'AV:L/AC:L/Au:M/C:P/I:C/A:N/RL:OF/CDP:N'
+    ),
+    (
+        '(AV:N/AC:L/Au:N/C:N/I:N/A:C/E:F/RL:OF/RC:C/CDP:H/TD:H/CR:M/IR:M/AR:H)',
+        'AV:N/AC:L/Au:N/C:N/I:N/A:C/E:F/RL:OF/RC:C/CDP:H/TD:H/CR:M/IR:M/AR:H'
+    ),
+    (
+        'CVSS2#AV:L/AC:L/Au:M/C:P/I:C/A:N',
+        'AV:L/AC:L/Au:M/C:P/I:C/A:N'
+    ),
+    (
+        '(AV:L/AC:L/Au:M/I:C/C:P/A:N)',
+        'AV:L/AC:L/Au:M/C:P/I:C/A:N'
+    ),
+    (
+        'A:N/I:C/C:P/Au:M/AC:L/AV:L/IR:ND',
+        'AV:L/AC:L/Au:M/C:P/I:C/A:N'
+    ),
+    (
+        'A:N/I:C/C:P/Au:M/AC:L/AV:L',
+        'AV:L/AC:L/Au:M/C:P/I:C/A:N'
+    ),
+    (
+        'CVSS:3.0/AV:N/AC:H/PR:L/A:L/UI:R/S:U/C:L/I:L',
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
+    ),
+    (
+        'CVSS:3.1/AV:N/AC:H/PR:L/A:L/UI:R/S:U/C:L/I:L',
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
+    ),
+    (
+        '(AV:N/AC:H/UI:R/PR:L/S:U/C:L/I:L/A:L)',
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
+    ),
+    (
+        'AV:N/AC:H/UI:R/PR:L/S:U/C:L/I:L/A:L',
+        'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
+    ),
+    (
+        '(AV:N/AC:L/Au:N/C:C/I:N/A:N/E:POC/RL:ND/RC:ND)',
+        'AV:N/AC:L/Au:N/C:C/I:N/A:N/E:POC'
+    )
 ]
 
 class InfoSecTest(s_test.SynTest):
@@ -373,38 +450,50 @@ class InfoSecTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            cmd = 'return($lib.infosec.cvss.vectToScore($vect))'
-            vercmd = 'return($lib.infosec.cvss.vectToScore($vect, $vers))'
+            cmd = 'return($lib.infosec.cvss.vectToScore($vect, $vers))'
 
             for vect, score in VECTORS:
-                valu = await core.callStorm(cmd, opts={'vars': {'vect': vect}})
+                valu = await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
+                valu.pop('normalized')
                 self.eq(score, valu)
 
             # test for invalid version being specified
-            with self.raises(s_exc.BadArg):
-                await core.callStorm(vercmd, opts={'vars': {'vect': 'DOESNT_MATTER', 'vers': '1.0'}})
+            with self.raises(s_exc.BadArg) as exc:
+                await core.callStorm(cmd, opts={'vars': {'vect': 'DOESNT_MATTER', 'vers': '1.0'}})
+            self.isin(f'Valid values for vers are: {s_cvss.versions + [None]}, got 1.0', exc.exception.get('mesg'))
 
             # test for vector/version mismatches
-            for vect, vers in VECTORS_BAD_VERSION:
+            for vect, vers, mesg in VECTORS_BAD_VERSION:
                 with self.raises(s_exc.BadDataValu) as exc:
-                    await core.callStorm(vercmd, opts={'vars': {'vect': vect, 'vers': vers}})
+                    await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': vers}})
+                self.isin(mesg, exc.exception.get('mesg'))
 
             # test for missing mandatory metrics
-            for vect in VECTORS_MISSING_MANDATORY:
-                with self.raises(s_exc.BadDataValu):
-                    await core.callStorm(cmd, opts={'vars': {'vect': vect}})
+            for vect, err in VECTORS_MISSING_MANDATORY:
+                with self.raises(s_exc.BadDataValu) as exc:
+                    await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
+                self.isin(f'Provided vector {vect} missing mandatory metric(s): {err}', exc.exception.get('mesg'))
 
             # test for invalid metric values
-            for vect in VECTORS_INVALID_VALUE:
-                with self.raises(s_exc.BadDataValu):
-                    await core.callStorm(cmd, opts={'vars': {'vect': vect}})
+            for vect, err in VECTORS_INVALID_VALUE:
+                with self.raises(s_exc.BadDataValu) as exc:
+                    await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
+                self.isin(f'Provided vector {vect} contains invalid metric value(s): {err}', exc.exception.get('mesg'))
 
             # test for duplicate metrics
-            for vect in VECTORS_DUPLICATE_METRIC:
-                with self.raises(s_exc.BadDataValu):
-                    await core.callStorm(cmd, opts={'vars': {'vect': vect}})
+            for vect, err in VECTORS_DUPLICATE_METRIC:
+                with self.raises(s_exc.BadDataValu) as exc:
+                    await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
+                self.isin(f'Provided vectors {vect} contains duplicate metrics: {err}', exc.exception.get('mesg'))
 
             # test for malformed vector string
             for vect in VECTORS_MALFORMED:
-                with self.raises(s_exc.BadDataValu):
-                    await core.callStorm(cmd, opts={'vars': {'vect': vect}})
+                with self.raises(s_exc.BadDataValu) as exc:
+                    await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
+                self.isin(f'Provided vector {vect} malformed', exc.exception.get('mesg'))
+
+            # test for vector normalization
+            for vect, norm in VECTORS_UNNORMAL:
+                valu = await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
+                # self.eq(norm, valu.get('normalized'))
+                print(valu.get('normalized'))
