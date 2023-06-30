@@ -6546,8 +6546,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(data[off]['info']['name'], 'alegitservice')
                 self.eq(data[off]['info']['svcname'], 'tstserv')
                 self.eq(data[off]['info']['version'], (0, 0, 2))
-                self.eq(data[off]['info']['iden'], data[off-1]['info']['iden'])
-
+                self.eq(data[off]['info']['iden'], data[off - 1]['info']['iden'])
 
     async def test_stormpkg_sad(self):
         base_pkg = {
