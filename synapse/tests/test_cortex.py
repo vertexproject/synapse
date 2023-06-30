@@ -5214,6 +5214,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1 / 0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1 % 0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1.0 / 0.0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1.0 % 0.0)')
+            self.eq('Invalid operation on a Number', cm.exception.get('mesg'))
+
     async def test_storm_filter_vars(self):
         '''
         Test variable filters (e.g. +$foo) and expression filters (e.g. +$(:hehe < 4))
@@ -5993,6 +6009,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): error', msgs)
+
+            # invalid storm query
+            await self.asyncraises(s_exc.BadSyntax, core.nodes('$lib.dmon.add(" | | | ")'))
 
     async def test_cortex_storm_dmon_exit(self):
 

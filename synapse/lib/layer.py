@@ -688,6 +688,10 @@ class StorTypeIpv6(StorType):
         self.lifters.update({
             '=': self._liftIPv6Eq,
             'range=': self._liftIPv6Range,
+            '<': self._liftIPv6Lt,
+            '>': self._liftIPv6Gt,
+            '<=': self._liftIPv6Le,
+            '>=': self._liftIPv6Ge,
         })
 
     def getIPv6Indx(self, valu):
@@ -709,6 +713,35 @@ class StorTypeIpv6(StorType):
     async def _liftIPv6Range(self, liftby, valu):
         minindx = self.getIPv6Indx(valu[0])
         maxindx = self.getIPv6Indx(valu[1])
+        for item in liftby.keyBuidsByRange(minindx, maxindx):
+            yield item
+
+    async def _liftIPv6Lt(self, liftby, norm):
+        minindx = self.getIPv6Indx('::')
+        maxindx = self.getIPv6Indx(norm)
+        maxindx = (int.from_bytes(maxindx) - 1).to_bytes(16)
+        for item in liftby.keyBuidsByRange(minindx, maxindx):
+            yield item
+
+    async def _liftIPv6Gt(self, liftby, norm):
+        minindx = self.getIPv6Indx(norm)
+        minindx = (int.from_bytes(minindx) + 1).to_bytes(16)
+        maxindx = self.getIPv6Indx('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+
+        for item in liftby.keyBuidsByRange(minindx, maxindx):
+            yield item
+
+    async def _liftIPv6Le(self, liftby, norm):
+        minindx = self.getIPv6Indx('::')
+        maxindx = self.getIPv6Indx(norm)
+
+        for item in liftby.keyBuidsByRange(minindx, maxindx):
+            yield item
+
+    async def _liftIPv6Ge(self, liftby, norm):
+        minindx = self.getIPv6Indx(norm)
+        maxindx = self.getIPv6Indx('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+
         for item in liftby.keyBuidsByRange(minindx, maxindx):
             yield item
 
