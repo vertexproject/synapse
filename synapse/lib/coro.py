@@ -248,30 +248,43 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         proc.terminate()
         raise
 
-forkpool = None
-if multiprocessing.current_process().name == 'MainProcess':
-    # only create the forkpools in the MainProcess...
-    try:
-        mpctx = multiprocessing.get_context('forkserver')
-        max_workers = int(os.getenv('SYN_FORKED_WORKERS', 0)) or min(4, os.cpu_count() or 4)
-        forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
-        logger.debug(f'Shared forkserver pool max_workers={forkpool._max_workers}')
-        atexit.register(forkpool.shutdown)
-    except OSError as e:  # pragma: no cover
-        logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
-
 _pool_logconf = None
+_pool_logger = None
 def set_pool_logging(logger_, logconf):
     # This must be called before any calls to forked() and _parserforked()
-    global _pool_logconf
+    global _pool_logconf, _pool_logger
     _pool_logconf = logconf
-    todo = s_common.todo(s_common.setlogging, logger_, **logconf)
-    if forkpool is not None:
-        forkpool._initializer = _runtodo
-        forkpool._initargs = (todo,)
+    _pool_logger = logger_
+
+def _init_pool_worker():
+    if _pool_logger is not None:
+        s_common.setlogging(_pool_logger, **_pool_logconf)
+    p = multiprocessing.current_process()
+    logger.warning(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
 
 def _runtodo(todo):
     return todo[0](*todo[1], **todo[2])
+
+forkpool = None
+def_max_workers = 64  # set a large default high water mark to avoid blocking
+if multiprocessing.current_process().name == 'MainProcess':
+    # only create the forkpools in the MainProcess...
+
+    try:
+        mpctx = multiprocessing.get_context('forkserver')
+        max_workers = int(os.getenv('SYN_FORKED_WORKERS', 0)) or min(def_max_workers, os.cpu_count() or def_max_workers)
+        initargs = (s_common.todo(_init_pool_worker),)
+
+        forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx,
+                                                          max_workers=max_workers,
+                                                          initializer=_runtodo,
+                                                          initargs=initargs)
+
+        logger.debug(f'Shared forkserver pool max_workers={forkpool._max_workers}')
+        atexit.register(forkpool.shutdown)
+
+    except OSError as e:  # pragma: no cover
+        logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
 async def forked(func, *args, **kwargs):
     '''
