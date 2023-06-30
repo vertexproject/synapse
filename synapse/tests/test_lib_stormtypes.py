@@ -1745,7 +1745,7 @@ class StormTypesTest(s_test.SynTest):
             # cron and others uniq by iden
             q = '''
                 $set = $lib.set()
-                $jobA = $lib.cron.add(query={[test:int=1]}, hourly=10)
+                $jobA = $lib.cron.add(query=${[test:int=1]}, hourly=10)
                 $jobB = $lib.cron.add(query=${[test:int=1]}, hourly=10)
 
                 $set.add($jobA)
