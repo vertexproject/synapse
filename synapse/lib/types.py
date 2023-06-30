@@ -2041,7 +2041,7 @@ class Time(IntBase):
 
             return self._normPyInt(delt + bgn)
 
-        valu = s_time.parse(valu, base=base)
+        valu = s_time.parse(valu, base=base, chop=True)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):

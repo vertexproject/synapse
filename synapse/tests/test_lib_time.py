@@ -97,8 +97,8 @@ class TimeTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 s_time.parse(tv)
 
-        tick0 = s_time.parse('2020-02-11 14:08:00.123456999')
-        tick1 = s_time.parse('2020-02-11 14:08:00.123999999')
+        tick0 = s_time.parse('2023-06-12T20:01:23.488627000', chop=True)
+        tick1 = s_time.parse('2023-06-12T20:01:23.488627862', chop=True)
 
         self.nn(tick0)
         self.nn(tick1)
