@@ -420,6 +420,19 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'foo': ('bar', 'bar2'), 'baz': ('cool',)})
 
+            # We can send multipart/form-data directly
+            q = '''
+            $buf = $lib.hex.decode(deadb33f)
+            $fields = ([
+                {"filename": 'deadb33f.exe', "value": $buf, "name": "word"},
+            ])
+            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            request = json.loads(resp.get('body'))
+            request_headers = request.get('result').get('headers')
+            self.isin('multipart/form-data; boundary=', request_headers.get('Content-Type', ''))
+
             q = '''
             $fields = ([
                 {"forgot": "name", "sha256": "newp"},
@@ -429,6 +442,18 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q, opts=opts)
             experr = "BadArg: BadArg: mesg=\'Each field requires a \"name\" key with a string value: None\' name=None"
             self.eq(experr, resp['err'])
+
+            q = '''
+            $buf = $lib.hex.decode(deadb33f)
+            $fields = ([
+                {"filename": 'deadbeef.exe', "value": $buf},
+            ])
+            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            err = resp['err']
+            experr = 'Each field requires a "name" key with a string value when multipart fields are enabled: None'
+            self.eq(experr, err[1].get('mesg'))
 
     async def test_storm_http_post_file(self):
 
