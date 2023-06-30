@@ -15,18 +15,39 @@ Synapse now only supports Python 3.11+.
 
 Model Changes
 -------------
-- Update to the ``org`` model.
+- Update to the ``inet``, ``file``, and ``org`` models.
   (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
+  (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+
+  New Types
+  ---------
+
+  ``file:archive:entry``
+    Add a type to capture an archive entry representing a file and metadata
+    from within a parent archive file.
 
   Updated Types
   -------------
+
+  ``time``
+    Time values with precision beyond milliseconds are now truncated to
+    millsecond values.
+
+  ``hex``
+    Hex types now have whitespace and colon ( ``:`` ) characters stripped
+    from them when lifting and normalizing them.
+
+  ``inet:ipv6``
+    Add comparators for ``>=``, ``>``, ``<=``, ``<`` operations when lifting
+    and filtering IPV6 values.
 
   ``ou:naics``
     Update the type to allow recording NIACS sector and subsector prefixes.
 
 Features and Enhancements
 -------------------------
-- Synapse now only supports Python 3.11+.  The library will now fail to import
+- Synapse now only supports Python 3.11+. The library will now fail to import
   on earlier Python interpeters, and the published modules on PyPI will no
   longer install on Python versions < 3.11.
   (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
@@ -36,6 +57,11 @@ Features and Enhancements
 - Usages of ``hashlib.md5()`` and ``hashlib.sha1()`` have been updated to add
   the ``usedforsecurity=False`` argument.
   (`#3163 <https://github.com/vertexproject/synapse/pull/3163>`_)
+- The Storm ``diff`` command is now marked as safe for ``readonly`` execution.
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+- Add a ``svc:set`` event to the Behold API message stream. This event is
+  fired when a Cortex connects to a Storm Service.
+  (`#3205 <https://github.com/vertexproject/synapse/pull/3205>`_)
 
 Bugfixes
 --------
@@ -46,10 +72,12 @@ Bugfixes
   return the correct value in a process running in cgroupsv1 without a
   maximum memory limit set.
   (`#3198 <https://github.com/vertexproject/synapse/pull/3198>`_)
-- Fix a bug where a Cron job could be created with a invalid Storm query. Cron
-  jobs now have their queries parsed as part of creation to ensure that they
-  are valid Storm.
+- Fix a bug where a Cron job could be created with an invalid Storm query.
+  Cron jobs now have their queries parsed as part of creation to ensure that
+  they are valid Storm. ``$lib.cron`` APIs now accept heavy Storm query
+  objects as query inputs.
   (`#3201 <https://github.com/vertexproject/synapse/pull/3201>`_)
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
 - Field data sent via Storm ``$lib.inet.http`` APIs that uses a multipart
   upload without a valid ``name`` field now raises a ``BadArg`` error.
   Previously this would result in a Python ``TypeError``.
