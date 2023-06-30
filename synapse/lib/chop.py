@@ -44,6 +44,8 @@ def hexstr(text):
     if text.startswith(('0x', '0X')):
         text = text[2:]
 
+    text = text.replace(' ', '').replace(':', '')
+
     if not text:
         raise s_exc.BadTypeValu(valu=text, name='hexstr',
                                 mesg='No string left after stripping')
