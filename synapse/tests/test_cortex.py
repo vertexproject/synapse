@@ -6441,6 +6441,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as prox:
                 class TstServ(s_stormsvc.StormSvc):
                     _storm_svc_name = 'tstserv'
+                    _storm_svc_vers = (0, 0, 2)
                     _storm_svc_pkgs = [
                         {  # type: ignore
                             'name': 'foo',
@@ -6544,7 +6545,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(data[off]['event'], 'svc:set')
                 self.eq(data[off]['info']['name'], 'alegitservice')
                 self.eq(data[off]['info']['svcname'], 'tstserv')
-                self.eq(data[off]['info']['version'], (0, 0, 1))
+                self.eq(data[off]['info']['version'], (0, 0, 2))
                 self.eq(data[off]['info']['iden'], data[off-1]['info']['iden'])
 
 
