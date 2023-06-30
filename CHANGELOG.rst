@@ -10,8 +10,8 @@ v2.140.1 - 2023-06-30
 
 Bugfixes
 --------
-- Fix a typo which prevented the Synapse package for ``v2.140.0`` to be
-  published on PyPi.
+- Fix a typo which prevented the Synapse package for ``v2.140.0`` from being
+  published on PyPI.
   (`#3212 <https://github.com/vertexproject/synapse/pull/3212>`_)
 
 v2.140.0 - 2023-06-30
