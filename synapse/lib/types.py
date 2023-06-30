@@ -639,13 +639,16 @@ class Hex(Type):
             '^=': self._storLiftPref,
         })
 
+    def _preNormHex(self, text):
+        text = text.strip().lower()
+        if text.startswith('0x'):
+            text = text[2:]
+        return text.replace(' ', '').replace(':', '')
+
     def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
-            valu = valu.strip().lower()
-            if valu.startswith('0x'):
-                valu = valu[2:]
-
+            valu = self._preNormHex(valu)
             if valu.endswith('*'):
                 return (
                     ('^=', valu[:-1], self.stortype),
@@ -654,15 +657,13 @@ class Hex(Type):
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
-        valu = valu.strip().lower()
-        if valu.startswith('0x'):
-            valu = valu[2:]
-
+        valu = self._preNormHex(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
     def _normPyStr(self, valu):
+        valu = self._preNormHex(valu)
         valu = s_chop.hexstr(valu)
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,

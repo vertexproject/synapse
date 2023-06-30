@@ -280,7 +280,7 @@ class TypesTest(s_t_utils.SynTest):
 
             # Do some node creation and lifting
             async with await core.snap() as snap:
-                node = await snap.addNode('test:hexa', '010001')
+                node = await snap.addNode('test:hexa', '01:00 01')
                 self.eq(node.ndef[1], '010001')
 
             async with await core.snap() as snap:

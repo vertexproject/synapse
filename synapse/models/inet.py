@@ -537,8 +537,17 @@ class IPv6(s_types.Type):
         self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
 
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
         self.storlifts.update({
             '=': self._storLiftEq,
+            '>': self._storLiftNorm,
+            '<': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            '<=': self._storLiftNorm,
         })
 
     def _normPyStr(self, valu):
@@ -647,6 +656,30 @@ class IPv6(s_types.Type):
                 )
 
         return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprGe(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed >= addr.packed
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed <= addr.packed
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed > addr.packed
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed < addr.packed
+        return cmpr
 
 class IPv4Range(s_types.Range):
 
