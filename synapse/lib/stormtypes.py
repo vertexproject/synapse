@@ -8902,6 +8902,8 @@ class LibCron(Lib):
             mesg = 'Query parameter is required.'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
+        query = await tostr(query)
+
         try:
             alias_opts = self._parseAlias(kwargs)
         except ValueError as e:
@@ -9022,6 +9024,8 @@ class LibCron(Lib):
             mesg = 'Query parameter is required.'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
+        query = await tostr(query)
+
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
 
@@ -9101,6 +9105,8 @@ class LibCron(Lib):
     async def _methCronMod(self, prefix, query):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
+
+        query = await tostr(query)
 
         todo = s_common.todo('updateCronJob', iden, query)
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
