@@ -617,13 +617,13 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The comment field for the file entry within the archive.'}),
 
                     ('posix:uid', ('int', {}), {
-                        'doc': 'The POSIX UID of the user who owns the archived file.'})
+                        'doc': 'The POSIX UID of the user who owns the archived file.'}),
 
                     ('posix:gid', ('int', {}), {
-                        'doc': 'The POSIX GID of the group who owns the archived file.'})
+                        'doc': 'The POSIX GID of the group who owns the archived file.'}),
 
                     ('posix:perms', ('int', {}), {
-                        'doc': 'The POSIX permissions mask of the archived file.'})
+                        'doc': 'The POSIX permissions mask of the archived file.'}),
 
                     ('archived:size', ('int', {}), {
                         'doc': 'The encoded or compressed size of the archived file within the parent.'}),

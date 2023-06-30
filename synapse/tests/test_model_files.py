@@ -514,3 +514,41 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             testexif(nodes[0])
+
+    async def test_model_file_archive_entry(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ file:archive:entry=*
+                    :parent=*
+                    :file=*
+                    :path=foo/bar.exe
+                    :user=visi
+                    :added=20230630
+                    :created=20230629
+                    :modified=20230629
+                    :comment="what exe. much wow."
+                    :posix:uid=1000
+                    :posix:gid=1000
+                    :archived:size=999
+                ]
+            ''')
+
+            self.nn(nodes[0].get('file'))
+            self.nn(nodes[0].get('parent'))
+
+            self.eq('visi', nodes[0].get('user'))
+            self.eq('what exe. much wow.', nodes[0].get('comment'))
+
+            self.eq(1688083200000, nodes[0].get('added'))
+            self.eq(1687996800000, nodes[0].get('created'))
+            self.eq(1687996800000, nodes[0].get('modified'))
+
+            self.eq(1000, nodes[0].get('posix:uid'))
+            self.eq(1000, nodes[0].get('posix:gid'))
+
+            self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
+            self.len(1, await core.nodes('file:archive:entry :user -> inet:user'))
+            self.len(1, await core.nodes('file:archive:entry :file -> file:bytes'))
+            self.len(1, await core.nodes('file:archive:entry :parent -> file:bytes'))
