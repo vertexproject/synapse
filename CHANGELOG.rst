@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.140.0 - Unreleased
+v2.140.0 - 2023-06-30
 =====================
 
 Announcement
