@@ -531,6 +531,7 @@ class FileTest(s_t_utils.SynTest):
                     :comment="what exe. much wow."
                     :posix:uid=1000
                     :posix:gid=1000
+                    :posix:perms=0x7f
                     :archived:size=999
                 ]
             ''')
@@ -547,6 +548,7 @@ class FileTest(s_t_utils.SynTest):
 
             self.eq(1000, nodes[0].get('posix:uid'))
             self.eq(1000, nodes[0].get('posix:gid'))
+            self.eq(127, nodes[0].get('posix:perms'))
 
             self.len(1, await core.nodes('file:archive:entry :path -> file:path'))
             self.len(1, await core.nodes('file:archive:entry :user -> inet:user'))
