@@ -647,6 +647,8 @@ class Agenda(s_base.Base):
         if not query:
             raise ValueError('"query" key of cdef parameter is not present or empty')
 
+        await self.core.getStormQuery(query)
+
         if not creator:
             raise ValueError('"creator" key is cdef parameter is not present or empty')
 

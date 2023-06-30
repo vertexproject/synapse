@@ -347,11 +347,15 @@ class LibHttp(s_stormtypes.Lib):
     def _buildFormData(self, fields):
         data = aiohttp.FormData()
         for field in fields:
-            data.add_field(field.get('name'),
+            name = field.get('name')
+            data.add_field(name,
                            field.get('value'),
                            content_type=field.get('content_type'),
                            filename=field.get('filename'),
                            content_transfer_encoding=field.get('content_transfer_encoding'))
+            if data.is_multipart and not isinstance(name, str):
+                mesg = f'Each field requires a "name" key with a string value when multipart fields are enabled: {name}'
+                raise s_exc.BadArg(mesg=mesg, name=name)
         return data
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
@@ -385,10 +389,6 @@ class LibHttp(s_stormtypes.Lib):
                 info = await axon.postfiles(fields, url, headers=headers, params=params,
                                             method=meth, ssl=ssl_verify, timeout=timeout, proxy=proxy)
                 return HttpResp(info)
-            else:
-                data = self._buildFormData(fields)
-        else:
-            data = body
 
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
 
@@ -411,6 +411,10 @@ class LibHttp(s_stormtypes.Lib):
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
             try:
+                if fields:
+                    data = self._buildFormData(fields)
+                else:
+                    data = body
                 async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
                     info = {
                         'code': resp.status,
