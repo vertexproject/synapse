@@ -179,7 +179,8 @@ commands:
       - run:
           name: verify git tag vs. version
           command: |
-            python ./scripts/verity_version.py
+            . venv/bin/activate
+            python ./scripts/verify_version.py
 
   deploy_pypi_sdist_build:
     description: "Build sdist packages for pypi"
