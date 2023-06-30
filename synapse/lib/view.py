@@ -438,7 +438,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
-        texthash = hashlib.md5(text.encode(errors='surrogatepass')).hexdigest()
+        texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
         async def runStorm():
             cancelled = False
