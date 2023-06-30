@@ -663,7 +663,6 @@ class Hex(Type):
         )
 
     def _normPyStr(self, valu):
-        valu = self._preNormHex(valu)
         valu = s_chop.hexstr(valu)
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
