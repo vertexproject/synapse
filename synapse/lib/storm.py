@@ -3084,6 +3084,7 @@ class DiffCmd(Cmd):
         diff --tag cno.mal.redtree
     '''
     name = 'diff'
+    readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
