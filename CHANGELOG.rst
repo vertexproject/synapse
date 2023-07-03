@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+NEXTVERS - 2023-XX-XX
+=====================
+
+Features and Enhancements
+-------------------------
+- `$lib.infosec.cvss.vectToScore` now returns a `normalized` entry in the return
+  dict which contains the normalized vector string. Also updated to return more
+  useful error messages.
+  (`#3211 <https://github.com/vertexproject/synapse/pull/3211>`_)
 
 v2.140.0 - 2023-06-30
 =====================

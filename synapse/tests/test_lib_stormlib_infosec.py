@@ -495,5 +495,4 @@ class InfoSecTest(s_test.SynTest):
             # test for vector normalization
             for vect, norm in VECTORS_UNNORMAL:
                 valu = await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
-                # self.eq(norm, valu.get('normalized'))
-                print(valu.get('normalized'))
+                self.eq(norm, valu.get('normalized'))
