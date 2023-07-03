@@ -149,13 +149,13 @@ VECTORS = [
 ]
 
 VECTORS_BAD_VERSION = [
-    ('CVSS2#AV:L/Au:L/C:P/I:C/A:N', '3.1', 'Provided vector CVSS2#AV:L/Au:L/C:P/I:C/A:N contains invalid metrics: CVSS2#AV, Au'),
-    ('(AV:L/AC:L/Au:M/I:C/A:N)', '3.1', 'Provided vector (AV:L/AC:L/Au:M/I:C/A:N) contains invalid metrics: Au'),
-    ('AV:L/AC:L/Au:M/C:P/A:N', '3.1', 'Provided vector AV:L/AC:L/Au:M/C:P/A:N contains invalid metrics: Au'),
-    ('CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L', '2', 'Provided vector CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L contains invalid metrics: CVSS, UI, S'),
-    ('CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L', '2', 'Provided vector CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L contains invalid metrics: CVSS, PR, S'),
-    ('(AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L)', '2', 'Provided vector (AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L) contains invalid metrics: PR, UI, S'),
-    ('AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L', '2', 'Provided vector AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L contains invalid metrics: PR, UI, S'),
+    ('CVSS2#AV:L/Au:L/C:P/I:C/A:N', '3.1', 'CVSS2#AV, Au'),
+    ('(AV:L/AC:L/Au:M/I:C/A:N)', '3.1', 'Au'),
+    ('AV:L/AC:L/Au:M/C:P/A:N', '3.1', 'Au'),
+    ('CVSS:3.0/AV:N/AC:H/UI:R/S:U/C:L/I:L/A:L', '2', 'CVSS, UI, S'),
+    ('CVSS:3.1/AV:N/AC:H/PR:L/S:U/C:L/I:L/A:L', '2', 'CVSS, PR, S'),
+    ('(AV:N/AC:H/PR:L/UI:R/S:U/I:L/A:L)', '2', 'PR, UI, S'),
+    ('AV:N/PR:L/UI:R/S:U/C:L/I:L/A:L', '2', 'PR, UI, S'),
 ]
 
 VECTORS_MISSING_MANDATORY = [
@@ -463,10 +463,10 @@ class InfoSecTest(s_test.SynTest):
             self.isin(f'Valid values for vers are: {s_cvss.versions + [None]}, got 1.0', exc.exception.get('mesg'))
 
             # test for vector/version mismatches
-            for vect, vers, mesg in VECTORS_BAD_VERSION:
+            for vect, vers, err in VECTORS_BAD_VERSION:
                 with self.raises(s_exc.BadDataValu) as exc:
                     await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': vers}})
-                self.isin(mesg, exc.exception.get('mesg'))
+                self.isin(f'Provided vector {vect} contains invalid metrics: {err}', exc.exception.get('mesg'))
 
             # test for missing mandatory metrics
             for vect, err in VECTORS_MISSING_MANDATORY:
