@@ -153,8 +153,9 @@ def cvss_normalize(vdict, vers):
 
     vals = []
     for key in metrics:
-        if key in vdict and vdict[key] != undefined:
-            vals.append(f'{key}:{vdict[key]}')
+        valu = vdict.get(key, undefined)
+        if valu != undefined:
+            vals.append(f'{key}:{valu}')
 
     return '/'.join(vals)
 

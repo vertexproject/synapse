@@ -492,10 +492,20 @@ class CvssLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'dict',
                               'desc': '''
-                                A dictionary with the detected version, base
-                                score, temporal score, and environmental score. Example:
+                                A dictionary with the detected version, base score, temporal score,
+                                environmental score, overall score, and normalized vector string.
+                                The normalized vector string will have metrics ordered in
+                                specification order and metrics with undefined values will be
+                                removed. Example:
 
-                                    { 'version': '3.1', 'base': 5.0, 'temporal': 4.4, 'environmental': 4.3 }
+                                    {
+                                        'version': '3.1',
+                                        'score': 4.3,
+                                        'base': 5.0,
+                                        'temporal': 4.4,
+                                        'environmental': 4.3,
+                                        'normalized': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
+                                    }
                               '''}
         }},
     )
@@ -735,9 +745,9 @@ class CvssLib(s_stormtypes.Lib):
         return {
             'version': detected,
             'score': overall,
-            'normalized': s_chop.cvss_normalize(vdict, detected),
 
             'base': base,
             'temporal': temporal,
-            'environmental': environmental
+            'environmental': environmental,
+            'normalized': s_chop.cvss_normalize(vdict, detected)
         }
