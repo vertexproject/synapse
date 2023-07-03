@@ -1717,6 +1717,22 @@ class Taxonomy(Str):
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
 
+    def cmpr(self, val1, name, val2):
+        '''
+        Compare the two values using the given type specific comparator.
+        '''
+        ctor = self.getCmprCtor(name)
+        if ctor is None:
+            raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
+
+        norm = self.norm(val1)[0]
+
+        # Don't normalize val2 because it's a regex and we don't want to
+        # normalize it into a string (or a taxonomy in this case) that doesn't
+        # have any of the regex properties applied anymore.
+
+        return ctor(val2)(norm)
+
     def _normForLift(self, valu):
         return self.norm(valu)[0]
 
