@@ -3814,6 +3814,7 @@ class EditEdgeAdd(Edit):
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
                             await proto.addEdge(verb, subn.iden())
+                            await asyncio.sleep(0)
 
                             if len(proto.edges) >= 1000:
                                 nodeedits = editor.getNodeEdits()
@@ -3876,6 +3877,7 @@ class EditEdgeDel(Edit):
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
                             await proto.delEdge(verb, subn.iden())
+                            await asyncio.sleep(0)
 
                             if len(proto.edgedels) >= 1000:
                                 nodeedits = editor.getNodeEdits()
