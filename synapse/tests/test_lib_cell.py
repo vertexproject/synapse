@@ -1087,7 +1087,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
 
-                    _ntuple_stat = collections.namedtuple('dev', 'st_dev st_mode st_blocks st_size')
+                    _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
                     _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
 
                     def lowspace(dirn):
