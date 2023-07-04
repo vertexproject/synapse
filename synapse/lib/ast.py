@@ -3853,8 +3853,7 @@ class EditEdgeDel(Edit):
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
             iden = node.iden()
-            verb = await self.kids[0].compute(runt, path)
-            # TODO this will need a toprim once Str is in play
+            verb = await tostr(await self.kids[0].compute(runt, path))
 
             allowed(verb)
 
