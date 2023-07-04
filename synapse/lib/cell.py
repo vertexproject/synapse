@@ -1844,16 +1844,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cellsize, _ = s_common.getDirSize(self.dirn)
 
         if os.stat(self.dirn).st_dev == os.stat(self.backdirn).st_dev:
-            if ((disk.free - cellsize) / disk.total) <= self.minfree:
-                reqspace = self.minfree * disk.total + cellsize
-                mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
-                       f'({disk.free} bytes free, {reqspace} required)'
-                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+            reqspace = self.minfree * disk.total + cellsize
+        else:
+            reqspace = cellsize
 
-        elif cellsize > disk.free:
+        if reqspace <= self.minfree:
             mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
-                   f'({disk.free} bytes free, {cellsize} required)'
-            raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+                    f'({disk.free} bytes free, {reqspace} required)'
+            raise s_exc.LowSpace(mesg=mesg, dirn=self.backdirn)
 
     async def runBackup(self, name=None, wait=True):
 
