@@ -3862,7 +3862,7 @@ class EditEdgeDel(Edit):
                 if self.n2:
                     async for subn, subp in subr.execute():
                         if subn.form.isrunt:
-                            mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
                         await subn.delEdge(verb, iden)
 
@@ -3872,7 +3872,7 @@ class EditEdgeDel(Edit):
 
                         async for subn, subp in subr.execute():
                             if subn.form.isrunt:
-                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                                mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
                             await proto.delEdge(verb, subn.iden())
