@@ -1101,7 +1101,6 @@ class CellTest(s_t_utils.SynTest):
                             return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
                         elif dirn == backdirn:
                             return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
-
                         return real
 
                     with mock.patch('shutil.disk_usage', lowspace):
