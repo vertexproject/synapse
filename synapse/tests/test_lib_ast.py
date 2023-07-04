@@ -2469,3 +2469,18 @@ class AstTest(s_test.SynTest):
 
             # 2 batches of edits
             self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
+
+            nodes = await core.nodes('syn:prop limit 1')
+            await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
+
+            q = 'inet:ipv4=1.2.3.4 [ <(newp)+ { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'syn:prop [ -(newp)> { inet:ipv4=1.2.3.4 } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 [ <(newp)- { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))

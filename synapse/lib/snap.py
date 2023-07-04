@@ -131,14 +131,16 @@ class ProtoNode:
         if tupl in self.edges:
             return False
 
+        retn = False
         if tupl in self.edgedels:
             self.edgedels.remove(tupl)
+            retn = True
 
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edges.add(tupl)
             return True
 
-        return False
+        return retn
 
     async def delEdge(self, verb, n2iden):
 
@@ -161,14 +163,16 @@ class ProtoNode:
         if tupl in self.edgedels:
             return False
 
+        retn = False
         if tupl in self.edges:
             self.edges.remove(tupl)
+            retn = True
 
         if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edgedels.add(tupl)
             return True
 
-        return False
+        return retn
 
     async def getData(self, name):
 
