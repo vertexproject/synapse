@@ -1091,7 +1091,7 @@ class CellTest(s_t_utils.SynTest):
 
                     def lowspace(dirn):
                         cellsize = s_common.getDirSize(coredirn)
-                        return _ntuple_diskusage(0, cellsize, 0)
+                        return _ntuple_diskusage(1, cellsize, 1)
 
                     with mock.patch('shutil.disk_usage', lowspace):
                         await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
