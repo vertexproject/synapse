@@ -1848,7 +1848,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             reqspace = cellsize
 
-        if reqspace <= self.minfree:
+        if reqspace > disk.free:
             mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
                     f'({disk.free} bytes free, {reqspace} required)'
             raise s_exc.LowSpace(mesg=mesg, dirn=self.backdirn)
