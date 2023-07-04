@@ -4618,7 +4618,10 @@ class Bool(Prim):
 @registry.registerType
 class Number(Prim):
     '''
-    Implements the Storm API for a number instance.
+    Implements the Storm API for a Number instance.
+
+    Storm Numbers are high precision fixed point decimals corresponding to the
+    the hugenum storage type.
     '''
     _storm_locals = (
         {'name': 'scaleb', 'desc': '''
