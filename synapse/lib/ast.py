@@ -3795,15 +3795,31 @@ class EditEdgeAdd(Edit):
 
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
-                async for subn, subp in subr.execute():
-                    if subn.form.isrunt:
-                        mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
-                        raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                    if self.n2:
+                if self.n2:
+                    async for subn, subp in subr.execute():
+                        if subn.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
                         await subn.addEdge(verb, iden)
-                    else:
-                        await node.addEdge(verb, subn.iden())
+
+                else:
+                    async with node.snap.getEditor() as editor:
+                        proto = editor.loadNode(node)
+
+                        async for subn, subp in subr.execute():
+                            if subn.form.isrunt:
+                                mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                            await proto.addEdge(verb, subn.iden())
+
+                            if len(proto.edges) >= 1000:
+                                nodeedits = editor.getNodeEdits()
+                                if nodeedits:
+                                    await node.snap.applyNodeEdits(nodeedits)
+                                proto.edges.clear()
 
             yield node, path
 
@@ -3832,6 +3848,10 @@ class EditEdgeDel(Edit):
 
         async for node, path in genr:
 
+            if node.form.isrunt:
+                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
+
             iden = node.iden()
             verb = await self.kids[0].compute(runt, path)
             # TODO this will need a toprim once Str is in play
@@ -3840,11 +3860,29 @@ class EditEdgeDel(Edit):
 
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
-                async for subn, subp in subr.execute():
-                    if self.n2:
+                if self.n2:
+                    async for subn, subp in subr.execute():
+                        if subn.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
                         await subn.delEdge(verb, iden)
-                    else:
-                        await node.delEdge(verb, subn.iden())
+
+                else:
+                    async with node.snap.getEditor() as editor:
+                        proto = editor.loadNode(node)
+
+                        async for subn, subp in subr.execute():
+                            if subn.form.isrunt:
+                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                            await proto.delEdge(verb, subn.iden())
+
+                            if len(proto.edgedels) >= 1000:
+                                nodeedits = editor.getNodeEdits()
+                                if nodeedits:
+                                    await node.snap.applyNodeEdits(nodeedits)
+                                proto.edgedels.clear()
 
             yield node, path
 

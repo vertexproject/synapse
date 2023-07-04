@@ -2439,3 +2439,33 @@ class AstTest(s_test.SynTest):
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('haha', text[off:end])
+
+    async def test_ast_bulkedges(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('for $x in $lib.range(1010) {[ it:dev:str=$x ]}')
+
+            strtoffs = await core.getView().layers[0].getEditIndx()
+
+            q = '''
+            [ inet:ipv4=1.2.3.4
+                +(refs)> { for $x in $lib.range(1005) {[ it:dev:str=$x ]} }
+            ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(1005, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+
+            # node creation + 2 batches of edits
+            nextoffs = await core.getView().layers[0].getEditIndx()
+            self.eq(strtoffs + 3, nextoffs)
+
+            q = '''
+            inet:ipv4=1.2.3.4
+            [ -(refs)> { for $x in $lib.range(1010) {[ it:dev:str=$x ]} } ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+
+            # 2 batches of edits
+            self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
