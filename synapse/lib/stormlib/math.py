@@ -6,7 +6,13 @@ class MathLib(s_stormtypes.Lib):
     A Storm library for performing math operations.
     '''
     _storm_locals = (
-        {'name': 'number', 'desc': 'Convert a value to a Storm Number object.',
+        {'name': 'number',
+         'desc': '''
+            Convert a value to a Storm Number object.
+
+            Storm Numbers are high precision fixed point decimals corresponding to the
+            the hugenum storage type.
+         ''',
          'type': {'type': 'function', '_funcname': '_number',
                   'args': (
                       {'name': 'value', 'type': 'any',
@@ -24,4 +30,6 @@ class MathLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _number(self, value):
+        if isinstance(value, s_stormtypes.Number):
+            return value
         return s_stormtypes.Number(value)
