@@ -209,14 +209,11 @@ class Type:
 
         norm1 = self.norm(val1)[0]
 
-        if name == '~=':
+        if name != '~=':
             # Don't norm regex patterns
-            norm2 = val2
+            val2 = self.norm(val2)[0]
 
-        else:
-            norm2 = self.norm(val2)[0]
-
-        return ctor(norm2)(norm1)
+        return ctor(val2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
