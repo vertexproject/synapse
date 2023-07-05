@@ -1087,14 +1087,27 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
 
+                    _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
                     _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
 
                     def lowspace(dirn):
                         cellsize = s_common.getDirSize(coredirn)
-                        return _ntuple_diskusage(0, cellsize, 0)
+                        return _ntuple_diskusage(1, cellsize, 1)
+
+                    realstat = os.stat
+                    def diffdev(dirn):
+                        real = realstat(dirn)
+                        if dirn == coredirn:
+                            return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
+                        elif dirn == backdirn:
+                            return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
+                        return real
 
                     with mock.patch('shutil.disk_usage', lowspace):
                         await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
+                        with mock.patch('os.stat', diffdev):
+                            await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
 
             async def err(*args, **kwargs):
                 raise RuntimeError('boom')
