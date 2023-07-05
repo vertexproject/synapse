@@ -207,12 +207,16 @@ class Type:
         if ctor is None:
             raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
-        # Don't norm the values here because each of the cmpr ctors will do its
-        # own norming if needed. Norming here results in a bug (SYN-5644)
-        # where regex patterns (RHS) for ~= comparisons were being normed. Norming
-        # here also means we're norming most values twice.
+        norm1 = self.norm(val1)[0]
 
-        return ctor(val2)(val1)
+        if name == '~=':
+            # Don't norm regex patterns
+            norm2 = val2
+
+        else:
+            norm2 = self.norm(val2)[0]
+
+        return ctor(norm2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
