@@ -9,7 +9,7 @@ NEXTVERS - 2023-XX-XX
 
 Bugfixes
 --------
-- Fix bug with regular expressions matching taxonomies.
+- Fix bug with regular expression comparisons for some types.
   (`#3213 <https://github.com/vertexproject/synapse/pull/3213>`_)
 
 

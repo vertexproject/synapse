@@ -207,10 +207,12 @@ class Type:
         if ctor is None:
             raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
-        norm1 = self.norm(val1)[0]
-        norm2 = self.norm(val2)[0]
+        # Don't norm the values here because each of the cmpr ctors will do its
+        # own norming if needed. Norming here results in a bug (SYN-5644)
+        # where regex patterns (RHS) for ~= comparisons were being normed. Norming
+        # here also means we're norming most values twice.
 
-        return ctor(norm2)(norm1)
+        return ctor(val2)(val1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
@@ -1716,22 +1718,6 @@ class Taxonomy(Str):
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
-
-    def cmpr(self, val1, name, val2):
-        '''
-        Compare the two values using the given type specific comparator.
-        '''
-        ctor = self.getCmprCtor(name)
-        if ctor is None:
-            raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
-
-        norm = self.norm(val1)[0]
-
-        # Don't normalize val2 because it's a regex and we don't want to
-        # normalize it into a string (or a taxonomy in this case) that doesn't
-        # have any of the regex properties applied anymore.
-
-        return ctor(val2)(norm)
 
     def _normForLift(self, valu):
         return self.norm(valu)[0]

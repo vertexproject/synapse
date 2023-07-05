@@ -1029,6 +1029,25 @@ class TypesTest(s_t_utils.SynTest):
         # homoglyphs are also possible
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
 
+        self.true(tagtype.cmpr('foo', '~=', 'foo'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(tagtype.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(tagtype.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+
     async def test_time(self):
 
         model = s_datamodel.Model()
