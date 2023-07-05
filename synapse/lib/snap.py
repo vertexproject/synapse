@@ -430,7 +430,7 @@ class Snap(s_base.Base):
     ('print', {}),
     '''
     tagcachesize = 1000
-    buidcachesize = 100000
+    nodecachesize = 100000
 
     async def __anit__(self, view, user):
         '''
@@ -464,13 +464,12 @@ class Snap(s_base.Base):
 
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
-        self.cachebuids = True
 
         self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=self.tagcachesize)
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
         # Keeps alive the most recently accessed node objects
-        self.buidcache = collections.deque(maxlen=self.buidcachesize)
-        self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
+        self.nodecache = collections.deque(maxlen=self.nodecachesize)
+        self.livenodes = weakref.WeakValueDictionary()  # nid -> Node
         self._warnonce_keys = set()
 
         self.onfini(self.stack.close)
@@ -600,7 +599,7 @@ class Snap(s_base.Base):
     async def clearCache(self):
         self.tagcache.clear()
         self.tagnorms.clear()
-        self.buidcache.clear()
+        self.nodecache.clear()
         self.livenodes.clear()
 
     def clearCachedNode(self, buid):
@@ -701,10 +700,8 @@ class Snap(s_base.Base):
 
     async def _joinSodes(self, nid, sodes):
 
-        print('JOIN')
         node = self.livenodes.get(nid)
         if node is not None:
-            print(f'NID CACHE: {node}')
             await asyncio.sleep(0)
             return node
 
@@ -722,7 +719,6 @@ class Snap(s_base.Base):
         }
 
         for (layr, sode) in sodes:
-            print(f'SODE: {sode}')
 
             form = sode.get('form')
             valt = sode.get('valu')
@@ -755,7 +751,6 @@ class Snap(s_base.Base):
                 nodedata.update(stordata)
 
         if ndef is None:
-            print('NDEF IS NONE')
             await asyncio.sleep(0)
             return None
 
@@ -769,9 +764,9 @@ class Snap(s_base.Base):
         })
 
         node = s_node.Node(self, pode, bylayer=bylayer)
-        if self.cachebuids:
-            self.livenodes[nid] = node
-            self.buidcache.append(node)
+
+        self.livenodes[nid] = node
+        self.nodecache.append(node)
 
         await asyncio.sleep(0)
         return node
@@ -819,7 +814,7 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByPropValu(self, full, cmpr, valu):
-        print(f'nodesByPropValu {full} {cmpr} {valu}')
+
         if cmpr == 'type=':
             async for node in self.nodesByPropValu(full, '=', valu):
                 yield node
@@ -845,11 +840,9 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-            print('IS FORM')
 
             found = 0
             async for (nid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
-                print(f'NID {nid}')
                 node = await self._joinSodes(nid, sodes)
                 if node is not None:
                     found += 1
@@ -939,7 +932,7 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            await self.saveNodeEdits(nodeedits)
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
@@ -950,68 +943,42 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            await self.saveNodeEdits(nodeedits)
 
-    async def applyNodeEdit(self, edit):
-        nodes = await self.applyNodeEdits((edit,))
-        return nodes[0]
-
-    async def applyNodeEdits(self, edits):
+    async def saveNodeEdits(self, edits, meta=None):
         '''
-        Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
+        Save node edits and run triggers/callbacks.
         '''
-        meta = await self.getSnapMeta()
-        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
-        return nodes
-
-    async def saveNodeEdits(self, edits, meta):
-        if meta is None:
-            meta = await self.getSnapMeta()
-
-        saveoff = -1
-        changes = []
-
-        for edit in edits:
-            await self.getNodeByBuid(edit[0])
-            saveoff, changes_, _ = await self._applyNodeEdits((edit,), meta)
-            changes.extend(changes_)
-
-        return saveoff, changes
-
-    async def _applyNodeEdits(self, edits, meta):
 
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        wlyr = self.wlyr
-        nodes = []
-        callbacks = []
-        actualedits = []  # List[Tuple[buid, form, changes]]
+        if meta is None:
+            meta = await self.getSnapMeta()
 
-        saveoff, changes, results = await wlyr._realSaveNodeEdits(edits, meta)
+        wlyr = self.wlyr
+        callbacks = []
+
+        # hold a reference to  all the nodes about to be edited...
+        nodes = {e[0]: await self.getNodeByBuid(e[0]) for e in edits}
+
+        saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for buid, sode, postedits in results:
+        for buid, form, edits in nodeedits:
 
-            cache = {wlyr.iden: sode}
-
-            nid = sode.get('nid')
-            node = await self._joinStorNode(nid, cache)
+            node = nodes.get(buid)
+            if node is None:
+                node = await self.getNodeByBuid(buid)
 
             if node is None:
-                # We got part of a node but no ndef
                 continue
 
-            nodes.append(node)
-
-            if postedits:
-                actualedits.append((buid, node.form.name, postedits))
-
-            for edit in postedits:
+            for edit in edits:
 
                 etyp, parms, _ = edit
 
@@ -1032,7 +999,7 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
-                        logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
+                        logger.warning(f'saveNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form.full}')
                         continue
 
                     node.props[name] = valu
@@ -1048,7 +1015,7 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
-                        logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
+                        logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
                         continue
 
                     node.props.pop(name, None)
@@ -1109,10 +1076,10 @@ class Snap(s_base.Base):
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
-        if actualedits:
-            await self.fire('node:edits', edits=actualedits)
+        if nodeedits:
+            await self.fire('node:edits', edits=nodeedits)
 
-        return saveoff, changes, nodes
+        return saveoff, nodeedits
 
     async def addNode(self, name, valu, props=None, norminfo=None):
         '''

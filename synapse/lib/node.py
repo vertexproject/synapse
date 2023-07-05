@@ -85,7 +85,7 @@ class Node:
                 (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
             )),
         )
-        await self.snap.applyNodeEdits(nodeedits)
+        await self.snap.saveNodeEdits(nodeedits)
 
     async def iterEdgesN1(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN1(self.buid, verb=verb):
@@ -345,7 +345,7 @@ class Node:
         if not edits:
             return False
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
         self.props.pop(name, None)
         return True
 
@@ -541,7 +541,7 @@ class Node:
         edits = await self._getTagDelEdits(tag, init=init)
         if edits:
             nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit)
+            await self.snap.saveNodeEdits((nodeedit,))
 
     def _getTagPropDel(self, tag):
 
@@ -553,7 +553,9 @@ class Node:
             if prop is None:  # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
-            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype), ()))
+
+            valu = self.tagprops[tag].get(tagprop)
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, valu, prop.type.stortype), ()))
 
         return edits
 
@@ -602,7 +604,7 @@ class Node:
             (s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()),
         )
 
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
+        await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
 
     async def delete(self, force=False):
         '''
@@ -631,7 +633,6 @@ class Node:
         '''
 
         formname, formvalu = self.ndef
-        print(f'DELETE {self.ndef}')
 
         if self.form.isrunt:
             raise s_exc.IsRuntForm(mesg='Cannot delete runt nodes',
@@ -680,7 +681,7 @@ class Node:
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
 
-        await self.snap.applyNodeEdit((self.buid, formname, edits))
+        await self.snap.saveNodeEdits(((self.buid, formname, edits),))
         self.snap.livenodes.pop(self.buid, None)
 
     async def hasData(self, name):
@@ -704,7 +705,7 @@ class Node:
         edits = (
             (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
         )
-        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
+        await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
 
         return retn
 

@@ -2127,6 +2127,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
         self.v3stor = await s_lmdbslab.Slab.anit(path)
 
+        self.onfini(self.v3stor)
+
         # TODO move sodes to being keyed by nid integerkey=True
         self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
         self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
@@ -2150,7 +2152,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def genBuidNid(self, buid, inc=1):
 
-        print(f'genBuidNid {s_common.ehex(buid)} {inc}')
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
             refsbyts = self.v3stor.get(nid, db=self.nidrefs)
@@ -2173,15 +2174,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         refsbyts = self.v3stor.get(nid, db=self.nidrefs)
         if refsbyts is None:
-            print(f'NO REFS BYTS {nid}')
             return 0
 
         refs = int.from_bytes(refsbyts) + inc
-        print(f'REF COUNT: {nid} {refs}')
 
         if refs <= 0:
             buid = self.v3stor.pop(nid, db=self.nid2buid)
-            print(f'REFS 0: {nid} {s_common.ehex(buid)}')
             self.v3stor.delete(nid, db=self.nidrefs)
             self.v3stor.delete(nid, db=self.nid2ndef)
             self.v3stor.delete(buid, db=self.buid2nid)
@@ -2385,13 +2383,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _liftByFormValu(self, form, cmprvals, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            print('SINGLETON')
             async for _, nid, sode in layers[0].liftByFormValu(form, cmprvals):
-                print(f'SINGLETON {nid}')
                 yield (nid, [(layr, sode)])
             return
 
-        print('NOT SINGLETON')
         for cval in cmprvals:
             genrs = []
             for layr in layers:

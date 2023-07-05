@@ -2741,7 +2741,7 @@ class Layer(s_nexus.Pusher):
                 if sode is None: # pragma: no cover
                     # logger.warning(f'TagValuIndex for #{tag} has {s_common.ehex(buid)} but no storage node.')
                     continue
-                yield None, buid, deepcopy(sode)
+                yield None, nid, deepcopy(sode)
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -2826,14 +2826,12 @@ class Layer(s_nexus.Pusher):
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
-            print(f'liftByFormValu {cmpr} {valu}')
 
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
             async for lkey, nid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 sode = self._getStorNode(nid)
-                print(f'NID SODE: {nid} {sode}')
                 if sode is None: # pragma: no cover
                     # logger.warning(f'FormValuIndex for {form} has {s_common.ehex(buid)} but no storage node.')
                     continue
@@ -2887,33 +2885,6 @@ class Layer(s_nexus.Pusher):
             sode['nodedata'] = {name: s_msgpack.un(byts)}
             yield None, nid, sode
 
-    async def storNodeEdits(self, nodeedits, meta):
-
-        saveoff, results = await self.saveNodeEdits(nodeedits, meta)
-
-        retn = []
-        for buid, _, edits in results:
-            nid = self.core.getNidByBuid(buid)
-            sode = await self.getStorNode(nid)
-            retn.append((buid, sode, edits))
-
-        return retn
-
-    async def _realSaveNodeEdits(self, edits, meta):
-
-        saveoff, changes = await self.saveNodeEdits(edits, meta)
-
-        retn = []
-        for buid, _, edits in changes:
-            nid = self.core.getNidByBuid(buid)
-            if nid is None:
-                import pprint; pprint.pprint(edits)
-            assert nid is not None
-            sode = await self.getStorNode(nid)
-            retn.append((buid, sode, edits))
-
-        return saveoff, changes, retn
-
     async def saveNodeEdits(self, edits, meta):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
@@ -2945,9 +2916,9 @@ class Layer(s_nexus.Pusher):
         refs = sode.get('refs', 0)
 
         refs = refs + inc
+        sode['refs'] = refs
 
         if refs <= 0:
-            print(f'NID {nid}')
             self.dirty.pop(nid, None)
             self.buidcache.pop(nid, None)
             self.layrslab.delete(nid, db=self.bybuidv3)
@@ -2957,7 +2928,6 @@ class Layer(s_nexus.Pusher):
         if nid is None:
             nid = sode['nid'] = self.core.genBuidNid(buid)
 
-        sode['refs'] = refs
         self.setSodeDirty(sode)
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
@@ -2971,9 +2941,6 @@ class Layer(s_nexus.Pusher):
         Returns:
             List[Tuple[buid, form, edits]]  Same list, but with only the edits actually applied (plus the old value)
         '''
-        edited = False
-
-        # use/abuse python's dict ordering behavior
         results = {}
 
         nodeedits = collections.deque(nodeedits)
@@ -2982,21 +2949,20 @@ class Layer(s_nexus.Pusher):
             buid, form, edits = nodeedits.popleft()
 
             nid = self.core.getNidByBuid(buid)
-            print(f'EDIT LOOP: {form} {nid} {buid}')
-            import pprint; pprint.pprint(edits)
 
             sode = None
             if nid is not None:
                 sode = self._genStorNode(nid)
 
             if sode is None:
-                print('NEW SODE')
                 sode = collections.defaultdict(dict)
 
             changes = []
             for edit in edits:
 
                 delt = await self.editors[edit[0]](buid, form, edit, sode, meta)
+
+                # if there are conditional edits, check and add them...
                 if delt and edit[2]:
                     nodeedits.extend(edit[2])
 
@@ -3004,21 +2970,18 @@ class Layer(s_nexus.Pusher):
 
                 await asyncio.sleep(0)
 
-            flatedit = results.get(buid)
-            if flatedit is None:
-                results[buid] = flatedit = (buid, form, [])
-
-            flatedit[2].extend(changes)
-
             if changes:
-                edited = True
+
+                flatedit = results.get(buid)
+                if flatedit is None:
+                    results[buid] = flatedit = (buid, form, [])
+
+                flatedit[2].extend(changes)
 
         flatedits = list(results.values())
 
-        if edited:
+        if flatedits:
             nexsindx = nexsitem[0] if nexsitem is not None else None
-            await self.fire('layer:write', layer=self.iden, edits=flatedits, meta=meta, nexsindx=nexsindx)
-
             if self.logedits:
                 offs = self.nodeeditlog.add((flatedits, meta), indx=nexsindx)
                 [(await wind.put((offs, flatedits, meta))) for wind in tuple(self.windows)]
@@ -3037,13 +3000,14 @@ class Layer(s_nexus.Pusher):
 
     async def _editNodeAdd(self, buid, form, edit, sode, meta):
 
-        print(f'editNodeAdd {form} {edit}')
         valt = edit[1]
         valu, stortype = valt
         if sode.get('valu') == valt:
             return ()
 
         sode['valu'] = valt
+        sode['form'] = form
+
         self._incSodeRefs(buid, sode)
 
         nid = sode.get('nid')
@@ -3122,8 +3086,6 @@ class Layer(s_nexus.Pusher):
 
     async def _editPropSet(self, buid, form, edit, sode, meta):
 
-        print('ENTER')
-        import pprint; pprint.pprint(sode)
         prop, valu, oldv, stortype = edit[1]
 
         oldv, oldt = sode['props'].get(prop, (None, None))
@@ -3133,6 +3095,9 @@ class Layer(s_nexus.Pusher):
 
         if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
+
+        if valu == oldv:
+            return ()
 
         if oldv is None:
             self._incSodeRefs(buid, sode)
@@ -3172,9 +3137,6 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(abrv + oldi, nid, db=self.byprop)
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.byprop)
-
-        print(f'PROP SET: {nid} {form} {prop} {valu}')
-        import pprint; pprint.pprint(sode)
 
         sode['props'][prop] = (valu, stortype)
 
@@ -3242,7 +3204,7 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.byprop)
 
-        self._incSodeRefs(sode, inc=-1)
+        self._incSodeRefs(buid, sode, inc=-1)
 
         return (
             (EDIT_PROP_DEL, (prop, valu, stortype), ()),
@@ -3298,7 +3260,7 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.delete(tagabrv + formabrv, nid, db=self.bytag)
 
-        self.core._incSodeRefs(buid, sode, inc=-1)
+        self._incSodeRefs(buid, sode, inc=-1)
 
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
@@ -3317,11 +3279,10 @@ class Layer(s_nexus.Pusher):
 
         tp_dict = sode['tagprops'].get(tag)
         if tp_dict:
-            oldv, oldt = tp_dict.get(prop, (None, None))
-            if oldv is None:
-                self._incSodeRefs(buid, sode)
 
-            nid = snode.get('nid')
+            oldv, oldt = tp_dict.get(prop, (None, None))
+
+            nid = sode.get('nid')
             if oldv is not None:
 
                 if stortype == STOR_TYPE_IVAL:
@@ -3340,6 +3301,10 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
                     self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
 
+        if oldv is None:
+            self._incSodeRefs(buid, sode)
+
+        nid = sode.get('nid')
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
 
@@ -3358,6 +3323,7 @@ class Layer(s_nexus.Pusher):
         )
 
     async def _editTagPropDel(self, buid, form, edit, sode, meta):
+
         tag, prop, valu, stortype = edit[1]
 
         tp_dict = sode['tagprops'].get(tag)
@@ -3365,11 +3331,10 @@ class Layer(s_nexus.Pusher):
             return ()
 
         oldv, oldt = tp_dict.pop(prop, (None, None))
-        if not tp_dict.get(tag):
-            sode['tagprops'].pop(tag, None)
-
         if oldv is None:
             return ()
+
+        self._incSodeRefs(buid, sode, inc=-1)
 
         nid = sode.get('nid')
 
@@ -3379,8 +3344,6 @@ class Layer(s_nexus.Pusher):
         for oldi in self.getStorIndx(oldt, oldv):
             self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
-
-        self._incSodeRefs(buid, sode, inc=-1)
 
         return (
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),
@@ -3423,7 +3386,7 @@ class Layer(s_nexus.Pusher):
         oldv = s_msgpack.un(oldb)
         self.dataslab.delete(abrv, nid, db=self.dataname)
 
-        self._incSodeRefs(sode, inc=-1)
+        self._incSodeRefs(buid, sode, inc=-1)
 
         return (
             (EDIT_NODEDATA_DEL, (name, oldv), ()),
