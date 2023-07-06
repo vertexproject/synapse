@@ -2919,6 +2919,10 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
             self.stormIsInErr('Node is not from the current view.', msgs)
 
+            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | yield $x'
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInErr('Node is not from the current view.', msgs)
+
             # Nodes lifted from another view and referred to by iden() works
             q = '''
             $nodes = $lib.list()
@@ -2937,6 +2941,10 @@ class StormTest(s_t_utils.SynTest):
                 yield $n.iden()
             }
             '''
+            nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
+            self.len(1, nodes)
+
+            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | for $n in $x { yield $n.iden() }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 

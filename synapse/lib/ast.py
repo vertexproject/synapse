@@ -1323,6 +1323,9 @@ class YieldValu(Oper):
         if isinstance(valu, s_stormtypes.Prim):
             async with s_common.aclosing(valu.nodes()) as genr:
                 async for node in genr:
+                    if node.snap.view.iden != viewiden:
+                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'
+                        raise s_exc.BadLiftValu(mesg=mesg)
                     yield node
                 return
 
