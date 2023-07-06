@@ -6194,6 +6194,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await prox.delUnivProp('_r100')
 
                     await prox.addFormProp('inet:ipv4', '_blah', ('int', {}), {})
+                    print(repr(await core.nodes('inet:ipv4=1.2.3.4')))
                     self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :_blah=10 ]'))
 
                     self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:_blah ]'))

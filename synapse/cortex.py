@@ -2136,7 +2136,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.buid2nid = self.v3stor.initdb('buid2nid')
 
         self.nextnid = 0
+        # TODO is it safe to potentially reuse nids if the last one is removed?
         byts = self.v3stor.lastkey(db=self.nidrefs)
+        if byts is not None:
+            self.nextnid = int.from_bytes(byts)
 
     def getNidNdef(self, nid):
         return self.v3stor.get(nid, db=self.nid2ndef)
@@ -2155,8 +2158,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         nid = self.v3stor.get(buid, db=self.buid2nid)
         if nid is not None:
             refsbyts = self.v3stor.get(nid, db=self.nidrefs)
-            refs = s_common.int64un(refsbyts) + inc
-            self.v3stor.put(nid, s_common.int64en(refs), db=self.nidrefs)
+            refs = int.from_bytes(refsbyts) + inc
+            self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
             return nid
 
         nid = self.nextnid.to_bytes(8)
@@ -2166,7 +2169,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.v3stor.put(nid, buid, db=self.nid2buid)
         self.v3stor.put(nid, refsbyts, db=self.nidrefs)
-        self.v3stor.put(buid, nid, buid, db=self.buid2nid)
+
+        self.v3stor.put(buid, nid, db=self.buid2nid)
 
         return nid
 
@@ -3343,7 +3347,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop}'
+                mesg = f'Nodes still exist with prop: {form}:{prop} in layer: {layr.iden}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)

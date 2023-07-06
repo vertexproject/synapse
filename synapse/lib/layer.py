@@ -267,7 +267,7 @@ class IndxBy:
         self.layr = layr
         self.abrvlen = len(abrv)  # Dividing line between the abbreviations and the data-specific index
 
-    def getNodeValu(self, buid):
+    def getNodeValu(self, nid):
         raise s_exc.NoSuchImpl(name='getNodeValu')
 
     def keyBuidsByDups(self, indx):
@@ -348,13 +348,23 @@ class IndxByProp(IndxBy):
         self.prop = prop
 
     def getNodeValu(self, nid):
+        print(f'IndxByProp.getNodeValu({nid})')
         sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
+            print('no sode')
             return None
+        print(f'sode: {sode}')
 
         valt = sode['props'].get(self.prop)
         if valt is not None:
+            print(f'getNodeValu() valt: {valt}')
             return valt[0]
+        print('no prop valu')
+
+    def __repr__(self):
+        if self.form:
+            return f'IndxByProp: {self.form}:{self.prop}'
+        return f'IndxByProp: {self.prop}'
 
 class IndxByPropArray(IndxBy):
 
@@ -375,6 +385,11 @@ class IndxByPropArray(IndxBy):
         valt = sode['props'].get(self.prop)
         if valt is not None:
             return valt[0]
+
+    def __repr__(self):
+        if self.form:
+            return f'IndxByPropArray: {self.form}:{self.prop}'
+        return f'IndxByPropArray: {self.prop}'
 
 class IndxByTag(IndxBy):
 
@@ -2598,7 +2613,9 @@ class Layer(s_nexus.Pusher):
         return sode.get('form')
 
     def setSodeDirty(self, sode):
-        self.dirty[sode['nid']] = sode
+        nid = sode.get('nid')
+        assert nid is not None
+        self.dirty[nid] = sode
 
     async def _onLayrSlabCommit(self, mesg):
         await self._saveDirtySodes()
@@ -2627,19 +2644,20 @@ class Layer(s_nexus.Pusher):
     def _getStorNode(self, nid):
         '''
         Return the storage node for the given nid.
-
-        NOTE: This API returns the *actual* storage node dict if it's
-              dirty. You must make a deep copy if you plan to return it
-              outside of the Layer.
         '''
+        print(f'_getStorNode({nid})')
+        for nid, sode in self.dirty.items():
+            print(f'in dirty: {nid} {sode}')
 
         # check the dirty nodes first
         sode = self.dirty.get(nid)
         if sode is not None:
+            print(f'getStorNode (dirty): {sode}')
             return sode
 
         sode = self.buidcache.get(nid)
         if sode is not None:
+            print(f'getStorNode (buidcache): {sode}')
             return sode
 
         byts = self.layrslab.get(nid, db=self.bybuidv3)
@@ -2649,6 +2667,8 @@ class Layer(s_nexus.Pusher):
         sode = collections.defaultdict(dict)
         sode.update(s_msgpack.un(byts))
         self.buidcache[nid] = sode
+
+        print(f'getStorNode (slab): {sode}')
 
         return sode
 
@@ -3138,7 +3158,10 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.byprop)
 
+        print(f'editPropSet: {prop} {valu}')
         sode['props'][prop] = (valu, stortype)
+        self.setSodeDirty(sode)
+        print(f'sode: {sode}')
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3555,7 +3578,7 @@ class Layer(s_nexus.Pusher):
 
         Args:
             form (str):  A form name.
-            prop (str):  A universal property name.
+            prop (str):  A property name.
             stortype (Optional[int]): a STOR_TYPE_* integer representing the type of form:prop
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
@@ -3685,23 +3708,25 @@ class Layer(s_nexus.Pusher):
             if startvalu is not None:
                 startbytz = stor.indx(startvalu)[0]
 
+        print(f'_iterRows({indxby})')
         for key, nid in self.layrslab.scanByPref(abrv, startkey=startbytz, db=indxby.db):
 
+            print(f'_iterRows {key} {nid}')
+            await asyncio.sleep(0)
+
             if stortype is not None:
+                print(f'stortype {stortype}')
                 # Extract the value directly out of the end of the key
                 indx = key[abrvlen:]
 
                 valu = stor.decodeIndx(indx)
+                print(f'stortype valu {valu}')
                 if valu is not s_common.novalu:
-                    await asyncio.sleep(0)
-
-                    yield buid, valu
+                    yield self.core.getBuidByNid(nid), valu
                     continue
 
             valu = indxby.getNodeValu(nid)
-
-            await asyncio.sleep(0)
-
+            print(f'getNodeValu(nid): {valu}')
             if valu is None:
                 continue
 
@@ -3912,19 +3937,12 @@ class Layer(s_nexus.Pusher):
         '''
         Yield (buid, sode) tuples for all the nodes with props/tags/tagprops stored in this layer.
         '''
-        done = set()
-
-        for buid, sode in list(self.dirty.items()):
-            done.add(buid)
-            yield buid, sode
+        # flush any dirty sodes so we can yield them from the index in nid order
+        await self._saveDirtySodes()
 
         for nid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
-
-            if buid in done:
-                continue
-
-            yield self.core.getBuidByNid(nid), s_msgpack.un(byts)
             await asyncio.sleep(0)
+            yield self.core.getBuidByNid(nid), s_msgpack.un(byts)
 
     async def splices(self, offs=None, size=None):
         '''
