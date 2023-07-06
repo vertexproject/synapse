@@ -100,9 +100,9 @@ class LibGen(s_stormtypes.Lib):
         {'name': 'langByCode', 'desc': 'Returns a lang:language node by language code, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'name', 'type': 'lang:code', 'desc': 'The language code for the language.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The language code for the language.'},
                   ),
-                  'returns': {'type': 'lang:language', 'desc': 'A lang:language node with the given code.'}}},
+                  'returns': {'type': 'storm:node', 'desc': 'A lang:language node with the given code.'}}},
     )
     _storm_lib_path = ('gen',)
 
