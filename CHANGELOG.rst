@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+NEXTVERS - 2023-XX-XX
+=====================
+
+Bugfixes
+--------
+- Fix bug with regular expression comparisons for some types.
+  (`#3213 <https://github.com/vertexproject/synapse/pull/3213>`_)
+
 
 v2.140.1 - 2023-06-30
 =====================
