@@ -461,6 +461,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
 
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('keyboard:language'))
+            self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
+            self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
