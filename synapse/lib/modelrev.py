@@ -34,6 +34,7 @@ class ModelRev:
             ((0, 2, 18), self.revModel_0_2_18),
             ((0, 2, 19), self.revModel_0_2_19),
             ((0, 2, 20), self.revModel_0_2_20),
+            ((0, 2, 21), self.revModel_0_2_21),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -716,6 +717,10 @@ class ModelRev:
         await self._propToForm(layers, 'inet:url:passwd', 'inet:passwd')
 
         await self._updatePropStortype(layers, 'file:bytes:mime:pe:imphash')
+
+    async def revModel_0_2_21(self, layers):
+        await self._normPropValu(layers, 'risk:vuln:cvss:v2')
+        await self._normPropValu(layers, 'risk:vuln:cvss:v3')
 
     async def runStorm(self, text, opts=None):
         '''

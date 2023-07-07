@@ -1,6 +1,7 @@
 import logging
 
 import synapse.common as s_common
+import synapse.lib.chop as s_chop
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,18 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
 
+            cvssv2 = '(AV:N/AC:L/Au:N/C:C/I:N/A:N/E:POC/RL:ND/RC:ND)'
+            cvssv3 = 'CVSS:3.1/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X'
+
+            node = await addNode(f'''[
+                risk:vuln={vuln}
+                :cvss:v2 = "{cvssv2}"
+                :cvss:v3 = "{cvssv3}"
+            ]''')
+
+            self.eq(node.get('cvss:v2'), s_chop.cvss2_normalize(cvssv2))
+            self.eq(node.get('cvss:v3'), s_chop.cvss3x_normalize(cvssv3))
+
             node = await addNode(f'''[
                     risk:vuln={vuln}
                     :name=myvuln
@@ -180,7 +193,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('nist:nvd:modified'), 1633910400000)
 
             self.eq(node.get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
-            cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MUI:X/MS:C/MC:N/MI:N/MA:N'
+            cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MS:C/MC:N/MI:N/MA:N'
             self.eq(node.get('cvss:v3'), cvssv3)
 
             self.eq(node.get('cvss:v2_0:score'), 1.0)
