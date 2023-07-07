@@ -52,11 +52,11 @@ Bugfixes
   the amount of free space when the Cell backup directory is configured
   on a separate volume from the Cell storage directory.
   (`#3216 <https://github.com/vertexproject/synapse/pull/3216>`_)
-- Prevent the ``yield`` operator from directly emitting Nodes into the Storm
-  pipeline if those Node objects came from a different view. Nodes previously
+- Prevent the ``yield`` operator from directly emitting nodes into the Storm
+  pipeline if those node objects came from a different view. Nodes previously
   lifted in this manner must be lifted by calling the ``iden()`` function on
-  the node to ensure the node being lifted into the pipeline reflects the
-  current View.
+  the object to ensure the node being lifted into the pipeline reflects the
+  current view.
   (`#3218 <https://github.com/vertexproject/synapse/pull/3218>`_)
 - Always remove the ``mirror`` configuration option from ``cell.mods.yaml``
   when provisioning a service via Aha. The previous behavior prevented the
