@@ -731,12 +731,12 @@ class LibDmon(Lib):
     async def _libDmonAdd(self, text, name='noname', ddef=None):
         text = await tostr(text)
         ddef = await toprim(ddef)
-        varz = await toprim(self.runt.vars)
 
         viewiden = self.runt.snap.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         # closure style capture of runtime
+        varz = await toprim(self.runt.getScopeVars())
         varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
 
         opts = {'vars': varz, 'view': viewiden}

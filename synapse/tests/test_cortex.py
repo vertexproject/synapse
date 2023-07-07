@@ -5938,6 +5938,38 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
 
+    async def test_storm_dmon_vars(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('''
+                $message = "hello"
+                $storm_query = ${ $lib.raise(TestExc, mesg=$message) }
+                runas root { return($lib.dmon.add($storm_query).iden) }
+            ''')
+            dmon = core.stormdmons.dmons[iden]
+            self.true(await s_coro.event_wait(dmon.err_evnt, 2))
+            self.isin('hello', dmon.runlog[0][1][1]['errmsg'])
+
+            iden = await core.callStorm('''
+                $message = "hello"
+                $storm_query = ${ $lib.raise(TestExc, mesg=$message) }
+                view.exec $lib.view.get().iden { return($lib.dmon.add($storm_query).iden) }
+            ''')
+            dmon = core.stormdmons.dmons[iden]
+            self.true(await s_coro.event_wait(dmon.err_evnt, 2))
+            self.isin('hello', dmon.runlog[0][1][1]['errmsg'])
+
+            await core.nodes('''
+                $message = "hello"
+                $storm_query = ${ $lib.raise(TestExc, mesg=$message) }
+                background { $dmon=$lib.dmon.add($storm_query) $lib.queue.gen(test).put($dmon.iden) }
+            ''')
+            _, iden = await asyncio.wait_for(core.callStorm('return($lib.queue.gen(test).pop(wait=$lib.true))'), 2)
+            dmon = core.stormdmons.dmons[iden]
+            self.true(await s_coro.event_wait(dmon.err_evnt, 2))
+            self.isin('hello', dmon.runlog[0][1][1]['errmsg'])
+
     async def test_cortex_storm_cmd_bads(self):
 
         async with self.getTestCore() as core:
