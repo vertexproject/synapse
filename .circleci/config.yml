@@ -244,7 +244,7 @@ commands:
       - run:
           name: install packages
           command: |
-            apk add python3 py3-pip git cosign=2.0.1-r2 bash
+            apk add python3 py3-pip git "cosign~2." bash
       - run:
           name: install awscli
           command: |
