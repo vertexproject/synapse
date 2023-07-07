@@ -489,8 +489,6 @@ class Snap(s_base.Base):
         assert user is not None
 
         self.strict = True
-        self.elevated = False
-        self.canceled = False
 
         self.core = view.core
         self.view = view
@@ -501,29 +499,15 @@ class Snap(s_base.Base):
 
         self.readonly = self.wlyr.readonly
 
-        # variables used by the storm runtime
-        self.vars = {}
-
-        self.runt = {}
-
-        self.debug = False      # Set to true to enable debug output.
-        self.write = False      # True when the snap has a write lock on a layer.
-        self.cachebuids = True
-
         self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=self.tagcachesize)
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
+
         # Keeps alive the most recently accessed node objects
         self.buidcache = collections.deque(maxlen=self.buidcachesize)
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
         self._warnonce_keys = set()
 
         self.onfini(self.stack.close)
-        self.changelog = []
-        self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''
@@ -805,9 +789,8 @@ class Snap(s_base.Base):
         })
 
         node = s_node.Node(self, pode, bylayer=bylayer)
-        if self.cachebuids:
-            self.livenodes[buid] = node
-            self.buidcache.append(node)
+        self.livenodes[buid] = node
+        self.buidcache.append(node)
 
         await asyncio.sleep(0)
         return node

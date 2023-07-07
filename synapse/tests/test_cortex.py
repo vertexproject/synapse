@@ -6351,8 +6351,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)
-                async with await core.snap() as snap:
-                    self.true(snap.trigson)
 
                 # add triggers
                 # node:add case
@@ -6378,8 +6376,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.false(core.agenda.enabled)
                 self.false(core.trigson)
-                async with await core.snap() as snap:
-                    self.false(snap.trigson)
 
                 # check that triggers don't fire
                 await core.nodes('test:int | delnode')
@@ -6391,8 +6387,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)
-                async with await core.snap() as snap:
-                    self.true(snap.trigson)
 
                 # check that triggers fire
                 await core.nodes('[test:str=foo] [+#footag] | delnode')

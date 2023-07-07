@@ -841,7 +841,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runTagDel(node, tag, view=view)
 
     async def runNodeAdd(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -850,7 +850,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runNodeAdd(node, view=view)
 
     async def runNodeDel(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -862,7 +862,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
