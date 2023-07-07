@@ -243,8 +243,6 @@ class Lookup(Query):
             mesg = 'Autoadd may not be executed in readonly Storm runtime.'
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
-        view = runt.snap.view
-
         async def getnode(form, valu):
             try:
                 if self.autoadd:
@@ -1247,6 +1245,8 @@ class YieldValu(Oper):
 
     async def yieldFromValu(self, runt, valu):
 
+        viewiden = runt.snap.view.iden
+
         # there is nothing in None... ;)
         if valu is None:
             return
@@ -1300,10 +1300,17 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Node):
-            yield valu.valu
+            valu = valu.valu
+            if valu.snap.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.snap.view.iden} expected {viewiden}'
+                raise s_exc.BadLiftValu(mesg=mesg)
+            yield valu
             return
 
         if isinstance(valu, s_node.Node):
+            if valu.snap.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.snap.view.iden} expected {viewiden}'
+                raise s_exc.BadLiftValu(mesg=mesg)
             yield valu
             return
 
@@ -1316,6 +1323,9 @@ class YieldValu(Oper):
         if isinstance(valu, s_stormtypes.Prim):
             async with s_common.aclosing(valu.nodes()) as genr:
                 async for node in genr:
+                    if node.snap.view.iden != viewiden:
+                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'
+                        raise s_exc.BadLiftValu(mesg=mesg)
                     yield node
                 return
 
