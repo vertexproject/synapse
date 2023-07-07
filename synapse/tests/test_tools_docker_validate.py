@@ -6,11 +6,11 @@ from OpenSSL import crypto
 
 import synapse.lib.certdir as s_certdir
 import synapse.tests.utils as s_t_utils
-import synapse.tools.docker_validate as s_t_dv
+import synapse.tools.docker.validate as s_t_d_validate
 
 class TestDockerValidate(s_t_utils.SynTest):
 
-    def test_docker_validate(self):
+    def test_tool_docker_validate(self):
 
         # Check cosign
         outp = self.getTestOutp()
@@ -18,21 +18,21 @@ class TestDockerValidate(s_t_utils.SynTest):
 
             mock_stdout = mock.MagicMock(stdout=b'Hhehe\nGitVersion:    v2.0.2\nhaha', stderr=b'')
             patch.return_value = mock_stdout
-            ret = s_t_dv.checkCosign(outp)
+            ret = s_t_d_validate.checkCosign(outp)
             outp.expect('2.0.2')
             self.true(ret)
 
             outp.clear()
             mock_stdout = mock.MagicMock(stdout=b'Hhehe\nGitVersion:    v1.13.1\nhaha', stderr=b'')
             patch.return_value = mock_stdout
-            ret = s_t_dv.checkCosign(outp)
+            ret = s_t_d_validate.checkCosign(outp)
             outp.expect('Did not find cosign version v2.x.x')
             self.false(ret)
 
             outp.clear()
             mock_stdout = mock.MagicMock(stdout=b'Hhehe\nnewp\n\nhaha', stderr=b'')
             patch.return_value = mock_stdout
-            ret = s_t_dv.checkCosign(outp)
+            ret = s_t_d_validate.checkCosign(outp)
             outp.expect('Cannot find GitVersion')
             self.false(ret)
 
@@ -51,34 +51,34 @@ class TestDockerValidate(s_t_utils.SynTest):
                 test_stdout = json.dumps(test_resp).encode()
                 mock_stdout = mock.MagicMock(stdout=test_stdout)
                 patch.return_value = mock_stdout
-                ret = s_t_dv.getCosignSignature(outp, 'hehe/haha:tag')
+                ret = s_t_d_validate.getCosignSignature(outp, 'hehe/haha:tag')
                 self.isinstance(ret, dict)
 
                 outp.clear()
                 mock_stdout = mock.MagicMock(stdout=b'["hehe"]')
                 patch.return_value = mock_stdout
-                ret = s_t_dv.getCosignSignature(outp, 'hehe/haha:tag')
+                ret = s_t_d_validate.getCosignSignature(outp, 'hehe/haha:tag')
                 outp.expect('Expected dictionary')
                 self.none(ret)
 
                 outp.clear()
                 mock_stdout = mock.MagicMock(stdout=b'newp')
                 patch.return_value = mock_stdout
-                ret = s_t_dv.getCosignSignature(outp, 'hehe/haha:tag')
+                ret = s_t_d_validate.getCosignSignature(outp, 'hehe/haha:tag')
                 outp.expect('Error decoding blob')
                 self.none(ret)
 
             # checkCRL
             outp = self.getTestOutp()
 
-            pubk_byts = s_t_dv.checkCRL(outp, test_resp, certdir)
+            pubk_byts = s_t_d_validate.checkCRL(outp, test_resp, certdir)
             self.isinstance(pubk_byts, bytes)
 
             outp.clear()
             crl = certdir.genCaCrl('cosignTest')
             crl.revoke(sign_cert)
 
-            ret = s_t_dv.checkCRL(outp, test_resp, certdir)
+            ret = s_t_d_validate.checkCRL(outp, test_resp, certdir)
             outp.expect('Signature has invalid certificate: certificate revoked')
             self.false(ret)
 
@@ -88,6 +88,6 @@ class TestDockerValidate(s_t_utils.SynTest):
                 mock_stdout = mock.MagicMock(stdout=b'{"key": "valu"}')
                 patch.return_value = mock_stdout
 
-                ret = s_t_dv.checkCosignSignature(outp, pubk_byts, 'hehe://haha:tag')
+                ret = s_t_d_validate.checkCosignSignature(outp, pubk_byts, 'hehe://haha:tag')
                 outp.expect('Cosign output:')
                 self.true(ret)
