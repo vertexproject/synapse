@@ -841,7 +841,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runTagDel(node, tag, view=view)
 
     async def runNodeAdd(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -850,7 +850,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runNodeAdd(node, view=view)
 
     async def runNodeDel(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -862,7 +862,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -1052,3 +1052,38 @@ class View(s_nexus.Pusher):  # type: ignore
                     # Yield a tuple of <form, normed valu, info>
                     yield form, valu, info
                     await asyncio.sleep(0)
+
+    async def _mergeLiftRows(self, genrs):
+        async for indx, nid, sref in s_common.merggenr2(genrs):
+            yield nid, [layr.genStorNodeRef(nid) for layr in self.layers]
+
+    # view "lift by" functions yield (nid, sodes) tuples for results.
+    async def liftByProp(self, form, prop):
+        genrs = [layr.liftByProp(form, prop) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
+    async def liftByFormValu(self, form, cmprvals):
+        genrs = [layr.liftByFormValu(form, cmprvals) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
+    async def liftByPropValu(self, form, prop, cmprvals):
+        genrs = [layr.liftByPropValu(form, prop, cmprvals) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
+    async def liftByTag(self, tag, form=None):
+        genrs = [layr.liftByTag(tag, form=form) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
+    async def liftByTagProp(self, form, tag, prop):
+        genrs = [layr.liftByTagProp(form, tag, prop) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
+    async def liftByTagPropValu(self, form, tag, prop, cmprvals):
+        genrs = [layr.liftByTagPropValu(form, tag, prop, cmprvals) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item

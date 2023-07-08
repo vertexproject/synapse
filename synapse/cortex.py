@@ -2237,35 +2237,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.getStormQuery(cdef.get('storm'))
 
-    async def _getStorNodes(self, buid, layers):
-        # NOTE: This API lives here to make it easy to optimize
-        #       the cluster case to minimize round trips
-        return [await layr.getStorNode(buid) for layr in layers]
+    # async def _genSodeList(self, buid, sodes, layers, filtercmpr=None):
+    #    sodelist = []
 
-    async def _genSodeList(self, buid, sodes, layers, filtercmpr=None):
-        sodelist = []
+    #    if filtercmpr is not None:
+    #        filt = True
+    #        for layr in layers[-1::-1]:
+    #            sode = sodes.get(layr.iden)
+    #            if sode is None:
+    #                sode = await layr.getStorNode(buid)
+    #                if filt and filtercmpr(sode):
+    #                    return
+    #            else:
+    #                filt = False
+    #            sodelist.append((layr.iden, sode))
 
-        if filtercmpr is not None:
-            filt = True
-            for layr in layers[-1::-1]:
-                sode = sodes.get(layr.iden)
-                if sode is None:
-                    sode = await layr.getStorNode(buid)
-                    if filt and filtercmpr(sode):
-                        return
-                else:
-                    filt = False
-                sodelist.append((layr.iden, sode))
+    #        return (buid, sodelist[::-1])
 
-            return (buid, sodelist[::-1])
+    #    for layr in layers:
+    #        sode = sodes.get(layr.iden)
+    #        if sode is None:
+    #            sode = await layr.getStorNode(buid)
+    #        sodelist.append((layr.iden, sode))
 
-        for layr in layers:
-            sode = sodes.get(layr.iden)
-            if sode is None:
-                sode = await layr.getStorNode(buid)
-            sodelist.append((layr.iden, sode))
-
-        return (buid, sodelist)
+    #    return (buid, sodelist)
 
     async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None):
         lastnid = None
@@ -2311,174 +2306,174 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if sodelist is not None:
                     yield sodelist
 
-    async def _liftByDataName(self, name, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByDataName(name):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByDataName(self, name, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByDataName(name):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
+    #     genrs = []
+    #     for layr in layers:
+    #         genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
-            yield sodes
+    #     async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
+    #         yield sodes
 
-    async def _liftByProp(self, form, prop, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByProp(form, prop):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByProp(self, form, prop, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByProp(form, prop):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
+    #     genrs = []
+    #     for layr in layers:
+    #         genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
 
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
-            yield sodes
+    #     async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
+    #         yield sodes
 
-    async def _liftByPropValu(self, form, prop, cmprvals, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByPropValu(form, prop, cmprvals):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByPropValu(self, form, prop, cmprvals, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByPropValu(form, prop, cmprvals):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        def filtercmpr(sode):
-            props = sode.get('props')
-            if props is None:
-                return False
-            return props.get(prop) is not None
+    #     def filtercmpr(sode):
+    #         props = sode.get('props')
+    #         if props is None:
+    #             return False
+    #         return props.get(prop) is not None
 
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,))))
+    #     for cval in cmprvals:
+    #         genrs = []
+    #         for layr in layers:
+    #             genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
-                yield sodes
+    #         async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
+    #             yield sodes
 
-    async def _liftByPropArray(self, form, prop, cmprvals, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByPropArray(form, prop, cmprvals):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByPropArray(self, form, prop, cmprvals, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByPropArray(form, prop, cmprvals):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        if prop is None:
-            filtercmpr = None
-        else:
-            def filtercmpr(sode):
-                props = sode.get('props')
-                if props is None:
-                    return False
-                return props.get(prop) is not None
+    #     if prop is None:
+    #         filtercmpr = None
+    #     else:
+    #         def filtercmpr(sode):
+    #             props = sode.get('props')
+    #             if props is None:
+    #                 return False
+    #             return props.get(prop) is not None
 
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,))))
+    #     for cval in cmprvals:
+    #         genrs = []
+    #         for layr in layers:
+    #             genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
-                yield sodes
+    #         async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
+    #             yield sodes
 
-    async def _liftByFormValu(self, form, cmprvals, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByFormValu(form, cmprvals):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByFormValu(self, form, cmprvals, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByFormValu(form, cmprvals):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,))))
+    #     for cval in cmprvals:
+    #         genrs = []
+    #         for layr in layers:
+    #             genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
-                yield sodes
+    #         async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+    #             yield sodes
 
-    async def _liftByTag(self, tag, form, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByTag(tag, form):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByTag(self, tag, form, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByTag(tag, form):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        if form is None:
-            def filtercmpr(sode):
-                tags = sode.get('tags')
-                if tags is None:
-                    return False
-                return tags.get(tag) is not None
-        else:
-            filtercmpr = None
+    #     if form is None:
+    #         def filtercmpr(sode):
+    #             tags = sode.get('tags')
+    #             if tags is None:
+    #                 return False
+    #             return tags.get(tag) is not None
+    #     else:
+    #         filtercmpr = None
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
+    #     genrs = []
+    #     for layr in layers:
+    #         genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
-            yield sodes
+    #     async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+    #         yield sodes
 
-    async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        def filtercmpr(sode):
-            tags = sode.get('tags')
-            if tags is None:
-                return False
-            return tags.get(tag) is not None
+    #     def filtercmpr(sode):
+    #         tags = sode.get('tags')
+    #         if tags is None:
+    #             return False
+    #         return tags.get(tag) is not None
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form)))
+    #     genrs = []
+    #     for layr in layers:
+    #         genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
-            yield sodes
+    #     async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+    #         yield sodes
 
-    async def _liftByTagProp(self, form, tag, prop, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByTagProp(form, tag, prop):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByTagProp(self, form, tag, prop, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByTagProp(form, tag, prop):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
+    #     genrs = []
+    #     for layr in layers:
+    #         genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
 
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
-            yield sodes
+    #     async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
+    #         yield sodes
 
-    async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, nid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
-                yield (nid, [(layr, sode)])
-            return
+    # async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
+    #     if len(layers) == 1:
+    #         layr = layers[0].iden
+    #         async for _, nid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
+    #             yield (nid, [(layr, sode)])
+    #         return
 
-        def filtercmpr(sode):
-            tagprops = sode.get('tagprops')
-            if tagprops is None:
-                return False
-            props = tagprops.get(tag)
-            if not props:
-                return False
-            return props.get(prop) is not None
+    #     def filtercmpr(sode):
+    #         tagprops = sode.get('tagprops')
+    #         if tagprops is None:
+    #             return False
+    #         props = tagprops.get(tag)
+    #         if not props:
+    #             return False
+    #         return props.get(prop) is not None
 
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
+    #     for cval in cmprvals:
+    #         genrs = []
+    #         for layr in layers:
+    #             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
-                yield sodes
+    #         async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
+    #             yield sodes
 
     async def _setStormCmd(self, cdef):
         '''
@@ -2981,7 +2976,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ssvc = await self._setStormSvc(sdef)
         await self.svchive.set(iden, sdef)
 
-        await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden, 'svcname': ssvc.svcname})
+        await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
         return ssvc.sdef
 
     async def delStormSvc(self, iden):

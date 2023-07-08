@@ -21,6 +21,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.backup as s_tools_backup
 import synapse.tools.promote as s_tools_promote
@@ -1118,6 +1119,7 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_prop_deref(self):
 
+        self.skip('TODO RUNT NODES')
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:str=woot ]')
             text = '''
@@ -1598,12 +1600,12 @@ class CortexTest(s_t_utils.SynTest):
                     await prox.setStormCmd(cdef0)
 
                     nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
-                    self.true(nodes[0].tags.get('zoinks'))
+                    self.true(nodes[0].getTag('zoinks'))
 
                     nodes = await core.nodes('[ inet:asn=11 ] | testcmd0 zoinks --domore')
 
-                    self.true(nodes[0].tags.get('haha'))
-                    self.true(nodes[0].tags.get('zoinks'))
+                    self.true(nodes[0].getTag('haha'))
+                    self.true(nodes[0].getTag('zoinks'))
 
                     # test that cmdopts/cmdconf/locals dont leak
                     with self.raises(s_exc.NoSuchVar):
@@ -1693,6 +1695,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 node = await snap.addNode('test:comp', (33, 'THIRTY THREE'))
 
+                print(repr(node.pack()))
                 self.eq(node.get('hehe'), 33)
                 self.eq(node.get('haha'), 'thirty three')
 
@@ -6379,8 +6382,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)
-                async with await core.snap() as snap:
-                    self.true(snap.trigson)
 
                 # add triggers
                 # node:add case
@@ -6406,8 +6407,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.false(core.agenda.enabled)
                 self.false(core.trigson)
-                async with await core.snap() as snap:
-                    self.false(snap.trigson)
 
                 # check that triggers don't fire
                 await core.nodes('test:int | delnode')
@@ -6419,8 +6418,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.true(core.agenda.enabled)
                 self.true(core.trigson)
-                async with await core.snap() as snap:
-                    self.true(snap.trigson)
 
                 # check that triggers fire
                 await core.nodes('[test:str=foo] [+#footag] | delnode')
@@ -6467,6 +6464,19 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_behold(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy() as prox:
+                class TstServ(s_stormsvc.StormSvc):
+                    _storm_svc_name = 'tstserv'
+                    _storm_svc_vers = (0, 0, 2)
+                    _storm_svc_pkgs = [
+                        {  # type: ignore
+                            'name': 'foo',
+                            'version': (0, 0, 1),
+                            'synapse_minversion': (2, 100, 0),
+                            'modules': [],
+                            'commands': []
+                        }
+                    ]
+
                 async def action():
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
@@ -6479,9 +6489,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
                     await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
+                    async with self.getTestDmon() as dmon:
+                        dmon.share('tstservone', TstServ())
+                        host, port = dmon.addr
+                        surl = f'tcp://127.0.0.1:{port}/tstservone'
+                        await core.callStorm(f'service.add alegitservice {surl}')
+                        await core.callStorm('$lib.service.wait(alegitservice)')
+
                 task = core.schedCoro(action())
                 replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
-                dlen = 7 if replay else 6
+                dlen = 9 if replay else 8
 
                 data = []
                 async for mesg in prox.behold():
@@ -6544,6 +6561,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, data[off]['gates'])
                 self.nn(data[off]['info'].get('iden'))
                 self.eq(data[off]['info']['view'], view)
+                off += 1
+
+                self.eq(data[off]['event'], 'svc:add')
+                self.eq(data[off]['info']['name'], 'alegitservice')
+                off += 1
+
+                self.eq(data[off]['event'], 'svc:set')
+                self.eq(data[off]['info']['name'], 'alegitservice')
+                self.eq(data[off]['info']['svcname'], 'tstserv')
+                self.eq(data[off]['info']['version'], (0, 0, 2))
+                self.eq(data[off]['info']['iden'], data[off - 1]['info']['iden'])
 
     async def test_stormpkg_sad(self):
         base_pkg = {

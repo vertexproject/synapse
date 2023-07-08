@@ -243,8 +243,6 @@ class Lookup(Query):
             mesg = 'Autoadd may not be executed in readonly Storm runtime.'
             raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
-        view = runt.snap.view
-
         async def getnode(form, valu):
             try:
                 if self.autoadd:
@@ -1318,6 +1316,8 @@ class YieldValu(Oper):
 
     async def yieldFromValu(self, runt, valu):
 
+        viewiden = runt.snap.view.iden
+
         # there is nothing in None... ;)
         if valu is None:
             return
@@ -1371,10 +1371,17 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Node):
-            yield valu.valu
+            valu = valu.valu
+            if valu.snap.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.snap.view.iden} expected {viewiden}'
+                raise s_exc.BadLiftValu(mesg=mesg)
+            yield valu
             return
 
         if isinstance(valu, s_node.Node):
+            if valu.snap.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.snap.view.iden} expected {viewiden}'
+                raise s_exc.BadLiftValu(mesg=mesg)
             yield valu
             return
 
@@ -1387,6 +1394,9 @@ class YieldValu(Oper):
         if isinstance(valu, s_stormtypes.Prim):
             async with s_common.aclosing(valu.nodes()) as genr:
                 async for node in genr:
+                    if node.snap.view.iden != viewiden:
+                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'
+                        raise s_exc.BadLiftValu(mesg=mesg)
                     yield node
                 return
 
@@ -2486,13 +2496,13 @@ class TagCond(Cond):
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
             if name == '*':
-                return bool(node.tags)
+                return bool(node.getTagNames())
 
             if '*' in name:
                 reobj = s_cache.getTagGlobRegx(name)
-                return any(reobj.fullmatch(p) for p in node.tags)
+                return any(reobj.fullmatch(p) for p in node.getTagNames())
 
-            return node.tags.get(name) is not None
+            return node.getTag(name) is not None
 
         return cond
 
@@ -2583,11 +2593,13 @@ class HasTagPropCond(Cond):
             name = await self.kids[1].compute(runt, path)
 
             if tag == '*':
-                return any(name in props for props in node.tagprops.values())
+                tagprops = node._getTagPropsDict()
+                return any(name in props for props in tagprops.values())
 
             if '*' in tag:
                 reobj = s_cache.getTagGlobRegx(tag)
-                for tagname, props in node.tagprops.items():
+                tagprops = node._getTagPropsDict()
+                for tagname, props in tagprops.items():
                     if reobj.fullmatch(tagname) and name in props:
                         return True
 
@@ -2712,7 +2724,7 @@ class TagValuCond(Cond):
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
                 valu = await rnode.compute(runt, path)
-                return cmprctor(valu)(node.tags.get(name))
+                return cmprctor(valu)(node.getTag(name))
 
             return cond
 
@@ -2725,14 +2737,14 @@ class TagValuCond(Cond):
             cmpr = cmprctor(valu)
 
             async def cond(node, path):
-                return cmpr(node.tags.get(name))
+                return cmpr(node.getTag(name))
 
             return cond
 
         # it's a runtime value...
         async def cond(node, path):
             valu = await self.kids[2].compute(runt, path)
-            return cmprctor(valu)(node.tags.get(name))
+            return cmprctor(valu)(node.getTag(name))
 
         return cond
 
@@ -2810,6 +2822,7 @@ class TagPropCond(Cond):
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
 
             curv = node.getTagProp(tag, name)
+            print(f'node.getTagProp() {tag} {name} {curv} {cmpr} {valu}')
             if curv is None:
                 return False
             return ctor(valu)(curv)
@@ -3866,15 +3879,32 @@ class EditEdgeAdd(Edit):
 
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
-                async for subn, subp in subr.execute():
-                    if subn.form.isrunt:
-                        mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
-                        raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                    if self.n2:
+                if self.n2:
+                    async for subn, subp in subr.execute():
+                        if subn.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
                         await subn.addEdge(verb, iden)
-                    else:
-                        await node.addEdge(verb, subn.iden())
+
+                else:
+                    async with node.snap.getEditor() as editor:
+                        proto = editor.loadNode(node)
+
+                        async for subn, subp in subr.execute():
+                            if subn.form.isrunt:
+                                mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                            await proto.addEdge(verb, subn.iden())
+                            await asyncio.sleep(0)
+
+                            if len(proto.edges) >= 1000:
+                                nodeedits = editor.getNodeEdits()
+                                if nodeedits:
+                                    await node.snap.applyNodeEdits(nodeedits)
+                                proto.edges.clear()
 
             yield node, path
 
@@ -3903,19 +3933,41 @@ class EditEdgeDel(Edit):
 
         async for node, path in genr:
 
+            if node.form.isrunt:
+                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
+
             iden = node.iden()
-            verb = await self.kids[0].compute(runt, path)
-            # TODO this will need a toprim once Str is in play
+            verb = await tostr(await self.kids[0].compute(runt, path))
 
             allowed(verb)
 
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
-                async for subn, subp in subr.execute():
-                    if self.n2:
+                if self.n2:
+                    async for subn, subp in subr.execute():
+                        if subn.form.isrunt:
+                            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
                         await subn.delEdge(verb, iden)
-                    else:
-                        await node.delEdge(verb, subn.iden())
+
+                else:
+                    async with node.snap.getEditor() as editor:
+                        proto = editor.loadNode(node)
+
+                        async for subn, subp in subr.execute():
+                            if subn.form.isrunt:
+                                mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                            await proto.delEdge(verb, subn.iden())
+                            await asyncio.sleep(0)
+
+                            if len(proto.edgedels) >= 1000:
+                                nodeedits = editor.getNodeEdits()
+                                if nodeedits:
+                                    await node.snap.applyNodeEdits(nodeedits)
+                                proto.edgedels.clear()
 
             yield node, path
 

@@ -91,3 +91,12 @@ class ChopTest(s_t_utils.SynTest):
                 s_chop.replaceUnicodeDashes('a\u2011b\u2012c\u2013d-\u2014e'))
         self.eq('a-b-c', s_chop.replaceUnicodeDashes('a-b-c'))
         self.eq('asdf', s_chop.replaceUnicodeDashes('asdf'))
+
+    def test_chop_cvss(self):
+        # Just basic tests here to mop up coverage, full coverage tests are in
+        # test_lib_stormlib_infosec.py
+        vect = '(AV:N/AC:M/Au:N/C:C/I:C/A:C/RC:ND/CR:ND/AR:ND)'
+        self.eq('AV:N/AC:M/Au:N/C:C/I:C/A:C', s_chop.cvss2_normalize(vect))
+
+        vect = 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H/RL:X/CR:X/IR:X/AR:X'
+        self.eq('AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H', s_chop.cvss3x_normalize(vect))

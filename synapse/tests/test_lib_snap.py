@@ -584,9 +584,40 @@ class SnapTest(s_t_utils.SynTest):
                     self.len(0, editor.getNodeEdits())
 
                     self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.false(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
                     nodeedits = editor.getNodeEdits()
                     self.len(1, nodeedits)
                     self.len(1, nodeedits[0][2])
+
+                    self.true(await news.delEdge('pwns', s_common.ehex(fqdn.buid)))
+                    nodeedits = editor.getNodeEdits()
+                    self.len(0, nodeedits)
+
+                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    nodeedits = editor.getNodeEdits()
+                    self.len(1, nodeedits)
+                    self.len(1, nodeedits[0][2])
+
+                async with snap.getEditor() as editor:
+                    news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+
+                    self.true(await news.delEdge('pwns', s_common.ehex(fqdn.buid)))
+                    self.false(await news.delEdge('pwns', s_common.ehex(fqdn.buid)))
+                    nodeedits = editor.getNodeEdits()
+                    self.len(1, nodeedits)
+                    self.len(1, nodeedits[0][2])
+
+                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    nodeedits = editor.getNodeEdits()
+                    self.len(0, nodeedits)
+
+                    snap.strict = False
+                    self.false(await news.addEdge(1, s_common.ehex(fqdn.buid)))
+                    self.false(await news.addEdge('pwns', 1))
+                    self.false(await news.addEdge('pwns', 'bar'))
+                    self.false(await news.delEdge(1, s_common.ehex(fqdn.buid)))
+                    self.false(await news.delEdge('pwns', 1))
+                    self.false(await news.delEdge('pwns', 'bar'))
 
             self.len(1, await core.nodes('media:news -(pwns)> *'))
 

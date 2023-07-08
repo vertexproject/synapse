@@ -208,9 +208,12 @@ class Type:
             raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
         norm1 = self.norm(val1)[0]
-        norm2 = self.norm(val2)[0]
 
-        return ctor(norm2)(norm1)
+        if name != '~=':
+            # Don't norm regex patterns
+            val2 = self.norm(val2)[0]
+
+        return ctor(val2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
@@ -663,7 +666,6 @@ class Hex(Type):
         )
 
     def _normPyStr(self, valu):
-        valu = self._preNormHex(valu)
         valu = s_chop.hexstr(valu)
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,

@@ -73,6 +73,8 @@ class ProtoNode:
         self.tagprops = {}
         self.nodedata = {}
 
+        self.edgedels = set()
+
     def iden(self):
         return s_common.ehex(self.buid)
 
@@ -92,6 +94,9 @@ class ProtoNode:
 
         for verb, n2iden in self.edges:
             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+
+        for verb, n2iden in self.edgedels:
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
@@ -122,8 +127,47 @@ class ProtoNode:
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
+        tupl = (verb, n2iden)
+        if tupl in self.edges:
+            return False
+
+        if tupl in self.edgedels:
+            self.edgedels.remove(tupl)
+            return True
+
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
-            self.edges.add((verb, n2iden))
+            self.edges.add(tupl)
+            return True
+
+        return False
+
+    async def delEdge(self, verb, n2iden):
+
+        if not isinstance(verb, str):
+            mesg = f'delEdge() got an invalid type for verb: {verb}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        if not isinstance(n2iden, str):
+            mesg = f'delEdge() got an invalid type for n2iden: {n2iden}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'delEdge() got an invalid node iden: {n2iden}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        tupl = (verb, n2iden)
+        if tupl in self.edgedels:
+            return False
+
+        if tupl in self.edges:
+            self.edges.remove(tupl)
+            return True
+
+        if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+            self.edgedels.add(tupl)
             return True
 
         return False
@@ -224,6 +268,7 @@ class ProtoNode:
 
     async def setTagProp(self, tag, name, valu):
 
+        print(f'setTagProp() {tag} {name} {valu}')
         tagnode = await self.addTag(tag)
         if tagnode is None:
             return
@@ -445,8 +490,6 @@ class Snap(s_base.Base):
         assert user is not None
 
         self.strict = True
-        self.elevated = False
-        self.canceled = False
 
         self.core = view.core
         self.view = view
@@ -457,28 +500,15 @@ class Snap(s_base.Base):
 
         self.readonly = self.wlyr.readonly
 
-        # variables used by the storm runtime
-        self.vars = {}
-
-        self.runt = {}
-
-        self.debug = False      # Set to true to enable debug output.
-        self.write = False      # True when the snap has a write lock on a layer.
-
         self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=self.tagcachesize)
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
+
         # Keeps alive the most recently accessed node objects
         self.nodecache = collections.deque(maxlen=self.nodecachesize)
         self.livenodes = weakref.WeakValueDictionary()  # nid -> Node
         self._warnonce_keys = set()
 
         self.onfini(self.stack.close)
-        self.changelog = []
-        self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''
@@ -633,7 +663,8 @@ class Snap(s_base.Base):
         nid = self.core.getNidByBuid(buid)
         if nid is None:
             return None
-        return await self._joinStorNode(nid, {})
+
+        return await self._joinStorNode(nid)
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -655,12 +686,13 @@ class Snap(s_base.Base):
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        async for (nid, sodes) in self.core._liftByTagProp(form, tag, name, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in self.view.liftByTagProp(form, tag, name):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByTagPropValu(self, form, tag, name, cmpr, valu):
+
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
@@ -671,34 +703,24 @@ class Snap(s_base.Base):
         if not cmprvals:
             return
 
-        async for (nid, sodes) in self.core._liftByTagPropValu(form, tag, name, cmprvals, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in self.view.liftByTagPropValu(form, tag, name, cmprvals):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def _joinStorNode(self, nid, cache):
+    async def _joinStorNode(self, nid):
 
         node = self.livenodes.get(nid)
         if node is not None:
             await asyncio.sleep(0)
             return node
 
-        layrs = [layr for layr in self.layers if layr.iden not in cache]
-        if layrs:
-            indx = 0
-            newsodes = await self.core._getStorNodes(nid, layrs)
+        # must do this in view layer order not our reversed order
+        soderefs = [layr.genStorNodeRef(nid) for layr in self.view.layers]
 
-        sodes = []
-        for layr in self.layers:
-            sode = cache.get(layr.iden)
-            if sode is None:
-                sode = newsodes[indx]
-                indx += 1
-            sodes.append((layr.iden, sode))
+        return await self._joinSodes(nid, soderefs)
 
-        return await self._joinSodes(nid, sodes)
-
-    async def _joinSodes(self, nid, sodes):
+    async def _joinSodes(self, nid, soderefs):
 
         node = self.livenodes.get(nid)
         if node is not None:
@@ -706,64 +728,18 @@ class Snap(s_base.Base):
             return node
 
         ndef = None
-        tags = {}
-        props = {}
-        nodedata = {}
-        tagprops = {}
-
-        bylayer = {
-            'ndef': None,
-            'tags': {},
-            'props': {},
-            'tagprops': {},
-        }
-
-        for (layr, sode) in sodes:
-
-            form = sode.get('form')
-            valt = sode.get('valu')
+        # make sure at least one layer has the primary property
+        for envl in soderefs:
+            valt = envl.sode.get('valu')
             if valt is not None:
-                ndef = (form, valt[0])
-                bylayer['ndef'] = layr
-
-            storprops = sode.get('props')
-            if storprops is not None:
-                for prop, (valu, stype) in storprops.items():
-                    props[prop] = valu
-                    bylayer['props'][prop] = layr
-
-            stortags = sode.get('tags')
-            if stortags is not None:
-                tags.update(stortags)
-                bylayer['tags'].update({p: layr for p in stortags.keys()})
-
-            stortagprops = sode.get('tagprops')
-            if stortagprops is not None:
-                for tag, propdict in stortagprops.items():
-                    for tagprop, (valu, stype) in propdict.items():
-                        if tag not in tagprops:
-                            tagprops[tag] = {}
-                        tagprops[tag][tagprop] = valu
-                        bylayer['tagprops'][tagprop] = layr
-
-            stordata = sode.get('nodedata')
-            if stordata is not None:
-                nodedata.update(stordata)
+                ndef = (envl.sode.get('form'), valt[0])
+                break
 
         if ndef is None:
             await asyncio.sleep(0)
             return None
 
-        pode = (s_common.buid(ndef), {
-            'nid': nid,
-            'ndef': ndef,
-            'tags': tags,
-            'props': props,
-            'nodedata': nodedata,
-            'tagprops': tagprops,
-        })
-
-        node = s_node.Node(self, pode, bylayer=bylayer)
+        node = s_node.Node(self, nid, ndef, soderefs)
 
         self.livenodes[nid] = node
         self.nodecache.append(node)
@@ -790,26 +766,16 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-            async for (nid, sodes) in self.core._liftByProp(prop.name, None, self.layers):
-                node = await self._joinSodes(nid, sodes)
-                if node is not None:
-                    yield node
-            return
+            genr = self.view.liftByProp(prop.name, None)
 
-        if prop.isuniv:
-            async for (nid, sodes) in self.core._liftByProp(None, prop.name, self.layers):
-                node = await self._joinSodes(nid, sodes)
-                if node is not None:
-                    yield node
-            return
+        elif prop.isuniv:
+            genr = self.view.liftByProp(None, prop.name)
 
-        formname = None
-        if not prop.isuniv:
-            formname = prop.form.name
+        else:
+            genr = self.view.liftByProp(prop.form.name, prop.name)
 
-        # Prop is secondary prop
-        async for (nid, sodes) in self.core._liftByProp(formname, prop.name, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in genr:
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -840,31 +806,22 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
+            genr = self.view.liftByFormValu(prop.name, cmprvals)
 
-            found = 0
-            async for (nid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
-                node = await self._joinSodes(nid, sodes)
-                if node is not None:
-                    found += 1
-                    yield node
+        elif prop.isuniv:
+            genr = self.view.liftByPropValu(None, prop.name, cmprvals)
 
-            return
+        else:
+            genr = self.view.liftByPropValu(prop.form.name, prop.name, cmprvals)
 
-        if prop.isuniv:
-            async for (nid, sodes) in self.core._liftByPropValu(None, prop.name, cmprvals, self.layers):
-                node = await self._joinSodes(nid, sodes)
-                if node is not None:
-                    yield node
-            return
-
-        async for (nid, sodes) in self.core._liftByPropValu(prop.form.name, prop.name, cmprvals, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in genr:
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByTag(self, tag, form=None):
-        async for (nid, sodes) in self.core._liftByTag(tag, form, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in self.view.liftByTag(tag, form=form):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -983,7 +940,6 @@ class Snap(s_base.Base):
                 etyp, parms, _ = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
-                    node.bylayer['ndef'] = wlyr.iden
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -1002,9 +958,6 @@ class Snap(s_base.Base):
                         logger.warning(f'saveNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form.full}')
                         continue
 
-                    node.props[name] = valu
-                    node.bylayer['props'][name] = wlyr.iden
-
                     callbacks.append((prop.wasSet, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
@@ -1018,9 +971,6 @@ class Snap(s_base.Base):
                         logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
                         continue
 
-                    node.props.pop(name, None)
-                    node.bylayer['props'].pop(name, None)
-
                     callbacks.append((prop.wasDel, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
@@ -1028,9 +978,6 @@ class Snap(s_base.Base):
                 if etyp == s_layer.EDIT_TAG_SET:
 
                     (tag, valu, oldv) = parms
-
-                    node.tags[tag] = valu
-                    node.bylayer['tags'][tag] = wlyr.iden
 
                     callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
                     callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
@@ -1040,28 +987,14 @@ class Snap(s_base.Base):
 
                     (tag, oldv) = parms
 
-                    node.tags.pop(tag, None)
-                    node.bylayer['tags'].pop(tag, None)
-
                     callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_SET:
-                    (tag, prop, valu, oldv, stype) = parms
-                    if tag not in node.tagprops:
-                        node.tagprops[tag] = {}
-                    node.tagprops[tag][prop] = valu
-                    node.bylayer['tags'][(tag, prop)] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
-                    (tag, prop, oldv, stype) = parms
-                    if tag in node.tagprops:
-                        node.tagprops[tag].pop(prop, None)
-                        if not node.tagprops[tag]:
-                            node.tagprops.pop(tag, None)
-                    node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
                 if etyp == s_layer.EDIT_NODEDATA_SET:
