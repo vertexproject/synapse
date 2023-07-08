@@ -2425,13 +2425,13 @@ class TagCond(Cond):
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
             if name == '*':
-                return bool(node.tags)
+                return bool(node.getTagNames())
 
             if '*' in name:
                 reobj = s_cache.getTagGlobRegx(name)
-                return any(reobj.fullmatch(p) for p in node.tags)
+                return any(reobj.fullmatch(p) for p in node.getTagNames())
 
-            return node.tags.get(name) is not None
+            return node.getTag(name) is not None
 
         return cond
 
@@ -2522,11 +2522,13 @@ class HasTagPropCond(Cond):
             name = await self.kids[1].compute(runt, path)
 
             if tag == '*':
-                return any(name in props for props in node.tagprops.values())
+                tagprops = node._getTagPropsDict()
+                return any(name in props for props in tagprops.values())
 
             if '*' in tag:
                 reobj = s_cache.getTagGlobRegx(tag)
-                for tagname, props in node.tagprops.items():
+                tagprops = node._getTagPropsDict()
+                for tagname, props in tagprops.items():
                     if reobj.fullmatch(tagname) and name in props:
                         return True
 
@@ -2651,7 +2653,7 @@ class TagValuCond(Cond):
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
                 valu = await rnode.compute(runt, path)
-                return cmprctor(valu)(node.tags.get(name))
+                return cmprctor(valu)(node.getTag(name))
 
             return cond
 
@@ -2664,14 +2666,14 @@ class TagValuCond(Cond):
             cmpr = cmprctor(valu)
 
             async def cond(node, path):
-                return cmpr(node.tags.get(name))
+                return cmpr(node.getTag(name))
 
             return cond
 
         # it's a runtime value...
         async def cond(node, path):
             valu = await self.kids[2].compute(runt, path)
-            return cmprctor(valu)(node.tags.get(name))
+            return cmprctor(valu)(node.getTag(name))
 
         return cond
 
@@ -2749,6 +2751,7 @@ class TagPropCond(Cond):
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
 
             curv = node.getTagProp(tag, name)
+            print(f'node.getTagProp() {tag} {name} {curv} {cmpr} {valu}')
             if curv is None:
                 return False
             return ctor(valu)(curv)

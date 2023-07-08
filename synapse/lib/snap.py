@@ -268,6 +268,7 @@ class ProtoNode:
 
     async def setTagProp(self, tag, name, valu):
 
+        print(f'setTagProp() {tag} {name} {valu}')
         tagnode = await self.addTag(tag)
         if tagnode is None:
             return
@@ -709,22 +710,13 @@ class Snap(s_base.Base):
             await asyncio.sleep(0)
             return node
 
-        layrs = [layr for layr in self.layers if layr.iden not in cache]
-        if layrs:
-            indx = 0
-            newsodes = await self.core._getStorNodes(buid, layrs)
-
-        sodes = []
+        layrsodes = []
         for layr in self.layers:
-            sode = cache.get(layr.iden)
-            if sode is None:
-                sode = newsodes[indx]
-                indx += 1
-            sodes.append((layr.iden, sode))
+            layrsodes.append((layr, layr.genStorNodeEnvl(buid)))
 
-        return await self._joinSodes(buid, sodes)
+        return await self._joinSodes(buid, layrsodes)
 
-    async def _joinSodes(self, buid, sodes):
+    async def _joinSodes(self, buid, soderefs):
 
         node = self.livenodes.get(buid)
         if node is not None:
@@ -732,63 +724,19 @@ class Snap(s_base.Base):
             return node
 
         ndef = None
-        tags = {}
-        props = {}
-        nodedata = {}
-        tagprops = {}
-
-        bylayer = {
-            'ndef': None,
-            'tags': {},
-            'props': {},
-            'tagprops': {},
-        }
-
-        for (layr, sode) in sodes:
-
-            form = sode.get('form')
-            valt = sode.get('valu')
+        # make sure at least one layer has the primary property
+        for layr, envl in soderefs:
+            valt = envl.sode.get('valu')
             if valt is not None:
-                ndef = (form, valt[0])
-                bylayer['ndef'] = layr
-
-            storprops = sode.get('props')
-            if storprops is not None:
-                for prop, (valu, stype) in storprops.items():
-                    props[prop] = valu
-                    bylayer['props'][prop] = layr
-
-            stortags = sode.get('tags')
-            if stortags is not None:
-                tags.update(stortags)
-                bylayer['tags'].update({p: layr for p in stortags.keys()})
-
-            stortagprops = sode.get('tagprops')
-            if stortagprops is not None:
-                for tag, propdict in stortagprops.items():
-                    for tagprop, (valu, stype) in propdict.items():
-                        if tag not in tagprops:
-                            tagprops[tag] = {}
-                        tagprops[tag][tagprop] = valu
-                        bylayer['tagprops'][tagprop] = layr
-
-            stordata = sode.get('nodedata')
-            if stordata is not None:
-                nodedata.update(stordata)
+                ndef = (envl.sode.get('form'), valt[0])
+                break
 
         if ndef is None:
             await asyncio.sleep(0)
             return None
 
-        pode = (buid, {
-            'ndef': ndef,
-            'tags': tags,
-            'props': props,
-            'nodedata': nodedata,
-            'tagprops': tagprops,
-        })
+        node = s_node.Node(self, buid, ndef, soderefs)
 
-        node = s_node.Node(self, pode, bylayer=bylayer)
         self.livenodes[buid] = node
         self.buidcache.append(node)
 
@@ -1031,7 +979,6 @@ class Snap(s_base.Base):
                 etyp, parms, _ = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
-                    node.bylayer['ndef'] = wlyr.iden
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -1050,9 +997,6 @@ class Snap(s_base.Base):
                         logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
                         continue
 
-                    node.props[name] = valu
-                    node.bylayer['props'][name] = wlyr.iden
-
                     callbacks.append((prop.wasSet, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
@@ -1066,9 +1010,6 @@ class Snap(s_base.Base):
                         logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
                         continue
 
-                    node.props.pop(name, None)
-                    node.bylayer['props'].pop(name, None)
-
                     callbacks.append((prop.wasDel, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
                     continue
@@ -1076,9 +1017,6 @@ class Snap(s_base.Base):
                 if etyp == s_layer.EDIT_TAG_SET:
 
                     (tag, valu, oldv) = parms
-
-                    node.tags[tag] = valu
-                    node.bylayer['tags'][tag] = wlyr.iden
 
                     callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
                     callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
@@ -1088,28 +1026,14 @@ class Snap(s_base.Base):
 
                     (tag, oldv) = parms
 
-                    node.tags.pop(tag, None)
-                    node.bylayer['tags'].pop(tag, None)
-
                     callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_SET:
-                    (tag, prop, valu, oldv, stype) = parms
-                    if tag not in node.tagprops:
-                        node.tagprops[tag] = {}
-                    node.tagprops[tag][prop] = valu
-                    node.bylayer['tags'][(tag, prop)] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
-                    (tag, prop, oldv, stype) = parms
-                    if tag in node.tagprops:
-                        node.tagprops[tag].pop(prop, None)
-                        if not node.tagprops[tag]:
-                            node.tagprops.pop(tag, None)
-                    node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
                 if etyp == s_layer.EDIT_NODEDATA_SET:

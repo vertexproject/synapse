@@ -3192,7 +3192,7 @@ class CopyToCmd(Cmd):
                 for name in node.props.keys():
                     runt.confirm(node.form.props[name].setperm, gateiden=layriden)
 
-                for tag in node.tags.keys():
+                for tag in node.getTagNames():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
 
                 if not self.opts.no_data:
@@ -3221,7 +3221,7 @@ class CopyToCmd(Cmd):
 
                         await proto.set(name, valu)
 
-                    for name, valu in node.tags.items():
+                    for name, valu in node.getTags():
                         await proto.addTag(name, valu=valu)
 
                     for tagname, tagprops in node.tagprops.items():
@@ -4208,7 +4208,7 @@ class DelNodeCmd(Cmd):
         async for node, path in genr:
 
             # make sure we can delete the tags...
-            for tag in node.tags.keys():
+            for tag in node.getTagNames():
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
@@ -4355,7 +4355,7 @@ class MoveTagCmd(Cmd):
                 await newnode.set('title', oldtitle)
 
             # Copy any tags over to the newnode if any are present.
-            for k, v in node.tags.items():
+            for k, v in node.getTags():
                 await newnode.addTag(k, v)
                 await asyncio.sleep(0)
 
@@ -4368,7 +4368,7 @@ class MoveTagCmd(Cmd):
 
             count += 1
 
-            tags = list(node.tags.items())
+            tags = node.getTags()
             tags.sort(reverse=True)
 
             for name, valu in tags:
@@ -5312,7 +5312,7 @@ class SpliceUndoCmd(Cmd):
     async def undoNodeAdd(self, runt, splice, node):
 
         if node:
-            for tag in node.tags.keys():
+            for tag in node.getTagNames():
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
@@ -5690,7 +5690,7 @@ class TagPruneCmd(Cmd):
 
     def hasChildTags(self, node, tag):
         pref = tag + '.'
-        for ntag in node.tags:
+        for ntag in node.getTagNames():
             if ntag.startswith(pref):
                 return True
         return False

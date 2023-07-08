@@ -1052,3 +1052,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     # Yield a tuple of <form, normed valu, info>
                     yield form, valu, info
                     await asyncio.sleep(0)
+
+    # view "lift by" functions yield (buid, sodes) tuples for results.
+    async def liftByTag(self, tag, form=None):
+        pass
