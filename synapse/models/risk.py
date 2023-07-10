@@ -8,12 +8,22 @@ import synapse.lib.module as s_module
 class CvssV2(s_types.Str):
 
     def _normPyStr(self, text):
-        return s_chop.cvss2_normalize(text), {}
+        try:
+            return s_chop.cvss2_normalize(text), {}
+
+        except s_exc.BadDataValu as exc:
+            mesg = exc.get('mesg')
+            raise s_exc.BadTypeValu(mesg=mesg) from None
 
 class CvssV3(s_types.Str):
 
     def _normPyStr(self, text):
-        return s_chop.cvss3x_normalize(text), {}
+        try:
+            return s_chop.cvss3x_normalize(text), {}
+
+        except s_exc.BadDataValu as exc:
+            mesg = exc.get('mesg')
+            raise s_exc.BadTypeValu(mesg=mesg) from None
 
 class RiskModule(s_module.CoreModule):
 

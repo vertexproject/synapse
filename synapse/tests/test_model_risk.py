@@ -1,5 +1,6 @@
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.tests.utils as s_t_utils
@@ -103,6 +104,27 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('reporter'))
 
             self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
+
+            node = await addNode(f'''[
+                risk:vuln={vuln}
+                :cvss:v2 ?= "newp2"
+                :cvss:v3 ?= "newp3.1"
+            ]''')
+
+            self.none(node.get('cvss:v2'))
+            self.none(node.get('cvss:v3'))
+
+            with self.raises(s_exc.BadTypeValu):
+                node = await addNode(f'''[
+                    risk:vuln={vuln}
+                    :cvss:v2 = "newp2"
+                ]''')
+
+            with self.raises(s_exc.BadTypeValu):
+                node = await addNode(f'''[
+                    risk:vuln={vuln}
+                    :cvss:v3 = "newp3.1"
+                ]''')
 
             cvssv2 = '(AV:N/AC:L/Au:N/C:C/I:N/A:N/E:POC/RL:ND/RC:ND)'
             cvssv3 = 'CVSS:3.1/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X'
