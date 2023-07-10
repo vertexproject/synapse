@@ -7,18 +7,10 @@ import synapse.lib.module as s_module
 
 class CvssV2(s_types.Str):
 
-    def postTypeInit(self):
-        s_types.Str.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
-
     def _normPyStr(self, text):
         return s_chop.cvss2_normalize(text), {}
 
 class CvssV3(s_types.Str):
-
-    def postTypeInit(self):
-        s_types.Str.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, text):
         return s_chop.cvss3x_normalize(text), {}
