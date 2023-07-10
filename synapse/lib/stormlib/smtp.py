@@ -17,8 +17,8 @@ class SmtpLib(s_stormtypes.Lib):
     _storm_locals = (
         {'name': 'message', 'desc': 'Construct a new email message.',
          'type': {'type': 'function', '_funcname': 'message',
-                          'returns': {'type': 'storm:smtp:message',
-                                      'desc': 'The newly constructed storm:smtp:message.'}}},
+                          'returns': {'type': 'smtp:message',
+                                      'desc': 'The newly constructed smtp:message.'}}},
     )
     _storm_lib_path = ('inet', 'smtp',)
 
@@ -35,7 +35,7 @@ class SmtpMessage(s_stormtypes.StormType):
     '''
     An SMTP message to compose and send.
     '''
-    _storm_typename = 'storm:smtp:message'
+    _storm_typename = 'smtp:message'
 
     _storm_locals = (
 
@@ -154,7 +154,7 @@ class SmtpMessage(s_stormtypes.StormType):
 
         try:
             if self.bodytext is None and self.bodyhtml is None:
-                mesg = 'The storm:smtp:message has no HTML or text body.'
+                mesg = 'The smtp:message has no HTML or text body.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
 
             host = await s_stormtypes.tostr(host)
