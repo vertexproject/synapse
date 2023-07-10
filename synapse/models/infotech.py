@@ -661,6 +661,12 @@ class ItModule(s_module.CoreModule):
 
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the host.'}),
+
+                    ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The primary keyboard layout configured on the host.'}),
+
+                    ('keyboard:language', ('lang:language', {}), {
+                        'doc': 'The primary keyboard input language configured on the host.'}),
                 )),
                 ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (

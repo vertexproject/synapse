@@ -1,3 +1,4 @@
+import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils
 
 class LangModuleTest(s_t_utils.SynTest):
@@ -21,6 +22,10 @@ class LangModuleTest(s_t_utils.SynTest):
             self.eq('en.us', nodes[0].get('output:lang'))
             self.eq('Greetings', nodes[0].get('desc'))
             self.len(1, await core.nodes('lang:translation -> it:prod:softver'))
+
+            self.none(await core.callStorm('return($lib.gen.langByCode(neeeeewp, try=$lib.true))'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('return($lib.gen.langByCode(neeeeewp))')
 
     async def test_forms_idiom(self):
         async with self.getTestCore() as core:

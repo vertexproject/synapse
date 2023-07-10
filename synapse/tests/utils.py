@@ -94,6 +94,10 @@ def norm(z):
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
+class PickleableMagicMock(mock.MagicMock):
+    def __reduce__(self):
+        return mock.MagicMock, ()
+
 class LibTst(s_stormtypes.Lib):
     '''
     LibTst for testing!
@@ -1058,14 +1062,10 @@ class SynTest(unittest.TestCase):
         Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
 
         Returns:
-            mock.MagicMock: Yields a mock.MagikMock object.
+            mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        # Since the setlogging routine is used in the forkserver initializer,
-        # we need to make sure we've initialized our worker prior to mocking
-        self.eq(1, await s_coro.forked(int, '1'))
-
         with mock.patch('synapse.common.setlogging',
-                        mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
+                        PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
     def getMagicPromptLines(self, patch):
@@ -2217,7 +2217,7 @@ class SynTest(unittest.TestCase):
             return retn
 
         byts = s_msgpack.en(valu)
-        return hashlib.md5(byts).hexdigest()
+        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
     @contextlib.contextmanager
     def withStableUids(self):

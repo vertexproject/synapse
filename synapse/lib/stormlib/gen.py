@@ -97,6 +97,14 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the language.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'A lang:language node with the given name.'}}},
+        {'name': 'langByCode', 'desc': 'Returns a lang:language node by language code, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The language code for the language.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'A lang:language node with the given code.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -238,6 +246,20 @@ class LibGen(s_stormtypes.Lib):
             lang:name=$name -> lang:language
             return($node)
             [ lang:language=* :name=$name ]
+            return($node)
+        }
+
+        function langByCode(code, try=$lib.false) {
+
+            if $try {
+                ($ok, $code) = $lib.trycast(lang:code, $code)
+                if (not $ok) { return() }
+            }
+
+            lang:language:code=$code
+            return($node)
+
+            [ lang:language=(bycode, $code) :code=$code ]
             return($node)
         }
 

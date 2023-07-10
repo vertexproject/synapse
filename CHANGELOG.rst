@@ -4,19 +4,158 @@
 Synapse Changelog
 *****************
 
+v2.141.0 - 2023-07-07
+=====================
+
+Model Changes
+-------------
+- Update to the ``it`` and ``lang`` models.
+  (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
+
+  New Properties
+  --------------
+
+  ``it:host``
+    The form had the following properties added to it:
+
+    ``keyboard:language``
+      The primary keyboard input language configured on the host.
+
+    ``keyboard:layout``
+      The primary keyboard layout configured on the host.
+
+  ``lang:language``
+    The form had the following property added to it:
+
+    ``code``
+      The language code for this language.
+
+Features and Enhancements
+-------------------------
+- Update ``$lib.infosec.cvss.vectToScore()`` to include a normalized
+  CVSS vector in the output.
+  (`#3211 <https://github.com/vertexproject/synapse/pull/3211>`_)
+- Optimize the addition and removal of lightweight edges when operating
+  on N1 edges in Storm.
+  (`#3214 <https://github.com/vertexproject/synapse/pull/3214>`_)
+- Added ``$lib.gen.langByCode``.
+  (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
+
+Bugfixes
+--------
+- Fix bug with regular expression comparisons for some types.
+  (`#3213 <https://github.com/vertexproject/synapse/pull/3213>`_)
+- Fix a ``TypeError`` being raised when passing a heavy Number object to
+  ``$lib.math.number()``.
+  (`#3215 <https://github.com/vertexproject/synapse/pull/3215>`_)
+- Fix an issue with the Cell backup space checks. They now properly calculate
+  the amount of free space when the Cell backup directory is configured
+  on a separate volume from the Cell storage directory.
+  (`#3216 <https://github.com/vertexproject/synapse/pull/3216>`_)
+- Prevent the ``yield`` operator from directly emitting nodes into the Storm
+  pipeline if those node objects came from a different view. Nodes previously
+  lifted in this manner must be lifted by calling the ``iden()`` function on
+  the object to ensure the node being lifted into the pipeline reflects the
+  current view.
+  (`#3218 <https://github.com/vertexproject/synapse/pull/3218>`_)
+- Always remove the ``mirror`` configuration option from ``cell.mods.yaml``
+  when provisioning a service via Aha. The previous behavior prevented the
+  correct restoration of a service from a backup which had been changed from
+  being a leader to being a mirror.
+  (`#3220 <https://github.com/vertexproject/synapse/pull/3220>`_)
+
+v2.140.1 - 2023-06-30
+=====================
+
+Bugfixes
+--------
+- Fix a typo which prevented the Synapse package for ``v2.140.0`` from being
+  published on PyPI.
+  (`#3212 <https://github.com/vertexproject/synapse/pull/3212>`_)
+
+v2.140.0 - 2023-06-30
+=====================
+
 Announcement
-============
+------------
 
-Due to the introduction of several powerful new APIs and performance
-improvements, Synapse will be updating to *only* support Python >=3.11.
-Our current plan is to drop support for Python <=3.10 in ~4 weeks on
-2023-06-19. The next release after 2023-06-19 will include changes that
-are not backward compatible to earlier versions of Python.
+Synapse now only supports Python 3.11+.
 
-If you currently deploy Synapse Open-Source or Synapse Enterprise via
-the standard docker containers, you will be unaffected.  If you install
-Synapse via PyPI, you will need to ensure that your environment is
-updated to Python 3.11+.
+Model Changes
+-------------
+- Update to the ``inet``, ``file``, and ``org`` models.
+  (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
+  (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+
+  New Types
+  ---------
+
+  ``file:archive:entry``
+    Add a type to capture an archive entry representing a file and metadata
+    from within a parent archive file.
+
+  Updated Types
+  -------------
+
+  ``time``
+    Time values with precision beyond milliseconds are now truncated to
+    millsecond values.
+
+  ``hex``
+    Hex types now have whitespace and colon ( ``:`` ) characters stripped
+    from them when lifting and normalizing them.
+
+  ``inet:ipv6``
+    Add comparators for ``>=``, ``>``, ``<=``, ``<`` operations when lifting
+    and filtering IPV6 values.
+
+  ``ou:naics``
+    Update the type to allow recording NIACS sector and subsector prefixes.
+
+Features and Enhancements
+-------------------------
+- Synapse now only supports Python 3.11+. The library will now fail to import
+  on earlier Python interpeters, and the published modules on PyPI will no
+  longer install on Python versions < 3.11.
+  (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
+- Replace ``setup.py`` with a ``pyproject.toml`` file.
+  (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
+  (`#3195 <https://github.com/vertexproject/synapse/pull/3195>`_)
+- Usages of ``hashlib.md5()`` and ``hashlib.sha1()`` have been updated to add
+  the ``usedforsecurity=False`` argument.
+  (`#3163 <https://github.com/vertexproject/synapse/pull/3163>`_)
+- The Storm ``diff`` command is now marked as safe for ``readonly`` execution.
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+- Add a ``svc:set`` event to the Behold API message stream. This event is
+  fired when a Cortex connects to a Storm Service.
+  (`#3205 <https://github.com/vertexproject/synapse/pull/3205>`_)
+
+Bugfixes
+--------
+- Catch ``ZeroDivisionError`` and ``decimal.InvalidOperation`` errors in Storm
+  expressions and raise a ``StormRuntimeError``.
+  (`#3203 <https://github.com/vertexproject/synapse/pull/3203>`_)
+- Fix a bug where ``synapse.lib.platforms.linux.getTotalMemory()`` did not
+  return the correct value in a process running in cgroupsv1 without a
+  maximum memory limit set.
+  (`#3198 <https://github.com/vertexproject/synapse/pull/3198>`_)
+- Fix a bug where a Cron job could be created with an invalid Storm query.
+  Cron jobs now have their queries parsed as part of creation to ensure that
+  they are valid Storm. ``$lib.cron`` APIs now accept heavy Storm query
+  objects as query inputs.
+  (`#3201 <https://github.com/vertexproject/synapse/pull/3201>`_)
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+- Field data sent via Storm ``$lib.inet.http`` APIs that uses a multipart
+  upload without a valid ``name`` field now raises a ``BadArg`` error.
+  Previously this would result in a Python ``TypeError``.
+  (`#3199 <https://github.com/vertexproject/synapse/pull/3199>`_)
+  (`#3206 <https://github.com/vertexproject/synapse/pull/3206>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.common.lockfile()`` function.
+  (`#3191 <https://github.com/vertexproject/synapse/issue/3191>`_)
 
 v2.139.0 - 2023-06-16
 =====================
@@ -87,7 +226,7 @@ Bugfixes
 Deprecations
 ------------
 - Mark the Python function ``synapse.common.lockfile()`` as deprecated. It
- will be removed in ``v2.140.0``.
+  will be removed in ``v2.140.0``.
   (`#3183 <https://github.com/vertexproject/synapse/issue/3183>`_)
 
 v2.137.0 - 2023-06-09

@@ -148,7 +148,7 @@ class AstConverter(lark.Transformer):
 
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
-        self.texthash = hashlib.md5(text.encode(errors='surrogatepass')).hexdigest()
+        self.texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
     def metaToAstInfo(self, meta, isterm=False):
         if isinstance(meta, lark.tree.Meta) and meta.empty:
@@ -582,10 +582,10 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    return await s_coro.forked(parseQuery, args[0], mode=args[1])
+    return await s_coro._parserforked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
-    return await s_coro.forked(parseEval, text)
+    return await s_coro._parserforked(parseEval, text)
 
 evalcache = s_cache.FixedCache(_forkedParseEval, size=100)
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)

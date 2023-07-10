@@ -137,6 +137,25 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('baz', info['subs']['base'])
         self.eq('foo.bar.', info['subs']['parent'])
 
+        self.true(taxo.cmpr('foo', '~=', 'foo'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.bar'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(taxo.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(taxo.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
@@ -280,7 +299,7 @@ class TypesTest(s_t_utils.SynTest):
 
             # Do some node creation and lifting
             async with await core.snap() as snap:
-                node = await snap.addNode('test:hexa', '010001')
+                node = await snap.addNode('test:hexa', '01:00 01')
                 self.eq(node.ndef[1], '010001')
 
             async with await core.snap() as snap:
@@ -1009,6 +1028,25 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
         # homoglyphs are also possible
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
+
+        self.true(tagtype.cmpr('foo', '~=', 'foo'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(tagtype.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(tagtype.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
     async def test_time(self):
 
