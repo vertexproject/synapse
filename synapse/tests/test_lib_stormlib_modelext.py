@@ -6,8 +6,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
     async def test_lib_stormlib_modelext(self):
         async with self.getTestCore() as core:
-
-            create = '''
+            await core.callStorm('''
                 $typeinfo = $lib.dict()
                 $forminfo = $lib.dict(doc="A test form doc.")
                 $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
@@ -20,9 +19,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
                 $tagpropinfo = $lib.dict(doc="A test tagprop doc.")
                 $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
-            '''
-
-            await core.callStorm(create)
+            ''')
 
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
@@ -51,38 +48,6 @@ class StormtypesModelextTest(s_test.SynTest):
             self.none(core.model.prop('._woot'))
             self.none(core.model.prop('_visi:int:tick'))
             self.none(core.model.tagprop('score'))
-
-            # Verify extended forms can't be deleted if they have associated extended props
-            await core.callStorm(create)
-
-            self.nn(core.model.form('_visi:int'))
-            self.nn(core.model.prop('_visi:int:tick'))
-
-            q = '$lib.model.ext.delForm(_visi:int)'
-            with self.raises(s_exc.CantDelForm) as exc:
-                await core.callStorm(q)
-            self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
-
-            await core.callStorm('$lib.model.ext.addFormProp(_visi:int, tock, (time, $lib.dict()), $lib.dict())')
-
-            self.nn(core.model.form('_visi:int'))
-            self.nn(core.model.prop('_visi:int:tick'))
-            self.nn(core.model.prop('_visi:int:tock'))
-
-            q = '$lib.model.ext.delForm(_visi:int)'
-            with self.raises(s_exc.CantDelForm) as exc:
-                await core.callStorm(q)
-            self.eq('Form has extended properties: tick, tock', exc.exception.get('mesg'))
-
-            await core.callStorm('''
-                $lib.model.ext.delFormProp(_visi:int, tick)
-                $lib.model.ext.delFormProp(_visi:int, tock)
-                $lib.model.ext.delForm(_visi:int)
-            ''')
-
-            self.none(core.model.form('_visi:int'))
-            self.none(core.model.prop('_visi:int:tick'))
-            self.none(core.model.prop('_visi:int:tock'))
 
             # Underscores can exist in extended names but only at specific locations
             q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
@@ -153,3 +118,48 @@ class StormtypesModelextTest(s_test.SynTest):
                     $tagpropinfo = $lib.dict(doc="A test tagprop doc.")
                     $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
                 ''', opts=opts)
+
+    async def test_lib_stormlib_modelext_delform(self):
+        '''
+        Verify extended forms can't be deleted if they have associated extended props
+        '''
+
+        async with self.getTestCore() as core:
+
+            await core.callStorm('''
+                $typeinfo = $lib.dict()
+                $forminfo = $lib.dict(doc="A test form doc.")
+                $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
+
+                $propinfo = $lib.dict(doc="A test prop doc.")
+                $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
+            ''')
+
+            self.nn(core.model.form('_visi:int'))
+            self.nn(core.model.prop('_visi:int:tick'))
+
+            q = '$lib.model.ext.delForm(_visi:int)'
+            with self.raises(s_exc.CantDelForm) as exc:
+                await core.callStorm(q)
+            self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
+
+            await core.callStorm('$lib.model.ext.addFormProp(_visi:int, tock, (time, $lib.dict()), $lib.dict())')
+
+            self.nn(core.model.form('_visi:int'))
+            self.nn(core.model.prop('_visi:int:tick'))
+            self.nn(core.model.prop('_visi:int:tock'))
+
+            q = '$lib.model.ext.delForm(_visi:int)'
+            with self.raises(s_exc.CantDelForm) as exc:
+                await core.callStorm(q)
+            self.eq('Form has extended properties: tick, tock', exc.exception.get('mesg'))
+
+            await core.callStorm('''
+                $lib.model.ext.delFormProp(_visi:int, tick)
+                $lib.model.ext.delFormProp(_visi:int, tock)
+                $lib.model.ext.delForm(_visi:int)
+            ''')
+
+            self.none(core.model.form('_visi:int'))
+            self.none(core.model.prop('_visi:int:tick'))
+            self.none(core.model.prop('_visi:int:tock'))
