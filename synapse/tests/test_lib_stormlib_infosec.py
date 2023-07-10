@@ -464,31 +464,31 @@ class InfoSecTest(s_test.SynTest):
 
             # test for vector/version mismatches
             for vect, vers, err in VECTORS_BAD_VERSION:
-                with self.raises(s_exc.BadDataValu) as exc:
+                with self.raises(s_exc.BadTypeValu) as exc:
                     await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': vers}})
                 self.isin(f'Provided vector {vect} contains invalid metrics: {err}', exc.exception.get('mesg'))
 
             # test for missing mandatory metrics
             for vect, err in VECTORS_MISSING_MANDATORY:
-                with self.raises(s_exc.BadDataValu) as exc:
+                with self.raises(s_exc.BadTypeValu) as exc:
                     await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
                 self.isin(f'Provided vector {vect} missing mandatory metric(s): {err}', exc.exception.get('mesg'))
 
             # test for invalid metric values
             for vect, err in VECTORS_INVALID_VALUE:
-                with self.raises(s_exc.BadDataValu) as exc:
+                with self.raises(s_exc.BadTypeValu) as exc:
                     await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
                 self.isin(f'Provided vector {vect} contains invalid metric value(s): {err}', exc.exception.get('mesg'))
 
             # test for duplicate metrics
             for vect, err in VECTORS_DUPLICATE_METRIC:
-                with self.raises(s_exc.BadDataValu) as exc:
+                with self.raises(s_exc.BadTypeValu) as exc:
                     await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
                 self.isin(f'Provided vectors {vect} contains duplicate metrics: {err}', exc.exception.get('mesg'))
 
             # test for malformed vector string
             for vect in VECTORS_MALFORMED:
-                with self.raises(s_exc.BadDataValu) as exc:
+                with self.raises(s_exc.BadTypeValu) as exc:
                     await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
                 self.isin(f'Provided vector {vect} malformed', exc.exception.get('mesg'))
 

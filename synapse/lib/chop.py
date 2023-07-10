@@ -199,7 +199,7 @@ def cvss_validate(vect, vers):
         vdict = dict(mets_vals)
 
     except ValueError:
-        raise s_exc.BadDataValu(mesg=f'Provided vector {vect} malformed')
+        raise s_exc.BadTypeValu(mesg=f'Provided vector {vect} malformed')
 
     # Check that each metric is only specified once
     if len(mets_vals) != len(set(k[0] for k in mets_vals)):
@@ -213,7 +213,7 @@ def cvss_validate(vect, vers):
             seen.append(met)
 
         repeated = ', '.join(repeated)
-        raise s_exc.BadDataValu(mesg=f'Provided vectors {vect} contains duplicate metrics: {repeated}')
+        raise s_exc.BadTypeValu(mesg=f'Provided vectors {vect} contains duplicate metrics: {repeated}')
 
     invalid = []
     for metric in vdict:
@@ -223,7 +223,7 @@ def cvss_validate(vect, vers):
 
     if invalid:
         invalid = ', '.join(invalid)
-        raise s_exc.BadDataValu(mesg=f'Provided vector {vect} contains invalid metrics: {invalid}')
+        raise s_exc.BadTypeValu(mesg=f'Provided vector {vect} contains invalid metrics: {invalid}')
 
     missing = []
     badvals = []
@@ -239,10 +239,10 @@ def cvss_validate(vect, vers):
 
     if missing:
         missing = ', '.join(missing)
-        raise s_exc.BadDataValu(mesg=f'Provided vector {vect} missing mandatory metric(s): {missing}')
+        raise s_exc.BadTypeValu(mesg=f'Provided vector {vect} missing mandatory metric(s): {missing}')
 
     if badvals:
         badvals = ', '.join(badvals)
-        raise s_exc.BadDataValu(mesg=f'Provided vector {vect} contains invalid metric value(s): {badvals}')
+        raise s_exc.BadTypeValu(mesg=f'Provided vector {vect} contains invalid metric value(s): {badvals}')
 
     return vdict
