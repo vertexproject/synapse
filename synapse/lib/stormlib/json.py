@@ -12,13 +12,13 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 def runJsSchema(schema, item, use_default=True):
-    # This is a target function for s_coro.spawn
+    # This is a target function for multiprocessing
     func = s_config.getJsValidator(schema, use_default=use_default)
     resp = func(item)
     return resp
 
 def compileJsSchema(schema, use_default=True):
-    # This is a target function for s_coro.spawn
+    # This is a target function for multiprocessing
     _ = s_config.getJsValidator(schema, use_default=use_default)
     return True
 
@@ -68,9 +68,8 @@ class JsonSchema(s_stormtypes.StormType):
     async def _validate(self, item):
         item = await s_stormtypes.toprim(item)
 
-        todo = (runJsSchema, (self.schema, item), {'use_default': self.use_default})
         try:
-            result = await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+            result = await s_coro.forked(runJsSchema, self.schema, item, use_default=self.use_default)
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -133,9 +132,8 @@ class JsonLib(s_stormtypes.Lib):
         schema = await s_stormtypes.toprim(schema)
         use_default = await s_stormtypes.tobool(use_default)
         # We have to ensure that we have a valid schema for making the object.
-        todo = (compileJsSchema, (schema,), {'use_default': use_default})
         try:
-            await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+            await s_coro.forked(compileJsSchema, schema, use_default=use_default)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
