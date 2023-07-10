@@ -655,8 +655,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        todo = (validateStix, (bundle,), {})
-        return await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+        return await s_coro.forked(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
