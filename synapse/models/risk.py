@@ -13,6 +13,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:vuln', ('guid', {}), {
                     'doc': 'A unique vulnerability.'}),
 
+                ('risk:vulnname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A vulnerability name such as log4j or rowhammer.'}),
+
                 ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
                     'doc': 'A taxonomy of vulnerability types.'}),
@@ -238,10 +241,16 @@ class RiskModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
                 )),
+                ('risk:vulnname', {}, ()),
                 ('risk:vuln:type:taxonomy', {}, ()),
+
                 ('risk:vuln', {}, (
-                    ('name', ('str', {}), {
+
+                    ('name', ('risk:vulnname', {}), {
                         'doc': 'A user specified name for the vulnerability.'}),
+
+                    ('names', ('array', {'type': 'risk:vulnname', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the vulnerability.'}),
 
                     ('type', ('risk:vuln:type:taxonomy', {}), {
                         'doc': 'A taxonomy type entry for the vulnerability.'}),
