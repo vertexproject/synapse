@@ -1057,7 +1057,7 @@ class View(s_nexus.Pusher):  # type: ignore
         async for indx, nid, sref in s_common.merggenr2(genrs):
             yield nid, [layr.genStorNodeRef(nid) for layr in self.layers]
 
-    # view "lift by" functions yield (nid, sodes) tuples for results.
+    # view "lift by" functions yield (nid, srefs) tuples for results.
     async def liftByProp(self, form, prop):
         genrs = [layr.liftByProp(form, prop) for layr in self.layers]
         async for item in self._mergeLiftRows(genrs):
@@ -1078,6 +1078,11 @@ class View(s_nexus.Pusher):  # type: ignore
         async for item in self._mergeLiftRows(genrs):
             yield item
 
+    async def liftByTagValu(self, tag, cmpr, valu, form=None):
+        genrs = [layr.liftByTagValu(tag, cmpr, valu, form=form) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
     async def liftByTagProp(self, form, tag, prop):
         genrs = [layr.liftByTagProp(form, tag, prop) for layr in self.layers]
         async for item in self._mergeLiftRows(genrs):
@@ -1085,5 +1090,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
         genrs = [layr.liftByTagPropValu(form, tag, prop, cmprvals) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item
+
+    async def liftByPropArray(self, form, prop, cmprvals):
+        genrs = [layr.liftByPropArray(form, prop, cmprvals) for layr in self.layers]
         async for item in self._mergeLiftRows(genrs):
             yield item

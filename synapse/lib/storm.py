@@ -2686,8 +2686,8 @@ class Cmd:
             yield item
 
     @classmethod
-    def getStorNode(cls, form):
-        ndef = (form.name, form.type.norm(cls.name)[0])
+    def getRuntPode(cls, form):
+        ndef = (form.name, cls.name)
         buid = s_common.buid(ndef)
 
         props = {
@@ -2713,15 +2713,9 @@ class Cmd:
         if cls.pkgname:
             props['package'] = cls.pkgname
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': props,
         })
 
 class PureCmd(Cmd):

@@ -413,9 +413,9 @@ class Trigger:
 
         return tdef
 
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.iden)[0])
-        buid = s_common.buid(ndef)
+    def getRuntPode(self, form):
+
+        ndef = (form.name, self.iden)
 
         props = {
             'doc': self.tdef.get('doc', ''),
@@ -439,13 +439,7 @@ class Trigger:
         if prop is not None:
             props['prop'] = prop
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': props,
         })

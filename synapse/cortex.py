@@ -2043,7 +2043,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             trig = node.snap.view.triggers.get(iden)
             node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
             await trig.set('doc', valu)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         async def onSetTrigName(node, prop, valu):
             valu = str(valu)
@@ -2051,7 +2051,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             trig = node.snap.view.triggers.get(iden)
             node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
             await trig.set('name', valu)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
@@ -2059,7 +2059,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
             await appt.setDoc(valu, nexs=True)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
             valu = str(valu)
@@ -2067,7 +2067,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
             await appt.setName(valu, nexs=True)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
         self.addRuntPropSet('syn:cron:name', onSetCronName)
@@ -2127,7 +2127,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
         self.v3stor = await s_lmdbslab.Slab.anit(path)
 
-        self.onfini(self.v3stor)
+        self.onfini(self.v3stor.fini)
 
         # TODO move sodes to being keyed by nid integerkey=True
         self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
@@ -2139,7 +2139,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO is it safe to potentially reuse nids if the last one is removed?
         byts = self.v3stor.lastkey(db=self.nidrefs)
         if byts is not None:
-            self.nextnid = int.from_bytes(byts)
+            self.nextnid = int.from_bytes(byts) + 1
 
     def getNidNdef(self, nid):
         return self.v3stor.get(nid, db=self.nid2ndef)
@@ -2487,13 +2487,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def getCmdBrief():
             return cdef.get('descr', 'No description').strip().split('\n')[0]
 
+        # TODO this is super ugly...
         ctor.getCmdBrief = getCmdBrief
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form):
-            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
+        def getRuntPode(form):
+            ndef = (form.name, cdef.get('name'))
             buid = s_common.buid(ndef)
 
             props = {
@@ -2519,18 +2520,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
-            pnorms = {}
-            for prop, valu in props.items():
-                formprop = form.props.get(prop)
-                if formprop is not None and valu is not None:
-                    pnorms[prop] = formprop.type.norm(valu)[0]
-
             return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
+                'iden': s_common.ehex(s_common.buid(ndef)),
+                'props': props,
             })
 
-        ctor.getStorNode = getStorNode
+        ctor.getRuntPode = getRuntPode
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
@@ -4173,10 +4168,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runRuntPropSet(self, node, prop, valu):
         func = self._runtPropSetFuncs.get(prop.full)
         if func is None:
-            raise s_exc.IsRuntForm(mesg='No prop:set func set for runt property.',
-                                   prop=prop.full, valu=valu, ndef=node.ndef)
-        ret = await s_coro.ornot(func, node, prop, valu)
-        return ret
+            mesg = f'Property {prop.full} may not be set on a runtime node.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+        return await s_coro.ornot(func, node, prop, valu)
 
     def addRuntPropDel(self, full, func):
         '''
@@ -4187,10 +4181,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runRuntPropDel(self, node, prop):
         func = self._runtPropDelFuncs.get(prop.full)
         if func is None:
-            raise s_exc.IsRuntForm(mesg='No prop:del func set for runt property.',
-                                   prop=prop.full, ndef=node.ndef)
-        ret = await s_coro.ornot(func, node, prop)
-        return ret
+            mesg = f'Property {prop.full} may not be deleted from a runtime node.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+        return await s_coro.ornot(func, node, prop)
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)

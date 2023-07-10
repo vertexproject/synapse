@@ -52,25 +52,14 @@ class TagProp:
     def getTagPropDef(self):
         return (self.name, self.tdef, self.info)
 
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-        }
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms
+    def getRuntPode(self, form):
+        ndef = ('syn:tagprop', self.name)
+        return (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
         })
 
 class Prop:
@@ -209,31 +198,27 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form):
+    def getRuntPode(self, form):
 
-        ndef = (form.name, form.type.norm(self.full)[0])
+        ndef = ('syn:form', self.full)
 
-        buid = s_common.buid(ndef)
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-            'relname': self.name,
-            'univ': self.isuniv,
-            'base': self.name.split(':')[-1],
-            'ro': int(self.info.get('ro', False)),
-            'extmodel': self.isext,
-        }
+        pode = (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+                'relname': self.name,
+                'univ': self.isuniv,
+                'base': self.name.split(':')[-1],
+                'ro': int(self.info.get('ro', False)),
+                'extmodel': self.isext,
+            },
+        })
 
         if self.form is not None:
-            props['form'] = self.form.name
+            pode[1]['props']['form'] = self.form.name
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {'props': pnorms, 'ndef': ndef})
+        return pode
 
 class Form:
     '''
@@ -275,10 +260,7 @@ class Form:
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+    def getRuntPode(self, form):
 
         props = {
             'doc': self.info.get('doc', self.type.info.get('doc', '')),
@@ -286,22 +268,18 @@ class Form:
         }
 
         if form.name == 'syn:form':
+            ndef = ('syn:form', form.full)
             props['runt'] = self.isrunt
-        elif form.name == 'syn:prop':
+        else:
+            ndef = ('syn:prop', form.full)
             props['univ'] = False
             props['extmodel'] = False
             props['form'] = self.name
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
-                })
+        return (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': props,
+        })
 
     def setProp(self, name, prop):
         self.refsout = None

@@ -367,9 +367,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
                 self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 
-                layr = core01.getLayer(layr01iden)
-                await layr.storNodeEdits((), {})
-
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:
@@ -1246,11 +1243,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('test:int=10 -#foo.bar:score'))
 
                 # remove a higher-level tag
-                print('READDING')
                 self.len(1, await core.nodes('test:int=10 [ +#foo.bar:score=100 ]'))
-                print('BORKED')
                 nodes = await core.nodes('test:int=10 [ -#foo ]')
-                self.len(0, nodes[0].tagprops)
+                self.len(0, nodes[0]._getTagPropsDict())
                 self.len(0, await core.nodes('#foo'))
                 self.len(0, await core.nodes('#foo.bar:score'))
                 self.len(0, await core.nodes('#foo.bar:score=100'))
@@ -1518,11 +1513,11 @@ class CortexTest(s_t_utils.SynTest):
             # Can norm a list of tag parts into a tag string and use it
             nodes = await wcore.nodes("$foo=('foo', 'bar.baz') $foo=$lib.cast('syn:tag', $foo) [test:int=0 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.bar_baz'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'foo.bar_baz'})
 
             nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
             with self.raises(s_exc.BadTypeValu):
@@ -1531,15 +1526,15 @@ class CortexTest(s_t_utils.SynTest):
             # Can set a list of tags directly
             nodes = await wcore.nodes('$foo=("foo", "bar.baz") [test:int=3 +#$foo]')
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'bar', 'bar.baz'})
 
             nodes = await wcore.nodes('$foo=$lib.list("foo", "bar.baz") [test:int=4 +#$foo]')
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'bar', 'bar.baz'})
 
             nodes = await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar'})
+            self.eq(set(nodes[0].getTagNames()), {'foo', 'bar'})
 
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag"))
             await self.asyncraises(s_exc.BadTypeValu, wcore.nodes("$tag='' #$tag=2020"))
@@ -6103,6 +6098,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('_hehe:haha=10'))
                 self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
 
+                prop = core.model.prop('inet:ipv4:_visi')
+                print(f'inet:ipv4:_visi {prop}')
                 nodes = await core.nodes('[inet:ipv4=5.5.5.5 :_visi=100]')
                 self.len(1, nodes)
 
@@ -6151,6 +6148,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadFormDef):
                     await core.delForm('hehe:haha')
 
+                prop = core.model.prop('_hehe:haha:visi')
+                print(f'_hehe:haha:visi {prop}')
                 await core.nodes('_hehe:haha [ -:visi ]')
                 await core.delFormProp('_hehe:haha', 'visi')
 
@@ -7171,6 +7170,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq([], rows)
 
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
+            import pprint; pprint.pprint(rows)
             self.eq(expect, rows)
 
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4', starttupl=(expect[1][0],

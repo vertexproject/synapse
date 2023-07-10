@@ -3616,7 +3616,7 @@ class EditPropSet(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
+                mesg = f'No property named {name} on form {node.form.name}.'
                 exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)
 

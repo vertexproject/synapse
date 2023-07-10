@@ -85,21 +85,21 @@ class SynModule(s_module.CoreModule):
         if fullprop.isform:
 
             if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
+                for item in genr():
+                    yield item.getRuntPode(fullprop)
                 return
 
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
+            for item in genr():
+                pode = item.getRuntPode(fullprop)
+                if filt(pode[0][1]):
+                    yield pode
         else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
+            for item in genr():
+                pode = item.getRuntPode(fullprop.form)
+                propval = pode[1]['props'].get(fullprop.name)
 
                 if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
+                    yield pode
 
     def getModelDefs(self):
 

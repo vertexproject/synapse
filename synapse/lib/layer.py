@@ -268,23 +268,15 @@ class IndxBy:
         self.layr = layr
         self.abrvlen = len(abrv)  # Dividing line between the abbreviations and the data-specific index
 
-    def getNodeValu(self, nid):
-        raise s_exc.NoSuchImpl(name='getNodeValu')
+    def getStorType(self):
+        raise s_exc.NoSuchImpl(name='getStorType')
 
     def keyBuidsByDups(self, indx):
         yield from self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db)
 
-    # def buidsByDups(self, indx):
-    #     for _, buid in self.layr.layrslab.scanByDups(self.abrv + indx, db=self.db):
-    #         yield buid
-
     # TODO rename these...
     def keyBuidsByPref(self, indx=b''):
         yield from self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db)
-
-    # def buidsByPref(self, indx=b''):
-    #     for _, buid in self.layr.layrslab.scanByPref(self.abrv + indx, db=self.db):
-    #         yield buid
 
     def keyBuidsByRange(self, minindx, maxindx):
         yield from self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db)
@@ -316,6 +308,23 @@ class IndxBy:
     def hasIndxBuid(self, indx, buid):
         return self.layr.layrslab.hasdup(self.abrv + indx, buid, db=self.db)
 
+    def indxToValu(self, indx):
+        stortype = self.getStorType()
+        return stortype.decodeIndx(indx)
+
+    def getNodeValu(self, nid, indx=None):
+
+        if indx is not None:
+            valu = self.indxToValu(indx)
+            if valu is not s_common.novalu:
+                return valu
+
+        sode = self.layr._getStorNode(nid)
+        if sode is None:
+            return s_common.novalu
+
+        return self.getSodeValu(sode)
+
 class IndxByForm(IndxBy):
 
     def __init__(self, layr, form):
@@ -327,14 +336,17 @@ class IndxByForm(IndxBy):
 
         self.form = form
 
-    def getNodeValu(self, nid):
-        sode = self.layr._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            return None
+    def getStorType(self):
+        form = self.layr.core.model.form(self.form)
+        return self.layr.stortypes[form.type.stortype]
+
+    def getSodeValu(self, sode):
 
         valt = sode.get('valu')
         if valt is not None:
             return valt[0]
+
+        return s_common.novalu
 
 class IndxByProp(IndxBy):
 
@@ -348,19 +360,22 @@ class IndxByProp(IndxBy):
         self.form = form
         self.prop = prop
 
-    def getNodeValu(self, nid):
-        print(f'IndxByProp.getNodeValu({nid})')
-        sode = self.layr._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            print('no sode')
-            return None
-        print(f'sode: {sode}')
+    def getStorType(self):
 
+        if self.form is not None:
+            form = self.layr.core.model.form(self.form)
+            typeindx = form.props.get(self.prop).type.stortype
+        else:
+            typeindx = self.layr.core.model.prop(self.prop).type.stortype
+
+        return self.layr.stortypes[typeindx]
+
+    def getSodeValu(self, sode):
         valt = sode['props'].get(self.prop)
         if valt is not None:
-            print(f'getNodeValu() valt: {valt}')
             return valt[0]
-        print('no prop valu')
+
+        return s_common.novalu
 
     def __repr__(self):
         if self.form:
@@ -379,13 +394,20 @@ class IndxByPropArray(IndxBy):
         self.form = form
         self.prop = prop
 
-    def getNodeValu(self, nid):
+    def getNodeValu(self, nid, indx=None):
         sode = self.layr._getStorNode(nid)
         if sode is None: # pragma: no cover
-            return None
-        valt = sode['props'].get(self.prop)
-        if valt is not None:
-            return valt[0]
+            return s_common.novalu
+
+        props = sode.get('props')
+        if props is None:
+            return s_common.novalu
+
+        valt = props.get(self.prop)
+        if valt is None:
+            return s_common.novalu
+
+        return valt[0]
 
     def __repr__(self):
         if self.form:
@@ -409,13 +431,15 @@ class IndxByTag(IndxBy):
         self.form = form
         self.tag = tag
 
-    def getNodeValuForm(self, nid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
+    def getStorType(self):
+        typeindx = self.layr.core.model.form('syn:tag').type.stortype
+        return self.layr.stortypes[typeindx]
+
+    def getSodeValu(self, sode):
         valt = sode['tags'].get(self.tag)
         if valt is not None:
             return valt, sode['form']
+        return s_common.novalu
 
 class IndxByTagProp(IndxBy):
 
@@ -430,17 +454,25 @@ class IndxByTagProp(IndxBy):
         self.prop = prop
         self.tag = tag
 
-    def getNodeValu(self, nid):
-        sode = self.layr._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            return None
-        props = sode['tagprops'].get(self.tag)
-        if not props:
-            return
+    def getStorType(self):
+        typeindx = self.layr.core.model.getTagProp(prop).type.stortype
+        return self.layr.stortypes[typeindx]
 
-        valu = props.get(self.prop)
-        if valu is not None:
-            return valu[0]
+    def getSodeValu(self, sode):
+
+        tagprops = sode.get('tagprops')
+        if tagprops is None:
+            return s_common.novalu
+
+        props = tagprops.get(self.tag)
+        if not props:
+            return s_common.novalu
+
+        valt = props.get(self.prop)
+        if valt is None:
+            return s_common.novalu
+
+        return valt[0]
 
 class StorType:
 
@@ -2641,19 +2673,11 @@ class Layer(s_nexus.Pusher):
         self.layrslab.putmulti(kvlist, db=self.bybuidv3)
         self.dirty.clear()
 
-    async def getStorNode(self, nid):
-        sode = self._getStorNode(nid)
-        if sode is not None:
-            return deepcopy(sode)
-        return {}
-
     def _getStorNode(self, nid):
         '''
         Return the storage node for the given nid.
         '''
         print(f'_getStorNode({nid})')
-        for nid, sode in self.dirty.items():
-            print(f'in dirty: {nid} {sode}')
 
         # check the dirty nodes first
         sode = self.dirty.get(nid)
@@ -2678,8 +2702,6 @@ class Layer(s_nexus.Pusher):
         sode.update(s_msgpack.un(byts))
 
         self.buidcache[nid] = sode
-
-        print(f'getStorNode (slab): {sode}')
 
         return sode
 
@@ -3105,7 +3127,8 @@ class Layer(s_nexus.Pusher):
 
             # merge intervals and min times
             if stortype == STOR_TYPE_IVAL:
-                valu = (min(*oldv, *valu), max(*oldv, *valu))
+                allv = oldv + valu
+                valu = (min(allv), max(allv))
 
             elif stortype == STOR_TYPE_MINTIME:
                 valu = min(valu, oldv)
@@ -3135,10 +3158,8 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.byprop)
 
-        print(f'editPropSet: {prop} {valu}')
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(sode)
-        print(f'sode: {sode}')
 
         if stortype & STOR_FLAG_ARRAY:
 
@@ -3633,15 +3654,12 @@ class Layer(s_nexus.Pusher):
                 except s_exc.NoSuchAbrv:
                     return
 
-        for _, nid in self.layrslab.scanByPref(abrv, startkey=startkey, startvalu=startvalu, db=indxby.db):
-
-            item = indxby.getNodeValuForm(nid)
+        for lkey, nid in self.layrslab.scanByPref(abrv, startkey=startkey, startvalu=startvalu, db=indxby.db):
 
             await asyncio.sleep(0)
-            if item is None:
-                continue
 
-            yield buid, item
+            valu = indxby.getNodeValu(nid)
+            yield self.core.getBuidByNid(nid), valu
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
@@ -3681,31 +3699,18 @@ class Layer(s_nexus.Pusher):
         abrvlen = indxby.abrvlen
         startbytz = None
 
-        if stortype:
-            stor = self.stortypes[stortype]
-            if startvalu is not None:
-                startbytz = stor.indx(startvalu)[0]
+        if startvalu is not None:
+            stortype = indxby.getStorType()
+            startbytz = stortype.indx(startvalu)[0]
 
-        print(f'_iterRows({indxby})')
         for key, nid in self.layrslab.scanByPref(abrv, startkey=startbytz, db=indxby.db):
 
-            print(f'_iterRows {key} {nid}')
             await asyncio.sleep(0)
 
-            if stortype is not None:
-                print(f'stortype {stortype}')
-                # Extract the value directly out of the end of the key
-                indx = key[abrvlen:]
+            indx = key[abrvlen:]
 
-                valu = stor.decodeIndx(indx)
-                print(f'stortype valu {valu}')
-                if valu is not s_common.novalu:
-                    yield self.core.getBuidByNid(nid), valu
-                    continue
-
-            valu = indxby.getNodeValu(nid)
-            print(f'getNodeValu(nid): {valu}')
-            if valu is None:
+            valu = indxby.getNodeValu(nid, indx=indx)
+            if valu is s_common.novalu:
                 continue
 
             yield self.core.getBuidByNid(nid), valu

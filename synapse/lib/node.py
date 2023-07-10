@@ -12,7 +12,65 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-class Node:
+class NodeBase:
+
+    def repr(self, name=None, defv=None):
+
+        if name is None:
+            return self.form.type.repr(self.ndef[1])
+
+        prop = self.form.props.get(name)
+        if prop is None:
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
+
+        valu = self.get(name)
+        if valu is None:
+            return defv
+
+        return prop.type.repr(valu)
+
+    def reprs(self):
+        '''
+        Return a dictionary of repr values for props whose repr is different than
+        the system mode value.
+        '''
+        reps = {}
+        props = self._getPropsDict()
+        return self._getPropReprs(props)
+
+    def _reqValidProp(self, name):
+        prop = self.form.prop(name)
+        if prop is None:
+            mesg = f'No property named {name} on form {self.form.name}.'
+            raise s_exc.NoSuchProp(mesg=mesg)
+        return prop
+
+    def _getPropReprs(self, props):
+
+        for name, valu in props.items():
+
+            prop = self.form.prop(name)
+            if prop is None:
+                continue
+
+            rval = prop.type.repr(valu)
+            if rval is None or rval == valu:
+                continue
+
+            reps[name] = rval
+
+        return reps
+
+    def _addPodeRepr(self, pode):
+        rval = self.repr()
+        if rval is not None and rval != self.ndef[1]:
+            node[1]['repr'] = rval
+
+        node[1]['reprs'] = self._getPropReprs(node[1]['props'])
+        node[1]['tagpropreprs'] = self.tagpropreprs()
+
+class Node(NodeBase):
     '''
     A Cortex hypergraph node.
 
@@ -139,23 +197,18 @@ class Node:
             (tuple): An (ndef, info) node tuple.
         '''
 
-        node = (self.ndef, {
+        pode = (self.ndef, {
             'iden': self.iden(),
             'tags': self._getTagsDict(),
             'props': self._getPropsDict(),
             'tagprops': self._getTagPropsDict(),
             'nodedata': self.nodedata,
         })
+
         if dorepr:
+            self._addPodeRepr(pode)
 
-            rval = self.repr()
-            if rval is not None and rval != self.ndef[1]:
-                node[1]['repr'] = self.repr()
-
-            node[1]['reprs'] = self.reprs()
-            node[1]['tagpropreprs'] = self.tagpropreprs()
-
-        return node
+        return pode
 
     async def getEmbeds(self, embeds):
         '''
@@ -165,7 +218,7 @@ class Node:
         cache = {}
         async def walk(n, p):
 
-            valu = n.props.get(p)
+            valu = n.get(p)
             if valu is None:
                 return None
 
@@ -353,65 +406,12 @@ class Node:
         '''
         Remove a property from a node and return the value
         '''
-        if self.form.isrunt:
-            prop = self.form.prop(name)
-            if prop.info.get('ro'):
-                raise s_exc.IsRuntForm(mesg='Cannot delete read-only props on runt nodes',
-                                       form=self.form.full, prop=name)
-            return await self.snap.core.runRuntPropDel(self, prop)
-
         edits = await self._getPropDelEdits(name, init=init)
         if not edits:
             return False
 
         await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
         return True
-
-    def repr(self, name=None, defv=None):
-
-        if name is None:
-            return self.form.type.repr(self.ndef[1])
-
-        prop = self.form.props.get(name)
-        if prop is None:
-            mesg = f'No property named {name}.'
-            raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
-
-        valu = self.get(name)
-        if valu is None:
-            return defv
-
-        return prop.type.repr(valu)
-
-    def reprs(self):
-        '''
-        Return a dictionary of repr values for props whose repr is different than
-        the system mode value.
-        '''
-        reps = {}
-
-        for sode in self.sodes:
-
-            props = sode.get('props')
-            if props is None:
-                continue
-
-            for name, (valu, stortype) in props.items():
-
-                if reps.get(name) is not None:
-                    continue
-
-                prop = self.form.prop(name)
-                if prop is None:
-                    continue
-
-                rval = prop.type.repr(valu)
-                if rval is None or rval == valu:
-                    continue
-
-                reps[name] = rval
-
-        return reps
 
     def tagpropreprs(self):
         '''
@@ -525,8 +525,8 @@ class Node:
                 continue
 
             for tagname, propvals in tagprops.items():
-                for propname, propvalu in propvals.items():
-                    retn[tagname].setdefault(propname, propvalu)
+                for propname, valt in propvals.items():
+                    retn[tagname].setdefault(propname, valt[0])
 
         return retn
 
@@ -651,7 +651,7 @@ class Node:
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
 
-            valu = self.tagprops[tag].get(tagprop)
+            valu = self.getTagProp(tag, prop)
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, valu, prop.type.stortype), ()))
 
         return edits
@@ -851,6 +851,37 @@ class Node:
     async def iterDataKeys(self):
         async for name in self.snap.iterNodeDataKeys(self.buid):
             yield name
+
+class RuntNode(NodeBase):
+    '''
+    Runtime node instances are a separate class to minimize isrunt checking in
+    real node code.
+    '''
+    def __init__(self, snap, pode):
+        self.ndef = pode[0]
+        self.pode = pode
+        self.form = snap.core.model.form(self.ndef[0])
+
+    def get(self, name, defv=None):
+        return self.pode['props'].get(name, defv)
+
+    def iden(self):
+        return s_common.ehex(s_common.buid(self.ndef))
+
+    def pack(self, dorepr=False):
+        pode = s_msgpack.deepcopy(self.pode)
+        if dorepr:
+            self._addPodeRepr(pode)
+        return pode
+
+    async def set(self, name, valu):
+        prop = self._reqValidProp(name)
+        norm = prop.type.norm(valu)[0]
+        return await self.snap.core.runRuntPropSet(self, prop, norm)
+
+    async def pop(self, name, init=False):
+        prop = self._reqValidProp(name)
+        return await self.snap.core.runRuntPropDel(self, prop)
 
 class Path:
     '''

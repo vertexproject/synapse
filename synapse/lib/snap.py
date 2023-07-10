@@ -826,9 +826,10 @@ class Snap(s_base.Base):
                 yield node
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None):
+
         norm, info = self.core.model.type('ival').norm(valu)
-        async for (nid, sodes) in self.core._liftByTagValu(tag, cmpr, norm, form, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in self.view.liftByTagValu(tag, cmpr, norm, form):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -860,18 +861,17 @@ class Snap(s_base.Base):
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
         if prop.isform:
-            async for (nid, sodes) in self.core._liftByPropArray(prop.name, None, cmprvals, self.layers):
-                node = await self._joinSodes(nid, sodes)
-                if node is not None:
-                    yield node
-            return
+            genr = self.view.liftByPropArray(prop.name, None, cmprvals)
 
-        formname = None
-        if prop.form is not None:
-            formname = prop.form.name
+        else:
+            formname = None
+            if prop.form is not None:
+                formname = prop.form.name
 
-        async for (nid, sodes) in self.core._liftByPropArray(formname, prop.name, cmprvals, self.layers):
-            node = await self._joinSodes(nid, sodes)
+            genr = self.view.liftByPropArray(formname, prop.name, cmprvals)
+
+        async for nid, srefs in genr:
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -1214,13 +1214,8 @@ class Snap(s_base.Base):
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
-        todo = s_common.todo('runRuntLift', full, valu, cmpr, self.view.iden)
-        async for sode in self.core.dyniter('cortex', todo):
-
-            node = s_node.Node(self, sode)
-            node.isrunt = True
-
-            yield node
+        async for pode in self.core.runRuntLift(full, valu, cmpr, self.view.iden):
+            yield s_node.RuntNode(self, pode)
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
