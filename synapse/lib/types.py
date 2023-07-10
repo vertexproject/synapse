@@ -208,9 +208,12 @@ class Type:
             raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
         norm1 = self.norm(val1)[0]
-        norm2 = self.norm(val2)[0]
 
-        return ctor(norm2)(norm1)
+        if name != '~=':
+            # Don't norm regex patterns
+            val2 = self.norm(val2)[0]
+
+        return ctor(val2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
