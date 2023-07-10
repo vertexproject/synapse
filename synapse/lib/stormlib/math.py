@@ -12,6 +12,8 @@ class MathLib(s_stormtypes.Lib):
 
             Storm Numbers are high precision fixed point decimals corresponding to the
             the hugenum storage type.
+
+            This is not to be used for converting a string to an integer.
          ''',
          'type': {'type': 'function', '_funcname': '_number',
                   'args': (
