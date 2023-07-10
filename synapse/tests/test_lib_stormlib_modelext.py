@@ -147,9 +147,10 @@ class StormtypesModelextTest(s_test.SynTest):
 
                     formmesg = await sock.receive_json()
                     self.eq(formmesg['data']['event'], 'model:form:add')
-                    self.eq(formmesg['data']['info']['name'], '_behold:score')
                     self.nn(formmesg['data']['info']['form'])
+                    self.eq(formmesg['data']['info']['form']['name'], '_behold:score')
                     self.nn(formmesg['data']['info']['type'])
+                    self.nn(formmesg['data']['info']['type']['info'])
 
                     propmesg = await sock.receive_json()
                     self.eq(propmesg['data']['event'], 'model:prop:add')
