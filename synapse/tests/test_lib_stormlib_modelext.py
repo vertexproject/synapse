@@ -61,7 +61,7 @@ class StormtypesModelextTest(s_test.SynTest):
             q = '$lib.model.ext.delForm(_visi:int)'
             with self.raises(s_exc.CantDelForm) as exc:
                 await core.callStorm(q)
-                self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
+            self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
 
             await core.callStorm('$lib.model.ext.addFormProp(_visi:int, tock, (time, $lib.dict()), $lib.dict())')
 
@@ -72,7 +72,7 @@ class StormtypesModelextTest(s_test.SynTest):
             q = '$lib.model.ext.delForm(_visi:int)'
             with self.raises(s_exc.CantDelForm) as exc:
                 await core.callStorm(q)
-                self.eq('Form has extended properties: tick, tock', exc.exception.get('mesg'))
+            self.eq('Form has extended properties: tick, tock', exc.exception.get('mesg'))
 
             await core.callStorm('''
                 $lib.model.ext.delFormProp(_visi:int, tick)
