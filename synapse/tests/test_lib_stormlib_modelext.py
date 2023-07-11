@@ -120,6 +120,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 ''', opts=opts)
 
     async def test_lib_stormlib_behold_modelext(self):
+        self.skipIfNexusReplay()
         async with self.getTestCore() as core:
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
