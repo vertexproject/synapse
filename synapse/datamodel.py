@@ -52,10 +52,9 @@ class TagProp:
     def getTagPropDef(self):
         return (self.name, self.tdef, self.info)
 
-    def getRuntPode(self, form):
+    def getRuntPode(self):
         ndef = ('syn:tagprop', self.name)
         return (ndef, {
-            'iden': s_common.ehex(s_common.buid(ndef)),
             'props': {
                 'doc': self.info.get('doc', ''),
                 'type': self.type.name,
@@ -198,12 +197,11 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getRuntPode(self, form):
+    def getRuntPode(self):
 
         ndef = ('syn:form', self.full)
 
         pode = (ndef, {
-            'iden': s_common.ehex(s_common.buid(ndef)),
             'props': {
                 'doc': self.info.get('doc', ''),
                 'type': self.type.name,
@@ -260,25 +258,14 @@ class Form:
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
-    def getRuntPode(self, form):
+    def getRuntPode(self):
 
-        props = {
-            'doc': self.info.get('doc', self.type.info.get('doc', '')),
-            'type': self.type.name,
-        }
-
-        if form.name == 'syn:form':
-            ndef = ('syn:form', form.full)
-            props['runt'] = self.isrunt
-        else:
-            ndef = ('syn:prop', form.full)
-            props['univ'] = False
-            props['extmodel'] = False
-            props['form'] = self.name
-
-        return (ndef, {
-            'iden': s_common.ehex(s_common.buid(ndef)),
-            'props': props,
+        return (('syn:form', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'runt': self.isrunt,
+                'type': self.type.name,
+            },
         })
 
     def setProp(self, name, prop):

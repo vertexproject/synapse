@@ -3900,7 +3900,7 @@ class EditEdgeAdd(Edit):
                             if len(proto.edges) >= 1000:
                                 nodeedits = editor.getNodeEdits()
                                 if nodeedits:
-                                    await node.snap.applyNodeEdits(nodeedits)
+                                    await node.snap.saveNodeEdits(nodeedits)
                                 proto.edges.clear()
 
             yield node, path
@@ -3963,7 +3963,7 @@ class EditEdgeDel(Edit):
                             if len(proto.edgedels) >= 1000:
                                 nodeedits = editor.getNodeEdits()
                                 if nodeedits:
-                                    await node.snap.applyNodeEdits(nodeedits)
+                                    await node.snap.saveNodeEdits(nodeedits)
                                 proto.edgedels.clear()
 
             yield node, path

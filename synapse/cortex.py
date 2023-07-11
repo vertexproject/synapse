@@ -2142,7 +2142,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.nextnid = int.from_bytes(byts) + 1
 
     def getNidNdef(self, nid):
-        return self.v3stor.get(nid, db=self.nid2ndef)
+        byts = self.v3stor.get(nid, db=self.nid2ndef)
+        if byts is not None:
+            return s_msgpack.un(byts)
 
     def setNidNdef(self, nid, ndef):
         self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
@@ -5953,7 +5955,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+    async def iterTagRows(self, layriden, tag, form=None):
         '''
         Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
 
@@ -5961,6 +5963,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields buids of nodes that match the form.
+            buid (Optional[buid]): if present, begin iterating from the given buid ( used to resume )
             starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
         Returns:
@@ -5974,7 +5977,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
+        async for item in layr.iterTagRows(tag, form=form):
             yield item
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):

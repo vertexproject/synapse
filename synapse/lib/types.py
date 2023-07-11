@@ -114,9 +114,7 @@ class Type:
 
         return func(cmpr, valu)
 
-    def getRuntPode(self, form):
-
-        ndef = (form.name, self.name)
+    def getRuntPode(self):
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
         props = {
@@ -131,8 +129,7 @@ class Type:
         if self.subof is not None:
             props['subof'] = self.subof
 
-        return (ndef, {
-            'iden': s_common.ehex(s_common.buid(ndef)),
+        return (('syn:type', self.name), {
             'props': props,
         })
 

@@ -142,7 +142,7 @@ class LayerApi(s_cell.CellApi):
         if meta is None:
             meta = {'time': s_common.now(), 'user': self.user.iden}
 
-        return await self.layr.storNodeEdits(nodeedits, meta)
+        return await self.layr.saveNodeEdits(nodeedits, meta)
 
     async def storNodeEditsNoLift(self, nodeedits, meta=None):
 
@@ -438,7 +438,7 @@ class IndxByTag(IndxBy):
     def getSodeValu(self, sode):
         valt = sode['tags'].get(self.tag)
         if valt is not None:
-            return valt, sode['form']
+            return valt[0], sode['form']
         return s_common.novalu
 
 class IndxByTagProp(IndxBy):
@@ -2622,34 +2622,6 @@ class Layer(s_nexus.Pusher):
         byts = self.propabrv.abrvToByts(abrv)
         return s_msgpack.un(byts)
 
-    async def getNodeValu(self, nid, prop=None):
-        '''
-        Retrieve either the form valu or a prop valu for the given node by buid.
-        '''
-        sode = self._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            return (None, None)
-        if prop is None:
-            return sode.get('valu', (None, None))[0]
-        return sode['props'].get(prop, (None, None))[0]
-
-    async def _getNodeTag(self, nid, tag):
-        sode = self._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            return None
-        return sode['tags'].get(tag)
-
-    def getNodeTag(self, buid):
-        nid = self.core.getNidByBuid(buid)
-        if nid is not None:
-            return self._getNodeTag(nid)
-
-    async def getNodeForm(self, nid):
-        sode = self._getStorNode(nid)
-        if sode is None: # pragma: no cover
-            return None
-        return sode.get('form')
-
     def setSodeDirty(self, sode):
         nid = sode.get('nid')
         assert nid is not None
@@ -3140,7 +3112,7 @@ class Layer(s_nexus.Pusher):
                 for oldi in self.getStorIndx(oldt, oldv):
                     self.layrslab.delete(abrv + oldi, nid, db=self.byarray)
                     if univabrv is not None:
-                        self.layrslab.delete(univabrv + oldi, buid, db=self.byarray)
+                        self.layrslab.delete(univabrv + oldi, nid, db=self.byarray)
 
                 for indx in self.getStorIndx(STOR_TYPE_MSGP, oldv):
                     self.layrslab.delete(abrv + indx, nid, db=self.byprop)
@@ -3619,52 +3591,36 @@ class Layer(s_nexus.Pusher):
         async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, tag, form=None, starttupl=None):
+    def _getTagAbrv(self, tag, form=None):
+        abrv = self.tagabrv.bytsToAbrv(tag.encode())
+        if form is not None:
+            abrv += self.getPropAbrv(form, None)
+        return abrv
+
+    async def iterTagRows(self, tag, form=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (nid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
 
         Args:
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
-        Returns:
-            AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
+        Yields:
+            (nid, (ival, form))
         '''
         try:
-            indxby = IndxByTag(self, form, tag)
-
+            abrv = self._getTagAbrv(tag, form=form)
         except s_exc.NoSuchAbrv:
             return
 
-        abrv = indxby.abrv
-
-        startkey = startvalu = None
-
-        if starttupl:
-            startbuid, startform = starttupl
-            startvalu = startbuid
-
-            if form:
-                if startform != form:
-                    return  # Caller specified a form but doesn't want to start on the same form?!
-                startkey = None
-            else:
-                try:
-                    startkey = self.getPropAbrv(startform, None)
-                except s_exc.NoSuchAbrv:
-                    return
-
-        for lkey, nid in self.layrslab.scanByPref(abrv, startkey=startkey, startvalu=startvalu, db=indxby.db):
-
+        for lkey, nid in self.layrslab.scanByPref(abrv, db=self.bytag):
             await asyncio.sleep(0)
 
-            valu = indxby.getNodeValu(nid)
-            yield self.core.getBuidByNid(nid), valu
+            sref = self.genStorNodeRef(nid)
+            ndef = self.core.getNidNdef(nid)
+            valu = sref.sode['tags'].get(tag)
+
+            yield nid, (valu, ndef[0])
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''
@@ -4148,7 +4104,9 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 if formvalu is None:
-                    formvalu = await self.getNodeValu(buid)
+                    nid = self.core.getNidByBuid(buid)
+                    ndef = self.core.getNidNdef(nid)
+                    formvalu = ndef[0]
 
                 props['ndef'] = (form, formvalu)
 

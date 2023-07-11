@@ -9313,7 +9313,7 @@ def fromprim(valu, path=None, basetypes=True):
             return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
-    if isinstance(valu, s_node.Node):
+    if isinstance(valu, s_node.NodeBase):
         return Node(valu, path=path)
 
     if isinstance(valu, s_node.Path):

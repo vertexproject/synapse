@@ -64,12 +64,33 @@ class NodeBase:
         return reps
 
     def _addPodeRepr(self, pode):
+
         rval = self.repr()
         if rval is not None and rval != self.ndef[1]:
-            node[1]['repr'] = rval
+            pode[1]['repr'] = rval
 
-        node[1]['reprs'] = self._getPropReprs(node[1]['props'])
-        node[1]['tagpropreprs'] = self.tagpropreprs()
+        pode[1]['reprs'] = self._getPropReprs(pode[1]['props'])
+        pode[1]['tagpropreprs'] = self._getTagPropReprs(pode[1]['tagprops'])
+
+    def _getTagPropReprs(self, tagprops):
+
+        reps = collections.defaultdict(dict)
+
+        for tag, propdict in tagprops.items():
+
+            for name, valu in propdict.items():
+
+                prop = self.form.modl.tagprop(name)
+                if prop is None:
+                    continue
+
+                rval = prop.type.repr(valu)
+                if rval is None or rval == valu:
+                    continue
+                reps[tag][name] = rval
+
+        return dict(reps)
+
 
 class Node(NodeBase):
     '''
@@ -399,27 +420,6 @@ class Node(NodeBase):
 
         await self.snap.saveNodeEdits(((self.buid, self.form.name, edits),))
         return True
-
-    def tagpropreprs(self):
-        '''
-        Return a dictionary of repr values for tagprops whose repr is different than
-        the system mode value.
-        '''
-        reps = collections.defaultdict(dict)
-
-        for tag, propdict in self.tagprops.items():
-            for name, valu in propdict.items():
-
-                prop = self.form.modl.tagprop(name)
-                if prop is None:
-                    continue
-
-                rval = prop.type.repr(valu)
-                if rval is None or rval == valu:
-                    continue
-                reps[tag][name] = rval
-
-        return dict(reps)
 
     def hasTag(self, name):
 
@@ -871,6 +871,14 @@ class RuntNode(NodeBase):
 
     async def addTag(self, name, valu=None):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def addEdge(self, verb, n2iden):
+        mesg = f'You can not add an edge to a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def delEdge(self, verb, n2iden):
+        mesg = f'You can not delete an edge from a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
     async def delTag(self, name, valu=None):

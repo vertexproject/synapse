@@ -190,7 +190,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
             nodeiden = nodes[0].iden()
-            self.eq('apt1', nodes[0].props.get('name'))
+            self.eq('apt1', nodes[0].get('name'))
 
             nodes = await core.nodes('', opts={'mode': 'search'})
             self.len(0, nodes)
@@ -267,7 +267,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.len(6, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
-            self.true(all(n.tags.get('hehe') is not None for n in nodes))
+            self.true(all(n.getTag('hehe') is not None for n in nodes))
 
             # AST object passes through inbound genrs
             await core.nodes('[test:str=beep]')
@@ -276,7 +276,7 @@ class AstTest(s_test.SynTest):
             self.len(2, nodes)
             self.eq({('test:str', 'beep'), ('inet:fqdn', 'foo.bar.com')},
                     {n.ndef for n in nodes})
-            self.true(all([n.tags.get('beep') for n in nodes]))
+            self.true(all([n.getTag('beep') for n in nodes]))
 
             # The lookup mode must get *something* to parse.
             self.len(0, await core.nodes('', opts))
@@ -431,25 +431,25 @@ class AstTest(s_test.SynTest):
             self.eq(('test:str', 'baz'), nodes[0].ndef)
             self.eq(('test:str', 'zoo'), nodes[1].ndef)
 
-            self.nn(nodes[1].tags.get('visi'))
-            self.none(nodes[0].tags.get('visi'))
+            self.nn(nodes[1].getTag('visi'))
+            self.none(nodes[0].getTag('visi'))
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.none(nodes[0].tags.get('foo'))
+            self.none(nodes[0].getTag('foo'))
             self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
-            self.nn(nodes[1].tags.get('foo'))
+            self.nn(nodes[1].getTag('foo'))
 
             # test nested
             nodes = await core.nodes('[ inet:fqdn=woot.com ( ps:person="*" :name=visi (ps:contact="*" +#foo )) ]')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
 
             self.eq(nodes[1].ndef[0], 'ps:person')
-            self.eq(nodes[1].props.get('name'), 'visi')
-            self.none(nodes[1].tags.get('foo'))
+            self.eq(nodes[1].get('name'), 'visi')
+            self.none(nodes[1].getTag('foo'))
 
             self.eq(nodes[2].ndef[0], 'ps:contact')
-            self.nn(nodes[2].tags.get('foo'))
+            self.nn(nodes[2].getTag('foo'))
 
             user = await core.auth.addUser('newb')
             with self.raises(s_exc.AuthDeny):
@@ -505,16 +505,16 @@ class AstTest(s_test.SynTest):
             q = 'test:str $var=tag2 [+#base.$var]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.sorteq(nodes[0].tags, ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+            self.sorteq(nodes[0].getTagNames(), ('base', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
 
             q = 'test:str $var=(11) [+#base.$var]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.sorteq(nodes[0].tags, ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+            self.sorteq(nodes[0].getTagNames(), ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
             q = '$foo=$lib.null [test:str=bar +?#base.$foo]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].tags, {})
+            self.len(0, nodes[0].getTags())
 
             with self.raises(s_exc.BadTypeValu) as err:
                 q = '$foo=$lib.null [test:str=bar +#base.$foo]'
@@ -524,7 +524,7 @@ class AstTest(s_test.SynTest):
             q = 'function foo() { return() } [test:str=bar +?#$foo()]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].tags, {})
+            self.len(0, nodes[0].getTags())
 
             with self.raises(s_exc.BadTypeValu) as err:
                 q = 'function foo() { return() } [test:str=bar +#$foo()]'
@@ -915,13 +915,13 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('ou:org:alias=visiacme [ -:name]')
             nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
-            self.notin('name', nodes[0].props)
+            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
-            self.notin('name', nodes[0].props)
+            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
-            self.notin('name', nodes[0].props)
+            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             # Filter by Subquery value
 
@@ -1964,7 +1964,7 @@ class AstTest(s_test.SynTest):
             await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')
             msgs = await core.stormlist('media:news', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
-            self.len(1, nodes)
+            self.len(2, nodes)
             self.len(1, nodes[0][1]['path']['edges'])
             self.eq('refs', nodes[0][1]['path']['edges'][0][1]['verb'])
 
