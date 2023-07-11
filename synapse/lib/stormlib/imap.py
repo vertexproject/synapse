@@ -43,7 +43,7 @@ class ImapLib(s_stormtypes.Lib):
                 'args': (
                     {'type': 'str', 'name': 'host',
                      'desc': 'The IMAP hostname.'},
-                    {'type': 'integer', 'name': 'port', 'default': 993,
+                    {'type': 'int', 'name': 'port', 'default': 993,
                      'desc': 'The IMAP server port.'},
                     {'type': 'int', 'name': 'timeout', 'default': 30,
                      'desc': 'The time to wait for all commands on the server to execute.'},

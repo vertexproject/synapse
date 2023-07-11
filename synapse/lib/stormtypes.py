@@ -58,7 +58,6 @@ class StormTypesRegistry:
         'prim',
         'undef',
         'float',
-        'integer',
         'generator',
     )
     undefined_types = set(base_undefined_types)
@@ -1214,7 +1213,7 @@ class LibBase(Lib):
                       {'name': 'start', 'type': 'int', 'desc': 'The value to start at.', 'default': None, },
                       {'name': 'step', 'type': 'int', 'desc': 'The range step size.', 'default': None, },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'integer', 'desc': 'The sequence of integers.'}}},
+                  'returns': {'name': 'Yields', 'type': 'int', 'desc': 'The sequence of integers.'}}},
         {'name': 'pprint', 'desc': 'The pprint API should not be considered a stable interface.',
          'type': {'type': 'function', '_funcname': '_pprint',
                   'args': (
