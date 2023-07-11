@@ -186,6 +186,7 @@ class StormtypesModelextTest(s_test.SynTest):
 
                     delprop = await sock.receive_json()
                     self.eq(delprop['data']['event'], 'model:prop:del')
+                    self.eq(delprop['data']['info']['form'], '_behold:score')
                     self.eq(delprop['data']['info']['prop'], 'rank')
 
                     delform = await sock.receive_json()
