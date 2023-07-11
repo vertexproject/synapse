@@ -542,6 +542,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
                         'doc': 'A mapping to a Mitre ATT&CK technique if applicable.'}),
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the technique.'}),
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the technique.'}),
                 )),
                 ('ou:technique:taxonomy', {}, ()),
                 ('ou:orgtype', {}, ()),
