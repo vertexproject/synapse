@@ -495,14 +495,14 @@ class SubGraph:
 
             count += 1
             if count >= self.maxsize:
-                raise OMG
+                mesg = 'The graph projection has hit the specified max size: {self.maxsize}.'
+                raise s_exc.GraphTooLarge(mesg=mesg)
 
             nodepaths[node.buid] = (node, path)
 
             # we must traverse the pivots for the node *regardless* of degrees
             # due to needing to tie any leaf nodes to nodes that were already yielded
 
-            edges = []
             if dorefs and not omitted:
 
                 for name, ndef in node.getNodeRefs():
@@ -519,7 +519,7 @@ class SubGraph:
 
                     addtodo(n2node, path.fork(n2node), dist)
 
-            if doedges and not omitted and dist < degrees:
+            if doedges and not omitted and (degrees is None or dist < degrees):
 
                 async for verb, n2iden in node.iterEdgesN1():
 
@@ -543,44 +543,41 @@ class SubGraph:
 
                 await asyncio.sleep(0)
 
-                edges.append((pivn.iden(), {'type': 'pivot'}))
-
                 # we dont pivot from omitted nodes
                 if omitted:
                     continue
 
                 addtodo(pivn, pivp, dist)
 
+        # make a second pass to generate various types of edges...
+        for node, path in nodepaths.values():
+
+            await asyncio.sleep(0)
+
+            edges = []
             path.meta('edges', edges)
 
-        # make a second pass to generate various types of edges...
+            if dorefs:
 
-            for node, path in nodepaths.values():
+                for name, ndef in node.getNodeRefs():
+                    n2buid = s_common.buid(ndef)
+                    if n2buid in self.graphnodes or nodepaths.get(n2buid) is not None:
+                        edges.append((s_common.ehex(n2buid), {'type': 'prop', 'name': name}))
 
-                await asyncio.sleep(0)
-                edges = path.metadata.get('edges')
+            if doedges:
 
-                if dorefs:
+                for n2node, n2path in nodepaths.values():
+                    await asyncio.sleep(0)
+                    async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(node.buid, n2node.buid):
+                        edges.append((s_common.ehex(buid2), {'type': 'edge', 'verb': verb}))
 
-                    for name, ndef in node.getNodeRefs():
-                        n2buid = s_common.buid(ndef)
-                        if n2buid in self.graphnodes or nodepaths.get(n2buid) is not None:
-                            edges.append((s_common.ehex(n2buid), {'type': 'prop', 'name': name}))
+                for buid in self.graphnodes:
+                    await asyncio.sleep(0)
+                    async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(node.buid, buid):
+                        edges.append((s_common.ehex(buid2), {'type': 'edge', 'verb': verb}))
 
-                if doedges:
-
-                    for n2node, n2path in nodepaths.values():
-                        await asyncio.sleep(0)
-                        async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(node.buid, n2node.buid):
-                            edges.append((s_common.ehex(buid2), {'type': 'edge', 'verb': verb}))
-
-                    for buid in self.graphnodes:
-                        await asyncio.sleep(0)
-                        async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(node.buid, buid):
-                            edges.append((s_common.ehex(buid2), {'type': 'edge', 'verb': verb}))
-
-                        async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(buid, node.buid):
-                            edges.append((s_common.ehex(buid1), {'type': 'edge', 'verb': verb, 'rev': True}))
+                    async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(buid, node.buid):
+                        edges.append((s_common.ehex(buid1), {'type': 'edge', 'verb': verb, 'rev': True}))
 
         for node, path in nodepaths.values():
             yield node, path

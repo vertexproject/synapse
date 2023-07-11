@@ -206,6 +206,7 @@ class LinkBadCert(LinkErr): pass
 class LinkShutDown(LinkErr): pass
 
 class LowSpace(SynErr): pass
+class GraphTooLarge(SynErr): pass
 
 class NoCertKey(SynErr):
     ''' Raised when a Cert object requires a RSA Private Key to perform an operation and the key is not present.  '''

@@ -5631,7 +5631,7 @@ class Node(Prim):
         glob = await tostr(glob, noneok=True)
         leaf = await tobool(leaf)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         if leaf:
             _tags = []
             # brute force rather than build a tree.  faster in small sets.

@@ -342,7 +342,6 @@ class _Appt:
     def getRuntPode(self, form):
         ndef = (form.name, self.iden)
         return (ndef, {
-            'iden': s_common.ehex(s_common.buid(ndef)),
             'props': {
                 'doc': self.doc,
                 'name': self.name,

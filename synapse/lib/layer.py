@@ -455,7 +455,7 @@ class IndxByTagProp(IndxBy):
         self.tag = tag
 
     def getStorType(self):
-        typeindx = self.layr.core.model.getTagProp(prop).type.stortype
+        typeindx = self.layr.core.model.getTagProp(self.prop).type.stortype
         return self.layr.stortypes[typeindx]
 
     def getSodeValu(self, sode):
@@ -2677,17 +2677,13 @@ class Layer(s_nexus.Pusher):
         '''
         Return the storage node for the given nid.
         '''
-        print(f'_getStorNode({nid})')
-
         # check the dirty nodes first
         sode = self.dirty.get(nid)
         if sode is not None:
-            print(f'getStorNode (dirty): {sode}')
             return sode
 
         sode = self.buidcache.get(nid)
         if sode is not None:
-            print(f'getStorNode (buidcache): {sode}')
             return sode
 
         envl = self.weakcache.get(nid)
@@ -3294,7 +3290,6 @@ class Layer(s_nexus.Pusher):
             return ()
 
         tag, prop, valu, oldv, stortype = edit[1]
-        print(f'Layer.editTagPropSet() {tag} {prop} {valu} {oldv}')
 
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
@@ -3376,6 +3371,10 @@ class Layer(s_nexus.Pusher):
         name, valu, oldv = edit[1]
         abrv = self.setPropAbrv(name, None)
 
+        nid = sode.get('nid')
+        if nid is None:
+            nid = sode['nid'] = self.core.getNidByBuid(buid)
+
         byts = s_msgpack.en(valu)
         oldb = self.dataslab.replace(nid + abrv, byts, db=self.nodedata)
         if oldb == byts:
@@ -3384,7 +3383,6 @@ class Layer(s_nexus.Pusher):
         if oldb is None:
             self._incSodeRefs(buid, sode)
 
-        nid = sode.get('nid')
         if oldb is not None:
             oldv = s_msgpack.un(oldb)
 
@@ -3546,8 +3544,15 @@ class Layer(s_nexus.Pusher):
             yield verb, s_common.ehex(self.core.getBuidByNid(n1nid))
 
     async def hasNodeEdge(self, buid1, verb, buid2):
+
         n1nid = self.core.getNidByBuid(buid1)
+        if n1nid is None:
+            return False
+
         n2nid = self.core.getNidByBuid(buid2)
+        if n2nid is None:
+            return False
+
         return self.layrslab.hasdup(n1nid + verb.encode(), n2nid, db=self.edgesn1)
 
     async def iterFormRows(self, form, stortype=None, startvalu=None):

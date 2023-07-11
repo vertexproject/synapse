@@ -48,6 +48,7 @@ class NodeBase:
 
     def _getPropReprs(self, props):
 
+        reps = {}
         for name, valu in props.items():
 
             prop = self.form.prop(name)
@@ -114,17 +115,11 @@ class Node(NodeBase):
         return f'Node{{{self.pack()}}}'
 
     async def addEdge(self, verb, n2iden):
-        if self.form.isrunt:
-            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
-            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2iden)
 
     async def delEdge(self, verb, n2iden):
-        if self.form.isrunt:
-            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
-            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
         if not s_common.isbuidhex(n2iden):
             mesg = f'delEdge() got an invalid node iden: {n2iden}'
@@ -323,14 +318,6 @@ class Node(NodeBase):
             mesg = f'No property named {name} on form {self.form.name}.'
             await self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg)
             return False
-
-        if self.form.isrunt:
-            if prop.info.get('ro'):
-                mesg = f'Cannot set read-only props on runt nodes: {repr(valu)[:256]}'
-                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name)
-
-            await self.snap.core.runRuntPropSet(self, prop, valu)
-            return True
 
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.set(name, valu)
@@ -697,9 +684,7 @@ class Node(NodeBase):
         '''
         Return the value (or defval) of the given tag property.
         '''
-        print(f'Node.getTagProp() {tag} {prop}')
         for sode in self.sodes:
-            print(repr(sode))
 
             tagprops = sode.get('tagprops')
             if tagprops is None:
@@ -858,12 +843,13 @@ class RuntNode(NodeBase):
     real node code.
     '''
     def __init__(self, snap, pode):
+        self.snap = snap
         self.ndef = pode[0]
         self.pode = pode
         self.form = snap.core.model.form(self.ndef[0])
 
     def get(self, name, defv=None):
-        return self.pode['props'].get(name, defv)
+        return self.pode[1]['props'].get(name, defv)
 
     def iden(self):
         return s_common.ehex(s_common.buid(self.ndef))
@@ -882,6 +868,21 @@ class RuntNode(NodeBase):
     async def pop(self, name, init=False):
         prop = self._reqValidProp(name)
         return await self.snap.core.runRuntPropDel(self, prop)
+
+    async def addTag(self, name, valu=None):
+        mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def delTag(self, name, valu=None):
+        mesg = f'You can not remove a tag from a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    async def delete(self, force=False):
+        mesg = f'You can not delete a runtime only node (form: {self.form.name})'
+        raise s_exc.IsRuntForm(mesg=mesg)
+
+    def getTagNames(self):
+        return ()
 
 class Path:
     '''

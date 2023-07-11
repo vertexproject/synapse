@@ -5322,6 +5322,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
         return await view.nodes(text, opts=opts)
 
+    async def podes(self, text, opts=None):
+        return [n.pack() for n in await self.nodes(text, opts=opts)]
+
     async def eval(self, text, opts=None):
         '''
         Evaluate a storm query and yield packed nodes.

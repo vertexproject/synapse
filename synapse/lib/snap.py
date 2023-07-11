@@ -268,7 +268,6 @@ class ProtoNode:
 
     async def setTagProp(self, tag, name, valu):
 
-        print(f'setTagProp() {tag} {name} {valu}')
         tagnode = await self.addTag(tag)
         if tagnode is None:
             return
@@ -1214,8 +1213,39 @@ class Snap(s_base.Base):
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
+        now = s_common.now()
+        prop = self.core.model.prop(full)
+
+        filt = None
+        if valu is not None and cmpr is not None:
+            filt = prop.type.getCmprCtor(cmpr)(valu)
+            if filt is None:
+                raise s_exc.BadCmprValu(cmpr=cmpr)
+
         async for pode in self.core.runRuntLift(full, valu, cmpr, self.view.iden):
-            yield s_node.RuntNode(self, pode)
+
+            # for runt nodes without a .created time
+            pode[1]['props'].setdefault('.created', now)
+
+            node = s_node.RuntNode(self, pode)
+
+            if filt is None:
+                if not prop.isform:
+                    if node.get(prop.name, defv=s_common.novalu) is s_common.novalu:
+                        await asyncio.sleep(0)
+                        continue
+            else:
+
+                if prop.isform:
+                    nval = node.ndef[1]
+                else:
+                    nval = node.get(prop.name, s_common.novalu)
+
+                if nval is s_common.novalu or not filt(nval):
+                    await asyncio.sleep(0)
+                    continue
+
+            yield node
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
