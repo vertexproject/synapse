@@ -729,15 +729,20 @@ class LibDmon(Lib):
         return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, text, name='noname', ddef=None):
+
+        varz = {}
+
+        # closure style capture of runtime and query vars
+        if isinstance(text, Query):
+            varz.update(s_msgpack.getvars(text.varz))
+
+        varz.update(s_msgpack.getvars(self.runt.vars))
+
         text = await tostr(text)
         ddef = await toprim(ddef)
-        varz = await toprim(self.runt.vars)
 
         viewiden = self.runt.snap.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
-
-        # closure style capture of runtime
-        varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
 
         opts = {'vars': varz, 'view': viewiden}
 

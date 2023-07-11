@@ -4609,3 +4609,20 @@ class StormTest(s_t_utils.SynTest):
                 await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
                 self.len(0, await core.nodes(f'file:bytes={sha256}'))
                 self.false(await core.axon.has(s_common.uhex(sha256)))
+
+    async def test_lib_dmon_embed(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                function dostuff(mesg) {
+                    $query = ${
+                        $lib.queue.gen(hehe).put($mesg)
+                        $lib.dmon.del($auto.iden)
+                    }
+                    $lib.dmon.add($query)
+                    return()
+                }
+                $dostuff(woot)
+            ''')
+
+            self.eq('woot', await core.callStorm('return($lib.queue.gen(hehe).get().1)'))
