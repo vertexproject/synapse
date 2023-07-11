@@ -734,9 +734,11 @@ class LibDmon(Lib):
 
         # closure style capture of runtime and query vars
         if isinstance(text, Query):
-            varz.update(s_msgpack.getvars(text.varz))
+            varz.update(await toprim(text.varz))
 
-        varz.update(s_msgpack.getvars(self.runt.vars))
+        varz.update(await toprim(self.runt.vars))
+
+        varz = s_msgpack.getvars(varz)
 
         text = await tostr(text)
         ddef = await toprim(ddef)
