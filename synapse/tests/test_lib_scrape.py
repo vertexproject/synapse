@@ -707,12 +707,89 @@ class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape_cpe(self):
         print('SCRAPE GOT:')
-        cpedata = '''
-        cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*
-        cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:foo
-        cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*:baz
-        cpe:2.3:a:vertex:synapse:*:*:*:*:*:baz
+        cpedata = r'''
+        GOOD DATA
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other
+        cpe:2.3:a:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:h:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:o:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:-:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:-:na:*:*:*:*:*:*:*:*
+        cpe:2.3:*:.:dot:*:*:*:*:*:*:*:*
+        cpe:2.3:*:_:underscore:*:*:*:*:*:*:*:*
+        cpe:2.3:*:?:spec1:*:*:*:*:*:*:*:*
+        A few quoted characters
+        cpe:2.3:*:\!:quoted:*:*:*:*:*:*:*:*
+        cpe:2.3:*:\?:quoted:*:*:*:*:*:*:*:*
+        cpe:2.3:*:\*:quoted:*:*:*:*:*:*:*:*
+        cpe:2.3:*:\\:escapeescape:*:*:*:*:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:-:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:en:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-en:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-123:*:*:*:*
+        A few examples
+        cpe:2.3:a:ntp:ntp:4.2.8:p3:*:*:*:*:*:*
+        cpe:2.3:o:microsoft:windows_7:-:sp2:*:*:*:*:*:*
+        cpe:2.3:a:hp:insight:7.4.0.1570:-:*:*:online:win2003:x64:*
+        cpe:2.3:a:foo\\bar:big\$money_2010:*:*:*:*:special:ipod_touch:80gb:*
+        cpe:2.3:a:hp:openview_network_manager:7.51:*:*:*:*:linux:*:*
+        cpe:2.3:a:apple:swiftnio_http\/2:1.19.1:*:*:*:*:swift:*:*
+        Some quoted examples
+        cpe:2.3:a:fooo:bar_baz\:_beep_bpp_sys:1.1:*:*:*:*:ios:*:*
+        cpe:2.3:a:lemonldap-ng:apache\:\:session\:\:browsable:0.9:*:*:*:*:perl:*:*
+        cpe:2.3:a:daemon-ng:hurray\:\::0.x:*:*:*:*:*:*:*
+        cpe:2.3:a:microsoft:intern\^et_explorer:8.0.6001:beta:*:*:*:*:*:*
+        BAD values
+        cpe:2.3:a:vertex:synapse:*:*:*:NEWP:*:*:*:*
+        cpe:2.3:a::::::::::
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other:newp
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:ॐ:other
+        cpe:2.3:a:vendor:product:version:update:edition
+        # Bad languages
+        cpe:2.3:*:langtest:*:*:*:*:a:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:aaaa:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-o:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-omn:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-12:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-1234:*:*:*:*
+
         '''
-        nodes = sorted(set(s_scrape.scrape(cpedata)))
-        for node in nodes:
-            print(node)
+        nodes = sorted(set(s_scrape.scrape(cpedata, ptype='it:sec:cpe')))
+        for v in nodes:
+            print(v[1])
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:-:na:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:.:dot:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:?:spec1:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\!:quoted:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\*:quoted:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\?:quoted:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\\\:escapeescape:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:_:underscore:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:-:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:en:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:usa-123:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:usa-en:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:usa:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:-:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:apple:swiftnio_http\\/2:1.19.1:*:*:*:*:swift:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:daemon-ng:hurray\\:\\::0.x:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:foo\\\\bar:big\\$money_2010:*:*:*:*:special:ipod_touch:80gb:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:fooo:bar_baz\\:_beep_bpp_sys:1.1:*:*:*:*:ios:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:hp:insight:7.4.0.1570:-:*:*:online:win2003:x64:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:hp:openview_network_manager:7.51:*:*:*:*:linux:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:lemonldap-ng:apache\\:\\:session\\:\\:browsable:0.9:*:*:*:*:perl:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:microsoft:intern\\^et_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:ntp:ntp:4.2.8:p3:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:h:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:o:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:o:microsoft:windows_7:-:sp2:*:*:*:*:*:*'))
+
+        self.len(0, nodes)
