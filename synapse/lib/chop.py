@@ -49,7 +49,7 @@ def hexstr(text):
     text = text.replace(' ', '').replace(':', '')
 
     if not text:
-        raise s_exc.BadDataValu(valu=text, name='hexstr',
+        raise s_exc.BadTypeValu(valu=text, name='hexstr',
                                 mesg='No string left after stripping')
 
     try:
@@ -57,7 +57,7 @@ def hexstr(text):
         # checking in C without using regex
         s_common.uhex(text)
     except (binascii.Error, ValueError) as e:
-        raise s_exc.BadDataValu(valu=text, name='hexstr', mesg=str(e)) from None
+        raise s_exc.BadTypeValu(valu=text, name='hexstr', mesg=str(e)) from None
     return text
 
 def onespace(text):
