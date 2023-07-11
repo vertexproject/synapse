@@ -2079,6 +2079,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the software family which uses the config.'}),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the C2 config was extracted from.'}),
+                    ('decoys', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
                     ('servers', ('array', {'type': 'inet:url'}), {
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
                     ('proxies', ('array', {'type': 'inet:url'}), {

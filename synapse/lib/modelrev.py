@@ -722,6 +722,9 @@ class ModelRev:
         await self._normPropValu(layers, 'risk:vuln:cvss:v2')
         await self._normPropValu(layers, 'risk:vuln:cvss:v3')
 
+        await self._normPropValu(layers, 'risk:vuln:name')
+        await self._propToForm(layers, 'risk:vuln:name', 'risk:vulnname')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
