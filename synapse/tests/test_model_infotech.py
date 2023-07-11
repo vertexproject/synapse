@@ -1317,6 +1317,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :file=*
                     :family=Beacon
                     :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
+                    :decoys=(https://woot.com, https://foo.bar)
                     :listens=(https://0.0.0.0:443,)
                     :proxies=(socks5://visi:secret@1.2.3.4:1234,)
                     :dns:resolvers=(udp://8.8.8.8:53,)
@@ -1344,6 +1345,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(('https://0.0.0.0:443',), node.get('listens'))
             self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
             self.eq(('udp://8.8.8.8:53',), node.get('dns:resolvers'))
+            self.eq(('https://woot.com', 'https://foo.bar',), node.get('decoys'))
 
     async def test_infotech_query(self):
 
