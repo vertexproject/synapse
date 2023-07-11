@@ -265,7 +265,7 @@ evalvalu: _valu
 exprdict: "{" ((_exprvalu | VARTOKN)  (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) (":" | _EXPRCOLONNOSPACE) (_exprvalu | VARTOKN))* ","? )? "}"
 exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
-_exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
+_exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
 
@@ -432,8 +432,94 @@ EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
 EXPRMODULO.2: "%"
 EXPRPOW.2: "**"
-NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![^\s})*\/%+\-=><!~]|(?>(?<NUMBERRECUR>\(((?>[^()"'`]+|(?&NUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
-HEXNUMBER.1: /-?0x[0-9a-fA-F]+(?![^\s})*\/%+\-=><!~]|(?>(?<HEXNUMBERRECUR>\(((?>[^()"'`]+|(?&HEXNUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
+NUMBER.1: /
+    -?                                          # optional sign
+    (                                           # start captue group
+        0+\d*(?=\.)                         |   # match zero, zero-leading numbers, and zero-leading numbers ending with . (e.g. "42.")
+        (?<!\d)[1-9]\d*                     |   # match non-zero-leading numbers 
+        0+(?![1-9\.])                           # match one or more zeroes
+    )
+    (\.\d*)?
+    (?!
+        [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
+        (?>                                     # atomic group
+            (?<NUMBERRECUR>                     # start of named capture group NUMBERRECUR
+                \((                             # literal open parens and start of capture group
+                    (?>                         # atomic group
+                        [^()"'`]+           |   # match anything except these characters
+                        (?&NUMBERRECUR)     |   # matches expression defined in capture group NUMBERRECUR
+                        `(?:[^`\\]|\\.)*`   |   # matches backtick strings
+                        "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
+                        '''.*?'''           |   # matches triple-tick strings
+                        '[^']*'(?!')            # matches single-quote strings
+                    )*                          # match capture groups zero or more times
+                )\)                             # literal close parens and end of capture group
+            )                               |   # end of named capture group NUMBERRECUR
+            '''.*?'''                       |   # matches triple-tick strings
+            `(?:[^`\\]|\\.)*`               |   # matches backtick strings
+            "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
+            '[^']*'(?!')                    |   # matches single-quote strings
+            [^,)}]                              # matches anything except these characters                      
+        )*,
+    )
+/x
+
+HEXNUMBER.1: /
+    -?                                          # optional sign
+    0x[0-9a-fA-F]+                              # hex number pattern
+    (?!                                         # start of negative lookahead
+        [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
+        (?>                                     # atomic group
+            (?<HEXNUMBERRECUR>                  # start of named capture group HEXNUMBERRECUR
+                \((                             # literal open parens and start of capture group
+                    (?>                         # atomic group
+                        [^()"'`]+           |   # match anything except these characters
+                        (?&HEXNUMBERRECUR)  |   # matches expression defined in capture group HEXNUMBERRECUR
+                        `(?:[^`\\]|\\.)*`   |   # matches backtick strings
+                        "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
+                        '''.*?'''           |   # matches triple-tick strings
+                        '[^']*'(?!')            # matches single-quote strings
+                    )*                          # match capture groups zero or more times
+                )\)                             # literal close parens and end of capture group
+            )                               |   # end of named capture group HEXNUMBERRECUR
+            '''.*?'''                       |   # matches triple-tick strings
+            `(?:[^`\\]|\\.)*`               |   # matches backtick strings
+            "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
+            '[^']*'(?!')                    |   # matches single-quote strings
+            [^,)}]                              # matches anything except these characters                      
+        )*,                                     # end of atomic group
+                                                # match zero or more times
+    )                                           # end of negative lookahead
+/x
+
+OCTNUMBER.1: /
+    -?                                          # optional sign
+    0o[0-7]+                                    # octal number pattern
+    (?!                                         # start of negative lookahead
+        [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
+        (?>                                     # atomic group
+            (?<OCTNUMBERRECUR>                  # start of named capture group OCTNUMBERRECUR
+                \((                             # literal open parens and start of capture group
+                    (?>                         # atomic group
+                        [^()"'`]+           |   # match anything except these characters
+                        (?&OCTNUMBERRECUR)  |   # matches expression defined in capture group OCTNUMBERRECUR
+                        `(?:[^`\\]|\\.)*`   |   # matches backtick strings
+                        "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
+                        '''.*?'''           |   # matches triple-tick strings
+                        '[^']*'(?!')            # matches single-quote strings
+                    )*                          # match capture groups zero or more times
+                )\)                             # literal close parens and end of capture group
+            )                               |   # end of named capture group OCTNUMBERRECUR
+            '''.*?'''                       |   # matches triple-tick strings
+            `(?:[^`\\]|\\.)*`               |   # matches backtick strings
+            "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
+            '[^']*'(?!')                    |   # matches single-quote strings
+            [^,)}]                              # matches anything except these characters
+        )*,                                     # end of atomic group
+                                                # match zero or more times
+    )                                           # end of negative lookahead
+/x
+
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
 NOT.2: "not"
 OR.2: "or"
