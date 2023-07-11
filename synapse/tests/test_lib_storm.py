@@ -4626,3 +4626,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.eq('woot', await core.callStorm('return($lib.queue.gen(hehe).get().1)'))
+
+            await core.nodes('''
+                function dostuff(mesg) {
+                    $query = ${
+                        $lib.queue.gen(haha).put($lib.vars.get(mesg))
+                        $lib.dmon.del($auto.iden)
+                    }
+                    $lib.dmon.add($query)
+                    return()
+                }
+                $dostuff($lib.set())
+            ''')
+
+            self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
