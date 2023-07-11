@@ -185,6 +185,12 @@ def cvss_validate(vect, vers):
     if _vect.startswith(tag):
         _vect = _vect[len(tag):]
 
+    if vers == s_cvss.cvss3_0 and _vect.startswith(_tag := s_cvss.tags[s_cvss.cvss3_1]):
+        _vect = _vect[len(_tag):]
+
+    if vers == s_cvss.cvss3_1 and _vect.startswith(_tag := s_cvss.tags[s_cvss.cvss3_0]):
+        _vect = _vect[len(_tag):]
+
     try:
         # Parse out metrics
         mets_vals = [k.split(':') for k in _vect.split('/')]
