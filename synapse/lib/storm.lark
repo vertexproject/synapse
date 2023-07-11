@@ -438,9 +438,9 @@ NUMBER.1: /
         0+\d*(?=\.)                         |   # match zero, zero-leading numbers, and zero-leading numbers ending with . (e.g. "42.")
         (?<!\d)[1-9]\d*                     |   # match non-zero-leading numbers 
         0+(?![1-9\.])                           # match one or more zeroes
-    )
-    (\.\d*)?
-    (?!
+    )                                           # end capture group
+    (\.\d*)?                                    # also capture decimal point and any following decimal digits
+    (?!                                         # start negative lookahead
         [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
         (?>                                     # atomic group
             (?<NUMBERRECUR>                     # start of named capture group NUMBERRECUR
@@ -459,9 +459,9 @@ NUMBER.1: /
             `(?:[^`\\]|\\.)*`               |   # matches backtick strings
             "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
             '[^']*'(?!')                    |   # matches single-quote strings
-            [^,)}]                              # matches anything except these characters                      
-        )*,
-    )
+            [^,)}]                              # matches anything except these characters
+        )*,                                     # end of atomic group and literal comma
+    )                                           # end negative lookahead
 /x
 
 HEXNUMBER.1: /
@@ -486,8 +486,8 @@ HEXNUMBER.1: /
             `(?:[^`\\]|\\.)*`               |   # matches backtick strings
             "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
             '[^']*'(?!')                    |   # matches single-quote strings
-            [^,)}]                              # matches anything except these characters                      
-        )*,                                     # end of atomic group
+            [^,)}]                              # matches anything except these characters
+        )*,                                     # end of atomic group and literal comma
                                                 # match zero or more times
     )                                           # end of negative lookahead
 /x
@@ -515,7 +515,7 @@ OCTNUMBER.1: /
             "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
             '[^']*'(?!')                    |   # matches single-quote strings
             [^,)}]                              # matches anything except these characters
-        )*,                                     # end of atomic group
+        )*,                                     # end of atomic group and literal comma
                                                 # match zero or more times
     )                                           # end of negative lookahead
 /x
