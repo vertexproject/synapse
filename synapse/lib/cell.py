@@ -3585,6 +3585,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await cell.fini()
             raise
 
+        if not int(os.getenv('SYN_CHECKHOST', '1')):
+            s_thisplat.checkhost()
+
         return cell
 
     @classmethod
