@@ -3449,6 +3449,27 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).('bar').upper()))"))
             self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).$('bar').upper()))"))
 
+            # todo: setting an item toprims the key, and deref toprims the key
+            text = '''
+            $x = ({})
+            $y = (1.23)
+            $x.$y = "foo"
+            for ($k, $v) in $x { return(($k, $x.$k)) }
+            '''
+            self.eq((1.23, 'foo'), await core.callStorm(text))
+
+            # todo: using a mutable key blows up
+            text = '''
+            $x = ({})
+            $y = ([(1.23)])
+            $x.$y = "foo"
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+
+            # todo: constructor behaves the same way (normalizes keys)
+            # todo: iter behaves the same way (keys should be normalized on storage)
+            # todo: runtsafe/non-runtsafe set item behave the same way
+
     async def test_storm_varlist_compute(self):
 
         async with self.getTestCore() as core:

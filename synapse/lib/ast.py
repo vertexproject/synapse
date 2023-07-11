@@ -1063,7 +1063,6 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, path)
 
             # TODO: ditch this when storm goes full heavy object
-            name = await tostr(name)
             with s_scope.enter({'runt': runt}):
                 await item.setitem(name, valu)
 
@@ -2957,7 +2956,6 @@ class VarDeref(Value):
             return None
 
         name = await self.kids[1].compute(runt, path)
-        name = await tostr(name)
 
         valu = s_stormtypes.fromprim(base, path=path)
         return await valu.deref(name)
