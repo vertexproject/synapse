@@ -1,14 +1,41 @@
+import synapse.exc as s_exc
+
+import synapse.lib.chop as s_chop
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
-cvss_v2_re = r'AV:(L|A|N)\/AC:(H|M|L)\/Au:(M|S|N)\/C:(N|P|C)\/I:(N|P|C)\/A:(N|P|C)(\/E:(ND|U|POC|F|H)\/RL:(ND|OF|TF|W|U)\/RC:(ND|UC|UR|C))?(\/CDP:(ND|N|L|LM|MH|H)\/TD:(ND|N|L|M|H)\/CR:(ND|L|M|H)\/IR:(ND|L|M|H)\/AR:(ND|L|M|H))?'
 
-cvss_v3_re = r'AV:(N|A|L|P)\/AC:(L|H)\/PR:(N|L|H)\/UI:(N|R)\/S:(U|C)\/C:(N|L|H)\/I:(N|L|H)\/A:(N|L|H)(\/E:(X|U|P|F|H)\/RL:(X|O|T|W|U)\/RC:(X|U|R|C))?(\/CR:(X|L|M|H)\/IR:(X|L|M|H)\/AR:(X|L|M|H)\/MAV:(X|N|A|L|P)\/MAC:(X|L|H)\/MPR:(X|N|L|H)\/MUI:(X|N|R)\/MS:(X|U|C)\/MC:(X|N|L|H)\/MI:(X|N|L|H)\/MA:(X|N|L|H))?'
+class CvssV2(s_types.Str):
+
+    def _normPyStr(self, text):
+        try:
+            return s_chop.cvss2_normalize(text), {}
+        except s_exc.BadDataValu as exc:
+            mesg = exc.get('mesg')
+            raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
+
+class CvssV3(s_types.Str):
+
+    def _normPyStr(self, text):
+        try:
+            return s_chop.cvss3x_normalize(text), {}
+        except s_exc.BadDataValu as exc:
+            mesg = exc.get('mesg')
+            raise s_exc.BadTypeValu(name=self.name, valu=text, mesg=mesg) from None
 
 class RiskModule(s_module.CoreModule):
 
     def getModelDefs(self):
 
         modl = {
+            'ctors': (
+                ('cvss:v2', 'synapse.models.risk.CvssV2', {}, {
+                    'doc': 'A CVSS v2 vector string.', 'ex': '(AV:L/AC:L/Au:M/C:P/I:C/A:N)'
+                }),
+                ('cvss:v3', 'synapse.models.risk.CvssV3', {}, {
+                    'doc': 'A CVSS v3.x vector string.', 'ex': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
+                }),
+            ),
             'types': (
                 ('risk:vuln', ('guid', {}), {
                     'doc': 'A unique vulnerability.'}),
@@ -320,7 +347,7 @@ class RiskModule(s_module.CoreModule):
                     ('cisa:kev:duedate', ('time', {}), {
                         'doc': 'The date the action is due according to the CISA KEV database.'}),
 
-                    ('cvss:v2', ('str', {'regex': cvss_v2_re}), {
+                    ('cvss:v2', ('cvss:v2', {}), {
                         'doc': 'The CVSS v2 vector for the vulnerability.'}),
 
                     ('cvss:v2_0:score', ('float', {}), {
@@ -335,7 +362,7 @@ class RiskModule(s_module.CoreModule):
                     ('cvss:v2_0:score:environmental', ('float', {}), {
                         'doc': 'The CVSS v2.0 environmental score for the vulnerability.'}),
 
-                    ('cvss:v3', ('str', {'regex': cvss_v3_re}), {
+                    ('cvss:v3', ('cvss:v3', {}), {
                         'doc': 'The CVSS v3 vector for the vulnerability.'}),
 
                     ('cvss:v3_0:score', ('float', {}), {
