@@ -4,6 +4,65 @@
 Synapse Changelog
 *****************
 
+v2.141.0 - 2023-07-07
+=====================
+
+Model Changes
+-------------
+- Update to the ``it`` and ``lang`` models.
+  (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
+
+  New Properties
+  --------------
+
+  ``it:host``
+    The form had the following properties added to it:
+
+    ``keyboard:language``
+      The primary keyboard input language configured on the host.
+
+    ``keyboard:layout``
+      The primary keyboard layout configured on the host.
+
+  ``lang:language``
+    The form had the following property added to it:
+
+    ``code``
+      The language code for this language.
+
+Features and Enhancements
+-------------------------
+- Update ``$lib.infosec.cvss.vectToScore()`` to include a normalized
+  CVSS vector in the output.
+  (`#3211 <https://github.com/vertexproject/synapse/pull/3211>`_)
+- Optimize the addition and removal of lightweight edges when operating
+  on N1 edges in Storm.
+  (`#3214 <https://github.com/vertexproject/synapse/pull/3214>`_)
+- Added ``$lib.gen.langByCode``.
+  (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
+
+Bugfixes
+--------
+- Fix bug with regular expression comparisons for some types.
+  (`#3213 <https://github.com/vertexproject/synapse/pull/3213>`_)
+- Fix a ``TypeError`` being raised when passing a heavy Number object to
+  ``$lib.math.number()``.
+  (`#3215 <https://github.com/vertexproject/synapse/pull/3215>`_)
+- Fix an issue with the Cell backup space checks. They now properly calculate
+  the amount of free space when the Cell backup directory is configured
+  on a separate volume from the Cell storage directory.
+  (`#3216 <https://github.com/vertexproject/synapse/pull/3216>`_)
+- Prevent the ``yield`` operator from directly emitting nodes into the Storm
+  pipeline if those node objects came from a different view. Nodes previously
+  lifted in this manner must be lifted by calling the ``iden()`` function on
+  the object to ensure the node being lifted into the pipeline reflects the
+  current view.
+  (`#3218 <https://github.com/vertexproject/synapse/pull/3218>`_)
+- Always remove the ``mirror`` configuration option from ``cell.mods.yaml``
+  when provisioning a service via Aha. The previous behavior prevented the
+  correct restoration of a service from a backup which had been changed from
+  being a leader to being a mirror.
+  (`#3220 <https://github.com/vertexproject/synapse/pull/3220>`_)
 
 v2.140.1 - 2023-06-30
 =====================

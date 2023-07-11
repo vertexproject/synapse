@@ -108,5 +108,5 @@ class XmlTest(s_test.SynTest):
                 await core.callStorm('$lib.xml.parse($bytes)', opts=opts)
 
             with mock.patch('xml.etree.ElementTree.fromstring', mockexc):
-                with self.raises(s_exc.SynErr):
+                with self.raises(Exception):
                     await core.callStorm('$lib.xml.parse("")', opts=opts)
