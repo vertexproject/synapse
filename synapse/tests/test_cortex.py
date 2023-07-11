@@ -4095,8 +4095,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.IsRuntForm, core.nodes('[test:runt=" oh MY! "]'))
             await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep | delnode'))
 
-            # Sad path for underlying Cortex.runRuntLift
-            nodes = await alist(core.runRuntLift('test:newp', 'newp'))
+            # Sad path for underlying view.getRuntPodes()
+            form = core.model.form('inet:ipv4')
+            nodes = await alist(core.view.getRuntPodes(form))
             self.len(0, nodes)
 
     async def test_cortex_view_invalid(self):

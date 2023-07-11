@@ -4127,37 +4127,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except ValueError:
             pass
 
-    def addRuntLift(self, prop, func):
+    def addRuntLift(self, formname, func):
         '''
-        Register a runt lift helper for a given prop.
+        Register a runt lift helper for a given form.
 
         Args:
-            prop (str): Full property name for the prop to register the helper for.
-            func:
+            formname (str): The form name to register the callback for.
+            func: (function): A callback func(view) which yields packed nodes.
 
         Returns:
             None: None.
         '''
-        self._runtLiftFuncs[prop] = func
+        self._runtLiftFuncs[formname] = func
 
-    async def runRuntLift(self, full, valu=None, cmpr=None, view=None):
-        '''
-        Execute a runt lift function.
-
-        Args:
-            full (str): Property to lift by.
-            valu:
-            cmpr:
-
-        Returns:
-            bytes, list: Yields bytes, list tuples where the list contains a series of
-                key/value pairs which are used to construct a Node object.
-
-        '''
-        func = self._runtLiftFuncs.get(full)
-        if func is not None:
-            async for pode in func(full, valu, cmpr, view):
-                yield pode
+    def getRuntLift(self, formname):
+        return self._runtLiftFuncs.get(formname)
 
     def addRuntPropSet(self, full, func):
         '''

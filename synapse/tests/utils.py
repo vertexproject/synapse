@@ -452,9 +452,6 @@ class TestModule(s_module.CoreModule):
         form = self.model.form('test:runt')
         self.core.addRuntLift(form.full, self._testRuntLift)
 
-        for prop in form.props.values():
-            self.core.addRuntLift(prop.full, self._testRuntLift)
-
         self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
         self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
@@ -470,7 +467,7 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
+    async def _testRuntLift(self, view, prop, cmprvalu=None):
 
         now = s_common.now()
         timetype = self.core.model.type('time')

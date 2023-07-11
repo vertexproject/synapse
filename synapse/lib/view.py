@@ -1053,6 +1053,12 @@ class View(s_nexus.Pusher):  # type: ignore
                     yield form, valu, info
                     await asyncio.sleep(0)
 
+    async def getRuntPodes(self, prop, cmprvalu=None):
+        liftfunc = self.core.getRuntLift(prop.form.name)
+        if liftfunc is not None:
+            async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
+                yield pode
+
     async def _mergeLiftRows(self, genrs):
         async for indx, nid, sref in s_common.merggenr2(genrs):
             yield nid, [layr.genStorNodeRef(nid) for layr in self.layers]

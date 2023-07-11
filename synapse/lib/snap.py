@@ -760,7 +760,7 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchProp(mesg=mesg)
 
         if prop.isrunt:
-            async for node in self.getRuntNodes(prop.full):
+            async for node in self.getRuntNodes(prop):
                 yield node
             return
 
@@ -800,7 +800,7 @@ class Snap(s_base.Base):
 
         if prop.isrunt:
             for storcmpr, storvalu, _ in cmprvals:
-                async for node in self.getRuntNodes(prop.full, valu=storvalu, cmpr=storcmpr):
+                async for node in self.getRuntNodes(prop, cmprvalu=(storcmpr, storvalu)):
                     yield node
             return
 
@@ -1211,41 +1211,49 @@ class Snap(s_base.Base):
 
         return await self.getNodeByBuid(protonode.buid)
 
-    async def getRuntNodes(self, full, valu=None, cmpr=None):
+    async def getRuntNodes(self, prop, cmprvalu=None):
 
         now = s_common.now()
-        prop = self.core.model.prop(full)
 
         filt = None
-        if valu is not None and cmpr is not None:
-            filt = prop.type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
+        if cmprvalu is not None:
 
-        async for pode in self.core.runRuntLift(full, valu, cmpr, self.view.iden):
+            cmpr, valu = cmprvalu
+
+            ctor = prop.type.getCmprCtor(cmpr)
+            if ctor is None:
+                mesg = f'Bad comparison ({cmpr}) for type {prop.type.name}.'
+                raise s_exc.BadCmprType(mesg=mesg, cmpr=cmpr)
+
+            filt = ctor(valu)
+            if filt is None:
+                mesg = f'Bad value ({valu}) for comparison {cmpr} {prop.type.name}.'
+                raise s_exc.BadCmprValu(mesg=mesg, cmpr=cmpr)
+
+        async for pode in self.view.getRuntPodes(prop, cmprvalu=cmprvalu):
 
             # for runt nodes without a .created time
             pode[1]['props'].setdefault('.created', now)
 
-            node = s_node.RuntNode(self, pode)
-
+            # filter based on any specified prop / cmpr / valu
             if filt is None:
                 if not prop.isform:
-                    if node.get(prop.name, defv=s_common.novalu) is s_common.novalu:
+                    pval = pode[1]['props'].get(prop.name, s_common.novalu)
+                    if pval == s_common.novalu:
                         await asyncio.sleep(0)
                         continue
             else:
 
                 if prop.isform:
-                    nval = node.ndef[1]
+                    nval = pode[0][1]
                 else:
-                    nval = node.get(prop.name, s_common.novalu)
+                    nval = pode[1]['props'].get(prop.name, s_common.novalu)
 
                 if nval is s_common.novalu or not filt(nval):
                     await asyncio.sleep(0)
                     continue
 
-            yield node
+            yield s_node.RuntNode(self, pode)
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
