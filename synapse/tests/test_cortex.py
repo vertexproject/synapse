@@ -3449,7 +3449,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).('bar').upper()))"))
             self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).$('bar').upper()))"))
 
-            # todo: setting an item toprims the key, and deref toprims the key
+            # setitem and deref both toprim the key
             text = '''
             $x = ({})
             $y = (1.23)
@@ -3458,7 +3458,32 @@ class CortexBasicTest(s_t_utils.SynTest):
             '''
             self.eq((1.23, 'foo'), await core.callStorm(text))
 
-            # todo: using a mutable key blows up
+            # constructor also toprims all keys
+            text = '''
+            $y = (1.23)
+            $x = ({
+                $y: "foo"
+            })
+            for ($k, $v) in $x { return(($k, $x.$k)) }
+            '''
+            self.eq((1.23, 'foo'), await core.callStorm(text))
+
+            text = '''
+            $y=$lib.null [ inet:fqdn=foo.com ] $y=$node spin |
+            $x = ({
+                "cool": {
+                    $y: "foo"
+                }
+            })
+            for ($k, $v) in $x {
+                for ($k2, $v2) in $v {
+                    return(($k2, $x.$k.$k2))
+                }
+            }
+            '''
+            self.eq(('foo.com', 'foo'), await core.callStorm(text))
+
+            # using a mutable key raises an exception
             text = '''
             $x = ({})
             $y = ([(1.23)])
@@ -3466,9 +3491,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             '''
             await self.asyncraises(s_exc.BadArg, core.nodes(text))
 
-            # todo: constructor behaves the same way (normalizes keys)
-            # todo: iter behaves the same way (keys should be normalized on storage)
-            # todo: runtsafe/non-runtsafe set item behave the same way
+            text = '''
+            $y = ([(1.23)])
+            $x = ({
+                $y: "foo"
+            })
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(text))
 
     async def test_storm_varlist_compute(self):
 
