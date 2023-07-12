@@ -22,7 +22,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     '''
     Implements the Storm API for a Websocket.
     '''
-    _storm_typename = 'http:socket'
+    _storm_typename = 'inet:http:socket'
 
     _storm_locals = (
 
@@ -108,7 +108,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'http:resp', 'desc': 'The response object.'}}},
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
          'type': {'type': 'function', '_funcname': '_httpPost',
                   'args': (
@@ -137,7 +137,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'http:resp', 'desc': 'The response object.'}}},
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
          'type': {'type': 'function', '_funcname': '_httpEasyHead',
                   'args': (
@@ -156,7 +156,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'http:resp', 'desc': 'The response object.'}}},
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
          'type': {'type': 'function', '_funcname': '_httpRequest',
                    'args': (
@@ -186,7 +186,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                    ),
-                  'returns': {'type': 'http:resp', 'desc': 'The response object.'}
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}
                   }
          },
         {'name': 'connect', 'desc': 'Connect a web socket to tx/rx JSON messages.',
@@ -204,7 +204,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'http:socket', 'desc': 'A websocket object.'}}},
+                  'returns': {'type': 'inet:http:socket', 'desc': 'A websocket object.'}}},
         {'name': 'urlencode', 'desc': '''
             Urlencode a text string.
 
@@ -467,7 +467,7 @@ class HttpResp(s_stormtypes.Prim):
                      }
         },
     )
-    _storm_typename = 'http:resp'
+    _storm_typename = 'inet:http:resp'
     def __init__(self, valu, path=None):
         super().__init__(valu, path=path)
         self.locls.update(self.getObjLocals())

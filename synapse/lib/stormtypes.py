@@ -5800,7 +5800,7 @@ class Path(Prim):
                   'returns': {'type': 'list',
                               'desc': 'List of tuples containing the name and value of path variables.', }}},
     )
-    _storm_typename = 'path'
+    _storm_typename = 'node:path'
     _ismutable = True
 
     def __init__(self, node, path=None):

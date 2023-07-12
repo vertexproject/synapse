@@ -36,7 +36,7 @@ class ImapLib(s_stormtypes.Lib):
             Open a connection to an IMAP server.
 
             This method will wait for a "hello" response from the server
-            before returning the ``imap:server`` instance.
+            before returning the ``inet:imap:server`` instance.
             ''',
             'type': {
                 'type': 'function', '_funcname': 'connect',
@@ -51,8 +51,8 @@ class ImapLib(s_stormtypes.Lib):
                      'desc': 'Use SSL to connect to the IMAP server.'},
                 ),
                 'returns': {
-                    'type': 'imap:server',
-                    'desc': 'A new ``imap:server`` instance.'
+                    'type': 'inet:imap:server',
+                    'desc': 'A new ``inet:imap:server`` instance.'
                 },
             },
         },
@@ -263,7 +263,7 @@ class ImapServer(s_stormtypes.StormType):
             },
         },
     )
-    _storm_typename = 'imap:server'
+    _storm_typename = 'inet:imap:server'
 
     def __init__(self, runt, imap_cli, path=None):
         s_stormtypes.StormType.__init__(self, path=path)
