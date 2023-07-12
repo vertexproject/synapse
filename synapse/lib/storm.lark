@@ -432,14 +432,34 @@ EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
 EXPRMODULO.2: "%"
 EXPRPOW.2: "**"
+
+// Each of NUMBER, HEXNUMBER, and OCTNUMBER below have some very gnarly regular expressions. To make
+// them a little more palatable, they've been broken out and commented. All of these regex patterns
+// have a type specific section at the top for matching on their respective number patterns. The
+// negative lookahead is common to all three types. Basically all of this recursive nastiness is
+// following along to figure out if there is eventually a comma that turns it into an unquoted string
+// rather than a number. This is because storm allows for unquoted strings in its syntax. So, we need
+// to make sure we are only matching on number patterns that are not part of an unquoted string.
+// The atomic grouping stuff there makes sure that we are only matching entire levels of nesting at
+// a time, otherwise in something like this example:
+//
+//    if ($foo = 123 or $lib.str.concat('foo),b"ar', 'baz')) { }
+//
+// It will end up closing that level of parenthesis after "foo". This all means we need to have
+// these really funky regex patterns.
+
 NUMBER.1: /
     -?                                          # optional sign
-    (                                           # start captue group
+    (                                           # start capture group
         0+\d*(?=\.)                         |   # match zero, zero-leading numbers, and zero-leading numbers ending with . (e.g. "42.")
         (?<!\d)[1-9]\d*                     |   # match non-zero-leading numbers 
         0+(?![1-9\.])                           # match one or more zeroes
     )                                           # end capture group
     (\.\d*)?                                    # also capture decimal point and any following decimal digits
+
+    ##
+    ## The regex below to the end of the pattern is all the common stuff described above
+    ##
     (?!                                         # start negative lookahead
         [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
         (?>                                     # atomic group
@@ -467,57 +487,64 @@ NUMBER.1: /
 HEXNUMBER.1: /
     -?                                          # optional sign
     0x[0-9a-fA-F]+                              # hex number pattern
-    (?!                                         # start of negative lookahead
-        [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
-        (?>                                     # atomic group
-            (?<HEXNUMBERRECUR>                  # start of named capture group HEXNUMBERRECUR
-                \((                             # literal open parens and start of capture group
-                    (?>                         # atomic group
-                        [^()"'`]+           |   # match anything except these characters
-                        (?&HEXNUMBERRECUR)  |   # matches expression defined in capture group HEXNUMBERRECUR
-                        `(?:[^`\\]|\\.)*`   |   # matches backtick strings
-                        "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
-                        '''.*?'''           |   # matches triple-tick strings
-                        '[^']*'(?!')            # matches single-quote strings
-                    )*                          # match capture groups zero or more times
-                )\)                             # literal close parens and end of capture group
-            )                               |   # end of named capture group HEXNUMBERRECUR
-            '''.*?'''                       |   # matches triple-tick strings
-            `(?:[^`\\]|\\.)*`               |   # matches backtick strings
-            "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
-            '[^']*'(?!')                    |   # matches single-quote strings
-            [^,)}]                              # matches anything except these characters
-        )*,                                     # end of atomic group and literal comma
-                                                # match zero or more times
-    )                                           # end of negative lookahead
+
+    ##
+    ## The regex below to the end of the pattern is all the common stuff described above
+    ##
+    (?!
+        [^\s})*\/%+\-=><!~]                 |
+        (?>
+            (?<HEXNUMBERRECUR>
+                \((
+                    (?>
+                        [^()"'`]+           |
+                        (?&HEXNUMBERRECUR)  |
+                        `(?:[^`\\]|\\.)*`   |
+                        "(?:[^"\\]|\\.)*"   |
+                        '''.*?'''           |
+                        '[^']*'(?!')
+                    )*
+                )\)
+            )                               |
+            '''.*?'''                       |
+            `(?:[^`\\]|\\.)*`               |
+            "(?:[^"\\]|\\.)*"               |
+            '[^']*'(?!')                    |
+            [^,)}]
+        )*,
+    )
 /x
+
 
 OCTNUMBER.1: /
     -?                                          # optional sign
     0o[0-7]+                                    # octal number pattern
-    (?!                                         # start of negative lookahead
-        [^\s})*\/%+\-=><!~]                 |   # exclude these characters from the negative lookahead
-        (?>                                     # atomic group
-            (?<OCTNUMBERRECUR>                  # start of named capture group OCTNUMBERRECUR
-                \((                             # literal open parens and start of capture group
-                    (?>                         # atomic group
-                        [^()"'`]+           |   # match anything except these characters
-                        (?&OCTNUMBERRECUR)  |   # matches expression defined in capture group OCTNUMBERRECUR
-                        `(?:[^`\\]|\\.)*`   |   # matches backtick strings
-                        "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
-                        '''.*?'''           |   # matches triple-tick strings
-                        '[^']*'(?!')            # matches single-quote strings
-                    )*                          # match capture groups zero or more times
-                )\)                             # literal close parens and end of capture group
-            )                               |   # end of named capture group OCTNUMBERRECUR
-            '''.*?'''                       |   # matches triple-tick strings
-            `(?:[^`\\]|\\.)*`               |   # matches backtick strings
-            "(?:[^"\\]|\\.)*"               |   # matches double-quote strings
-            '[^']*'(?!')                    |   # matches single-quote strings
-            [^,)}]                              # matches anything except these characters
-        )*,                                     # end of atomic group and literal comma
-                                                # match zero or more times
-    )                                           # end of negative lookahead
+
+    ##
+    ## The regex below to the end of the pattern is all the common stuff described above
+    ##
+    (?!
+        [^\s})*\/%+\-=><!~]                 |
+        (?>
+            (?<OCTNUMBERRECUR>
+                \((
+                    (?>
+                        [^()"'`]+           |
+                        (?&OCTNUMBERRECUR)  |
+                        `(?:[^`\\]|\\.)*`   |
+                        "(?:[^"\\]|\\.)*"   |
+                        '''.*?'''           |
+                        '[^']*'(?!')
+                    )*
+                )\)
+            )                               |
+            '''.*?'''                       |
+            `(?:[^`\\]|\\.)*`               |
+            "(?:[^"\\]|\\.)*"               |
+            '[^']*'(?!')                    |
+            [^,)}]
+        )*,
+    )
 /x
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
