@@ -3,6 +3,8 @@ import bs4
 import synapse.lib.coro as s_coro
 import synapse.lib.stormtypes as s_stormtypes
 
+sema = s_coro.make_forkpool_sema(0.5)
+
 def htmlToText(html):
     soup = bs4.BeautifulSoup(html, 'html5lib')
     return soup.get_text(separator='\n', strip=True)
@@ -31,4 +33,4 @@ class LibMimeHtml(s_stormtypes.Lib):
 
     async def totext(self, html):
         html = await s_stormtypes.tostr(html)
-        return await s_coro.forked(htmlToText, html)
+        return await s_coro.forked_bounded(sema, htmlToText, html)

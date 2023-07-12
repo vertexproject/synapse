@@ -5,6 +5,8 @@ import threading
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
+
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils
 
@@ -16,6 +18,10 @@ def spawnfunc(x, y=10):
 def spawnsleep(n=10):
     time.sleep(n)
     return True
+
+def spawntime(n):
+    time.sleep(n)
+    return s_common.now()
 
 def spawnfakeit():
     raise FakeError()
@@ -152,6 +158,32 @@ class CoroTest(s_t_utils.SynTest):
 
         try:
             self.eq(50, await s_coro.forked(spawnfunc, 20, y=30))
+        finally:
+            s_coro.forkpool = oldpool
+
+    async def test_lib_coro_forked_bounded(self):
+
+        self.raises(s_exc.BadArg, s_coro.make_forkpool_sema, 0)
+        self.raises(s_exc.BadArg, s_coro.make_forkpool_sema, 1.1)
+
+        self.eq(s_coro.max_workers, s_coro.make_forkpool_sema(1)._value)
+
+        sema = s_coro.make_forkpool_sema(0.000001)
+        self.eq(1, sema._value)
+
+        async with asyncio.TaskGroup() as tg:
+            task0 = tg.create_task(s_coro.forked_bounded(sema, spawntime, 1.1))
+            task1 = tg.create_task(s_coro.forked_bounded(sema, spawntime, 1.1))
+
+        self.gt(abs(await task1 - await task0), 1_000)
+
+        oldpool = s_coro.forkpool
+        s_coro.forkpool = None
+
+        try:
+            sema = s_coro.make_forkpool_sema(0.5)
+            self.eq(1, sema._value)
+            self.eq(50, await s_coro.forked_bounded(sema, spawnfunc, 20, y=30))
         finally:
             s_coro.forkpool = oldpool
 

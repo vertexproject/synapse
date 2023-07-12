@@ -2,6 +2,7 @@
 Async/Coroutine related utilities.
 '''
 import os
+import math
 import queue
 import atexit
 import asyncio
@@ -278,6 +279,19 @@ def set_pool_logging(logger_, logconf):
         forkpool._initializer = _runtodo
         forkpool._initargs = (todo,)
 
+def make_forkpool_sema(frac):
+    '''
+    Create an async semaphore with a bound based on a fractional amount of the
+    maximum workers in the forkpool.
+    '''
+    if frac <= 0 or frac > 1:
+        raise s_exc.BadArg(mesg=f'frac must be between (0, 1]: {frac}')
+
+    if forkpool is None:
+        return asyncio.Semaphore(1)
+
+    return asyncio.Semaphore(max(1, math.floor(max_workers * frac)))
+
 async def forked(func, *args, **kwargs):
     '''
     Execute a target function in the shared forked process pool
@@ -301,6 +315,25 @@ async def forked(func, *args, **kwargs):
 
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
     return await spawn(todo, log_conf=_pool_logconf)
+
+async def forked_bounded(sema, func, *args, **kwargs):
+    '''
+    Execute a target function in forked() bounded by a semaphore.
+
+    The make_forkpool_sema helper function can be used to create the semaphore
+    based on utilizing up to a fractional amount of the maximum workers.
+
+    Args:
+        sema: An asyncio.Semaphore to acquire before executing the function.
+        func: The target function.
+        *args: Function positional arguments.
+        **kwargs: Function keyword arguments.
+
+    Returns:
+        The target function return.
+    '''
+    async with sema:
+        return await forked(func, *args, **kwargs)
 
 async def _parserforked(func, *args, **kwargs):
     '''
