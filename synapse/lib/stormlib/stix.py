@@ -641,7 +641,7 @@ class LibStix(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to lift nodes from.'},
                 ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes'}
             }
         },
     )
@@ -655,8 +655,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        todo = (validateStix, (bundle,), {})
-        return await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+        return await s_coro.forked(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
@@ -851,7 +850,7 @@ class LibStixImport(s_stormtypes.Lib):
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
                 ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes'}
             },
         },
     )
@@ -1094,7 +1093,7 @@ class LibStixExport(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
                 ),
-                'returns': {'type': 'storm:stix:bundle', 'desc': 'A new ``storm:stix:bundle`` instance.'},
+                'returns': {'type': 'stix:bundle', 'desc': 'A new ``stix:bundle`` instance.'},
             },
         },
 
@@ -1204,7 +1203,7 @@ class StixBundle(s_stormtypes.Prim):
     Implements the Storm API for creating and packing a STIX bundle for v2.1
     '''
 
-    _storm_typename = 'storm:stix:bundle'
+    _storm_typename = 'stix:bundle'
     _storm_locals = (
 
         {'name': 'add', 'desc': '''

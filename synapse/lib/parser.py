@@ -75,6 +75,7 @@ terminalEnglishMap = {
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
+    'OCTNUMBER': 'number',
     'OR': 'or',
     'PROPS': 'absolute property name',
     'RBRACE': '}',
@@ -582,10 +583,10 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    return await s_coro.forked(parseQuery, args[0], mode=args[1])
+    return await s_coro._parserforked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
-    return await s_coro.forked(parseEval, text)
+    return await s_coro._parserforked(parseEval, text)
 
 evalcache = s_cache.FixedCache(_forkedParseEval, size=100)
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)
@@ -605,6 +606,7 @@ terminalClassMap = {
     'TRIPLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[3:-3]), # drop the triple 's
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,

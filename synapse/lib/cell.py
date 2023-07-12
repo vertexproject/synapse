@@ -3405,6 +3405,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
         for key in provconf:
             s_common.yamlpop(key, mods_path)
+
+        # Slice the mirror option out of the cell.mods.yaml file. This avoids
+        # a situation where restoring a backup from a cell which was demoted
+        # from a leader to a follower has a config value which conflicts with
+        # the new provconf.
+        s_common.yamlpop('mirror', mods_path)
+
         new_conf.setConfFromFile(mods_path, force=True)
 
         # Ensure defaults are set
