@@ -140,7 +140,8 @@ class RiskModelTest(s_t_utils.SynTest):
 
             node = await addNode(f'''[
                     risk:vuln={vuln}
-                    :name=myvuln
+                    :name="My Vuln   is Cool"
+                    :names=(hehe, haha, haha)
                     :type=mytype
                     :desc=mydesc
 
@@ -191,7 +192,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cvss:v3_1:score:environmental=3.3
             ]''')
             self.eq(node.ndef, ('risk:vuln', vuln))
-            self.eq(node.get('name'), 'myvuln')
+            self.eq(node.get('name'), 'my vuln is cool')
+            self.eq(node.get('names'), ('haha', 'hehe'))
             self.eq(node.get('type'), 'mytype.')
             self.eq(node.get('desc'), 'mydesc')
 
