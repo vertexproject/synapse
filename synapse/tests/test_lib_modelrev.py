@@ -416,3 +416,6 @@ class ModelRevTest(s_tests.SynTest):
 
             self.eq(nodes[0].props.get('cvss:v2'), s_chop.cvss2_normalize(cvssv2))
             self.eq(nodes[0].props.get('cvss:v3'), s_chop.cvss3x_normalize(cvssv3))
+
+            self.len(1, await core.nodes('risk:vulnname="woot woot"'))
+            self.len(1, await core.nodes('risk:vuln:name="woot woot"'))
