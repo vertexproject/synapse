@@ -467,7 +467,7 @@ NUMBER.1: /
                 \((                             # literal open parens and start of capture group
                     (?>                         # atomic group
                         [^()"'`]+           |   # match anything except these characters
-                        (?&NUMBERRECUR)     |   # matches expression defined in capture group NUMBERRECUR
+                        (?&NUMBERRECUR)     |   # matches another level of nested parentheses
                         `(?:[^`\\]|\\.)*`   |   # matches backtick strings
                         "(?:[^"\\]|\\.)*"   |   # matches double-quote strings
                         '''.*?'''           |   # matches triple-tick strings
