@@ -757,8 +757,8 @@ class ScrapeTest(s_t_utils.SynTest):
         Unicode quotes “cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes”
 
         EMBEDDED TEXT
-        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx:newp
-        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz:
+        wordscpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx:newp
+        wordscpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz:
 
         BAD values
         cpe:2.3:a:vertex:synapse:*:*:*:NEWP:*:*:*:*
