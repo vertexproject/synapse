@@ -1457,7 +1457,7 @@ Features and Enhancements
   HiveUser object, is no longer populated by default.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
 - Add ``$lib.inet.http.codereason`` Storm API for translating HTTP status
-  codes to reason phrases. ``http:resp`` objects now also have a
+  codes to reason phrases. ``inet:http:resp`` objects now also have a
   ``reason`` value populated.
   (`#3023 <https://github.com/vertexproject/synapse/pull/3023>`_)
 - Update the minimum version of the ``cryptography`` library to ``39.0.1`` and
@@ -1960,7 +1960,7 @@ Bugfixes
 - Fix an error with the ``merge`` command creating ``No form named None``
   warnings in the Cortex logs.
   (`#2952 <https://github.com/vertexproject/synapse/pull/2952>`_)
-- Fix the Storm ``smtp:message`` getter and setter for the ``html``
+- Fix the Storm ``inet:smtp:message`` getter and setter for the ``html``
   property so it will correctly produce HTML formatted messages.
   (`#2955 <https://github.com/vertexproject/synapse/pull/2955>`_)
 - Several ``certdir`` APIs previously allowed through
@@ -2357,7 +2357,7 @@ Features and Enhancements
   (`#2886 <https://github.com/vertexproject/synapse/pull/2886>`_)
 - Add ``$lib.crypto.hmac.digest()`` to compute RFC2104 digests in Storm.
   (`#2902 <https://github.com/vertexproject/synapse/pull/2902>`_)
-- Update the Storm ``http:resp.json()`` method to add optional
+- Update the Storm ``inet:http:resp.json()`` method to add optional
   ``encoding`` and ``errors`` arguments, to control how data is deserialized.
   (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
 - Update the Storm ``bytes.decode()`` method to add an optional
@@ -4513,7 +4513,7 @@ Features and Enhancements
   Stormtypes ``layer`` object.
   These routines are in a beta status and are subject to change.
   (`#2488 <https://github.com/vertexproject/synapse/pull/2488>`_)
-- The ``.json()`` API on ``http:resp`` now raises a
+- The ``.json()`` API on ``inet:http:resp`` now raises a
   ``s_exc.BadJsonText`` exception, which can be caught with the Storm
   ``try ... catch`` syntax.
   (`#2500 <https://github.com/vertexproject/synapse/pull/2500>`_)
@@ -5838,7 +5838,7 @@ Features and Enhancements
 - Add debug logging to the Axon for reading, writing, or deleting of blobs.
   (`#2202 <https://github.com/vertexproject/synapse/pull/2202>`_)
 - Add a timeout argument to the ``$lib.inet.http`` functions. The functions
-  will all now always return a ``http:resp`` object; if the ``.code``
+  will all now always return a ``inet:http:resp`` object; if the ``.code``
   is -1, an unrecoverable exception occurred while making the request.
   (`#2205 <https://github.com/vertexproject/synapse/pull/2205>`_)
 - Add support for embedding a logo and documentation into a Storm Package.
