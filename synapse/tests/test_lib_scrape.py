@@ -486,6 +486,11 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
 
+        # check values that look like IP addresses but aren't because they have extra digits on the
+        # beginning or end
+        nodes = list(s_scrape.scrape('1.2.3.400 1.2.3.1750 1234.5.6.7 0123.4.5.6'))
+        self.len(0, nodes)
+
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
         sha1 = ('c' * 40, 'd' * 40,)
