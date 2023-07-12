@@ -709,6 +709,7 @@ class ScrapeTest(s_t_utils.SynTest):
         cpedata = r'''
         GOOD DATA
         cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:tspace   
         cpe:2.3:a:*:*:*:*:*:*:*:*:*:*
         cpe:2.3:h:*:*:*:*:*:*:*:*:*:*
         cpe:2.3:o:*:*:*:*:*:*:*:*:*:*
@@ -746,15 +747,24 @@ class ScrapeTest(s_t_utils.SynTest):
         cpe:2.3:a:microsoft:intern\^et_explorer:8.0.6001:beta:*:*:*:*:*:*
 
         TEXT examples
-        Synapse has a cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:intext".
-        People should not put a CPE at the end of a sentence like this.. cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.
+        Example double quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:dquotes".
+        Example single quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:squotes".
+        A CPE at the end of a sentence like this captures the period... cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.
+        Some CPE are exciting! Like this cpe:2.3:a:*:*:*:*:*:*:*:*:*:noexclaim!
+        Some CPE are boring! Like this cpe:2.3:a:*:*:*:*:*:*:*:*:*:noslash\
+        Unicode endings are omitted cpe:2.3:a:*:*:*:*:*:*:*:*:*:unicodeend0ॐ
+        Unicode quotes “cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes”
+
+        EMBEDDED TEXT
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx:newp
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz:
 
         BAD values
         cpe:2.3:a:vertex:synapse:*:*:*:NEWP:*:*:*:*
         cpe:2.3:a::::::::::
-        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx:newp
         cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:ॐ:other
         cpe:2.3:a:vendor:product:version:update:edition
+        cpe:2.3:a:opps:bad_quote\\/2:1.19.1:*:*:*:*:swift:*:*
 
         # Bad languages
         cpe:2.3:*:langtest:*:*:*:*:a:*:*:*:*
@@ -763,7 +773,6 @@ class ScrapeTest(s_t_utils.SynTest):
         cpe:2.3:*:langtest:*:*:*:*:usa-omn:*:*:*:*
         cpe:2.3:*:langtest:*:*:*:*:usa-12:*:*:*:*
         cpe:2.3:*:langtest:*:*:*:*:usa-1234:*:*:*:*
-
         '''
         nodes = sorted(set(s_scrape.scrape(cpedata, ptype='it:sec:cpe')))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*:*:*:*:*:*:*:*:*:*'))
@@ -794,13 +803,21 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:ntp:ntp:4.2.8:p3:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe',
                       'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:tspace'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:h:*:*:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:o:*:*:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:o:microsoft:windows_7:-:sp2:*:*:*:*:*:*'))
-        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:intext'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:dquotes'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:squotes'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.'))
-        print('Remaining Nodes:')
-        from pprint import pprint
-        pprint(nodes)
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:noexclaim'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:noslash'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:unicodeend0'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes'))
 
-        # self.len(0, nodes)
+        self.len(0, nodes)
