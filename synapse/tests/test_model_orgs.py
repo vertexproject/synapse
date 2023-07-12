@@ -22,18 +22,23 @@ class OuModelTest(s_t_utils.SynTest):
                     :tag=woot.woot
                     :mitre:attack:technique=T0001
                     :sophistication=high
+                    :reporter=$lib.gen.orgByName(vertex)
+                    :reporter:name=vertex
                 ]
             ''')
             self.len(1, nodes)
+            self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
+            self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
 
             async with await core.snap() as snap:
 
@@ -107,8 +112,12 @@ class OuModelTest(s_t_utils.SynTest):
             norm, subs = t.norm(541715)
             self.eq(norm, '541715')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, '1')
             self.raises(s_exc.BadTypeValu, t.norm, 1000000)
-            self.raises(s_exc.BadTypeValu, t.norm, 1000)
+            self.eq('10', t.norm('10')[0])
+            self.eq('100', t.norm('  100  ')[0])
+            self.eq('1000', t.norm('1000')[0])
+            self.eq('10000', t.norm('10000')[0])
 
             # ou:sic
             t = core.model.type('ou:sic')

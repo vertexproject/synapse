@@ -1184,9 +1184,6 @@ class StormTest(s_t_utils.SynTest):
                 cron.view = None
             await core.nodes('cron.list')
 
-            # test that stormtypes nodes can be yielded
-            self.len(1, await core.nodes('for $x in ${ [inet:ipv4=1.2.3.4] } { yield $x }'))
-
             self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('''
                 return($lib.dict( // do foo thing
                     foo /* hehe */ = /* haha */ bar, //lol
@@ -1219,7 +1216,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 nodes = await core.nodes('diff')
 
-            nodes = await core.nodes('diff --prop ".created" | +ou:org', opts=altview)
+            altro = {'view': viewiden, 'readonly': True}
+            nodes = await core.nodes('diff --prop ".created" | +ou:org', opts=altro)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
 
@@ -2890,8 +2888,65 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('yield $foo', opts={'vars': {'foo': None}})
             self.len(0, nodes)
 
+            # test that stormtypes nodes can be yielded
+            self.len(1, await core.nodes('for $x in ${ [inet:ipv4=1.2.3.4] } { yield $x }'))
+
+            # Some sad path tests
             with self.raises(s_exc.BadLiftValu):
                 await core.nodes('yield $foo', opts={'vars': {'foo': 'asdf'}})
+
+            # Nodes from other views do not lift
+            view = await core.callStorm('return( $lib.view.get().iden )')
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+
+            q = '''
+            $nodes = $lib.list()
+            view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
+            for $n in $nodes {
+                yield $n
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInErr('Node is not from the current view.', msgs)
+
+            q = '''
+            $nodes = $lib.list()
+            view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
+            for $n in $nodes {
+                yield $n
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInErr('Node is not from the current view.', msgs)
+
+            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | yield $x'
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInErr('Node is not from the current view.', msgs)
+
+            # Nodes lifted from another view and referred to by iden() works
+            q = '''
+            $nodes = $lib.list()
+            view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
+            for $n in $nodes {
+                yield $n.iden()
+            }
+            '''
+            nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
+            self.len(1, nodes)
+
+            q = '''
+            $nodes = $lib.list()
+            view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
+            for $n in $nodes {
+                yield $n.iden()
+            }
+            '''
+            nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
+            self.len(1, nodes)
+
+            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | for $n in $x { yield $n.iden() }'
+            nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
+            self.len(1, nodes)
 
     async def test_storm_splicelist(self):
 
@@ -4554,3 +4609,34 @@ class StormTest(s_t_utils.SynTest):
                 await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
                 self.len(0, await core.nodes(f'file:bytes={sha256}'))
                 self.false(await core.axon.has(s_common.uhex(sha256)))
+
+    async def test_lib_dmon_embed(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                function dostuff(mesg) {
+                    $query = ${
+                        $lib.queue.gen(hehe).put($mesg)
+                        $lib.dmon.del($auto.iden)
+                    }
+                    $lib.dmon.add($query)
+                    return()
+                }
+                $dostuff(woot)
+            ''')
+
+            self.eq('woot', await core.callStorm('return($lib.queue.gen(hehe).get().1)'))
+
+            await core.nodes('''
+                function dostuff(mesg) {
+                    $query = ${
+                        $lib.queue.gen(haha).put($lib.vars.get(mesg))
+                        $lib.dmon.del($auto.iden)
+                    }
+                    $lib.dmon.add($query)
+                    return()
+                }
+                $dostuff($lib.set())
+            ''')
+
+            self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))

@@ -641,7 +641,7 @@ class LibStix(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to lift nodes from.'},
                 ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes'}
             }
         },
     )
@@ -655,8 +655,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        todo = (validateStix, (bundle,), {})
-        return await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+        return await s_coro.forked(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
@@ -851,7 +850,7 @@ class LibStixImport(s_stormtypes.Lib):
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
                 ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes'}
             },
         },
     )
@@ -1094,7 +1093,7 @@ class LibStixExport(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
                 ),
-                'returns': {'type': 'storm:stix:bundle', 'desc': 'A new ``storm:stix:bundle`` instance.'},
+                'returns': {'type': 'stix:bundle', 'desc': 'A new ``stix:bundle`` instance.'},
             },
         },
 
@@ -1204,7 +1203,7 @@ class StixBundle(s_stormtypes.Prim):
     Implements the Storm API for creating and packing a STIX bundle for v2.1
     '''
 
-    _storm_typename = 'storm:stix:bundle'
+    _storm_typename = 'stix:bundle'
     _storm_locals = (
 
         {'name': 'add', 'desc': '''
@@ -1248,6 +1247,7 @@ class StixBundle(s_stormtypes.Prim):
         self.config = config
         self.locls.update(self.getObjLocals())
         self.objs = {}  # id -> STIX obj(dict)
+        self.synextension = config.get('synapse_extension', True)
         self.maxsize = config.get('maxsize', 10000)
 
     async def value(self):
@@ -1333,14 +1333,14 @@ class StixBundle(s_stormtypes.Prim):
             'id': stixid,
             'type': stixtype,
             'spec_version': '2.1',
-            'extensions': {
+        }
+        if self.synextension:
+            retn['extensions'] = {
                 SYN_STIX_EXTENSION_ID: {
                     "extension_type": "property-extension",
                     'synapse_ndef': ndef
                 }
             }
-
-        }
         return retn
 
     async def _addRel(self, srcid, reltype, targid):
@@ -1381,7 +1381,8 @@ class StixBundle(s_stormtypes.Prim):
 
     def pack(self):
         objects = list(self.objs.values())
-        objects.insert(0, self._getSynapseExtensionDefinition())
+        if self.synextension:
+            objects.insert(0, self._getSynapseExtensionDefinition())
         bundle = {
             'type': 'bundle',
             'id': f'bundle--{uuid4()}',

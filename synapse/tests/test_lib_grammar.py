@@ -530,8 +530,8 @@ Queries = [
     '$x = (5 * 100 % 3)',
     '$x = (5 / 100 % 3)',
 
-    # This group of expressions is for checking the lookaheads in the NUMBER.1
-    # and HEXNUMBER.1 regular expressions in storm.lark. These two regexes allow
+    # This group of expressions is for checking the lookaheads in the NUMBER.1,
+    # HEXNUMBER.1, and OCTNUMBER.1 regular expressions in storm.lark. These two regexes allow
     # for no spaces between the numbers and the operators (+-*/%)
     '$x = (5+100%3)',
     '$x = (5-100%3)',
@@ -541,6 +541,10 @@ Queries = [
     '$x = (0x5-0x100%0x3)',
     '$x = (0x5*0x100%0x3)',
     '$x = (0x5/0x100%0x3)',
+    '$x = (0o5+0o100%0o3)',
+    '$x = (0o5-0o100%0o3)',
+    '$x = (0o5*0o100%0o3)',
+    '$x = (0o5/0o100%0o3)',
 
     '$foo=42 $foo2=43 $x = $($foo * $foo2)',
     '$yep=$(42 < 43)',
@@ -1162,6 +1166,10 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: -, ExprNode: [Const: 256, Const: %, Const: 3]]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: *, Const: 256], Const: %, Const: 3]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: /, Const: 256], Const: %, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: +, ExprNode: [Const: 64, Const: %, Const: 3]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 5, Const: -, ExprNode: [Const: 64, Const: %, Const: 3]]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: *, Const: 64], Const: %, Const: 3]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [ExprNode: [Const: 5, Const: /, Const: 64], Const: %, Const: 3]]]]',
     'Query: [SetVarOper: [Const: foo, Const: 42], SetVarOper: [Const: foo2, Const: 43], SetVarOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
     'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: <, Const: 43]]]]',
     'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >, Const: 43]]]]',
@@ -1454,11 +1462,11 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 71)
-        self.eq(errinfo.get('line'), 3)
+        self.eq(errinfo.get('at'), 81)
+        self.eq(errinfo.get('line'), 5)
         self.eq(errinfo.get('column'), 18)
         self.eq(errinfo.get('token'), ':network')
-        self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 3, column 18"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 5, column 18"))
 
         query = 'inet:ipv4 | tee { -> foo '
         parser = s_parser.Parser(query)

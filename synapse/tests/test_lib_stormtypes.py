@@ -768,7 +768,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("Library $lib", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
-            self.stormIsInPrint("storm:queue: testq", mesgs)
+            self.stormIsInPrint("queue: testq", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
             self.stormIsInPrint("('1', '2', '3')", mesgs)
@@ -1447,6 +1447,8 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('StormType List.length() is deprecated', msgs)
 
             # Reverse a list
             q = '$v=(foo,bar,baz) $v.reverse() return ($v)'
@@ -1743,8 +1745,8 @@ class StormTypesTest(s_test.SynTest):
             # cron and others uniq by iden
             q = '''
                 $set = $lib.set()
-                $jobA = $lib.cron.add(query="{[test:int=1]}", hourly=10)
-                $jobB = $lib.cron.add(query="{[test:int=1]}", hourly=10)
+                $jobA = $lib.cron.add(query=${[test:int=1]}, hourly=10)
+                $jobB = $lib.cron.add(query=${[test:int=1]}, hourly=10)
 
                 $set.add($jobA)
                 $set.add($jobB)
@@ -2172,7 +2174,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
             msgs = await core.stormlist('$lib.print($lib.auth.users.list().0)')
-            self.stormIsInPrint('storm:auth:user', msgs)
+            self.stormIsInPrint('auth:user', msgs)
             self.stormIsInPrint("'name': 'root'", msgs)
 
             await core.stormlist('auth.user.add visi')
@@ -2522,7 +2524,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('for ($offs, $tick) in $lib.queue.get(visi).gets(size=3) { [test:int=$tick] } ')
             self.len(3, nodes)
             self.eq({0, 1, 2}, {node.ndef[1] for node in nodes})
-            self.nn(core.getStormDmon(iden))
+            self.nn(await core.getStormDmon(iden))
 
             # lib.time.ticker also clears the snap cache
             async with await core.snap() as snap:
@@ -2577,13 +2579,13 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url))', opts=opts)
-            self.stormIsInPrint("storm:proxy: <synapse.telepath.Proxy object", mesgs)
+            self.stormIsInPrint("telepath:proxy: <synapse.telepath.Proxy object", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).doit)', opts=opts)
-            self.stormIsInPrint("storm:proxy:method: <synapse.telepath.Method", mesgs)
+            self.stormIsInPrint("telepath:proxy:method: <synapse.telepath.Method", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).fqdns)', opts=opts)
-            self.stormIsInPrint("storm:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
+            self.stormIsInPrint("telepath:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
 
             unfo = await core.addUser('lowuesr')
             user = unfo.get('iden')
@@ -5072,7 +5074,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
 
             msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({core.auth.allrole.iden}))')
-            self.stormIsInPrint('storm:auth:role', msgs)
+            self.stormIsInPrint('auth:role', msgs)
 
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
@@ -6225,6 +6227,7 @@ words\tword\twrd'''
                 huge % 'foo'
 
             self.eq(15.0, await core.callStorm('return($lib.math.number(0xf))'))
+            self.eq(15.0, await core.callStorm('return($lib.math.number($lib.math.number(0xf)))'))
             self.eq(1.23, await core.callStorm('return($lib.math.number(1.23).tofloat())'))
             self.eq('1.23', await core.callStorm('return($lib.math.number(1.23).tostr())'))
             self.eq(1, await core.callStorm('return($lib.math.number(1.23).toint())'))

@@ -1053,6 +1053,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('[test:str="foo"] [inet:ipv6?=$node.value()] -test:str'))
             self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv6?=$node.value()] -test:str'))
 
+            await core.nodes('[ inet:ipv6=2a00:: inet:ipv6=2a00::1 ]')
+
+            self.len(1, await core.nodes('inet:ipv6>2a00::'))
+            self.len(2, await core.nodes('inet:ipv6>=2a00::'))
+            self.len(2, await core.nodes('inet:ipv6<2a00::'))
+            self.len(3, await core.nodes('inet:ipv6<=2a00::'))
+
+            self.len(1, await core.nodes('inet:ipv6 +inet:ipv6>2a00::'))
+            self.len(2, await core.nodes('inet:ipv6 +inet:ipv6>=2a00::'))
+            self.len(2, await core.nodes('inet:ipv6 +inet:ipv6<2a00::'))
+            self.len(3, await core.nodes('inet:ipv6 +inet:ipv6<=2a00::'))
+
     async def test_ipv6_lift_range(self):
 
         async with self.getTestCore() as core:

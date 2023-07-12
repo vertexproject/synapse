@@ -31,7 +31,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
             with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:asdf]')
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
@@ -457,6 +460,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             # check that the host activity model was inherited
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
+
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('keyboard:language'))
+            self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
+            self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
 
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
@@ -1284,9 +1293,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
 
-            with self.raises(s_exc.BadTypeValu):
-                cpe23.norm('cpe:2.3:a:vertex:synapse')
-
             # test cast 2.2 -> 2.3 upsample
             norm, info = cpe23.norm('cpe:/a:vertex:synapse')
             self.eq(norm, 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
@@ -1311,6 +1317,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :file=*
                     :family=Beacon
                     :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
+                    :decoys=(https://woot.com, https://foo.bar)
                     :listens=(https://0.0.0.0:443,)
                     :proxies=(socks5://visi:secret@1.2.3.4:1234,)
                     :dns:resolvers=(udp://8.8.8.8:53,)
@@ -1338,6 +1345,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(('https://0.0.0.0:443',), node.get('listens'))
             self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
             self.eq(('udp://8.8.8.8:53',), node.get('dns:resolvers'))
+            self.eq(('https://woot.com', 'https://foo.bar',), node.get('decoys'))
 
     async def test_infotech_query(self):
 

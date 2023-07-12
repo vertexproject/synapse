@@ -1,4 +1,5 @@
 import json
+import math
 import asyncio
 import contextlib
 import collections
@@ -1947,6 +1948,14 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return((1.23 <= $lib.cast(float, 2.34)))'))
             self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
 
+            self.eq(await core.callStorm('return(($lib.cast(str, (5.3 / 2))))'), '2.65')
+            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.0')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.00000000000000001))))'), '0.00000000000000001')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.3333333333333333')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.nan}}), 'NaN')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.inf}}), 'Infinity')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': -math.inf}}), '-Infinity')
+
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')
 
@@ -2309,7 +2318,7 @@ class AstTest(s_test.SynTest):
 
             q = '$view = $lib.view.get() $lib.print($view)'
             mesgs = await core.stormlist(q)
-            self.stormIsInPrint('storm:view', mesgs)
+            self.stormIsInPrint('view', mesgs)
 
             q = '''
                 $pipe = $lib.pipe.gen(${
@@ -2430,3 +2439,48 @@ class AstTest(s_test.SynTest):
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('haha', text[off:end])
+
+    async def test_ast_bulkedges(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('for $x in $lib.range(1010) {[ it:dev:str=$x ]}')
+
+            strtoffs = await core.getView().layers[0].getEditIndx()
+
+            q = '''
+            [ inet:ipv4=1.2.3.4
+                +(refs)> { for $x in $lib.range(1005) {[ it:dev:str=$x ]} }
+            ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(1005, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+
+            # node creation + 2 batches of edits
+            nextoffs = await core.getView().layers[0].getEditIndx()
+            self.eq(strtoffs + 3, nextoffs)
+
+            q = '''
+            inet:ipv4=1.2.3.4
+            [ -(refs)> { for $x in $lib.range(1010) {[ it:dev:str=$x ]} } ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+
+            # 2 batches of edits
+            self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
+
+            nodes = await core.nodes('syn:prop limit 1')
+            await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
+
+            q = 'inet:ipv4=1.2.3.4 [ <(newp)+ { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'syn:prop [ -(newp)> { inet:ipv4=1.2.3.4 } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 [ <(newp)- { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))

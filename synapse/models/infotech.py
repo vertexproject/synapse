@@ -112,9 +112,12 @@ class Cpe23Str(s_types.Str):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
             parts = cpesplit(text[8:])
-            if len(parts) != 11:
-                mesg = f'CPE 2.3 string has {len(parts)} fields, expected 11.'
+            if len(parts) > 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
                 raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
         elif text.startswith('cpe:/'):
             # automatically normalize CPE 2.2 format to CPE 2.3
             parts = chopCpe22(text)
@@ -658,6 +661,12 @@ class ItModule(s_module.CoreModule):
 
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the host.'}),
+
+                    ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The primary keyboard layout configured on the host.'}),
+
+                    ('keyboard:language', ('lang:language', {}), {
+                        'doc': 'The primary keyboard input language configured on the host.'}),
                 )),
                 ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
@@ -2070,6 +2079,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the software family which uses the config.'}),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the C2 config was extracted from.'}),
+                    ('decoys', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
                     ('servers', ('array', {'type': 'inet:url'}), {
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
                     ('proxies', ('array', {'type': 'inet:url'}), {

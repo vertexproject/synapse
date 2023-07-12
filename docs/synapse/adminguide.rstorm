@@ -75,8 +75,7 @@ Synapse includes the following built-in users and roles:
   from Storm.
   
   In the commercial Optic UI, users, roles, and permissions can be managed through the **Admin Tool** and
-  through dialogs associated with various objects (such as Views or Stories), in addition to the Storm
-  commands.
+  through dialogs associated with various objects (such as Views or Stories).
 
 
 .. NOTE::
@@ -86,7 +85,7 @@ Synapse includes the following built-in users and roles:
   
   The :ref:`devopsguide` includes information on provisioning **initial** users when Synapse is first deployed
   (see :ref:`devops-task-users`). This guide focuses on ongoing management of users and roles once Synapse
-  admins have access to Storm (the Storm CLI or Optic UI).
+  admins have access to Storm (i.e., the Storm CLI or Optic UI).
 
 
 .. _admin_users:
@@ -304,10 +303,12 @@ Revoke the role "a-cat-emic researcher" from user "ron":
   The order in which roles are granted to a user matters; when determining whether a user has permission to
   perform an action, the permissions for each of the user's roles are checked in sequence.
   
-  Each role granted to a user is added to the **end** of the set of roles. To "reorder" roles, you must either:
+  Each role granted to a user is added to the **end** of the set of roles **unless** a location (index) for
+  the role is specified. To "reorder" roles, you must either:
   
   - revoke the roles and grant them in the desired order;
-  - use :ref:`stormprims-storm-auth-user-setRoles` to replace the user's roles with a new list of roles.
+  - use the ``--index`` option to specify the location to insert the role;
+  - use :ref:`stormprims-storm-auth-user-setRoles` to replace the user's roles with a new list of roles; or
   - use the commercial Synapse UI (Optic) to reorder the roles using drag-and drop.
   
   See :ref:`admin_perms_background` for additional detail on permissions and :ref:`admin_bkd_precedence`.
@@ -398,6 +399,11 @@ A **permission** is a string that is used to control access. For example:
 
 ``view.add``
 
+.. TIP::
+  
+  A list of most permissions available in a Cortex can be found under :ref:`admin_cortex_perms`. You
+  can also display the list in Synapse using the ``auth.list.perms`` command.
+
 Most permission strings use a dotted (hierarchical) format; specifying a permission higher up in the hierarchy
 includes all permissions below it. For example, the permission ``view`` includes all of the following permissions:
 ``view.add``, ``view.del``, ``view.read``, and ``view.set``.
@@ -406,7 +412,14 @@ Permissions related to objects such as nodes or tags can optionally extend the p
 specific, referencing particular forms, properties, tags/tag trees, or light edges. This allows you to set highly
 granular permissions.
 
-For example:
+Granular permissions may be useful for organizations with specialized users or teams, where certain individuals
+are responsible for specific types of analysis (e.g., strategic analysis vs. tactical threat tracking) and should
+be the only users authorized to create, modify, and tag certain types of data.
+  
+Granular permissions can also be used to differentiate between senior and junior roles; for example, only senior
+analysts may be allowed to apply tags representing certain assessments (such as attribution).
+
+**Examples:**
 
 +-----------------------------------------------------------------+---------------------------------+
 | **Description**                                                 | **Permission**                  |
@@ -459,14 +472,11 @@ For example:
 |                                                                 |                                 |
 +-----------------------------------------------------------------+---------------------------------+
 
-.. TIP::
+.. NOTE::
   
-  Granular permissions may be useful for organizations with specialized users or teams, where certain
-  individuals are responsible for specific types of analysis (e.g., strategic analysis vs. tactical
-  threat tracking) and should be the only users authorized to create, link, and tag certain types of data.
-  
-  Granular permissions can also be used to differentiate between senior and junior roles; for example,
-  only senior analysts may be allowed to apply tags representing certain assessments (such as attribution).
+  Permissions strings **do not** support wildcards (``*``). For example, you cannot specify
+  ``node.tag.*.mytag`` to allow users to both add and delete tags in the ``mytag`` tree.
+
 
 .. _admin_bkd_rule:
 
@@ -504,10 +514,25 @@ in the following order:
 - **User** rules at the **global** (i.e., Cortex) level.
 - **Role** rules at the **global** level.
 
+.. NOTE::
+  
+  Because global rules are evaluated after local rules, permissions granted at the global level can
+  "override" permissions that are not explicitly denied at the local level. For example, a user may
+  fork a view (making them admin of that view) and grant "read" access to a coworker (``view.read``).
+  
+  If the coworker has "write" permissions (such as ``node.tag``) at the **global** level, they will be
+  able to add tags within the forked view (or any view where they have ``view.read`` permissions).
+  
+  If the user forking the view also specified ``!node`` for the view's layer, the coworker would be
+  prevented from adding any tags in the forked view (or making any edits whatsoever).
+
+
 **Roles** (granted to a user) and **rules** (assigned to a user or role) are **also ordered:**
 
-- When granting roles to a user, each new role is added to the **end** of the list of roles.
-- When assigning rules to a role or user, each new rule is added to the **end** of the list of rules.
+- When granting roles to a user, each new role is added to the **end** of the list of roles **unless**
+  a location (index) for the role is specified.
+- When assigning rules to a role or user, each new rule is added to the **end** of the list of rules
+  **unless** a location (index) for the rule is specified.
 
 Rules and roles are evaluated in the following order:
 
@@ -567,8 +592,8 @@ to users or roles for a particular object. Where easy perms are used, you can sp
 Easy perms apply to specific objects. Where easy perms are available, the following conventions apply:
 
 - The user who creates the object has **admin** privileges for that object.
-- **Admin** privileges include the ability to grant permissions to others (including explicitly denying
-  access).
+- **Admin** privileges include the ability to grant permissions to others (including the ability to explicitly
+  deny access).
 - Admin privileges are required to **delete** the object (i.e., **edit** permissions do not include **delete**).
 
 .. TIP::
@@ -580,24 +605,23 @@ Easy perms apply to specific objects. Where easy perms are available, the follow
 Views and Layers
 ~~~~~~~~~~~~~~~~
 
-Data in a Cortex is stored in one or more **layers** (see :ref:`gloss-layer`). The data that a user or
-a role can see is defined by a :ref:`gloss-view` that is composed of one or more ordered layers. (A
-standard installation of Synapse consists of the default view, which contains one layer.)
+Data in a Cortex is stored in one or more **layers** (see :ref:`gloss-layer`). Layers are composed into
+**views** (see :ref:`gloss-view`) containing the data that should be visible to users or roles. (A standard
+installation of Synapse consists of the default view, which contains one layer.)
 
-The ability to see (read) data in a view is "all or nothing" - you cannot allow users to see some nodes in
-a view but not others. If you need to segregate data (based on sensitivity or other criteria), you can use
-multiple layers to do this. The layers can be composed into different views, allowing different users to see
-(read) only the data in the view(s) they should have access to.
+**Views** define the data that a user or role can **see** - they act as a **read** boundary. Granting the
+``view.read`` permission on a view allows users to see (read) data in any of the view's layers; you do not
+need to explicitly grant "read" access to the individual layers themselves.
 
-Views act as a **read** boundary for the data a user or role can **see.** Granting the ``view.read`` permission
-on a view allows users to see (read) data in any of the view's layers; you do not need to explicitly grant
-"read" access to the individual layers themselves.
+The ability to read data in a view is "all or nothing" - you cannot allow users to see some nodes in a view
+but not others. (Sensitive data should be stored in its own layer, and views containing that layer should
+be limited to users or roles with a need to access that data.)
 
-Layers act as a **write** boundary for the data a user or role can **modify** (create / edit / delete). In
-normal circumstances, only the top layer in a view is writable. The ability to write data **to** a layer is
-controlled by the various ``node.*`` permissions, which specify the forms / properties / tags / light edges a
-user or role can work with (create / modify / delete). Permissions to modify data must be assigned at the
-appropriate **layer.**
+**Layers** define the changes (if any) that a user or role can make to data in Synapse - they act as a **write**
+boundary. In normal circumstances, only the top layer in a view is writable. The ability to write data **to** a
+layer is controlled by the various ``node.*`` permissions, which specify the forms / properties / tags / light
+edges a user or role can work with (create / modify / delete). Permissions to modify data must be assigned at
+the appropriate **layer** (or globally, if the permissions apply to all writable layers in the Cortex).
 
 
 .. _admin_assign_perms:
@@ -612,13 +636,12 @@ From a Synapse Admin perspective, managing permissions within Synapse commonly i
 
 - Assigning rules to users and roles within the Cortex.
 - Assigning rules to users and roles for various Auth Gates (such as layers or views) if necessary.
-- Assigning rules to users and roles to allow or deny access to additional services, such as an Axon or
-  various Power-Ups.
+- Assigning rules to users and roles to allow or deny access to additional services, such as various Power-Ups.
 
 Permissions in Synapse are managed using the Storm :ref:`storm-auth` commands.
 
 In the commercial Optic UI, permissions can also be managed through the **Admin Tool** and through dialogs
-associated with various objects (such as Views or Stories), in addition to the Storm commands.
+associated with various objects (such as Views or Stories).
 
 .. TIP::
   
@@ -682,13 +705,20 @@ Specifying rules at the global (Cortex) level may be sufficient for many basic S
 
 .. NOTE::
   
-  Recall that **order matters** when adding rules; each rule is added to the end of the list of rules assigned
-  to a user or role, and rules are evaluated in order of precedence. To reorder rules, you must:
+  Recall that **order matters** when adding rules:
   
-  - remove and re-add them in the new order;
+  - by default, each rule is added to the **end** of the list of rules assigned to a user or role; and
+  - rules are evaluated in order of precedence.
+  
+  To reorder rules, you must:
+  
+  - use the ``--index`` option with ``auth.user.addrule`` or ``auth.role.addrule`` to specify a location to
+    insert a specific rule;
+  - remove and re-add the rules in the desired order;
   - use :ref:`stormprims-storm-auth-user-setRules` or :ref:`stormprims-storm-auth-role-setRules` to replace the
-    rules for a user or role with a new set of rules;
+    rules for a user or role with a new set of rules; or
   - use the commercial Synapse UI (Optic) to reorder rules using drag-and-drop.
+
 
 Assign Permissions
 ******************
@@ -717,6 +747,10 @@ Prevent the "all" role from deleting nodes:
 
 .. storm-cli:: auth.role.addrule all "!node.del"
 
+Prevent the "all" role from deleting nodes, and insert this as the first rule for the role:
+
+.. storm-cli:: auth.role.addrule --index 0 all "!node.del"
+
 .. TIP::
   
   Recall that you can :ref:`admin_user_show` or :ref:`admin_role_show` with the :ref:`storm-auth-user-show`
@@ -743,6 +777,47 @@ Revoke the rule that allows "junior analysts" to apply tags in the ``cno.threat`
 .. storm-cli:: auth.role.delrule "junior analysts" node.tag.cno.threat
 
 
+Check Permissions
+*****************
+
+The :ref:`storm-auth-user-allowed` command can be used to check whether a user has a particular permission (i.e., is
+allowed to perform the associated operation) for a specific **scope** (i.e., globally or for an individual
+Auth Gate). If an appropriate ``allow`` rule exists, the command will show the source (i.e., the rule, role,
+and / or associated Auth Gate) where the permission has been assigned.
+
+.. TIP::
+  
+  - A user may have permissions locally (e.g., to a specific Auth Gate) that they do not have globally. In other
+    words a **global** check may (correctly) show that a user does **not** have an expected permission globally, but
+    the permission will show as "allowed" when the appropriate Auth Gate is checked.
+  - When checking whether a user can see (read) data or manipulate (e.g., fork) a view, check the relevant **view.**
+  - When checking whether a user can modify (write or delete) data, check the relevant **layer.**
+  
+
+**Examples:**
+
+Check whether user 'ron' is allowed to apply tags in the ``cno`` tag tree **globally:**
+
+.. storm-pre:: auth.role.addrule "cattribution analyst" node.tag.add.cno
+
+.. storm-cli:: auth.user.allowed ron node.tag.add.cno
+
+Check whether user 'ron' is allowed to apply tags in the ``cno`` tag tree in the **current layer:**
+
+.. storm-cli:: auth.user.allowed --gate $lib.layer.get().iden ron node.tag.add.cno
+
+**Note** that the response for each of the commands above is identical, even though the first example performed
+a global check (no ``--gate`` option) while the second example checked the current layer (retrieved with
+``$lib.layer.get()``). The response in the second example shows that Ron can apply tags in the current layer because
+he has **global** permissions for this action - indicated by the **absence** of an iden in the response. If Ron's
+permissions were restricted to the queried gate (in this case, the layer), the associated iden would have been
+included in the command output.
+
+Check whether user 'ron' is allowed to fork the **current view:**
+
+.. storm-cli:: auth.user.allowed --gate $lib.view.get().iden ron view.add
+
+
 .. _admin_authgate_perms:
 
 Auth Gate Permissions
@@ -764,11 +839,16 @@ displaying a specific view or layer:
 - :ref:`storm-layer-list`
 - :ref:`storm-layer-get`
 
-**Example:**
+**Examples:**
 
 Display all views:
 
 .. storm-cli:: view.list
+
+Display the current layer:
+
+.. storm-cli:: layer.get
+
 
 View a Gate's Permissions
 *************************
@@ -784,9 +864,401 @@ Display information for the current view:
 
 .. storm-cli:: auth.gate.show $lib.view.get().iden
 
-Display information for the current layer:
+Display information for the current layer (i.e., the top layer of the current view):
 
 .. storm-cli:: auth.gate.show $lib.layer.get().iden
+
+
+.. _admin_perms_best:
+
+Permissions Best Practices
+--------------------------
+
+- Synapse Admins should use a designated admin account for administrative tasks and a separate account for
+  their user tasks.
+- Where possible, assign permissions to roles and grant roles to users vs. assigning permissions to users
+  directly.
+- Create a general purpose role (such as ``users``, or use the built-in ``all`` role) and assign the basic
+  permissions that **all** Synapse users should have to this role. This includes "things all users should
+  be able to do" (allow rules) as well as "things all users should be **explicitly** prohibited from doing"
+  (deny rules). Create additional roles as needed to allow (or further restrict) specific operations.
+- Segregate data with different access requirements into different **layers.** Grant access to data sets by
+  composing those layers into **views** and granting roles access to the appropriate view(s).
+- The ability to **delete nodes** in Synapse should be granted to a limited number of trusted individuals. We
+  recommend creating a dedicated role for this purpose.
+- If a role will have **limited permissions,** it is generally easier to **explicitly allow** only those
+  actions; everything else will be denied by default.
+- If a role or user will have **broad permissions** with some restrictions, it is generally easier to
+  **explicitly deny** the restricted actions first, and then **grant** broad permissions (for example
+  ``!node.del`` followed by ``node``). Because permissions rules are checked in order, Synapse will encounter
+  any deny rules first (i.e., user is unable to delete nodes), blocking the prohibited action while then
+  allowing anything not specifically denied (i.e., user can do anything else to nodes).
+
+
+.. _admin_sample_perms:
+
+Example Permissions
+-------------------
+
+The examples below illustrate a few common use cases for roles and permissions within Synapse. These rule
+sets are meant as simple illustrations and do not necessarily illustrate fully-defined, production-ready
+permission sets.
+
+Recall that:
+
+- Views control **read** access to the data store. Users with read access to a view (``view.read``) can read
+  all data in all layers of the view (i.e., no additional layer-specific permissions are required for read
+  access).
+- Layers control **write** access to the data store. Use permissions to manage the data that can be written
+  to a given layer (including the ability to merge data into that layer from a forked view). 
+- A user who can fork a view is **admin** within their forked view.
+
+A list of available Cortex permissions is available under the :ref:`admin_cortex_perms` section, or can be
+viewed in Synapse with the ``auth.perms.list`` command.
+
+.. _perms_case1:
+
+Case 1 - Grant common permissions - basic
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These basic permissions can be assigned to a role to allow users to perform common operations in Synapse.
+
++--------------------------+------------------------------------------------------------------------+
+| **Permission**           | **Description**                                                        |
++==========================+========================================================================+
+| ``view.read``            | See / read any view                                                    |
++--------------------------+------------------------------------------------------------------------+
+| ``view.add``             | Fork any view they can see                                             |
++--------------------------+------------------------------------------------------------------------+
+| ``node``                 | Create, modify, or delete any type of data (nodes, properties, light   |
+|                          |                                                                        |
+|                          | edges, tags, and node data) in the top layer of any view they can see  |
++--------------------------+------------------------------------------------------------------------+
+
+**Tips:**
+
+- The ``all`` role has implicit (and non-revocable) "read" access to Synapse's **default** view. This
+  is not the same as global ``view.read`` access. To allow the ``all`` role (or any role) to see other
+  views, you must explicitly assign the ``view.read`` permission (either globally or to individual views).
+- Users can only fork (``view.add``) views they can see (``view.read``). If users should be allowed to
+  fork any view where they have read access, the ``view.add`` permission can be assigned **globally**
+  even if read access is managed on a **per-view** basis.
+
+
+.. _perms_case2:
+
+Case 2 - Grant common permissions - intermediate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These permissions expand on Case 1, but only allow the role to see **specific** views (by granting
+``view.read`` locally to individual views). 
+
+Any **global** permissions (e.g., ``node.add``) will apply to the top (writeable) layer of **any** view the
+role can see, unless the permissions are overridden locally.
+
+These permissions also prevent the role from **deleting nodes** globally, while allowing them to delete
+properties or edges and to remove tags.
+
++-------------------+-------------+-----------------------------------------------------------------+
+| **Permission**    | **Scope**   | **Description**                                                 |
++===================+=============+=================================================================+
+| ``view.add``      | global      | Fork any view they can see (based on ``view.read``)             |
++-------------------+-------------+-----------------------------------------------------------------+
+| ``!node.del``     | global      | Prevent deletion of any nodes                                   |
++-------------------+-------------+-----------------------------------------------------------------+
+| ``node.add``      | global      | Create nodes in the top layer of any view they can see          |
++-------------------+-------------+-----------------------------------------------------------------+
+| ``node.prop``     | global      | Set, modify, or delete node properties in the top layer of any  |
+|                   |             |                                                                 |
+|                   |             | view they can see                                               |
++-------------------+-------------+-----------------------------------------------------------------+
+| ``node.edge``     | global      | Add or remove light edges in the top layer of any view they     |
+|                   |             |                                                                 |
+|                   |             | can see                                                         |
++-------------------+-------------+-----------------------------------------------------------------+
+| ``node.tag``      | global      | Add or remove tags from nodes in the top layer of any view they |
+|                   |             |                                                                 |
+|                   |             | can see                                                         |
++-------------------+-------------+-----------------------------------------------------------------+
+| ``view.read``     | local       | See all the data in all the layers of the specific view(s)      |
+|                   |             |                                                                 |
+|                   |             | where the rule is assigned                                      |
++-------------------+-------------+-----------------------------------------------------------------+
+
+
+.. _perms_case3:
+
+Case 3 - Create a dedicated role that can delete nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Deleting nodes indiscriminately or incorrectly can negatively impact your data store (i.e., leaving
+"holes" in the graph or destroying data). Synapse requires that users run an explicit command (:ref:`storm-delnode`)
+to delete nodes, so the action is a deliberate choice (vs. an "accidental click").
+
+We strongly recommend that you create a role whose sole permission is the ability to delete nodes, and
+grant that role to a limited number of users. To do this:
+
+- **Explicitly deny** permission to delete nodes (``!node.del``) at the **global** level to the general
+  purpose role you use to manage permissions for all users (as shown in Case 2 above).
+- Create a dedicated role whose only permission will be the ability to delete nodes.
+
+  - We encourage a name that inspires caution, such as ``fire ze missiles`` or ``agents of destruction``,
+    but you can just use ``deleters``.
+
+- Assign the ``node.del`` rule to the role (globally, or for specific layers).
+
+**Tips:**
+
+- All delete operations (whether deleting nodes, properties, edges, or removing tags) must be performed
+  directly in the layer where the data resides. As admin of any view that they fork, "normal" users can
+  delete data created or modified **within** their forked view.
+
+
+.. _perms_case4:
+
+Case 4 - Place guardrails around writing (creating or merging) data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Permissions can be used to prevent roles from:
+
+- creating various types of data directly in a layer/view; or
+- merging various types of data into an underlying view (technically, to the view's top layer).
+
+These types of permissions can help ensure that data in a "production" layer remains as pristine and
+error-free as possible. For example:
+
+- Help to limit typos that result in "bad" tags or edges.
+- Prevent data from a sensitive or restricted layer from being written to a non-restricted layer.
+
+Example use cases:
+
+- Use permissions around light edges to only allow the creation of specific named edges. This can limit
+  typos in edge names and/or prevent users from creating arbitrarily named edges.
+- Use permissions around tags or tag trees to only allow applying certain tags (e.g., to enforce your
+  organization's tag conventions). For example, permissions can ensure that users' "scratch" tags
+  (``#thesilence.mywork``) or tags indicating sensitive data (``#tlp.red``) are not added to "production"
+  data.
+- Use permissions around individual properties to prohibit setting specific properties in particular layers.
+  For example, taxonomy properties (such as ``risk:threat:type``) may be "under development" in an internal
+  analysis view while users test and agree on appropriate categories. You may want to prevent this property
+  from being set (merged) into production data until the taxonomy is finalized.
+
+.. TIP::
+  
+  The degree to which you enforce data and tag conventions through permissions vs. by consensus (i.e.,
+  users agree on "best efforts" to keep the data tidy) will depend on your organization and your use case.
+  Managing permissions adds overhead, but may be worth the effort for data sets that require high fidelity
+  or quality. The overhead may have less benefit for internal data or test data where occasional errors have
+  minimal impact and can be "cleaned up" as needed.
+
+The sample rules below can be applied **globally** (a user with this role can write "approved" data to any
+writeable layer of any view they can see) or **locally** to specific layers.
+
+The examples below **only** illustrate how certain write actions can be restricted and do not address other
+permissions that a user/role might need. These permissions could be added to an existing role (such as your
+general ``users`` role), or granted via their own role.
+
+**Example 1:**
+
+If a limited set of actions are allowed, simply specify the changes that the role can make. Anything else is
+implicitly denied by default.
+
+In this example, a role with the following permissions can:
+
+- **only** add and remove tags in the listed tag trees; and
+- **only** create and delete the listed edges.
+
++----------------------------+------------------------------------------------------------------------+
+| **Permission**             | **Description**                                                        |
++============================+========================================================================+
+| ``node.tag.add.cno``       | Add / apply tags in the ``cno`` tree (e.g., ``cno``, ``cno.mal``,      |
+|                            |                                                                        |
+|                            | ``cno.mal.plugx`` etc.)                                                |
++----------------------------+------------------------------------------------------------------------+
+| ``node.tag.del.cno``       | Remove any tags in the ``cno`` tree                                    |
++----------------------------+------------------------------------------------------------------------+
+| ``node.tag.add.rep``       | Add / apply any tags in the ``rep`` tree                               |
++----------------------------+------------------------------------------------------------------------+
+| ``node.tag.del.rep``       | Remove any tags in the ``rep`` tree                                    |
++----------------------------+------------------------------------------------------------------------+
+| ``node.edge.add.refs``     | Add ``refs`` light edges                                               |
++----------------------------+------------------------------------------------------------------------+
+| ``node.edge.del.refs``     | Delete ``refs`` light edges                                            |
++----------------------------+------------------------------------------------------------------------+
+| ``node.edge.add.uses``     | Add ``uses`` light edges                                               |
++----------------------------+------------------------------------------------------------------------+
+| ``node.edge.del.uses``     | Delete ``uses`` light edges                                            |
++----------------------------+------------------------------------------------------------------------+
+| ``node.edge.add.targets``  | Add ``targets`` light edges                                            |
++----------------------------+------------------------------------------------------------------------+
+| ``node.edge.del.targets``  | Delete ``targets`` light edges                                         |
++----------------------------+------------------------------------------------------------------------+
+
+
+**Example 2:**
+
+If specific actions are prohibited, **deny** those changes and then **allow** "everything else".
+
+A role with the following permissions is **prohibited** from:
+
+- Creating ``risk:threat:type:taxonomy`` nodes (representing "categories" of threats).
+- Setting the ``:type`` property for ``risk:threat`` nodes (e.g., specifying the taxonomy category for
+  a particular threat).
+- Creating tags in the ``tlp`` tree.
+
+Note that the permissions as listed only prohibit actions. For a role with these permissions to be able
+to make other changes (e.g., add other nodes or edges), those permissions need to be granted after these
+"deny" rules, or as part of another role.
+
++------------------------------------------+----------------------------------------------------------+
+| **Permission**                           | **Description**                                          |
++==========================================+==========================================================+
+| ``!node.add.risk:threat:type:taxonomy``  | Prevent creating these nodes                             |
++------------------------------------------+----------------------------------------------------------+
+| ``!node.prop.set.risk:threat:type``      | Prevent setting this property (i.e., on existing         |
+|                                          |                                                          |
+|                                          | ``risk:threat`` nodes)                                   |
++------------------------------------------+----------------------------------------------------------+
+| ``!node.tag.add.tlp``                    | Prevent applying tags in the ``tlp`` tree                |
++------------------------------------------+----------------------------------------------------------+
+
+.. TIP::
+  
+  To prevent users or roles from making **any** changes to a particular view (i.e., users cannot merge
+  any data into the view / write any data directly to the view's topmost layer):
+  
+  - Do not add ``node`` permissions to the view's topmost layer (write permissions that are not granted
+    are implicitly denied).
+  - If a role has been granted ``node`` (or similar) permissions **globally,** override this by explicitly
+    denying (``!node``) the permission on the layer you want to protect.
+
+
+.. _perms_case5:
+
+Case 5 - Senior vs. junior roles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Senior roles (with more permissions) and junior roles (with limited permissions) are used in a variety
+of situations, such as new trainees vs. experienced users or junior vs. senior analysts.
+
+When using a "fork and merge" workflow, a junior user can "do anything" (as **admin**) in a view that they
+fork. This allows them to enrich data and annotate their assessments using tags. But permissions can prevent
+them from merging some (or all) data and tags until a senior user has reviewed the changes. The senior role
+(with appropriate permissions) can then merge the data on the junior user's behalf.
+
+For example, tags representing key analytical assessments - such as determining if a file or indicator is
+associated with a malware family, or tags representing threat clustering and attribution - may require careful
+consideration. The ability to merge these tags may be limited to senior analysts who can verify that the
+junior analyst has applied them correctly.
+
+These types of permissions are typically **cumulative;** generic users may be prohibited (or simply not
+allowed) to perform a certain action, with additional permissions granted to increasingly senior or experienced
+roles. In the example below, all users would have the general ``users`` role and analysts would be granted
+**each** additional role as they gained experience.
+
+**Example:**
+
++---------------------+------------------------------+-------------------------------------------------+
+| **Role**            | **Permission(s)**            | **Description**                                 |
++=====================+==============================+=================================================+
+| **users**           | ``!node.tag.cno``            | Prevent applying tags in the ``cno`` and        |
+|                     |                              |                                                 |
+|                     | ``!node.tag.rep``            | ``rep`` trees (representing specific analytical |
+|                     |                              |                                                 |
+|                     | ``node.tag``                 | assessements) but apply other tags              |
++---------------------+------------------------------+-------------------------------------------------+
+| **novice analyst**  | ``node.tag.add.rep``         | Novices can apply tags in the ``rep`` tree      |
+|                     |                              |                                                 |
+|                     |                              | (representing third-party reporting)            |
++---------------------+------------------------------+-------------------------------------------------+
+| **junior analyst**  | ``node.tag.add.cno.infra``   | Junior analysts can apply tags in the           |
+|                     |                              |                                                 |
+|                     |                              | ``cno.infra`` tree (related to network          |
+|                     |                              |                                                 |
+|                     |                              | infrastructure)                                 |
++---------------------+------------------------------+-------------------------------------------------+
+| **senior analyst**  | ``node.tag.add.cno.threat``  | Senior analysts can apply tags in the           |
+|                     |                              |                                                 |
+|                     |                              | ``cno.threat`` and ``cno.mal`` trees            |
+|                     |                              |                                                 |
+|                     |                              | (assessments related to threat clusters and     |
+|                     |                              |                                                 |
+|                     |                              | malware families)                               |
++---------------------+------------------------------+-------------------------------------------------+
+
+.. NOTE::
+  
+  Because of :ref:`admin_bkd_precedence`, as additional roles are granted, they would need to be added
+  (indexed) **before** the ``users`` role to prevent that role's explicit deny permissions from overriding
+  the newly allowed tag privileges.
+
+
+.. _perms_case6:
+
+Case 6 - Specialized roles
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For organizations with diverse analysis teams (e.g., where analysts specialize in particular areas) or
+organizations where multiple teams or departments use Synapse for different purposes, it may be helpful
+to create highly specialized roles.
+
+**Examples:**
+
+- An organization with a dedicated malware analysis team may **only** allow those specialists to apply tags
+  related to malware/code families and malware ecosystems.
+- An organization's strategic analysts may be solely responsible for certain objects and related data. For
+  example, a strategic team may be in charge of researching and creating organizations (``ou:org``) and
+  associated industries (``ou:industry``) in order to track victimology. Strategic analysts can ensure that
+  these objects are created according to the team's standards and that organizations are assigned to the
+  appropriate industries.
+
+**Malware analyst example:**
+
+- We assume the ability to apply the specialized tags listed below is either **not granted** or **explicitly denied**
+  elsewhere/to other roles.
+- Malware analysts can also be granted the ability to **remove** the tags listed below with the corresponding
+  ``node.tag.del`` permissions.
+
++----------------------------+------------------------------------------------------------------------+
+| **Permission**             | **Description**                                                        |
++============================+========================================================================+
+| ``node.tag.add.cno.code``  | Apply ``cno.code`` tags (designating specific samples of code          |
+|                            |                                                                        |
+|                            | families - e.g., ``cno.code.plugx``)                                   |
++----------------------------+------------------------------------------------------------------------+
+| ``node.tag.add.cno.mal``   | Apply ``cno.mal`` tags (designating components of malware / code       |
+|                            |                                                                        |
+|                            | family ecosystems, such as related droppers or C2 - e.g.,              |
+|                            |                                                                        |
+|                            | ``cno.mal.plugx``)                                                     |
++----------------------------+------------------------------------------------------------------------+
+| ``node.tag.add.cno.rel``   | Apply ``cno.rel`` tags (designating components that may be observed    |
+|                            |                                                                        |
+|                            | as part of a malware ecosystem but are not inherently malicious -      |
+|                            |                                                                        |
+|                            | e.g., ``cno.rel.plugx``)                                               |
++----------------------------+------------------------------------------------------------------------+
+
+
+**Strategic analyst example:**
+
+- We assume the ability to create these nodes / set these properties is either **not granted** or **explicitly denied**
+  elsewhere/to other roles.
+- Strategic analysts can optionally be granted the ability to delete relevant nodes/properties with the
+  corresponding ``node.del`` or ``node.prop.del`` permissions.
+- Depending on how you assign permissions, keep in mind that roles that cannot **create** nodes may
+  still be able to **set or modify properties** on the node as long as the node already exists. This
+  ability can be restricted via additional ``node.prop.set`` rules if necessary.
+
++--------------------------------------+--------------------------------------------------------------+
+| **Permission**                       | **Description**                                              |
++======================================+==============================================================+
+| ``node.add.ou:org``                  | Create organization nodes                                    |
++--------------------------------------+--------------------------------------------------------------+
+| ``node.prop.set.ou:org:industries``  | Assign organizations to one or more industries               |
++--------------------------------------+--------------------------------------------------------------+
+| ``node.add.ou:industry``             | Create industry nodes                                        |
++--------------------------------------+--------------------------------------------------------------+
 
 
 .. _admin_cortex_perms:
@@ -849,6 +1321,8 @@ for the query or action.
 There are a few cases of Storm runtime execution where different permissions are used that may require
 additional considerations.
 
+.. _admin_automation_perms:
+
 Automation
 ~~~~~~~~~~
 
@@ -897,7 +1371,7 @@ Add Extended Model Elements
 
 The Synapse data model in a Cortex can be extended with custom `forms`_ or `properties`_ by using the model
 extension Storm Library (:ref:`stormlibs-lib-model-ext`). Extended model forms and properties must have names
-beginning with an underscore (``_``) to avoid potential conflicts with built-in model elements.
+beginning with an underscore (``_``) to avoid potential naming conflicts with built-in model elements.
 
 Extended Forms
 --------------
@@ -1051,7 +1525,7 @@ or view which is not yet provisioned or is currently offline.
 Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream
 layer.  During this process, the layer will be readable but writes will hang due to needing to await the write-back
 to be fully caught up to guarantee that edits are immediately observable like a normal layer.  During that process,
-you may track progress by calling the ``getMirrorStatus()`` API on the ``storm:layer`` object within the Storm runtime.
+you may track progress by calling the ``getMirrorStatus()`` API on the ``layer`` object within the Storm runtime.
 
 
 

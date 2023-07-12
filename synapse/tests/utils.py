@@ -94,6 +94,10 @@ def norm(z):
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
 
+class PickleableMagicMock(mock.MagicMock):
+    def __reduce__(self):
+        return mock.MagicMock, ()
+
 class LibTst(s_stormtypes.Lib):
     '''
     LibTst for testing!
@@ -1058,14 +1062,10 @@ class SynTest(unittest.TestCase):
         Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
 
         Returns:
-            mock.MagicMock: Yields a mock.MagikMock object.
+            mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        # Since the setlogging routine is used in the forkserver initializer,
-        # we need to make sure we've initialized our worker prior to mocking
-        self.eq(1, await s_coro.forked(int, '1'))
-
         with mock.patch('synapse.common.setlogging',
-                        mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
+                        PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
     def getMagicPromptLines(self, patch):
@@ -1468,8 +1468,11 @@ class SynTest(unittest.TestCase):
         This destroys the directory afterwards.
 
         Args:
-            mirror (str): A directory to mirror into the test directory.
-            startdir (str): The directory under which to place the temporary kdirectory
+            mirror (str): A Synapse test directory to mirror into the test directory.
+            copyfrom (str): An arbitrary directory to copy into the test directory.
+            chdir (boolean): If true, chdir the current process to that directory. This is undone when the context
+                             manager exits.
+            startdir (str): The directory under which to place the temporary directory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -2214,7 +2217,7 @@ class SynTest(unittest.TestCase):
             return retn
 
         byts = s_msgpack.en(valu)
-        return hashlib.md5(byts).hexdigest()
+        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
     @contextlib.contextmanager
     def withStableUids(self):

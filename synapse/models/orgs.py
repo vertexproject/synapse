@@ -18,8 +18,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The four digit Standard Industrial Classification Code.',
                     'ex': '0111',
                 }),
-                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{4}[0-9]?$'}), {
-                    'doc': 'The five or six digit North American Industry Classification System code.',
+                ('ou:naics', ('str', {'regex': r'^[1-9][0-9]{1,5}?$', 'strip': True}), {
+                    'doc': 'North American Industry Classification System codes and prefixes.',
                     'ex': '541715',
                 }),
                 ('ou:isic', ('str', {'regex': r'^[A-Z]([0-9]{2}[0-9]{0,2})?$'}), {
@@ -348,7 +348,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The type of org id', 'ro': True,
                     }),
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The type of org id', 'ro': True,
+                        'doc': 'The value of org id', 'ro': True,
                     }),
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.',
@@ -542,6 +542,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
                         'doc': 'A mapping to a Mitre ATT&CK technique if applicable.'}),
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the technique.'}),
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the technique.'}),
                 )),
                 ('ou:technique:taxonomy', {}, ()),
                 ('ou:orgtype', {}, ()),

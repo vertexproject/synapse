@@ -75,17 +75,12 @@ class Node:
             return await editor.addEdge(verb, n2iden)
 
     async def delEdge(self, verb, n2iden):
+        if self.form.isrunt:
+            mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
+            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'delEdge() got an invalid node iden: {n2iden}'
-            raise s_exc.BadArg(mesg=mesg)
-
-        nodeedits = (
-            (self.buid, self.form.name, (
-                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
-            )),
-        )
-        await self.snap.applyNodeEdits(nodeedits)
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.delEdge(verb, n2iden)
 
     async def iterEdgesN1(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN1(self.buid, verb=verb):
@@ -656,6 +651,15 @@ class Node:
                     continue
 
                 mesg = 'Other nodes still refer to this node.'
+                return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
+                                                      iden=self.iden())
+
+            async for edge in self.iterEdgesN2():
+
+                if self.iden() == edge[1]:
+                    continue
+
+                mesg = 'Other nodes still have light edges to this node.'
                 return await self.snap._raiseOnStrict(s_exc.CantDelNode, mesg, form=formname,
                                                       iden=self.iden())
 

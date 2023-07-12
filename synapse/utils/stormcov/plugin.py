@@ -209,6 +209,7 @@ TOKENS = [
     'EXPRVARTOKN',
     'NUMBER',
     'HEXNUMBER',
+    'OCTNUMBER',
     'BOOL',
     'EXPRTIMES',
     '_EMIT',
@@ -243,14 +244,3 @@ class StormReporter(coverage.FileReporter):
                 source_lines.add(token.line)
 
         return source_lines
-
-    def translate_lines(self, lines):
-        offs = 0
-        for line in self.source():
-            if line.strip():
-                break
-            offs += 1
-
-        if offs > 0:
-            return set([(line + offs) for line in lines])
-        return set(lines)

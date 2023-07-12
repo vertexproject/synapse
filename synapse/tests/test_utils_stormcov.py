@@ -27,8 +27,9 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(reporter.lines(), {1, 2, 3, 6})
         self.eq(reporter.translate_lines({1, 2}), {1, 2})
 
+        # We no longer do whitespace transformations of lines.
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/spin.storm'))
-        self.eq(reporter.translate_lines({1, 2}), {2, 3})
+        self.eq(reporter.translate_lines({1, 2}), {1, 2})
 
         with self.raises(NoSource):
             reporter = plugin.file_reporter('newp')
@@ -96,7 +97,7 @@ class TestUtilsStormcov(s_utils.SynTest):
                 async def pullgenr():
                     frame = inspect.currentframe()
                     assert 'spin.storm' in stormtracer.dynamic_source_filename(None, frame)
-                    assert (2, 2) == stormtracer.line_number_range(frame)
+                    assert (3, 3) == stormtracer.line_number_range(frame)
 
                     if gotone is None:
                         return

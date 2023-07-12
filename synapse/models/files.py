@@ -166,8 +166,8 @@ class FileBytes(s_types.Str):
         norm = f'sha256:{sha256}'
 
         subs = {
-            'md5': hashlib.md5(valu).hexdigest(),
-            'sha1': hashlib.sha1(valu).hexdigest(),
+            'md5': hashlib.md5(valu, usedforsecurity=False).hexdigest(),
+            'sha1': hashlib.sha1(valu, usedforsecurity=False).hexdigest(),
             'sha256': sha256,
             'sha512': hashlib.sha512(valu).hexdigest(),
             'size': len(valu),
@@ -183,8 +183,9 @@ class FileModule(s_module.CoreModule):
     async def _hookFileBytesSha256(self, node, prop, norm):
         # this gets called post-norm and curv checks
         if node.ndef[1].startswith('sha256:'):
-            mesg = "Can't change :sha256 on a file:bytes with sha256 based primary property."
-            raise s_exc.BadTypeValu(mesg=mesg)
+            if node.ndef[1] != f'sha256:{norm}':
+                mesg = "Can't change :sha256 on a file:bytes with sha256 based primary property."
+                raise s_exc.BadTypeValu(mesg=mesg)
 
     async def _onSetFileBytesMime(self, node, oldv):
         name = node.get('mime')
@@ -277,6 +278,9 @@ class FileModule(s_module.CoreModule):
                 ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
                     'doc': 'A parent file that fully contains the specified child file.',
                 }),
+
+                ('file:archive:entry', ('guid', {}), {
+                    'doc': 'An archive entry representing a file and metadata within a parent archive file.'}),
 
                 ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
                     'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
@@ -584,6 +588,45 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The extension of the file name.',
                     }),
+                )),
+
+                ('file:archive:entry', {}, (
+
+                    ('parent', ('file:bytes', {}), {
+                        'doc': 'The parent archive file.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file contained within the archive.'}),
+
+                    ('path', ('file:path', {}), {
+                        'doc': 'The file path of the archived file.'}),
+
+                    ('user', ('inet:user', {}), {
+                        'doc': 'The name of the user who owns the archived file.'}),
+
+                    ('added', ('time', {}), {
+                        'doc': 'The time that the file was added to the archive.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The created time of the archived file.'}),
+
+                    ('modified', ('time', {}), {
+                        'doc': 'The modified time of the archived file.'}),
+
+                    ('comment', ('str', {}), {
+                        'doc': 'The comment field for the file entry within the archive.'}),
+
+                    ('posix:uid', ('int', {}), {
+                        'doc': 'The POSIX UID of the user who owns the archived file.'}),
+
+                    ('posix:gid', ('int', {}), {
+                        'doc': 'The POSIX GID of the group who owns the archived file.'}),
+
+                    ('posix:perms', ('int', {}), {
+                        'doc': 'The POSIX permissions mask of the archived file.'}),
+
+                    ('archived:size', ('int', {}), {
+                        'doc': 'The encoded or compressed size of the archived file within the parent.'}),
                 )),
 
                 ('file:subfile', {}, (

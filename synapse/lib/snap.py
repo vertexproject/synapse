@@ -73,6 +73,8 @@ class ProtoNode:
         self.tagprops = {}
         self.nodedata = {}
 
+        self.edgedels = set()
+
     def iden(self):
         return s_common.ehex(self.buid)
 
@@ -92,6 +94,9 @@ class ProtoNode:
 
         for verb, n2iden in self.edges:
             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+
+        for verb, n2iden in self.edgedels:
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
@@ -122,8 +127,47 @@ class ProtoNode:
             await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
             return False
 
+        tupl = (verb, n2iden)
+        if tupl in self.edges:
+            return False
+
+        if tupl in self.edgedels:
+            self.edgedels.remove(tupl)
+            return True
+
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
-            self.edges.add((verb, n2iden))
+            self.edges.add(tupl)
+            return True
+
+        return False
+
+    async def delEdge(self, verb, n2iden):
+
+        if not isinstance(verb, str):
+            mesg = f'delEdge() got an invalid type for verb: {verb}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        if not isinstance(n2iden, str):
+            mesg = f'delEdge() got an invalid type for n2iden: {n2iden}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'delEdge() got an invalid node iden: {n2iden}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        tupl = (verb, n2iden)
+        if tupl in self.edgedels:
+            return False
+
+        if tupl in self.edges:
+            self.edges.remove(tupl)
+            return True
+
+        if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+            self.edgedels.add(tupl)
             return True
 
         return False
@@ -1312,31 +1356,31 @@ class Snap(s_base.Base):
 
     async def iterNodeEdgesN1(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
+        last = None
+        gens = [layr.iterNodeEdgesN1(buid, verb=verb) for layr in self.layers]
 
-            for layr in self.layers:
+        async for edge in s_common.merggenr2(gens):
 
-                async for edge in layr.iterNodeEdgesN1(buid, verb=verb):
-                    if edge in edgeset:
-                        await asyncio.sleep(0)
-                        continue
+            if edge == last: # pragma: no cover
+                await asyncio.sleep(0)
+                continue
 
-                    await edgeset.add(edge)
-                    yield edge
+            last = edge
+            yield edge
 
     async def iterNodeEdgesN2(self, buid, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as edgeset:
+        last = None
+        gens = [layr.iterNodeEdgesN2(buid, verb=verb) for layr in self.layers]
 
-            for layr in self.layers:
+        async for edge in s_common.merggenr2(gens):
 
-                async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
-                    if edge in edgeset:
-                        await asyncio.sleep(0)
-                        continue
+            if edge == last: # pragma: no cover
+                await asyncio.sleep(0)
+                continue
 
-                    await edgeset.add(edge)
-                    yield edge
+            last = edge
+            yield edge
 
     async def hasNodeEdge(self, buid1, verb, buid2):
         for layr in self.layers:

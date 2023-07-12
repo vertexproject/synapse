@@ -895,7 +895,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'onboot:optimize': {
             'default': False,
-            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. (may take a while)',
+            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. This may take a while.',
             'type': 'boolean',
         },
         'limit:disk:free': {
@@ -1838,6 +1838,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return path
 
+    def _reqBackupSpace(self):
+
+        disk = shutil.disk_usage(self.backdirn)
+        cellsize, _ = s_common.getDirSize(self.dirn)
+
+        if os.stat(self.dirn).st_dev == os.stat(self.backdirn).st_dev:
+            reqspace = self.minfree * disk.total + cellsize
+        else:
+            reqspace = cellsize
+
+        if reqspace > disk.free:
+            mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
+                    f'({disk.free} bytes free, {reqspace} required)'
+            raise s_exc.LowSpace(mesg=mesg, dirn=self.backdirn)
+
     async def runBackup(self, name=None, wait=True):
 
         if self.backuprunning:
@@ -1856,12 +1871,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
 
-            diskfree = shutil.disk_usage(self.backdirn).free
-            cellsize, _ = s_common.getDirSize(self.dirn)
-            if cellsize * 2 > diskfree:
-                mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
-                       f'({diskfree} bytes free, {cellsize * 2} required)'
-                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+            self._reqBackupSpace()
 
             self.backuprunning = True
             self.backlastexc = None
@@ -3395,6 +3405,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
         for key in provconf:
             s_common.yamlpop(key, mods_path)
+
+        # Slice the mirror option out of the cell.mods.yaml file. This avoids
+        # a situation where restoring a backup from a cell which was demoted
+        # from a leader to a follower has a config value which conflicts with
+        # the new provconf.
+        s_common.yamlpop('mirror', mods_path)
+
         new_conf.setConfFromFile(mods_path, force=True)
 
         # Ensure defaults are set
