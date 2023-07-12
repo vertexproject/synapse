@@ -748,6 +748,7 @@ class ScrapeTest(s_t_utils.SynTest):
 
         TEXT examples
         Example double quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:dquotes".
+        Example double quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:MiXeDcAsE".
         Example single quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:squotes".
         A CPE at the end of a sentence like this captures the period... cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.
         Some CPE are exciting! Like this cpe:2.3:a:*:*:*:*:*:*:*:*:*:noexclaim!
@@ -809,6 +810,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('it:sec:cpe', 'cpe:2.3:o:*:*:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:o:microsoft:windows_7:-:sp2:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:dquotes'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:MiXeDcAsE'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:squotes'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.'))
         nodes.remove(('it:sec:cpe',
