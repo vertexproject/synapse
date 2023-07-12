@@ -81,6 +81,14 @@ def cve_check(match: regex.Match):
     valu = s_chop.replaceUnicodeDashes(valu)
     return valu, cbfo
 
+_cpe23_regex = r'''
+# Capture the valu group
+(?P<valu>cpe:2\.3:[aho\*-]
+(?::([a-z0-9-_.*?]|\\[:!"#$%&\'()*+,\\/;<=>@\[\]^`{|}~?*])+){5}
+:([*-]|(([a-z]{2,3}){1}(-([0-9]{3}|[a-z]{2}))?))
+(?::([a-z0-9-_.*?]|\\[:!"#$%&\'()*+,\\/;<=>@\[\]^`{|}~?*])+){4})
+'''
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
@@ -94,7 +102,7 @@ scrape_types = [  # type: ignore
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
     ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
     ('it:sec:cwe', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>CWE-[0-9]{1,8})(?:[^A-Za-z0-9]|$))', {}),
-    ('it:sec:cpe', r'''(?P<valu>cpe:2\.3:[aho\*-](?::([a-z0-9-_.*?]|\\[:!"#$%&\'()*+,\\/;<=>@\[\]^`{|}~?*])+){5}:([*-]|(([a-z]{2,3}){1}(-([0-9]{3}|[a-z]{2}))?))(?::([a-z0-9-_.*?]|\\[!"#$%&\'()*+,\\/;<=>@\[\]^`{|}~?*])+){4})''', {}),
+    ('it:sec:cpe', _cpe23_regex, {'flags': regex.VERBOSE}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
@@ -117,7 +125,7 @@ scrape_types = [  # type: ignore
 
 _regexes = collections.defaultdict(list)
 for (name, rule, opts) in scrape_types:
-    blob = (regex.compile(rule, regex.IGNORECASE), opts)
+    blob = (regex.compile(rule, regex.IGNORECASE | opts.get('flags', 0)), opts)
     _regexes[name].append(blob)
 
 def getForms():
