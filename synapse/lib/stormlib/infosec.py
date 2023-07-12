@@ -418,7 +418,7 @@ class CvssLib(s_stormtypes.Lib):
         {'name': 'calculate', 'desc': 'Calculate the CVSS score values for an input risk:vuln node.',
          'type': {'type': 'function', '_funcname': 'calculate',
                   'args': (
-                      {'name': 'node', 'type': 'storm:node',
+                      {'name': 'node', 'type': 'node',
                        'desc': 'A risk:vuln node from the Storm runtime.'},
                       {'name': 'save', 'type': 'boolean', 'default': True,
                        'desc': 'If true, save the computed scores to the node properties.'},
@@ -447,7 +447,7 @@ class CvssLib(s_stormtypes.Lib):
         {'name': 'saveVectToNode', 'desc': 'Parse a CVSS v3.1 vector and record properties on a risk:vuln node.',
          'type': {'type': 'function', '_funcname': 'saveVectToNode',
                   'args': (
-                      {'name': 'node', 'type': 'storm:node',
+                      {'name': 'node', 'type': 'node',
                        'desc': 'A risk:vuln node to record the CVSS properties on.'},
                       {'name': 'text', 'type': 'str', 'desc': 'A CVSS vector string.'},
                   ),
