@@ -862,7 +862,7 @@ a third-party API along with the timestamp when the data was retrieved. If the s
 the same node within a specific time period, the Power-Up can use the cached node data instead of re-querying
 the API (helping to prevent using up any API query limits by re-querying the same data).
 
-Node data can be accessed using the `storm:node:data`_ type.
+Node data can be accessed using the `node:data`_ type.
 
 .. _gloss-node-def:
 
@@ -1671,6 +1671,6 @@ Workspaces Tool
 See :ref:`gloss-tool-workspaces`.
 
 
-.. _storm:node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#storm-node-data
+.. _node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#node-data
 
 .. _`Docker containers`: https://www.docker.com/resources/what-container/
