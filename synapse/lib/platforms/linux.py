@@ -17,7 +17,8 @@ def initHostInfo():
     return {
         'format': 'elf',
         'platform': 'linux',
-        'hasmemlocking': True  # has mlock, and all the below related functions
+        'hasmemlocking': True,  # has mlock, and all the below related functions
+        'hassysctls': True,
     }
 
 def getFileMappedRegion(filename):
@@ -103,6 +104,25 @@ def getTotalMemory():
 
     logger.warning('Unable to find max memory limit')  # pragma: no cover
     return 0  # pragma: no cover
+
+
+def getSysctls():
+    _sysctls = (
+        ('vm.swappiness', '/proc/sys/vm/swappiness'),
+        ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs'),
+        ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs'),
+        ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio'),
+        ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio'),
+    )
+    ret = {}
+    for key, fp in _sysctls:
+        if os.path.isfile(fp):
+            with open(fp) as f:
+                valu = f.read().strip()
+                ret[key] = valu
+        else:
+            ret[key] = 'MISSING'
+    return ret
 
 def getAvailableMemory():
     '''
