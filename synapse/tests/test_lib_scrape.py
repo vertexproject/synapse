@@ -709,7 +709,7 @@ class ScrapeTest(s_t_utils.SynTest):
         cpedata = r'''
         GOOD DATA
         cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other
-        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:tspace   
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:tspace non matched word
         cpe:2.3:a:*:*:*:*:*:*:*:*:*:*
         cpe:2.3:h:*:*:*:*:*:*:*:*:*:*
         cpe:2.3:o:*:*:*:*:*:*:*:*:*:*
