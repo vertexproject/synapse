@@ -624,6 +624,7 @@ class Hex(Type):
 
     _opt_defs = (
         ('size', 0),  # type: ignore
+        ('pad', False),
     )
 
     def postTypeInit(self):
@@ -635,6 +636,9 @@ class Hex(Type):
         if self._size % 2 != 0:
             raise s_exc.BadConfValu(name='size', valu=self._size,
                                     mesg='Size must be a multiple of 2')
+
+        self._pad = self.opts.get('pad')
+
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
@@ -667,6 +671,11 @@ class Hex(Type):
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
+
+        if self._pad and len(valu) < self._size:
+            padlen = self._size - len(valu)
+            valu = ('0' * padlen) + valu
+
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
                                     mesg='invalid width')
