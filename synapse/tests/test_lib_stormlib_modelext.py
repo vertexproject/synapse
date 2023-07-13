@@ -193,3 +193,48 @@ class StormtypesModelextTest(s_test.SynTest):
                     delform = await sock.receive_json()
                     self.eq(delform['data']['event'], 'model:form:del')
                     self.eq(delform['data']['info']['form'], '_behold:score')
+
+    async def test_lib_stormlib_modelext_delform(self):
+        '''
+        Verify extended forms can't be deleted if they have associated extended props
+        '''
+
+        async with self.getTestCore() as core:
+
+            await core.callStorm('''
+                $typeinfo = $lib.dict()
+                $forminfo = $lib.dict(doc="A test form doc.")
+                $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
+
+                $propinfo = $lib.dict(doc="A test prop doc.")
+                $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
+            ''')
+
+            self.nn(core.model.form('_visi:int'))
+            self.nn(core.model.prop('_visi:int:tick'))
+
+            q = '$lib.model.ext.delForm(_visi:int)'
+            with self.raises(s_exc.CantDelForm) as exc:
+                await core.callStorm(q)
+            self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
+
+            await core.callStorm('$lib.model.ext.addFormProp(_visi:int, tock, (time, $lib.dict()), $lib.dict())')
+
+            self.nn(core.model.form('_visi:int'))
+            self.nn(core.model.prop('_visi:int:tick'))
+            self.nn(core.model.prop('_visi:int:tock'))
+
+            q = '$lib.model.ext.delForm(_visi:int)'
+            with self.raises(s_exc.CantDelForm) as exc:
+                await core.callStorm(q)
+            self.eq('Form has extended properties: tick, tock', exc.exception.get('mesg'))
+
+            await core.callStorm('''
+                $lib.model.ext.delFormProp(_visi:int, tick)
+                $lib.model.ext.delFormProp(_visi:int, tock)
+                $lib.model.ext.delForm(_visi:int)
+            ''')
+
+            self.none(core.model.form('_visi:int'))
+            self.none(core.model.prop('_visi:int:tick'))
+            self.none(core.model.prop('_visi:int:tock'))

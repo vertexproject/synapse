@@ -1525,7 +1525,7 @@ or view which is not yet provisioned or is currently offline.
 Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream
 layer.  During this process, the layer will be readable but writes will hang due to needing to await the write-back
 to be fully caught up to guarantee that edits are immediately observable like a normal layer.  During that process,
-you may track progress by calling the ``getMirrorStatus()`` API on the ``storm:layer`` object within the Storm runtime.
+you may track progress by calling the ``getMirrorStatus()`` API on the ``layer`` object within the Storm runtime.
 
 
 

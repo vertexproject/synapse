@@ -62,7 +62,7 @@ class JsonTest(s_test.SynTest):
             # Print a json schema obj
             q = "$schemaObj = $lib.json.schema($schema) $lib.print('schema={s}', s=$schemaObj)"
             msgs = await core.stormlist(q, opts=opts)
-            self.stormIsInPrint('storm:json:schema: {', msgs)
+            self.stormIsInPrint('json:schema: {', msgs)
 
             q = "$schemaObj = $lib.json.schema($schema) return ( $schemaObj.schema() )"
             schema = await core.callStorm(q, opts=opts)

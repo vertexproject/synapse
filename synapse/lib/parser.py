@@ -75,6 +75,7 @@ terminalEnglishMap = {
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
+    'OCTNUMBER': 'number',
     'OR': 'or',
     'PROPS': 'absolute property name',
     'RBRACE': '}',
@@ -605,6 +606,7 @@ terminalClassMap = {
     'TRIPLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[3:-3]), # drop the triple 's
     'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,
