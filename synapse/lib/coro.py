@@ -250,7 +250,9 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         raise
 
 forkpool = None
+forkpool_sema = None
 def_max_workers = 8
+reserved_workers = 2
 if multiprocessing.current_process().name == 'MainProcess':
     # only create the forkpools in the MainProcess...
     try:
@@ -258,6 +260,7 @@ if multiprocessing.current_process().name == 'MainProcess':
         max_workers = int(os.getenv('SYN_FORKED_WORKERS', 0)) or max(def_max_workers, os.cpu_count() or def_max_workers)
         forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
         atexit.register(forkpool.shutdown)
+        forkpool_sema = asyncio.Semaphore(max(1, max_workers - reserved_workers))
     except OSError as e:  # pragma: no cover
         logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
@@ -278,19 +281,6 @@ def set_pool_logging(logger_, logconf):
     if forkpool is not None:
         forkpool._initializer = _runtodo
         forkpool._initargs = (todo,)
-
-def make_forkpool_sema(frac):
-    '''
-    Create an async semaphore with a bound based on a fractional amount of the
-    maximum workers in the forkpool.
-    '''
-    if frac <= 0 or frac > 1:
-        raise s_exc.BadArg(mesg=f'frac must be between (0, 1]: {frac}')
-
-    if forkpool is None:
-        return asyncio.Semaphore(1)
-
-    return asyncio.Semaphore(max(1, math.floor(max_workers * frac)))
 
 async def forked(func, *args, **kwargs):
     '''
@@ -316,15 +306,12 @@ async def forked(func, *args, **kwargs):
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
     return await spawn(todo, log_conf=_pool_logconf)
 
-async def forked_bounded(sema, func, *args, **kwargs):
+async def _boundedforked(func, *args, **kwargs):
     '''
-    Execute a target function in forked() bounded by a semaphore.
-
-    The make_forkpool_sema helper function can be used to create the semaphore
-    based on utilizing up to a fractional amount of the maximum workers.
+    Execute a target function in the shared forked process pool
+    gated by a semaphore to ensure there are workers reserved for the Storm parser.
 
     Args:
-        sema: An asyncio.Semaphore to acquire before executing the function.
         func: The target function.
         *args: Function positional arguments.
         **kwargs: Function keyword arguments.
@@ -332,7 +319,10 @@ async def forked_bounded(sema, func, *args, **kwargs):
     Returns:
         The target function return.
     '''
-    async with sema:
+    if forkpool_sema is None:
+        return await forked(func, *args, **kwargs)
+
+    async with forkpool_sema:
         return await forked(func, *args, **kwargs)
 
 async def _parserforked(func, *args, **kwargs):

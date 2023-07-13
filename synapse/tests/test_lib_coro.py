@@ -161,31 +161,28 @@ class CoroTest(s_t_utils.SynTest):
         finally:
             s_coro.forkpool = oldpool
 
-    async def test_lib_coro_forked_bounded(self):
+    async def test_lib_coro_boundedforked(self):
 
-        self.raises(s_exc.BadArg, s_coro.make_forkpool_sema, 0)
-        self.raises(s_exc.BadArg, s_coro.make_forkpool_sema, 1.1)
-
-        self.eq(s_coro.max_workers, s_coro.make_forkpool_sema(1)._value)
-
-        sema = s_coro.make_forkpool_sema(0.000001)
-        self.eq(1, sema._value)
-
-        async with asyncio.TaskGroup() as tg:
-            task0 = tg.create_task(s_coro.forked_bounded(sema, spawntime, 1.1))
-            task1 = tg.create_task(s_coro.forked_bounded(sema, spawntime, 1.1))
-
-        self.gt(abs(await task1 - await task0), 1_000)
-
-        oldpool = s_coro.forkpool
-        s_coro.forkpool = None
+        oldsema = s_coro.forkpool_sema
+        self.true(isinstance(oldsema, asyncio.Semaphore))
 
         try:
-            sema = s_coro.make_forkpool_sema(0.5)
-            self.eq(1, sema._value)
-            self.eq(50, await s_coro.forked_bounded(sema, spawnfunc, 20, y=30))
+
+            s_coro.forkpool_sema = asyncio.Semaphore(1)
+
+            async with asyncio.TaskGroup() as tg:
+                task0 = tg.create_task(s_coro._boundedforked(spawntime, 1.1))
+                task1 = tg.create_task(s_coro._boundedforked(spawntime, 1.1))
+
+            self.gt(abs(await task1 - await task0), 1_000)
+
+            s_coro.forkpool_sema = None
+
+            self.eq(50, await s_coro._boundedforked(spawnfunc, 20, y=30))
+
         finally:
-            s_coro.forkpool = oldpool
+
+            s_coro.forkpool_sema = oldsema
 
     async def test_lib_coro_parserforked(self):
 
