@@ -3186,6 +3186,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.extunivs.set(name, (name, tdef, info))
         await self.fire('core:extmodel:change', prop=name, act='add', type='univ')
+        base = '.' + name
+        univ = self.model.univ(base)
+        if univ:
+            await self.feedBeholder('model:univ:add', univ.pack())
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         if not formname.startswith('_'):
@@ -3203,6 +3207,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.extforms.set(formname, (formname, basetype, typeopts, typeinfo))
         await self.fire('core:extmodel:change', form=formname, act='add', type='form')
+        form = self.model.form(formname)
+        ftyp = self.model.type(formname)
+        if form and ftyp:
+            await self.feedBeholder('model:form:add', {'form': form.pack(), 'type': ftyp.pack()})
 
     async def delForm(self, formname):
         if not formname.startswith('_'):
@@ -3227,6 +3235,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
+        await self.feedBeholder('model:form:del', {'form': formname})
 
     async def addFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_') and not form.startswith('_'):
@@ -3248,8 +3257,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                    f' be removed in 3.0.0'
             logger.warning(mesg)
 
-        await self.extprops.set(f'{form}:{prop}', (form, prop, tdef, info))
+        full = f'{form}:{prop}'
+        await self.extprops.set(full, (form, prop, tdef, info))
         await self.fire('core:extmodel:change', form=form, prop=prop, act='add', type='formprop')
+        prop = self.model.prop(full)
+        if prop:
+            await self.feedBeholder('model:prop:add', {'form': form, 'prop': prop.pack()})
 
     async def delFormProp(self, form, prop):
         full = f'{form}:{prop}'
@@ -3282,6 +3295,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
 
+        await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
+
     async def delUnivProp(self, prop):
         udef = self.extunivs.get(prop)
         if udef is None:
@@ -3308,6 +3323,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.delUnivProp(prop)
         await self.extunivs.pop(prop, None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
+        await self.feedBeholder('model:univ:del', {'prop': univname})
 
     async def addTagProp(self, name, tdef, info):
         if self.exttagprops.get(name) is not None:
@@ -3324,6 +3340,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.exttagprops.set(name, (name, tdef, info))
         await self.fire('core:tagprop:change', name=name, act='add')
+        tagp = self.model.tagprop(name)
+        if tagp:
+            await self.feedBeholder('model:tagprop:add', tagp.pack())
 
     async def delTagProp(self, name):
         pdef = self.exttagprops.get(name)
@@ -3348,6 +3367,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
+        await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
     async def addNodeTag(self, user, iden, tag, valu=(None, None)):
         '''
