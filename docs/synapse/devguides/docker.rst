@@ -100,7 +100,7 @@ Developers working with Synapse images should consider the following items:
 Verifying image signatures
 --------------------------
 
-Synapse docker images which are release tagged ( e.g. ``:v2.1.3`` or
+Synapse docker images which are release tagged ( e.g. ``v2.1.3`` or
 ``v2.x.x`` ) are accompanied with cosign_ signatures which can be used to
 assert that the image was produced by The Vertex Project. Branch builds, such
 as development ``master`` tags are not guaranteed to be signed.
