@@ -36,6 +36,18 @@ and BOB@WOOT.COM is another
 
     5.6.7.8:16
 
+    The IP address is: 201.202.203.204.
+
+    Typo no space after sentence.211.212.213.214 is the address..
+
+    # Bad IP addresses:
+    6.7.8.900
+    6.7.8.9750
+    1236.7.8.9
+    0126.7.8.9
+    6.7.8.9.6.7.8.9
+    6.7.8.9.6
+
     faß.de
 
     👁️👄👁️.fm
@@ -322,10 +334,12 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(29, nodes)
+        self.len(31, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
+        nodes.remove(('inet:ipv4', '201.202.203.204'))
+        nodes.remove(('inet:ipv4', '211.212.213.214'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
         nodes.remove(('inet:fqdn', 'foobar.com'))
@@ -485,18 +499,6 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ada', 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
-
-        # check values that look like IP addresses but aren't because they have extra digits on the
-        # beginning/end or they are a dotted number sequence longer than 4
-        badaddrs = '''
-        1.2.3.400
-        1.2.3.1750
-        1234.5.6.7
-        0123.4.5.6
-        1.2.3.4.5.6.7.8
-        '''
-        nodes = list(s_scrape.scrape(badaddrs))
-        self.len(0, nodes)
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
