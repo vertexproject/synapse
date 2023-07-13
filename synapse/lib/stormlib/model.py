@@ -283,32 +283,32 @@ class LibModel(s_stormtypes.Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the type to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:type', 'null'],
-                              'desc': 'The ``storm:model:type`` instance if the type if present on the form or null.',
+                  'returns': {'type': ['model:type', 'null'],
+                              'desc': 'The ``model:type`` instance if the type if present on the form or null.',
                               }}},
         {'name': 'prop', 'desc': 'Get a prop object by name.',
          'type': {'type': 'function', '_funcname': '_methProp',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the prop to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:property', 'null'],
-                              'desc': 'The ``storm:model:property`` instance if the type if present or null.',
+                  'returns': {'type': ['model:property', 'null'],
+                              'desc': 'The ``model:property`` instance if the type if present or null.',
                               }}},
         {'name': 'form', 'desc': 'Get a form object by name.',
          'type': {'type': 'function', '_funcname': '_methForm',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the form to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:form', 'null'],
-                              'desc': 'The ``storm:model:form`` instance if the form is present or null.',
+                  'returns': {'type': ['model:form', 'null'],
+                              'desc': 'The ``model:form`` instance if the form is present or null.',
                               }}},
         {'name': 'tagprop', 'desc': 'Get a tag property object by name.',
          'type': {'type': 'function', '_funcname': '_methTagProp',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the tag prop to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:tagprop', 'null'],
-                              'desc': 'The ``storm:model:tagprop`` instance if the tag prop if present or null.',
+                  'returns': {'type': ['model:tagprop', 'null'],
+                              'desc': 'The ``model:tagprop`` instance if the tag prop if present or null.',
                               }}},
     )
 
@@ -360,14 +360,14 @@ class ModelForm(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:property', 'null'],
-                              'desc': 'The ``storm:model:property`` instance if the property if present on the form or null.'
+                  'returns': {'type': ['model:property', 'null'],
+                              'desc': 'The ``model:property`` instance if the property if present on the form or null.'
                               }}},
         {'name': 'type', 'desc': 'Get the Type for the form.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorFormType',
-                  'returns': {'type': 'storm:model:type'}}},
+                  'returns': {'type': 'model:type'}}},
     )
-    _storm_typename = 'storm:model:form'
+    _storm_typename = 'model:form'
     def __init__(self, form, path=None):
 
         s_stormtypes.Prim.__init__(self, form, path=path)
@@ -405,12 +405,12 @@ class ModelProp(s_stormtypes.Prim):
         {'name': 'full', 'desc': 'The full name of the Property.', 'type': 'str', },
         {'name': 'form', 'desc': 'Get the Form for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropForm',
-                  'returns': {'type': ['storm:model:form', 'null']}}},
+                  'returns': {'type': ['model:form', 'null']}}},
         {'name': 'type', 'desc': 'Get the Type for the Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
-                  'returns': {'type': 'storm:model:type'}}},
+                  'returns': {'type': 'model:type'}}},
     )
-    _storm_typename = 'storm:model:property'
+    _storm_typename = 'model:property'
     def __init__(self, prop, path=None):
 
         s_stormtypes.Prim.__init__(self, prop, path=path)
@@ -444,9 +444,9 @@ class ModelTagProp(s_stormtypes.Prim):
         {'name': 'name', 'desc': 'The name of the Tag Property.', 'type': 'str', },
         {'name': 'type', 'desc': 'Get the Type for the Tag Property.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorTagPropType',
-                  'returns': {'type': 'storm:model:type'}}},
+                  'returns': {'type': 'model:type'}}},
     )
-    _storm_typename = 'storm:model:tagprop'
+    _storm_typename = 'model:tagprop'
     def __init__(self, tagprop, path=None):
 
         s_stormtypes.Prim.__init__(self, tagprop, path=path)
@@ -484,7 +484,7 @@ class ModelType(s_stormtypes.Prim):
                   ),
                   'returns': {'desc': 'A tuple of the normed value and its information dictionary.', 'type': 'list'}}},
     )
-    _storm_typename = 'storm:model:type'
+    _storm_typename = 'model:type'
 
     def __init__(self, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
