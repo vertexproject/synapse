@@ -692,13 +692,15 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
 Aha
 ---
 
-A Synapse Aha service implements an HTTP for assisting with provisioning.
+A Synapse Aha service implements an HTTP for assisting with devops.
 
 /api/v1/aha/provision/service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
     POST
+
+    This API allows the caller to generate an AHA provisioning URL.
     
     *Input*
         The API expects the following JSON body::
@@ -721,6 +723,48 @@ A Synapse Aha service implements an HTTP for assisting with provisioning.
             {
                 "url": "< the AHA provisioning URL >",
             }
+
+
+/api/v1/aha/services
+~~~~~~~~~~~~~~~~~~~~
+
+*Method*
+    GET
+
+    This API allows the caller to get a list of all the registered services.
+
+    *Input*
+        The API accepts the following  **optional** JSON body::
+
+            {
+                "network": " ... name of the aha network to list",
+            }
+
+    *Returns*
+        The API returns the following provisioning information.  The data is returned using using the REST API
+        convention described earlier::
+
+            [
+                {
+                    "name": "< the full service name >",
+                    "svcname": "< service name part >",
+                    "svcnetw": "< service network part >",
+                    "svcinfo": {
+                        "run": "< runtime service identifier >",
+                        "iden": "< persistent service identifier >",
+                        "leader": "< service leader name >",
+                        "urlinfo": {
+                            "scheme": "< listening schmea >",
+                            "port": listening port,
+                            "path": "< listening path >",
+                            "host": "< listening IP address >"
+                        },
+                        "ready": < boolean indicating the service is either an active leader or in the realtime change event window>,
+                        "online": < runtime aha identifier if the service is connected >
+                    }
+                },
+                ...
+            ]
 
 Axon
 ----
