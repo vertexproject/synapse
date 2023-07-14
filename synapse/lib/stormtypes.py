@@ -3809,7 +3809,7 @@ class Str(Prim):
                   ),
                   'returns': {'type': 'str', 'desc': 'The stripped string.', }}},
         {'name': 'lower', 'desc': '''
-            Get a lowercased copy the of the string.
+            Get a lowercased copy of the string.
 
             Examples:
                 Printing a lowercased string::
@@ -3819,7 +3819,7 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrLower',
                   'returns': {'type': 'str', 'desc': 'The lowercased string.', }}},
         {'name': 'upper', 'desc': '''
-                Get a uppercased copy the of the string.
+                Get a uppercased copy of the string.
 
                 Examples:
                     Printing a uppercased string::
@@ -3829,7 +3829,7 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrUpper',
                   'returns': {'type': 'str', 'desc': 'The uppercased string.', }}},
         {'name': 'title', 'desc': '''
-                Get a title cased copy the of the string.
+                Get a title cased copy of the string.
 
                 Examples:
                     Printing a title cased string::
