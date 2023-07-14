@@ -3828,6 +3828,17 @@ class Str(Prim):
                         $lib.print($foo.upper())''',
          'type': {'type': 'function', '_funcname': '_methStrUpper',
                   'returns': {'type': 'str', 'desc': 'The uppercased string.', }}},
+        {'name': 'title', 'desc': '''
+                Get a title cased copy the of the string.
+
+                Examples:
+                    Printing a title cased string::
+
+                        $foo="Hello world."
+                        $lib.print($foo.title())''',
+         'type': {'type': 'function', '_funcname': '_methStrTitle',
+                  'returns': {'type': 'str', 'desc': 'The title cased string.', }}},
+
         {'name': 'slice', 'desc': '''
             Get a substring slice of the string.
 
@@ -3918,6 +3929,7 @@ class Str(Prim):
             'rstrip': self._methStrRstrip,
             'lower': self._methStrLower,
             'upper': self._methStrUpper,
+            'title': self._methStrTitle,
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
@@ -4001,6 +4013,9 @@ class Str(Prim):
 
     async def _methStrUpper(self):
         return self.valu.upper()
+
+    async def _methStrTitle(self):
+        return self.valu.title()
 
     async def _methStrSlice(self, start, end=None):
         start = await toint(start)
