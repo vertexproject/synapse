@@ -3380,7 +3380,7 @@ class StormTypesTest(s_test.SynTest):
                     $lib.fire(layrdiff, sode=$sode)
                 }
                 '''
-                await core.addTagProp('risk', ('int', {}), ())
+                await core.addTagProp('risk', ('int', {}), {})
                 await core.nodes('[ it:dev:str=foo +#test:risk=50 ]')
                 gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
                 fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']
