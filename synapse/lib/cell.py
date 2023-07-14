@@ -855,7 +855,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hideconf': True,
         },
         'auth:conf': {
-            'description': 'Extended configuration to be used by an alternate auth constructor.',
+            'description': 'Extended configuration to be used by an auth constructor.',
             'type': 'object',
             'hideconf': True,
         },
@@ -2810,7 +2810,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
+        auth = await s_hiveauth.Auth.anit(
+            node,
+            seed=seed,
+            nexsroot=self.getCellNexsRoot(),
+            conf=self.conf.get('auth:conf')
+        )
 
         auth.link(self.dist)
 

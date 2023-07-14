@@ -88,7 +88,16 @@ class Auth(s_nexus.Pusher):
 
     '''
 
-    async def __anit__(self, node, nexsroot=None, seed=None):
+    confdefs = {
+        'max:users': {
+            'default': 0,
+            'description': 'Maximum number of users allowed on system, not including root. Default: 0 (disabled).',
+            'type': 'integer'
+        }
+    }
+    confbase = {}
+
+    async def __anit__(self, node, nexsroot=None, seed=None, conf=None):
         '''
         Args:
             node (HiveNode): The root of the persistent storage for auth
@@ -101,6 +110,12 @@ class Auth(s_nexus.Pusher):
 
         if seed is None:
             seed = s_common.guid()
+
+        self.conf = s_config.Config.getConfFromCell(self, conf, envar_prefixes=('SYN_AUTH',))
+        self.conf.setConfFromEnvs()
+        self.conf.reqConfValid()
+
+        self.maxusers = self.conf.get('max:users')
 
         self.usersbyiden = {}
         self.rolesbyiden = {}
@@ -424,6 +439,11 @@ class Auth(s_nexus.Pusher):
         Returns:
             HiveUser: A Hive User.
         '''
+
+        #  GT instead of GE allows us to not count root
+        if self.maxusers and len(self.users()) > self.maxusers:
+            mesg = f'Cell at maximum number of users ({self.maxusers}).'
+            raise s_exc.HitLimit(mesg=mesg)
 
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
