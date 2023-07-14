@@ -1185,7 +1185,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_auth_userlimit(self):
         maxusers = 3
         conf = {
-            'auth:conf': {
+            'hive:auth:conf': {
                 'max:users': maxusers
             }
         }
