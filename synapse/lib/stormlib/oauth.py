@@ -31,7 +31,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
                      'desc': 'Where to populate the signature (in the HTTP body, in the query parameters, or in the header)'},
                 ),
                 'returns': {
-                    'type': 'storm:oauth:v1:client',
+                    'type': 'inet:http:oauth:v1:client',
                     'desc': 'An OAuthV1 client to be used to sign requests.',
                 }
             },
@@ -82,7 +82,7 @@ class OAuthV1Client(s_stormtypes.StormType):
             },
         },
     )
-    _storm_typename = 'storm:oauth:v1:client'
+    _storm_typename = 'inet:http:oauth:v1:client'
 
     def __init__(self, runt, ckey, csecret, atoken, asecret, sigtype, path=None):
         s_stormtypes.StormType.__init__(self, path=path)

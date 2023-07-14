@@ -1,8 +1,10 @@
 import synapse.exc as s_exc
-import synapse.cortex as s_cortex
+
+import synapse.lib.chop as s_chop
+import synapse.lib.modelrev as s_modelrev
 
 import synapse.tests.utils as s_tests
-import synapse.lib.modelrev as s_modelrev
+
 
 def nope(*args, **kwargs):
     raise Exception('nope was called')
@@ -402,3 +404,18 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes(f'hash:md5={md5} -> file:bytes')
             self.len(1, nodes)
             self.eq(md5, nodes[0].props.get('mime:pe:imphash'))
+
+    async def test_modelrev_0_2_21(self):
+
+        cvssv2 = 'AV:L/AC:L/Au:M/C:P/I:C/A:N/E:ND/RL:TF/RC:ND/CDP:ND/TD:ND/CR:ND/IR:ND/AR:ND'
+        cvssv3 = 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X'
+
+        async with self.getRegrCore('model-0.2.21') as core:
+            nodes = await core.nodes('risk:vuln=(foo,)')
+            self.len(1, nodes)
+
+            self.eq(nodes[0].props.get('cvss:v2'), s_chop.cvss2_normalize(cvssv2))
+            self.eq(nodes[0].props.get('cvss:v3'), s_chop.cvss3x_normalize(cvssv3))
+
+            self.len(1, await core.nodes('risk:vulnname="woot woot"'))
+            self.len(1, await core.nodes('risk:vuln:name="woot woot"'))

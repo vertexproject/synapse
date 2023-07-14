@@ -230,3 +230,11 @@ def deepcopy(item, use_list=False):
     copy.deepcopy()
     '''
     return un(en(item), use_list=use_list)
+
+def getvars(varz):
+    items = []
+    for item in varz.items():
+        if not isok(item):
+            continue
+        items.append(item)
+    return dict(items)

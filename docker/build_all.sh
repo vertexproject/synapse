@@ -23,7 +23,7 @@ TAG=${1:-}
 [ ! $TAG ] && echo "Tag not provided, defaulting tag to dev_build" && TAG=dev_build
 
 # Build target images
-docker build --pull -t vertexproject/synapse:$TAG -f docker/images/synapse/Dockerfile .
+docker build --progress plain --pull -t vertexproject/synapse:$TAG -f docker/images/synapse/Dockerfile .
 docker/build_image.sh aha $TAG
 docker/build_image.sh axon $TAG
 docker/build_image.sh cortex $TAG

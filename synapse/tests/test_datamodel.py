@@ -118,6 +118,10 @@ class DataModelTest(s_t_utils.SynTest):
         with self.raises(s_exc.CantDelType):
             modl.delType('bar')
 
+        with self.raises(s_exc.CantDelForm):
+            modl.delForm('foo:foo')
+
+        modl.delFormProp('foo:foo', 'bar')
         modl.delForm('foo:foo')
 
     async def test_datamodel_del_prop(self):

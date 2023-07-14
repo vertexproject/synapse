@@ -175,5 +175,5 @@ class TestAutoDoc(s_t_utils.SynTest):
             with s_common.genfile(path, 'stormtypes_prims.rst') as fd:
                 primbuf = fd.read()
             primstext = primbuf.decode()
-            self.isin('.. _stormprims-storm-auth-user-f527:\n\n*****************\nstorm\\:auth\\:user\n*****************', primstext)
+            self.isin('.. _stormprims-auth-user-f527:\n\n**********\nauth\\:user\n**********', primstext)
             self.isin('iden\n====\n\nThe User iden.', primstext)

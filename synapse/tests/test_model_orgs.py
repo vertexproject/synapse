@@ -22,18 +22,23 @@ class OuModelTest(s_t_utils.SynTest):
                     :tag=woot.woot
                     :mitre:attack:technique=T0001
                     :sophistication=high
+                    :reporter=$lib.gen.orgByName(vertex)
+                    :reporter:name=vertex
                 ]
             ''')
             self.len(1, nodes)
+            self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
             self.eq(40, nodes[0].get('sophistication'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
+            self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
 
             async with await core.snap() as snap:
 
