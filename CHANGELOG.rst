@@ -4,6 +4,92 @@
 Synapse Changelog
 *****************
 
+v2.142.0 - Unreleased
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate any ``inet:url`` nodes with ``:user`` and ``:passwd`` properties
+  which may have been URL encoded. These values are now decoded.
+  (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
+- Renormalize the ``risk:vuln:cvss:v2`` and ``risk:vuln:cvss:v3`` properties.
+  (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
+- Migrate the ``risk:vuln:name`` type from a ``str`` to ``risk:vuln`` form.
+  (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``it``, ``org``, and  ``risk`` models.
+  (`#3223 <https://github.com/vertexproject/synapse/pull/3224>`_)
+  (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
+
+  New Forms
+  ---------
+
+  ``risk:vulnname``
+    Add a form to capture vulnerability name such as log4j or rowhammer.
+
+  Updated Types
+  -------------
+
+  ``cvss:v2``
+    The type now accepts and normalized unordered CVSS vectors.
+
+  ``cvss:v3``
+    The type now accepts and normalized unordered CVSS vectors.
+
+  New Properties
+  --------------
+
+  ``it:sec:c2:config``
+    The form had the following properties added to it:
+
+    ``decoys``
+      An array of URLs used as decoy connections to obfuscate the C2 servers.
+
+  ``ou:technique``
+    The form had the following properties added to it:
+
+    ``reporter``
+      The organization reporting on the technique.
+
+    ``reporter:name``
+      The name of the organization reporting on the technique.
+
+  ``risk:vuln``
+    The form had the following properties added to it:
+
+    ``names``
+      An array of alternate names for the vulnerability.
+
+Features and Enhancements
+-------------------------
+- Add support for octal constants, such as ``0o755``, in Storm expressions.
+  (`#3231 <https://github.com/vertexproject/synapse/pull/3231>`_)
+- Add additional events to the Behold API message stream for the addition
+  and removal of extended model elements.
+  (`#3228 <https://github.com/vertexproject/synapse/pull/3228>`_)
+- Add a general purpose process pool using forked workers in order to speed
+  up certain processing operations. This includes the Storm operations for
+  JSONSchema parsing, HTML parsing, STIX validation and XML parsing.
+  (`#3033 <https://github.com/vertexproject/synapse/pull/3033>`_)
+- Add support for Cosign signatures of tagged Synapse containers. See
+  additional information at :ref:`dev_docker_verification`.
+  (`#3196 <https://github.com/vertexproject/synapse/pull/3196>`_)
+- Adjust internal names for Storm objects.
+  (`#3228 <https://github.com/vertexproject/synapse/pull/3229>`_)
+
+Bugfixes
+--------
+- Fix a bug in the scrape for ``inet:ipv4`` where IP addresses were found
+  when there was leading or trailing numbers around the IP addresses.
+  (`#3234 <https://github.com/vertexproject/synapse/pull/3234>`_)
+- Fix a bug where ``$lib.model.ext.delForm()`` did not check for extended
+  property definitions before deletion. Extended properties on a custom form
+  must be deleted prior to deleting the form.
+  (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
+
 v2.141.0 - 2023-07-07
 =====================
 
