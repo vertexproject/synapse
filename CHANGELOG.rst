@@ -11,7 +11,7 @@ Automatic Migrations
 --------------------
 - Renormalize the ``risk:vuln:cvss:v2`` and ``risk:vuln:cvss:v3`` properties.
   (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
-- Migrate the ``risk:vuln:name`` type from a ``str`` to ``risk:vulnname``
+- Migrate the ``risk:vuln:name`` type from a ``str`` to a ``risk:vulnname``
   form.
   (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
 - See :ref:`datamigration` for more information about automatic migrations.
@@ -73,7 +73,7 @@ Features and Enhancements
 - Add additional events to the Behold API message stream for the addition
   and removal of extended model elements.
   (`#3228 <https://github.com/vertexproject/synapse/pull/3228>`_)
-- Update the ``$lib.dmon.add()`` variable capture to capture record variables
+- Update the ``$lib.dmon.add()`` variable capture to record variables
   from embedded query objects.
   (`#3230 <https://github.com/vertexproject/synapse/pull/3230>`_)
 - Add a ``.title()`` method on Storm strings to get title case formatted
