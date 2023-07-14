@@ -229,6 +229,7 @@ testmodel = {
         )}), {'doc': 'A complex comp type.'}),
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
