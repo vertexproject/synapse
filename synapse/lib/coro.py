@@ -251,6 +251,7 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
 
 forkpool = None
 forkpool_sema = None
+max_workers = None
 def_max_workers = 8
 reserved_workers = 2
 if multiprocessing.current_process().name == 'MainProcess':
@@ -262,6 +263,7 @@ if multiprocessing.current_process().name == 'MainProcess':
         atexit.register(forkpool.shutdown)
         forkpool_sema = asyncio.Semaphore(max(1, max_workers - reserved_workers))
     except OSError as e:  # pragma: no cover
+        max_workers = None
         logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
 def _runtodo(todo):
