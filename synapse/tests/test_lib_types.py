@@ -297,6 +297,29 @@ class TypesTest(s_t_utils.SynTest):
                 else:
                     self.raises(b, t.norm, v)
 
+            # size = 8, pad = True
+            testvectors = [
+                ('0x12', '00000012'),
+                ('0x1234', '00001234'),
+                ('0x123456', '00123456'),
+                ('0x12345678', '12345678'),
+                ('0x123456789a', s_exc.BadTypeValu),
+                (b'\x12', '00000012'),
+                (b'\x12\x34', '00001234'),
+                (b'\x12\x34\x56', '00123456'),
+                (b'\x12\x34\x56\x78', '12345678'),
+                (b'\x12\x34\x56\x78\x9a', s_exc.BadTypeValu),
+            ]
+            t = core.model.type('test:hexpad')
+            for v, b in testvectors:
+                if isinstance(b, (str, bytes)):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(r, b)
+                else:
+                    self.raises(b, t.norm, v)
+
             # Do some node creation and lifting
             async with await core.snap() as snap:
                 node = await snap.addNode('test:hexa', '01:00 01')
