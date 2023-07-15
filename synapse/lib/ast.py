@@ -3391,6 +3391,8 @@ class EmbedQuery(Const):
     async def compute(self, runt, path):
 
         varz = {}
+        varz.update(runt.vars)
+
         if path is not None:
             varz.update(path.vars)
 

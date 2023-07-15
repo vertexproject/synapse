@@ -2318,7 +2318,7 @@ class AstTest(s_test.SynTest):
 
             q = '$view = $lib.view.get() $lib.print($view)'
             mesgs = await core.stormlist(q)
-            self.stormIsInPrint('storm:view', mesgs)
+            self.stormIsInPrint('view', mesgs)
 
             q = '''
                 $pipe = $lib.pipe.gen(${

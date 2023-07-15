@@ -27,7 +27,7 @@ class JsonSchema(s_stormtypes.StormType):
     '''
     A JsonSchema validation object for use in validating data structures in Storm.
     '''
-    _storm_typename = 'storm:json:schema'
+    _storm_typename = 'json:schema'
     _storm_locals = (
         {'name': 'schema',
          'desc': 'The schema belonging to this object.',
@@ -100,7 +100,7 @@ class JsonLib(s_stormtypes.Lib):
                       {'name': 'use_default', 'type': 'boolean', 'default': True,
                        'desc': 'Whether to insert default schema values into the validated data structure.'},
                   ),
-                  'returns': {'type': 'storm:json:schema',
+                  'returns': {'type': 'json:schema',
                               'desc': 'A validation object that can be used to validate data structures.'}}},
     )
     _storm_lib_path = ('json',)

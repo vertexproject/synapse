@@ -735,7 +735,7 @@ class Model:
 
         if newtype.deprecated and typeinfo.get('custom'):
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'which which will be removed in 3.0.0.'
+                   f'will be removed in 3.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype
@@ -782,6 +782,12 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             return
+
+        formprops = [p for p in form.props.values() if p.univ is None]
+        if formprops:
+            propnames = ', '.join(prop.name for prop in formprops)
+            mesg = f'Form has extended properties: {propnames}'
+            raise s_exc.CantDelForm(mesg=mesg)
 
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].remove(form)

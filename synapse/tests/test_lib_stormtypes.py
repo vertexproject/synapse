@@ -768,7 +768,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("Library $lib", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
-            self.stormIsInPrint("storm:queue: testq", mesgs)
+            self.stormIsInPrint("queue: testq", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
             self.stormIsInPrint("('1', '2', '3')", mesgs)
@@ -1232,6 +1232,15 @@ class StormTypesTest(s_test.SynTest):
 
             q = '$foo="QuickBrownFox" return ( $foo.upper() )'
             self.eq('QUICKBROWNFOX', await core.callStorm(q))
+
+            q = '$foo="hello world" return ( $foo.title() )'
+            self.eq('Hello World', await core.callStorm(q))
+
+            q = '$foo="hello World" return ( $foo.title() )'
+            self.eq('Hello World', await core.callStorm(q))
+
+            q = '$foo="HELLO WORLD!" return ( $foo.title() )'
+            self.eq('Hello World!', await core.callStorm(q))
 
             q = '$foo="quickbrownfox" return ( $foo.slice(5) )'
             self.eq('brownfox', await core.callStorm(q))
@@ -2174,7 +2183,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
             msgs = await core.stormlist('$lib.print($lib.auth.users.list().0)')
-            self.stormIsInPrint('storm:auth:user', msgs)
+            self.stormIsInPrint('auth:user', msgs)
             self.stormIsInPrint("'name': 'root'", msgs)
 
             await core.stormlist('auth.user.add visi')
@@ -2579,13 +2588,13 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url))', opts=opts)
-            self.stormIsInPrint("storm:proxy: <synapse.telepath.Proxy object", mesgs)
+            self.stormIsInPrint("telepath:proxy: <synapse.telepath.Proxy object", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).doit)', opts=opts)
-            self.stormIsInPrint("storm:proxy:method: <synapse.telepath.Method", mesgs)
+            self.stormIsInPrint("telepath:proxy:method: <synapse.telepath.Method", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).fqdns)', opts=opts)
-            self.stormIsInPrint("storm:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
+            self.stormIsInPrint("telepath:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
 
             unfo = await core.addUser('lowuesr')
             user = unfo.get('iden')
@@ -5074,7 +5083,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
 
             msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({core.auth.allrole.iden}))')
-            self.stormIsInPrint('storm:auth:role', msgs)
+            self.stormIsInPrint('auth:role', msgs)
 
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
