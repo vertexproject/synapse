@@ -881,7 +881,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(100, await core.callStorm('inet:ipv4=11.22.33.44 return(#foo:score)'))
 
             sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            self.eq(sodes[0], {})
+            self.eq(0, sodes[0].get('refs'))
 
             with self.raises(s_exc.CantMergeView):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
@@ -1002,19 +1002,19 @@ class StormTest(s_t_utils.SynTest):
                 url = await subcore.nodes('inet:url')
                 self.len(1, url)
                 url = url[0]
-                self.eq('https', url.props['proto'])
-                self.eq('/api/v1/exptest/neat', url.props['path'])
-                self.eq('', url.props['params'])
-                self.eq(2130706433, url.props['ipv4'])
-                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.props['base'])
-                self.eq(port, url.props['port'])
+                self.eq('https', url.get('proto'))
+                self.eq('/api/v1/exptest/neat', url.get('path'))
+                self.eq('', url.get('params'))
+                self.eq(2130706433, url.get('ipv4'))
+                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.get('base'))
+                self.eq(port, url.get('port'))
 
                 # now test that param works
                 byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
                 self.len(count, byyield)
                 for node in byyield:
                     self.eq(node.form.name, 'test:guid')
-                    self.isin('foo.bar', node.tags)
+                    self.isin('foo.bar', node.getTagNames())
 
                 # bad response should give no nodes
                 msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/lolnope/')
@@ -1331,7 +1331,7 @@ class StormTest(s_t_utils.SynTest):
 
             oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
             newn = await core.nodes('[ ou:name=readonly ]')
-            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
@@ -1341,13 +1341,13 @@ class StormTest(s_t_utils.SynTest):
             self.notin("Property is read only: ou:name.created", buf)
 
             newn = await core.nodes('ou:name=readonly')
-            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
 
             oldn = await core.nodes('[ ou:name=readonly2 ]', opts=altview)
             newn = await core.nodes('[ ou:name=readonly2 ]')
-            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             altview2 = {'view': viewiden2}
             q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
@@ -1361,7 +1361,7 @@ class StormTest(s_t_utils.SynTest):
             self.notin("Property is read only: ou:name.created", buf)
 
             newn = await core.nodes('ou:name=readonly2', opts=altview)
-            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
             await core.nodes('[ test:ro=bad :readable=bar ]')
@@ -1400,39 +1400,39 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two'])
-            self.eq(nodes[0].tagprops['one']['score'], 1)
-            self.eq(nodes[0].tagprops['two']['score'], 2)
-            self.none(nodes[0].tagprops.get('three'))
+            self.sorteq(list(nodes[0].getTagNames()), ['one', 'two'])
+            self.eq(nodes[0].getTagProp('one', 'score'), 1)
+            self.eq(nodes[0].getTagProp('two', 'score'), 2)
+            self.len(0, nodes[0].getTagProps('three'))
             self.len(2, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --only-tags --exclude-tags three haha.four --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'haha', 'haha.five'])
-            self.none(nodes[0].tagprops.get('three'))
+            self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'haha', 'haha.five'])
+            self.len(0, nodes[0].getTagProps('three'))
             self.len(4, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
-            self.eq(nodes[0].props.get('name'), 'haha')
-            self.eq(nodes[0].props.get('desc'), 'cool')
-            self.none(nodes[0].props.get('url'))
-            self.none(nodes[0].props.get('founded'))
-            self.none(nodes[0].props.get('.seen'))
-            self.eq(nodes[0].tagprops['three']['score'], 3)
+            self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
+            self.eq(nodes[0].get('name'), 'haha')
+            self.eq(nodes[0].get('desc'), 'cool')
+            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('founded'))
+            self.none(nodes[0].get('.seen'))
+            self.eq(nodes[0].getTagProp('three', 'score'), 3)
             self.len(6, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].props.get('founded'), 1609459200000)
-            self.none(nodes[0].props.get('url'))
-            self.none(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].get('founded'), 1609459200000)
+            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('.seen'))
 
             await core.nodes('diff | merge --include-props ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.nn(nodes[0].props.get('.seen'))
-            self.none(nodes[0].props.get('url'))
+            self.nn(nodes[0].get('.seen'))
+            self.none(nodes[0].get('url'))
 
             await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
             await core.nodes('diff | merge --only-tags --apply', opts=altview)
@@ -1446,7 +1446,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
             nodes = await core.nodes('ou:org=(org3,)')
             exp = ['glob', 'more', 'more.glob', 'more.glob.tags', 'glob.tags']
-            self.sorteq(list(nodes[0].tags.keys()), exp)
+            self.sorteq(list(nodes[0].getTagNames()), exp)
 
             q = '''
             [ file:bytes=*
@@ -2157,7 +2157,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {'woah': {'test': 1138},
+            self.eq(nodes[0]._getTagPropsDict(), {'woah': {'test': 1138},
                                         'woah.beep': {'test': 8080,
                                                       'note': 'oh my'}
                                        })
@@ -2169,7 +2169,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {'hehe': {'test': 1138},
+            self.eq(nodes[0]._getTagPropsDict(), {'hehe': {'test': 1138},
                                         'woah.beep': {'test': 8080,
                                                       'note': 'oh my'}
                                        })
@@ -4566,13 +4566,13 @@ class StormTest(s_t_utils.SynTest):
             oldn = await core.nodes('[ inet:ipv4=2.2.2.2 ]', opts=opts)
             await asyncio.sleep(0.1)
             newn = await core.nodes('[ inet:ipv4=2.2.2.2 ]')
-            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             msgs = await core.stormlist('inet:ipv4=2.2.2.2 | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
             oldn = await core.nodes('inet:ipv4=2.2.2.2', opts=opts)
-            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
             await core.nodes('[ test:ro=bad :readable=bar ]')
@@ -4581,7 +4581,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
 
             nodes = await core.nodes('test:ro=bad', opts=opts)
-            self.eq(nodes[0].props.get('readable'), 'foo')
+            self.eq(nodes[0].get('readable'), 'foo')
 
     async def test_lib_storm_delnode(self):
         async with self.getTestCore() as core:

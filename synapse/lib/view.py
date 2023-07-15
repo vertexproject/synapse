@@ -260,11 +260,11 @@ class View(s_nexus.Pusher):  # type: ignore
                 finally:
                     await self.delTrigQueue(offs)
 
-    async def getStorNodes(self, buid):
+    async def getStorNodes(self, nid):
         '''
         Return a list of storage nodes for the given buid in layer order.
         '''
-        return await self.core._getStorNodes(buid, self.layers)
+        return [layr.getStorNode(nid) for layr in self.layers]
 
     def init2(self):
         '''
@@ -972,6 +972,17 @@ class View(s_nexus.Pusher):  # type: ignore
     async def addNode(self, form, valu, props=None, user=None):
         async with await self.snap(user=user) as snap:
             return await snap.addNode(form, valu, props=props)
+
+    async def saveNodeEdits(self, edits, meta=None):
+
+        if meta is None:
+            mesg = 'view.saveNodeEdits() requires meta argument.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        user = await self.core.auth.reqUser(meta.get('user'))
+
+        async with await self.snap(user=user) as snap:
+            await snap.saveNodeEdits(edits, meta=meta)
 
     async def addNodeEdits(self, edits, meta):
         '''

@@ -120,17 +120,28 @@ class Node(NodeBase):
         '''
         Return a list of the raw storage nodes for each layer.
         '''
-        return await self.snap.view.getStorNodes(self.buid)
+        return await self.snap.view.getStorNodes(self.nid)
 
     def getByLayer(self):
         '''
         Return a dictionary that translates the node's bylayer dict to a primitive.
         '''
-        ndef = self.bylayer.get('ndef')
-        tags = {t: l for (t, l) in self.bylayer.get('tags', {}).items()}
-        props = {p: l for (p, l) in self.bylayer.get('props', {}).items()}
-        tagprops = {p: l for (p, l) in self.bylayer.get('tagprops', {}).items()}
-        return {'ndef': ndef, 'props': props, 'tags': tags, 'tagprops': tagprops}
+        retn = collections.defaultdict(dict)
+        for indx, sode in enumerate(self.sodes):
+
+            if sode.get('valu') is not None:
+                retn.setdefault('ndef', self.snap.view.layers[indx].iden)
+
+            for prop in sode.get('props', {}).keys():
+                retn['props'].setdefault(prop, self.snap.view.layers[indx].iden)
+
+            for tag in sode.get('tags', {}).keys():
+                retn['tags'].setdefault(tag, self.snap.view.layers[indx].iden)
+
+            for tagprop in sode.get('tagprops', {}).keys():
+                retn['tagprops'].setdefault(tagprop, self.snap.view.layers[indx].iden)
+
+        return(retn)
 
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
@@ -272,7 +283,7 @@ class Node(NodeBase):
                 embdnode['*'] = s_common.ehex(node.buid)
 
             for relp in relprops:
-                embdnode[relp] = node.props.get(relp)
+                embdnode[relp] = node.get(relp)
 
         return retn
 
@@ -471,6 +482,28 @@ class Node(NodeBase):
                 continue
 
             retn.append((tag, valu))
+
+        return retn
+
+    def getPropNames(self):
+        names = set()
+        for sode in self.sodes:
+            props = sode.get('props')
+            if props is None:
+                continue
+            names.update(props.keys())
+        return list(names)
+
+    def getProps(self):
+        retn = {}
+
+        for sode in self.sodes:
+            props = sode.get('props')
+            if props is None:
+                continue
+
+            for name, valt in props.items():
+                retn.setdefault(name, valt[0])
 
         return retn
 

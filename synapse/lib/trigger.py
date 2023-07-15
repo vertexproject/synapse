@@ -413,9 +413,9 @@ class Trigger:
 
         return tdef
 
-    def getRuntPode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, self.iden)
+        ndef = ('syn:trigger', self.iden)
 
         props = {
             'doc': self.tdef.get('doc', ''),

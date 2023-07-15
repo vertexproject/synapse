@@ -1236,6 +1236,9 @@ class SodeEnvl:
     def __init__(self, sode):
         self.sode = sode
 
+    # any sorting that falls back to the envl are equal already...
+    def __lt__(self, envl): return False
+
 class Layer(s_nexus.Pusher):
     '''
     The base class for a cortex layer.
@@ -3498,6 +3501,9 @@ class Layer(s_nexus.Pusher):
     async def iterNodeEdgesN1(self, buid, verb=None):
 
         pref = self.core.getNidByBuid(buid)
+        if pref is None:
+            return
+
         if verb is not None:
             pref += verb.encode()
 
@@ -3508,6 +3514,9 @@ class Layer(s_nexus.Pusher):
     async def iterNodeEdgesN2(self, buid, verb=None):
 
         pref = self.core.getNidByBuid(buid)
+        if pref is None:
+            return
+
         if verb is not None:
             pref += verb.encode()
 
@@ -3696,14 +3705,10 @@ class Layer(s_nexus.Pusher):
 
         return True, s_msgpack.un(byts)
 
-    async def iterNodeData(self, buid):
+    async def iterNodeData(self, nid):
         '''
         Return a generator of all a buid's node data
         '''
-        nid = self.core.getNidByBuid(buid)
-        if nid is None:
-            return
-
         for lkey, byts in self.dataslab.scanByPref(nid, db=self.nodedata):
             abrv = lkey[8:]
 
@@ -3712,14 +3717,10 @@ class Layer(s_nexus.Pusher):
 
             yield prop[0], valu
 
-    async def iterNodeDataKeys(self, buid):
+    async def iterNodeDataKeys(self, nid):
         '''
         Return a generator of all a buid's node data keys
         '''
-        nid = self.core.getNidByBuid(buid)
-        if nid is None:
-            return
-
         for lkey in self.dataslab.scanKeysByPref(nid, db=self.nodedata):
             abrv = lkey[8:]
             prop = self.getAbrvProp(abrv)
@@ -3887,6 +3888,15 @@ class Layer(s_nexus.Pusher):
         for nid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
             await asyncio.sleep(0)
             yield self.core.getBuidByNid(nid), s_msgpack.un(byts)
+
+    def getStorNode(self, nid):
+        '''
+        Return a *COPY* of the storage node (or an empty default dict).
+        '''
+        sode = self._getStorNode(nid)
+        if sode is not None:
+            return deepcopy(sode)
+        return collections.defaultdict(dict)
 
     async def splices(self, offs=None, size=None):
         '''

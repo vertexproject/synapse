@@ -3104,8 +3104,8 @@ class DiffCmd(Cmd):
             tagname = await s_stormtypes.tostr(self.opts.tag)
 
             layr = runt.snap.view.layers[0]
-            async for _, buid, sode in layr.liftByTag(tagname):
-                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+            async for _, nid, sode in layr.liftByTag(tagname):
+                node = await self.runt.snap._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
@@ -3131,8 +3131,8 @@ class DiffCmd(Cmd):
                 liftprop = prop.name
 
             layr = runt.snap.view.layers[0]
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+            async for _, nid, sode in layr.liftByProp(liftform, liftprop):
+                node = await self.runt.snap._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
@@ -3183,7 +3183,7 @@ class CopyToCmd(Cmd):
             async for node, path in genr:
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
-                for name in node.props.keys():
+                for name in node.getPropNames():
                     runt.confirm(node.form.props[name].setperm, gateiden=layriden)
 
                 for tag in node.getTagNames():
@@ -3197,7 +3197,7 @@ class CopyToCmd(Cmd):
 
                     proto = await editor.addNode(node.ndef[0], node.ndef[1])
 
-                    for name, valu in node.props.items():
+                    for name, valu in node.getProps().items():
 
                         prop = node.form.prop(name)
                         if prop.info.get('ro'):
@@ -3218,7 +3218,7 @@ class CopyToCmd(Cmd):
                     for name, valu in node.getTags():
                         await proto.addTag(name, valu=valu)
 
-                    for tagname, tagprops in node.tagprops.items():
+                    for tagname, tagprops in node._getTagPropsDict().items():
                         for propname, valu in tagprops.items():
                             await proto.setTagProp(tagname, propname, valu)
 
@@ -3455,11 +3455,11 @@ class MergeCmd(Cmd):
 
                     addedits = editor.getNodeEdits()
                     if addedits:
-                        await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
+                        await runt.snap.view.parent.saveNodeEdits(addedits, meta=meta)
 
                     if subs:
                         subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.view.storNodeEdits(subedits, meta=meta)
+                        await runt.snap.saveNodeEdits(subedits, meta=meta)
                         subs.clear()
 
                 # check all node perms first
@@ -3761,9 +3761,9 @@ class MoveNodesCmd(Cmd):
             sodes = {}
             layrdata = {}
             for layr in self.lyrs.keys():
-                sodes[layr] = await self.lyrs[layr].getStorNode(node.buid)
+                sodes[layr] = self.lyrs[layr].getStorNode(node.nid)
                 layrkeys = set()
-                async for name in self.lyrs[layr].iterNodeDataKeys(node.buid):
+                async for name in self.lyrs[layr].iterNodeDataKeys(node.nid):
                     layrkeys.add(name)
                 layrdata[layr] = layrkeys
 
@@ -3794,10 +3794,10 @@ class MoveNodesCmd(Cmd):
 
             for layr, valu in delnodes:
                 edit = [(node.buid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
-                await self.lyrs[layr].storNodeEdits(edit, meta=meta)
+                await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
-            runt.snap.livenodes.pop(node.buid, None)
-            yield await runt.snap.getNodeByBuid(node.buid), path
+            # we may yield the same node because the edits are reflected in it now...
+            yield node, path
 
     async def _sync(self, node, meta):
 
@@ -3806,13 +3806,13 @@ class MoveNodesCmd(Cmd):
 
         if self.adds:
             addedits = [(node.buid, node.form.name, self.adds)]
-            await self.lyrs[self.destlayr].storNodeEdits(addedits, meta=meta)
+            await self.lyrs[self.destlayr].saveNodeEdits(addedits, meta=meta)
             self.adds.clear()
 
         for srclayr, edits in self.subs.items():
             if edits:
                 subedits = [(node.buid, node.form.name, edits)]
-                await self.lyrs[srclayr].storNodeEdits(subedits, meta=meta)
+                await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
 
     async def _moveProps(self, node, sodes, meta):
@@ -4208,7 +4208,7 @@ class DelNodeCmd(Cmd):
             runt.layerConfirm(('node', 'del', node.form.name))
 
             if delbytes and node.form.name == 'file:bytes':
-                sha256 = node.props.get('sha256')
+                sha256 = node.get('sha256')
                 if sha256:
                     sha256b = s_common.uhex(sha256)
                     await axon.del_(sha256b)
@@ -5058,7 +5058,7 @@ class ScrapeCmd(Cmd):
 
             # if a list of props haven't been specified, then default to ALL of them
             if not todo:
-                todo = list(node.props.values())
+                todo = list(node.getProps().values())
 
             for text in todo:
 
@@ -5403,11 +5403,11 @@ class SpliceUndoCmd(Cmd):
             if False:  # make this method an async generator function
                 yield None
 
-            splicetype = node.props.get('type')
+            splicetype = node.get('type')
 
             if splicetype in self.undo:
 
-                iden = node.props.get('iden')
+                iden = node.get('iden')
                 if iden is None:
                     continue
 
