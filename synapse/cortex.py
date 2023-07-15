@@ -3168,6 +3168,37 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
+    async def getExtendedModel(self):
+        '''
+        Get all extended model properties in the Cortex.
+
+        Returns:
+            dict: A dictionary contianing forms, form properties, universal properties and tag properties.
+        '''
+        ret = collections.defaultdict(list)
+        for formname, basetype, typeopts, typeinfo in self.extforms.values():
+            ret['forms'].append({'formname': formname,
+                                 'basetype': basetype,
+                                 'typeopts': typeopts,
+                                 'typeinfo': typeinfo})
+
+        for form, prop, tdef, info in self.extprops.values():
+            ret['props'].append({'formname': form,
+                                 'propname': prop,
+                                 'typedef': tdef,
+                                 'propinfo': info})
+
+        for prop, tdef, info in self.extunivs.values():
+            ret['univ'].append({'propname': prop,
+                                'typedef': tdef,
+                                'propinfo': info})
+
+        for prop, tdef, info in self.exttagprops.values():
+            ret['tagprops'].append({'propname': prop,
+                                    'typedef': tdef,
+                                    'propinfo': info})
+        return copy.deepcopy(dict(ret))
+
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...
         if not name.startswith('_'):

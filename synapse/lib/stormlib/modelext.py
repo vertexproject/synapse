@@ -69,6 +69,9 @@ class LibModelExt(Lib):
                       {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag property to remove.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'getExtendedModel': 'export', 'desc': 'Get all extended model elements.',
+         'type': {'type': 'function', '_funcname': 'getExtendedModel', 'args': (),
+                  'returns': {'type': 'dict'}}}
     )
     _storm_lib_path = ('model', 'ext')
 
@@ -82,6 +85,7 @@ class LibModelExt(Lib):
             'delFormProp': self.delFormProp,
             'delUnivProp': self.delUnivProp,
             'delTagProp': self.delTagProp,
+            'getExtendedModel': self.getExtendedModel,
         }
 
     # TODO type docs in the new convention
@@ -145,3 +149,6 @@ class LibModelExt(Lib):
         propname = await tostr(propname)
         confirm(('model', 'tagprop', 'del'))
         await self.runt.snap.core.delTagProp(propname)
+
+    async def getExtendedModel(self):
+        return await self.runt.snap.core.getExtendedModel()

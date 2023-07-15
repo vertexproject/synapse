@@ -4,21 +4,24 @@ import synapse.exc as s_exc
 
 class StormtypesModelextTest(s_test.SynTest):
 
-    async def test_lib_stormlib_modelext(self):
+    async def test_lib_stormlib_modelext_base(self):
         async with self.getTestCore() as core:
             await core.callStorm('''
-                $typeinfo = $lib.dict()
-                $forminfo = $lib.dict(doc="A test form doc.")
+                $typeinfo = ({})
+                $forminfo = ({"doc": "A test form doc."})
                 $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
 
-                $propinfo = $lib.dict(doc="A test prop doc.")
+                $propinfo = ({"doc": "A test prop doc."})
                 $lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $propinfo)
 
-                $univinfo = $lib.dict(doc="A test univ doc.")
+                $univinfo = ({"doc": "A test univ doc."})
                 $lib.model.ext.addUnivProp(_woot, (int, $lib.dict()), $univinfo)
 
-                $tagpropinfo = $lib.dict(doc="A test tagprop doc.")
+                $tagpropinfo = ({"doc": "A test tagprop doc."})
                 $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
+
+                $pinfo = ({"doc": "Extended a core model."})
+                $lib.model.ext.addFormProp(test:int, _tick, (time, $lib.dict()), $propinfo)
             ''')
 
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
@@ -28,6 +31,11 @@ class StormtypesModelextTest(s_test.SynTest):
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
+            nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1234))
+            self.eq(nodes[0].get('_tick'), 1609459200000)
+
             with self.raises(s_exc.DupPropName):
                 q = '''$lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
@@ -36,17 +44,23 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '''$lib.model.ext.addUnivProp(_woot, (time, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
-            await core.callStorm('_visi:int=10 | delnode')
+            # Grab the extended model definitions
+            model_defs = await core.callStorm('return ( $lib.model.ext.getExtendedModel() )')
+            self.isinstance(model_defs, dict)
+
+            await core.callStorm('_visi:int=10 test:int=1234 | delnode')
             await core.callStorm('''
                 $lib.model.ext.delTagProp(score)
                 $lib.model.ext.delUnivProp(_woot)
                 $lib.model.ext.delFormProp(_visi:int, tick)
+                $lib.model.ext.delFormProp(test:int, _tick)
                 $lib.model.ext.delForm(_visi:int)
             ''')
 
             self.none(core.model.form('_visi:int'))
             self.none(core.model.prop('._woot'))
             self.none(core.model.prop('_visi:int:tick'))
+            self.none(core.model.prop('test:int:_tick'))
             self.none(core.model.tagprop('score'))
 
             # Underscores can exist in extended names but only at specific locations
@@ -118,6 +132,37 @@ class StormtypesModelextTest(s_test.SynTest):
                     $tagpropinfo = $lib.dict(doc="A test tagprop doc.")
                     $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
                 ''', opts=opts)
+
+        # Reload the model extensions from the dump
+        async with self.getTestCore() as core:
+            opts = {'vars': {'model_defs': model_defs}}
+            q = '''
+            for $info in $model_defs.forms {
+                $lib.model.ext.addForm($info.formname, $info.basetype, $info.typeopts, $info.typeinfo)
+            }
+            for $info in $model_defs.props {
+                $lib.model.ext.addFormProp($info.formname, $info.propname, $info.typedef, $info.propinfo)
+            }
+            for $info in $model_defs.tagprops {
+                $lib.model.ext.addTagProp($info.propname, $info.typedef, $info.propinfo)
+            }
+            for $info in $model_defs.univ {
+                $lib.model.ext.addUnivProp($info.propname, $info.typedef, $info.propinfo)
+            }
+            '''
+            await core.nodes(q, opts)
+
+            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('_visi:int', 10))
+            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('._woot'), 30)
+            self.eq(nodes[0].getTagProp('lol', 'score'), 99)
+
+            nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1234))
+            self.eq(nodes[0].get('_tick'), 1609459200000)
 
     async def test_lib_stormlib_behold_modelext(self):
         self.skipIfNexusReplay()
