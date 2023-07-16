@@ -3393,11 +3393,11 @@ class MergeCmd(Cmd):
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
+        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.nid):
             runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
             runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.buid):
+        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.nid):
             verb = edge[0]
             runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
             runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
@@ -3576,7 +3576,7 @@ class MergeCmd(Cmd):
                 if not onlytags or form == 'syn:tag':
 
                     layr = runt.snap.view.layers[0]
-                    async for name, valu in layr.iterNodeData(node.buid):
+                    async for name, valu in layr.iterNodeData(node.nid):
                         if not self.opts.apply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
@@ -3586,7 +3586,7 @@ class MergeCmd(Cmd):
                             if len(subs) >= 1000:
                                 await asyncio.sleep(0)
 
-                    async for edge in layr.iterNodeEdgesN1(node.buid):
+                    async for edge in layr.iterNodeEdgesN1(node.nid):
                         name, dest = edge
                         if not self.opts.apply:
                             await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
@@ -3685,7 +3685,7 @@ class MoveNodesCmd(Cmd):
                 self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
                 self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
-            async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
+            async for edge in self.lyrs[layr].iterNodeEdgesN1(node.nid):
                 verb = edge[0]
                 self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
                 self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
@@ -3958,7 +3958,11 @@ class MoveNodesCmd(Cmd):
 
         for iden, layr in self.lyrs.items():
             if not iden == self.destlayr:
-                async for edge in layr.iterNodeEdgesN1(node.buid):
+                async for (verb, nid) in layr.iterNodeEdgesN1(node.nid):
+                    # TODO local edits vs compat edits?
+                    edge = (verb, s_common.ehex(layr.core.getBuidByNid(nid)))
+                    n2node = await node.snap.getNodeByNid(nid)
+                    print(f'MOVE EDGE {node} {edge} TO {n2node}')
                     if not self.opts.apply:
                         name, dest = edge
                         await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')

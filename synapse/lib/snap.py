@@ -665,6 +665,9 @@ class Snap(s_base.Base):
 
         return await self._joinStorNode(nid)
 
+    async def getNodeByNid(self, nid):
+        return await self._joinStorNode(nid)
+
     async def getNodeByNdef(self, ndef):
         '''
         Return a single Node by (form,valu) tuple.
@@ -1255,10 +1258,10 @@ class Snap(s_base.Base):
 
             yield s_node.RuntNode(self, pode)
 
-    async def iterNodeEdgesN1(self, buid, verb=None):
+    async def iterNodeEdgesN1(self, nid, verb=None):
 
         last = None
-        gens = [layr.iterNodeEdgesN1(buid, verb=verb) for layr in self.layers]
+        gens = [layr.iterNodeEdgesN1(nid, verb=verb) for layr in self.layers]
 
         async for edge in s_common.merggenr2(gens):
 
@@ -1269,10 +1272,10 @@ class Snap(s_base.Base):
             last = edge
             yield edge
 
-    async def iterNodeEdgesN2(self, buid, verb=None):
+    async def iterNodeEdgesN2(self, nid, verb=None):
 
         last = None
-        gens = [layr.iterNodeEdgesN2(buid, verb=verb) for layr in self.layers]
+        gens = [layr.iterNodeEdgesN2(nid, verb=verb) for layr in self.layers]
 
         async for edge in s_common.merggenr2(gens):
 
@@ -1283,16 +1286,16 @@ class Snap(s_base.Base):
             last = edge
             yield edge
 
-    async def hasNodeEdge(self, buid1, verb, buid2):
+    async def hasNodeEdge(self, n1nid, verb, n2nid):
         for layr in self.layers:
-            if await layr.hasNodeEdge(buid1, verb, buid2):
+            if await layr.hasNodeEdge(n1nid, verb, n2nid):
                 return True
         return False
 
-    async def iterNodeEdgesN1N2(self, buid1, buid2):
+    async def iterNodeEdgesN1N2(self, n1nid, n2nid):
 
         last = None
-        gens = [layr.iterNodeEdgesN1N2(buid1, buid2) for layr in self.layers]
+        gens = [layr.iterNodeEdgesN1N2(n1nid, n2nid) for layr in self.layers]
 
         async for edge in s_common.merggenr2(gens):
 
@@ -1323,7 +1326,7 @@ class Snap(s_base.Base):
                 return valu
         return defv
 
-    async def iterNodeData(self, buid):
+    async def iterNodeData(self, nid):
         '''
         Returns:  Iterable[Tuple[str, Any]]
         '''
@@ -1331,22 +1334,22 @@ class Snap(s_base.Base):
 
             for layr in reversed(self.layers):
 
-                async for name, valu in layr.iterNodeData(buid):
+                async for name, valu in layr.iterNodeData(nid):
                     if name in sset:
                         continue
 
                     await sset.add(name)
                     yield name, valu
 
-    async def iterNodeDataKeys(self, buid):
+    async def iterNodeDataKeys(self, nid):
         '''
-        Yield each data key from the given node by buid.
+        Yield each data key from the given node by nid.
         '''
         async with self.core.getSpooledSet() as sset:
 
             for layr in reversed(self.layers):
 
-                async for name in layr.iterNodeDataKeys(buid):
+                async for name in layr.iterNodeDataKeys(nid):
                     if name in sset:
                         continue
 

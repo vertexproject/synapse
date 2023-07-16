@@ -263,6 +263,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getStorNodes(self, nid):
         '''
         Return a list of storage nodes for the given buid in layer order.
+        NOTE: This returns a COPY of the storage node and will not receive updates!
         '''
         return [layr.getStorNode(nid) for layr in self.layers]
 

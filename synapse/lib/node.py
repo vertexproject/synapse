@@ -863,11 +863,11 @@ class Node(NodeBase):
         return retn
 
     async def iterData(self):
-        async for item in self.snap.iterNodeData(self.buid):
+        async for item in self.snap.iterNodeData(self.nid):
             yield item
 
     async def iterDataKeys(self):
-        async for name in self.snap.iterNodeDataKeys(self.buid):
+        async for name in self.snap.iterNodeDataKeys(self.nid):
             yield name
 
 class RuntNode(NodeBase):

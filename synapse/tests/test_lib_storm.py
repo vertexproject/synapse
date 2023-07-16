@@ -1505,10 +1505,11 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             [ ou:org=(foo,)
                 :desc=layr1
+                :name=foo
                 .seen=2022
                 +#hehe.haha=2022
                 +#one:score=1
-                +(bar)> {[ ou:org=(bar,) ]}
+                +(bar)> {[ ou:org=(bar,) :name=bar]}
             ]
             $node.data.set(foo, bar)
             '''
@@ -1549,11 +1550,12 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             [ ou:org=(foo,)
                 :desc=overwritten
+                :name=foo
                 .seen=2023
                 +#hehe.haha=2023
                 +#one:score=2
                 +#two:score=1
-                +(baz)> {[ ou:org=(baz,) ]}
+                +(baz)> {[ ou:org=(baz,) :name=baz ]}
             ]
             $node.data.set(foo, baz)
             $node.data.set(bar, baz)
@@ -1572,7 +1574,8 @@ class StormTest(s_t_utils.SynTest):
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
-            self.len(1, await core.nodes('ou:org=(foo,) -(bar)> *', opts=view3))
+
+            self.len(1, await core.nodes('ou:org=(foo,)', opts=view3))
             self.len(1, await core.nodes('ou:org=(foo,) -(baz)> *', opts=view3))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view3)
             self.eq(data, 'bar')

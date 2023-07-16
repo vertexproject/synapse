@@ -1889,14 +1889,15 @@ class Layer(s_nexus.Pusher):
 
         await self._saveDirtySodes()
 
-        async for buid, sode in self.getStorNodes():
+        # VISI
+        async for nid, sode in self.getStorNodes():
 
             edits = []
 
-            async for verb, n2iden in self.iterNodeEdgesN1(buid):
+            async for verb, n2nid in self.iterNodeEdgesN1(nid):
                 edits.append((EDIT_EDGE_DEL, (verb, n2iden), ()))
 
-            async for prop, valu in self.iterNodeData(buid):
+            async for prop, valu in self.iterNodeData(nid):
                 edits.append((EDIT_NODEDATA_DEL, (prop, valu), ()))
 
             for tag, propdict in sode.get('tagprops', {}).items():
@@ -1913,6 +1914,7 @@ class Layer(s_nexus.Pusher):
             if valu is not None:
                 edits.append((EDIT_NODE_DEL, valu, ()))
 
+            buid = self.core.getBuidByNid(nid)
             yield (buid, sode.get('form'), edits)
 
     async def clone(self, newdirn):
@@ -3411,6 +3413,8 @@ class Layer(s_nexus.Pusher):
 
         n1n2nid = n1nid + n2nid
 
+        # FIXME do a verb lookup and increment verb stats
+
         self.layrslab.put(venc, n1n2nid, db=self.byverb)
         self.layrslab.put(n1nid + venc, n2nid, db=self.edgesn1)
         self.layrslab.put(n2nid + venc, n1nid, db=self.edgesn2)
@@ -3451,11 +3455,9 @@ class Layer(s_nexus.Pusher):
         for lkey in self.layrslab.scanKeys(db=self.byverb):
             yield lkey.decode()
 
-    async def iterNodeEdgesN1N2(self, buid1, buid2):
-        n1nid = self.core.getNidByBuid(buid1)
-        n2nid = self.core.getNidByBuid(buid2)
+    async def iterNodeEdgesN1N2(self, n1nid, n2nid):
         for _, venc in self.layrslab.scanByDups(n1nid + n2nid, db=self.edgesn1n2):
-            yield (buid1, venc.decode(), buid2)
+            yield (n1nid, venc.decode(), n2nid)
 
     async def getEdges(self, verb=None):
 
@@ -3498,31 +3500,25 @@ class Layer(s_nexus.Pusher):
 
         return self.stortypes[stortype].indx(valu)
 
-    async def iterNodeEdgesN1(self, buid, verb=None):
+    async def iterNodeEdgesN1(self, nid, verb=None):
 
-        pref = self.core.getNidByBuid(buid)
-        if pref is None:
-            return
-
+        pref = nid
         if verb is not None:
             pref += verb.encode()
 
         for lkey, n2nid in self.layrslab.scanByPref(pref, db=self.edgesn1):
             verb = lkey[8:].decode()
-            yield verb, s_common.ehex(self.core.getBuidByNid(n2nid))
+            yield verb, n2nid
 
-    async def iterNodeEdgesN2(self, buid, verb=None):
+    async def iterNodeEdgesN2(self, nid, verb=None):
 
-        pref = self.core.getNidByBuid(buid)
-        if pref is None:
-            return
-
+        pref = nid
         if verb is not None:
             pref += verb.encode()
 
         for lkey, n1nid in self.layrslab.scanByPref(pref, db=self.edgesn2):
             verb = lkey[8:].decode()
-            yield verb, s_common.ehex(self.core.getBuidByNid(n1nid))
+            yield verb, n1nid
 
     async def hasNodeEdge(self, buid1, verb, buid2):
 
@@ -3707,7 +3703,7 @@ class Layer(s_nexus.Pusher):
 
     async def iterNodeData(self, nid):
         '''
-        Return a generator of all a buid's node data
+        Return a generator of all a node's data by nid.
         '''
         for lkey, byts in self.dataslab.scanByPref(nid, db=self.nodedata):
             abrv = lkey[8:]
@@ -3761,10 +3757,12 @@ class Layer(s_nexus.Pusher):
                 for prop, (valu, stortype) in propdict.items():
                     edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
 
-            async for prop, valu in self.iterNodeData(buid):
+            async for prop, valu in self.iterNodeData(nid):
                 edits.append((EDIT_NODEDATA_SET, (prop, valu, None), ()))
 
-            async for verb, n2iden in self.iterNodeEdgesN1(buid):
+            async for verb, n2nid in self.iterNodeEdgesN1(nid):
+                # LOCAL edits vs COMPAT edits?
+                n2iden = s_common.ehex(self.core.getBuidByNid(nid))
                 edits.append((EDIT_EDGE_ADD, (verb, n2iden), ()))
 
             yield nodeedit
@@ -3887,7 +3885,7 @@ class Layer(s_nexus.Pusher):
 
         for nid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
             await asyncio.sleep(0)
-            yield self.core.getBuidByNid(nid), s_msgpack.un(byts)
+            yield nid, s_msgpack.un(byts)
 
     def getStorNode(self, nid):
         '''

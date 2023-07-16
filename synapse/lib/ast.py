@@ -521,19 +521,19 @@ class SubGraph:
 
             if doedges and not omitted and (degrees is None or dist < degrees):
 
-                async for verb, n2iden in node.iterEdgesN1():
+                async for verb, n2nid in node.iterEdgesN1():
 
                     await asyncio.sleep(0)
-                    n2node = await runt.snap.getNodeByBuid(s_common.uhex(n2iden))
+                    n2node = await runt.snap.getNodeByNid(n2nid)
                     if n2node is None:
                         continue
 
                     addtodo(n2node, path.fork(n2node), dist)
 
-                async for verb, n1iden in node.iterEdgesN2():
+                async for verb, n1nid in node.iterEdgesN2():
 
                     await asyncio.sleep(0)
-                    n1node = await runt.snap.getNodeByBuid(s_common.uhex(n1iden))
+                    n1node = await runt.snap.getNodeByNid(n1nid)
                     if n1node is None:
                         continue
 
@@ -568,16 +568,24 @@ class SubGraph:
 
                 for n2node, n2path in nodepaths.values():
                     await asyncio.sleep(0)
-                    async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(node.buid, n2node.buid):
-                        edges.append((s_common.ehex(buid2), {'type': 'edge', 'verb': verb}))
+                    async for n1nid, verb, n2nid in runt.snap.iterNodeEdgesN1N2(node.nid, n2node.nid):
+                        n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
+                        edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
                 for buid in self.graphnodes:
                     await asyncio.sleep(0)
-                    async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(node.buid, buid):
-                        edges.append((s_common.ehex(buid2), {'type': 'edge', 'verb': verb}))
 
-                    async for buid1, verb, buid2 in runt.snap.iterNodeEdgesN1N2(buid, node.buid):
-                        edges.append((s_common.ehex(buid1), {'type': 'edge', 'verb': verb, 'rev': True}))
+                    nid = runt.snap.core.getNidByBuid(buid)
+
+                    if nid is not None:
+
+                        async for n1nid, verb, n2nid in runt.snap.iterNodeEdgesN1N2(node.nid, nid):
+                            n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
+                            edges.append((n2iden, {'type': 'edge', 'verb': verb}))
+
+                        async for n1nid, verb, n2nid in runt.snap.iterNodeEdgesN1N2(nid, node.nid):
+                            n1iden = s_common.ehex(runt.snap.core.getBuidByNid(n1nid))
+                            edges.append((n1iden, {'type': 'edge', 'verb': verb, 'rev': True}))
 
         for node, path in nodepaths.values():
             yield node, path
@@ -1745,8 +1753,8 @@ class N1WalkNPivo(PivotOut):
             async for item in self.getPivsOut(runt, node, path):
                 yield item
 
-            async for (verb, iden) in node.iterEdgesN1():
-                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+            async for (verb, n2nid) in node.iterEdgesN1():
+                wnode = await runt.snap.getNodeByNid(n2nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
 
@@ -3747,9 +3755,8 @@ class EditUnivDel(Edit):
 class N1Walk(Oper):
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN1(verb=verb):
-            buid = s_common.uhex(iden)
-            walknode = await runt.snap.getNodeByBuid(buid)
+        async for _, nid in node.iterEdgesN1(verb=verb):
+            walknode = await runt.snap.getNodeByNid(nid)
             if walknode is not None:
                 yield walknode
 
@@ -3835,9 +3842,8 @@ class N1Walk(Oper):
 class N2Walk(N1Walk):
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN2(verb=verb):
-            buid = s_common.uhex(iden)
-            walknode = await runt.snap.getNodeByBuid(buid)
+        async for _, nid in node.iterEdgesN2(verb=verb):
+            walknode = await runt.snap.getNodeByNid(nid)
             if walknode is not None:
                 yield walknode
 
