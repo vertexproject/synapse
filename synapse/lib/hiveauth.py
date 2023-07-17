@@ -88,16 +88,7 @@ class Auth(s_nexus.Pusher):
 
     '''
 
-    confdefs = {
-        'max:users': {
-            'default': 0,
-            'description': 'Maximum number of users allowed on system, not including root. Default: 0 (disabled).',
-            'type': 'integer'
-        }
-    }
-    confbase = {}
-
-    async def __anit__(self, node, nexsroot=None, seed=None, conf=None):
+    async def __anit__(self, node, nexsroot=None, seed=None, maxusers=0):
         '''
         Args:
             node (HiveNode): The root of the persistent storage for auth
@@ -111,11 +102,7 @@ class Auth(s_nexus.Pusher):
         if seed is None:
             seed = s_common.guid()
 
-        self.conf = s_config.Config.getConfFromCell(self, conf, envar_prefixes=('SYN_AUTH',))
-        self.conf.setConfFromEnvs()
-        self.conf.reqConfValid()
-
-        self.maxusers = self.conf.get('max:users')
+        self.maxusers = maxusers
 
         self.usersbyiden = {}
         self.rolesbyiden = {}
@@ -1120,7 +1107,6 @@ class HiveUser(HiveRuler):
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
             raise s_exc.BadArg(mesg='setArchived requires a boolean')
-        archived = bool(archived)
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)

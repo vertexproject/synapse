@@ -1185,9 +1185,7 @@ class CellTest(s_t_utils.SynTest):
     async def test_cell_auth_userlimit(self):
         maxusers = 3
         conf = {
-            'hive:auth:conf': {
-                'max:users': maxusers
-            }
+            'max:users': maxusers
         }
 
         async with self.getTestCell(s_cell.Cell, conf=conf) as cell:
@@ -1198,14 +1196,15 @@ class CellTest(s_t_utils.SynTest):
                 await cell.auth.addUser('visi4')
             self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
 
-        with self.setTstEnvars(SYN_AUTH_MAX_USERS=str(maxusers)):
-            async with self.getTestCell(s_cell.Cell) as cell:
-                await cell.auth.addUser('visi1')
-                await cell.auth.addUser('visi2')
-                await cell.auth.addUser('visi3')
-                with self.raises(s_exc.HitLimit) as exc:
-                    await cell.auth.addUser('visi4')
-                self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
+        with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
+            with self.getTestDir() as dirn:
+                async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                    await cell.auth.addUser('visi1')
+                    await cell.auth.addUser('visi2')
+                    await cell.auth.addUser('visi3')
+                    with self.raises(s_exc.HitLimit) as exc:
+                        await cell.auth.addUser('visi4')
+                    self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
 
     async def test_cell_onepass(self):
 

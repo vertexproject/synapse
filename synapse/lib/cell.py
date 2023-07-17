@@ -859,10 +859,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
-        'hive:auth:conf': {
-            'description': 'Extended configuration to be used by the hive auth constructor.',
-            'type': 'object',
-            'hideconf': True,
+        'max:users': {
+            'default': 0,
+            'description': 'Maximum number of users allowed on system, not including root (0 is no limit).',
+            'type': 'integer'
         },
         'nexslog:en': {
             'default': False,
@@ -2812,6 +2812,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellHiveAuth(self):
 
+        maxusers = self.conf.get('max:users')
+
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
         node = await self.hive.open(('auth',))
@@ -2819,7 +2821,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             node,
             seed=seed,
             nexsroot=self.getCellNexsRoot(),
-            conf=self.conf.get('hive:auth:conf')
+            maxusers=maxusers
         )
 
         auth.link(self.dist)
