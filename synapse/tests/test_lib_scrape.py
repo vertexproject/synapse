@@ -562,6 +562,9 @@ class ScrapeTest(s_t_utils.SynTest):
         txt = f'hehe woot.onion woot.bit haha'
         self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
 
+        txt = f'hehe trickbot.bazar haha'
+        self.isin('trickbot.bazar', [n[1] for n in s_scrape.scrape(txt)])
+
     def test_refang(self):
         defanged = '10[.]0[.]0[.]1'
         refanged = '10.0.0.1'
