@@ -308,7 +308,7 @@ async def forked(func, *args, **kwargs):
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
     return await spawn(todo, log_conf=_pool_logconf)
 
-async def _boundedforked(func, *args, **kwargs):
+async def semafork(func, *args, **kwargs):
     '''
     Execute a target function in the shared forked process pool
     gated by a semaphore to ensure there are workers reserved for the Storm parser.

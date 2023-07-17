@@ -31,4 +31,4 @@ class LibMimeHtml(s_stormtypes.Lib):
 
     async def totext(self, html):
         html = await s_stormtypes.tostr(html)
-        return await s_coro._boundedforked(htmlToText, html)
+        return await s_coro.semafork(htmlToText, html)

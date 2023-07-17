@@ -655,7 +655,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        return await s_coro._boundedforked(validateStix, bundle)
+        return await s_coro.semafork(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
