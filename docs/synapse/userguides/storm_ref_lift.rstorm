@@ -23,9 +23,9 @@ Simple Lifts
 
 "Simple" lifts refers to the most "basic" lift operations. That is, operations to retrieve a set of nodes based on:
 
-- The presence of a specific primary or secondary property.
-- The presence of a specific primary property value or secondary property value.
-- The presence of a specific tag or tag property.
+- A specific primary, secondary, or universal property.
+- A specific primary, secondary, or universal property value.
+- A specific tag or tag property.
 
 The only difference between "simple" lifts and "lifts using comparison operators" is that we have defined simple lifts as those that use the equals ( ``=`` ) comparator, which is the easiest comparator to use to explain basic lift concepts.
 
@@ -105,7 +105,7 @@ The only difference between "simple" lifts and "lifts using comparison operators
 .. storm-cli:: edge:has=((ps:person,12af06294ddf1a0ac8d6da34e1dabee4),(inet:email, bob.smith@gmail.com))
 
 
-*Lift by the presence of a secondaray property (<prop>):*
+*Lift by the presence of a secondary property (<prop>):*
 
 - Lift the DNS SOA record nodes that have an email property:
 
@@ -148,6 +148,9 @@ The only difference between "simple" lifts and "lifts using comparison operators
 
 .. storm-cli:: file:bytes:mime:pe:compiled=2019*
 
+- Lift all nodes created during July 2023:
+
+.. storm-cli:: .created=202307*
 
 *Lift all nodes with a specific tag:*
 
