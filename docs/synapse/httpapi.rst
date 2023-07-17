@@ -637,7 +637,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
             
     *Returns*
-        The API returns `true` using using the REST API convention described earlier.
+        The API returns `true` using the REST API convention described earlier.
         
 /api/v1/storm/vars/pop
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -656,7 +656,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
             
     *Returns*
-        The API returns the the current value of the variable or default using using the REST API convention described earlier.
+        The API returns the the current value of the variable or default using the REST API convention described earlier.
 
 
 /api/v1/core/info
@@ -692,7 +692,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
 Aha
 ---
 
-A Synapse Aha service implements an HTTP for assisting with devops.
+A Synapse Aha service implements an HTTP API for assisting with devops.
 
 /api/v1/aha/provision/service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -718,7 +718,7 @@ A Synapse Aha service implements an HTTP for assisting with devops.
             }
     
     *Returns*
-        The API returns the following provisioning information.  The data is returned using using the REST API convention described earlier::
+        The API returns the following provisioning information.  The data is returned using the REST API convention described earlier::
         
             {
                 "url": "< the AHA provisioning URL >",
@@ -741,7 +741,7 @@ A Synapse Aha service implements an HTTP for assisting with devops.
             }
 
     *Returns*
-        The API returns the following provisioning information.  The data is returned using using the REST API
+        The API returns the following provisioning information.  The data is returned using the REST API
         convention described earlier::
 
             [
@@ -754,12 +754,12 @@ A Synapse Aha service implements an HTTP for assisting with devops.
                         "iden": "< persistent service identifier >",
                         "leader": "< service leader name >",
                         "urlinfo": {
-                            "scheme": "< listening schmea >",
+                            "scheme": "< listening scheme >",
                             "port": listening port,
                             "path": "< listening path >",
                             "host": "< listening IP address >"
                         },
-                        "ready": < boolean indicating the service is either an active leader or in the realtime change event window>,
+                        "ready": < boolean indicating the service is either an active leader or in the realtime change event window >,
                         "online": < runtime aha identifier if the service is connected >
                     }
                 },
@@ -788,7 +788,7 @@ This API allows the caller to delete multiple files from the Axon by the SHA-256
             }
             
     *Returns*
-        The API returns an array of SHA-256 and boolean values representing whether each was found in the Axon and deleted. The array is returned using using the REST API convention described earlier.
+        The API returns an array of SHA-256 and boolean values representing whether each was found in the Axon and deleted. The array is returned using the REST API convention described earlier.
         
 
 /api/v1/axon/files/put
