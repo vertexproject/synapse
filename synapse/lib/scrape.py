@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
     'bit',
-    'bazar',
     'onion',
 ])
 
