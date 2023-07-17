@@ -305,6 +305,7 @@ class AhaTest(s_test.SynTest):
                     await ahaproxy.addAhaSvc('newp', info, network=None)
 
             # We can use HTTP API to get the registered services
+            await aha.addUser('lowuser', passwd='lowuser')
             await aha.auth.rootuser.setPasswd('secret')
             host, httpsport = await aha.addHttpsPort(0)
             svcsurl = f'https://localhost:{httpsport}/api/v1/aha/services'
@@ -341,6 +342,13 @@ class AhaTest(s_test.SynTest):
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
+
+            # Sad path
+            async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
+                async with sess.get(svcsurl) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'err')
+                    self.eq(info.get('code'), 'AuthDeny')
 
         # The aha service can also be configured with a set of URLs that could represent itself.
         urls = ('cell://home0', 'cell://home1')
