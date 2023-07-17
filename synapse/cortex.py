@@ -3168,12 +3168,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
-    async def getExtendedModel(self):
+    async def getExtModel(self):
         '''
         Get all extended model properties in the Cortex.
 
         Returns:
-            dict: A dictionary contianing forms, form properties, universal properties and tag properties.
+            dict: A dictionary containing forms, form properties, universal properties and tag properties.
         '''
         ret = collections.defaultdict(list)
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
@@ -3189,7 +3189,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                  'propinfo': info})
 
         for prop, tdef, info in self.extunivs.values():
-            ret['univ'].append({'propname': prop,
+            ret['univs'].append({'propname': prop,
                                 'typedef': tdef,
                                 'propinfo': info})
 
@@ -3198,6 +3198,107 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                                     'typedef': tdef,
                                     'propinfo': info})
         return copy.deepcopy(dict(ret))
+
+    async def addExtModel(self, model):
+        '''
+        Add an extended model definition to a Cortex from the output of getExtModel().
+
+        Args:
+            model (dict): An extended model dictionary.
+
+        Returns:
+            Bool: True when the model was added.
+
+        Raises:
+            Stuff if the model defi
+        '''
+        # Add an extended model from the output of getExtModel()
+        # Before modifying anything, confirm the new model is only additive.
+        # If there are existing elements which have a different definition,
+        # we raise an Exception.
+        # If there are existing elements which have the same definition,
+        # we skip them.
+
+        # Get our current model definition
+        emodl = await self.getExtModel()
+        amodl = collections.defaultdict(list)
+
+        forms = {info.get('formname'): info for info in model.get('forms', ())}
+        props = {(info.get('formname'), info.get('propname')): info for info in model.get('props', ())}
+        tagprops = {info.get('propname'): info for info in model.get('tagprops', ())}
+        univs = {info.get('propname'): info for info in model.get('univs', ())}
+
+        efrms = {info.get('formname'): info for info in emodl.get('forms', ())}
+        eprops = {(info.get('formname'), info.get('propname')): info for info in emodl.get('props', ())}
+        etagprops = {info.get('propname'): info for info in emodl.get('tagprops', ())}
+        eunivs = {info.get('propname'): info for info in emodl.get('univs', ())}
+
+        for (name, info) in forms.items():
+            enfo = efrms.get(name)
+            if enfo is None:
+                amodl['forms'].append(info)
+                continue
+            if enfo == info:
+                # no-op since the extended model is the same
+                continue
+            # Definitions differ!
+            # FIXME: Add actionable information...
+            mesg = 'Extended form definition differs from existing definition.'
+            raise s_exc.BadTypeDef(mesg)
+
+        for (name, info) in props.items():
+            enfo = eprops.get(name)
+            if enfo is None:
+                amodl['props'].append(info)
+                continue
+            if enfo == info:
+                # no-op since the extended model is the same
+                continue
+            # Definitions differ!
+            # FIXME: Add actionable information...
+            mesg = 'Extended prop definition differs from existing definition.'
+            raise s_exc.BadTypeDef(mesg)
+
+        for (name, info) in tagprops.items():
+            enfo = etagprops.get(name)
+            if enfo is None:
+                amodl['tagprops'].append(info)
+                continue
+            if enfo == info:
+                # no-op since the extended model is the same
+                continue
+            # Definitions differ!
+            # FIXME: Add actionable information...
+            mesg = 'Extended tagprop definition differs from existing definition.'
+            raise s_exc.BadTypeDef(mesg)
+
+        for (name, info) in univs.items():
+            enfo = eunivs.get(name)
+            if enfo is None:
+                amodl['univs'].append(info)
+                continue
+            if enfo == info:
+                # no-op since the extended model is the same
+                continue
+            # Definitions differ!
+            # FIXME: Add actionable information...
+            mesg = 'Extended universal poroperty definition differs from existing definition.'
+            raise s_exc.BadTypeDef(mesg)
+
+        for info in amodl['forms']:
+            await self.addForm(info.get('formname'), info.get('basetype'), info.get('typeopts'), info.get('typeinfo'))
+
+        for info in amodl['props']:
+            await self.addFormProp(info.get('formname'), info.get('propname'),
+                                   info.get('typedef'), info.get('propinfo'))
+
+        for info in amodl['tagprops']:
+            await self.addTagProp(info.get('propname'), info.get('typedef'), info.get('propinfo'))
+
+        for info in amodl['univs']:
+            await self.addUnivProp(info.get('propname'), info.get('typedef'), info.get('propinfo'))
+
+        return True
 
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...

@@ -45,7 +45,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm(q)
 
             # Grab the extended model definitions
-            model_defs = await core.callStorm('return ( $lib.model.ext.getExtendedModel() )')
+            model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
 
             await core.callStorm('_visi:int=10 test:int=1234 | delnode')
@@ -133,7 +133,25 @@ class StormtypesModelextTest(s_test.SynTest):
                     $lib.model.ext.addTagProp(score, (int, $lib.dict()), $tagpropinfo)
                 ''', opts=opts)
 
-        # Reload the model extensions from the dump
+        # Reload the model extensions automatically
+        async with self.getTestCore() as core:
+            opts = {'vars': {'model_defs': model_defs}}
+            q = '''return ($lib.model.ext.addExtModel($model_defs))'''
+            self.true(await core.callStorm(q, opts))
+
+            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('_visi:int', 10))
+            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('._woot'), 30)
+            self.eq(nodes[0].getTagProp('lol', 'score'), 99)
+
+            nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:int', 1234))
+            self.eq(nodes[0].get('_tick'), 1609459200000)
+
+        # Reload the model extensions from the dump by hand
         async with self.getTestCore() as core:
             opts = {'vars': {'model_defs': model_defs}}
             q = '''
@@ -146,7 +164,7 @@ class StormtypesModelextTest(s_test.SynTest):
             for $info in $model_defs.tagprops {
                 $lib.model.ext.addTagProp($info.propname, $info.typedef, $info.propinfo)
             }
-            for $info in $model_defs.univ {
+            for $info in $model_defs.univs {
                 $lib.model.ext.addUnivProp($info.propname, $info.typedef, $info.propinfo)
             }
             '''

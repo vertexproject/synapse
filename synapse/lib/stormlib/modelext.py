@@ -69,9 +69,12 @@ class LibModelExt(s_stormtypes.Lib):
                       {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag property to remove.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'getExtendedModel': 'export', 'desc': 'Get all extended model elements.',
-         'type': {'type': 'function', '_funcname': 'getExtendedModel', 'args': (),
-                  'returns': {'type': 'dict'}}}
+        {'getExtModel': 'export', 'desc': 'Get all extended model elements.',
+         'type': {'type': 'function', '_funcname': 'getExtModel', 'args': (),
+                  'returns': {'type': 'dict'}}},
+        {'addExtModel': 'export', 'desc': 'Add extended model elements to the Cortex from getExtModel().',
+        'type': {'type': 'function', '_funcname': 'addExtModel', 'args': (),
+                  'returns': {'type': 'bool'}}},
     )
     _storm_lib_path = ('model', 'ext')
 
@@ -85,8 +88,8 @@ class LibModelExt(s_stormtypes.Lib):
             'delFormProp': self.delFormProp,
             'delUnivProp': self.delUnivProp,
             'delTagProp': self.delTagProp,
-            'getExtModel': self.getExtendedModel,
-            'addExtModel': self.addExtendedModel,
+            'getExtModel': self.getExtModel,
+            'addExtModel': self.addExtModel,
         }
 
     # TODO type docs in the new convention
@@ -151,5 +154,9 @@ class LibModelExt(s_stormtypes.Lib):
         s_stormtypes.confirm(('model', 'tagprop', 'del'))
         await self.runt.snap.core.delTagProp(propname)
 
-    async def getExtendedModel(self):
-        return await self.runt.snap.core.getExtendedModel()
+    async def getExtModel(self):
+        return await self.runt.snap.core.getExtModel()
+
+    async def addExtModel(self, model):
+        model = await s_stormtypes.toprim(model)
+        return await self.runt.snap.core.addExtModel(model)
