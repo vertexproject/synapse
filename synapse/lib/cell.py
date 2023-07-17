@@ -862,7 +862,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'max:users': {
             'default': 0,
             'description': 'Maximum number of users allowed on system, not including root (0 is no limit).',
-            'type': 'integer'
+            'type': 'integer',
+            'minimum': 0
         },
         'nexslog:en': {
             'default': False,

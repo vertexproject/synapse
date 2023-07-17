@@ -1206,6 +1206,11 @@ class CellTest(s_t_utils.SynTest):
                         await cell.auth.addUser('visi4')
                     self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
 
+        with self.raises(s_exc.BadConfValu) as exc:
+            async with self.getTestCell(s_cell.Cell, conf={'max:users': -1}) as cell:
+                pass
+        self.eq('Invalid config for max:users, data must be bigger than or equal to 0', exc.exception.get('mesg'))
+
     async def test_cell_onepass(self):
 
         async with self.getTestCell(s_cell.Cell) as cell:
