@@ -120,7 +120,7 @@ def getSysctls():
             with open(fp) as f:
                 valu = f.read().strip()
                 ret[key] = valu
-        else:
+        else:  # pragma: no cover
             ret[key] = 'MISSING'
     return ret
 
