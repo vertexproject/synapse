@@ -1833,6 +1833,102 @@ class CellTest(s_t_utils.SynTest):
                                         self.len(1, await bcree01.nodes('[inet:asn=8675]'))
                                         self.len(1, await bcree00.nodes('inet:asn=8675'))
 
+    async def test_backup_restore_double_promote_aha(self):
+        # do a mirror provisioning of a Cell
+        # promote the mirror to being a leader
+        # ensure the mirror has a
+        # backup the mirror
+        # restore the backup
+        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
+            root = await aha.auth.getUserByName('root')
+            self.true(await root.tryPasswd('secret'))
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'core00')
+                cdr1 = s_common.genpath(dirn, 'core01')
+                adr0 = s_common.genpath(dirn, 'axon00')
+                bdr0 = s_common.genpath(dirn, 'back00')
+                bdr1 = s_common.genpath(dirn, 'back01')
+
+                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, conf={'auth:passwd': 'root'},
+                                            dirn=adr0) as axon00:
+                    addr, port = await axon00.addHttpsPort(0)
+                    url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+
+                    async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
+                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
+                                                    provinfo={'mirror': 'core'}) as core01:
+                            self.len(1, await core00.nodes('[inet:asn=0]'))
+                            await core01.sync()
+                            self.len(1, await core01.nodes('inet:asn=0'))
+
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            await core01.promote(graceful=True)
+
+                            self.true(core01.isactive)
+                            self.false(core00.isactive)
+
+                            modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                            self.isin('01.core', modinfo.get('mirror', ''))
+                            modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                            self.none(modinfo.get('mirror'))
+
+                            # Promote core00 back to being the leader
+                            await core00.promote(graceful=True)
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                            self.none(modinfo.get('mirror'))
+                            modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                            self.isin('00.core', modinfo.get('mirror', ''))
+
+                            # Backup the mirror (core01) which points to the core00
+                            async with await axon00.upload() as upfd:
+                                async with core01.getLocalProxy() as prox:
+                                    async for chunk in prox.iterNewBackupArchive():
+                                        await upfd.write(chunk)
+
+                                    size, sha256 = await upfd.save()
+                                    await asyncio.sleep(0)
+
+                    furl = f'{url}{s_common.ehex(sha256)}'
+                    purl = await aha.addAhaSvcProv('00.mynewcortex')
+
+                    with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
+                                           SYN_CORTEX_AHA_PROVISION=purl):
+                        # Restore works
+                        with self.getAsyncLoggerStream('synapse.lib.cell',
+                                                       'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                            argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                            async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
+                                self.true(await stream.wait(6))
+                                self.len(1, await bcree00.nodes('inet:asn=0'))
+                                self.len(1, await bcree00.nodes('[inet:asn=1234]'))
+
+                                rpath = s_common.genpath(bdr0, 'restore.done')
+                                with s_common.genfile(rpath) as fd:
+                                    doneiden = fd.read().decode().strip()
+                                    self.true(s_common.isguid(doneiden))
+
+                                # Restore the backup as a mirror of the mynewcortex
+                                purl = await aha.addAhaSvcProv('01.mynewcortex',
+                                                               provinfo={'mirror': 'mynewcortex'})
+                                stream.clear()
+                                with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
+                                                       SYN_CORTEX_AHA_PROVISION=purl):
+                                    argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                                    async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
+                                        self.true(await stream.wait(6))
+                                        self.true(bcree00.isactive)
+                                        self.false(bcree01.isactive)
+
+                                        await bcree01.sync()
+                                        self.len(1, await bcree01.nodes('[inet:asn=8675]'))
+                                        self.len(1, await bcree00.nodes('inet:asn=8675'))
+
     async def test_passwd_regression(self):
         # Backwards compatibility test for shadowv2
         # Cell was created prior to the shadowv2 password change.

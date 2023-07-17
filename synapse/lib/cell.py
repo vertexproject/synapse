@@ -3376,7 +3376,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             provconf (dict): A dictionary containing provisioning config data from AHA.
 
         Notes:
+            The cell.yaml will have the "mirror" key removed from it.
             The cell.yaml will be modified with data from provconf.
+            The cell.mods.yaml will have the "mirror" key removed from it.
             The cell.mods.yaml will have any keys in the prov conf removed from it.
             This sets the runtime configuration as well.
 
@@ -3395,10 +3397,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # Validate provconf, and insert it into cell.yaml
         for name, valu in provconf.items():
             new_conf.reqKeyValid(name, valu)
-        path = s_common.genpath(self.dirn, 'cell.yaml')
-        s_common.yamlmod(provconf, path)
+
+        cell_path = s_common.genpath(self.dirn, 'cell.yaml')
+
+        # Slice the mirror option out of the cell.yaml file. This avoids
+        # a situation where restoring a backup from a cell which was provisioned
+        # as a mirror is then provisioned as a leader and then has an extra
+        # cell config value which conflicts with the new provconf.
+        s_common.yamlpop('mirror', cell_path)
+
+        # Inject the provconf value into the cell configuration
+        s_common.yamlmod(provconf, cell_path)
+
         # load cell.yaml, still preferring actual config data from opts/envs.
-        new_conf.setConfFromFile(path)
+        new_conf.setConfFromFile(cell_path)
 
         # Remove any keys from overrides that were set from provconf
         # then load the file
