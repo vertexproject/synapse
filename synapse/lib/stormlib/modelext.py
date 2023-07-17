@@ -1,10 +1,10 @@
 import synapse.exc as s_exc
 import synapse.lib.grammar as s_grammar
 
-from synapse.lib.stormtypes import Lib, registry, confirm, tostr, toprim
+import synapse.lib.stormtypes as s_stormtypes
 
-@registry.registerLib
-class LibModelExt(Lib):
+@s_stormtypes.registry.registerLib
+class LibModelExt(s_stormtypes.Lib):
     '''
     A Storm library for manipulating extended model elements.
     '''
@@ -85,69 +85,70 @@ class LibModelExt(Lib):
             'delFormProp': self.delFormProp,
             'delUnivProp': self.delUnivProp,
             'delTagProp': self.delTagProp,
-            'getExtendedModel': self.getExtendedModel,
+            'getExtModel': self.getExtendedModel,
+            'addExtModel': self.addExtendedModel,
         }
 
     # TODO type docs in the new convention
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
-        formname = await tostr(formname)
-        basetype = await tostr(basetype)
-        typeopts = await toprim(typeopts)
-        typeinfo = await toprim(typeinfo)
-        confirm(('model', 'form', 'add', formname))
+        formname = await s_stormtypes.tostr(formname)
+        basetype = await s_stormtypes.tostr(basetype)
+        typeopts = await s_stormtypes.toprim(typeopts)
+        typeinfo = await s_stormtypes.toprim(typeinfo)
+        s_stormtypes.confirm(('model', 'form', 'add', formname))
         await self.runt.snap.core.addForm(formname, basetype, typeopts, typeinfo)
 
     async def addFormProp(self, formname, propname, typedef, propinfo):
-        formname = await tostr(formname)
-        propname = await tostr(propname)
-        typedef = await toprim(typedef)
-        propinfo = await toprim(propinfo)
-        confirm(('model', 'prop', 'add', formname))
+        formname = await s_stormtypes.tostr(formname)
+        propname = await s_stormtypes.tostr(propname)
+        typedef = await s_stormtypes.toprim(typedef)
+        propinfo = await s_stormtypes.toprim(propinfo)
+        s_stormtypes.confirm(('model', 'prop', 'add', formname))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(prop=propname, mesg=mesg)
         await self.runt.snap.core.addFormProp(formname, propname, typedef, propinfo)
 
     async def addUnivProp(self, propname, typedef, propinfo):
-        propname = await tostr(propname)
-        typedef = await toprim(typedef)
-        propinfo = await toprim(propinfo)
-        confirm(('model', 'univ', 'add'))
+        propname = await s_stormtypes.tostr(propname)
+        typedef = await s_stormtypes.toprim(typedef)
+        propinfo = await s_stormtypes.toprim(propinfo)
+        s_stormtypes.confirm(('model', 'univ', 'add'))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
         await self.runt.snap.core.addUnivProp(propname, typedef, propinfo)
 
     async def addTagProp(self, propname, typedef, propinfo):
-        propname = await tostr(propname)
-        typedef = await toprim(typedef)
-        propinfo = await toprim(propinfo)
-        confirm(('model', 'tagprop', 'add'))
+        propname = await s_stormtypes.tostr(propname)
+        typedef = await s_stormtypes.toprim(typedef)
+        propinfo = await s_stormtypes.toprim(propinfo)
+        s_stormtypes.confirm(('model', 'tagprop', 'add'))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
         await self.runt.snap.core.addTagProp(propname, typedef, propinfo)
 
     async def delForm(self, formname):
-        formname = await tostr(formname)
-        confirm(('model', 'form', 'del', formname))
+        formname = await s_stormtypes.tostr(formname)
+        s_stormtypes.confirm(('model', 'form', 'del', formname))
         await self.runt.snap.core.delForm(formname)
 
     async def delFormProp(self, formname, propname):
-        formname = await tostr(formname)
-        propname = await tostr(propname)
-        confirm(('model', 'prop', 'del', formname))
+        formname = await s_stormtypes.tostr(formname)
+        propname = await s_stormtypes.tostr(propname)
+        s_stormtypes.confirm(('model', 'prop', 'del', formname))
         await self.runt.snap.core.delFormProp(formname, propname)
 
     async def delUnivProp(self, propname):
-        propname = await tostr(propname)
-        confirm(('model', 'univ', 'del'))
+        propname = await s_stormtypes.tostr(propname)
+        s_stormtypes.confirm(('model', 'univ', 'del'))
         await self.runt.snap.core.delUnivProp(propname)
 
     async def delTagProp(self, propname):
-        propname = await tostr(propname)
-        confirm(('model', 'tagprop', 'del'))
+        propname = await s_stormtypes.tostr(propname)
+        s_stormtypes.confirm(('model', 'tagprop', 'del'))
         await self.runt.snap.core.delTagProp(propname)
 
     async def getExtendedModel(self):
