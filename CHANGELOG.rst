@@ -68,6 +68,10 @@ Model Changes
 
 Features and Enhancements
 -------------------------
+- Always convert dictionary keys to their primitive values when working with
+  dictionary objects in Storm. Dictionary objects can no longer have keys
+  set which are mutable objects, such as Nodes.
+  (`#3233 <https://github.com/vertexproject/synapse/pull/3233>`_)
 - Add support for octal constants, such as ``0o755``, in Storm expressions.
   (`#3231 <https://github.com/vertexproject/synapse/pull/3231>`_)
 - Add additional events to the Behold API message stream for the addition
