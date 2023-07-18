@@ -437,7 +437,7 @@ class StormType:
 
         name = await tostr(name)
 
-        stor = self.stors.get(await tostr(name))
+        stor = self.stors.get(name)
         if stor is None:
             mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
@@ -445,6 +445,8 @@ class StormType:
         await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
+        name = await tostr(name)
+
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
             return locl
@@ -509,6 +511,9 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+
+        name = await tostr(name)
+
         if name.startswith('__'):
             raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
 
@@ -3509,6 +3514,8 @@ class Proxy(StormType):
 
     async def deref(self, name):
 
+        name = await tostr(name)
+
         if name[0] == '_':
             mesg = f'No proxy method named {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -3574,6 +3581,9 @@ class Service(Proxy):
         self.name = ssvc.name
 
     async def deref(self, name):
+
+        name = await tostr(name)
+
         try:
             await self.proxy.waitready()
             return await Proxy.deref(self, name)
@@ -4244,6 +4254,11 @@ class Dict(Prim):
 
     async def setitem(self, name, valu):
 
+        if ismutable(name):
+            raise s_exc.BadArg(mesg='Mutable values are not allowed as dictionary keys', name=await torepr(name))
+
+        name = await toprim(name)
+
         if valu is undef:
             self.valu.pop(name, None)
             return
@@ -4251,6 +4266,7 @@ class Dict(Prim):
         self.valu[name] = valu
 
     async def deref(self, name):
+        name = await toprim(name)
         return self.valu.get(name)
 
     async def value(self):
@@ -4281,10 +4297,12 @@ class CmdOpts(Dict):
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
+        name = await tostr(name)
         mesg = 'CmdOpts may not be modified by the runtime'
         raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def deref(self, name):
+        name = await tostr(name)
         return getattr(self.valu.opts, name, None)
 
     async def value(self):
@@ -5285,6 +5303,7 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the property fails to normalize.
         '''
         name = await tostr(name)
+
         formprop = self.valu.form.prop(name)
         if formprop is None:
             mesg = f'No prop {self.valu.form.name}:{name}'
@@ -5762,9 +5781,11 @@ class PathMeta(Prim):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
+        name = await tostr(name)
         return self.path.metadata.get(name)
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
         if valu is undef:
             self.path.metadata.pop(name, None)
             return
@@ -5787,6 +5808,7 @@ class PathVars(Prim):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
+        name = await tostr(name)
 
         valu = self.path.getVar(name)
         if valu is not s_common.novalu:
@@ -5796,6 +5818,7 @@ class PathVars(Prim):
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
         if valu is undef:
             await self.path.popVar(name)
             return
@@ -7319,6 +7342,8 @@ class Trigger(Prim):
         return copy.deepcopy(self.valu)
 
     async def deref(self, name):
+        name = await tostr(name)
+
         valu = self.valu.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
@@ -7919,10 +7944,13 @@ class UserProfile(Prim):
         self.runt = runt
 
     async def deref(self, name):
+        name = await tostr(name)
         self.runt.confirm(('auth', 'user', 'get', 'profile', name))
         return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
+
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8088,9 +8116,12 @@ class UserVars(Prim):
         self.runt = runt
 
     async def deref(self, name):
+        name = await tostr(name)
         return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
+
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)
             return
