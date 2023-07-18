@@ -169,11 +169,11 @@ class Node(NodeBase):
             # return await editor.delEdge(verb, n2iden)
 
     async def iterEdgesN1(self, verb=None):
-        async for edge in self.snap.iterNodeEdgesN1(self.buid, verb=verb):
+        async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb):
             yield edge
 
     async def iterEdgesN2(self, verb=None):
-        async for edge in self.snap.iterNodeEdgesN2(self.buid, verb=verb):
+        async for edge in self.snap.iterNodeEdgesN2(self.nid, verb=verb):
             yield edge
 
     async def storm(self, runt, text, opts=None, path=None):

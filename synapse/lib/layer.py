@@ -3418,7 +3418,7 @@ class Layer(s_nexus.Pusher):
         self.layrslab.put(venc, n1n2nid, db=self.byverb)
         self.layrslab.put(n1nid + venc, n2nid, db=self.edgesn1)
         self.layrslab.put(n2nid + venc, n1nid, db=self.edgesn2)
-        self.layrslab.put(n1nid + n2nid, venc, db=self.edgesn1n2)
+        self.layrslab.put(n1n2nid, venc, db=self.edgesn1n2)
 
         return (
             (EDIT_EDGE_ADD, (verb, n2iden), ()),

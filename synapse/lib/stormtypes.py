@@ -6572,8 +6572,8 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getStorNodes():
-            yield item
+        async for nid, sodes in layr.getStorNodes():
+            yield (self.runt.snap.core.getBuidByNid(nid), sodes)
 
     async def getEdges(self):
         layriden = self.valu.get('iden')
@@ -6584,19 +6584,27 @@ class Layer(Prim):
 
     async def getEdgesByN1(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
+
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
-            yield item
+
+        n1nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for verb, n2nid in layr.iterNodeEdgesN1(n1nid):
+            yield (verb, self.runt.snap.core.getBuidByNid(n2nid))
 
     async def getEdgesByN2(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
+
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
-            yield item
+
+        n2nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for (verb, n1nid) in layr.iterNodeEdgesN2(n2nid):
+            yield (verb, self.runt.snap.core.getBuidByNid(n1nid))
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)

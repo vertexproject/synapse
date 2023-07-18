@@ -2827,7 +2827,6 @@ class TagPropCond(Cond):
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
 
             curv = node.getTagProp(tag, name)
-            print(f'node.getTagProp() {tag} {name} {curv} {cmpr} {valu}')
             if curv is None:
                 return False
             return ctor(valu)(curv)

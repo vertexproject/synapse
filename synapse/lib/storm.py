@@ -3587,7 +3587,8 @@ class MergeCmd(Cmd):
                                 await asyncio.sleep(0)
 
                     async for edge in layr.iterNodeEdgesN1(node.nid):
-                        name, dest = edge
+                        name, n2nid = edge
+                        dest = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
                         if not self.opts.apply:
                             await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
                         else:
@@ -5529,11 +5530,12 @@ class EdgesDelCmd(Cmd):
     async def delEdges(self, node, verb, n2=False):
         if n2:
             n2iden = node.iden()
-            async for (v, n1iden) in node.iterEdgesN2(verb):
-                n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
+            async for (v, n1nid) in node.iterEdgesN2(verb):
+                n1 = await self.runt.snap.getNodeByNid(n1nid)
                 await n1.delEdge(v, n2iden)
         else:
-            async for (v, n2iden) in node.iterEdgesN1(verb):
+            async for (v, n2nid) in node.iterEdgesN1(verb):
+                n2iden = s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid))
                 await node.delEdge(v, n2iden)
 
     async def execStormCmd(self, runt, genr):
