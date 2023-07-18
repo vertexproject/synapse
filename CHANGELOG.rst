@@ -4,6 +4,126 @@
 Synapse Changelog
 *****************
 
+v2.142.0 - Unreleased
+=====================
+
+Automatic Migrations
+--------------------
+- Renormalize the ``risk:vuln:cvss:v2`` and ``risk:vuln:cvss:v3`` properties.
+  (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
+- Migrate the ``risk:vuln:name`` type from a ``str`` to a ``risk:vulnname``
+  form.
+  (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``it``, ``org``, and  ``risk`` models.
+  (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
+  (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
+  (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
+
+  New Forms
+  ---------
+
+  ``risk:vulnname``
+    Add a form to capture vulnerability name such as log4j or rowhammer.
+
+  Updated Types
+  -------------
+
+  ``hex``
+    The ``hex`` base type now accepts a ``zeropad`` option that can be used
+    to zero-extend a hex string during normalization.
+
+  ``cvss:v2``
+    The type now accepts and normalizes unordered CVSS vectors.
+
+  ``cvss:v3``
+    The type now accepts and normalizes unordered CVSS vectors.
+
+  New Properties
+  --------------
+
+  ``it:sec:c2:config``
+    The form had the following properties added to it:
+
+    ``decoys``
+      An array of URLs used as decoy connections to obfuscate the C2 servers.
+
+  ``ou:technique``
+    The form had the following properties added to it:
+
+    ``reporter``
+      The organization reporting on the technique.
+
+    ``reporter:name``
+      The name of the organization reporting on the technique.
+
+  ``risk:vuln``
+    The form had the following properties added to it:
+
+    ``names``
+      An array of alternate names for the vulnerability.
+
+Features and Enhancements
+-------------------------
+- Always convert dictionary keys to their primitive values when working with
+  dictionary objects in Storm. Dictionary objects can no longer have keys
+  set which are mutable objects, such as Nodes.
+  (`#3233 <https://github.com/vertexproject/synapse/pull/3233>`_)
+- Add support for octal constants, such as ``0o755``, in Storm expressions.
+  (`#3231 <https://github.com/vertexproject/synapse/pull/3231>`_)
+- Add additional events to the Behold API message stream for the addition
+  and removal of extended model elements.
+  (`#3228 <https://github.com/vertexproject/synapse/pull/3228>`_)
+- Update the ``$lib.dmon.add()`` variable capture to record variables
+  from embedded query objects.
+  (`#3230 <https://github.com/vertexproject/synapse/pull/3230>`_)
+- Add a ``.title()`` method on Storm strings to get title case formatted
+  strings.
+  (`#3242 <https://github.com/vertexproject/synapse/pull/3242>`_)
+- Add a general purpose process pool using forked workers in order to speed
+  up certain processing operations. This includes the Storm operations for
+  JSONSchema parsing, HTML parsing, STIX validation, and XML parsing.
+  (`#3033 <https://github.com/vertexproject/synapse/pull/3033>`_)
+  (`#3229 <https://github.com/vertexproject/synapse/pull/3229>`_)
+- Add a new Cell configuration option, ``max:users``. This can be set to limit
+  the maximum number of non-``root`` users on Cell.
+  (`#3244 <https://github.com/vertexproject/synapse/pull/3244>`_)
+- Add an ``/api/v1/aha/services`` HTTP API to the Aha service. This
+  can be used to get a list of the services registered with Aha.
+  (`#3238 <https://github.com/vertexproject/synapse/pull/3238>`_)
+- Add support for Cosign signatures of tagged Synapse containers. See
+  additional information at :ref:`dev_docker_verification`.
+  (`#3196 <https://github.com/vertexproject/synapse/pull/3196>`_)
+- Adjust internal names for Storm objects.
+  (`#3229 <https://github.com/vertexproject/synapse/pull/3229>`_)
+
+Bugfixes
+--------
+- Fix a bug in the scrape for ``inet:ipv4`` where IP addresses were found
+  when there was leading or trailing numbers around the IP addresses.
+  (`#3234 <https://github.com/vertexproject/synapse/pull/3234>`_)
+- Fix a bug where ``$lib.model.ext.delForm()`` did not check for extended
+  property definitions before deletion. Extended properties on a custom form
+  must be deleted prior to deleting the form.
+  (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
+- Always remove the ``mirror`` configuration option from ``cell.yaml`` file
+  when provisioning a service via Aha. The previous behavior prevented the
+  correct restoration of a service from a backup which was previously
+  provisioned as a mirror and is being restored as a leader.
+  (`#3240 <https://github.com/vertexproject/synapse/pull/3240>`_)
+- Add additional type checking when adding extended model forms and properties
+  to the Cortex. Previously invalid types could raise an ``AttributeError``.
+  (`#3243 <https://github.com/vertexproject/synapse/pull/3243>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm lift reference to add an example of lifting nodes by the
+  universal ``.created`` property.
+  (`#3245 <https://github.com/vertexproject/synapse/pull/3245>`_)
+
 v2.141.0 - 2023-07-07
 =====================
 
