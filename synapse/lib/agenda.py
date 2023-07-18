@@ -879,7 +879,7 @@ class Agenda(s_base.Base):
                 # and be relatively okay. The only catch is that the nexus offset will correspond to the
                 # last nexus transaction, and not the start/stop
                 await self.core.feedBeholder('cron:start', {'iden': appt.iden})
-                async for node in view.eval(appt.query, opts=opts, log_valu={'cron': appt.iden}):
+                async for node in view.eval(appt.query, opts=opts, log_info={'cron': appt.iden}):
                     count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
