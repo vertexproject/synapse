@@ -859,6 +859,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
+        'max:users': {
+            'default': 0,
+            'description': 'Maximum number of users allowed on system, not including root (0 is no limit).',
+            'type': 'integer',
+            'minimum': 0
+        },
         'nexslog:en': {
             'default': False,
             'description': 'Record all changes to a stream file on disk.  Required for mirroring (on both sides).',
@@ -2807,10 +2813,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellHiveAuth(self):
 
+        maxusers = self.conf.get('max:users')
+
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
+        auth = await s_hiveauth.Auth.anit(
+            node,
+            seed=seed,
+            nexsroot=self.getCellNexsRoot(),
+            maxusers=maxusers
+        )
 
         auth.link(self.dist)
 
