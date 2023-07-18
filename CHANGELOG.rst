@@ -111,8 +111,8 @@ Bugfixes
   (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
 - Always remove the ``mirror`` configuration option from ``cell.yaml`` file
   when provisioning a service via Aha. The previous behavior prevented the
-  correct restoration of a service from a backup which as previously
-  provisioned as mirror and is being restored as a leader.
+  correct restoration of a service from a backup which was previously
+  provisioned as a mirror and is being restored as a leader.
   (`#3240 <https://github.com/vertexproject/synapse/pull/3240>`_)
 - Add additional type checking when adding extended model forms and properties
   to the Cortex. Previously invalid types could raise an ``AttributeError``.
