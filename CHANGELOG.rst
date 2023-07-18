@@ -83,6 +83,13 @@ Features and Enhancements
   up certain processing operations. This includes the Storm operations for
   JSONSchema parsing, HTML parsing, STIX validation, and XML parsing.
   (`#3033 <https://github.com/vertexproject/synapse/pull/3033>`_)
+  (`#3229 <https://github.com/vertexproject/synapse/pull/3229>`_)
+- Add a new Cell configuration option, ``max:users``. This can be set to limit
+  the maximum number of non-``root`` users on Cell.
+  (`#3244 <https://github.com/vertexproject/synapse/pull/3244>`_)
+- Add an ``/api/v1/aha/services`` HTTP API to the Aha service. This
+  can be used to get a list of the services registered with Aha.
+  (`#3238 <https://github.com/vertexproject/synapse/pull/3238>`_)
 - Add support for Cosign signatures of tagged Synapse containers. See
   additional information at :ref:`dev_docker_verification`.
   (`#3196 <https://github.com/vertexproject/synapse/pull/3196>`_)
@@ -98,6 +105,20 @@ Bugfixes
   property definitions before deletion. Extended properties on a custom form
   must be deleted prior to deleting the form.
   (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
+- Always remove the ``mirror`` configuration option from ``cell.yaml`` file
+  when provisioning a service via Aha. The previous behavior prevented the
+  correct restoration of a service from a backup which as previously
+  provisioned as mirror and is being restored as a leader.
+  (`#3240 <https://github.com/vertexproject/synapse/pull/3240>`_)
+- Add additional type checking when adding extended model forms and properties
+  to the Cortex. Previously invalid types could raise an ``AttributeError``.
+  (`#3243 <https://github.com/vertexproject/synapse/pull/3243>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm lift reference to add an example of lifting nodes by the
+  universal ``.created`` property.
+  (`#3245 <https://github.com/vertexproject/synapse/pull/3245>`_)
 
 v2.141.0 - 2023-07-07
 =====================
