@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.142.0 - Unreleased
+v2.142.0 - 2023-07-19
 =====================
 
 Automatic Migrations
