@@ -37,4 +37,4 @@ TAG=${2:-}
 
 # Build target image
 echo "Building from docker/images/$IMAGE/Dockerfile"
-docker build  --progress plain --pull -t vertexproject/synapse-$IMAGE:$TAG -f docker/images/$IMAGE/Dockerfile .
+docker build  --no-cache --progress plain --pull -t vertexproject/synapse-$IMAGE:$TAG -f docker/images/$IMAGE/Dockerfile .
