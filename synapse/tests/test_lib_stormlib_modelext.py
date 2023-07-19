@@ -301,3 +301,51 @@ class StormtypesModelextTest(s_test.SynTest):
             self.none(core.model.form('_visi:int'))
             self.none(core.model.prop('_visi:int:tick'))
             self.none(core.model.prop('_visi:int:tock'))
+
+    async def test_lib_stormlib_modelext_argtypes(self):
+        '''
+        Verify type checking of typedef and propdef arguments.
+        '''
+
+        vectors = (
+            (
+                '$lib.model.ext.addForm(inet:fqdn, _foo:bar, (guid, ()), ())',
+                'Form type options should be a dict.'
+            ),
+            (
+                '$lib.model.ext.addForm(inet:fqdn, _foo:bar, ({}), ())',
+                'Form type info should be a dict.'
+            ),
+            (
+                '$lib.model.ext.addFormProp(inet:fqdn, _foo:bar, ({}), ())',
+                'Form property type definitions should be a tuple.'
+            ),
+            (
+                '$lib.model.ext.addFormProp(inet:fqdn, _foo:bar, (), ())',
+                'Form property definitions should be a dict.'
+            ),
+            (
+                '$lib.model.ext.addUnivProp(_foo, ({}), ())',
+                'Universal property type definitions should be a tuple.'
+            ),
+            (
+                '$lib.model.ext.addUnivProp(_foo, (), ())',
+                'Universal property definitions should be a dict.'
+            ),
+            (
+                '$lib.model.ext.addTagProp(_foo:bar, ({}), ())',
+                'Tag property type definitions should be a tuple.'
+            ),
+            (
+                '$lib.model.ext.addTagProp(_foo:bar, (), ())',
+                'Tag property definitions should be a dict.'
+            ),
+        )
+
+        async with self.getTestCore() as core:
+
+            for query, err in vectors:
+
+                with self.raises(s_exc.BadArg) as exc:
+                    await core.callStorm(query)
+                self.eq(err, exc.exception.get('mesg'))
