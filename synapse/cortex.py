@@ -3210,14 +3210,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             Bool: True when the model was added.
 
         Raises:
-            Stuff if the model defi
+            s_exc.BadFormDef: If a form exists with a different definition the provided definition.
+            s_exc.BadPropDef: If a propery, tagprop, or universal propert from exists with a different definition
+                              than the provided definition.
         '''
-        # Add an extended model from the output of getExtModel()
-        # Before modifying anything, confirm the new model is only additive.
-        # If there are existing elements which have a different definition,
-        # we raise an Exception.
-        # If there are existing elements which have the same definition,
-        # we skip them.
 
         # Get our current model definition
         emodl = await self.getExtModel()
@@ -3239,12 +3235,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 amodl['forms'].append(info)
                 continue
             if enfo == info:
-                # no-op since the extended model is the same
                 continue
-            # Definitions differ!
-            # FIXME: Add actionable information...
-            mesg = 'Extended form definition differs from existing definition.'
-            raise s_exc.BadTypeDef(mesg)
+            mesg = f'Extended form definition differs from existing definition for {name}.'
+            raise s_exc.BadFormDef(mesg)
 
         for (name, info) in props.items():
             enfo = eprops.get(name)
@@ -3252,12 +3245,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 amodl['props'].append(info)
                 continue
             if enfo == info:
-                # no-op since the extended model is the same
                 continue
-            # Definitions differ!
-            # FIXME: Add actionable information...
-            mesg = 'Extended prop definition differs from existing definition.'
-            raise s_exc.BadTypeDef(mesg)
+            mesg = f'Extended prop definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
 
         for (name, info) in tagprops.items():
             enfo = etagprops.get(name)
@@ -3265,12 +3255,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 amodl['tagprops'].append(info)
                 continue
             if enfo == info:
-                # no-op since the extended model is the same
                 continue
-            # Definitions differ!
-            # FIXME: Add actionable information...
-            mesg = 'Extended tagprop definition differs from existing definition.'
-            raise s_exc.BadTypeDef(mesg)
+            mesg = f'Extended tagprop definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
 
         for (name, info) in univs.items():
             enfo = eunivs.get(name)
@@ -3278,12 +3265,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 amodl['univs'].append(info)
                 continue
             if enfo == info:
-                # no-op since the extended model is the same
                 continue
-            # Definitions differ!
-            # FIXME: Add actionable information...
-            mesg = 'Extended universal poroperty definition differs from existing definition.'
-            raise s_exc.BadTypeDef(mesg)
+            mesg = f'Extended universal poroperty definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
 
         for info in amodl['forms']:
             await self.addForm(info.get('formname'), info.get('basetype'), info.get('typeopts'), info.get('typeinfo'))
