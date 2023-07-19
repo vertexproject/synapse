@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+v2.142.1 - 2023-07-19
+=====================
+
+Bugfixes
+--------
+- Fix an issue which prevented the publication of the Synapse containers with
+  ``v2.x.x`` tags.
+  (`#3248 <https://github.com/vertexproject/synapse/pull/3248>`_)
+
 v2.142.0 - 2023-07-19
 =====================
 
