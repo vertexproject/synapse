@@ -4,6 +4,17 @@
 Synapse Changelog
 *****************
 
+v2.142.2 - 2023-07-19
+=====================
+
+Bugfixes
+--------
+- Fix an issue which caused the Docker image tags for
+  ``vertexproject/synapse-cryotank:v2.141.1``,
+  ``vertexproject/synapse-jsonstor:v2.141.1``, and
+  ``vertexproject/synapse-stemcell:v2.141.1``, to refer to same image.
+  (`#3249 <https://github.com/vertexproject/synapse/pull/3249>`_)
+
 v2.142.1 - 2023-07-19
 =====================
 
