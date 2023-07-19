@@ -6945,7 +6945,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
 
                 opts = {'scrub': {'include': {'tags': ('visi',)}}}
-                podes = [p async for p in proxy.exportStorm('media:news inet:email', opts=opts)]
+                podes = []
+                async for p in proxy.exportStorm('media:news inet:email', opts=opts):
+                    if not podes:
+                        tasks = [t for t in core.boss.tasks.values() if t.name == 'storm:export']
+                        self.true(len(tasks) == 1 and tasks[0].info.get('view') == core.view.iden)
+                    podes.append(p)
 
                 self.len(2, podes)
                 news = [p for p in podes if p[0][0] == 'media:news'][0]

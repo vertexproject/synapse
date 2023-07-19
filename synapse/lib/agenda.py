@@ -838,7 +838,7 @@ class Agenda(s_base.Base):
             await self._markfailed(appt, 'unknown view')
             return
 
-        info = {'iden': appt.iden, 'query': appt.query}
+        info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
 
         appt.task = task
