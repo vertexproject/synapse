@@ -2143,6 +2143,7 @@ class Runtime(s_base.Base):
             runt.debug = True
         runt.asroot = self.asroot
         runt.readonly = self.readonly
+
         return runt
 
     @contextlib.asynccontextmanager
