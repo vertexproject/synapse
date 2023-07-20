@@ -24,7 +24,7 @@ are learning to program in Storm) to possible use cases and simple examples for 
 included some :ref:`storm-adv-tips` and an :ref:`storm-adv-example` to provide some pointers and an illustration
 of how Storm's "pipeline" behavior and control flow structures may interact.
 
-See the follwing User Guide and Reference sections for additional information:
+See the following User Guide and Reference sections for additional information:
 
 - :ref:`storm-adv-vars`
 - :ref:`storm-adv-methods`
@@ -567,6 +567,11 @@ so the macro will continue to run if an error is encountered.
   
      $lib.warn("BadVendor blew up again!")
   }
+
+.. TIP::
+  
+  ``$lib.raise()`` may also be useful for explicitly raising exceptions (see :ref:`stormlibs-lib-raise`).
+
 
 .. _storm-adv-example:
 

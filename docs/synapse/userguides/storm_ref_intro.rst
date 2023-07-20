@@ -72,11 +72,8 @@ Storm allows users to perform all of the common operations used to interact with
   (:ref:`storm-ref-filter`)
 - **Pivot:** take a set of nodes and identify other nodes that share one or more property values with the
   lifted set. (:ref:`storm-ref-pivot`)
-- **Data modification:** add, modify, annotate, and delete nodes from Synapse. (:ref:`storm-ref-data-mod`)
-
-Additional operations include:
-
 - **Traverse** light edges. (:ref:`data-light-edge`, :ref:`walk-light-edge`)
+- **Modify data:** create, modify, annotate (tag), and delete nodes from Synapse. (:ref:`storm-ref-data-mod`)
 - **Run commands.** Storm supports an extensible set of `commands`_. Many commands provide specific
   functionality to extend the analytical power of Storm. Other Storm commands allow management of permissions
   for users and roles, Synapse views and layers, and Synapse's `automation`_ features. You can display available

@@ -7,6 +7,4 @@
 Storm Reference - Advanced - Functions
 ======================================
 
-
-
-emit and stop are keywords that make a function into a data generator vs a node generator
+Storm **functions** can be used to encapsulate specific operations or behaviors.
