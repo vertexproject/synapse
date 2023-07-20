@@ -2,9 +2,11 @@ import math
 import decimal
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lookup.cvss as s_cvss
@@ -408,6 +410,40 @@ CVSS_CALC = {
 
 def roundup(x):
     return (math.ceil(x * 10) / 10.0)
+
+attack_flow_validators = {}
+def getAttackFlowValidator(version='2.0.0'):
+    validator = attack_flow_validators.get(version)
+    if validator is None:
+        # https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
+        schema = s_data.getJSON(f'attack-flow-schema-{version}')
+        validator = attack_flow_validators[version] = s_config.getJsValidator(schema)
+    return validator
+
+@s_stormtypes.registry.registerLib
+class MitreAttackFlowLib(s_stormtypes.Lib):
+    _storm_lib_path = ('infosec', 'mitre', 'attack', 'flow')
+    _storm_locals = (
+        {'name': 'validate', 'desc': 'Validate a MITRE ATT&CK Flow diagram in JSON format.',
+         'type': {'type': 'function', '_funcname': 'validate',
+                  'args': (
+                      {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to validate against the schema.'},
+                  ),
+                  'raises': [
+                      {'name': 'SchemaViolation', 'reason': 'The JSON input data is not compliant with the schema.'},
+                  ],
+                  'returns': {'type': 'null'}}
+        },
+    ),
+
+    def getObjLocals(self):
+        return {
+            'validate': self.validate,
+        }
+
+    def validate(self, flow):
+        s_common.reqjsonsafe(flow)
+        getAttackFlowValidator()(flow)
 
 @s_stormtypes.registry.registerLib
 class CvssLib(s_stormtypes.Lib):

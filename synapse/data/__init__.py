@@ -1,4 +1,5 @@
 import os
+import json
 
 import synapse.common as s_common
 import synapse.lib.datfile as s_datfile
@@ -17,8 +18,12 @@ def get(name, defval=None):
 
     NOTE: Files are named synapse/data/<name>.mpk
     '''
-    with s_datfile.openDatFile('synapse.data/%s.mpk' % name) as fd:
+    with s_datfile.openDatFile(f'synapse.data/{name}.mpk') as fd:
         return s_msgpack.un(fd.read())
+
+def getJSON(name):
+    with s_datfile.openDatFile(f'synapse.data/{name}.json') as fd:
+        return json.loads(fd.read())
 
 def path(*names):
     return s_common.genpath(dirname, *names)

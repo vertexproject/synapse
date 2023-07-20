@@ -366,6 +366,9 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:flow', ('guid', {}), {
+                    'doc': 'A Mitre ATT&CK Flow diagram.',
+                }),
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer-selected string.'
                 }),
@@ -1057,6 +1060,18 @@ class ItModule(s_module.CoreModule):
                                              'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
+                )),
+                ('it:mitre:attack:flow', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the attack-flow diagram.'}),
+                    ('json', ('data', {}), {
+                        'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the diagram was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the diagram was last updated.'}),
+                    ('author:user', ('syn:user', {}), {}),
+                    ('author:contact', ('ps:contact', {}), {}),
                 )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),

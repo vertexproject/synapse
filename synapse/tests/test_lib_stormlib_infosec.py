@@ -1,8 +1,11 @@
+import json
+
 import synapse.exc as s_exc
 
 import synapse.lookup.cvss as s_cvss
 
 import synapse.tests.utils as s_test
+import synapse.tests.files as s_test_files
 
 res0 = {'ok': True, 'version': '3.1', 'score': None, 'scores': {
             'base': None, 'temporal': None, 'environmental': None}}
@@ -496,3 +499,11 @@ class InfoSecTest(s_test.SynTest):
             for vect, norm in VECTORS_UNNORMAL:
                 valu = await core.callStorm(cmd, opts={'vars': {'vect': vect, 'vers': None}})
                 self.eq(norm, valu.get('normalized'))
+
+    async def test_stormlib_infosec_attack_flow(self):
+
+        flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
+        async with self.getTestCore() as core:
+            opts = {'vars': {'flow': flow}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
