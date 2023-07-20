@@ -304,6 +304,52 @@ class AhaTest(s_test.SynTest):
                     info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'}}
                     await ahaproxy.addAhaSvc('newp', info, network=None)
 
+            # We can use HTTP API to get the registered services
+            await aha.addUser('lowuser', passwd='lowuser')
+            await aha.auth.rootuser.setPasswd('secret')
+            host, httpsport = await aha.addHttpsPort(0)
+            svcsurl = f'https://localhost:{httpsport}/api/v1/aha/services'
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
+                async with sess.get(svcsurl) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'ok')
+                    result = info.get('result')
+                    self.len(2, result)
+                    self.eq({'0.cryo.mynet', 'cryo.mynet'},
+                            {svcinfo.get('name') for svcinfo in result})
+
+                async with sess.get(svcsurl, json={'network': 'mynet'}) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'ok')
+                    result = info.get('result')
+                    self.len(1, result)
+                    self.eq('cryo.mynet', result[0].get('name'))
+
+                async with sess.get(svcsurl, json={'network': 'newp'}) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'ok')
+                    result = info.get('result')
+                    self.len(0, result)
+
+                # Sad path
+                async with sess.get(svcsurl, json={'newp': 'hehe'}) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'err')
+                    self.eq(info.get('code'), 'SchemaViolation')
+
+                async with sess.get(svcsurl, json={'network': 'mynet', 'newp': 'hehe'}) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'err')
+                    self.eq(info.get('code'), 'SchemaViolation')
+
+            # Sad path
+            async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
+                async with sess.get(svcsurl) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'err')
+                    self.eq(info.get('code'), 'AuthDeny')
+
         # The aha service can also be configured with a set of URLs that could represent itself.
         urls = ('cell://home0', 'cell://home1')
         conf = {'aha:urls': urls}
