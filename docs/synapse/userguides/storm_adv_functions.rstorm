@@ -7,4 +7,531 @@
 Storm Reference - Advanced - Functions
 ======================================
 
-Storm **functions** can be used to encapsulate specific operations or behaviors.
+This section provides an overview of the types of functions available in Storm, along with some tips,
+caveats, and basic examples. It is meant to introduce the concepts around functions in Storm; it is
+**not** meant as a Storm programming tutorial.
+
+Storm Developers can refer to the :ref:`devguide` for additional information.
+
+.. _storm-func-overview:
+
+Overview
+--------
+
+**Functions** can be used to encapsulate a set of Storm logic that executes when the function is invoked.
+Functions are declared and then invoked within a Storm query using the function name and any required
+parameters. Separating the function's logic from the logic of your "executing" Storm query makes your
+Storm cleaner and easier to read (and also allows for easier code reuse).
+
+.. _storm-func-pipeline:
+
+Functions and the Storm Pipeline
+--------------------------------
+
+We regularly emphasize the :ref:`storm-op-concepts`, especially when writing more complex Storm queries
+and Storm logic. In particular, it is important to pay attention to Storm's "pipeline" behavior and the
+way the pipeline affects your working set.
+
+A function in Storm has its **own node pipeline,** independent of any Storm logic that invokes the function.
+Functions do not inherit the pipeline of the invoking query, and do not modify the invoking pipeline by default. 
+
+Nodes are not "sent inbound" to a function to "cause" it to execute; a function runs when it is invoked.
+Note that it is possible to **invoke** a function so that it operates on a node or nodes; but the function
+will not "automatically" do so.
+
+Because the function **itself** is a Storm pipeline, all caveats about pipelines and awareness of your
+working set still apply to the Storm **within** the function.
+
+All of Storm's features and capabilities are available for use within a function. This includes Storm
+operations, commands, `variables`_, `methods`_, `control flow`_, `libraries`_, etc. `Init blocks`_ and
+`fini blocks`_ can be used to execute a subset of Storm logic a single time before nodes enter the
+function's pipeline or after nodes have exited the function's pipeline, respectively.
+
+.. _storm-func-basics:
+
+Function Basics
+---------------
+
+Storm supports three types of functions. Each is explained in more detail below.
+
+- **callable** functions, which are "regular" functions (similar to functions in other programming languages).
+- **data emitter** functions, which emit data.
+- **node yielder** functions, which yield nodes.
+
+.. _storm-func-declare:
+
+Declaring Functions
++++++++++++++++++++
+
+All functions are **declared** in the same way, using the ``function`` keyword.
+
+- ``function myFunction() { <do stuff> }``
+- ``function myFunction(foo) { <do stuff> }``
+- ``function myFunction(bar,baz=$lib.null) { <do stuff> }``
+
+.. _storm-func-invoke:
+
+Invoking Functions
+++++++++++++++++++
+
+All functions are **invoked** using the function name preceded by the dollar sign ( ``$`` ), and by
+passing any required parameters to the function.
+
+- ``$myFunction()``
+- ``$myFunction(foo)``
+- ``$myFunction($foo)``
+- ``$myFunction(bar,baz=wheee)``
+
+Parameters can be passed as literals, variables, or keyword=$valu arguments. For example, given a
+function that takes an organization name as input:
+
+::
+  
+  function $myFunction(orgname) { <do stuff> }
+
+The name can be passed directly:
+
+::
+  
+  $myFunction("The Vertex Project")
+
+...as a variable:
+
+::
+  
+  $name="The Vertex Project"
+  $myFunction($name)
+
+...or as a keyword/value pair:
+
+::
+  
+  $myFunction(orgname="The Vertex Project")
+
+::
+  
+  $name="The Vertex Project"
+  $myFunction(orgname=$name)
+
+Recall that functions do not inherit or operate on the invoking Storm pipeline by default. If you want
+a function to operate on nodes in a pipeline, you can invoke the function by passing a property (or
+properties) of the node as input to the function.
+
+For example, if your invoking pipeline consists of a set of ``inet:ipv4`` nodes, a function can take the
+nodes' ``:asn`` property as input:
+
+::
+  
+  $myFunction(:asn)
+
+Or:
+
+::
+  
+  $asn=:asn
+  $myFunction($asn)
+
+Alternatively, if a function yields the node(s) you want to operate on, that function can be used as input
+to a second function. A simple example:
+
+**Function 1 (node yielder):**
+
+::
+  
+  function getIPs() {
+      //Lift 10 IPv4 addresses
+      inet:ipv4 | limit 10
+  }
+
+**Function 2 (callable function):**
+
+::
+  
+  //Takes a generator object as input
+  function counter(genr) {
+      
+      //Yield the generator content into the function pipeline
+      yield $genr
+      
+      //Print the human-readable representation of each node
+      $lib.print($node.repr())
+      
+      //Return the output of the function
+      fini { return() }
+  }
+
+**Function 2 invoked with Function 1 as input:**
+
+::
+  
+  $counter($getIPs())
+
+.. _storm-func-runtsafe
+
+Runtsafe vs. Non-Runtsafe Functions
+***********************************
+
+Just as variables may be runtime-safe (`runtsafe`_) or non-runtime-safe (`non-runtsafe`), functions can be
+invoked in a runtsafe manner (or not) based on the parameters passed to the function.
+
+If a function is invoked with a runtsafe (typically static) value, the function is considered runtsafe.
+Similarly, if a function is invoked with a per-node, non-runtsafe value or values, the function is considered
+non-runtsafe. The examples above where the function takes an AS number as input are **non-runtsafe;** the
+function takes the ``inet:ipv4:asn`` value of each node, and the function is invoked **once for each node.**
+
+If the parameter were a static AS number, the function would be invoked in a **runtsafe** manner, and the
+function would be invoked **only once** (not per-node):
+
+::
+  
+  $myFunction(9009)
+
+Or:
+
+::
+  
+  $asn=9009
+  myFunction($asn)
+
+.. _storm-func-output:
+
+Function Output
++++++++++++++++
+
+Functions do not modify the invoking Storm pipeline by default. To access the output of a function, you can:
+
+- Assign the output of the function to a variable:
+  
+  ::
+    
+    $x = $myFunction()
+
+- Iterate over the function's output (used with data emitters and node yielders):
+  
+  ::
+    
+    for $x in $myFunction() { <do stuff> }
+
+- Add the node or nodes generated by the function directly to the invoking Storm pipeline with the
+  ``yield`` keyword (used with node yielders and callable functions that return a node):
+  
+  ::
+    
+    yield $myFunction()
+
+.. _storm-func-types:
+
+Types of Functions
+------------------
+
+.. NOTE::
+  
+  Because all functions in Storm are declared and invoked the same way, the Storm syntax parser relies
+  on the presence (or absence) of specific **keywords** within a function to identify the type of function
+  and how to execute it.
+  - Callable functions **must** include a ``return()`` statement.
+  - Data emitter functions **must** use the ``emit`` keyword and can optionally use the ``stop`` keyword.
+  - Node yielder functions **must not** include any of the three keywords ``return``, ``emit``, or ``stop``.
+
+.. _storm-func-callable:
+
+Callable Functions
+++++++++++++++++++
+
+**Callable** functions are "regular" functions, similar to those in other programming languages.  A callable
+function is invoked (called) and returns a value using a ``return()`` statement. A ``return()`` statement
+**must** be present for a callable function to execute properly even if the function does not return a
+specific value.
+
+Callable functions are **executed in their entirety** before returning. They return **exactly** one value.
+
+Use Cases
+*********
+
+Callable functions can be used to:
+
+- Check a condition and return a status (e.g., ``return((0))`` vs. ``return((1))``).
+- Return a value (such as a count) instead of a node.
+- Return a single node.
+- Perform isolated operations on a node in the pipeline.
+- Retrieve data from an external API.
+
+Pseudocode
+**********
+
+::
+  
+  function callable() {
+  
+      <do stuff in Storm>
+      return()
+  }
+
+Examples
+********
+
+**Return a node**
+
+A callable function can take input and attempt to create (or lift) a node.
+
+::
+  
+  //Takes a value expected to be an IPv4 or IPv6 as input
+  function makeIP(ip) {
+      
+      //Attempt to create (or lift) an IPv4 from the input
+      //Return the IPv4 if successful
+      [ inet:ipv4 ?= $ip ]
+      return($node)
+      
+      //Attempt to create (or lift) an IPv6 from the input
+      //Return the IPv6 if successful
+      [ inet:ipv6 ?= $ip ]
+      return($node)
+      
+      //If the input is not a valid IPv4 or IPv6, the function
+      // will execute but will not return a node.
+  }
+  
+  //Invoke the function with the input string 'derp' and
+  // yield the result (if any) into the pipeline
+  yield $makeIP(derp)
+
+
+**Return a node using secondary property deconfliction**
+
+When ingesting or creating `guid-based`_ nodes, a common deconfliction strategy is to check for existing
+nodes using one or more secondary properties (known as `secondary property deconfliction`_). A callable
+function that takes a secondary property value (or values) as input and returns (or creates) the node
+simplifies this process.
+
+::
+  
+  //Create an ou:org node based on an org name (ou:name)
+  
+  //Declare function - takes 'name' as input
+  function genOrgByName(name) {
+      
+      //Check whether input is valid for an ou:name value
+      //If not, return / exit
+      ($ok, $name) = $lib.trycast(ou:name, $name)
+      if (not $ok) { return() }
+      
+      //If name is valid, attempt to identify an existing ou:org
+      //Lift the ou:name node for 'name' and pivot to an org with that name
+      //Return the existing node if found
+      ou:name=$name -> ou:org
+      return($node)
+      
+      //If an or is not found, create a new ou:org using 'gen' and the name
+      // as input for the org's guid; set the :name prop
+      //Return the new node
+      [ ou:org=(gen, $name) :name=$name ]
+      return($node)
+  }
+  
+  //Invoke the function with input name "The Vertex Project" and yield
+  // the result into the pipeline
+  yield $genOrgByName("The Vertex Project")
+
+
+.. TIP::
+  
+  Synapse includes `gen.*`_ (generator) Storm commands and `$lib.gen`_ APIs that can generate many
+  common guid-based forms using secondary property deconfliction.
+
+
+.. _storm-func-emitter:
+
+Data Emitter Functions
+++++++++++++++++++++++
+
+**Data emitter** functions emit data using the ``emit`` keyword. The ``stop`` keyword can optionally
+be used to halt processing and exit the function. The ``emit`` keyword **must** be present for a data
+emitter function to execute properly.
+
+Data emitter functions **stream** data (technically, they return a **generator object** that is iterated
+over). They are designed to emit data as it is available while continuing to execute. They may be invoked
+with **for** or **while** loops for this purpose. 
+
+Use Cases
+*********
+
+Data emitter functions can be used to:
+
+- Consume data from sources that paginate results, where you want to mask the pagination (i.e., a data
+  emitter can consume and emit the first page of results; then consume and emit the next page; and so on).
+- Consume data from sources that stream results, where the data emitter is used to continue the streaming
+  behavior.
+
+Pseudocode
+**********
+
+::
+  
+  function data_emitter() {
+      
+      for $thing in $things {
+          emit $thing
+      }
+  }
+
+Or:
+
+::
+  
+  function data_emitter() {
+      
+      for $thing in $things {
+          emit $thing
+          
+          if ($thing = "badthing") {
+              stop
+          }
+      }
+  }
+
+Examples
+********
+
+
+.. _storm-func-yielder:
+
+Node Yielder Functions
+++++++++++++++++++++++
+
+**Node yielder** functions yield nodes. If a function **does not** include any of the keywords ``return``,
+``emit``, or ``stop``, it is presumed to be a node yielder.
+
+Node yielder functions **stream** nodes; (technically, they return a **generator object** that is iterated
+over). They are designed to yield nodes as they are available while continuing to execute. They may be invoked
+with **for** loops for this purpose.
+
+Use Cases
+*********
+
+Node yielder functions can be used to:
+
+- Isolate different node construction pipelines during complex data ingest logic.
+- Create multiple nodes from ingested data (e.g., as part of an ingest script or Rapid Power-Up).
+
+Pseudocode
+**********
+
+::
+  
+  function node_yielder() {
+      <do stuff>
+  }
+
+Examples
+********
+
+
+.. _storm-func-privsep:
+
+Functions and Privilege Separation
+----------------------------------
+
+Functions can be used to support **privilege separation** ("privsep") for things like custom Power-Up
+development. Storm logic that requires access to sensitive information (such as API keys or other credentials)
+can be encapsulated in a function that is not accessible to unprivileged users. The function can return
+non-sensitive data that is "safe" for viewing or consumption.
+
+See the :ref:`dev_rapid_power_ups` Guide and in particular the section on `privileged modules`_ for more
+information.
+
+.. _storm-func-debug:
+
+Function Debugging Tips
+-----------------------
+
+Functions execute Storm, so standard `Storm debugging tips`_ still apply to all code **within** the function
+itself (and to the Storm code that invokes the function, of course).
+
+The following additional tips apply to functions in particular.
+
+**Use the right type of function for your use case.** Each Storm function serves a different purpose; be clear
+on what type of function you need for a given situation.
+
+.. TIP::
+  
+  For example, a node yielder can yield multiple nodes. A callable function can also yield multiple nodes
+  (e.g., as a set or list object). But there can be significant (even damaging) performance differences
+  between the two, depending on the nature of the function.
+  
+  A node yielder yields a generator object that can incrementally provide results (i.e., for a streaming
+  effect). When written as a node yielder, a function to lift every node in a Cortex is workable, even for
+  large result sets:
+  
+  ::
+    
+    function allnodes() { .created }
+  
+  You could write the same function as a callable function, but it would likely blow up your system by
+  consuming all available memory. A callable function can only return exactly one object; it can't stream
+  results. You could write a callable function to lift each node, add it to a set object, and have the
+  function return the set. But the callable function will need to store the **entire set** in memory until
+  the object can be returned:
+  
+  ::
+    
+    // NEVER DO THIS
+    function allnodes() {
+        
+        $set = ([])
+        .created
+        $set.add($node)
+        fini { return($set) }
+    }
+  
+  While this is an extreme example, it serves to illustrate some of the differences between function types.
+
+**Ensure necessary keywords are present.** Synapse determines "what kind" of function is present and how
+to execute it based on keywords (e.g., ``return()`` for callable functions, ``emit`` for data emitters).
+If you write a node yielder function with a ``return()`` statement, Synapse will attempt to execute it as
+a callable function. Similarly, a callable function that is missing a ``return()`` will not execute properly.
+
+.. TIP::
+  
+  It is possible for data emitters and node yielders to fail to emit data or yield nodes, based on the input
+  to the function and the function's code. In these situations it can be challenging to determine whether
+  a function that is "not doing anything" is a yielder / emitter that is failing to produce output, or a
+  callable function that is missing a ``return()`` statement.
+
+**Understand pipeline interactions between functions and Storm logic that invokes them.** By default,
+functions do not interact with the Storm pipeline that invokes them.
+
+- If you want a function to operate on nodes in the invoking Storm pipeline, you must invoke the function
+  in such a way as to do this.
+  
+  .. NOTE::
+    
+    If a function is written to operate on or iterate over nodes, and there are no nodes in the pipeline
+    (based on previously executing Storm logic), the function will not execute.
+
+- If you want the Storm pipeline that invokes a function to operate on the function's output, you must
+  ensure that the output is returned to the pipeline (e.g., assign the function's output to a variable or
+  use the ``yield`` keyword to yield any nodes into the pipeline).
+
+
+
+.. _variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
+.. _methods: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_methods.html
+.. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
+.. _libraries: https://synapse.docs.vertex.link/en/latest/synapse/stormtypes.html
+.. _Init blocks: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#init-block
+.. _fini blocks: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#fini-block
+
+.. _runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#runtsafe
+.. _non-runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#non-runtsafe
+
+.. _guid-based: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid
+.. _secondary property deconfliction: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid-best-practices
+
+.. _gen.*: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#gen
+.. _$lib.gen: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-gen
+
+.. _privileged modules: https://synapse.docs.vertex.link/en/latest/synapse/devguides/power-ups.html#privileged-modules
+
+.. _Storm debugging tips: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#storm-debugging-tips
