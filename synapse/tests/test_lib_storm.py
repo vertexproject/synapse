@@ -4,8 +4,6 @@ import datetime
 import itertools
 import urllib.parse as u_parse
 
-from unittest import mock
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
