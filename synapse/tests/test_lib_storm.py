@@ -254,17 +254,6 @@ class StormTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
 
-            origsubr = s_storm.Runtime.initSubRuntime
-            subr = None
-            async def hookSubRuntime(self, query, opts=None):
-                nonlocal subr
-                subr = await origsubr(self, query, opts=opts)
-                return subr
-
-            with mock.patch('synapse.lib.storm.Runtime.initSubRuntime', hookSubRuntime):
-                await core.nodes("function foo() { emit foo } $bar=$foo()")
-                self.true(subr.isfini)
-
             # include a quick test for using stop in a node yielder
 
     async def test_lib_storm_intersect(self):

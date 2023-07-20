@@ -4294,11 +4294,6 @@ class Function(AstNode):
 
         opts = {'vars': mergargs}
 
-        if self.hasemit:
-            runt = await runt.initSubRuntime(self.kids[2], opts=opts)
-            runt.funcscope = True
-            return await runt.emitter()
-
         if self.hasretn:
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
@@ -4319,8 +4314,12 @@ class Function(AstNode):
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
                 try:
-                    async for node, path in subr.execute():
-                        yield node, path
+                    if self.hasemit:
+                        async for item in await subr.emitter():
+                            yield item
+                    else:
+                        async for node, path in subr.execute():
+                            yield node, path
                 except s_stormctrl.StormStop:
                     return
 
