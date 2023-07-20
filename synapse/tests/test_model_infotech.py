@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -1385,3 +1387,76 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('soft'))
             self.len(1, await core.nodes('it:host -> it:prod:softid'))
             self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))
+
+    async def test_infotech_repo(self):
+
+        async with self.getTestCore() as core:
+            repo = s_common.guid()
+            upstream = s_common.guid()
+            submodule = s_common.guid()
+            diff = s_common.guid()
+            issue = s_common.guid()
+            commit = s_common.guid()
+            comment = s_common.guid()
+            parent = s_common.guid()
+            file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
+            replyto = s_common.guid()
+
+            props = {
+                ('it:dev:repo', repo): {
+                    'name': 'synapse',
+                    'desc': 'Synapse Central Intelligence System',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse',
+                    'upstream': upstream,
+                    'type': 'svn.',
+                    'submodules': (submodule,),
+                },
+
+                ('it:dev:repo:commit', commit): {
+                    'repo': repo,
+                    'branch': 'master',
+                    'parents': (parent,),
+                    'mesg': 'fancy new release',
+                    'id': 'r12345',
+                    'created': 0
+                },
+
+                ('it:dev:repo:diff', diff): {
+                    'commit': commit,
+                    'file': file,
+                    'path': 'synapse/tests/test_model_infotech.py'
+                },
+
+                ('it:dev:repo:issue', issue): {
+                    'repo': repo,
+                    'title': 'a fancy new release',
+                    'desc': 'Gonna be a big release friday',
+                    'created': 0
+                },
+
+                ('it:dev:repo:comment', comment): {
+                    'repo': repo,
+                    'text': 'types types types types types',
+                    'replyto': replyto,
+                    'issue': issue,
+                    'file': file,
+                    'path': 'synapse/lib/types.py',
+                    'line': 100,
+                    'offset': 100
+                }
+            }
+
+            async with await core.snap() as snap:
+                for (form, valu), props in props.items():
+                    node = await snap.addNode(form, valu, props=props)
+                    self.checkNode(node, ((form, valu), props))
+
+            nodes = await core.nodes('it:dev:repo')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo <- *')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:dev:repo:commit')
+            self.len(3, nodes)

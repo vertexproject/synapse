@@ -385,6 +385,25 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:regval', ('guid', {}), {
                     'doc': 'A Windows registry key/value pair.',
                 }),
+                ('it:dev:repotype', ('taxonomy', {}), {
+                    'doc': 'A Version Control System type taxonomy.',
+                    'interfaces': ('taxonomy',)
+                }),
+                ('it:dev:repo', ('guid', {}), {
+                    'doc': 'A Version Control System instance.',
+                }),
+                ('it:dev:repo:commit', ('guid', {}), {
+                    'doc': 'A commit to a repository.',
+                }),
+                ('it:dev:repo:diff', ('guid', {}), {
+                    'doc': 'A diff of file being applied in a single commit.',
+                }),
+                ('it:dev:repo:issue', ('guid', {}), {
+                    'doc': 'An issue raised in a repository.',
+                }),
+                ('it:dev:repo:comment', ('guid', {}), {
+                    'doc': 'A comment in a repository, either in an issue or on a file.',
+                }),
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A software product.',
                 }),
@@ -1076,7 +1095,112 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
-                ('it:prod:hardwaretype', {}, ()),
+
+                # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
+                ('it:dev:repo', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name of the repository.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A free-form description of the repository.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'When the repository was created.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL where the repository is hosted.',
+                    }),
+                    ('upstream', ('it:dev:repo', {}), {
+                        'doc': 'The repository that changes are copied to or from.',
+                    }),
+                    ('type', ('it:dev:repotype', {}), {
+                        'doc': 'The type of the version control system used.',
+                        'ex': 'svn'
+                    }),
+                    ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
+                    }),
+                )),
+
+                ('it:dev:repo:commit', {}, (
+                    ('repo', ('str', {}), {
+                        'doc': 'The repository the commit lives in.',
+                    }),
+                    ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': 'The commit or commits this commit is immediately based on.',
+                    }),
+                    ('branch', ('str', {}), {
+                        'doc': 'The name of the branch the commit was made to.',
+                    }),
+                    ('mesg', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The commit message describing the changes in the commit.',
+                    }),
+                    ('id', ('str', {}), {
+                        'doc': 'The version control system specific commit identifier.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'When the commit was made.',
+                    }),
+                )),
+
+                ('it:dev:repo:diff', {}, (
+                    ('commit', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit that produced this diff.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file after the commit has been applied',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the file in the repo that the diff is being applied to.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue', {}, (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo where the issue was logged.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The title of the issue.'
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The text describing the issue.'
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the issues created.',
+                    }),
+                )),
+
+                ('it:dev:repo:comment', {}, (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo the comment was added to.',
+                    }),
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The body of the comment.',
+                    }),
+                    ('replyto', ('it:dev:repo:comment', {}), {
+                        'doc': 'The comment that this comment is replying to.',
+                    }),
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue thread that the comment was made in.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file being commented on.',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the file in the repo that was commented on.',
+                    }),
+                    ('line', ('int', {}), {
+                        'doc': 'The line in the file that is being commented on.',
+                    }),
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset in the line in the file that is being commented on.',
+                    }),
+                )),
+
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
@@ -1096,7 +1220,7 @@ class ItModule(s_module.CoreModule):
                     ('released', ('time', {}), {
                         'doc': 'The initial release date for this hardware.'}),
                     ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
+                        'doc': 'An array of it:prod:hardware parts included in this hardware specification.'}),
                 )),
                 ('it:prod:component', {}, (
                     ('hardware', ('it:prod:hardware', {}), {
