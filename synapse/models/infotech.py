@@ -1097,6 +1097,7 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
+                ('it:dev:repotype', {}, ()),
                 ('it:dev:repo', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the repository.',
@@ -1201,6 +1202,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
+                ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
