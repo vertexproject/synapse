@@ -45,7 +45,7 @@ Storm Operating Concepts
 ++++++++++++++++++++++++
 
 It is important to keep the high-level :ref:`storm-op-concepts` in mind when writing Storm queries or
-code. These concepts are critical to writing more advanced Storm - remembering these fundamentals can
+code. These concepts are **critical** to writing more advanced Storm - remembering these fundamentals can
 save you time and headaches trying to debug a Storm query that is not behaving the way you think it should.
 
 .. TIP::
@@ -61,25 +61,19 @@ Storm Debugging Tips
 
 A few helpful tips when writing and debugging advanced Storm:
 
-**Be aware of your pipeline.**
+**Be aware of your pipeline.** That is, understand what node or nodes are in your **current working set**
+at any point in your query. A significant part of Storm troubleshooting comes down to figuring out that the
+current working set is not what you think it is.
 
-That is, understand what node or nodes are in your **current working set** at any point in your query.
-A significant part of Storm troubleshooting comes down to figuring out that the current working set is not
-what you think it is.
+**Be aware of your variables.** Storm supports both runtime-safe ("runtsafe") and non-runtime-safe
+("non-runtsafe") variables. Non-runtsafe variables have values that may **change** based on the current node
+in the Storm pipeline. Another significant part of Storm troubleshooting involves understanding the values of
+any variables at any given point in your Storm code. (See :ref:`var-concepts` for addditional information.)
 
-**Be aware of your variables.**
-
-Storm supports both runtime-safe ("runtsafe") and non-runtime-safe ("non-runtsafe") variables. Non-runtsafe
-variables have values that may **change** based on the current node in the Storm pipeline. Another significant
-part of Storm troubleshooting involves understanding the values of any variables at any given point in your
-Storm code. (See :ref:`var-concepts` for addditional information.)
-
-**Operations may execute multiple times.**
-
-Because each node passes through each operation in a Storm query individually, operations execute more than once
-(typically once for each node in the pipeline as it passes through that operation). This includes control flow
-operations, such as for loops! If you don't account for this behavior with control flow operations in particular,
-it can result in behavior such as:
+**Operations may execute multiple times.** Because each node passes through each operation in a Storm query
+individually, operations execute more than once (typically once for each node in the pipeline as it passes
+through that operation). This includes control flow operations, such as for loops! If you don't account for
+this behavior with control flow operations in particular, it can result in behavior such as:
 
  - An exponentially increasing working set (if each node passing through an operation generates multiple results,
    and the results are not deduplicated / uniq'ed appropriately).
@@ -88,32 +82,24 @@ it can result in behavior such as:
  - A variable that **fails** to be set for a node that does **not** pass through the operation where the variable
    is assigned (resulting in a ``NoSuchVar`` error).
  
-**Use subqueries...but understand how they work.**
- 
-Unlike most Storm operations and commands, subqueries **do not consume** nodes - by default, what goes into a
-subquery comes out of a subquery, regardless of what happens inside the subquery itself. This means you can use
-`subqueries`_ with advanced Storm to isolate certain operations and keep the "primary" nodes passing through the
-Storm pipeline consistent.
+**Use subqueries...but understand how they work.** Unlike most Storm operations and commands, subqueries
+**do not consume** nodes - by default, what goes into a subquery comes out of a subquery, regardless of what
+happens inside the subquery itself. This means you can use `subqueries`_ with advanced Storm to isolate certain
+operations and keep the "primary" nodes passing through the Storm pipeline consistent. That said, a node still
+has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery **fails** to execute,
+it may be because nothing is going in to it.
 
-That said, a node still has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery
-**fails** to execute, it may be because nothing is going in to it.
+**Use functions to encapsulate operations.** As Storm increases in length or complexity, it can become
+increasingly challenging to keep track of your pipeline and working set. `Functions`_ can be used to simplify
+your Storm by isolating specific Storm logic within a function.
 
-**Use functions to encapsulate operations.**
+**Start small and add to your Storm incrementally.** It's easier to verify that smaller Storm queries execute
+correctly and then build on that code than to try and write a more advanced query all at once and try to figure
+out where things aren't working.
 
-As Storm increases in length or complexity, it can become increasingly challenging to keep track of your
-pipeline and working set. `Functions`_ can be used to simplify your Storm by isolating specific operations
-within a function as opposed to a series of Storm operations in a longer pipeline. Functions can operate on
-or generate nodes, or can be used to return a status or value.
-
-**Start small and add to your Storm incrementally.**
-
-It's easier to verify that smaller Storm queries execute correctly and then build on that code than to try and
-write a more advanced query all at once and try to figure out where things aren't working.
-
-**As with all debugging, print statements are your friend.**
-
-Scatter ``$lib.print()`` or ``$lib.pprint()`` statements (see :ref:`stormlibs-lib-print` and :ref:`stormlibs-lib-pprint`)
-generously throughout your Storm during testing. You can print message strings at various points during execution:
+**As with all debugging, print statements are your friend.** Scatter `$lib.print()`_ or `$lib.pprint()`_
+statements generously throughout your Storm during testing. You can print message strings at various points
+during execution:
 
 ::
   
@@ -691,5 +677,8 @@ We are back to our single node in the main pipeline. That single node causes our
 .. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
 
 .. _Functions: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_functions.html
+
+.. _$lib.print(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-print-mesg-kwargs
+.. _$lib.pprint(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-pprint-item-prefix-clamp-none 
 
 .. _Ingest Tool: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/ingest_tool.html#ingest-examples

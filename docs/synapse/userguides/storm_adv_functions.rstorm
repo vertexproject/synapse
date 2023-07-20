@@ -29,23 +29,25 @@ Functions and the Storm Pipeline
 --------------------------------
 
 We regularly emphasize the :ref:`storm-op-concepts`, especially when writing more complex Storm queries
-and Storm logic. In particular, it is important to pay attention to Storm's "pipeline" behavior and the
-way the pipeline affects your working set.
+and Storm logic. In particular, it is important to pay attention to Storm's **pipeline** behavior and the
+way the pipeline affects your **working set.**
 
 A function in Storm has its **own node pipeline,** independent of any Storm logic that invokes the function.
-Functions do not inherit the pipeline of the invoking query, and do not modify the invoking pipeline by default. 
+Functions **do not** inherit the pipeline of the invoking query, and **do not** modify the invoking pipeline
+by default. 
 
 Nodes are not "sent inbound" to a function to "cause" it to execute; a function runs when it is invoked.
-Note that it is possible to **invoke** a function so that it operates on a node or nodes; but the function
-will not "automatically" do so.
+It is possible to **invoke** a function so that it operates on a node or nodes; but the function will not
+"automatically" do so.
 
 Because the function **itself** is a Storm pipeline, all caveats about pipelines and awareness of your
 working set still apply to the Storm **within** the function.
 
 All of Storm's features and capabilities are available for use within a function. This includes Storm
 operations, commands, `variables`_, `methods`_, `control flow`_, `libraries`_, etc. `Init blocks`_ and
-`fini blocks`_ can be used to execute a subset of Storm logic a single time before nodes enter the
-function's pipeline or after nodes have exited the function's pipeline, respectively.
+`fini blocks`_ can be used wwithin functions to execute a subset of Storm logic a single time before
+operating on any nodes in the functions's pipeline or after any nodes have exited the function's pipeline,
+respectively.
 
 .. _storm-func-basics:
 
@@ -113,6 +115,10 @@ The name can be passed directly:
   $name="The Vertex Project"
   $myFunction(orgname=$name)
 
+
+Operating on Nodes
+******************
+
 Recall that functions do not inherit or operate on the invoking Storm pipeline by default. If you want
 a function to operate on nodes in a pipeline, you can invoke the function by passing a property (or
 properties) of the node as input to the function.
@@ -171,7 +177,7 @@ to a second function. A simple example:
 Runtsafe vs. Non-Runtsafe Functions
 ***********************************
 
-Just as variables may be runtime-safe (`runtsafe`_) or non-runtime-safe (`non-runtsafe`), functions can be
+Just as variables may be runtime-safe (`runtsafe`_) or non-runtime-safe (`non-runtsafe`_), functions can be
 invoked in a runtsafe manner (or not) based on the parameters passed to the function.
 
 If a function is invoked with a runtsafe (typically static) value, the function is considered runtsafe.
@@ -229,6 +235,7 @@ Types of Functions
   Because all functions in Storm are declared and invoked the same way, the Storm syntax parser relies
   on the presence (or absence) of specific **keywords** within a function to identify the type of function
   and how to execute it.
+  
   - Callable functions **must** include a ``return()`` statement.
   - Data emitter functions **must** use the ``emit`` keyword and can optionally use the ``stop`` keyword.
   - Node yielder functions **must not** include any of the three keywords ``return``, ``emit``, or ``stop``.
@@ -293,9 +300,9 @@ A callable function can take input and attempt to create (or lift) a node.
       // will execute but will not return a node.
   }
   
-  //Invoke the function with the input string 'derp' and
+  //Invoke the function with the specified input and
   // yield the result (if any) into the pipeline
-  yield $makeIP(derp)
+  yield $makeIP(8.8.8.8)
 
 
 **Return a node using secondary property deconfliction**
@@ -323,7 +330,7 @@ simplifies this process.
       ou:name=$name -> ou:org
       return($node)
       
-      //If an or is not found, create a new ou:org using 'gen' and the name
+      //If an org is not found, create a new ou:org using 'gen' and the name
       // as input for the org's guid; set the :name prop
       //Return the new node
       [ ou:org=(gen, $name) :name=$name ]
@@ -447,9 +454,8 @@ Function Debugging Tips
 -----------------------
 
 Functions execute Storm, so standard `Storm debugging tips`_ still apply to all code **within** the function
-itself (and to the Storm code that invokes the function, of course).
-
-The following additional tips apply to functions in particular.
+itself (and to the Storm code that invokes the function, of course). The following additional tips apply to
+functions in particular.
 
 **Use the right type of function for your use case.** Each Storm function serves a different purpose; be clear
 on what type of function you need for a given situation.
@@ -457,8 +463,8 @@ on what type of function you need for a given situation.
 .. TIP::
   
   For example, a node yielder can yield multiple nodes. A callable function can also yield multiple nodes
-  (e.g., as a set or list object). But there can be significant (even damaging) performance differences
-  between the two, depending on the nature of the function.
+  (e.g., by returning a set or list object). But there can be significant (even damaging) performance
+  differences between the two, depending on the nature of the function.
   
   A node yielder yields a generator object that can incrementally provide results (i.e., for a streaming
   effect). When written as a node yielder, a function to lift every node in a Cortex is workable, even for
@@ -494,7 +500,7 @@ a callable function. Similarly, a callable function that is missing a ``return()
 
 .. TIP::
   
-  It is possible for data emitters and node yielders to fail to emit data or yield nodes, based on the input
+  It is possible for data emitters and node yielders to **fail** to emit data or yield nodes, based on the input
   to the function and the function's code. In these situations it can be challenging to determine whether
   a function that is "not doing anything" is a yielder / emitter that is failing to produce output, or a
   callable function that is missing a ``return()`` statement.
@@ -510,9 +516,9 @@ functions do not interact with the Storm pipeline that invokes them.
     If a function is written to operate on or iterate over nodes, and there are no nodes in the pipeline
     (based on previously executing Storm logic), the function will not execute.
 
-- If you want the Storm pipeline that invokes a function to operate on the function's output, you must
-  ensure that the output is returned to the pipeline (e.g., assign the function's output to a variable or
-  use the ``yield`` keyword to yield any nodes into the pipeline).
+- If you want the invoking Storm pipeline to operate on the function's output, you must ensure that the
+  output is returned to the pipeline (e.g., assign the function's output to a variable or use the ``yield``
+  keyword to yield any nodes into the pipeline).
 
 
 
