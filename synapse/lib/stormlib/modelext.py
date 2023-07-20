@@ -69,12 +69,14 @@ class LibModelExt(s_stormtypes.Lib):
                       {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag property to remove.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'getExtModel': 'export', 'desc': 'Get all extended model elements.',
+        {'name': 'getExtModel', 'desc': 'Get all extended model elements.',
          'type': {'type': 'function', '_funcname': 'getExtModel', 'args': (),
                   'returns': {'type': 'dict'}}},
-        {'addExtModel': 'export', 'desc': 'Add extended model elements to the Cortex from getExtModel().',
-        'type': {'type': 'function', '_funcname': 'addExtModel', 'args': (),
-                  'returns': {'type': 'bool'}}},
+        {'name': 'addExtModel', 'desc': 'Add extended model elements to the Cortex from getExtModel().',
+        'type': {'type': 'function', '_funcname': 'addExtModel', 'args': (
+                      {'name': 'model', 'type': 'dict', 'desc': 'A model dictionary from getExtModel().', },
+                  ),
+                  'returns': {'type': 'boolean'}}},
     )
     _storm_lib_path = ('model', 'ext')
 
