@@ -4,6 +4,8 @@ import datetime
 import itertools
 import urllib.parse as u_parse
 
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -251,6 +253,17 @@ class StormTest(s_t_utils.SynTest):
             self.eq(prnt, ['inner 0', 'outer 0'])
 
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+
+            origsubr = s_storm.Runtime.initSubRuntime
+            subr = None
+            async def hookSubRuntime(self, query, opts=None):
+                nonlocal subr
+                subr = await origsubr(self, query, opts=opts)
+                return subr
+
+            with mock.patch('synapse.lib.storm.Runtime.initSubRuntime', hookSubRuntime):
+                await core.nodes("function foo() { emit foo } $bar=$foo()")
+                self.true(subr.isfini)
 
             # include a quick test for using stop in a node yielder
 
