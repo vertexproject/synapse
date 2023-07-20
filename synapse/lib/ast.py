@@ -4296,7 +4296,7 @@ class Function(AstNode):
 
         opts = {'vars': mergargs}
 
-        if self.hasretn:
+        if (self.hasretn and not self.hasemit):
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
                 # inform the sub runtime to use function scope rules
