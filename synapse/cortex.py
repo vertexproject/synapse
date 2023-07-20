@@ -1584,6 +1584,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initStormSvcs()
 
+        # # Check for deprecated properties which are unused and unlocked
+        deprs = await self.getDeprLocks()
+        for propname, locked in deprs.items():
+            if locked:
+                continue
+
+            count = 0
+            for layr in self.layers.values():
+                count += await layr.getPropCount(propname)
+                if count:
+                    break
+
+            if count == 0:
+                mesg = f'Deprecated property {propname} is unlocked and not in use. Recommend locking.'
+                logger.warning(mesg)
+
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
