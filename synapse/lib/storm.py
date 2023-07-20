@@ -1810,12 +1810,6 @@ class Runtime(s_base.Base):
                     await asyncio.sleep(0)
                 await self.emitq.put((False, None))
 
-            except asyncio.CancelledError: # pragma: no cover
-                raise
-
-            except s_stormctrl.StormStop:
-                await self.emitq.put((False, None))
-
             except Exception as e:
                 await self.emitq.put((False, e))
 
