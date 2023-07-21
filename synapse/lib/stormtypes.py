@@ -9598,7 +9598,6 @@ async def totype(valu, basetypes=False) -> str:
     if isinstance(valu, int):
         return 'int'
 
-    # For test coverage in dev ... split these up
     if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
         return 'generator'
 
