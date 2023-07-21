@@ -9403,8 +9403,9 @@ def fromprim(valu, path=None, basetypes=True):
         return valu
 
     if basetypes:
-        mesg = 'Unable to convert python primitive to StormType.'
-        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+        ptyp = valu.__class__.__name__
+        mesg = f'Unable to convert python primitive to StormType ( {ptyp} )'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=ptyp)
 
     return valu
 
@@ -9598,28 +9599,16 @@ async def totype(valu, basetypes=False) -> str:
         return 'int'
 
     # For test coverage in dev ... split these up
-    # if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
-    if isinstance(valu, types.AsyncGeneratorType):
+    if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
         return 'generator'
 
-    if isinstance(valu, types.GeneratorType):
-        return 'generator'
-
-    # For test coverage in dev ... split these up
-    # if isinstance(valu, (types.FunctionType, types.MethodType)):
-    if isinstance(valu, types.MethodType):
+    if isinstance(valu, (types.FunctionType, types.MethodType)):
         return 'function'
 
-    if isinstance(valu, types.FunctionType):
-        return 'function'
-
-    fp = fromprim(valu)
+    # This may raise s_exc.NoSuchType
+    fp = fromprim(valu, basetypes=not basetypes)
 
     if isinstance(fp, StormType):
         return fp._storm_typename
 
-    clsn = valu.__class__.__name__
-    if basetypes:
-        return clsn
-
-    raise s_exc.StormRuntimeError(mesg=f'Unknown object type encountered: {clsn}', valuclass=clsn)
+    return valu.__class__.__name__

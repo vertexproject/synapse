@@ -3139,6 +3139,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq('list', await core.callStorm('return ( $lib.vars.type(([])) )'))
             self.eq('list', await core.callStorm('return ( $lib.vars.type(([1, 2])) )'))
             self.eq('set', await core.callStorm('return ( $lib.vars.type($lib.set(hehe, haha)) )'))
+            self.eq('number', await core.callStorm('return ($lib.vars.type( $foo ))', {'vars': {'foo': 1.2345}}))
             self.eq('number', await core.callStorm('return ( $lib.vars.type($lib.math.number(42.0)) )'))
 
             self.eq('function', await core.callStorm('return ( $lib.vars.type($lib.print) )'))
@@ -3172,17 +3173,16 @@ class StormTypesTest(s_test.SynTest):
             self.eq('node:data', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.data))'))
             self.eq('node:path', await core.callStorm('[test:str=foo] return ($lib.vars.type($path))'))
 
-            # # FIXME - MOVE THESE SINCE THEY ARE NOT $lib.vars test content.
-            # # https://github.com/vertexproject/synapse/commit/96521d965cf21dacfe47ea99f6b3398fae458200
-            # # Filter by var as node
-            # q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
-            # nodes = await core.nodes(q)
-            # self.len(1, nodes)
-            #
-            # # Lift by var as node
-            # q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
-            # nodes = await core.nodes(q)
-            # self.len(2, nodes)
+            # Coverage
+            def foo():
+                for i in range(1):
+                    yield i
+            genr = foo()
+            self.eq('generator', await s_stormtypes.totype(genr))
+
+            self.eq('NoValu', await s_stormtypes.totype(s_common.novalu, basetypes=True))
+            with self.raises(s_exc.NoSuchType) as cm:
+                await s_stormtypes.totype(s_common.novalu)
 
     async def test_feed(self):
 
