@@ -248,6 +248,7 @@ commands:
       - run:
           name: install awscli
           command: |
+            python3 -m pip install "pyyaml<5.4"
             python3 -m pip install awscli
       - run:
           name: setcommit
@@ -308,12 +309,24 @@ commands:
         type: string
       image-tag:
         type: string
+      source-tag:
+        type: string
+        default: ""
       cosign:
         type: boolean
         default: false
     steps:
 
       - do_docker_login
+
+      - when:
+          condition: << parameters.source-tag >>
+          steps:
+            - run:
+                name: retag images
+                command: |
+                  docker/scripts/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
+
       - run:
           name: push images
           command: |
@@ -483,6 +496,8 @@ jobs:
       - image: docker:24.0.2
     # Use a shell override to force a login shell that loads profile for each step.
     shell: /bin/sh -leo pipefail
+    environment:
+      - BASH_ENV: /etc/profile
     steps:
       - build_docker:
           image-tag: ${CIRCLE_TAG}
@@ -494,6 +509,7 @@ jobs:
       - check_tag_for_major_release
       - push_docker_image:
           image-tag: ${DOCKER_TAG}
+          source-tag: ${CIRCLE_TAG}
           registry: ${DOCKER_PRIMARY_REGISTRY}
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 

@@ -3120,15 +3120,69 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, mesgs)
             self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
 
-            # Filter by var as node
-            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
+    async def test_storm_lib_vars_type(self):
 
-            # Lift by var as node
-            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
+        async with self.getTestCore() as core:
+
+            # $lib.vars.type() results
+            self.eq('undef', await core.callStorm('return ($lib.vars.type($lib.undef))'))
+            self.eq('null', await core.callStorm('return ($lib.vars.type($lib.null))'))
+            self.eq('null', await core.callStorm('$foo=({}) return ($lib.vars.type($foo.key))'))
+            self.eq('boolean', await core.callStorm('return ($lib.vars.type($lib.true))'))
+            self.eq('boolean', await core.callStorm('return ($lib.vars.type($lib.false))'))
+            self.eq('str', await core.callStorm('return ($lib.vars.type(1))'))
+            self.eq('int', await core.callStorm('return ($lib.vars.type( (1) ))'))
+            self.eq('bytes', await core.callStorm('return ($lib.vars.type( $foo ))', {'vars': {'foo': b'hehe'}}))
+            self.eq('dict', await core.callStorm('return ( $lib.vars.type(({"hehe": "haha"})) )'))
+            self.eq('list', await core.callStorm('return ( $lib.vars.type((1, 2)) )'))
+            self.eq('list', await core.callStorm('return ( $lib.vars.type(()) )'))
+            self.eq('list', await core.callStorm('return ( $lib.vars.type(([])) )'))
+            self.eq('list', await core.callStorm('return ( $lib.vars.type(([1, 2])) )'))
+            self.eq('set', await core.callStorm('return ( $lib.vars.type($lib.set(hehe, haha)) )'))
+            self.eq('number', await core.callStorm('return ($lib.vars.type( $foo ))', {'vars': {'foo': 1.2345}}))
+            self.eq('number', await core.callStorm('return ( $lib.vars.type($lib.math.number(42.0)) )'))
+
+            self.eq('function', await core.callStorm('return ( $lib.vars.type($lib.print) )'))
+            self.eq('function', await core.callStorm('function foo() {} return ( $lib.vars.type($foo) )'))
+            self.eq('function', await core.callStorm('function foo() { emit bar }  return ( $lib.vars.type($foo  ) )'))
+            self.eq('generator', await core.callStorm('function foo() { emit bar } return ( $lib.vars.type($foo()) )'))
+
+            self.eq('auth:role', await core.callStorm('return( $lib.vars.type($lib.auth.roles.byname(all)) )'))
+            self.eq('auth:user', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root)) )'))
+            self.eq('auth:user:json', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root).json) )'))
+            self.eq('auth:user:profile', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root).profile) )'))
+            self.eq('auth:user:vars', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root).vars) )'))
+            self.eq('auth:gate',
+                    await core.callStorm('return ( $lib.vars.type($lib.auth.gates.get($lib.view.get().iden)) )'))
+
+            self.eq('view', await core.callStorm('return( $lib.vars.type($lib.view.get()) )'))
+            self.eq('layer', await core.callStorm('return( $lib.vars.type($lib.layer.get()) )'))
+
+            self.eq('storm:query', await core.callStorm('return( $lib.vars.type( ${test:str} ) )'))
+
+            url = core.getLocalUrl()
+            opts = {'vars': {'url': url}}
+            self.eq('telepath:proxy', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url)) )', opts))
+            self.eq('telepath:proxy:method', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).getCellInfo) )', opts))
+            self.eq('telepath:proxy:genrmethod', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).storm) )', opts))
+
+            self.eq('text', await core.callStorm('return ( $lib.vars.type($lib.text(hehe)) )'))
+
+            self.eq('node', await core.callStorm('[test:str=foo] return ($lib.vars.type($node))'))
+            self.eq('node:props', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.props))'))
+            self.eq('node:data', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.data))'))
+            self.eq('node:path', await core.callStorm('[test:str=foo] return ($lib.vars.type($path))'))
+
+            # Coverage
+            def foo():
+                for i in range(1):
+                    yield i
+            genr = foo()
+            self.eq('generator', await s_stormtypes.totype(genr))
+
+            self.eq('NoValu', await s_stormtypes.totype(s_common.novalu, basetypes=True))
+            with self.raises(s_exc.NoSuchType) as cm:
+                await s_stormtypes.totype(s_common.novalu)
 
     async def test_feed(self):
 
@@ -3389,7 +3443,7 @@ class StormTypesTest(s_test.SynTest):
                     $lib.fire(layrdiff, sode=$sode)
                 }
                 '''
-                await core.addTagProp('risk', ('int', {}), ())
+                await core.addTagProp('risk', ('int', {}), {})
                 await core.nodes('[ it:dev:str=foo +#test:risk=50 ]')
                 gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
                 fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']

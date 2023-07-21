@@ -1651,7 +1651,14 @@ class StormDmon(s_base.Base):
 
         s_scope.set('storm:dmon', self.iden)
 
-        info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon')}
+        text = self.ddef.get('storm')
+        opts = self.ddef.get('stormopts', {})
+        vars = opts.setdefault('vars', {})
+        vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
+
+        viewiden = opts.get('view')
+
+        info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
         await self.core.boss.promote('storm:dmon', user=self.user, info=info)
 
         def dmonPrint(evnt):
@@ -1672,12 +1679,6 @@ class StormDmon(s_base.Base):
                                extra={'synapse': {'iden': self.iden}})
                 return
 
-            text = self.ddef.get('storm')
-            opts = self.ddef.get('stormopts', {})
-            vars = opts.setdefault('vars', {})
-            vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
-
-            viewiden = opts.get('view')
             view = self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
@@ -4689,7 +4690,7 @@ class BackgroundCmd(Cmd):
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
         info = {'query': query.text,
-                'opts': opts,
+                'view': opts['view'],
                 'background': True}
 
         await core.boss.promote('storm', user=user, info=info)

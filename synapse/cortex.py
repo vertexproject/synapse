@@ -1242,6 +1242,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svchive = await svchive.dict()
 
         await self._initDeprLocks()
+        await self._warnDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1640,9 +1641,40 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if not prop.deprecated:
                 continue
 
+            # Skip universal properties on other props
+            if not prop.isform and prop.univ is not None:
+                continue
+
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def _warnDeprLocks(self):
+        # Check for deprecated properties which are unused and unlocked
+        deprs = await self.getDeprLocks()
+
+        for propname, locked in deprs.items():
+            if locked:
+                continue
+
+            prop = self.model.props.get(propname)
+
+            for layr in self.layers.values():
+                if not prop.isform and prop.isuniv:
+                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                        break
+
+                else:
+                    if await layr.getPropCount(propname, maxsize=1):
+                        break
+
+                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
+                        break
+
+            else:
+                mesg = 'Deprecated property {prop.full} is unlocked and not in use. '
+                mesg += 'Recommend locking (https://v.vtx.lk/deprlock).'
+                logger.info(mesg.format(prop=prop))
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):
@@ -3234,6 +3266,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 yield mesg
 
     async def addUnivProp(self, name, tdef, info):
+        if not isinstance(tdef, tuple):
+            mesg = 'Universal property type definitions should be a tuple.'
+            raise s_exc.BadArg(name=name, mesg=mesg)
+
+        if not isinstance(info, dict):
+            mesg = 'Universal property definitions should be a dict.'
+            raise s_exc.BadArg(name=name, mesg=mesg)
+
         # the loading function does the actual validation...
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
@@ -3257,6 +3297,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.feedBeholder('model:univ:add', univ.pack())
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
+        if not isinstance(typeopts, dict):
+            mesg = 'Form type options should be a dict.'
+            raise s_exc.BadArg(form=formname, mesg=mesg)
+
+        if not isinstance(typeinfo, dict):
+            mesg = 'Form type info should be a dict.'
+            raise s_exc.BadArg(form=formname, mesg=mesg)
+
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
@@ -3303,6 +3351,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('model:form:del', {'form': formname})
 
     async def addFormProp(self, form, prop, tdef, info):
+        if not isinstance(tdef, tuple):
+            mesg = 'Form property type definitions should be a tuple.'
+            raise s_exc.BadArg(form=form, mesg=mesg)
+
+        if not isinstance(info, dict):
+            mesg = 'Form property definitions should be a dict.'
+            raise s_exc.BadArg(form=form, mesg=mesg)
+
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
@@ -3391,6 +3447,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
     async def addTagProp(self, name, tdef, info):
+        if not isinstance(tdef, tuple):
+            mesg = 'Tag property type definitions should be a tuple.'
+            raise s_exc.BadArg(name=name, mesg=mesg)
+
+        if not isinstance(info, dict):
+            mesg = 'Tag property definitions should be a dict.'
+            raise s_exc.BadArg(name=name, mesg=mesg)
+
         if self.exttagprops.get(name) is not None:
             raise s_exc.DupPropName(name=name)
 
@@ -5233,7 +5297,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': view.iden}
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -5275,7 +5339,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
 
         taskiden = opts.get('task')
-        taskinfo = {'name': 'syn.nodes', 'sha256': sha256}
+        taskinfo = {'name': 'syn.nodes', 'sha256': sha256, 'view': view.iden}
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 

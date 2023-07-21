@@ -1139,7 +1139,6 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, path)
 
             # TODO: ditch this when storm goes full heavy object
-            name = await tostr(name)
             with s_scope.enter({'runt': runt}):
                 await item.setitem(name, valu)
 
@@ -3035,7 +3034,6 @@ class VarDeref(Value):
             return None
 
         name = await self.kids[1].compute(runt, path)
-        name = await tostr(name)
 
         valu = s_stormtypes.fromprim(base, path=path)
         return await valu.deref(name)
@@ -3342,7 +3340,16 @@ class ExprDict(Value):
 
         valu = {}
         for i in range(0, len(self.kids), 2):
-            valu[await self.kids[i].compute(runt, path)] = await self.kids[i + 1].compute(runt, path)
+
+            key = await self.kids[i].compute(runt, path)
+
+            if s_stormtypes.ismutable(key):
+                key = await s_stormtypes.torepr(key)
+                raise s_exc.BadArg(mesg='Mutable values are not allowed as dictionary keys', name=key)
+
+            key = await toprim(key)
+
+            valu[key] = await self.kids[i + 1].compute(runt, path)
 
         return s_stormtypes.Dict(valu)
 

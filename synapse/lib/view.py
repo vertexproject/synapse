@@ -374,7 +374,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
 
         taskiden = opts.get('task')
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await self.snap(user=user) as snap:
@@ -428,7 +428,7 @@ class View(s_nexus.Pusher):  # type: ignore
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
         synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -548,7 +548,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -728,7 +728,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.mergeAllowed(user, force=force)
 
-        await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+        taskinfo = {'merging': self.iden, 'view': self.iden}
+        await self.core.boss.promote('storm', user=user, info=taskinfo)
 
         async with await self.parent.snap(user=user) as snap:
 
