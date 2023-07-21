@@ -2967,8 +2967,7 @@ class FuncCall(Value):
         func = await self.kids[0].compute(runt, path)
         if not callable(func):
             text = self.getAstText()
-            # TODO swap this out with the storm type name once we have a way to get it
-            styp = type(func).__name__
+            styp = await s_stormtypes.totype(func, basetypes=True)
             mesg = f"'{styp}' object is not callable: {text}"
             raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
