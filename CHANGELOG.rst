@@ -297,17 +297,6 @@ Deprecations
 - Remove the deprecated ``synapse.common.lockfile()`` function.
   (`#3191 <https://github.com/vertexproject/synapse/issue/3191>`_)
 
-Unreleased - YYYY-MM-DD
-=======================
-
-Bugfixes
---------
-- Fix an issue where raising an integer value to a fractional power
-  in Storm was not handled correctly.
-- Attempting to call non-existent Storm functions now raises a
-  ``StormRuntimeError`` rather than a Python ``TypeError``.
-  (`#3097 <https://github.com/vertexproject/synapse/pull/3097>`_)
-
 v2.139.0 - 2023-06-16
 =====================
 
