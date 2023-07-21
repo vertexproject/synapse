@@ -421,6 +421,10 @@ class View(s_nexus.Pusher):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
+        if text is None:
+            mesg = 'storm text cannot be None'
+            raise s_exc.BadArg(mesg=mesg)
+
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 

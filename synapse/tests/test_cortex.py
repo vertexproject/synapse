@@ -3066,6 +3066,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
 
             await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(badcmdpkg))
+            await self.asyncraises(s_exc.BadArg, s_common.aspin(core.storm(None)))
 
     async def test_onsetdel(self):
 
