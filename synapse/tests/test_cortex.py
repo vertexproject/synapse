@@ -21,6 +21,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.backup as s_tools_backup
 import synapse.tools.promote as s_tools_promote
@@ -3448,6 +3449,56 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).('bar').upper()))"))
             self.eq('BAZ', await core.callStorm("return((({'bar': 'baz'}).$('bar').upper()))"))
 
+            # setitem and deref both toprim the key
+            text = '''
+            $x = ({})
+            $y = (1.23)
+            $x.$y = "foo"
+            for ($k, $v) in $x { return(($k, $x.$k)) }
+            '''
+            self.eq((1.23, 'foo'), await core.callStorm(text))
+
+            # constructor also toprims all keys
+            text = '''
+            $y = (1.23)
+            $x = ({
+                $y: "foo"
+            })
+            for ($k, $v) in $x { return(($k, $x.$k)) }
+            '''
+            self.eq((1.23, 'foo'), await core.callStorm(text))
+
+            text = '''
+            $y=$lib.null [ inet:fqdn=foo.com ] $y=$node spin |
+            $x = ({
+                "cool": {
+                    $y: "foo"
+                }
+            })
+            for ($k, $v) in $x {
+                for ($k2, $v2) in $v {
+                    return(($k2, $x.$k.$k2))
+                }
+            }
+            '''
+            self.eq(('foo.com', 'foo'), await core.callStorm(text))
+
+            # using a mutable key raises an exception
+            text = '''
+            $x = ({})
+            $y = ([(1.23)])
+            $x.$y = "foo"
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+
+            text = '''
+            $y = ([(1.23)])
+            $x = ({
+                $y: "foo"
+            })
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(text))
+
     async def test_storm_varlist_compute(self):
 
         async with self.getTestCore() as core:
@@ -5188,6 +5239,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1 / 0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1 % 0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1.0 / 0.0)')
+            self.eq('Cannot divide by zero', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$x=(1.0 % 0.0)')
+            self.eq('Invalid operation on a Number', cm.exception.get('mesg'))
+
     async def test_storm_filter_vars(self):
         '''
         Test variable filters (e.g. +$foo) and expression filters (e.g. +$(:hehe < 4))
@@ -5255,6 +5322,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = 'test:str=test $foo=$node.value() $bar=(2018,2019) +#$foo=$bar'
             nodes = await core.nodes(q)
             self.len(1, nodes)
+
+            # Filter by var as node
+            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift by var as node
+            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
 
     async def test_storm_ifstmt(self):
 
@@ -5968,6 +6045,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('dmon.list')
             self.stormIsInPrint('(wootdmon            ): error', msgs)
 
+            # invalid storm query
+            await self.asyncraises(s_exc.BadSyntax, core.nodes('$lib.dmon.add(" | | | ")'))
+
     async def test_cortex_storm_dmon_exit(self):
 
         async with self.getTestCore() as core:
@@ -6419,6 +6499,19 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_behold(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy() as prox:
+                class TstServ(s_stormsvc.StormSvc):
+                    _storm_svc_name = 'tstserv'
+                    _storm_svc_vers = (0, 0, 2)
+                    _storm_svc_pkgs = [
+                        {  # type: ignore
+                            'name': 'foo',
+                            'version': (0, 0, 1),
+                            'synapse_minversion': (2, 100, 0),
+                            'modules': [],
+                            'commands': []
+                        }
+                    ]
+
                 async def action():
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
@@ -6431,9 +6524,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
                     await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
+                    async with self.getTestDmon() as dmon:
+                        dmon.share('tstservone', TstServ())
+                        host, port = dmon.addr
+                        surl = f'tcp://127.0.0.1:{port}/tstservone'
+                        await core.callStorm(f'service.add alegitservice {surl}')
+                        await core.callStorm('$lib.service.wait(alegitservice)')
+
                 task = core.schedCoro(action())
                 replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
-                dlen = 7 if replay else 6
+                dlen = 9 if replay else 8
 
                 data = []
                 async for mesg in prox.behold():
@@ -6496,6 +6596,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, data[off]['gates'])
                 self.nn(data[off]['info'].get('iden'))
                 self.eq(data[off]['info']['view'], view)
+                off += 1
+
+                self.eq(data[off]['event'], 'svc:add')
+                self.eq(data[off]['info']['name'], 'alegitservice')
+                off += 1
+
+                self.eq(data[off]['event'], 'svc:set')
+                self.eq(data[off]['info']['name'], 'alegitservice')
+                self.eq(data[off]['info']['svcname'], 'tstserv')
+                self.eq(data[off]['info']['version'], (0, 0, 2))
+                self.eq(data[off]['info']['iden'], data[off - 1]['info']['iden'])
 
     async def test_stormpkg_sad(self):
         base_pkg = {
@@ -6844,7 +6955,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
 
                 opts = {'scrub': {'include': {'tags': ('visi',)}}}
-                podes = [p async for p in proxy.exportStorm('media:news inet:email', opts=opts)]
+                podes = []
+                async for p in proxy.exportStorm('media:news inet:email', opts=opts):
+                    if not podes:
+                        tasks = [t for t in core.boss.tasks.values() if t.name == 'storm:export']
+                        self.true(len(tasks) == 1 and tasks[0].info.get('view') == core.view.iden)
+                    podes.append(p)
 
                 self.len(2, podes)
                 news = [p for p in podes if p[0][0] == 'media:news'][0]

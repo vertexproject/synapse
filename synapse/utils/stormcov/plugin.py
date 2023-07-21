@@ -209,6 +209,7 @@ TOKENS = [
     'EXPRVARTOKN',
     'NUMBER',
     'HEXNUMBER',
+    'OCTNUMBER',
     'BOOL',
     'EXPRTIMES',
     '_EMIT',

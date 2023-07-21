@@ -653,15 +653,15 @@ class StormSvcTest(s_test.SynTest):
                     # storm service permissions should use svcidens
                     await user.addRule((True, ('service', 'get', iden)))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('storm:proxy', msgs)
+                    self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('storm:proxy', msgs)
+                    self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('storm:proxy', msgs)
+                    self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     q = '$hasfoo=$lib.service.has($svc) if $hasfoo {$lib.print(yes)} else {$lib.print(no)}'
@@ -743,7 +743,7 @@ class StormSvcTest(s_test.SynTest):
 
                     async def badSetStormSvcEvents(iden, evts):
                         badiden.append(iden)
-                        raise s_exc.SynErr('Kaboom')
+                        raise s_exc.SynErr(mesg='Kaboom')
 
                     sdef = {
                         'name': 'dead',
@@ -752,7 +752,7 @@ class StormSvcTest(s_test.SynTest):
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        self.true(await core.waitStormSvc('dead', timeout=6))
                         await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
@@ -760,11 +760,11 @@ class StormSvcTest(s_test.SynTest):
 
                     async def badRunStormSvcAdd(iden):
                         badiden.append(iden)
-                        raise s_exc.SynErr('Kaboom')
+                        raise s_exc.SynErr(mesg='Kaboom')
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        self.true(await core.waitStormSvc('dead', timeout=6))
                         await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
                     self.eq(svci.get('iden'), badiden[0])

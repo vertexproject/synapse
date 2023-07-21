@@ -137,6 +137,25 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('baz', info['subs']['base'])
         self.eq('foo.bar.', info['subs']['parent'])
 
+        self.true(taxo.cmpr('foo', '~=', 'foo'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.bar'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(taxo.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(taxo.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
@@ -278,9 +297,32 @@ class TypesTest(s_t_utils.SynTest):
                 else:
                     self.raises(b, t.norm, v)
 
+            # size = 8, pad = True
+            testvectors = [
+                ('0x12', '00000012'),
+                ('0x1234', '00001234'),
+                ('0x123456', '00123456'),
+                ('0x12345678', '12345678'),
+                ('0x123456789a', s_exc.BadTypeValu),
+                (b'\x12', '00000012'),
+                (b'\x12\x34', '00001234'),
+                (b'\x12\x34\x56', '00123456'),
+                (b'\x12\x34\x56\x78', '12345678'),
+                (b'\x12\x34\x56\x78\x9a', s_exc.BadTypeValu),
+            ]
+            t = core.model.type('test:hexpad')
+            for v, b in testvectors:
+                if isinstance(b, (str, bytes)):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(r, b)
+                else:
+                    self.raises(b, t.norm, v)
+
             # Do some node creation and lifting
             async with await core.snap() as snap:
-                node = await snap.addNode('test:hexa', '010001')
+                node = await snap.addNode('test:hexa', '01:00 01')
                 self.eq(node.ndef[1], '010001')
 
             async with await core.snap() as snap:
@@ -1009,6 +1051,25 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
         # homoglyphs are also possible
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
+
+        self.true(tagtype.cmpr('foo', '~=', 'foo'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(tagtype.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(tagtype.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
     async def test_time(self):
 

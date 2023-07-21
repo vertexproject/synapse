@@ -208,6 +208,12 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
+                # Require valid storm
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': ' | | | ',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
+                await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
+
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': doit,
@@ -324,6 +330,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
+                self.eq(core.view.iden, appt.task.info.get('view'))
                 await appt.task.kill()
 
                 appt = await agenda.get(guid)
@@ -407,17 +414,13 @@ class AgendaTest(s_t_utils.SynTest):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
 
-            core = mock.Mock()
+            core = mock.AsyncMock()
 
-            def raiseOnBadStorm(q):
+            async def raiseOnBadStorm(q):
                 ''' Just enough storm parsing for this test '''
-                # TODO: Async this and use AsyncMock when Python 3.8+ only
-                f = asyncio.Future()
                 if (q[0] == '[') != (q[-1] == ']'):
-                    f.set_exception(s_exc.BadSyntax(mesg='mismatched braces'))
-                else:
-                    f.set_result('all good')
-                return f
+                    raise s_exc.BadSyntax(mesg='mismatched braces')
+                return 'all good'
 
             core.getStormQuery = raiseOnBadStorm
 
@@ -453,8 +456,7 @@ class AgendaTest(s_t_utils.SynTest):
                             'reqs': {s_tu.HOUR: (7, 8)},
                             'incunit': s_agenda.TimeUnit.MONTH,
                             'incvals': 1}
-                    adef = await agenda.add(cdef)
-                    badguid1 = adef.get('iden')
+                    await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
 
                     # Add an appt with a bad version in storage
                     cdef = {'creator': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
@@ -487,13 +489,10 @@ class AgendaTest(s_t_utils.SynTest):
                     agenda.enabled = True
 
                     appts = agenda.list()
-                    self.len(3, appts)
+                    self.len(2, appts)
 
                     last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                     self.eq(last_appt.query, '#bahhumbug')
-
-                    bad_appt = [appt for (iden, appt) in appts if iden == badguid1][0]
-                    self.false(bad_appt.enabled)
 
                     self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
 
@@ -564,7 +563,7 @@ class AgendaTest(s_t_utils.SynTest):
             # no existing view
             await core.callStorm('$lib.queue.add(testq)')
             defview = core.getView()
-            fakeiden = hashlib.md5(defview.iden.encode('utf-8')).hexdigest()
+            fakeiden = hashlib.md5(defview.iden.encode('utf-8'), usedforsecurity=False).hexdigest()
             opts = {'vars': {'fakeiden': fakeiden}}
             with self.raises(s_exc.NoSuchView):
                 await prox.callStorm('cron.add --view $fakeiden --minute +2 { $lib.queue.get(testq).put((43)) }', opts=opts)

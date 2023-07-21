@@ -647,6 +647,8 @@ class Agenda(s_base.Base):
         if not query:
             raise ValueError('"query" key of cdef parameter is not present or empty')
 
+        await self.core.getStormQuery(query)
+
         if not creator:
             raise ValueError('"creator" key is cdef parameter is not present or empty')
 
@@ -836,7 +838,7 @@ class Agenda(s_base.Base):
             await self._markfailed(appt, 'unknown view')
             return
 
-        info = {'iden': appt.iden, 'query': appt.query}
+        info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
 
         appt.task = task
