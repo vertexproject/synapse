@@ -1658,6 +1658,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             prop = self.model.props.get(propname)
 
+            # if 'easy' in propname:
+            #     breakpoint()
+
             for layr in self.layers.values():
                 if not prop.isform and prop.isuniv:
                     if await layr.getUnivPropCount(prop.name, maxsize=1):
@@ -1667,7 +1670,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     if await layr.getPropCount(propname, maxsize=1):
                         break
 
-                    if await layr.getPropCount(prop.form.name, propname, maxsize=1):
+                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
                         break
 
             else:

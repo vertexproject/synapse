@@ -7236,23 +7236,29 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_depr_props_warning(self):
 
-        pattern = 'is unlocked and unused. Recommend locking.'
         conf = {
             'modules': [
                 'synapse.tests.test_datamodel.DeprecatedModel',
             ]
         }
 
+        logs = [
+            'Deprecated property .pdep is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+            'Deprecated property test:dep:easy is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+            'Deprecated property test:dep:easy:guid is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+            'Deprecated property test:dep:str is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+        ]
+
         with self.getTestDir() as dirn:
-            with self.getLoggerStream('synapse.cortex', pattern) as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
 
                 # Do something that triggers a log message
                 async with self.getTestCore(conf=conf, dirn=dirn) as core:
 
                     # Create a test:deprprop so it doesn't generate a warning
-                    await core.callStorm('[test:dep:easy=foobar]')
+                    await core.callStorm('[test:dep:easy=foobar :guid=*]')
 
-                    # Lock test:deprprop:ext and .pdep so they doesn't generate a warning
+                    # Lock test:deprprop:ext and .pdep so they don't generate a warning
                     await core.callStorm('model.deprecated.lock test:dep:str')
                     await core.callStorm('model.deprecated.lock ".pdep"')
 
@@ -7264,9 +7270,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 mesgs = data.splitlines()
                 mesglen = len(mesgs)
 
-                self.isin('Deprecated property .pdep is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).', mesgs)
-                self.isin('Deprecated property test:dep:easy is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).', mesgs)
-                self.isin('Deprecated property test:dep:str is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).', mesgs)
+                for log in logs:
+                    self.isin(log, mesgs)
 
                 here = stream.tell()
 
@@ -7276,7 +7281,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Check that the warnings are gone now
                 stream.seek(here)
                 mesgs = stream.read().splitlines()
-                self.notin('Deprecated property .pdep is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).', mesgs)
-                self.notin('Deprecated property test:deprprop is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).', mesgs)
-                self.notin('Deprecated property test:deprprop:ext is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).', mesgs)
-                self.eq(len(mesgs), mesglen - 3)
+
+                for log in logs:
+                    self.notin(log, mesgs)
+
+                self.eq(len(mesgs), mesglen - 4)
