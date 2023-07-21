@@ -121,8 +121,8 @@ def getSysctls():
                 valu = f.read().strip()
                 try:
                     ret[key] = func(valu)
-                except Exception as e:
-                    logger.exception(f'Error normalizing:  {key} @ {fp}, valu={valu}')
+                except Exception:  # pragma: no cover
+                    logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
                     ret[key] = None
         else:  # pragma: no cover
             logger.warning(f'Missing sysctl: {key} @ {fp}')
