@@ -238,9 +238,9 @@ Types of Functions
   on the presence (or absence) of specific **keywords** within a function to identify the type of function
   and how to execute it.
   
-  - Callable functions **must** include a ``return()`` statement.
-  - Data emitter functions **must** use the ``emit`` keyword.
-  - Node yielder functions **must not** include the keywords ``return`` or ``emit``.
+  - Callable functions **must** include a ``return()`` statement (and must not use ``emit``).
+  - Data emitter functions **must** use the ``emit`` keyword (and must not use ``return()``).
+  - Node yielder functions **must not** include the keywords ``emit`` or ``return()``.
   
   Both data emitters and node yielders may optionally include the keyword ``stop`` to cleanly halt
   execution and exit the function. (Using ``stop`` in a callable function will generate a ``StormStop``

@@ -573,18 +573,24 @@ include domains (``inet:fqdn``) or hashes (e.g., ``hash:md5``).
 Function, Callable
 ------------------
 
-
+In Storm, a callable function is a "regular" function that is invoked (called) and returns exactly one value.
+A callable function must include a ``return()`` statement and must not include the ``emit`` keyword.
 
 .. _gloss-func-emitter:
 
 Function, Data Emitter
 ----------------------
 
+In Storm, a data emitter function emits data. The function returns a generator object that can be iterated over.
+A data emitter function must include the ``emit`` keyword and must not include a ``return()`` statement.
+
 .. _gloss-func-yielder:
 
 Function, Node Yielder
 ----------------------
 
+In Storm, a node yielder function yields nodes. The function returns a generator object that can be iterated
+over. A node yielder function must not include either the ``emit`` keyword or a ``return()`` statement.
 
 
 .. _gloss-fused-know:
