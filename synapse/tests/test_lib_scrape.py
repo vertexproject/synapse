@@ -36,6 +36,18 @@ and BOB@WOOT.COM is another
 
     5.6.7.8:16
 
+    The IP address is: 201.202.203.204.
+
+    Typo no space after sentence.211.212.213.214 is the address..
+
+    # Bad IP addresses:
+    6.7.8.900
+    6.7.8.9750
+    1236.7.8.9
+    0126.7.8.9
+    6.7.8.9.6.7.8.9
+    6.7.8.9.6
+
     faß.de
 
     👁️👄👁️.fm
@@ -322,10 +334,12 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(29, nodes)
+        self.len(31, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
+        nodes.remove(('inet:ipv4', '201.202.203.204'))
+        nodes.remove(('inet:ipv4', '211.212.213.214'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
         nodes.remove(('inet:fqdn', 'foobar.com'))
