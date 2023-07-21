@@ -1,7 +1,5 @@
 import bs4
 
-import synapse.common as s_common
-
 import synapse.lib.coro as s_coro
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -33,5 +31,4 @@ class LibMimeHtml(s_stormtypes.Lib):
 
     async def totext(self, html):
         html = await s_stormtypes.tostr(html)
-        todo = s_common.todo(htmlToText, html)
-        return await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+        return await s_coro.semafork(htmlToText, html)

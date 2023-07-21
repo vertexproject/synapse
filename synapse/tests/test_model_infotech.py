@@ -461,6 +461,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
 
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('keyboard:language'))
+            self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
+            self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
@@ -1311,6 +1317,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :file=*
                     :family=Beacon
                     :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
+                    :decoys=(https://woot.com, https://foo.bar)
                     :listens=(https://0.0.0.0:443,)
                     :proxies=(socks5://visi:secret@1.2.3.4:1234,)
                     :dns:resolvers=(udp://8.8.8.8:53,)
@@ -1338,6 +1345,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(('https://0.0.0.0:443',), node.get('listens'))
             self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
             self.eq(('udp://8.8.8.8:53',), node.get('dns:resolvers'))
+            self.eq(('https://woot.com', 'https://foo.bar',), node.get('decoys'))
 
     async def test_infotech_query(self):
 

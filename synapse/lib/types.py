@@ -208,9 +208,12 @@ class Type:
             raise s_exc.NoSuchCmpr(cmpr=name, name=self.name)
 
         norm1 = self.norm(val1)[0]
-        norm2 = self.norm(val2)[0]
 
-        return ctor(norm2)(norm1)
+        if name != '~=':
+            # Don't norm regex patterns
+            val2 = self.norm(val2)[0]
+
+        return ctor(val2)(norm1)
 
     def _ctorCmprEq(self, text):
         norm, info = self.norm(text)
@@ -621,6 +624,7 @@ class Hex(Type):
 
     _opt_defs = (
         ('size', 0),  # type: ignore
+        ('zeropad', False),
     )
 
     def postTypeInit(self):
@@ -632,6 +636,9 @@ class Hex(Type):
         if self._size % 2 != 0:
             raise s_exc.BadConfValu(name='size', valu=self._size,
                                     mesg='Size must be a multiple of 2')
+
+        self._zeropad = self.opts.get('zeropad')
+
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
         self.storlifts.update({
@@ -639,13 +646,16 @@ class Hex(Type):
             '^=': self._storLiftPref,
         })
 
+    def _preNormHex(self, text):
+        text = text.strip().lower()
+        if text.startswith('0x'):
+            text = text[2:]
+        return text.replace(' ', '').replace(':', '')
+
     def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
-            valu = valu.strip().lower()
-            if valu.startswith('0x'):
-                valu = valu[2:]
-
+            valu = self._preNormHex(valu)
             if valu.endswith('*'):
                 return (
                     ('^=', valu[:-1], self.stortype),
@@ -654,16 +664,18 @@ class Hex(Type):
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
-        valu = valu.strip().lower()
-        if valu.startswith('0x'):
-            valu = valu[2:]
-
+        valu = self._preNormHex(valu)
         return (
             ('^=', valu, self.stortype),
         )
 
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
+
+        if self._zeropad and len(valu) < self._size:
+            padlen = self._size - len(valu)
+            valu = ('0' * padlen) + valu
+
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,
                                     mesg='invalid width')
@@ -2040,7 +2052,7 @@ class Time(IntBase):
 
             return self._normPyInt(delt + bgn)
 
-        valu = s_time.parse(valu, base=base)
+        valu = s_time.parse(valu, base=base, chop=True)
         return self._normPyInt(valu)
 
     def _normPyInt(self, valu):

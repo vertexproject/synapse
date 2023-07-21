@@ -11,13 +11,13 @@ class LibGen(s_stormtypes.Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'An ou:org node with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'An ou:org node with the given name.'}}},
         {'name': 'orgHqByName', 'desc': 'Returns a ps:contact node for the ou:org, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A ps:contact node for the ou:org with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'A ps:contact node for the ou:org with the given name.'}}},
         {'name': 'orgByFqdn', 'desc': 'Returns an ou:org node by FQDN, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -25,13 +25,13 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'An ou:org node with the given FQDN.'}}},
+                  'returns': {'type': 'node', 'desc': 'An ou:org node with the given FQDN.'}}},
         {'name': 'industryByName', 'desc': 'Returns an ou:industry by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the industry.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'An ou:industry node with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'An ou:industry node with the given name.'}}},
         {'name': 'newsByUrl', 'desc': 'Returns a media:news node by URL, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -39,13 +39,13 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A media:news node with the given URL.'}}},
+                  'returns': {'type': 'node', 'desc': 'A media:news node with the given URL.'}}},
         {'name': 'softByName', 'desc': 'Returns it:prod:soft node by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'An it:prod:soft node with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'An it:prod:soft node with the given name.'}}},
         {'name': 'vulnByCve', 'desc': 'Returns risk:vuln node by CVE, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -53,7 +53,7 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A risk:vuln node with the given CVE.'}}},
+                  'returns': {'type': 'node', 'desc': 'A risk:vuln node with the given CVE.'}}},
 
         {'name': 'riskThreat',
          'desc': 'Returns a risk:threat node based on the threat and reporter names, adding the node if it does not exist.',
@@ -62,7 +62,7 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the threat cluster.'},
                       {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the threat cluster.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A risk:threat node.'}}},
+                  'returns': {'type': 'node', 'desc': 'A risk:threat node.'}}},
 
         {'name': 'riskToolSoftware',
          'desc': 'Returns a risk:tool:software node based on the tool and reporter names, adding the node if it does not exist.',
@@ -71,7 +71,7 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The reported name of the tool.'},
                       {'name': 'reporter', 'type': 'str', 'desc': 'The name of the organization which reported the tool.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A risk:tool:software node.'}}},
+                  'returns': {'type': 'node', 'desc': 'A risk:tool:software node.'}}},
 
         {'name': 'psContactByEmail', 'desc': 'Returns a ps:contact by deconflicting the type and email address.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -81,7 +81,7 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A ps:contact node.'}}},
+                  'returns': {'type': 'node', 'desc': 'A ps:contact node.'}}},
 
         {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting the :iso2 property.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -90,13 +90,21 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A pol:country node.'}}},
+                  'returns': {'type': 'node', 'desc': 'A pol:country node.'}}},
         {'name': 'langByName', 'desc': 'Returns a lang:language node by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the language.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'A lang:language node with the given name.'}}},
+                  'returns': {'type': 'node', 'desc': 'A lang:language node with the given name.'}}},
+        {'name': 'langByCode', 'desc': 'Returns a lang:language node by language code, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The language code for the language.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'A lang:language node with the given code.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -238,6 +246,20 @@ class LibGen(s_stormtypes.Lib):
             lang:name=$name -> lang:language
             return($node)
             [ lang:language=* :name=$name ]
+            return($node)
+        }
+
+        function langByCode(code, try=$lib.false) {
+
+            if $try {
+                ($ok, $code) = $lib.trycast(lang:code, $code)
+                if (not $ok) { return() }
+            }
+
+            lang:language:code=$code
+            return($node)
+
+            [ lang:language=(bycode, $code) :code=$code ]
             return($node)
         }
 

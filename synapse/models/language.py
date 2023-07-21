@@ -80,6 +80,9 @@ class LangModule(s_module.CoreModule):
 
                 ('lang:language', {}, (
 
+                    ('code', ('lang:code', {}), {
+                        'doc': 'The language code for this language.'}),
+
                     ('name', ('lang:name', {}), {
                         'doc': 'The primary name of the language.'}),
 

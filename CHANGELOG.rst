@@ -4,19 +4,298 @@
 Synapse Changelog
 *****************
 
+v2.142.2 - 2023-07-19
+=====================
+
+Bugfixes
+--------
+- Fix an issue which caused the Docker image tags for
+  ``vertexproject/synapse-cryotank:v2.141.1``,
+  ``vertexproject/synapse-jsonstor:v2.141.1``, and
+  ``vertexproject/synapse-stemcell:v2.141.1``, to refer to same image.
+  (`#3249 <https://github.com/vertexproject/synapse/pull/3249>`_)
+
+v2.142.1 - 2023-07-19
+=====================
+
+Bugfixes
+--------
+- Fix an issue which prevented the publication of the Synapse containers with
+  ``v2.x.x`` tags.
+  (`#3248 <https://github.com/vertexproject/synapse/pull/3248>`_)
+
+v2.142.0 - 2023-07-19
+=====================
+
+Automatic Migrations
+--------------------
+- Renormalize the ``risk:vuln:cvss:v2`` and ``risk:vuln:cvss:v3`` properties.
+  (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
+- Migrate the ``risk:vuln:name`` type from a ``str`` to a ``risk:vulnname``
+  form.
+  (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``it``, ``org``, and  ``risk`` models.
+  (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
+  (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
+  (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
+
+  New Forms
+  ---------
+
+  ``risk:vulnname``
+    Add a form to capture vulnerability name such as log4j or rowhammer.
+
+  Updated Types
+  -------------
+
+  ``hex``
+    The ``hex`` base type now accepts a ``zeropad`` option that can be used
+    to zero-extend a hex string during normalization.
+
+  ``cvss:v2``
+    The type now accepts and normalizes unordered CVSS vectors.
+
+  ``cvss:v3``
+    The type now accepts and normalizes unordered CVSS vectors.
+
+  New Properties
+  --------------
+
+  ``it:sec:c2:config``
+    The form had the following properties added to it:
+
+    ``decoys``
+      An array of URLs used as decoy connections to obfuscate the C2 servers.
+
+  ``ou:technique``
+    The form had the following properties added to it:
+
+    ``reporter``
+      The organization reporting on the technique.
+
+    ``reporter:name``
+      The name of the organization reporting on the technique.
+
+  ``risk:vuln``
+    The form had the following properties added to it:
+
+    ``names``
+      An array of alternate names for the vulnerability.
+
+Features and Enhancements
+-------------------------
+- Always convert dictionary keys to their primitive values when working with
+  dictionary objects in Storm. Dictionary objects can no longer have keys
+  set which are mutable objects, such as Nodes.
+  (`#3233 <https://github.com/vertexproject/synapse/pull/3233>`_)
+- Add support for octal constants, such as ``0o755``, in Storm expressions.
+  (`#3231 <https://github.com/vertexproject/synapse/pull/3231>`_)
+- Add additional events to the Behold API message stream for the addition
+  and removal of extended model elements.
+  (`#3228 <https://github.com/vertexproject/synapse/pull/3228>`_)
+- Update the ``$lib.dmon.add()`` variable capture to record variables
+  from embedded query objects.
+  (`#3230 <https://github.com/vertexproject/synapse/pull/3230>`_)
+- Add a ``.title()`` method on Storm strings to get title case formatted
+  strings.
+  (`#3242 <https://github.com/vertexproject/synapse/pull/3242>`_)
+- Add a general purpose process pool using forked workers in order to speed
+  up certain processing operations. This includes the Storm operations for
+  JSONSchema parsing, HTML parsing, STIX validation, and XML parsing.
+  (`#3033 <https://github.com/vertexproject/synapse/pull/3033>`_)
+  (`#3229 <https://github.com/vertexproject/synapse/pull/3229>`_)
+- Add a new Cell configuration option, ``max:users``. This can be set to limit
+  the maximum number of non-``root`` users on Cell.
+  (`#3244 <https://github.com/vertexproject/synapse/pull/3244>`_)
+- Add an ``/api/v1/aha/services`` HTTP API to the Aha service. This
+  can be used to get a list of the services registered with Aha.
+  (`#3238 <https://github.com/vertexproject/synapse/pull/3238>`_)
+- Add support for Cosign signatures of tagged Synapse containers. See
+  additional information at :ref:`dev_docker_verification`.
+  (`#3196 <https://github.com/vertexproject/synapse/pull/3196>`_)
+- Adjust internal names for Storm objects.
+  (`#3229 <https://github.com/vertexproject/synapse/pull/3229>`_)
+
+Bugfixes
+--------
+- Fix a bug in the scrape for ``inet:ipv4`` where IP addresses were found
+  when there was leading or trailing numbers around the IP addresses.
+  (`#3234 <https://github.com/vertexproject/synapse/pull/3234>`_)
+- Fix a bug where ``$lib.model.ext.delForm()`` did not check for extended
+  property definitions before deletion. Extended properties on a custom form
+  must be deleted prior to deleting the form.
+  (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
+- Always remove the ``mirror`` configuration option from ``cell.yaml`` file
+  when provisioning a service via Aha. The previous behavior prevented the
+  correct restoration of a service from a backup which was previously
+  provisioned as a mirror and is being restored as a leader.
+  (`#3240 <https://github.com/vertexproject/synapse/pull/3240>`_)
+- Add additional type checking when adding extended model forms and properties
+  to the Cortex. Previously invalid types could raise an ``AttributeError``.
+  (`#3243 <https://github.com/vertexproject/synapse/pull/3243>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm lift reference to add an example of lifting nodes by the
+  universal ``.created`` property.
+  (`#3245 <https://github.com/vertexproject/synapse/pull/3245>`_)
+
+v2.141.0 - 2023-07-07
+=====================
+
+Model Changes
+-------------
+- Update to the ``it`` and ``lang`` models.
+  (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
+
+  New Properties
+  --------------
+
+  ``it:host``
+    The form had the following properties added to it:
+
+    ``keyboard:language``
+      The primary keyboard input language configured on the host.
+
+    ``keyboard:layout``
+      The primary keyboard layout configured on the host.
+
+  ``lang:language``
+    The form had the following property added to it:
+
+    ``code``
+      The language code for this language.
+
+Features and Enhancements
+-------------------------
+- Update ``$lib.infosec.cvss.vectToScore()`` to include a normalized
+  CVSS vector in the output.
+  (`#3211 <https://github.com/vertexproject/synapse/pull/3211>`_)
+- Optimize the addition and removal of lightweight edges when operating
+  on N1 edges in Storm.
+  (`#3214 <https://github.com/vertexproject/synapse/pull/3214>`_)
+- Added ``$lib.gen.langByCode``.
+  (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
+
+Bugfixes
+--------
+- Fix bug with regular expression comparisons for some types.
+  (`#3213 <https://github.com/vertexproject/synapse/pull/3213>`_)
+- Fix a ``TypeError`` being raised when passing a heavy Number object to
+  ``$lib.math.number()``.
+  (`#3215 <https://github.com/vertexproject/synapse/pull/3215>`_)
+- Fix an issue with the Cell backup space checks. They now properly calculate
+  the amount of free space when the Cell backup directory is configured
+  on a separate volume from the Cell storage directory.
+  (`#3216 <https://github.com/vertexproject/synapse/pull/3216>`_)
+- Prevent the ``yield`` operator from directly emitting nodes into the Storm
+  pipeline if those node objects came from a different view. Nodes previously
+  lifted in this manner must be lifted by calling the ``iden()`` function on
+  the object to ensure the node being lifted into the pipeline reflects the
+  current view.
+  (`#3218 <https://github.com/vertexproject/synapse/pull/3218>`_)
+- Always remove the ``mirror`` configuration option from ``cell.mods.yaml``
+  when provisioning a service via Aha. The previous behavior prevented the
+  correct restoration of a service from a backup which had been changed from
+  being a leader to being a mirror.
+  (`#3220 <https://github.com/vertexproject/synapse/pull/3220>`_)
+
+v2.140.1 - 2023-06-30
+=====================
+
+Bugfixes
+--------
+- Fix a typo which prevented the Synapse package for ``v2.140.0`` from being
+  published on PyPI.
+  (`#3212 <https://github.com/vertexproject/synapse/pull/3212>`_)
+
+v2.140.0 - 2023-06-30
+=====================
+
 Announcement
-============
+------------
 
-Due to the introduction of several powerful new APIs and performance
-improvements, Synapse will be updating to *only* support Python >=3.11.
-Our current plan is to drop support for Python <=3.10 in ~4 weeks on
-2023-06-19. The next release after 2023-06-19 will include changes that
-are not backward compatible to earlier versions of Python.
+Synapse now only supports Python 3.11+.
 
-If you currently deploy Synapse Open-Source or Synapse Enterprise via
-the standard docker containers, you will be unaffected.  If you install
-Synapse via PyPI, you will need to ensure that your environment is
-updated to Python 3.11+.
+Model Changes
+-------------
+- Update to the ``inet``, ``file``, and ``org`` models.
+  (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
+  (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+
+  New Types
+  ---------
+
+  ``file:archive:entry``
+    Add a type to capture an archive entry representing a file and metadata
+    from within a parent archive file.
+
+  Updated Types
+  -------------
+
+  ``time``
+    Time values with precision beyond milliseconds are now truncated to
+    millsecond values.
+
+  ``hex``
+    Hex types now have whitespace and colon ( ``:`` ) characters stripped
+    from them when lifting and normalizing them.
+
+  ``inet:ipv6``
+    Add comparators for ``>=``, ``>``, ``<=``, ``<`` operations when lifting
+    and filtering IPV6 values.
+
+  ``ou:naics``
+    Update the type to allow recording NIACS sector and subsector prefixes.
+
+Features and Enhancements
+-------------------------
+- Synapse now only supports Python 3.11+. The library will now fail to import
+  on earlier Python interpeters, and the published modules on PyPI will no
+  longer install on Python versions < 3.11.
+  (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
+- Replace ``setup.py`` with a ``pyproject.toml`` file.
+  (`#3156 <https://github.com/vertexproject/synapse/pull/3156>`_)
+  (`#3195 <https://github.com/vertexproject/synapse/pull/3195>`_)
+- Usages of ``hashlib.md5()`` and ``hashlib.sha1()`` have been updated to add
+  the ``usedforsecurity=False`` argument.
+  (`#3163 <https://github.com/vertexproject/synapse/pull/3163>`_)
+- The Storm ``diff`` command is now marked as safe for ``readonly`` execution.
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+- Add a ``svc:set`` event to the Behold API message stream. This event is
+  fired when a Cortex connects to a Storm Service.
+  (`#3205 <https://github.com/vertexproject/synapse/pull/3205>`_)
+
+Bugfixes
+--------
+- Catch ``ZeroDivisionError`` and ``decimal.InvalidOperation`` errors in Storm
+  expressions and raise a ``StormRuntimeError``.
+  (`#3203 <https://github.com/vertexproject/synapse/pull/3203>`_)
+- Fix a bug where ``synapse.lib.platforms.linux.getTotalMemory()`` did not
+  return the correct value in a process running in cgroupsv1 without a
+  maximum memory limit set.
+  (`#3198 <https://github.com/vertexproject/synapse/pull/3198>`_)
+- Fix a bug where a Cron job could be created with an invalid Storm query.
+  Cron jobs now have their queries parsed as part of creation to ensure that
+  they are valid Storm. ``$lib.cron`` APIs now accept heavy Storm query
+  objects as query inputs.
+  (`#3201 <https://github.com/vertexproject/synapse/pull/3201>`_)
+  (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
+- Field data sent via Storm ``$lib.inet.http`` APIs that uses a multipart
+  upload without a valid ``name`` field now raises a ``BadArg`` error.
+  Previously this would result in a Python ``TypeError``.
+  (`#3199 <https://github.com/vertexproject/synapse/pull/3199>`_)
+  (`#3206 <https://github.com/vertexproject/synapse/pull/3206>`_)
+
+Deprecations
+------------
+- Remove the deprecated ``synapse.common.lockfile()`` function.
+  (`#3191 <https://github.com/vertexproject/synapse/issue/3191>`_)
 
 Unreleased - YYYY-MM-DD
 =======================
@@ -98,7 +377,7 @@ Bugfixes
 Deprecations
 ------------
 - Mark the Python function ``synapse.common.lockfile()`` as deprecated. It
- will be removed in ``v2.140.0``.
+  will be removed in ``v2.140.0``.
   (`#3183 <https://github.com/vertexproject/synapse/issue/3183>`_)
 
 v2.137.0 - 2023-06-09
@@ -261,7 +540,7 @@ Features and Enhancements
 - Add ``$lib.auth.easyperm`` Storm library for interacting with objects that
   use a simplified permissions model.
   (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
-- Add  ``.vars`` attribute to the Storm ``storm:auth:user`` object. This can
+- Add  ``.vars`` attribute to the Storm ``auth:user`` object. This can
   be used to access user variables.
   (`#3167 <https://github.com/vertexproject/synapse/pull/3167>`_)
 - Add ``$lib.infosec.cvss.vectToScore()`` to calculate CVSS scores.
@@ -341,7 +620,7 @@ Bugfixes
   when being set.
   (`#3161 <https://github.com/vertexproject/synapse/pull/3161>`_)
 - Fix a missing ``mesg`` value on ``NoSuchForm`` exception raised by
-  the ``storm:layer`` ``liftByTag()`` API.
+  the ``layer`` ``liftByTag()`` API.
   (`#3165 <https://github.com/vertexproject/synapse/pull/3165>`_)
 
 v2.135.0 - 2023-05-24
@@ -408,8 +687,8 @@ Features and Enhancements
 - Add a ``--delbytes`` option to the Storm ``delnode`` command. This can be
   used to delete the bytes from an Axon when deleting a ``file:bytes`` node.
   (`#3140 <https://github.com/vertexproject/synapse/pull/3140>`_)
-- Add support for printing nice versions of the Storm ``storm:model:form``,
-  ``storm:model:property``, ``storm:model:tagprop``, and ``storm:model:type``
+- Add support for printing nice versions of the Storm ``model:form``,
+  ``model:property``, ``model:tagprop``, and ``model:type``
   objects.
   (`#3134 <https://github.com/vertexproject/synapse/pull/3134>`_)
   (`#3139 <https://github.com/vertexproject/synapse/pull/3139>`_)
@@ -817,8 +1096,8 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Add missing ``toprim()`` calls on arguments to some ``storm:auth:user``
-  and ``storm:auth:role`` APIs.
+- Add missing ``toprim()`` calls on arguments to some ``auth:user``
+  and ``auth:role`` APIs.
   (`#3086 <https://github.com/vertexproject/synapse/pull/3086>`_)
 - Fix the regular expression used to validate custom STIX types.
   (`#3093 <https://github.com/vertexproject/synapse/pull/3093>`_)
@@ -916,7 +1195,7 @@ Features and Enhancements
   normalization of tag names.
   (`#3074 <https://github.com/vertexproject/synapse/pull/3074>`_)
 - Add ``getEdges()``, ``getEdgesByN1()``, and ``getEdgesByN2()`` APIs to the
-  ``storm:layer`` object.
+  ``layer`` object.
   (`#3076 <https://github.com/vertexproject/synapse/pull/3076>`_)
 
 Bugfixes
@@ -1013,11 +1292,11 @@ Features and Enhancements
 - Update some of the auth related objects in Storm:
   (`#2923 <https://github.com/vertexproject/synapse/pull/2923>`_)
 
-  ``storm:auth:role``
+  ``auth:role``
     Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
     accessor to get all of the AuthGates associated with a role.
 
-  ``storm:auth:user``
+  ``auth:user``
     Add ``popRule()`` and ``getRules()`` functions. Add a ``.gates``
     accessor to get all of the AuthGates associated with a user.
 
@@ -1329,7 +1608,7 @@ Features and Enhancements
   HiveUser object, is no longer populated by default.
   (`#3007 <https://github.com/vertexproject/synapse/pull/3007>`_)
 - Add ``$lib.inet.http.codereason`` Storm API for translating HTTP status
-  codes to reason phrases. ``storm:http:resp`` objects now also have a
+  codes to reason phrases. ``inet:http:resp`` objects now also have a
   ``reason`` value populated.
   (`#3023 <https://github.com/vertexproject/synapse/pull/3023>`_)
 - Update the minimum version of the ``cryptography`` library to ``39.0.1`` and
@@ -1832,7 +2111,7 @@ Bugfixes
 - Fix an error with the ``merge`` command creating ``No form named None``
   warnings in the Cortex logs.
   (`#2952 <https://github.com/vertexproject/synapse/pull/2952>`_)
-- Fix the Storm ``storm:smtp:message`` getter and setter for the ``html``
+- Fix the Storm ``inet:smtp:message`` getter and setter for the ``html``
   property so it will correctly produce HTML formatted messages.
   (`#2955 <https://github.com/vertexproject/synapse/pull/2955>`_)
 - Several ``certdir`` APIs previously allowed through
@@ -2229,7 +2508,7 @@ Features and Enhancements
   (`#2886 <https://github.com/vertexproject/synapse/pull/2886>`_)
 - Add ``$lib.crypto.hmac.digest()`` to compute RFC2104 digests in Storm.
   (`#2902 <https://github.com/vertexproject/synapse/pull/2902>`_)
-- Update the Storm ``storm:http:resp.json()`` method to add optional
+- Update the Storm ``inet:http:resp.json()`` method to add optional
   ``encoding`` and ``errors`` arguments, to control how data is deserialized.
   (`#2898 <https://github.com/vertexproject/synapse/pull/2898>`_)
 - Update the Storm ``bytes.decode()`` method to add an optional
@@ -2342,7 +2621,7 @@ Features and Enhancements
   An example of this is ``$world='world' $lib.print(`hello {$world}`)``
   (`#2870 <https://github.com/vertexproject/synapse/pull/2870>`_)
   (`#2875 <https://github.com/vertexproject/synapse/pull/2875>`_)
-- Expose user profile storage on the ``storm:auth:user`` object, with the
+- Expose user profile storage on the ``auth:user`` object, with the
   ``profile`` ctor.
   (`#2876 <https://github.com/vertexproject/synapse/pull/2876>`_)
 - Storm package command names are now validated against the same regex used
@@ -2555,7 +2834,7 @@ Features and Enhancements
 - Add ``$lib.axon.metrics()`` to get the metrics from the Axon that the
   Cortex is connected to.
   (`#2818 <https://github.com/vertexproject/synapse/pull/2818>`_)
-- Add ``pack()`` methods to the ``storm:auth:user`` and ``storm:auth:role``
+- Add ``pack()`` methods to the ``auth:user`` and ``auth:role``
   objects. This API returns the definitions of the User and Role objects.
   (`#2823 <https://github.com/vertexproject/synapse/pull/2823>`_)
 - Change the Storm Package ``require`` values to log debug messages instead
@@ -3082,7 +3361,7 @@ Features and Enhancements
 - Add a new Storm library, ``$lib.gen``, to assist with creating nodes based
   on secondary property based deconfliction.
   (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
-- Add a ``sorted()`` method to the ``storm:stat:tally`` object, to simplify
+- Add a ``sorted()`` method to the ``stat:tally`` object, to simplify
   handling of tallied data.
   (`#2748 <https://github.com/vertexproject/synapse/pull/2748>`_)
 - Add a new Storm function, ``$lib.mime.html.totext()``, to extract inner tag
@@ -3791,7 +4070,7 @@ Features and Enhancements
   a long lived fork.
   (`#2614 <https://github.com/vertexproject/synapse/pull/2614>`_)
 - Add ``liftByProp()`` and ``liftByTag()`` methods to the Stormtypes
-  ``storm:layer`` objects. These allow lifting of nodes based on data stored
+  ``layer`` objects. These allow lifting of nodes based on data stored
   in a specific layer.
   (`#2613 <https://github.com/vertexproject/synapse/pull/2613>`_)
 - Expand Synapse requirements to include updated versions of the ``pygments``
@@ -3989,7 +4268,7 @@ Features and Enhancements
   checksummed address.
   (`#2577 <https://github.com/vertexproject/synapse/pull/2577>`_)
 - Add a ``default`` argument to the  ``$lib.user.allowed()`` and ``allowed()``
-  method on ``storm:user`` StormType.
+  method on ``user`` StormType.
   (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
 - Add a ``inaugural`` configuration key to the base ``Cell`` class. This can
   currently be used to bootstrap roles, permissions, and users in a Cell upon
@@ -4102,7 +4381,7 @@ v2.82.0 - 2022-02-10
 
 Features and Enhancements
 -------------------------
-- Add an ``addNode()`` API to the Stormtypes ``storm:view`` object. This
+- Add an ``addNode()`` API to the Stormtypes ``view`` object. This
   allows the programmatic creation of a node with properties being set in
   a transactional fashion.
   (`#2540 <https://github.com/vertexproject/synapse/pull/2540>`_)
@@ -4382,10 +4661,10 @@ Features and Enhancements
 
 - Add Layer index verification routines, to compare the Layer indices against
   the stored data for Nodes. This is exposed via the ``.verify()`` API on the
-  Stormtypes ``storm:layer`` object.
+  Stormtypes ``layer`` object.
   These routines are in a beta status and are subject to change.
   (`#2488 <https://github.com/vertexproject/synapse/pull/2488>`_)
-- The ``.json()`` API on ``storm:http:resp`` now raises a
+- The ``.json()`` API on ``inet:http:resp`` now raises a
   ``s_exc.BadJsonText`` exception, which can be caught with the Storm
   ``try ... catch`` syntax.
   (`#2500 <https://github.com/vertexproject/synapse/pull/2500>`_)
@@ -4616,7 +4895,7 @@ Features and Enhancements
   functions to Stormtypes.
   (`#2450 <https://github.com/vertexproject/synapse/pull/2450>`_)
   (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
-- Add ``$lib.json.schema()`` and a ``storm:json:schema`` object to Stormtypes.
+- Add ``$lib.json.schema()`` and a ``json:schema`` object to Stormtypes.
   These can be used to validate arbitrary data JSON structures in Storm using
   JSON Schema.
   (`#2448 <https://github.com/vertexproject/synapse/pull/2448>`_)
@@ -4853,7 +5132,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix the repr for the``storm:auth:user``  Stormtype when printing a user
+- Fix the repr for the``auth:user``  Stormtype when printing a user
   object in Storm.
   (`#2383 <https://github.com/vertexproject/synapse/pull/2383>`_)
 
@@ -5292,7 +5571,7 @@ v2.50.0 - 2021-07-22
 
 Features and Enhancements
 -------------------------
-- Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``storm:node:data``
+- Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``node:data``
   object for easy caching of structured data on nodes based on time.
   (`#2290 <https://github.com/vertexproject/synapse/pull/2290>`_)
 - Make the Stormtypes unique properly with a Set type. This does disallow the
@@ -5442,10 +5721,9 @@ Improved Documentation
   query logging. Update the Cell devops documentation to explain the Cell
   logging and how to enable structured (JSON) logging output.
   (`#2262 <https://github.com/vertexproject/synapse/pull/2262>`_)
-- Update Stormtypes API documentation for ``bool``, ``storm:project:epic``,
-  ``storm:project:epics``, ``storm:project:ticket``,
-  ``storm:project:tickets``, ``storm:project:sprint``,
-  ``storm:project:sprints``, ``storm:project``, ``storm:stix:bundle`` types.
+- Update Stormtypes API documentation for ``bool``, ``proj:epic``,
+  ``proj:epics``, ``proj:ticket``, ``proj:tickets``, ``proj:sprint``,
+  ``proj:sprints``, ``proj:project``, ``stix:bundle`` types.
   (`#2261 <https://github.com/vertexproject/synapse/pull/2261>`_)
 
 
@@ -5484,7 +5762,7 @@ update.
 
 Features and Enhancements
 -------------------------
-- Add a ``.move()`` method on Stormtypes ``storm:trigger`` objects to allow
+- Add a ``.move()`` method on Stormtypes ``trigger`` objects to allow
   moving a Trigger from one View to another View.
   (`#2252 <https://github.com/vertexproject/synapse/pull/2252>`_)
 - When the Aha service marks a service as down, log why that service is being
@@ -5507,7 +5785,7 @@ v2.43.0 - 2021-06-21
 
 Features and Enhancements
 -------------------------
-- Add a ``.type`` string to the Stormtypes ``storm:auth:gate`` object to
+- Add a ``.type`` string to the Stormtypes ``auth:gate`` object to
   allow a user to identify the type of auth gate it is.
   (`#2238 <https://github.com/vertexproject/synapse/pull/2238>`_)
 - Add ``$lib.user.iden`` reference to the Stormtype ``$lib.user`` to get the
@@ -5711,7 +5989,7 @@ Features and Enhancements
 - Add debug logging to the Axon for reading, writing, or deleting of blobs.
   (`#2202 <https://github.com/vertexproject/synapse/pull/2202>`_)
 - Add a timeout argument to the ``$lib.inet.http`` functions. The functions
-  will all now always return a ``storm:http:resp`` object; if the ``.code``
+  will all now always return a ``inet:http:resp`` object; if the ``.code``
   is -1, an unrecoverable exception occurred while making the request.
   (`#2205 <https://github.com/vertexproject/synapse/pull/2205>`_)
 - Add support for embedding a logo and documentation into a Storm Package.
