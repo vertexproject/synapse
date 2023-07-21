@@ -7248,3 +7248,56 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('macro.exec woot')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('hi there', msgs)
+
+    async def test_cortex_depr_props_warning(self):
+
+        conf = {
+            'modules': [
+                'synapse.tests.test_datamodel.DeprecatedModel',
+            ]
+        }
+
+        logs = [
+            'Deprecated property .pdep is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+            'Deprecated property test:dep:easy is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+            'Deprecated property test:dep:easy:guid is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+            'Deprecated property test:dep:str is unlocked and not in use. Recommend locking (https://v.vtx.lk/deprlock).',
+        ]
+
+        with self.getTestDir() as dirn:
+            with self.getLoggerStream('synapse.cortex') as stream:
+
+                # Do something that triggers a log message
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+
+                    # Create a test:deprprop so it doesn't generate a warning
+                    await core.callStorm('[test:dep:easy=foobar :guid=*]')
+
+                    # Lock test:deprprop:ext and .pdep so they don't generate a warning
+                    await core.callStorm('model.deprecated.lock test:dep:str')
+                    await core.callStorm('model.deprecated.lock ".pdep"')
+
+                # Check that we saw the warnings
+                stream.seek(0)
+                data = stream.read()
+                self.eq(1, data.count('.pdep'))
+
+                mesgs = data.splitlines()
+                mesglen = len(mesgs)
+
+                for log in logs:
+                    self.isin(log, mesgs)
+
+                here = stream.tell()
+
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                    pass
+
+                # Check that the warnings are gone now
+                stream.seek(here)
+                mesgs = stream.read().splitlines()
+
+                for log in logs:
+                    self.notin(log, mesgs)
+
+                self.eq(len(mesgs), mesglen - 4)
