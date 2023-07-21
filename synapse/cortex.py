@@ -3177,26 +3177,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         ret = collections.defaultdict(list)
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
-            ret['forms'].append({'formname': formname,
-                                 'basetype': basetype,
-                                 'typeopts': typeopts,
-                                 'typeinfo': typeinfo})
+            ret['forms'].append((formname, basetype, typeopts, typeinfo))
 
         for form, prop, tdef, info in self.extprops.values():
-            ret['props'].append({'formname': form,
-                                 'propname': prop,
-                                 'typedef': tdef,
-                                 'propinfo': info})
+            ret['props'].append((form, prop, tdef, info))
 
         for prop, tdef, info in self.extunivs.values():
-            ret['univs'].append({'propname': prop,
-                                'typedef': tdef,
-                                'propinfo': info})
+            ret['univs'].append((prop, tdef, info))
 
         for prop, tdef, info in self.exttagprops.values():
-            ret['tagprops'].append({'propname': prop,
-                                    'typedef': tdef,
-                                    'propinfo': info})
+            ret['tagprops'].append((prop, tdef, info))
+        ret['version'] = (1, 0)
         return copy.deepcopy(dict(ret))
 
     async def addExtModel(self, model):
@@ -3219,15 +3210,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         emodl = await self.getExtModel()
         amodl = collections.defaultdict(list)
 
-        forms = {info.get('formname'): info for info in model.get('forms', ())}
-        props = {(info.get('formname'), info.get('propname')): info for info in model.get('props', ())}
-        tagprops = {info.get('propname'): info for info in model.get('tagprops', ())}
-        univs = {info.get('propname'): info for info in model.get('univs', ())}
+        forms = {info[0]: info for info in model.get('forms', ())}
+        props = {(info[0], info[1]): info for info in model.get('props', ())}
+        tagprops = {info[0]: info for info in model.get('tagprops', ())}
+        univs = {info[0]: info for info in model.get('univs', ())}
 
-        efrms = {info.get('formname'): info for info in emodl.get('forms', ())}
-        eprops = {(info.get('formname'), info.get('propname')): info for info in emodl.get('props', ())}
-        etagprops = {info.get('propname'): info for info in emodl.get('tagprops', ())}
-        eunivs = {info.get('propname'): info for info in emodl.get('univs', ())}
+        efrms = {info[0]: info for info in emodl.get('forms', ())}
+        eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
+        etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
+        eunivs = {info[0]: info for info in emodl.get('univs', ())}
 
         for (name, info) in forms.items():
             enfo = efrms.get(name)
@@ -3269,18 +3260,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Extended universal poroperty definition differs from existing definition for {name}'
             raise s_exc.BadPropDef(mesg)
 
-        for info in amodl['forms']:
-            await self.addForm(info.get('formname'), info.get('basetype'), info.get('typeopts'), info.get('typeinfo'))
+        for formname, basetype, typeopts, typeinfo in amodl['forms']:
+            await self.addForm(formname, basetype, typeopts, typeinfo)
 
-        for info in amodl['props']:
-            await self.addFormProp(info.get('formname'), info.get('propname'),
-                                   info.get('typedef'), info.get('propinfo'))
+        for form, prop, tdef, info in amodl['props']:
+            await self.addFormProp(form, prop, tdef, info)
 
-        for info in amodl['tagprops']:
-            await self.addTagProp(info.get('propname'), info.get('typedef'), info.get('propinfo'))
+        for prop, tdef, info in amodl['tagprops']:
+            await self.addTagProp(prop, tdef, info)
 
-        for info in amodl['univs']:
-            await self.addUnivProp(info.get('propname'), info.get('typedef'), info.get('propinfo'))
+        for prop, tdef, info in amodl['univs']:
+            await self.addUnivProp(prop, tdef, info)
 
         return True
 

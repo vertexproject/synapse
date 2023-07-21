@@ -200,17 +200,17 @@ class StormtypesModelextTest(s_test.SynTest):
         async with self.getTestCore() as core:
             opts = {'vars': {'model_defs': model_defs}}
             q = '''
-            for $info in $model_defs.forms {
-                $lib.model.ext.addForm($info.formname, $info.basetype, $info.typeopts, $info.typeinfo)
+            for ($name, $type, $opts, $info) in $model_defs.forms {
+                $lib.model.ext.addForm($name, $type, $opts, $info)
             }
-            for $info in $model_defs.props {
-                $lib.model.ext.addFormProp($info.formname, $info.propname, $info.typedef, $info.propinfo)
+            for ($form, $prop, $def, $info) in $model_defs.props {
+                $lib.model.ext.addFormProp($form, $prop, $def, $info)
             }
-            for $info in $model_defs.tagprops {
-                $lib.model.ext.addTagProp($info.propname, $info.typedef, $info.propinfo)
+            for ($prop, $def, $info) in $model_defs.tagprops {
+                $lib.model.ext.addTagProp($prop, $def, $info)
             }
-            for $info in $model_defs.univs {
-                $lib.model.ext.addUnivProp($info.propname, $info.typedef, $info.propinfo)
+            for ($prop, $def, $info) in $model_defs.univs {
+                $lib.model.ext.addUnivProp($prop, $def, $info)
             }
             '''
             await core.nodes(q, opts)
