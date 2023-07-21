@@ -30,6 +30,9 @@ class CmdBossTest(s_t_utils.SynTest):
 
             self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
+            stasks = [t for t in realcore.boss.tasks.values() if t.name == 'storm']
+            self.true(len(stasks) == 1 and stasks[0].info.get('view') == realcore.view.iden)
+
             # Verify that the long query got truncated
             outp.clear()
             await cmdr.runCmdLine('ps')
