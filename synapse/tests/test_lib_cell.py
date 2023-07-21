@@ -1182,6 +1182,35 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
                 await cell.auth.addUser('visi')
 
+    async def test_cell_auth_userlimit(self):
+        maxusers = 3
+        conf = {
+            'max:users': maxusers
+        }
+
+        async with self.getTestCell(s_cell.Cell, conf=conf) as cell:
+            await cell.auth.addUser('visi1')
+            await cell.auth.addUser('visi2')
+            await cell.auth.addUser('visi3')
+            with self.raises(s_exc.HitLimit) as exc:
+                await cell.auth.addUser('visi4')
+            self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
+
+        with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
+            with self.getTestDir() as dirn:
+                async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                    await cell.auth.addUser('visi1')
+                    await cell.auth.addUser('visi2')
+                    await cell.auth.addUser('visi3')
+                    with self.raises(s_exc.HitLimit) as exc:
+                        await cell.auth.addUser('visi4')
+                    self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadConfValu) as exc:
+            async with self.getTestCell(s_cell.Cell, conf={'max:users': -1}) as cell:
+                pass
+        self.eq('Invalid config for max:users, data must be bigger than or equal to 0', exc.exception.get('mesg'))
+
     async def test_cell_onepass(self):
 
         async with self.getTestCell(s_cell.Cell) as cell:
