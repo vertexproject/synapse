@@ -5323,6 +5323,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+            # Filter by var as node
+            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift by var as node
+            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
     async def test_storm_ifstmt(self):
 
         async with self.getTestCore() as core:
@@ -6945,7 +6955,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
 
                 opts = {'scrub': {'include': {'tags': ('visi',)}}}
-                podes = [p async for p in proxy.exportStorm('media:news inet:email', opts=opts)]
+                podes = []
+                async for p in proxy.exportStorm('media:news inet:email', opts=opts):
+                    if not podes:
+                        tasks = [t for t in core.boss.tasks.values() if t.name == 'storm:export']
+                        self.true(len(tasks) == 1 and tasks[0].info.get('view') == core.view.iden)
+                    podes.append(p)
 
                 self.len(2, podes)
                 news = [p for p in podes if p[0][0] == 'media:news'][0]

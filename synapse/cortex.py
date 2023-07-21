@@ -5253,7 +5253,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': view.iden}
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -5295,7 +5295,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
 
         taskiden = opts.get('task')
-        taskinfo = {'name': 'syn.nodes', 'sha256': sha256}
+        taskinfo = {'name': 'syn.nodes', 'sha256': sha256, 'view': view.iden}
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
