@@ -108,20 +108,25 @@ def getTotalMemory():
 
 def getSysctls():
     _sysctls = (
-        ('vm.swappiness', '/proc/sys/vm/swappiness'),
-        ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs'),
-        ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs'),
-        ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio'),
-        ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio'),
+        ('vm.swappiness', '/proc/sys/vm/swappiness', int),
+        ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs', int),
+        ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs', int),
+        ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio', int),
+        ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio', int),
     )
     ret = {}
-    for key, fp in _sysctls:
+    for key, fp, func in _sysctls:
         if os.path.isfile(fp):
             with open(fp) as f:
                 valu = f.read().strip()
-                ret[key] = valu
+                try:
+                    ret[key] = func(valu)
+                except Exception as e:
+                    logger.exception(f'Error normalizing:  {key} @ {fp}, valu={valu}')
+                    ret[key] = None
         else:  # pragma: no cover
-            ret[key] = 'MISSING'
+            logger.warning(f'Missing sysctl: {key} @ {fp}')
+            ret[key] = None
     return ret
 
 def getAvailableMemory():

@@ -54,8 +54,9 @@ class LinuxTest(s_t_utils.SynTest):
         # Cannot allocate memory to unlock
         self.eq(cm.exception.errno, 12)
 
-    def test_systcls(self):
+    def test_sysctls(self):
         self.thisHostMust(hassysctls=True)
         ret = s_thisplat.getSysctls()
         self.isinstance(ret, dict)
         self.isin('vm.swappiness', ret)
+        self.isinstance(ret['vm.swappiness'], int)
