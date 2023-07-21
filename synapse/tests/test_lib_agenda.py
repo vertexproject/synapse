@@ -330,6 +330,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
+                self.eq(core.view.iden, appt.task.info.get('view'))
                 await appt.task.kill()
 
                 appt = await agenda.get(guid)
