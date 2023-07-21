@@ -388,9 +388,7 @@ deprmodel = {
         ('test:deprndef', ('ndef', {}), {}),
     ),
     'forms': (
-        ('test:deprprop', {}, (
-            ('ext', ('str', {}), {'deprecated': True}),
-        )),
+        ('test:deprprop', {}, ()),
         ('test:deprform', {}, (
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
@@ -2066,6 +2064,17 @@ class SynTest(unittest.TestCase):
         '''
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
         self.isin(mesg, print_str)
+
+    def stormNotInWarn(self, mesg, mesgs):
+        '''
+        Assert a string is not present in all of the warn messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.notin(mesg, print_str)
 
     def stormIsInErr(self, mesg, mesgs):
         '''

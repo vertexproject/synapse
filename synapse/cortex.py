@@ -1241,6 +1241,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svchive = await svchive.dict()
 
         await self._initDeprLocks()
+        await self._warnDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1584,8 +1585,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initStormSvcs()
 
-        await self._warnDeprLocks()
-
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
@@ -1641,6 +1640,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if not prop.deprecated:
                 continue
 
+            # Skip universal properties on other props
+            if not prop.isform and prop.univ is not None:
+                continue
+
             retn[prop.full] = prop.locked
 
         return retn
@@ -1648,6 +1651,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _warnDeprLocks(self):
         # Check for deprecated properties which are unused and unlocked
         deprs = await self.getDeprLocks()
+
         for propname, locked in deprs.items():
             if locked:
                 continue
@@ -1655,15 +1659,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             prop = self.model.props.get(propname)
 
             for layr in self.layers.values():
-                if await layr.getPropCount(propname, maxsize=1):
-                    break
+                if not prop.isform and prop.isuniv:
+                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                        break
 
-                if await layr.getPropCount(prop.form.name, propname, maxsize=1):
-                    break
+                else:
+                    if await layr.getPropCount(propname, maxsize=1):
+                        break
+
+                    if await layr.getPropCount(prop.form.name, propname, maxsize=1):
+                        break
 
             else:
-                mesg = f'Deprecated property {propname} is unlocked and not in use. Recommend locking.'
-                logger.warning(mesg)
+                mesg = 'Deprecated property {prop.name} is unlocked and not in use. '
+                mesg += 'Recommend locking (https://v.vtx.lk/deprlock).'
+                logger.info(mesg.format(prop=prop))
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):
