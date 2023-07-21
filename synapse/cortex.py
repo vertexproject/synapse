@@ -1671,7 +1671,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         break
 
             else:
-                mesg = 'Deprecated property {prop.name} is unlocked and not in use. '
+                mesg = 'Deprecated property {prop.full} is unlocked and not in use. '
                 mesg += 'Recommend locking (https://v.vtx.lk/deprlock).'
                 logger.info(mesg.format(prop=prop))
 
