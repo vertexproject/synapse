@@ -9597,10 +9597,20 @@ async def totype(valu, basetypes=False) -> str:
     if isinstance(valu, int):
         return 'int'
 
-    if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
+    # For test coverage in dev ... split these up
+    # if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
+    if isinstance(valu, types.AsyncGeneratorType):
         return 'generator'
 
-    if isinstance(valu, (types.FunctionType, types.MethodType)):
+    if isinstance(valu, types.GeneratorType):
+        return 'generator'
+
+    # For test coverage in dev ... split these up
+    # if isinstance(valu, (types.FunctionType, types.MethodType)):
+    if isinstance(valu, types.MethodType):
+        return 'function'
+
+    if isinstance(valu, types.FunctionType):
         return 'function'
 
     fp = fromprim(valu)
