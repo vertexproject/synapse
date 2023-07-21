@@ -5,6 +5,8 @@ import threading
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
+
 import synapse.lib.coro as s_coro
 import synapse.tests.utils as s_t_utils
 
@@ -16,6 +18,10 @@ def spawnfunc(x, y=10):
 def spawnsleep(n=10):
     time.sleep(n)
     return True
+
+def spawntime(n):
+    time.sleep(n)
+    return s_common.now()
 
 def spawnfakeit():
     raise FakeError()
@@ -154,6 +160,29 @@ class CoroTest(s_t_utils.SynTest):
             self.eq(50, await s_coro.forked(spawnfunc, 20, y=30))
         finally:
             s_coro.forkpool = oldpool
+
+    async def test_lib_coro_semafork(self):
+
+        oldsema = s_coro.forkpool_sema
+        self.true(isinstance(oldsema, asyncio.Semaphore))
+
+        try:
+
+            s_coro.forkpool_sema = asyncio.Semaphore(1)
+
+            async with asyncio.TaskGroup() as tg:
+                task0 = tg.create_task(s_coro.semafork(spawntime, 1.1))
+                task1 = tg.create_task(s_coro.semafork(spawntime, 1.1))
+
+            self.gt(abs(await task1 - await task0), 1_000)
+
+            s_coro.forkpool_sema = None
+
+            self.eq(50, await s_coro.semafork(spawnfunc, 20, y=30))
+
+        finally:
+
+            s_coro.forkpool_sema = oldsema
 
     async def test_lib_coro_parserforked(self):
 

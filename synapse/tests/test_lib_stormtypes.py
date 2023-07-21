@@ -1233,6 +1233,15 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.upper() )'
             self.eq('QUICKBROWNFOX', await core.callStorm(q))
 
+            q = '$foo="hello world" return ( $foo.title() )'
+            self.eq('Hello World', await core.callStorm(q))
+
+            q = '$foo="hello World" return ( $foo.title() )'
+            self.eq('Hello World', await core.callStorm(q))
+
+            q = '$foo="HELLO WORLD!" return ( $foo.title() )'
+            self.eq('Hello World!', await core.callStorm(q))
+
             q = '$foo="quickbrownfox" return ( $foo.slice(5) )'
             self.eq('brownfox', await core.callStorm(q))
 
@@ -3380,7 +3389,7 @@ class StormTypesTest(s_test.SynTest):
                     $lib.fire(layrdiff, sode=$sode)
                 }
                 '''
-                await core.addTagProp('risk', ('int', {}), ())
+                await core.addTagProp('risk', ('int', {}), {})
                 await core.nodes('[ it:dev:str=foo +#test:risk=50 ]')
                 gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
                 fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']
