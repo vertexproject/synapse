@@ -388,7 +388,9 @@ deprmodel = {
         ('test:deprndef', ('ndef', {}), {}),
     ),
     'forms': (
-        ('test:deprprop', {}, ()),
+        ('test:deprprop', {}, (
+            ('ext', ('str', {}), {'deprecated': True}),
+        )),
         ('test:deprform', {}, (
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),

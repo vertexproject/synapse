@@ -1584,21 +1584,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initStormSvcs()
 
-        # # Check for deprecated properties which are unused and unlocked
-        deprs = await self.getDeprLocks()
-        for propname, locked in deprs.items():
-            if locked:
-                continue
-
-            count = 0
-            for layr in self.layers.values():
-                count += await layr.getPropCount(propname)
-                if count:
-                    break
-
-            if count == 0:
-                mesg = f'Deprecated property {propname} is unlocked and not in use. Recommend locking.'
-                logger.warning(mesg)
+        await self._warnDeprLocks()
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
@@ -1658,6 +1644,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def _warnDeprLocks(self):
+        # Check for deprecated properties which are unused and unlocked
+        deprs = await self.getDeprLocks()
+        for propname, locked in deprs.items():
+            if locked:
+                continue
+
+            prop = self.model.props.get(propname)
+
+            for layr in self.layers.values():
+                if await layr.getPropCount(propname, maxsize=1):
+                    break
+
+                if await layr.getPropCount(prop.form.name, propname, maxsize=1):
+                    break
+
+            else:
+                mesg = f'Deprecated property {propname} is unlocked and not in use. Recommend locking.'
+                logger.warning(mesg)
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):

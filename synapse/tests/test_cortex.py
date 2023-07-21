@@ -7237,33 +7237,35 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_depr_props_warning(self):
 
         pattern = 'is unlocked and unused. Recommend locking.'
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
 
         with self.getTestDir() as dirn:
             with self.getLoggerStream('synapse.cortex', pattern) as stream:
+
                 # Do something that triggers a log message
-                async with self.getTestCore(dirn=dirn) as core:
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
 
-                    # Create a lang:idiom so it doesn't generate a warning
-                    await core.callStorm('[lang:idiom=foobar]')
+                    # Create a test:deprprop so it doesn't generate a warning
+                    await core.callStorm('[test:deprprop=foobar]')
 
-                    # Lock biz:bundle:deal so it doesn't generate a warning
-                    await core.callStorm('model.deprecated.lock biz:bundle:deal')
+                    # Lock test:deprprop:ext so it doesn't generate a warning
+                    await core.callStorm('model.deprecated.lock test:deprprop:ext')
 
                 # Check that we saw the warnings
                 stream.seek(0)
                 mesgs = stream.read().splitlines()
-                self.isin('Deprecated property lang:idiom is unlocked and not in use. Recommend locking.', mesgs)
-                self.isin('Deprecated property biz:bundle:deal is unlocked and not in use. Recommend locking.', mesgs)
+                self.isin('Deprecated property test:deprprop is unlocked and not in use. Recommend locking.', mesgs)
+                self.isin('Deprecated property test:deprprop:ext is unlocked and not in use. Recommend locking.', mesgs)
 
                 mesglen = len(mesgs)
                 here = stream.tell()
 
-                async with self.getTestCore(dirn=dirn) as core:
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
                     pass
 
                 # Check that the warnings are gone now
                 stream.seek(here)
                 mesgs = stream.read().splitlines()
-                self.notin('Deprecated property lang:idiom is unlocked and not in use. Recommend locking.', mesgs)
-                self.notin('Deprecated property biz:bundle:deal is unlocked and not in use. Recommend locking.', mesgs)
+                self.notin('Deprecated property test:deprprop is unlocked and not in use. Recommend locking.', mesgs)
+                self.notin('Deprecated property test:deprprop:ext is unlocked and not in use. Recommend locking.', mesgs)
                 self.eq(len(mesgs), mesglen - 2)
