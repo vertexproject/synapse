@@ -80,6 +80,43 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn({'url': url})
 
+_getAhaSvcSchema = {
+    'type': 'object',
+    'properties': {
+        'network': {
+            'type': 'string',
+            'minLength': 1,
+            'default': None,
+        },
+    },
+    'additionalProperties': False,
+}
+getAhaScvSchema = s_config.getJsValidator(_getAhaSvcSchema)
+
+class AhaServicesV1(s_httpapi.Handler):
+    async def get(self):
+        if not await self.reqAuthAdmin():
+            return
+
+        network = None
+        if self.request.body:
+            body = self.getJsonBody(validator=getAhaScvSchema)
+            if body is None:
+                return
+            network = body.get('network')
+
+        ret = []
+
+        try:
+            async for info in self.cell.getAhaSvcs(network=network):
+                ret.append(info)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:  # pragma: no cover
+            logger.exception(f'Error getting Aha services.')
+            return self.sendRestErr(e.__class__.__name__, str(e))
+        return self.sendRestRetn(ret)
+
 class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self):
@@ -396,6 +433,7 @@ class AhaCell(s_cell.Cell):
 
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
+        self.addHttpApi('/api/v1/aha/services', AhaServicesV1, {'cell': self})
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
     async def initServiceRuntime(self):
