@@ -441,13 +441,15 @@ class StormNodesV1(StormHandler):
         stream = body.get('stream')
         jsonlines = stream == 'jsonlines'
 
-        await self.cell.boss.promote('storm', user=user, info={'query': query})
-
         opts = await self._reqValidOpts(opts)
         if opts is None:
             return
 
         view = self.cell._viewFromOpts(opts)
+
+        taskinfo = {'query': query, 'view': view.iden}
+        await self.cell.boss.promote('storm', user=user, info=taskinfo)
+
         async for pode in view.iterStormPodes(query, opts=opts):
             self.write(json.dumps(pode))
             if jsonlines:

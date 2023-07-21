@@ -1241,6 +1241,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svchive = await svchive.dict()
 
         await self._initDeprLocks()
+        await self._warnDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1639,9 +1640,40 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if not prop.deprecated:
                 continue
 
+            # Skip universal properties on other props
+            if not prop.isform and prop.univ is not None:
+                continue
+
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def _warnDeprLocks(self):
+        # Check for deprecated properties which are unused and unlocked
+        deprs = await self.getDeprLocks()
+
+        for propname, locked in deprs.items():
+            if locked:
+                continue
+
+            prop = self.model.props.get(propname)
+
+            for layr in self.layers.values():
+                if not prop.isform and prop.isuniv:
+                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                        break
+
+                else:
+                    if await layr.getPropCount(propname, maxsize=1):
+                        break
+
+                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
+                        break
+
+            else:
+                mesg = 'Deprecated property {prop.full} is unlocked and not in use. '
+                mesg += 'Recommend locking (https://v.vtx.lk/deprlock).'
+                logger.info(mesg.format(prop=prop))
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):
@@ -5218,7 +5250,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': view.iden}
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -5260,7 +5292,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
 
         taskiden = opts.get('task')
-        taskinfo = {'name': 'syn.nodes', 'sha256': sha256}
+        taskinfo = {'name': 'syn.nodes', 'sha256': sha256, 'view': view.iden}
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
