@@ -422,7 +422,7 @@ class View(s_nexus.Pusher):  # type: ignore
             ((str,dict)): Storm messages.
         '''
         if text is None:
-            mesg = 'storm text cannot be None'
+            mesg = 'Storm query text cannot be null'
             raise s_exc.BadArg(mesg=mesg)
 
         opts = self.core._initStormOpts(opts)
