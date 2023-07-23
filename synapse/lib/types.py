@@ -631,11 +631,12 @@ class Hex(Type):
         self._size = self.opts.get('size')
 
         # This is for backward compat with v2.142.x where zeropad was a bool
-        zeropad = self.opts.get('zeropad')
-        self._zeropad = {
-            True: self._size,
-            False: 0,
-        }.get(zeropad, zeropad)
+        self._zeropad = self.opts.get('zeropad')
+        if isinstance(self._zeropad, bool):
+            self._zeropad = {
+                True: self._size,
+                False: 0,
+            }.get(self._zeropad)
 
         if self._size < 0:
             # zero means no width check
@@ -649,7 +650,7 @@ class Hex(Type):
             raise s_exc.BadConfValu(name='zeropad', valu=self._zeropad,
                                     mesg='Zeropad must be > 0')
         if self._zeropad % 2 != 0:
-            raise s_exc.BadConfValu(name='zeropad', valu=self.zeropad,
+            raise s_exc.BadConfValu(name='zeropad', valu=self._zeropad,
                                     mesg='Zeropad must be a multiple of 2')
 
         if self._size:
