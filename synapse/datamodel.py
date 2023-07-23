@@ -481,7 +481,9 @@ class Model:
         item = s_types.Str(self, 'str', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'The base hex type.'}
+        info = {
+            'doc': 'The base hex type. ``zeropad`` will be truncated to ``size`` if ``size`` is greater than zero.'
+        }
         item = s_types.Hex(self, 'hex', info, {})
         self.addBaseType(item)
 
