@@ -633,10 +633,10 @@ class Hex(Type):
         # This is for backward compat with v2.142.x where zeropad was a bool
         self._zeropad = self.opts.get('zeropad')
         if isinstance(self._zeropad, bool):
-            self._zeropad = {
-                True: self._size,
-                False: 0,
-            }.get(self._zeropad)
+            if self._zeropad:
+                self._zeropad = self._size
+            else:
+                self._zeropad = 0
 
         if self._size < 0:
             # zero means no width check
