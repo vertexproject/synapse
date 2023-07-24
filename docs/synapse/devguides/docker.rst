@@ -97,8 +97,10 @@ Developers working with Synapse images should consider the following items:
 
     python -m pip install --break-system-packages yourTargetPackage
 
-Verifying image signatures
---------------------------
+.. _dev_docker_verification:
+
+Verifying container image signatures
+------------------------------------
 
 Synapse docker images which are release tagged ( e.g. ``v2.1.3`` or
 ``v2.x.x`` ) are accompanied with cosign_ signatures which can be used to
