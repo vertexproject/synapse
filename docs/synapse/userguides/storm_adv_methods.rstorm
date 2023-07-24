@@ -45,9 +45,9 @@ for a full list.
 
 .. NOTE::
 
-  As the ``$node`` variable and related methods reference the current node in the Storm pipeline, the variable
-  and its methods will contain (and return) a null value if the inbound result set is empty (i.e., contains
-  no nodes).
+  As the ``$node`` variable and related methods reference the current node in the Storm pipeline, any Storm
+  logic referencing ``$node`` will fail to execute if the pipeline does not contain a node (i.e., based on
+  previously executing Storm logic).
 
 **Examples**
 

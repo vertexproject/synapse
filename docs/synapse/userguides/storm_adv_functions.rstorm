@@ -249,7 +249,7 @@ Types of Functions
 Functions can be declared and invoked on their own, but are most often used when authoring more extensive
 Storm code to implement a set of related functionality, such as a Rapid Power-Up. A set of functions, each
 encapsulating Storm logic to perform a specific task, can work together to implement more complex
-capabilities. Given this achitecture, it is common for functions to invoke other functions as part of
+capabilities. Given this architecture, it is common for functions to invoke other functions as part of
 their code, or to take the output of another function as an input parameter to perform another operation,
 as seen in some of the examples below.
 
@@ -376,12 +376,9 @@ on the ``meta:source`` node for the data source. A callable function can retriev
   
   function getLastReportDate() {
       
-      //Invoke an existing function to create (initialize) or retrieve the meta:source node.
-      //The function sets the $srcnode variable to the meta:source node.
-      $initMetaSource()
-      
-      //Yield the meta:source node into this function's pipeline
-      yield $srcnode
+      //Invoke an existing function to create (initialize) or retrieve the meta:source node
+      // and yield the node into the function's pipeline
+      yield $initMetaSource()
       
       //Set the $date variable to the value of the node data key mysource:report:date from
       // the meta:source node.
@@ -410,8 +407,10 @@ be used to halt processing and exit the function. The ``emit`` keyword **must** 
 emitter function to execute properly.
 
 Data emitter functions **stream** data (technically, they return a **generator object** that is iterated
-over). They are designed to emit data as it is available while continuing to execute. They may be invoked
-with **for** or **while** loops for this purpose.
+over). They are designed to emit data to the invoking pipeline as it is available; they may be invoked
+with **for** or **while** loops for this purpose. When data is emitted, execution of the function is
+paused until the invoking pipeline requests the next value, at which point the function's execution
+resumes.
 
 Use Cases
 *********
@@ -470,13 +469,13 @@ Or:
   function data_emitter() {
   
       while (1) {
-        <do stuff>
-        emit $thing
-        
-        if (<end condition>) { stop }
+          <do stuff>
+          emit $thing
+          
+          if (<end condition>) { stop }
+          
+          <update something to continue while loop>
       }
-      
-      <update something to contine while loop>
   }
 
 
@@ -510,7 +509,7 @@ the results have been received.
           //Set the value of the 'offset' parameter
           $params.offset = $offset
           
-          //Invoke an existing function to retrieve the JSON using $pararms as parameters
+          //Invoke an existing function to retrieve the JSON using $params as parameters
           // to the API request.
           //Assign the returned JSON to the variable $data
           $data = $getJson("/reports", params=$params)
@@ -528,7 +527,7 @@ the results have been received.
           //If so we have retrieved all available records
           if ($datasize < $pagelim) {
                         
-              //Print status to stdout if debug is in use
+              //Print status to CLI if debug is in use
               if $lib.debug { $lib.print(`Reports ingested up to {$now}`) }
               
               //Invoke an existing function to update the 'last retrieved' date to the current time
@@ -542,8 +541,8 @@ the results have been received.
           //If $datasize is NOT < $pagelim there is more data
           //Update the $offset value and execute the while loop again
           $offset = ($offset + $pagelim)
-     }
-   }
+      }
+  }
 
 .. _storm-func-yielder:
 
@@ -555,7 +554,7 @@ or ``emit``, it is presumed to be a node yielder.
 
 Node yielder functions **stream** nodes; (technically, they return a **generator object** that is iterated
 over). They are designed to yield nodes as they are available while continuing to execute. They may be
-invoked with **for** loops for this purpose.
+invoked with the ``yield`` keyword or with a **for** loop for this purpose.
 
 Use Cases
 *********
@@ -593,7 +592,7 @@ node).
           //A privileged module may be invoked to mask sensitive data such as an API key from a normal user
           $report = $privsep.getReportById($reportid)
           
-          //Print the JSON to stdout if debug is in use
+          //Print the JSON to CLI if debug is in use
           if $lib.debug { $lib.pprint($report) }
           
           //Yield the node (e.g., media:news node) created by invoking an existing function that

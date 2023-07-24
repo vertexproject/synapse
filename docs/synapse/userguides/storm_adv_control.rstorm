@@ -52,7 +52,7 @@ save you time and headaches trying to debug a Storm query that is not behaving t
   
   See the :ref:`storm-adv-example` below for an illustration of how these concepts may impact your Storm in
   unexpected ways.
-  
+
 
 .. _storm-adv-debug:
 
@@ -179,7 +179,7 @@ Fini Block
 ++++++++++
 
 A **fini block** allows you to execute the specified Storm **once** after all nodes have passed through
-the Storm pipeline. This allows you to use Storm to perform a set of operations a single time at the end
+the Storm pipeline. This allows you to use Storm to perform a set of operations a **single** time at the end
 of a Storm query.
 
 See also :ref:`flow-init`.
@@ -407,7 +407,7 @@ A **for loop** will iterate over a set of objects, performing the specified Stor
   }
 
 **Note:** The user documentation for the Synapse :ref:`syn-tools-csvtool` and the Optic `Ingest Tool`_
-include additional examples of using a for loops.
+include additional examples of using for loops.
 
 **Example:**
 

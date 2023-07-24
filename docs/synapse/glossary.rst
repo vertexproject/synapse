@@ -592,7 +592,6 @@ Function, Node Yielder
 In Storm, a node yielder function yields nodes. The function returns a generator object that can be iterated
 over. A node yielder function must not include either the ``emit`` keyword or a ``return()`` statement.
 
-
 .. _gloss-fused-know:
 
 Fused Knowledge
