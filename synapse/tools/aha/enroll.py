@@ -8,6 +8,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.msgpack as s_msgpack
 
 descr = '''
 Use a one-time use key to initialize your AHA user enrivonment.
@@ -78,6 +79,9 @@ async def main(argv, outp=s_output.stdout):
                 ahaurls = set(s_telepath.modurl(ahaurls, user=ahauser))
                 servers = teleyaml.get('aha:servers')
 
+                # repack the servers so lists are tuplized like values
+                # we may get over telepath
+                servers = s_msgpack.deepcopy(servers)
                 if isinstance(servers, str):
                     servers = [servers]
                 else:
