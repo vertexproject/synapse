@@ -181,6 +181,8 @@ data1 = '''
     tcp://foo.bar.org:4665/.,.
     tcp://foo.bar.org:4665/,.,
     tcp://foo.bar.org:4665/,,..a
+    tcp://[1:2:3:4:5:6:7:8]:1234/
+    tcp://[1:2:3::4:5:6]:2345/
 '''
 
 data2 = '''
@@ -517,7 +519,7 @@ class ScrapeTest(s_t_utils.SynTest):
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(data1))
-        self.len(10, nodes)
+        self.len(16, nodes)
         for _ in range(5):
             nodes.remove(('inet:fqdn', 'foo.bar.org'))
 
@@ -527,6 +529,13 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+
+        nodes.remove(('inet:url', 'tcp://[1:2:3:4:5:6:7:8]:1234/'))
+        nodes.remove(('inet:url', 'tcp://[1:2:3::4:5:6]:2345/'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:1234'))
+        nodes.remove(('inet:server', '[1:2:3::4:5:6]:2345'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3::4:5:6'))
 
         nodes = list(s_scrape.scrape(data2))
         nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))

@@ -78,11 +78,7 @@ def inet_server_check(match: regex.Match):
     valu = mnfo.get('valu')
     port = mnfo.get('port')
 
-    try:
-        port = int(port)
-    except ValueError:
-        return None, {}
-
+    port = int(port)
     if port < 1 or port > 2**16 - 1:
         return None, {}
 
