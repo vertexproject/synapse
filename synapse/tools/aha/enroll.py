@@ -90,5 +90,7 @@ async def main(argv, outp=s_output.stdout):
                     teleyaml['aha:servers'] = servers
                     s_common.yamlsave(teleyaml, yamlpath)
 
+    return 0
+
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

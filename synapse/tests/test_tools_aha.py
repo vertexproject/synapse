@@ -121,6 +121,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                     s_common.yamlsave({'aha:servers': 'cell://aha'}, yamlpath)
 
                     retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
+                    self.eq(0, retn)
 
                     for path in (capath, crtpath, keypath):
                         self.gt(os.path.getsize(path), 0)
