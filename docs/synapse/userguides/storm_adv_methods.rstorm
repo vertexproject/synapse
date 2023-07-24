@@ -40,7 +40,7 @@ $node
 
 :ref:`vars-node-node` is a built-in Storm variable that references **the current node in the Storm query pipeline.**
 ``$node`` can be used as a variable on its own or with the example methods listed below. See the
-:ref:`stormprims-storm-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation
+:ref:`stormprims-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation
 for a full list.
 
 .. NOTE::
@@ -319,7 +319,7 @@ $path
 :ref:`vars-node-path` is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query.**
 
 The ``$path`` variable is generally not used on its own, but in conjunction with its methods. See the
-:ref:`stormprims-storm-path-f527` section of the :ref:`stormtypes-prim-header` technical documentation
+:ref:`stormprims-node-path-f527` section of the :ref:`stormtypes-prim-header` technical documentation
 for a full list.
 
 .. _meth-path-idens:

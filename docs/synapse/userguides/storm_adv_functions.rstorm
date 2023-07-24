@@ -34,20 +34,35 @@ way the pipeline affects your **working set.**
 
 A function in Storm has its **own node pipeline,** independent of any Storm logic that invokes the function.
 Functions **do not** inherit the pipeline of the invoking query, and **do not** modify the invoking pipeline
-by default. 
-
-Nodes are not "sent inbound" to a function to "cause" it to execute; a function runs when it is invoked.
-It is possible to **invoke** a function so that it operates on a node or nodes; but the function will not
-"automatically" do so.
+by default.
 
 Because the function **itself** is a Storm pipeline, all caveats about pipelines and awareness of your
 working set still apply to the Storm **within** the function.
 
 All of Storm's features and capabilities are available for use within a function. This includes Storm
-operations, commands, `variables`_, `methods`_, `control flow`_, `libraries`_, etc. `Init blocks`_ and
-`fini blocks`_ can be used within functions to execute a subset of Storm logic a single time before
-operating on any nodes in the functions's pipeline or after any nodes have exited the function's pipeline,
-respectively.
+operations, commands, `variables`_, `methods`_, `control flow`_, `libraries`_, etc.
+
+You can use an `init block`_ or a `fini block`_ within a function to execute a subset of Storm logic a single
+time before operating on any nodes in the functions's pipeline or after any nodes have exited the function's
+pipeline, respectively.
+
+There are two subtle but important aspects of function behavior to keep in mind:
+
+- Nodes are not "sent inbound" to a function to "cause" it to execute; a function runs when it is **invoked**
+  as part of a Storm query (i.e., by an invoking Storm pipeline). This means that:
+  
+   - an invoked function can execute even if there are no nodes in the invoking pipeline, as long as the
+     associated Storm logic executes; and
+   - a function within an invoking pipeline will run once each time that pipeline executes; and an invoking
+     pipeline may execute multiple times (for example, if multiple nodes are passing through the invoking
+     pipeline). In this case the nodes themselves don't "cause" the function to execute; the pipeline runs
+     once per node, and the function invoked by the pipeline runs once each time the pipeline runs.
+
+- Nodes do not "pass into" functions by default, as the function and the invoking Storm logic are two separate
+  pipelines. It is possible to **invoke** a function so that it operates on a node or nodes; but the function
+  will not "automatically" do so.
+  
+The sections below on :ref:`storm-func-nodes` and :ref:`storm-func-runtsafe` discuss these behaviors in more detail.
 
 .. _storm-func-basics:
 
@@ -117,12 +132,14 @@ The name can be passed directly:
   $myFunction(orgname=$name)
 
 
+.. _storm-func-nodes:
+
 Operating on Nodes
 ******************
 
 Functions do not inherit or operate on the invoking Storm pipeline by default. If you want a function
-to operate on nodes in a pipeline, you can invoke the function by passing a property (or properties)
-of the node as input to the function.
+to operate on nodes in a pipeline, you must invoke the function in such a way as to pass the node (or a
+property or properties of the node) as input to the function.
 
 For example, if your invoking pipeline consists of a set of ``inet:ipv4`` nodes, a function can take the
 ``:asn`` property as input:
@@ -138,8 +155,24 @@ Or:
   $asn=:asn
   $myFunction($asn)
 
-Alternatively, if a function yields the node(s) you want to operate on, that function can be used as input
-to a second function. A simple example:
+Alternatively, you can pass the entire ``$node`` object to the function and use the ``yield`` keyword
+within the function to yield the node into the function's pipeline:
+
+::
+  
+  //Declare function
+  function $myFunction(node) {
+  
+      yield $node
+      <do stuff>
+      return()
+  }
+  
+  //Invoke function
+  $myFunction($node)
+
+If another function yields the node(s) you want to operate on, that function can be used as input to a
+second function. A simple example:
 
 **Function 1 (node yielder):**
 
@@ -173,7 +206,7 @@ to a second function. A simple example:
   
   $counter($getIPs())
 
-.. _storm-func-runtsafe
+.. _storm-func-runtsafe:
 
 Runtsafe vs. Non-Runtsafe Functions
 ***********************************
@@ -181,13 +214,9 @@ Runtsafe vs. Non-Runtsafe Functions
 Just as variables may be runtime-safe (`runtsafe`_) or non-runtime-safe (`non-runtsafe`_), functions can be
 invoked in a runtsafe manner (or not) based on the parameters passed to the function.
 
-If a function is invoked with a runtsafe (typically static) value, the function is considered runtsafe.
-Similarly, if a function is invoked with a per-node, non-runtsafe value or values, the function is considered
-non-runtsafe. In the example above where the function takes an AS number as input, the function is **non-runtsafe;**
-the function takes the ``inet:ipv4:asn`` value of each node, and the function is invoked **once for each node.**
-
-If the parameter were a static AS number, the function would be invoked in a **runtsafe** manner, and the
-function would be invoked **only once** (not per-node):
+If a function is invoked with a runtsafe (typically static) value, the function is considered runtsafe. A
+function that takes an Autonomous System (AS) number as input and is passed a static AS number as a parameter
+is invoked in a **runtsafe** manner:
 
 ::
   
@@ -199,6 +228,39 @@ Or:
   
   $asn=9009
   myFunction($asn)
+
+If the same function is invoked with a per-node, non-runtsafe value or values, the function is considered
+**non-runtsafe,** such as the example above where the invoking pipeline contains ``inet:ipv4`` nodes and the
+function is invoked with the value of each node's ``:asn`` property:
+
+::
+  
+  $myFunction(:asn)
+
+Or:
+
+::
+  
+  $asn=:asn
+  $myFunction($asn)
+
+.. TIP::
+  
+  Keep in mind that functions execute when they are invoked, regardless of whether there are nodes in
+  the invoking pipeline. This has some implications with respect to runtime safety ("runtsafety"):
+  
+  - A non-runtsafe function (i.e., that is dependent on a per-node value) will still execute when
+    invoked even if there are no nodes in the invoking pipeline. That is, Synapse will not generate an error
+    but the function will not "do anything".
+  
+  - A runtsafe function (i.e., one whose parameters are **not** node-dependent) will still execute once
+    each time it is invoked. If the invoking Storm executes multiple times, this can result in the runtsafe
+    function running repeatedly while simply "doing the same thing" each time (based on its runtsafe
+    input parameters). If the function should only execute once, it can be placed in a `fini block`_ (or
+    an `init block`_ as appropriate).
+    
+    
+
 
 .. _storm-func-output:
 
@@ -267,6 +329,14 @@ function is invoked (called) and returns a value using a ``return()`` statement.
 specific value.
 
 Callable functions are **executed in their entirety** before returning. They return **exactly** one value.
+
+.. TIP::
+  
+  Callable functions may contain multiple ``return()`` statements, based on the function's logic. The
+  **first** ``return()`` encountered during the function's execution will cause the function to stop
+  execution and return. If you are performing multiple actions within the function and want to ensure they
+  all complete before the function returns, place the ``return()`` in a `fini block`_ so it executes
+  once at the end of the function's pipeline.
 
 Use Cases
 *********
@@ -690,8 +760,8 @@ keyword to yield any nodes into the pipeline; use a for loop to iterate over fun
 .. _methods: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_methods.html
 .. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
 .. _libraries: https://synapse.docs.vertex.link/en/latest/synapse/stormtypes.html
-.. _Init blocks: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#init-block
-.. _fini blocks: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#fini-block
+.. _init block: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#init-block
+.. _fini block: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#fini-block
 
 .. _runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#runtsafe
 .. _non-runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#non-runtsafe

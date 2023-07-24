@@ -115,7 +115,7 @@ You can print the value of a variable, to check its value at a given point in yo
 
 You can also print values associated with the node(s) in the current working set, using the various methods
 associated with the ``$node`` Storm type. (See :ref:`storm-adv-methods` for a user-focused introduction to methods,
-or :ref:`stormprims-storm-node-f527` in the detailed Storm Libraries / Storm Types documentation for a more
+or :ref:`stormprims-node-f527` in the detailed Storm Libraries / Storm Types documentation for a more
 technical discussion.)
 
 ::
