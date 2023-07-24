@@ -132,9 +132,9 @@ scrape_types = [  # type: ignore
      {'callback': fqdn_prefix_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', ipaddr_define + r'(?P<valu>(?:(?<!\d|\d\.|[0-9a-fA-F:]:)(?P<addr>(?&IPV4)):(?P<port>\d{1,5})(?!\d|\d\.|\.\d)) | (?:\[(?P<addr>(?&IPV6))\]:(?P<port>\d{1,5})(?!\d|\d\.|\.\d)))',
-     {'callback': inet_server_check}),
-    ('inet:ipv4', ipaddr_define + r'(?P<valu>(?&IPV4_ADDR))', {}),
-    ('inet:ipv6', ipaddr_define + r'(?P<valu>(?&IPV6_ADDR))', {}),
+     {'callback': inet_server_check, 'flags': regex.VERBOSE}),
+    ('inet:ipv4', ipaddr_define + r'(?P<valu>(?&IPV4_ADDR))', {'flags': regex.VERBOSE}),
+    ('inet:ipv6', ipaddr_define + r'(?P<valu>(?&IPV6_ADDR))', {'flags': regex.VERBOSE}),
     ('inet:fqdn', r'(?=(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|^|[' + idna_disallowed + '])(?P<valu>(?:((?![' + idna_disallowed + r'])[\p{L}\p{M}\p{N}\p{S}_-]){1,63}[\u3002\uff0e\uff61\.]){1,10}(?:' + tldcat + r'))(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|[\u3002\uff0e\uff61.]([\p{Z}\p{Cc}]|$)|$|[' + idna_disallowed + r']))', {'callback': fqdn_check}),
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
@@ -163,7 +163,7 @@ scrape_types = [  # type: ignore
 
 _regexes = collections.defaultdict(list)
 for (name, rule, opts) in scrape_types:
-    blob = (regex.compile(rule, regex.IGNORECASE | regex.VERBOSE), opts)
+    blob = (regex.compile(rule, regex.IGNORECASE | opts.get('flags', 0)), opts)
     _regexes[name].append(blob)
 
 def getForms():
