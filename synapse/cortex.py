@@ -1649,6 +1649,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return retn
 
     async def _warnDeprLocks(self):
+        if __debug__ and not s_common.envbool('SYN_CORTEX_WARN_DEPRLOCKS'):
+            return
+
         # Check for deprecated properties which are unused and unlocked
         deprs = await self.getDeprLocks()
 

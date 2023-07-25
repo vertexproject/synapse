@@ -7267,38 +7267,49 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
             with self.getLoggerStream('synapse.cortex') as stream:
+                with self.setTstEnvars(SYN_CORTEX_WARN_DEPRLOCKS=1):
 
-                # Do something that triggers a log message
-                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                    # Do something that triggers a log message
+                    async with self.getTestCore(conf=conf, dirn=dirn) as core:
 
-                    # Create a test:deprprop so it doesn't generate a warning
-                    await core.callStorm('[test:dep:easy=foobar :guid=*]')
+                        # Create a test:deprprop so it doesn't generate a warning
+                        await core.callStorm('[test:dep:easy=foobar :guid=*]')
 
-                    # Lock test:deprprop:ext and .pdep so they don't generate a warning
-                    await core.callStorm('model.deprecated.lock test:dep:str')
-                    await core.callStorm('model.deprecated.lock ".pdep"')
+                        # Lock test:deprprop:ext and .pdep so they don't generate a warning
+                        await core.callStorm('model.deprecated.lock test:dep:str')
+                        await core.callStorm('model.deprecated.lock ".pdep"')
 
-                # Check that we saw the warnings
-                stream.seek(0)
-                data = stream.read()
-                self.eq(1, data.count('.pdep'))
+                    # Check that we saw the warnings
+                    stream.seek(0)
+                    data = stream.read()
+                    self.eq(1, data.count('.pdep'))
 
-                mesgs = data.splitlines()
-                mesglen = len(mesgs)
+                    mesgs = data.splitlines()
+                    mesglen = len(mesgs)
 
-                for log in logs:
-                    self.isin(log, mesgs)
+                    for log in logs:
+                        self.isin(log, mesgs)
+
+                    here = stream.tell()
+
+                    async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                        pass
+
+                    # Check that the warnings are gone now
+                    stream.seek(here)
+                    mesgs = stream.read().splitlines()
+
+                    for log in logs:
+                        self.notin(log, mesgs)
+
+                    self.eq(len(mesgs), mesglen - 4)
 
                 here = stream.tell()
 
+                # Check for no warnings in test environment without environment variable
                 async with self.getTestCore(conf=conf, dirn=dirn) as core:
                     pass
 
-                # Check that the warnings are gone now
                 stream.seek(here)
-                mesgs = stream.read().splitlines()
-
-                for log in logs:
-                    self.notin(log, mesgs)
-
-                self.eq(len(mesgs), mesglen - 4)
+                data = stream.read()
+                self.notin('is unlocked and not in use. Recommend locking', data)
