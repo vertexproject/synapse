@@ -85,7 +85,7 @@ All functions are **declared** in the same way, using the ``function`` keyword.
 
 - ``function myFunction() { <do stuff> }``
 - ``function myFunction(foo) { <do stuff> }``
-- ``function myFunction(bar,baz=$lib.null) { <do stuff> }``
+- ``function myFunction(bar, baz=$lib.null) { <do stuff> }``
 
 .. _storm-func-invoke:
 
@@ -98,7 +98,7 @@ passing any required parameters to the function.
 - ``$myFunction()``
 - ``$myFunction(foo)``
 - ``$myFunction($foo)``
-- ``$myFunction(bar,baz=wheee)``
+- ``$myFunction(bar, baz=wheee)``
 
 Parameters can be passed as literals, variables, or keyword=$valu arguments. For example, given a
 function that takes an organization name as input:
@@ -161,9 +161,9 @@ within the function to yield the node into the function's pipeline:
 ::
   
   //Declare function
-  function $myFunction(node) {
+  function $myFunction(inboundNode) {
   
-      yield $node
+      yield $inboundNode
       <do stuff>
       return()
   }
@@ -205,6 +205,17 @@ second function. A simple example:
 ::
   
   $counter($getIPs())
+
+When executed, the function produces the following output. Note that the ``$counter()`` function simply prints
+the nodes' human-readable representation (``$node.repr()``) as an example; it does not return or yield the
+``inet:ipv4`` nodes:
+
+.. storm-pre:: [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 inet:ipv4=3.3.3.3 inet:ipv4=4.4.4.4 inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 inet:ipv4=7.7.7.7 inet:ipv4=8.8.8.8 inet:ipv4=9.9.9.9 inet:ipv4=10.10.10.10 ]
+
+.. storm-multiline:: FUNCTIONS="\nfunction getIPs() { \n    inet:ipv4 | limit 10 \n} \n\nfunction counter(genr) {\n    yield $genr \n    $lib.print($node.repr()) \n    fini { return() } \n} \n\n$counter($getIPs())"
+
+.. storm-cli:: MULTILINE=FUNCTIONS
+
 
 .. _storm-func-runtsafe:
 
@@ -249,9 +260,9 @@ Or:
   Keep in mind that functions execute when they are invoked, regardless of whether there are nodes in
   the invoking pipeline. This has some implications with respect to runtime safety ("runtsafety"):
   
-  - A non-runtsafe function (i.e., that is dependent on a per-node value) will still execute when
-    invoked even if there are no nodes in the invoking pipeline. That is, Synapse will not generate an error
-    but the function will not "do anything".
+  - A non-runtsafe function (i.e., that is dependent on a per-node value) will **not** execute when invoked
+    if there are no nodes in the invoking pipeline. Synapse will not generate an error but the function
+    will not "do anything".
   
   - A runtsafe function (i.e., one whose parameters are **not** node-dependent) will still execute once
     each time it is invoked. If the invoking Storm executes multiple times, this can result in the runtsafe
@@ -762,16 +773,11 @@ keyword to yield any nodes into the pipeline; use a for loop to iterate over fun
 .. _libraries: https://synapse.docs.vertex.link/en/latest/synapse/stormtypes.html
 .. _init block: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#init-block
 .. _fini block: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#fini-block
-
 .. _runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#runtsafe
 .. _non-runtsafe: https://synapse.docs.vertex.link/en/latest/synapse/glossary.html#non-runtsafe
-
 .. _guid-based: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid
 .. _secondary property deconfliction: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#guid-best-practices
-
 .. _gen.*: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_cmd.html#gen
 .. _$lib.gen: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-gen
-
 .. _privileged modules: https://synapse.docs.vertex.link/en/latest/synapse/devguides/power-ups.html#privileged-modules
-
 .. _Storm debugging tips: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html#storm-debugging-tips

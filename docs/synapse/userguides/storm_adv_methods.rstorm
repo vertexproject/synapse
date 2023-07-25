@@ -362,7 +362,5 @@ original node takes through the query.
 
 
 .. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
-
 .. _subquery filters: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_filter.html#subquery-filters
-
 .. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html

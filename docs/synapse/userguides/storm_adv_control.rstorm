@@ -675,10 +675,7 @@ We are back to our single node in the main pipeline. That single node causes our
 ``And we're done!`` only once, and we are left with our single node at the end of the query.
 
 .. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
-
 .. _Functions: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_functions.html
-
 .. _$lib.print(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-print-mesg-kwargs
 .. _$lib.pprint(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-pprint-item-prefix-clamp-none 
-
 .. _Ingest Tool: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/ingest_tool.html#ingest-examples
