@@ -10,7 +10,7 @@ authors = [
 ]
 description = 'Synapse Intelligence Analysis Framework'
 readme = 'README.rst'
-requires-python = '>=3.11'
+requires-python = '>=3.9'
 license = { text = 'Apache License 2.0' }
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -18,7 +18,7 @@ classifiers = [
     'Topic :: System :: Clustering',
     'Topic :: System :: Distributed Computing',
     'Topic :: System :: Software Distribution',
-    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.9',
 ]
 dependencies = [
     'pyOpenSSL>=23.0.0,<27.0.0',
