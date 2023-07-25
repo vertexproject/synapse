@@ -467,7 +467,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The certificate used by the issuer to sign this certificate.',
                     }),
 
-                    ('serial', ('hex', {'size': 40}), {
+                    ('serial', ('hex', {'zeropad': 40}), {
                         'doc': 'The certificate serial number as a big endian hex value.',
                     }),
 
