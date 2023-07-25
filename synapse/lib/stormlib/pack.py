@@ -37,6 +37,11 @@ class LibHashes(s_stormtypes.Lib):
     async def en(self, fmt, items):
         fmt = await s_stormtypes.tostr(fmt)
         items = await s_stormtypes.toprim(items)
+
+        if not (fmt.startswith('<') or fmt.startswith('>')):
+            mesg = 'Pack format string must start with > or < to denote endianness.'
+            raise s_exc.BadArg(mesg=mesg)
+
         try:
             return struct.pack(fmt, *items)
         except struct.error as e:
@@ -47,8 +52,13 @@ class LibHashes(s_stormtypes.Lib):
         fmt = await s_stormtypes.tostr(fmt)
         offs = await s_stormtypes.toint(offs)
         byts = await s_stormtypes.toprim(byts)
+
         if not isinstance(byts, bytes):
             raise s_exc.BadArg(mesg='$lib.pack.un() second argument must be bytes.')
+
+        if not (fmt.startswith('<') or fmt.startswith('>')):
+            mesg = 'Pack format string must start with > or < to denote endianness.'
+            raise s_exc.BadArg(mesg=mesg)
 
         try:
             return struct.unpack_from(fmt, byts, offset=offs)

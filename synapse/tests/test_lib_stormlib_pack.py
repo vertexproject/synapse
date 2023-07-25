@@ -19,10 +19,16 @@ class PackTest(s_test.SynTest):
                 await core.callStorm('return($lib.pack.un(">HI", "asdfqwer"))')
 
             with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.pack.en("...", ([1, 10])))')
+                await core.callStorm('return($lib.pack.en(">D", ([10])))')
 
             with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.pack.un("...", $lib.hex.decode(0000)))')
+                await core.callStorm('return($lib.pack.un("<D", $lib.hex.decode(0000)))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.pack.un("HI", $lib.hex.decode(00010000000a)))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.pack.en("HI", ([1, 10])))')
 
             self.eq(b'\x00\x01\x00\x00\x00\x0a', await core.callStorm('return($lib.pack.en(">HI", ([1, 10])))'))
             self.eq((1, 10), await core.callStorm('return($lib.pack.un(">HI", $lib.hex.decode(00010000000a)))'))
