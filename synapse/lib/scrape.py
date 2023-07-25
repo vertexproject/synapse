@@ -115,13 +115,13 @@ ipaddr_define = r'''
   (?<IPV4_ADDR>
     (?<!\d|\d\.|[0-9a-fA-F:]:)
     (?&IPV4)
-    (?!\d|\d\.|\.\d)
+    (?!\d|\.\d)
   )
 
   (?<IPV6_ADDR>
     (?<![0-9a-fA-F]:|:[0-9a-fA-F]|::|\d\.)
     (?&IPV6)
-    (?![0-9a-fA-F:]|\d\.|\.\d)
+    (?![0-9a-fA-F:]|\.\d)
   )
 )
 '''
@@ -131,7 +131,7 @@ scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
      {'callback': fqdn_prefix_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
-    ('inet:server', ipaddr_define + r'(?P<valu>(?:(?<!\d|\d\.|[0-9a-fA-F:]:)(?P<addr>(?&IPV4)):(?P<port>\d{1,5})(?!\d|\d\.|\.\d)) | (?:\[(?P<addr>(?&IPV6))\]:(?P<port>\d{1,5})(?!\d|\d\.|\.\d)))',
+    ('inet:server', ipaddr_define + r'(?P<valu>(?:(?<!\d|\d\.|[0-9a-fA-F:]:)(?P<addr>(?&IPV4)):(?P<port>\d{1,5})(?!\d|\.\d)) | (?:\[(?P<addr>(?&IPV6))\]:(?P<port>\d{1,5})(?!\d|\.\d)))',
      {'callback': inet_server_check, 'flags': regex.VERBOSE}),
     ('inet:ipv4', ipaddr_define + r'(?P<valu>(?&IPV4_ADDR))', {'flags': regex.VERBOSE}),
     ('inet:ipv6', ipaddr_define + r'(?P<valu>(?&IPV6_ADDR))', {'flags': regex.VERBOSE}),
