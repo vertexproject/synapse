@@ -7267,7 +7267,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
             with self.getLoggerStream('synapse.cortex') as stream:
-                with self.setTstEnvars(SYN_CORTEX_WARN_DEPRLOCKS=1):
+                with self.setTstEnvars(SYNDEV_WARN_DEPRLOCKS=1):
 
                     # Do something that triggers a log message
                     async with self.getTestCore(conf=conf, dirn=dirn) as core:
