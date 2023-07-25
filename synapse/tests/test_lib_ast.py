@@ -1544,6 +1544,21 @@ class AstTest(s_test.SynTest):
 
             self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
 
+            msgs = await core.stormlist('$lib.null()')
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.stormIsInErr("'null' object is not callable: lib.null()", msgs)
+
+            msgs = await core.stormlist('$foo=bar $foo()')
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.stormIsInErr("'str' object is not callable: foo()", msgs)
+
+            msgs = await core.stormlist('$lib()')
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.stormIsInErr("'lib' object is not callable: lib()", msgs)
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:
@@ -2293,6 +2308,9 @@ class AstTest(s_test.SynTest):
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
+
+                async for node in core.storm("function foo() { emit foo } for $x in $foo() { $lib.raise(foo, bar) }"):
+                    pass
 
     async def test_ast_vars_missing(self):
 
