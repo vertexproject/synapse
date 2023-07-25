@@ -9,6 +9,7 @@ import asyncio
 import inspect
 import logging
 import functools
+import contextlib
 import multiprocessing
 import concurrent.futures
 
@@ -30,8 +31,9 @@ async def agen(item):
         non-blocking IO; otherwise that IO will block the ioloop.
     '''
     if getattr(item, '__aiter__', None) is not None:
-        async for x in item:
-            yield x
+        async with contextlib.aclosing(item) as agen:
+            async for x in agen:
+                yield x
         return
 
     for x in item:
