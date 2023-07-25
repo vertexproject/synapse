@@ -2104,12 +2104,12 @@ class AstTest(s_test.SynTest):
         origprop = s_snap.Snap.nodesByProp
         origvalu = s_snap.Snap.nodesByPropValu
 
-        async def checkProp(self, name):
+        async def checkProp(self, name, reverse=False):
             calls.append(('prop', name))
             async for node in origprop(self, name):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu):
+        async def checkValu(self, name, cmpr, valu, reverse=False):
             calls.append(('valu', name, cmpr, valu))
             async for node in origvalu(self, name, cmpr, valu):
                 yield node

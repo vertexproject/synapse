@@ -1450,6 +1450,149 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str~="zip"'))
             self.len(1, await core.nodes('.favcolor~="^r"'))
 
+    async def test_cortex_lift_reverse(self):
+
+        async with self.getTestCore() as core:
+
+            async def nodeVals(query, prop=None):
+                nodes = await core.nodes(query)
+                if prop:
+                    return [node.props.get(prop) for node in nodes]
+                return [node.ndef[1] for node in nodes]
+
+            async def buidRevEq(query):
+                set1 = await nodeVals(query)
+                set2 = await nodeVals(f'reverse({query})')
+                set1.reverse()
+                self.len(5, set1)
+                self.len(5, set2)
+                self.eq(set1, set2)
+
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x ]}')
+
+            self.eq([0, 1, 2, 3, 4], await nodeVals('test:int'))
+            self.eq([4, 3, 2, 1, 0], await nodeVals('reverse(test:int)'))
+
+            self.eq([0, 1, 2, 3], await nodeVals('test:int<=3'))
+            self.eq([3, 2, 1, 0], await nodeVals('reverse(test:int<=3)'))
+
+            self.eq([0, 1, 2], await nodeVals('test:int<3'))
+            self.eq([2, 1, 0], await nodeVals('reverse(test:int<3)'))
+
+            self.eq([2, 3, 4], await nodeVals('test:int>=2'))
+            self.eq([4, 3, 2], await nodeVals('reverse(test:int>=2)'))
+
+            self.eq([3, 4], await nodeVals('test:int>2'))
+            self.eq([4, 3], await nodeVals('reverse(test:int>2)'))
+
+            self.eq([1, 2, 3], await nodeVals('test:int*range=(1, 3)'))
+            self.eq([3, 2, 1], await nodeVals('reverse(test:int*range=(1, 3))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ file:bytes=* :size=5 ]}')
+
+            await buidRevEq('file:bytes:size=5')
+
+            await core.nodes('for $x in $lib.range(3) {[ test:str=`foo{$x}` test:str=`bar{$x}` ]}')
+
+            self.eq(['foo0', 'foo1', 'foo2'], await nodeVals('test:str~=foo'))
+            self.eq(['foo2', 'foo1', 'foo0'], await nodeVals('reverse(test:str~=foo)'))
+
+            await core.nodes('for $x in $lib.range(5) {[ risk:vuln=($x,) :name=eq :desc=`v{$x}` ]}')
+
+            await buidRevEq('risk:vuln:name=eq')
+
+            self.eq(['v2', 'v3', 'v4'], await nodeVals('risk:vuln:desc*range=(v2, v4)', prop='desc'))
+            self.eq(['v4', 'v3', 'v2'], await nodeVals('reverse(risk:vuln:desc*range=(v2, v4))', prop='desc'))
+
+            self.eq(['v0', 'v1', 'v2', 'v3', 'v4'], await nodeVals('risk:vuln:desc^=v', prop='desc'))
+            self.eq(['v4', 'v3', 'v2', 'v1', 'v0'], await nodeVals('reverse(risk:vuln:desc^=v)', prop='desc'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:ipv4=$x :loc=`foo.bar` ]}')
+
+            await buidRevEq('inet:ipv4:loc=foo.bar')
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:ipv4=$x :loc=`loc.{$x}` ]}')
+
+            self.eq(['loc.0', 'loc.1', 'loc.2', 'loc.3', 'loc.4'], await nodeVals('inet:ipv4:loc^=loc', prop='loc'))
+            self.eq(['loc.4', 'loc.3', 'loc.2', 'loc.1', 'loc.0'], await nodeVals('reverse(inet:ipv4:loc^=loc)', prop='loc'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:fqdn=`f{$x}.lk` ]}')
+
+            self.eq(['f0.lk', 'f1.lk', 'f2.lk', 'f3.lk', 'f4.lk'], await nodeVals('inet:fqdn=*.lk'))
+            self.eq(['f4.lk', 'f3.lk', 'f2.lk', 'f1.lk', 'f0.lk'], await nodeVals('reverse(inet:fqdn=*.lk)'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:ipv6=$x ]}')
+
+            self.eq(['::', '::1', '::2', '::3', '::4'], await nodeVals('inet:ipv6'))
+            self.eq(['::4', '::3', '::2', '::1', '::'], await nodeVals('reverse(inet:ipv6)'))
+
+            self.eq(['::', '::1', '::2', '::3'], await nodeVals('inet:ipv6<=(3)'))
+            self.eq(['::3', '::2', '::1', '::'], await nodeVals('reverse(inet:ipv6<=(3))'))
+
+            self.eq(['::', '::1', '::2'], await nodeVals('inet:ipv6<(3)'))
+            self.eq(['::2', '::1', '::'], await nodeVals('reverse(inet:ipv6<(3))'))
+
+            self.eq(['::2', '::3', '::4'], await nodeVals('inet:ipv6>=(2)'))
+            self.eq(['::4', '::3', '::2'], await nodeVals('reverse(inet:ipv6>=(2))'))
+
+            self.eq(['::3', '::4'], await nodeVals('inet:ipv6>(2)'))
+            self.eq(['::4', '::3'], await nodeVals('reverse(inet:ipv6>(2))'))
+
+            self.eq(['::1', '::2', '::3'], await nodeVals('inet:ipv6*range=((1), (3))'))
+            self.eq(['::3', '::2', '::1'], await nodeVals('reverse(inet:ipv6*range=((1), (3)))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:server=`[::5]:{$x}` ]}')
+
+            await buidRevEq('inet:server:ipv6="::5"')
+
+            await core.nodes('for $x in $lib.range(5) {[ test:hugenum=$x ]}')
+
+            self.eq(['0', '1', '2', '3', '4'], await nodeVals('test:hugenum'))
+            self.eq(['4', '3', '2', '1', '0'], await nodeVals('reverse(test:hugenum)'))
+
+            self.eq(['0', '1', '2', '3'], await nodeVals('test:hugenum<=3'))
+            self.eq(['3', '2', '1', '0'], await nodeVals('reverse(test:hugenum<=3)'))
+
+            self.eq(['0', '1', '2'], await nodeVals('test:hugenum<3'))
+            self.eq(['2', '1', '0'], await nodeVals('reverse(test:hugenum<3)'))
+
+            self.eq(['2', '3', '4'], await nodeVals('test:hugenum>=2'))
+            self.eq(['4', '3', '2'], await nodeVals('reverse(test:hugenum>=2)'))
+
+            self.eq(['3', '4'], await nodeVals('test:hugenum>2'))
+            self.eq(['4', '3'], await nodeVals('reverse(test:hugenum>2)'))
+
+            self.eq(['1', '2', '3'], await nodeVals('test:hugenum*range=(1, 3)'))
+            self.eq(['3', '2', '1'], await nodeVals('reverse(test:hugenum*range=(1, 3))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ econ:purchase=* :price=5 ]}')
+
+            await buidRevEq('econ:purchase:price=5')
+
+            await core.nodes('for $x in $lib.range(5) {[ test:float=($x - 2) ]}')
+
+            self.eq([0.0, 1.0, 2.0, -1.0, -2.0], await nodeVals('test:float'))
+            self.eq([-2.0, -1.0, 2.0, 1.0, 0.0], await nodeVals('reverse(test:float)'))
+
+            self.eq([-2.0, -1.0, 0.0, 1.0], await nodeVals('test:float<=1'))
+            self.eq([1.0, 0.0, -1.0, -2.0], await nodeVals('reverse(test:float<=1)'))
+
+            self.eq([-2.0, -1.0, 0.0], await nodeVals('test:float<1'))
+            self.eq([0.0, -1.0, -2.0], await nodeVals('reverse(test:float<1)'))
+
+            self.eq(['2', '3', '4'], await nodeVals('test:float>=2'))
+            self.eq(['4', '3', '2'], await nodeVals('reverse(test:float>=2)'))
+
+            self.eq(['3', '4'], await nodeVals('test:float>2'))
+            self.eq(['4', '3'], await nodeVals('reverse(test:float>2)'))
+
+            self.eq(['1', '2', '3'], await nodeVals('test:float*range=(1, 3)'))
+            self.eq(['3', '2', '1'], await nodeVals('reverse(test:float*range=(1, 3))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ econ:purchase=* :price=5 ]}')
+
+            await buidRevEq('econ:purchase:price=5')
+
     async def test_indxchop(self):
 
         async with self.getTestCore() as core:
