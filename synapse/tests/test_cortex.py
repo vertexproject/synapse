@@ -1489,7 +1489,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([3, 2, 1], await nodeVals('reverse(test:int*range=(1, 3))'))
 
             await core.nodes('for $x in $lib.range(5) {[ file:bytes=* :size=5 ]}')
-
             await buidRevEq('file:bytes:size=5')
 
             await core.nodes('for $x in $lib.range(3) {[ test:str=`foo{$x}` test:str=`bar{$x}` ]}')
@@ -1498,7 +1497,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['foo2', 'foo1', 'foo0'], await nodeVals('reverse(test:str~=foo)'))
 
             await core.nodes('for $x in $lib.range(5) {[ risk:vuln=($x,) :name=eq :desc=`v{$x}` ]}')
-
             await buidRevEq('risk:vuln:name=eq')
 
             self.eq(['v2', 'v3', 'v4'], await nodeVals('risk:vuln:desc*range=(v2, v4)', prop='desc'))
@@ -1508,13 +1506,12 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['v4', 'v3', 'v2', 'v1', 'v0'], await nodeVals('reverse(risk:vuln:desc^=v)', prop='desc'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:ipv4=$x :loc=`foo.bar` ]}')
-
             await buidRevEq('inet:ipv4:loc=foo.bar')
 
-            await core.nodes('for $x in $lib.range(5) {[ inet:ipv4=$x :loc=`loc.{$x}` ]}')
+            await core.nodes('for $x in $lib.range(3) {[ inet:ipv4=$x :loc=`loc.{$x}` ]}')
 
-            self.eq(['loc.0', 'loc.1', 'loc.2', 'loc.3', 'loc.4'], await nodeVals('inet:ipv4:loc^=loc', prop='loc'))
-            self.eq(['loc.4', 'loc.3', 'loc.2', 'loc.1', 'loc.0'], await nodeVals('reverse(inet:ipv4:loc^=loc)', prop='loc'))
+            self.eq(['loc.0', 'loc.1', 'loc.2'], await nodeVals('inet:ipv4:loc^=loc', prop='loc'))
+            self.eq(['loc.2', 'loc.1', 'loc.0'], await nodeVals('reverse(inet:ipv4:loc^=loc)', prop='loc'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:fqdn=`f{$x}.lk` ]}')
 
@@ -1542,7 +1539,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['::3', '::2', '::1'], await nodeVals('reverse(inet:ipv6*range=((1), (3)))'))
 
             await core.nodes('for $x in $lib.range(5) {[ inet:server=`[::5]:{$x}` ]}')
-
             await buidRevEq('inet:server:ipv6="::5"')
 
             await core.nodes('for $x in $lib.range(5) {[ test:hugenum=$x ]}')
@@ -1566,7 +1562,6 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(['3', '2', '1'], await nodeVals('reverse(test:hugenum*range=(1, 3))'))
 
             await core.nodes('for $x in $lib.range(5) {[ econ:purchase=* :price=5 ]}')
-
             await buidRevEq('econ:purchase:price=5')
 
             await core.nodes('for $x in $lib.range(5) {[ test:float=($x - 2) ]}')
@@ -1580,18 +1575,59 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([-2.0, -1.0, 0.0], await nodeVals('test:float<1'))
             self.eq([0.0, -1.0, -2.0], await nodeVals('reverse(test:float<1)'))
 
-            self.eq(['2', '3', '4'], await nodeVals('test:float>=2'))
-            self.eq(['4', '3', '2'], await nodeVals('reverse(test:float>=2)'))
+            self.eq([-1.0, 0.0, 1.0, 2.0], await nodeVals('test:float>=-1'))
+            self.eq([2.0, 1.0, 0.0, -1.0], await nodeVals('reverse(test:float>=-1)'))
 
-            self.eq(['3', '4'], await nodeVals('test:float>2'))
-            self.eq(['4', '3'], await nodeVals('reverse(test:float>2)'))
+            self.eq([0.0, 1.0, 2.0], await nodeVals('test:float>-1'))
+            self.eq([2.0, 1.0, 0.0], await nodeVals('reverse(test:float>-1)'))
 
-            self.eq(['1', '2', '3'], await nodeVals('test:float*range=(1, 3)'))
-            self.eq(['3', '2', '1'], await nodeVals('reverse(test:float*range=(1, 3))'))
+            self.eq([-1.0, 0.0, 1.0], await nodeVals('test:float*range=(-1, 1)'))
+            self.eq([1.0, 0.0, -1.0], await nodeVals('reverse(test:float*range=(-1, 1))'))
 
-            await core.nodes('for $x in $lib.range(5) {[ econ:purchase=* :price=5 ]}')
+            await core.nodes('for $x in $lib.range(5) {[ risk:vuln=* :cvss:v3_0:score=1.0 ]}')
+            await buidRevEq('risk:vuln:cvss:v3_0:score=1.0')
 
-            await buidRevEq('econ:purchase:price=5')
+            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter={"a" * 32} ]}}')
+            await buidRevEq(f'risk:vuln:reporter={"a" * 32}')
+
+            pref = 'a' * 31
+            await core.nodes(f'for $x in $lib.range(3) {{[ test:guid=`{pref}{{$x}}` ]}}')
+
+            self.eq([f'{pref}0', f'{pref}1', f'{pref}2'], await nodeVals(f'test:guid^={pref[:-1]}'))
+            self.eq([f'{pref}2', f'{pref}1', f'{pref}0'], await nodeVals(f'reverse(test:guid^={pref[:-1]})'))
+
+            await core.nodes('for $x in $lib.range(5) {[ ou:org=* :founded=`202{$x}` ]}')
+
+            self.eq((1609459200000, 1640995200000),
+                    await nodeVals('ou:org:founded@=(2021, 2023)', prop='founded'))
+            self.eq((1640995200000, 1609459200000),
+                    await nodeVals('reverse(ou:org:founded@=(2021, 2023))', prop='founded'))
+
+            await core.nodes('for $x in $lib.range(5) {[ test:str=$x .seen=`202{$x}` ]}')
+
+            i2021 = (1609459200000, 1609459200001)
+            i2022 = (1640995200000, 1640995200001)
+            self.eq([i2021, i2022], await nodeVals('test:str.seen@=(2021, 2023)', prop='.seen'))
+            self.eq([i2022, i2021], await nodeVals('reverse(test:str.seen@=(2021, 2023))', prop='.seen'))
+
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x .seen=(2025, 2026) ]}')
+            await buidRevEq('test:int.seen=(2025, 2026)')
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:flow=($x,) :raw=(["foo"]) ]}')
+            await buidRevEq('inet:flow:raw=(["foo"])')
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:flow=* :raw=`bar{$x}` ]}')
+            await buidRevEq('inet:flow:raw~=bar')
+
+            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :latlong=(90, 90) ]}')
+            await buidRevEq('geo:telem:latlong=(90, 90)')
+
+            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :latlong=($x, $x) ]}')
+
+            self.eq([(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)],
+                    await nodeVals('geo:telem:latlong*near=((0, 0), 400km)', prop='latlong'))
+            self.eq([(2.0, 2.0), (1.0, 1.0), (0.0, 0.0)],
+                    await nodeVals('reverse(geo:telem:latlong*near=((0, 0), 400km))', prop='latlong'))
 
     async def test_indxchop(self):
 

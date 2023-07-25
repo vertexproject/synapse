@@ -1089,9 +1089,10 @@ class StorTypeFloat(StorType):
             yield item
 
     async def _liftFloatGt(self, liftby, valu, reverse=False):
+        abrvlen = liftby.abrvlen
         valupack = self.fpack(valu)
         async for item in self._liftFloatGeCommon(liftby, valu, reverse=reverse):
-            if item[0] == valupack:
+            if item[0][abrvlen:] == valupack:
                 continue
             yield item
 
@@ -1124,9 +1125,10 @@ class StorTypeFloat(StorType):
             yield item
 
     async def _liftFloatLt(self, liftby, valu, reverse=False):
+        abrvlen = liftby.abrvlen
         valupack = self.fpack(valu)
         async for item in self._liftFloatLeCommon(liftby, valu, reverse=reverse):
-            if item[0] == valupack:
+            if item[0][abrvlen:] == valupack:
                 continue
             yield item
 
