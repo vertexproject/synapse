@@ -641,14 +641,14 @@ class Hex(Type):
         if self._size < 0:
             # zero means no width check
             raise s_exc.BadConfValu(name='size', valu=self._size,
-                                    mesg='Size must be > 0')
+                                    mesg='Size must be >= 0')
         if self._size % 2 != 0:
             raise s_exc.BadConfValu(name='size', valu=self._size,
                                     mesg='Size must be a multiple of 2')
 
         if self._zeropad < 0:
             raise s_exc.BadConfValu(name='zeropad', valu=self._zeropad,
-                                    mesg='Zeropad must be > 0')
+                                    mesg='Zeropad must be >= 0')
         if self._zeropad % 2 != 0:
             raise s_exc.BadConfValu(name='zeropad', valu=self._zeropad,
                                     mesg='Zeropad must be a multiple of 2')

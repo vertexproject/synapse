@@ -263,6 +263,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadConfValu):
                 core.model.type('hex').clone({'zeropad': -1})
 
+            t = core.model.type('hex').clone({'zeropad': False})
+            self.eq('1010', t.norm(b'\x10\x10')[0])
+
             t = core.model.type('test:hexa')
             # Test norming to index values
             testvectors = [
