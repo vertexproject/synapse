@@ -2294,6 +2294,9 @@ class AstTest(s_test.SynTest):
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
 
+                async for node in core.storm("function foo() { emit foo } for $x in $foo() { $lib.raise(foo, bar) }"):
+                    pass
+
     async def test_ast_vars_missing(self):
 
         async with self.getTestCore() as core:
