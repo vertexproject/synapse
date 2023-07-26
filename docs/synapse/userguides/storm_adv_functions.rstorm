@@ -257,8 +257,8 @@ Or:
 
 .. TIP::
   
-  Keep in mind that functions execute when they are invoked, regardless of whether there are nodes in
-  the invoking pipeline. This has some implications with respect to runtime safety ("runtsafety"):
+  Keep in mind that functions execute when they are invoked. This has some implications with respect to
+  runtime safety ("runtsafety"):
   
   - A non-runtsafe function (i.e., that is dependent on a per-node value) will **not** execute when invoked
     if there are no nodes in the invoking pipeline. Synapse will not generate an error but the function
@@ -269,9 +269,6 @@ Or:
     function running repeatedly while simply "doing the same thing" each time (based on its runtsafe
     input parameters). If the function should only execute once, it can be placed in a `fini block`_ (or
     an `init block`_ as appropriate).
-    
-    
-
 
 .. _storm-func-output:
 
