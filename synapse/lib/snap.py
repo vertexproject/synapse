@@ -944,7 +944,7 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchProp(mesg=mesg)
 
         if not isinstance(prop.type, s_types.Array):
-            mesg = f'Array synax is invalid on non array type: {prop.type.name}.'
+            mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
