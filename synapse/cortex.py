@@ -1652,6 +1652,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # Check for deprecated properties which are unused and unlocked
         deprs = await self.getDeprLocks()
 
+        count = 0
+
         for propname, locked in deprs.items():
             if locked:
                 continue
@@ -1669,11 +1671,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
                         break
-
             else:
-                mesg = 'Deprecated property {prop.full} is unlocked and not in use. '
-                mesg += 'Recommend locking (https://v.vtx.lk/deprlock).'
-                logger.info(mesg.format(prop=prop))
+                count += 1
+
+        if count:
+            mesg = f'Detected {count} deprecated properties unlocked and not in use, '
+            mesg += 'recommend locking (https://v.vtx.lk/deprlock).'
+            logger.warning(mesg)
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):
