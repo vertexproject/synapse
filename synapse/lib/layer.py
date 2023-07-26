@@ -2963,12 +2963,7 @@ class Layer(s_nexus.Pusher):
             return False
         return self.dataslab.has(buid + abrv, db=self.nodedata)
 
-    async def liftTagProp(self, name, reverse=False):
-
-        if reverse:
-            scan = self.layrslab.scanByPrefBack
-        else:
-            scan = self.layrslab.scanByPref
+    async def liftTagProp(self, name):
 
         for form, tag, prop in self.getTagProps():
 
@@ -2981,7 +2976,7 @@ class Layer(s_nexus.Pusher):
             except s_exc.NoSuchAbrv:
                 continue
 
-            for _, buid in scan(abrv, db=self.bytagprop):
+            for _, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
                 yield buid
 
     async def liftByTagProp(self, form, tag, prop, reverse=False):
@@ -3078,19 +3073,14 @@ class Layer(s_nexus.Pusher):
                     continue
                 yield lkey[8:], buid, deepcopy(sode)
 
-    async def liftByDataName(self, name, reverse=False):
+    async def liftByDataName(self, name):
         try:
             abrv = self.getPropAbrv(name, None)
 
         except s_exc.NoSuchAbrv:
             return
 
-        if reverse:
-            scan = self.dataslab.scanByDupsBack
-        else:
-            scan = self.dataslab.scanByDups
-
-        for abrv, buid in scan(abrv, db=self.dataname):
+        for abrv, buid in self.dataslab.scanByDups(abrv, db=self.dataname):
 
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover

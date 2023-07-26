@@ -1454,10 +1454,12 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            async def nodeVals(query, prop=None):
+            async def nodeVals(query, prop=None, tag=None):
                 nodes = await core.nodes(query)
                 if prop:
                     return [node.props.get(prop) for node in nodes]
+                if tag:
+                    return [node.tags.get(tag) for node in nodes]
                 return [node.ndef[1] for node in nodes]
 
             async def buidRevEq(query):
@@ -1578,11 +1580,20 @@ class CortexTest(s_t_utils.SynTest):
             self.eq([-1.0, 0.0, 1.0, 2.0], await nodeVals('test:float>=-1'))
             self.eq([2.0, 1.0, 0.0, -1.0], await nodeVals('reverse(test:float>=-1)'))
 
+            self.eq([0.0, 1.0, 2.0], await nodeVals('test:float>=0'))
+            self.eq([2.0, 1.0, 0.0], await nodeVals('reverse(test:float>=0)'))
+
             self.eq([0.0, 1.0, 2.0], await nodeVals('test:float>-1'))
             self.eq([2.0, 1.0, 0.0], await nodeVals('reverse(test:float>-1)'))
 
             self.eq([-1.0, 0.0, 1.0], await nodeVals('test:float*range=(-1, 1)'))
             self.eq([1.0, 0.0, -1.0], await nodeVals('reverse(test:float*range=(-1, 1))'))
+
+            self.eq([0.0, 1.0], await nodeVals('test:float*range=(0, 1)'))
+            self.eq([1.0, 0.0], await nodeVals('reverse(test:float*range=(0, 1))'))
+
+            self.eq([-2.0, -1.0], await nodeVals('test:float*range=(-2, -1)'))
+            self.eq([-1.0, -2.0], await nodeVals('reverse(test:float*range=(-2, -1))'))
 
             await core.nodes('for $x in $lib.range(5) {[ risk:vuln=* :cvss:v3_0:score=1.0 ]}')
             await buidRevEq('risk:vuln:cvss:v3_0:score=1.0')
@@ -1628,6 +1639,19 @@ class CortexTest(s_t_utils.SynTest):
                     await nodeVals('geo:telem:latlong*near=((0, 0), 400km)', prop='latlong'))
             self.eq([(2.0, 2.0), (1.0, 1.0), (0.0, 0.0)],
                     await nodeVals('reverse(geo:telem:latlong*near=((0, 0), 400km))', prop='latlong'))
+
+            await core.nodes('[ inet:dns:a=(foo.com, 0.0.0.0) inet:dns:a=(bar.com, 0.0.0.0) ]')
+
+            self.eq([0, ('foo.com', 0), ('bar.com', 0)], await nodeVals('inet:ipv4*type=0.0.0.0'))
+            self.eq([('bar.com', 0), ('foo.com', 0), 0], await nodeVals('reverse(inet:ipv4*type=0.0.0.0)'))
+
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x +#foo=2021 ]}')
+            await buidRevEq('test:int#foo')
+            await buidRevEq('test:int#foo=2021')
+
+            await core.addTagProp('test', ('int', {}), {})
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x +#foo:test=10 ]}')
+            await buidRevEq('test:int#foo:test=10')
 
     async def test_indxchop(self):
 

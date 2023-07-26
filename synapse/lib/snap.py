@@ -812,8 +812,8 @@ class Snap(s_base.Base):
         await asyncio.sleep(0)
         return node
 
-    async def nodesByDataName(self, name, reverse=False):
-        async for (buid, sodes) in self.core._liftByDataName(name, self.layers, reverse=reverse):
+    async def nodesByDataName(self, name):
+        async for (buid, sodes) in self.core._liftByDataName(name, self.layers):
             node = await self._joinSodes(buid, sodes)
             if node is not None:
                 yield node
@@ -856,11 +856,18 @@ class Snap(s_base.Base):
 
     async def nodesByPropValu(self, full, cmpr, valu, reverse=False):
         if cmpr == 'type=':
-            async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
-                yield node
+            if reverse:
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
+                    yield node
 
-            async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
-                yield node
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                    yield node
+            else:
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                    yield node
+
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
+                    yield node
             return
 
         prop = self.core.model.prop(full)
