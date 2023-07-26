@@ -1651,6 +1651,7 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.addTagProp('test', ('int', {}), {})
             await core.nodes('for $x in $lib.range(5) {[ test:int=$x +#foo:test=10 ]}')
+            await buidRevEq('#foo:test')
             await buidRevEq('test:int#foo:test=10')
 
     async def test_indxchop(self):
