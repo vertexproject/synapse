@@ -427,6 +427,11 @@ Then restart the Axon container. As it restarts, the service will generate user 
 to reflect the use of SSL/TLS and the requirement to use client certificates for authentication. As additional services
 are provisioned, you may update the URLs they use to connect to the Axon to ``aha://axon...``.
 
+.. note::
+    When specifying a connection string using AHA, you can append a ``mirror=true`` parameter to the connection string
+    (e.g. ``aha://cortex...?mirror=true``) to cause AHA to prefer connecting to a service mirror rather than the leader
+    (if mirrors are available).
+
 Deployment Options
 ------------------
 
