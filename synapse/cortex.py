@@ -2270,18 +2270,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if sodelist is not None:
                     yield sodelist
 
-    async def _liftByDataName(self, name, layers, reverse=False):
+    async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByDataName(name, reverse=reverse):
+            async for _, buid, sode in layers[0].liftByDataName(name):
                 yield (buid, [(layr, sode)])
             return
 
         genrs = []
         for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name, reverse=reverse)))
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, reverse=reverse):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
             yield sodes
 
     async def _liftByProp(self, form, prop, layers, reverse=False):
