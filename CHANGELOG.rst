@@ -47,6 +47,9 @@ Features and Enhancements
 - Add a Storm library, ``$lib.pack``, for packing and unpacking structured
   byte values.
   (`#3261 <https://github.com/vertexproject/synapse/pull/3261>`_)
+- The Storm ``$lib.gen()`` functions and associated commands now generate
+  stable guid values based on their inputs when making nodes.
+  (`#3268 <https://github.com/vertexproject/synapse/pull/3268>`_)
 - Add the View iden to the task identifier for running Storm tasks.
   (`#3247 <https://github.com/vertexproject/synapse/pull/3247>`_)
 - Add performance related sysctl values to the output of the Storm
@@ -82,6 +85,10 @@ Improved Documentation
 - Add a section to the Storm reference for user defined functions in Storm.
   That can be found at :ref:`storm-adv-functions`.
   (`#3245 <https://github.com/vertexproject/synapse/pull/3245>`_)
+- Update the devops docuemtnation to add a note about the Telepath ``aha://``
+  protocol using a ``mirror=true`` parameter to connect to a service mirror
+  instead of a leader.
+  (`#3267 <https://github.com/vertexproject/synapse/pull/3267>`_)
 - Update the ``preboot.sh`` example script to account for Docker changes
   introduced in ``2.133.0``.
 
