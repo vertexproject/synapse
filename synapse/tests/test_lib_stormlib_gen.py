@@ -101,3 +101,22 @@ class StormLibGenTest(s_test.SynTest):
             nodes02 = await core.nodes('gen.ou.campaign d-day otherorg')
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
             self.ne(nodes01[0].ndef, nodes02[0].ndef)
+
+            # Stable guid test
+            fork = await core.callStorm('return( $lib.view.get().fork().iden )')
+
+            nodes00 = await core.nodes('yield $lib.gen.orgByName(forkOrg)', opts={'view': fork})
+            self.len(1, nodes00)
+            nodes01 = await core.nodes('yield $lib.gen.orgByName(forkOrg)')
+            self.len(1, nodes01)
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes02 = await core.nodes('yield $lib.gen.orgByName(anotherForkOrg)', opts={'view': fork})
+            self.len(1, nodes02)
+            self.len(0, await core.nodes('ou:org:name=anotherforkorg'))
+
+            # Merge the fork down
+            await core.nodes('view.merge --delete $fork', opts={'vars': {'fork': fork}})
+
+            self.len(1, await core.nodes('ou:org:name=forkorg'))
+            self.len(1, await core.nodes('ou:org:name=anotherforkorg'))
