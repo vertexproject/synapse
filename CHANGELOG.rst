@@ -95,7 +95,7 @@ Improved Documentation
   instead of a leader.
   (`#3267 <https://github.com/vertexproject/synapse/pull/3267>`_)
 - Update the ``preboot.sh`` example script to account for Docker changes
-  introduced in ``2.133.0``.
+  introduced in ``v2.133.0``.
 
 v2.142.2 - 2023-07-19
 =====================
