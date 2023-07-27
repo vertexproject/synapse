@@ -17,7 +17,8 @@ def initHostInfo():
     return {
         'format': 'elf',
         'platform': 'linux',
-        'hasmemlocking': True  # has mlock, and all the below related functions
+        'hasmemlocking': True,  # has mlock, and all the below related functions
+        'hassysctls': True,
     }
 
 def getFileMappedRegion(filename):
@@ -103,6 +104,30 @@ def getTotalMemory():
 
     logger.warning('Unable to find max memory limit')  # pragma: no cover
     return 0  # pragma: no cover
+
+
+def getSysctls():
+    _sysctls = (
+        ('vm.swappiness', '/proc/sys/vm/swappiness', int),
+        ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs', int),
+        ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs', int),
+        ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio', int),
+        ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio', int),
+    )
+    ret = {}
+    for key, fp, func in _sysctls:
+        if os.path.isfile(fp):
+            with open(fp) as f:
+                valu = f.read().strip()
+                try:
+                    ret[key] = func(valu)
+                except Exception:  # pragma: no cover
+                    logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
+                    ret[key] = None
+        else:  # pragma: no cover
+            logger.warning(f'Missing sysctl: {key} @ {fp}')
+            ret[key] = None
+    return ret
 
 def getAvailableMemory():
     '''
