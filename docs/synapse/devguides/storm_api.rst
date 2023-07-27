@@ -122,6 +122,11 @@ This example is very simple - it does not include repr information, or things re
 
 For path and repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
 
+ping
+----
+
+A keepalive message. This is sent periodically. See :ref:`dev_storm_opts` for more information.
+
 print
 -----
 
@@ -434,6 +439,20 @@ Example:
         idens = ('ee6b92c9fd848a2cb00f3a3618148c512b58456b8b51fbed79251811597eeea3',
                  'c5a67a095b71771d9663d691f0ab36b53ebdc14fbad18f23f95e923543156bd6',)
         opts = {'idens': idens}
+
+keepalive
+---------
+
+This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streamiing results,
+such as the Telepath ``.storm()`` API or the HTTP ``/v1/api/storm`` API endpoint. The value must be greater than zero.
+
+Example:
+
+    .. code:: python3
+
+
+        keepalive = 2  # Send a keepalive message every 2 seconds
+        opts = {'keepalive': keepalive}
 
 limit
 -----
