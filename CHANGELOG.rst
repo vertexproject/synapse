@@ -17,7 +17,7 @@ Model Changes
 
   ``hex``
     The ``zeropad`` option has been changed from a ``bool`` to an ``int``.
-    It now indicates how many bytes to left pad a value with zeros (``0x00``).
+    It may now be used to specify the zero extended length of the hex string.
 
   Updated Properties
   ------------------
@@ -26,8 +26,9 @@ Model Changes
     The form had the following properties updated on it:
 
     ``serial``
-      The ``size`` value has been changed to ``zeropad`` to allow recording
-      certificates with serial numbers with less than 40 bytes.
+      The ``size`` value has been changed to ``zeropad`` to zeropad values
+      with less than 40 octets, and to allow storing large serial numbers from
+      malformed certificates.
 
 Features and Enhancements
 -------------------------
@@ -36,7 +37,9 @@ Features and Enhancements
   definitions in a Cortex and to add extended extended model definitions to
   a Cortex in bulk.
   (`#3252 <https://github.com/vertexproject/synapse/pull/3252>`_)
-- Add ``inet:ipv5`` to the list of types identified with scrape APIs.
+- Add ``inet:ipv6`` to the list of types identified with scrape APIs. The
+  ``inet:server`` form identified by scrape APIs now also identifies IPV6
+  server addresses.
   (`#3259 <https://github.com/vertexproject/synapse/pull/3259>`_)
 - Add a check to the Cortex startup to identify and log the presence of
   deprecated model elements and direct users to check and lock them
@@ -87,7 +90,7 @@ Improved Documentation
 - Add a section to the Storm reference for user defined functions in Storm.
   That can be found at :ref:`storm-adv-functions`.
   (`#3245 <https://github.com/vertexproject/synapse/pull/3245>`_)
-- Update the devops docuemtnation to add a note about the Telepath ``aha://``
+- Update the devops documentation to add a note about the Telepath ``aha://``
   protocol using a ``mirror=true`` parameter to connect to a service mirror
   instead of a leader.
   (`#3267 <https://github.com/vertexproject/synapse/pull/3267>`_)
