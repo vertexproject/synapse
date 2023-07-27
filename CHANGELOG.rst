@@ -36,6 +36,8 @@ Features and Enhancements
   definitions in a Cortex and to add extended extended model definitions to
   a Cortex in bulk.
   (`#3252 <https://github.com/vertexproject/synapse/pull/3252>`_)
+- Add ``inet:ipv5`` to the list of types identified with scrape APIs.
+  (`#3259 <https://github.com/vertexproject/synapse/pull/3259>`_)
 - Add a check to the Cortex startup to identify and log the presence of
   deprecated model elements and direct users to check and lock them
   at :ref:`storm-model-deprecated-check`.
