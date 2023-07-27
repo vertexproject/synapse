@@ -5,7 +5,7 @@ import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
-class LibHashes(s_stormtypes.Lib):
+class LibPack(s_stormtypes.Lib):
     '''
     Packing / unpacking structured bytes.
     '''
