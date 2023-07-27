@@ -257,6 +257,15 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadConfValu):
                 core.model.type('hex').clone({'size': -1})
 
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'zeropad': 1})
+
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'zeropad': -1})
+
+            t = core.model.type('hex').clone({'zeropad': False})
+            self.eq('1010', t.norm(b'\x10\x10')[0])
+
             t = core.model.type('test:hexa')
             # Test norming to index values
             testvectors = [
@@ -297,7 +306,7 @@ class TypesTest(s_t_utils.SynTest):
                 else:
                     self.raises(b, t.norm, v)
 
-            # size = 8, pad = True
+            # size = 8, zeropad = True
             testvectors = [
                 ('0x12', '00000012'),
                 ('0x1234', '00001234'),
@@ -311,6 +320,30 @@ class TypesTest(s_t_utils.SynTest):
                 (b'\x12\x34\x56\x78\x9a', s_exc.BadTypeValu),
             ]
             t = core.model.type('test:hexpad')
+            for v, b in testvectors:
+                if isinstance(b, (str, bytes)):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(r, b)
+                else:
+                    self.raises(b, t.norm, v)
+
+            # zeropad = 20
+            testvectors = [
+                ('0x12', '00000000000000000012'),
+                ('0x1234', '00000000000000001234'),
+                ('0x123456', '00000000000000123456'),
+                ('0x12345678', '00000000000012345678'),
+                ('0x123456789abcdef123456789abcdef', '123456789abcdef123456789abcdef'),
+                (b'\x12', '00000000000000000012'),
+                (b'\x12\x34', '00000000000000001234'),
+                (b'\x12\x34\x56', '00000000000000123456'),
+                (b'\x12\x34\x56\x78', '00000000000012345678'),
+                (b'\x12\x34\x56\x78', '00000000000012345678'),
+                (b'\x12\x34\x56\x78\x9a\xbc\xde\xf1\x23\x45\x67\x89\xab\xcd\xef', '123456789abcdef123456789abcdef'),
+            ]
+            t = core.model.type('test:zeropad')
             for v, b in testvectors:
                 if isinstance(b, (str, bytes)):
                     r, subs = t.norm(v)
@@ -386,6 +419,17 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
+
+            # Check creating and lifting zeropadded hex types
+            self.len(2, await core.nodes('[test:zeropad=11 test:zeropad=0x22]'))
+            self.len(1, await core.nodes('test:zeropad=0x11'))
+            self.len(1, await core.nodes('test:zeropad=000000000011'))
+            self.len(1, await core.nodes('test:zeropad=00000000000000000011'))  # len=20
+            self.len(0, await core.nodes('test:zeropad=0000000000000000000011'))  # len=22
+            self.len(1, await core.nodes('test:zeropad=22'))
+            self.len(1, await core.nodes('test:zeropad=000000000022'))
+            self.len(1, await core.nodes('test:zeropad=00000000000000000022'))  # len=20
+            self.len(0, await core.nodes('test:zeropad=0000000000000000000022'))  # len=22
 
     def test_int(self):
 

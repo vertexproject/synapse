@@ -2,12 +2,14 @@
 Async/Coroutine related utilities.
 '''
 import os
+import math
 import queue
 import atexit
 import asyncio
 import inspect
 import logging
 import functools
+import contextlib
 import multiprocessing
 import concurrent.futures
 
@@ -29,8 +31,9 @@ async def agen(item):
         non-blocking IO; otherwise that IO will block the ioloop.
     '''
     if getattr(item, '__aiter__', None) is not None:
-        async for x in item:
-            yield x
+        async with contextlib.aclosing(item) as agen:
+            async for x in agen:
+                yield x
         return
 
     for x in item:
@@ -249,7 +252,10 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         raise
 
 forkpool = None
+forkpool_sema = None
+max_workers = None
 def_max_workers = 8
+reserved_workers = 2
 if multiprocessing.current_process().name == 'MainProcess':
     # only create the forkpools in the MainProcess...
     try:
@@ -257,7 +263,9 @@ if multiprocessing.current_process().name == 'MainProcess':
         max_workers = int(os.getenv('SYN_FORKED_WORKERS', 0)) or max(def_max_workers, os.cpu_count() or def_max_workers)
         forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
         atexit.register(forkpool.shutdown)
+        forkpool_sema = asyncio.Semaphore(max(1, max_workers - reserved_workers))
     except OSError as e:  # pragma: no cover
+        max_workers = None
         logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
 def _runtodo(todo):
@@ -301,6 +309,25 @@ async def forked(func, *args, **kwargs):
 
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
     return await spawn(todo, log_conf=_pool_logconf)
+
+async def semafork(func, *args, **kwargs):
+    '''
+    Execute a target function in the shared forked process pool
+    gated by a semaphore to ensure there are workers reserved for the Storm parser.
+
+    Args:
+        func: The target function.
+        *args: Function positional arguments.
+        **kwargs: Function keyword arguments.
+
+    Returns:
+        The target function return.
+    '''
+    if forkpool_sema is None:
+        return await forked(func, *args, **kwargs)
+
+    async with forkpool_sema:
+        return await forked(func, *args, **kwargs)
 
 async def _parserforked(func, *args, **kwargs):
     '''

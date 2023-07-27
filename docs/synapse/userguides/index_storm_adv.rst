@@ -11,3 +11,4 @@ The are several more advanced Storm language language concepts which are documen
     storm_adv_vars
     storm_adv_methods
     storm_adv_control
+    storm_adv_functions

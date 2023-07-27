@@ -71,9 +71,9 @@ if [ ! -d $VENV ]; then
 
     . $VENV/bin/activate
 
-    python3 -Im ensurepip --default-pip
-    python3 -m pip install --no-cache-dir -U pip wheel
-    python3 -m pip install --no-cache-dir "certbot==2.0.0"
+    python3 -c "import urllib.request as ur; ur.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')"
+    python3 /tmp/get-pip.py  # installs pip, wheel, setuptools
+    python3 -m pip install --no-cache-dir "certbot==2.6.0"
 
 else
 

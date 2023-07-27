@@ -437,7 +437,7 @@ class StormType:
 
         name = await tostr(name)
 
-        stor = self.stors.get(await tostr(name))
+        stor = self.stors.get(name)
         if stor is None:
             mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
@@ -445,6 +445,8 @@ class StormType:
         await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
+        name = await tostr(name)
+
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
             return locl
@@ -509,6 +511,9 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+
+        name = await tostr(name)
+
         if name.startswith('__'):
             raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
 
@@ -3509,6 +3514,8 @@ class Proxy(StormType):
 
     async def deref(self, name):
 
+        name = await tostr(name)
+
         if name[0] == '_':
             mesg = f'No proxy method named {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
@@ -3574,6 +3581,9 @@ class Service(Proxy):
         self.name = ssvc.name
 
     async def deref(self, name):
+
+        name = await tostr(name)
+
         try:
             await self.proxy.waitready()
             return await Proxy.deref(self, name)
@@ -4244,6 +4254,11 @@ class Dict(Prim):
 
     async def setitem(self, name, valu):
 
+        if ismutable(name):
+            raise s_exc.BadArg(mesg='Mutable values are not allowed as dictionary keys', name=await torepr(name))
+
+        name = await toprim(name)
+
         if valu is undef:
             self.valu.pop(name, None)
             return
@@ -4251,6 +4266,7 @@ class Dict(Prim):
         self.valu[name] = valu
 
     async def deref(self, name):
+        name = await toprim(name)
         return self.valu.get(name)
 
     async def value(self):
@@ -4281,10 +4297,12 @@ class CmdOpts(Dict):
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
+        name = await tostr(name)
         mesg = 'CmdOpts may not be modified by the runtime'
         raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def deref(self, name):
+        name = await tostr(name)
         return getattr(self.valu.opts, name, None)
 
     async def value(self):
@@ -5110,6 +5128,12 @@ class LibVars(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the variable too.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'type', 'desc': 'Get the type of the argument value.',
+         'type': {'type': 'function', '_funcname': '_libVarsType',
+                  'args': (
+                     {'name': 'valu', 'type': 'any', 'desc': 'Value to inspect.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The type of the argument.'}}},
         {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
          'type': {'type': 'function', '_funcname': '_libVarsList',
                   'returns': {'type': 'list',
@@ -5123,6 +5147,7 @@ class LibVars(Lib):
             'set': self._libVarsSet,
             'del': self._libVarsDel,
             'list': self._libVarsList,
+            'type': self._libVarsType,
         }
 
     async def _libVarsGet(self, name, defv=None):
@@ -5136,6 +5161,9 @@ class LibVars(Lib):
 
     async def _libVarsList(self):
         return list(self.runt.vars.items())
+
+    async def _libVarsType(self, valu):
+        return await totype(valu)
 
 @registry.registerType
 class Query(Prim):
@@ -5285,6 +5313,7 @@ class NodeProps(Prim):
             s_exc.BadTypeValu: If the value of the property fails to normalize.
         '''
         name = await tostr(name)
+
         formprop = self.valu.form.prop(name)
         if formprop is None:
             mesg = f'No prop {self.valu.form.name}:{name}'
@@ -5762,9 +5791,11 @@ class PathMeta(Prim):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
+        name = await tostr(name)
         return self.path.metadata.get(name)
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
         if valu is undef:
             self.path.metadata.pop(name, None)
             return
@@ -5787,6 +5818,7 @@ class PathVars(Prim):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
+        name = await tostr(name)
 
         valu = self.path.getVar(name)
         if valu is not s_common.novalu:
@@ -5796,6 +5828,7 @@ class PathVars(Prim):
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
         if valu is undef:
             await self.path.popVar(name)
             return
@@ -7319,6 +7352,8 @@ class Trigger(Prim):
         return copy.deepcopy(self.valu)
 
     async def deref(self, name):
+        name = await tostr(name)
+
         valu = self.valu.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
@@ -7919,10 +7954,13 @@ class UserProfile(Prim):
         self.runt = runt
 
     async def deref(self, name):
+        name = await tostr(name)
         self.runt.confirm(('auth', 'user', 'get', 'profile', name))
         return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
+
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8088,9 +8126,12 @@ class UserVars(Prim):
         self.runt = runt
 
     async def deref(self, name):
+        name = await tostr(name)
         return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
+
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)
             return
@@ -9362,8 +9403,9 @@ def fromprim(valu, path=None, basetypes=True):
         return valu
 
     if basetypes:
-        mesg = 'Unable to convert python primitive to StormType.'
-        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+        ptyp = valu.__class__.__name__
+        mesg = f'Unable to convert python primitive to StormType ( {ptyp} )'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=ptyp)
 
     return valu
 
@@ -9529,3 +9571,43 @@ async def tobuidhex(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg)
 
     return valu
+
+async def totype(valu, basetypes=False) -> str:
+    '''
+    Convert a value to its Storm type string.
+
+    Args:
+        valu: The object to check.
+        basetypes (bool): If True, return the base Python class name as a fallback.
+
+    Returns:
+        str: The type name.
+
+    Raises:
+        StormRuntimeError: If the valu does not resolve to a known type and basetypes=False.
+    '''
+    if valu is undef:
+        return 'undef'
+
+    if valu is None:
+        return 'null'
+
+    if isinstance(valu, bool):
+        return 'boolean'
+
+    if isinstance(valu, int):
+        return 'int'
+
+    if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
+        return 'generator'
+
+    if isinstance(valu, (types.FunctionType, types.MethodType)):
+        return 'function'
+
+    # This may raise s_exc.NoSuchType
+    fp = fromprim(valu, basetypes=not basetypes)
+
+    if isinstance(fp, StormType):
+        return fp._storm_typename
+
+    return valu.__class__.__name__
