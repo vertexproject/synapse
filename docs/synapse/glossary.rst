@@ -109,6 +109,13 @@ digest of a node’s msgpack-encoded :ref:`gloss-ndef`.
 C
 =
 
+.. _gloss-callable-func:
+
+Callable Function
+-----------------
+
+See :ref:`gloss-func-callable`.
+
 .. _gloss-cell:
 
 Cell
@@ -253,6 +260,13 @@ Similar to a traditional Linux or Unix daemon, a Synapse daemon ("dmon") is a lo
 runs continuously in the background. A dmon is typically implemented by a Storm :ref:`gloss-service` and may be used
 for tasks such as processing elements from a :ref:`gloss-queue`. A dmon allows for non-blocking background processing
 of non-critical tasks. Dmons are persistent and will restart if they exit.
+
+.. _gloss-emitter-func:
+
+Data Emitter Function
+---------------------
+
+See :ref:`gloss-func-emitter`.
 
 .. _gloss-data-model:
 
@@ -553,6 +567,30 @@ Form, Simple
 
 In the Synapse :ref:`gloss-data-model`, a category of form whose primary property is a single typed value. Examples
 include domains (``inet:fqdn``) or hashes (e.g., ``hash:md5``).
+
+.. _gloss-func-callable:
+
+Function, Callable
+------------------
+
+In Storm, a callable function is a "regular" function that is invoked (called) and returns exactly one value.
+A callable function must include a ``return()`` statement and must not include the ``emit`` keyword.
+
+.. _gloss-func-emitter:
+
+Function, Data Emitter
+----------------------
+
+In Storm, a data emitter function emits data. The function returns a generator object that can be iterated over.
+A data emitter function must include the ``emit`` keyword and must not include a ``return()`` statement.
+
+.. _gloss-func-yielder:
+
+Function, Node Yielder
+----------------------
+
+In Storm, a node yielder function yields nodes. The function returns a generator object that can be iterated
+over. A node yielder function must not include either the ``emit`` keyword or a ``return()`` statement.
 
 .. _gloss-fused-know:
 
@@ -888,6 +926,13 @@ Node, Storage
 
 A storage node ("sode") is a collection of data for a given node (i.e., the node's primary property,
 secondary / universal properties, tags, etc.) that is present in a specific :ref:`gloss-layer`.
+
+.. _gloss-yielder-func:
+
+Node Yielder Function
+---------------------
+
+See :ref:`gloss-func-yielder`.
 
 .. _gloss-non-runtime-safe:
 
@@ -1247,6 +1292,13 @@ Slab
 A Slab is a core Synapse component which is used for persisting data on disk into a LMDB backed database. The Slab
 interface offers an asyncio friendly interface to LMDB objects, while allowing users to largely avoid having to
 handle native transactions themselves.
+
+.. _gloss-sode:
+
+Sode
+----
+
+Short for "storage node". See :ref:`gloss-node-storage`.
 
 .. _gloss-splice:
 
