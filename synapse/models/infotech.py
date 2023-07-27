@@ -386,11 +386,14 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Windows registry key/value pair.',
                 }),
                 ('it:dev:repotype', ('taxonomy', {}), {
-                    'doc': 'A Version Control System type taxonomy.',
+                    'doc': 'A version control system type taxonomy.',
                     'interfaces': ('taxonomy',)
                 }),
                 ('it:dev:repo', ('guid', {}), {
-                    'doc': 'A Version Control System instance.',
+                    'doc': 'A version control system instance.',
+                }),
+                ('it:dev:repo:branch', ('guid', {}), {
+                    'doc': 'A version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
                     'doc': 'A commit to a repository.',
@@ -401,8 +404,11 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
                 }),
-                ('it:dev:repo:comment', ('guid', {}), {
-                    'doc': 'A comment in a repository, either in an issue or on a file.',
+                ('it:dev:repo:issue:comment', ('guid', {}), {
+                    'doc': 'A comment on an issue in a repository.',
+                }),
+                ('it:dev:repo:diff:comment', ('guid', {}), {
+                    'doc': 'A comment on a diff in a repository.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A software product.',
@@ -1124,14 +1130,38 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
+                ('it:dev:repo:branch', {}, (
+                    ('parent', ('it:dev:repo:branch', {}), {
+                        'doc': 'The branch this branch was branched from.',
+                    }),
+                    ('start', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit in the parent branch this branch was created at.'
+                    }),
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The name of the branch.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the branch is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time this branch was created',
+                    }),
+                    ('merged', ('time', {}), {
+                        'doc': 'The time this branch was merged back into its parent.',
+                    }),
+                    ('deleted', ('time', {}), {
+                        'doc': 'The time this branch was deleted.',
+                    }),
+                )),
+
                 ('it:dev:repo:commit', {}, (
-                    ('repo', ('str', {}), {
+                    ('repo', ('it:dev:repo', {}), {
                         'doc': 'The repository the commit lives in.',
                     }),
                     ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
                         'doc': 'The commit or commits this commit is immediately based on.',
                     }),
-                    ('branch', ('str', {}), {
+                    ('branch', ('it:dev:repo:branch', {}), {
                         'doc': 'The name of the branch the commit was made to.',
                     }),
                     ('mesg', ('str', {}), {
@@ -1144,6 +1174,9 @@ class ItModule(s_module.CoreModule):
                     ('created', ('time', {}), {
                         'doc': 'When the commit was made.',
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the commit is hosted.',
+                    }),
                 )),
 
                 ('it:dev:repo:diff', {}, (
@@ -1155,6 +1188,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the file in the repo that the diff is being applied to.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the diff is hosted.',
                     }),
                 )),
 
@@ -1170,35 +1206,48 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The text describing the issue.'
                     }),
                     ('created', ('time', {}), {
-                        'doc': 'The time the issues created.',
+                        'doc': 'The time the issue was created.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the issue is hosted.',
                     }),
                 )),
 
-                ('it:dev:repo:comment', {}, (
-                    ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repo the comment was added to.',
+                ('it:dev:repo:issue:comment', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue thread that the comment was made in.',
                     }),
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'The body of the comment.',
                     }),
-                    ('replyto', ('it:dev:repo:comment', {}), {
+                    ('replyto', ('it:dev:repo:issue:comment', {}), {
                         'doc': 'The comment that this comment is replying to.',
                     }),
-                    ('issue', ('it:dev:repo:issue', {}), {
-                        'doc': 'The issue thread that the comment was made in.',
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the comment is hosted.',
                     }),
-                    ('file', ('file:bytes', {}), {
-                        'doc': 'The file being commented on.',
+                )),
+
+                ('it:dev:repo:diff:comment', {}, (
+                    ('diff', ('it:dev:repo:diff', {}), {
+                        'doc': 'The diff the comment is being added to.',
                     }),
-                    ('path', ('file:path', {}), {
-                        'doc': 'The path to the file in the repo that was commented on.',
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The body of the comment.',
+                    }),
+                    ('replyto', ('it:dev:repo:diff:comment', {}), {
+                        'doc': 'The comment that this comment is replying to.',
                     }),
                     ('line', ('int', {}), {
                         'doc': 'The line in the file that is being commented on.',
                     }),
                     ('offset', ('int', {}), {
                         'doc': 'The offset in the line in the file that is being commented on.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the comment is hosted.',
                     }),
                 )),
 
@@ -1739,13 +1788,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
                     ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 of the client during the URL retrieval..'
+                        'doc': 'The IPv4 of the client during the URL retrieval.'
                     }),
                     ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 of the client during the URL retrieval..'
+                        'doc': 'The IPv6 of the client during the URL retrieval.'
                     }),
                     ('client:port', ('inet:port', {}), {
-                        'doc': 'The client port during the URL retrieval..'
+                        'doc': 'The client port during the URL retrieval.'
                     }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
