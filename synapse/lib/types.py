@@ -624,20 +624,37 @@ class Hex(Type):
 
     _opt_defs = (
         ('size', 0),  # type: ignore
-        ('zeropad', False),
+        ('zeropad', 0),
     )
 
     def postTypeInit(self):
         self._size = self.opts.get('size')
+
+        # This is for backward compat with v2.142.x where zeropad was a bool
+        self._zeropad = self.opts.get('zeropad')
+        if isinstance(self._zeropad, bool):
+            if self._zeropad:
+                self._zeropad = self._size
+            else:
+                self._zeropad = 0
+
         if self._size < 0:
             # zero means no width check
             raise s_exc.BadConfValu(name='size', valu=self._size,
-                                    mesg='Size must be > 0')
+                                    mesg='Size must be >= 0')
         if self._size % 2 != 0:
             raise s_exc.BadConfValu(name='size', valu=self._size,
                                     mesg='Size must be a multiple of 2')
 
-        self._zeropad = self.opts.get('zeropad')
+        if self._zeropad < 0:
+            raise s_exc.BadConfValu(name='zeropad', valu=self._zeropad,
+                                    mesg='Zeropad must be >= 0')
+        if self._zeropad % 2 != 0:
+            raise s_exc.BadConfValu(name='zeropad', valu=self._zeropad,
+                                    mesg='Zeropad must be a multiple of 2')
+
+        if self._size:
+            self._zeropad = min(self._zeropad, self._size)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(bytes, self._normPyBytes)
@@ -672,8 +689,8 @@ class Hex(Type):
     def _normPyStr(self, valu):
         valu = s_chop.hexstr(valu)
 
-        if self._zeropad and len(valu) < self._size:
-            padlen = self._size - len(valu)
+        if self._zeropad and len(valu) < self._zeropad:
+            padlen = self._zeropad - len(valu)
             valu = ('0' * padlen) + valu
 
         if self._size and len(valu) != self._size:

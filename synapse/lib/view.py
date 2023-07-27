@@ -421,8 +421,8 @@ class View(s_nexus.Pusher):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
-        if text is None:
-            mesg = 'Storm query text cannot be null'
+        if not isinstance(text, str):
+            mesg = 'Storm query text must be a string'
             raise s_exc.BadArg(mesg=mesg)
 
         opts = self.core._initStormOpts(opts)

@@ -63,6 +63,7 @@ import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.math as s_stormlib_math  # NOQA
 import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
+import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
@@ -1652,6 +1653,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # Check for deprecated properties which are unused and unlocked
         deprs = await self.getDeprLocks()
 
+        count = 0
+
         for propname, locked in deprs.items():
             if locked:
                 continue
@@ -1669,11 +1672,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
                         break
-
             else:
-                mesg = 'Deprecated property {prop.full} is unlocked and not in use. '
-                mesg += 'Recommend locking (https://v.vtx.lk/deprlock).'
-                logger.info(mesg.format(prop=prop))
+                count += 1
+
+        if count:
+            mesg = f'Detected {count} deprecated properties unlocked and not in use, '
+            mesg += 'recommend locking (https://v.vtx.lk/deprlock).'
+            logger.warning(mesg)
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):

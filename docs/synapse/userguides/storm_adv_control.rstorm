@@ -24,10 +24,11 @@ are learning to program in Storm) to possible use cases and simple examples for 
 included some :ref:`storm-adv-tips` and an :ref:`storm-adv-example` to provide some pointers and an illustration
 of how Storm's "pipeline" behavior and control flow structures may interact.
 
-See the follwing User Guide and Reference sections for additional information:
+See the following User Guide and Reference sections for additional information:
 
 - :ref:`storm-adv-vars`
 - :ref:`storm-adv-methods`
+- :ref:`storm-adv-functions`
 - :ref:`stormtypes-libs-header`
 - :ref:`stormtypes-prim-header`
 
@@ -40,60 +41,12 @@ Advanced Storm - Tips
 
 .. _storm-adv-concepts:
 
-Storm Operating Concepts - Review
-+++++++++++++++++++++++++++++++++
+Storm Operating Concepts
+++++++++++++++++++++++++
 
-.. TIP::
-
-  It is essential to keep the Storm Operating Concepts in mind when using more advanced Storm queries and
-  constructs. For standard Storm queries, these concepts are intuitive - you don't really need to think about
-  them, and Storm just works. However, these concepts are critical to writing more advanced Storm - remembering
-  these fundamentals can save you time and headaches trying to debug a Storm query that is not behaving the
-  way you think it should.
-
-Users are **strongly encouraged** to review the :ref:`storm-op-concepts` as well as the additional data below.
-
-**WORKING SET**
-
- - We use the term **working set** to refer to the set of nodes you are operating on in Storm.
- 
-   - The nodes you "start with" (often by performing an initial lift operation) are your **initial working set**.
-   - The nodes at any given point in a Storm query are your **current working set**.
-
-**OPERATION CHAINING**
-
- - Storm operations (lifts, filters, pivots, subqueries, commands, control flow elements...) can be **chained**
-   together to form longer queries. However, each operation is executed **individually** and **in sequence**.
- 
-**NODE CONSUMPTION**
- 
- - Each Storm operation typically **changes your current working set**. (We sometimes say that Storm operations
-   **consume** nodes. This refers to the fact that in many cases the nodes that "come out" of a Storm operation
-   are not the same nodes that "went in".)
-   
-   If you perform a filter operation, the resulting set of nodes is typically a **subset** of the ones you
-   started with. If you use a pivot operation, you typically leave your "original" nodes behind and "move to"
-   the new nodes. In most cases, your current working set is constantly changing.
-
-**STORM AS A PIPELINE**
-
- - A Storm query made up of multiple chained operations acts as a **pipeline** through which **each** node passes
-   individually.
-   
-   - This means that a Storm query is executed once for **each** node that passes through the pipeline - **not**
-     "just once" for the entire set of nodes.
-   - The fact that each inbound node is processed **independently** by each Storm operation impacts your current
-     working set.
-     
-     A simple example of this impact is the "duplication" of results (nodes) following some pivot operations 
-     - this is expected behavior. If you pivot from a set of FQDNs (``inet:fqdn``) to their DNS A records
-     (``inet:dns:a``) and then to the associated IPv4 addresses (``inet:ipv4``), your results may include multiple
-     instances of the same IPv4 node if more than one FQDN resolved to the same IPv4 address. In short, you get
-     one "copy" of the IPv4 for **each** FQDN that resolved to (had a DNS A record for) that address. (The Storm
-     :ref:`storm-uniq` command is used to de-duplicate the nodes in the current working set).
-
-The way Storm behaves - these operating concepts - impacts advanced constructs such as control flow, and are
-important to understand when writing and debugging more advanced Storm.
+It is important to keep the high-level :ref:`storm-op-concepts` in mind when writing Storm queries or
+code. These concepts are **critical** to writing more advanced Storm - remembering these fundamentals can
+save you time and headaches trying to debug a Storm query that is not behaving the way you think it should.
 
 .. TIP::
   
@@ -108,24 +61,19 @@ Storm Debugging Tips
 
 A few helpful tips when writing and debugging advanced Storm:
 
-**Be aware of your pipeline.**
+**Be aware of your pipeline.** That is, understand what node or nodes are in your **current working set**
+at any point in your query. A significant part of Storm troubleshooting comes down to figuring out that the
+current working set is not what you think it is.
 
-That is, understand what is in your **current working set** at any point in your query. A significant part of Storm
-troubleshooting comes down to figuring out that the current working set is not what you think it is.
+**Be aware of your variables.** Storm supports both runtime-safe ("runtsafe") and non-runtime-safe
+("non-runtsafe") variables. Non-runtsafe variables have values that may **change** based on the current node
+in the Storm pipeline. Another significant part of Storm troubleshooting involves understanding the values of
+any variables at any given point in your Storm code. (See :ref:`var-concepts` for addditional information.)
 
-**Be aware of your variables.**
-
-Storm supports both runtime-safe ("runtsafe") and non-runtime-safe ("non-runtsafe") variables. Non-runtsafe
-variables have values that may **change** based on the current node in the Storm pipeline. Another significant
-part of Storm troubleshooting involves understanding the values of any variables at any given point in your
-Storm code. (See :ref:`var-concepts` for addditional information.)
-
-**Operations may execute multiple times.**
-
-Because each node passes through each operation in a Storm query individually, operations execute more than once
-(typically once for each node in the pipeline as it passes through that operation). This includes control flow
-operations, such as for loops! If you don't account for this behavior with control flow operations in particular,
-it can result in behavior such as:
+**Operations may execute multiple times.** Because each node passes through each operation in a Storm query
+individually, operations execute more than once (typically once for each node in the pipeline as it passes
+through that operation). This includes control flow operations, such as for loops! If you don't account for
+this behavior with control flow operations in particular, it can result in behavior such as:
 
  - An exponentially increasing working set (if each node passing through an operation generates multiple results,
    and the results are not deduplicated / uniq'ed appropriately).
@@ -134,25 +82,24 @@ it can result in behavior such as:
  - A variable that **fails** to be set for a node that does **not** pass through the operation where the variable
    is assigned (resulting in a ``NoSuchVar`` error).
  
-**Use subqueries...but understand how they work.**
- 
-Unlike most Storm operations and commands, subqueries **do not consume** nodes - by default, what goes into a
-subquery comes out of a subquery, regardless of what happens inside the subquery itself. This means you can use
-subqueries (see :ref:`storm-ref-subquery`) with advanced Storm to isolate certain operations and keep the
-"primary" nodes passing through the Storm pipeline consistent.
+**Use subqueries...but understand how they work.** Unlike most Storm operations and commands, subqueries
+**do not consume** nodes - by default, what goes into a subquery comes out of a subquery, regardless of what
+happens inside the subquery itself. This means you can use `subqueries`_ with advanced Storm to isolate certain
+operations and keep the "primary" nodes passing through the Storm pipeline consistent. That said, a node still
+has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery **fails** to execute,
+it may be because nothing is going in to it.
 
-That said, a node still has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery
-**fails** to execute, it may be because nothing is going in to it.
+**Use functions to encapsulate operations.** As Storm increases in length or complexity, it can become
+increasingly challenging to keep track of your pipeline and working set. `Functions`_ can be used to simplify
+your Storm by isolating specific Storm logic within a function.
 
-**Start small and add to your Storm incrementally.**
+**Start small and add to your Storm incrementally.** It's easier to verify that smaller Storm queries execute
+correctly and then build on that code than to try and write a more advanced query all at once and try to figure
+out where things aren't working.
 
-It's easier to verify that smaller Storm queries execute correctly and then build on that code than to try and
-write a more advanced query all at once and try to figure out where things aren't working.
-
-**As with all debugging, print statements are your friend.**
-
-Scatter ``$lib.print()`` or ``$lib.pprint()`` statements (see :ref:`stormlibs-lib-print` and :ref:`stormlibs-lib-pprint`)
-generously throughout your Storm during testing. You can print message strings at various points during execution:
+**As with all debugging, print statements are your friend.** Scatter `$lib.print()`_ or `$lib.pprint()`_
+statements generously throughout your Storm during testing. You can print message strings at various points
+during execution:
 
 ::
   
@@ -168,7 +115,7 @@ You can print the value of a variable, to check its value at a given point in yo
 
 You can also print values associated with the node(s) in the current working set, using the various methods
 associated with the ``$node`` Storm type. (See :ref:`storm-adv-methods` for a user-focused introduction to methods,
-or :ref:`stormprims-storm-node-f527` in the detailed Storm Libraries / Storm Types documentation for a more
+or :ref:`stormprims-node-f527` in the detailed Storm Libraries / Storm Types documentation for a more
 technical discussion.)
 
 ::
@@ -191,9 +138,9 @@ Control Flow Operations
 Init Block
 ++++++++++
 
-An **init block** allows you to execute the specified Storm **once** at the beginning of your Storm query.
-This allows you to use Storm to perform a set of operations a single time only. Without the init block,
-the code would be executed once for **each** node passing through the Storm query.
+An **init block** allows you to execute the specified Storm **once** at the beginning of your Storm query,
+before nodes enter the Storm pipeline. This allows you to use Storm to perform a set of operations a **single**
+time only.
 
 See also :ref:`flow-fini`.
 
@@ -232,9 +179,8 @@ Fini Block
 ++++++++++
 
 A **fini block** allows you to execute the specified Storm **once** after all nodes have passed through
-the preceding code in the Storm pipeline. This allows you to use Storm to perform a set of operations
-a single time "outside" of the normal Storm pipeline; without the fini block, the code would be executed
-once for **each** node passing through the query.
+the Storm pipeline. This allows you to use Storm to perform a set of operations a **single** time at the end
+of a Storm query.
 
 See also :ref:`flow-init`.
 
@@ -369,8 +315,8 @@ The Storm query above:
 - if ``$lib.bytes.has(:sha256)`` returns ``true`` (i.e., we have the file), do nothing (``{  }``);
 - otherwise call the ``malware.download`` service to attempt to download the file.
 
-**Note:** In the above example, ``malware.download`` is used as an example Storm service name only; it does not
-exist in the base Synapse code.
+**Note:** In the above example, ``malware.download`` is used as an example Storm command; it does not exist
+in the base Synapse code.
 
 
 .. _flow-switch:
@@ -441,8 +387,7 @@ The default case above is not strictly necessary - any inbound nodes that fail t
 pass through the switch statement with no action taken. It is used above to illustrate the optional use of a
 default case for any non-matching nodes.
 
-**Note:** the Storm command names used above are examples only. Commands with those names do not exist in the
-base Synapse code.  
+**Note:** the Storm command names used above are examples only and do not exist in the base Synapse code.  
 
 .. _flow-for:
 
@@ -461,8 +406,8 @@ A **for loop** will iterate over a set of objects, performing the specified Stor
       <storm>
   }
 
-**Note:** The user documentation for the Synapse csvtool (:ref:`syn-tools-csvtool`) includes additional examples
-of using a for loop to iterate over the rows of a CSV-formatted file (i.e., ``for $row in $rows { <storm> }``).
+**Note:** The user documentation for the Synapse :ref:`syn-tools-csvtool` and the Optic `Ingest Tool`_
+include additional examples of using for loops.
 
 **Example:**
 
@@ -471,7 +416,7 @@ associated with a particular malware family (``cno.mal.redtree``) or threat grou
 When you apply any of these tags to a file, you want to automatically apply those same tags to the file's
 associated hashes (e.g., ``hash:md5``, etc.)
 
-You can use a for loop to iterate over the relevant tags on the file and apply("push") the same set of tags to
+You can use a for loop to iterate over the relevant tags on the file and apply ("push") the same set of tags to
 the file's hashes. (**Note:** this code could be executed by a **trigger** (see :ref:`auto-triggers`) that fires
 when the relevant tag(s) are applied.)
 
@@ -609,6 +554,11 @@ so the macro will continue to run if an error is encountered.
      $lib.warn("BadVendor blew up again!")
   }
 
+.. TIP::
+  
+  ``$lib.raise()`` may also be useful for explicitly raising exceptions (see :ref:`stormlibs-lib-raise`).
+
+
 .. _storm-adv-example:
 
 Advanced Storm - Example
@@ -723,3 +673,9 @@ We still have our single FQDN inbound to the subquery. Inside the subquery, our 
 exit the subquery, those pipelines are "discarded". The single FQDN that went into the subquery exits the subquery.
 We are back to our single node in the main pipeline. That single node causes our print statement to print
 ``And we're done!`` only once, and we are left with our single node at the end of the query.
+
+.. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
+.. _Functions: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_functions.html
+.. _$lib.print(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-print-mesg-kwargs
+.. _$lib.pprint(): https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_libs.html#lib-pprint-item-prefix-clamp-none 
+.. _Ingest Tool: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/ingest_tool.html#ingest-examples
