@@ -9526,6 +9526,7 @@ async def toint(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
+
     if noneok and valu is None:
         return
 
@@ -9535,13 +9536,11 @@ async def toiter(valu, noneok=False):
         return
 
     try:
-        genr = iter(valu)
+        async for item in s_coro.agen(valu):
+            yield item
     except TypeError as e:
         mesg = f'Value is not iterable: {valu!r}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
-
-    for item in genr:
-        yield item
 
 async def torepr(valu, usestr=False):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
