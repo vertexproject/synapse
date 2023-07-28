@@ -125,7 +125,8 @@ For path and repr information, see the examples in the opts documentation :ref:`
 ping
 ----
 
-A keepalive message. This is sent periodically. See :ref:`dev_storm_opts` for more information.
+A keepalive message. This is sent periodically when the ``keepalive`` options is set. See :ref:`dev_storm_opts` for
+more information.
 
 print
 -----
@@ -444,7 +445,10 @@ keepalive
 ---------
 
 This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streamiing results,
-such as the Telepath ``.storm()`` API or the HTTP ``/v1/api/storm`` API endpoint. The value must be greater than zero.
+such as the Telepath ``.storm()`` API or the HTTP ``/v1/api/storm`` API endpoint. This may be used with long-running
+Storm queries when behind a network proxy or load balancer which may terminate idle connections.
+
+The keepalive value must be greater than zero.
 
 Example:
 
