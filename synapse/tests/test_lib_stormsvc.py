@@ -914,9 +914,14 @@ class StormSvcTest(s_test.SynTest):
                         await core01.nodes(f'service.add real {lurl}')
                         await core01.nodes('$lib.service.wait(real)')
 
-                        self.true(await core01.nexsroot.nexslog.waitForOffset(waitindx, timeout=5))
+                        # Waiting for the svc to be ready on the leader means that any
+                        # svc add event has been serviced.
+                        await core00.nodes('$lib.service.wait(real)')
 
-                        # Make sure it shows up on leader
+                        # Sync the follower to ensure we're caught up.
+                        await core01.sync()
+
+                        # Make sure the package loaded on the leader and the svc add events fired
                         msgs = await core00.stormlist('help')
                         self.stormIsInPrint('service: real', msgs)
                         self.stormIsInPrint('package: foo', msgs)
