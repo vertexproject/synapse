@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-v2.143.0 - TBD
-==============
+v2.143.0 - 2023-07-28
+=====================
 
 Model Changes
 -------------
@@ -55,6 +55,9 @@ Features and Enhancements
 - The Storm ``$lib.gen()`` functions and associated commands now generate
   stable guid values based on their inputs when making nodes.
   (`#3268 <https://github.com/vertexproject/synapse/pull/3268>`_)
+- Add the ``.bazar`` TLD to the list of TLDs identified by the Synapse scrape
+  functionality.
+  (`#3271 <https://github.com/vertexproject/synapse/pull/3271>`_)
 - Add the View iden to the task identifier for running Storm tasks.
   (`#3247 <https://github.com/vertexproject/synapse/pull/3247>`_)
 - Add performance related sysctl values to the output of the Storm
