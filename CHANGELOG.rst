@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-v2.143.0 - TBD
-==============
+v2.143.0 - 2023-07-28
+=====================
 
 Model Changes
 -------------
@@ -22,7 +22,7 @@ Model Changes
   Updated Properties
   ------------------
 
-  ``cyrpto:509:cert``
+  ``crypto:x509:cert``
     The form had the following properties updated on it:
 
     ``serial``
@@ -34,11 +34,11 @@ Features and Enhancements
 -------------------------
 - Add ``$lib.model.ext.getExtModel()`` and
   ``$lib.model.ext.addExtModel()`` Storm APIs to get all the extended model
-  definitions in a Cortex and to add extended extended model definitions to
+  definitions in a Cortex and to add extended model definitions to
   a Cortex in bulk.
   (`#3252 <https://github.com/vertexproject/synapse/pull/3252>`_)
 - Add ``inet:ipv6`` to the list of types identified with scrape APIs. The
-  ``inet:server`` form identified by scrape APIs now also identifies IPV6
+  ``inet:server`` form identified by scrape APIs now also identifies IPv6
   server addresses.
   (`#3259 <https://github.com/vertexproject/synapse/pull/3259>`_)
 - Add a check to the Cortex startup to identify and log the presence of
@@ -55,6 +55,9 @@ Features and Enhancements
 - The Storm ``$lib.gen()`` functions and associated commands now generate
   stable guid values based on their inputs when making nodes.
   (`#3268 <https://github.com/vertexproject/synapse/pull/3268>`_)
+- Add the ``.bazar`` TLD to the list of TLDs identified by the Synapse scrape
+  functionality.
+  (`#3271 <https://github.com/vertexproject/synapse/pull/3271>`_)
 - Add the View iden to the task identifier for running Storm tasks.
   (`#3247 <https://github.com/vertexproject/synapse/pull/3247>`_)
 - Add performance related sysctl values to the output of the Storm
@@ -70,7 +73,7 @@ Bugfixes
   string.
   (`#3255 <https://github.com/vertexproject/synapse/pull/3255>`_)
   (`#3269 <https://github.com/vertexproject/synapse/pull/3269>`_)
-- Fix a bug in ``synapse.tools.aha.enroll`` where a user with an
+- Fix a bug in ``synapse.tools.aha.enroll`` where a user with a
   ``telepath.yaml`` file containing an ``aha:servers`` key with a list of
   lists failed to enroll a local user.
   (`#3260 <https://github.com/vertexproject/synapse/pull/3260>`_)
@@ -79,7 +82,7 @@ Bugfixes
   (`#3250 <https://github.com/vertexproject/synapse/pull/3250>`_)
 - Add verification that a Storm function call is being made on a callable
   object and raise a ``StormRuntimeError`` if the object cannot be called.
-  Previously invalid calls could raise an ``TypeError``.
+  Previously invalid calls could raise a ``TypeError``.
   (`#3243 <https://github.com/vertexproject/synapse/pull/3243>`_)
 - Fix the order of the Beholder ``cron:stop`` message firing when a Cron job
   is stopped.
