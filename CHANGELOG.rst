@@ -58,6 +58,8 @@ Features and Enhancements
 - Add the ``.bazar`` TLD to the list of TLDs identified by the Synapse scrape
   functionality.
   (`#3271 <https://github.com/vertexproject/synapse/pull/3271>`_)
+- Support async generators in the ``synapse.lib.stormtypes.toiter()`` API.
+  (`#3274 <https://github.com/vertexproject/synapse/pull/3274>`_)
 - Add the View iden to the task identifier for running Storm tasks.
   (`#3247 <https://github.com/vertexproject/synapse/pull/3247>`_)
 - Add performance related sysctl values to the output of the Storm
