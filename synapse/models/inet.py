@@ -230,7 +230,7 @@ class Fqdn(s_types.Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu == '':
                 mesg = 'Cannot generate fqdn index bytes for a empty string.'
@@ -394,7 +394,7 @@ class IPv4(s_types.Type):
 
     def _ctorCmprEq(self, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -484,7 +484,7 @@ class IPv4(s_types.Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -554,7 +554,7 @@ class IPv6(s_types.Type):
 
         try:
 
-            if type(valu) == str:
+            if isinstance(valu, str):
                 valu = s_chop.printables(valu)
                 if valu.find(':') == -1:
                     valu = '::ffff:' + valu
@@ -619,7 +619,7 @@ class IPv6(s_types.Type):
 
     def _ctorCmprEq(self, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -641,7 +641,7 @@ class IPv6(s_types.Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
