@@ -671,7 +671,7 @@ class Hex(Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
             valu = self._preNormHex(valu)
             if valu.endswith('*'):
                 return (
