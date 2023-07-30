@@ -300,6 +300,11 @@ class DnsModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('inet:dns:answer', '*', props)
                 self.eq(node.get('txt'), (fqdn0, 'Oh my!'))
 
+                # Time prop
+                props = {'time': "2018"}
+                node = await snap.addNode('inet:dns:answer', '*', props)
+                self.eq(node.get('time'), 1514764800000)
+
     async def test_model_dns_wild(self):
 
         async with self.getTestCore() as core:
