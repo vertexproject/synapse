@@ -1398,6 +1398,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             branch = s_common.guid()
             icom = s_common.guid()
             dcom = s_common.guid()
+            origin = s_common.guid()
             file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
 
             props = {
@@ -1406,9 +1407,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'desc': 'Synapse Central Intelligence System',
                     'created': 0,
                     'url': 'https://github.com/vertexproject/synapse',
-                    'upstream': s_common.guid(),
                     'type': 'svn.',
                     'submodules': (s_common.guid(),),
+                },
+
+                ('it:dev:repo:remote', s_common.guid()): {
+                    'name': 'origin',
+                    'repo': repo,
+                    'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
+                    'remote': origin,
                 },
 
                 ('it:dev:repo:commit', commit): {
@@ -1472,7 +1479,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             nodes = await core.nodes('it:dev:repo <- *')
-            self.len(3, nodes)
+            self.len(4, nodes)
 
             nodes = await core.nodes('it:dev:repo:commit')
             self.len(3, nodes)
@@ -1485,6 +1492,17 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('it:dev:repo:diff:comment')
             self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote :repo -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', repo))
+
+            nodes = await core.nodes('it:dev:repo:remote :remote -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', origin))
 
             nodes = await core.nodes('it:dev:repo:issue:comment=$guid :replyto -> *', {'vars': {'guid': icom}})
             self.len(1, nodes)

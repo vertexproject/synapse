@@ -392,6 +392,9 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:repo', ('guid', {}), {
                     'doc': 'A version control system instance.',
                 }),
+                ('it:dev:repo:remote', ('guid', {}), {
+                    'doc': 'A remote repo that is tracked for changes/branches/etc.',
+                }),
                 ('it:dev:repo:branch', ('guid', {}), {
                     'doc': 'A version control system instance.',
                 }),
@@ -1118,15 +1121,28 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL where the repository is hosted.',
                     }),
-                    ('upstream', ('it:dev:repo', {}), {
-                        'doc': 'The repository that changes are copied to or from.',
-                    }),
                     ('type', ('it:dev:repo:type:taxonomy', {}), {
                         'doc': 'The type of the version control system used.',
                         'ex': 'svn'
                     }),
                     ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
                         'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
+                    }),
+                )),
+
+                ('it:dev:repo:remote', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name the repo is using for the remote repo.',
+                        'ex': 'origin'
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL the repo is using to access the remote repo.',
+                    }),
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo that is tracking the remote repo.',
+                    }),
+                    ('remote', ('it:dev:repo', {}), {
+                        'doc': 'The instance of the remote repo.',
                     }),
                 )),
 
