@@ -7,28 +7,47 @@
 Storm Reference - Advanced - Methods
 ====================================
 
-Some of Storm’s :ref:`vars-builtin` support **methods** used to perform various actions on the object represented by the variable.
+Some of Storm’s :ref:`vars-builtin` support **methods** used to perform various actions on the object
+represented by the variable.
 
-A **subset** of the built-in variables / objects that support methods, along with a few commonly used methods and examples, are listed below. For full detail, refer to the :ref:`stormtypes-prim-header` technical reference.
+A **subset** of the built-in variables / objects that support methods, along with a few commonly used
+methods and examples, are listed below. For full detail, refer to the :ref:`stormtypes-prim-header`
+technical reference.
 
-The built-in :ref:`vars-global-lib` variable is used to access Storm libraries. See the :ref:`stormtypes-libs-header` technical reference for additional detail on available libraries.
+The built-in :ref:`vars-global-lib` variable is used to access Storm libraries. See the :ref:`stormtypes-libs-header`
+technical reference for additional detail on available libraries.
 
 .. NOTE::
 
-  In the examples below, the ``$lib.print()`` library function is used to display the value returned when a specific built-in variable or method is called. This is done for illustrative purposes only; ``$lib.print()`` is not required in order to use variables or methods.
+  In the examples below, the ``$lib.print()`` library function is used to display the value returned
+  when a specific built-in variable or method is called. This is done for illustrative purposes only;
+  ``$lib.print()`` is not required in order to use variables or methods.
+  
+  In some examples the Storm :ref:`storm-spin` command is used to suppress display of the node itself.
+  We do this for cases where displaying the node detracts from illustrating the value of the variable.
 
-In some instances we have also included "use-case" examples, where the variable or method is used in one or more sample queries to illustrate possible practical use cases. These represent exemplar Storm queries for how a variable or method might be used in practice. While we have attempted to use relatively simple examples for clarity, some examples may leverage additional Storm features such as subqueries (:ref:`storm-ref-subquery`), subquery filters (:ref:`filter-subquery`), or flow control elements such as "for" loops or "switch" statements (:ref:`storm-adv-control`).
+In some instances we have included "use-case" examples, where the variable or method is used in a sample
+query to illustrate a possible practical use. These represent exemplar Storm queries for how a variable
+or method might be used in practice. While we have attempted to use relatively simple examples for clarity,
+some examples may leverage additional Storm features such as `subqueries`_, `subquery filters`_, or 
+`control flow`_ elements such as for loops or switch statements.
+
 
 .. _meth-node:
 
 $node
 -----
 
-:ref:`vars-node-node` is a built-in Storm variable that references **the current node in the Storm query pipeline.** ``$node`` can be used as a variable on its own or with the example methods listed below. See the :ref:`stormprims-storm-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation for a full list.
+:ref:`vars-node-node` is a built-in Storm variable that references **the current node in the Storm query pipeline.**
+``$node`` can be used as a variable on its own or with the example methods listed below. See the
+:ref:`stormprims-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation
+for a full list.
 
 .. NOTE::
 
-  As the ``$node`` variable and related methods reference the current node in the Storm pipeline, the variable and its methods will contain (and return) a null value if the inbound result set is empty (i.e., contains no nodes).
+  As the ``$node`` variable and related methods reference the current node in the Storm pipeline, any Storm
+  logic referencing ``$node`` will fail to execute if the pipeline does not contain a node (i.e., based on
+  previously executing Storm logic).
 
 **Examples**
 
@@ -39,30 +58,26 @@ $node
 
 - Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
 
-.. storm-pre:: [inet:fqdn=aunewsonline.com +#aka.feye.thr.apt1 +#cno.infra.sink.hole.kleissner=(2013/11/26,2016/11/26)]
+.. storm-pre:: [inet:fqdn=aunewsonline.com +#rep.mandiant.apt1 +#cno.infra.dns.sink.hole.kleissner=(2013/11/26,2016/11/26)]
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node) | spin
 
 .. NOTE::
 
-  The value of ``$node`` is the entire node object and associated properties and tags, as opposed to a specific aspect of the node, such as its iden or primary property value.
+  The value of ``$node`` is the entire node object and associated properties and tags, as opposed to a specific
+  aspect of the node, such as its iden or primary property value.
   
-  As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full node object (the value of the ``$node`` variable) when creating new nodes.
+  As demonstrated below, some node constructors can "intelligently" leverage the relevant aspects of the full
+  node object (the value of the ``$node`` variable) when creating new nodes.
 
-- Use the ``$node`` variable to create an ``edge:refs`` node showing that a news article references the domain woot[.]com:
+- Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) for the name
+  server ``ns1.somedomain.com`` from a set of inbound whois record nodes for the domain ``woot.com``:
 
-.. storm-pre:: [media:news=a3759709982377809f28fc0555a38193]
-.. storm-cli:: media:news=a3759709982377809f28fc0555a38193 [ edge:refs=($node,(inet:fqdn,woot.com)) ]
+.. storm-pre:: [ (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com) ]
+.. storm-cli:: inet:whois:rec:fqdn=woot.com [ inet:whois:recns=(ns1.somedomain.com,$node) ]
 
-
-In the example above, the :ref:`meth-node-ndef` method could have been used instead of ``$node`` to create the ``edge:refs`` node. In this case, the node constructor knows to use the ndef from the ``$node`` object to create the node.
-
-- Use the ``$node`` variable to create multiple whois name server records (``inet:whois:recns``) from a set of inbound recent whois record nodes for the domain woot[.]com:
-
-.. storm-pre:: [ (inet:whois:rec=(woot.com,2019/03/02) :text=ns1.differentdomain.com) (inet:whois:rec=(woot.com,2019/06/13) :text=ns1.somedomain.com) (inet:whois:rec=(woot.com,2019/09/12) :text=ns1.somedomain.com)]
-.. storm-cli:: inet:whois:rec:fqdn=woot.com +:asof>=2019/06/13 [ inet:whois:recns=(ns1.somedomain.com,$node) ]
-
-
-In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to create the ``inet:whois:recns`` nodes. In this case, the node constructor knows to use the primary property value from the ``inet:whois:rec`` nodes to create the ``inet:whois:recns`` nodes.
+In the example above, the :ref:`meth-node-value` method could have been used instead of ``$node`` to create
+the ``inet:whois:recns`` nodes. In this case, the node constructor knows to use the primary property value
+from the ``inet:whois:rec`` nodes to create the ``inet:whois:recns`` nodes.
 
 .. _meth-node-form:
 
@@ -86,16 +101,21 @@ The method takes no arguments.
 $node.globtags()
 ++++++++++++++++
 
-The ``$node.globtags()`` method returns a **list of string matches from the set of tags applied to the current node** in the Storm pipeline.
+The ``$node.globtags()`` method returns a **list of string matches from the set of tags applied to the current node**
+in the Storm pipeline.
 
 The method takes a single argument consisting of a wildcard expression for the substring to match.
       
 - The argument requires at least one wildcard ( ``*`` ) representing the substring(s) to match.
-- The method performs an **exclusive match** and returns **only** the matched substring(s), not the entire tag containing the substring match.
+- The method performs an **exclusive match** and returns **only** the matched substring(s), not the entire
+  tag containing the substring match.
 - The wildcard ( ``*`` ) character can be used to match full or partial tag elements.
-- Single wildcards are constrained by tag element boundaries (i.e., the dot ( ``.`` ) character. Single wildcards can match an entire tag element or a partial string within an element.
-- The double wildcard ( ``**`` ) can be used to match across any number of tag elements; that is, the double wildcard is not constrained by the dot boundary.
-- If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the use of :ref:`storm-literals`.
+- Single wildcards are constrained by tag element boundaries (i.e., the dot ( ``.`` ) character). Single
+  wildcards can match an entire tag element or a partial string within an element.
+- The double wildcard ( ``**`` ) can be used to match across any number of tag elements; that is, the
+  double wildcard is not constrained by the dot boundary.
+- If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the
+  use of :ref:`storm-literals`.
 
 See :ref:`meth-node-tags` to access full tags (vs. tag substrings).
 
@@ -106,22 +126,23 @@ See :ref:`meth-node-tags` to access full tags (vs. tag substrings).
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags("*")) | spin
 
 
-- Print the list of numbers associated with any threat group tags applied to the current node:
+- Print the list of numbers associated with any threat group tags (e.g., such as ``cno.threat.t42.own``
+  or ``cno.threat.t127.use``) applied to the current node:
 
-.. storm-pre:: [inet:fqdn=aunewsonline.com  +#aka.symantec.thr.commentcrew +#cno.threat.t83.tc +#foo.bar.baz +#faz.baz +#foo.derp]
+.. storm-pre:: [inet:fqdn=aunewsonline.com  +#rep.symantec.commentcrew +#rep.mcafee.commentcrew +#rep.crowdstrike.commentpanda +#cno.threat.t83.own +#foo.bar.baz +#faz.baz +#foo.derp]
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(cno.threat.t*)) | spin
 
-
-In the example above, ``$node.globtags()`` returns the matching substring only ("83"), which is the portion matching the wildcard; it does not return the "t" character.
-
-- Print the list of organizations and associated threat group names from any third-party alias ("aka") tags applied to the current node:
+In the example above, ``$node.globtags()`` returns the matching substring only ("83"), which is the
+portion matching the wildcard; it does not return the "t" character.
 
 
-.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(aka.*.thr.*)) | spin
+- Print the list of organizations and associated names (e.g., threat group or malware family names) from
+  any third-party ("rep") tags applied to the current node:
+
+.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(rep.*.*)) | spin
 
 
 - Print all sub-tags for any tags starting with "foo" applied to the current node:
-
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(foo.**)) | spin
     
@@ -187,7 +208,7 @@ The method takes no arguments.
 $node.repr()
 ++++++++++++
 
-The ``$node.repr()`` method returns the human-friendly :ref:`gloss-repr` ("representation") of the specified property of the current node in the Storm pipeline.
+The ``$node.repr()`` method returns the human-friendly :ref:`gloss-repr` ("representation") of the specified property of the current node in the Storm pipeline (as opposed to the raw value stored by Synapse).
 
 The method can optionally take one argument.
 
@@ -201,18 +222,15 @@ See :ref:`meth-node-value` to return the raw value of a property.
 
 - Print the repr of the primary property value of an ``inet:dns:a`` node:
 
-
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr())  | spin
 
 
 - Print the repr of the ``:ipv4`` secondary property value of an ``inet:dns:a`` node:
 
-
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ipv4)) | spin
 
 
 - Print the repr of the ``.seen`` universal property value of an ``inet:dns:a`` node:
-
 
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(".seen")) | spin
     
@@ -231,10 +249,14 @@ The method can optionally take one argument.
   
   - If a string is used with no wildcards, the string must be an exact match for the tag element.
   - The wildcard ( ``*`` ) character can be used to match full or partial tag elements.
-  - The method performs an **inclusive match** and returns the full tag for all tags that match the provided expression.
-  - Single wildcards are constrained by tag element boundaries (i.e., the dot ( ``.`` ) character). Single wildcards can match an entire tag element or a partial string within an element.
-  - The double wildcard ( ``**`` ) can be used to match across any number of tag elements; that is, the double wildcard is not constrained by the dot boundary.
-  - If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the use of :ref:`storm-literals`.
+  - The method performs an **inclusive match** and returns the full tag for all tags that match the
+    provided expression.
+  - Single wildcards are constrained by tag element boundaries (i.e., the dot ( ``.`` ) character).
+    Single wildcards can match an entire tag element or a partial string within an element.
+  - The double wildcard ( ``**`` ) can be used to match across any number of tag elements; that is,
+    the double wildcard is not constrained by the dot boundary.
+  - If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with
+    the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-globtags` to access tag substrings (vs. full tags).
 
@@ -242,34 +264,29 @@ See :ref:`meth-node-globtags` to access tag substrings (vs. full tags).
 
 - Print the list of all tags associated with an ``inet:fqdn`` node:
 
-
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags()) | spin
 
 
-- Print the tag matching the string "cno" if present on an ``inet:fqdn`` node:
-
+- Print the tag that exactly matches the string "cno" if present on an ``inet:fqdn`` node:
 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(cno)) | spin
 
 
 - Print the list of all tags two elements in length that start with "foo":
 
-
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(foo.*)) | spin
     
 
 - Print the list of all tags of any length that start with "f":
 
-
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(f**)) | spin
 
 
-- Print the list of all tags of any length whose first element starts with "a" and whose third element is "thr":
+- Print the list of all tags of any length whose first element is "rep" and whose third element
+  starts with "comment":
 
-
-.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(a*.*.thr.**)) | spin
+.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags(rep.*.comment*)) | spin
     
-
 
 .. _meth-node-value:
 
@@ -284,12 +301,12 @@ See :ref:`meth-node-repr` to return the human-friendly value of a property.
 
 .. NOTE::
 
-  The ``$node.value()`` method is only used to return the primary property value of a node. Secondary property values can be accessed via a user-defined variable (i.e., ``$myvar = :<prop>``).
+  The ``$node.value()`` method is only used to return the primary property value of a node. Secondary
+  property values can be accessed via a user-defined variable (i.e., ``$myvar = :<prop>``).
 
 **Examples**
 
 - Print the value of the primary property value of an ``inet:dns:a`` node:
-
 
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.value()) | spin
     
@@ -301,14 +318,17 @@ $path
 
 :ref:`vars-node-path` is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query.**
 
-The ``$path`` variable is generally not used on its own, but in conjunction with its methods. See the :ref:`stormprims-storm-path-f527` section of the :ref:`stormtypes-prim-header` technical documentation for a full list.
+The ``$path`` variable is generally not used on its own, but in conjunction with its methods. See the
+:ref:`stormprims-node-path-f527` section of the :ref:`stormtypes-prim-header` technical documentation
+for a full list.
 
 .. _meth-path-idens:
 
 $path.idens()
 +++++++++++++
 
-The ``$path.idens()`` method returns the list of idens (:ref:`gloss-iden`) of each node in a node's path through a Storm query.
+The ``$path.idens()`` method returns the list of idens (:ref:`gloss-iden`) of each node in a node's path
+through a Storm query.
 
 The method takes no arguments.
 
@@ -319,7 +339,6 @@ The method takes no arguments.
 .. storm-pre:: [ (inet:dns:a=(aunewsonline.com,67.215.66.149)) (inet:dns:a=(aunewsonline.com,184.168.221.92)) (inet:dns:a=(aunewsonline.com,104.239.213.7)) ]
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($path.idens()) | spin
     
-
 .. NOTE::
 
   A lift operation contains no pivots (i.e., no "path"), so the method returns only the iden of the lifted node.
@@ -327,16 +346,21 @@ The method takes no arguments.
 
 - Print the list of idens for the path of a single node through two pivots to a single end node:
 
-
 .. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ipv4=67.215.66.149 -> inet:ipv4 $lib.print($path.idens()) 
     
+The example above returns the idens of the original ``inet:fqdn`` node, the ``inet:dns:a`` node with the
+specified IP, and the ``inet:ipv4`` node.
 
-The example above returns the idens of the original ``inet:fqdn`` node, the ``inet:dns:a`` node with the specified IP, and the ``inet:ipv4`` node.
 
-- Print the list of idens for the path of a single node through two pivots to three different end nodes (i.e., three paths):
-
+- Print the list of idens for the path of a single node through two pivots to three different end nodes
+  (i.e., three paths):
 
 .. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ipv4 $lib.print($path.idens()) 
 
+In the example above, the FQDN has three DNS A records, thus there are three different paths that the
+original node takes through the query.
 
-In the example above, the FQDN has three DNS A records, thus there are three different paths that the original node takes through the query.
+
+.. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
+.. _subquery filters: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_filter.html#subquery-filters
+.. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
