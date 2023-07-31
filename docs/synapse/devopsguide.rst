@@ -41,7 +41,7 @@ HTTPS Certificates
 ------------------
 
 Synapse services that expose HTTPS APIs will automatically generate a self-signed certificate and key if they are not found
-at ``sslcert.crt`` and ``sslkey.pem`` in the service storage directory. At any time, you can replace these self-signed
+at ``sslcert.pem`` and ``sslkey.pem`` in the service storage directory. At any time, you can replace these self-signed
 files with a certificate and key generated using :ref:`syn-tools-easycert` or generated and signed by an external CA.
 
 Common Devops Tasks
