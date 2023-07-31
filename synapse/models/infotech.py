@@ -1131,7 +1131,7 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:dev:repo:remote', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name the repo is using for the remote repo.',
                         'ex': 'origin'
                     }),
