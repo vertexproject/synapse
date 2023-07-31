@@ -402,7 +402,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A commit to a repository.',
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
-                    'doc': 'A diff of file being applied in a single commit.',
+                    'doc': 'A diff of a file being applied in a single commit.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
@@ -1188,7 +1188,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The version control system specific commit identifier.',
                     }),
                     ('created', ('time', {}), {
-                        'doc': 'When the commit was made.',
+                        'doc': 'The time the commit was made.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the commit is hosted.',
