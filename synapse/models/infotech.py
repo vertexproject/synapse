@@ -396,7 +396,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A remote repo that is tracked for changes/branches/etc.',
                 }),
                 ('it:dev:repo:branch', ('guid', {}), {
-                    'doc': 'A version control system instance.',
+                    'doc': 'A branch in a version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
                     'doc': 'A commit to a repository.',
