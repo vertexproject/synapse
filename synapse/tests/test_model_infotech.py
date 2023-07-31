@@ -1477,7 +1477,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('it:dev:repo:commit')
             self.len(3, nodes)
 
-            nodes = await core.nodes('it:dev:repotype')
+            nodes = await core.nodes('it:dev:repo:type:taxonomy')
             self.len(1, nodes)
 
             nodes = await core.nodes('it:dev:repo:issue:comment')

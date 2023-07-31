@@ -385,7 +385,7 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:regval', ('guid', {}), {
                     'doc': 'A Windows registry key/value pair.',
                 }),
-                ('it:dev:repotype', ('taxonomy', {}), {
+                ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A version control system type taxonomy.',
                     'interfaces': ('taxonomy',)
                 }),
@@ -1103,7 +1103,7 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
-                ('it:dev:repotype', {}, ()),
+                ('it:dev:repo:type:taxonomy', {}, ()),
                 ('it:dev:repo', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the repository.',
@@ -1121,7 +1121,7 @@ class ItModule(s_module.CoreModule):
                     ('upstream', ('it:dev:repo', {}), {
                         'doc': 'The repository that changes are copied to or from.',
                     }),
-                    ('type', ('it:dev:repotype', {}), {
+                    ('type', ('it:dev:repo:type:taxonomy', {}), {
                         'doc': 'The type of the version control system used.',
                         'ex': 'svn'
                     }),
