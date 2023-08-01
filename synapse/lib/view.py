@@ -433,6 +433,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
+        keepalive = opts.get('keepalive')
+        if keepalive is not None and keepalive <= 0:
+            raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
         synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
@@ -461,6 +464,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 shownode = (not show or 'node' in show)
 
                 async with await self.snap(user=user) as snap:
+
+                    if keepalive:
+                        snap.schedCoro(snap.keepalive(keepalive))
 
                     if not show:
                         snap.link(chan.put)

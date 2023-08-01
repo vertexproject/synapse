@@ -1677,6 +1677,19 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ou:org=(perms,) :desc=foo]', opts=view2))
             await core.nodes('ou:org=(perms,) | movenodes --apply', opts=view3)
 
+    async def test_cortex_keepalive(self):
+        async with self.getTestCore() as core:
+            opts = {'keepalive': 1}
+            q = '[test:str=one] $lib.time.sleep(2.5)'
+            msgs = await core.stormlist(q, opts=opts)
+            pings = [m for m in msgs if m[0] == 'ping']
+            self.len(2, pings)
+
+            opts = {'keepalive': 0}
+            with self.raises(s_exc.BadArg) as cm:
+                msgs = await core.stormlist(q, opts=opts)
+            self.eq('keepalive must be > 0; got 0', cm.exception.get('mesg'))
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:
