@@ -895,5 +895,6 @@ class Agenda(s_base.Base):
                 appt.isrunning = False
                 appt.lastresult = result
                 if not self.isfini:
-                    await self._storeAppt(appt, nexs=True)
+                    # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+                    await self._storeAppt(appt, nexs=True)

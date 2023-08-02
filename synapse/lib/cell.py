@@ -3874,6 +3874,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         availmem = s_thisplat.getAvailableMemory()
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
+        sysctls = s_thisplat.getSysctls()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -3889,6 +3890,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
+            'sysctls': sysctls                 # Performance related sysctls
         }
 
         return retn

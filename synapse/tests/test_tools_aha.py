@@ -121,6 +121,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                     s_common.yamlsave({'aha:servers': 'cell://aha'}, yamlpath)
 
                     retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
+                    self.eq(0, retn)
 
                     for path in (capath, crtpath, keypath):
                         self.gt(os.path.getsize(path), 0)
@@ -157,3 +158,31 @@ class AhaToolsTest(s_t_utils.SynTest):
                         self.eq(retn, 0)
                         self.notin('one-time use URL:', str(outp))
                         self.isin('ssl://', str(outp))
+
+                with self.getTestSynDir() as syndir:
+
+                    argv = ['--again', '--url', aha.getLocalUrl(), 'visi']
+                    retn, outp = await self.execToolMain(s_a_provision_user.main, argv)
+                    self.eq(retn, 0)
+                    provurl = str(outp).split(':', 1)[1].strip()
+
+                    capath = s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')
+                    crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')
+                    keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')
+
+                    for path in (capath, crtpath, keypath):
+                        s_common.genfile(path)
+
+                    yamlpath = s_common.genpath(syndir, 'telepath.yaml')
+                    s_common.yamlsave({'aha:servers': ['cell://aha', 'cell://foo', ['cell://bar']]}, yamlpath)
+
+                    retn, outp = await self.execToolMain(s_a_enroll.main, (provurl,))
+                    self.eq(0, retn)
+
+                    for path in (capath, crtpath, keypath):
+                        self.gt(os.path.getsize(path), 0)
+
+                    teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
+                    self.eq(teleyaml.get('version'), 1)
+                    self.eq(teleyaml.get('aha:servers'), ('cell://aha', 'cell://foo', ('cell://bar',),
+                                                          f'ssl://visi@aha.loop.vertex.link:{ahaport}'))
