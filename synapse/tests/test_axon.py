@@ -1068,7 +1068,7 @@ bar baz",vv
 
                 resp = await axon.postfiles(fields, url)
                 self.false(resp.get('ok'))
-                self.isin('unable to get local issuer certificate', resp.get('err'))
+                self.isin('unable to get local issuer certificate', resp.get('reason'))
 
             conf = {'auth:passwd': 'root', 'tls:ca:dir': tlscadir}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
