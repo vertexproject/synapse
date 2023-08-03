@@ -3,6 +3,7 @@ import os
 import ssl
 import sys
 import json
+import http
 import stat
 import time
 import heapq
@@ -1155,3 +1156,21 @@ class aclosing(contextlib.AbstractAsyncContextManager):
         return self.thing
     async def __aexit__(self, exc, cls, tb):
         await self.thing.aclose()
+
+def httpcodereason(code):
+    '''
+    Get the reason for an HTTP status code.
+
+    Args:
+        code (int): The code.
+
+    Note:
+        If the status code is unknown, a string indicating it is unknonwn is returned.
+
+    Returns:
+        str: A string describing the status code.
+    '''
+    try:
+        return http.HTTPStatus(code).phrase
+    except ValueError:
+        return f'Unknown HTTP status code {code}'

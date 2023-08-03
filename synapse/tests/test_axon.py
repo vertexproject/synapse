@@ -979,7 +979,7 @@ bar baz",vv
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid()), 'bytes': ''}}
             resp = await core.callStorm(q, opts=opts)
             self.false(resp['ok'])
-            self.isin('Axon does not contain the requested file.', resp.get('err'))
+            self.isin('Axon does not contain the requested file.', resp.get('reason'))
 
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
@@ -1000,7 +1000,7 @@ bar baz",vv
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
                 self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
@@ -1008,7 +1008,7 @@ bar baz",vv
 
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('err', ''))
+            self.isin('InvalidURL: vertex.link', resp.get('reason'))
 
             # Bypass the Axon proxy configuration from Storm
             url = axon.getLocalUrl()
@@ -1020,7 +1020,7 @@ bar baz",vv
                 '''
                 resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
                 self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
                 q = f'''
                 $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",

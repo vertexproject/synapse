@@ -1459,10 +1459,11 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'err': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <str> - Tuple of the error type and information if an exception occurred.
                     'url': <str> - The URL retrieved (which could have been redirected)
                     'code': <int> - The response code.
                     'body': <bytes> - The response body.
+                    'reason': <str> - The reason phrase for the HTTP status code.
                     'headers': <dict> - The response headers as a dictionary.
                 }
 
@@ -1522,6 +1523,7 @@ class Axon(s_cell.Cell):
                         'url': str(resp.url),
                         'code': resp.status,
                         'body': await resp.read(),
+                        'reason': s_common.httpcodereason(resp.status),
                         'headers': dict(resp.headers),
                     }
                     return info
@@ -1531,19 +1533,22 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
-                exc = s_common.excinfo(e)
-                errmsg = exc.get('errmsg')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
                 if errmsg:
-                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
                 else:
-                    mesg = exc.get('err')
+                    reason = f'Exception occurred during request: {err[0]}'
+
+                print(f'{reason=}')
 
                 return {
                     'ok': False,
-                    'err': mesg,
+                    'err': err,
                     'url': url,
                     'body': b'',
                     'code': -1,
+                    'reason': reason,
                     'headers': dict(),
                 }
 

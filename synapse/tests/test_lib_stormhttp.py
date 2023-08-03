@@ -132,17 +132,19 @@ class StormHttpTest(s_test.SynTest):
             '''
             code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
-            self.eq(reason, 'Exception occurred during request')
+            self.isin('Exception occurred during request: ', reason)
+            self.isin('Invalid query type', reason)
             self.eq('TypeError', errname)
 
-            # SSL Verify enabled results in a aiohttp.ClientConnectorCertificateError
+            # SSL Verify enabled results in an aiohttp.ClientConnectorCertificateError
             q = '''
             $params=((foo, bar), (key, valu))
             $resp = $lib.inet.http.get($url, params=$params)
-            return ( ($resp.code, $resp.err) )
+            return ( ($resp.code, $resp.reason, $resp.err) )
             '''
-            code, (errname, _) = await core.callStorm(q, opts=opts)
+            code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
+            self.isin('certificate verify failed', reason)
             self.eq('ClientConnectorCertificateError', errname)
 
             retn = await core.callStorm('return($lib.inet.http.urlencode("http://go ogle.com"))')
