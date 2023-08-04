@@ -1,3 +1,4 @@
+import json
 import hmac
 import hashlib
 import logging
@@ -24,7 +25,7 @@ class AWSProvider(s_base.Base):
     async def __anit__(self):
         await s_base.Base.__anit__(self)
         self.accesskeyid = None
-        self.secretkeyid = None
+        self.secretaccesskey = None
         self.token = None
         self.expiration = None
         self.lastupdated = None
@@ -33,7 +34,7 @@ class AWSProvider(s_base.Base):
     def storeCredentials(self, creds: dict):
         self.token = creds.get('Token')
         self.accesskeyid = creds.get('AccessKeyId')
-        self.secretkeyid = creds.get('SecretKeyId')
+        self.secretaccesskey = creds.get('SecretAccessKey')
         self.expiration = s_time.parse(creds.get('Expiration'))
         self.lastupdated = s_time.parse(creds.get('LastUpdated'))
         # Keep credentials alive for 80% of their lifetime before we'll attempt to get new credentials
@@ -45,7 +46,7 @@ class AWSEC2Provider(AWSProvider):
     async def __anit__(self, role=None):
         await AWSProvider.__anit__(self)
         self.role = None
-        self._machinetokenlifetime = 21600
+        self._machinetokenlifetime = '21600'
 
     async def updateCredentials(self):
         '''
@@ -64,16 +65,16 @@ class AWSEC2Provider(AWSProvider):
                 # Get the default EC2 instance role name
                 async with session.get(self.EC2_METADATA_ENDPOINT + '/latest/meta-data/iam/info',
                                        headers=headers) as resp:
-                    logger.info(f'{resp}')
-                    metadata = await resp.json()
+                    text = await resp.text()
+                    metadata = json.loads(text)
                     arn = metadata.get('InstanceProfileArn')
                     role = arn.split('/', 1)[1]
                     logger.debug(f'Resolved role via metadata: {role}')
 
-            async with session.get(self.EC2_METADATA_ENDPOINT + f'/latest/iam/security-credentials/{role}',
+            async with session.get(self.EC2_METADATA_ENDPOINT + f'/latest/meta-data/iam/security-credentials/{role}',
                                    headers=headers) as resp:
-                logger.info(f'{resp}')
-                creds = await resp.json()
+                text = await resp.text()
+                creds = json.loads(text)
 
         return creds
 
@@ -90,7 +91,7 @@ class AWSEC2Provider(AWSProvider):
         ret = {
             'token': self.token,
             'accesskeyid': self.accesskeyid,
-            'secretkeyid': self.secretkeyid,
+            'secretaccesskey': self.secretaccesskey,
         }
 
         return ret
