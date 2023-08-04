@@ -45,6 +45,7 @@ class AWSEC2Provider(AWSProvider):
     async def __anit__(self, role=None):
         await AWSProvider.__anit__(self)
         self.role = None
+        self._machinetokenlifetime = 21600
 
     async def updateCredentials(self):
         '''
@@ -52,16 +53,26 @@ class AWSEC2Provider(AWSProvider):
         '''
         role = self.role
         async with aiohttp.ClientSession() as session:
+            # Get machine token
+            headers = {'X-aws-ec2-metadata-token-ttl-seconds': self._machinetokenlifetime}
+            async with session.put(self.EC2_METADATA_ENDPOINT + '/latest/api/token', headers=headers) as resp:
+                token = await resp.text()
+
+            headers = {'X-aws-ec2-metadata-token': token}
             # XXX Check code
             if role is None:
                 # Get the default EC2 instance role name
-                async with session.get(self.EC2_METADATA_ENDPOINT + '/latest/meta-data/iam/info') as resp:
+                async with session.get(self.EC2_METADATA_ENDPOINT + '/latest/meta-data/iam/info',
+                                       headers=headers) as resp:
+                    logger.info(f'{resp}')
                     metadata = await resp.json()
                     arn = metadata.get('InstanceProfileArn')
                     role = arn.split('/', 1)[1]
                     logger.debug(f'Resolved role via metadata: {role}')
 
-            async with session.get(self.EC2_METADATA_ENDPOINT + f'/latest/iam/security-credentials/{role}') as resp:
+            async with session.get(self.EC2_METADATA_ENDPOINT + f'/latest/iam/security-credentials/{role}',
+                                   headers=headers) as resp:
+                logger.info(f'{resp}')
                 creds = await resp.json()
 
         return creds
