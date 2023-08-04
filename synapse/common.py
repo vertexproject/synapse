@@ -1165,7 +1165,7 @@ def httpcodereason(code):
         code (int): The code.
 
     Note:
-        If the status code is unknown, a string indicating it is unknonwn is returned.
+        If the status code is unknown, a string indicating it is unknown is returned.
 
     Returns:
         str: A string describing the status code.

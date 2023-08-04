@@ -1459,7 +1459,7 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'err': <str> - Tuple of the error type and information if an exception occurred.
+                    'err': <tuple> - Tuple of the error type and information if an exception occurred.
                     'url': <str> - The URL retrieved (which could have been redirected)
                     'code': <int> - The response code.
                     'body': <bytes> - The response body.
