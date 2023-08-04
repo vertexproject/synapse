@@ -1540,8 +1540,6 @@ class Axon(s_cell.Cell):
                 else:
                     reason = f'Exception occurred during request: {err[0]}'
 
-                print(f'{reason=}')
-
                 return {
                     'ok': False,
                     'err': err,
