@@ -63,6 +63,7 @@ import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.math as s_stormlib_math  # NOQA
 import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
+import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
@@ -1223,7 +1224,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.stormdmons)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
-        await self._initStormDmons()
         await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
@@ -1241,6 +1241,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svchive = await svchive.dict()
 
         await self._initDeprLocks()
+        await self._warnDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1582,6 +1583,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
+        await self._initStormDmons()
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1639,9 +1641,44 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if not prop.deprecated:
                 continue
 
+            # Skip universal properties on other props
+            if not prop.isform and prop.univ is not None:
+                continue
+
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def _warnDeprLocks(self):
+        # Check for deprecated properties which are unused and unlocked
+        deprs = await self.getDeprLocks()
+
+        count = 0
+
+        for propname, locked in deprs.items():
+            if locked:
+                continue
+
+            prop = self.model.props.get(propname)
+
+            for layr in self.layers.values():
+                if not prop.isform and prop.isuniv:
+                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                        break
+
+                else:
+                    if await layr.getPropCount(propname, maxsize=1):
+                        break
+
+                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
+                        break
+            else:
+                count += 1
+
+        if count:
+            mesg = f'Detected {count} deprecated properties unlocked and not in use, '
+            mesg += 'recommend locking (https://v.vtx.lk/deprlock).'
+            logger.warning(mesg)
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):
@@ -3167,6 +3204,112 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async with self.watcher(wdef) as wind:
             async for mesg in wind:
                 yield mesg
+
+    async def getExtModel(self):
+        '''
+        Get all extended model properties in the Cortex.
+
+        Returns:
+            dict: A dictionary containing forms, form properties, universal properties and tag properties.
+        '''
+        ret = collections.defaultdict(list)
+        for formname, basetype, typeopts, typeinfo in self.extforms.values():
+            ret['forms'].append((formname, basetype, typeopts, typeinfo))
+
+        for form, prop, tdef, info in self.extprops.values():
+            ret['props'].append((form, prop, tdef, info))
+
+        for prop, tdef, info in self.extunivs.values():
+            ret['univs'].append((prop, tdef, info))
+
+        for prop, tdef, info in self.exttagprops.values():
+            ret['tagprops'].append((prop, tdef, info))
+        ret['version'] = (1, 0)
+        return copy.deepcopy(dict(ret))
+
+    async def addExtModel(self, model):
+        '''
+        Add an extended model definition to a Cortex from the output of getExtModel().
+
+        Args:
+            model (dict): An extended model dictionary.
+
+        Returns:
+            Bool: True when the model was added.
+
+        Raises:
+            s_exc.BadFormDef: If a form exists with a different definition the provided definition.
+            s_exc.BadPropDef: If a propery, tagprop, or universal propert from exists with a different definition
+                              than the provided definition.
+        '''
+
+        # Get our current model definition
+        emodl = await self.getExtModel()
+        amodl = collections.defaultdict(list)
+
+        forms = {info[0]: info for info in model.get('forms', ())}
+        props = {(info[0], info[1]): info for info in model.get('props', ())}
+        tagprops = {info[0]: info for info in model.get('tagprops', ())}
+        univs = {info[0]: info for info in model.get('univs', ())}
+
+        efrms = {info[0]: info for info in emodl.get('forms', ())}
+        eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
+        etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
+        eunivs = {info[0]: info for info in emodl.get('univs', ())}
+
+        for (name, info) in forms.items():
+            enfo = efrms.get(name)
+            if enfo is None:
+                amodl['forms'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended form definition differs from existing definition for {name}.'
+            raise s_exc.BadFormDef(mesg)
+
+        for (name, info) in props.items():
+            enfo = eprops.get(name)
+            if enfo is None:
+                amodl['props'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended prop definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
+
+        for (name, info) in tagprops.items():
+            enfo = etagprops.get(name)
+            if enfo is None:
+                amodl['tagprops'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended tagprop definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
+
+        for (name, info) in univs.items():
+            enfo = eunivs.get(name)
+            if enfo is None:
+                amodl['univs'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended universal poroperty definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
+
+        for formname, basetype, typeopts, typeinfo in amodl['forms']:
+            await self.addForm(formname, basetype, typeopts, typeinfo)
+
+        for form, prop, tdef, info in amodl['props']:
+            await self.addFormProp(form, prop, tdef, info)
+
+        for prop, tdef, info in amodl['tagprops']:
+            await self.addTagProp(prop, tdef, info)
+
+        for prop, tdef, info in amodl['univs']:
+            await self.addUnivProp(prop, tdef, info)
+
+        return True
 
     async def addUnivProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
@@ -5218,7 +5361,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': view.iden}
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -5260,7 +5403,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
 
         taskiden = opts.get('task')
-        taskinfo = {'name': 'syn.nodes', 'sha256': sha256}
+        taskinfo = {'name': 'syn.nodes', 'sha256': sha256, 'view': view.iden}
 
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 

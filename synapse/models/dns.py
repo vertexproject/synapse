@@ -284,6 +284,9 @@ class DnsModule(s_module.CoreModule):
 
                     ('txt', ('inet:dns:txt', {}), {
                         'doc': 'The DNS TXT record returned by the lookup.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the DNS response was transmitted.'}),
                 )),
 
                 ('inet:dns:wild:a', {}, (

@@ -1411,6 +1411,7 @@ class HttpApiTest(s_tests.SynTest):
                         mesg = json.loads(byts)
                         if mesg[0] == 'node':
                             task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
+                            self.eq(core.view.iden, task.info.get('view'))
                             break
 
                 self.nn(task)

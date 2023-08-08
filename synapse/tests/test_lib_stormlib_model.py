@@ -278,3 +278,18 @@ class StormlibModelTest(s_test.SynTest):
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 self.stormIsInPrint('Congrats!', mesgs)
+
+    async def test_stormlib_model_depr_check(self):
+
+        conf = {
+            'modules': [
+                'synapse.tests.test_datamodel.DeprecatedModel',
+            ]
+        }
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                mesgs = await core.stormlist('model.deprecated.check')
+
+                self.stormIsInWarn('.pdep is not yet locked', mesgs)
+                self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)

@@ -5128,6 +5128,12 @@ class LibVars(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the variable too.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'type', 'desc': 'Get the type of the argument value.',
+         'type': {'type': 'function', '_funcname': '_libVarsType',
+                  'args': (
+                     {'name': 'valu', 'type': 'any', 'desc': 'Value to inspect.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The type of the argument.'}}},
         {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
          'type': {'type': 'function', '_funcname': '_libVarsList',
                   'returns': {'type': 'list',
@@ -5141,6 +5147,7 @@ class LibVars(Lib):
             'set': self._libVarsSet,
             'del': self._libVarsDel,
             'list': self._libVarsList,
+            'type': self._libVarsType,
         }
 
     async def _libVarsGet(self, name, defv=None):
@@ -5154,6 +5161,9 @@ class LibVars(Lib):
 
     async def _libVarsList(self):
         return list(self.runt.vars.items())
+
+    async def _libVarsType(self, valu):
+        return await totype(valu)
 
 @registry.registerType
 class Query(Prim):
@@ -9393,8 +9403,9 @@ def fromprim(valu, path=None, basetypes=True):
         return valu
 
     if basetypes:
-        mesg = 'Unable to convert python primitive to StormType.'
-        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+        ptyp = valu.__class__.__name__
+        mesg = f'Unable to convert python primitive to StormType ( {ptyp} )'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=ptyp)
 
     return valu
 
@@ -9515,6 +9526,7 @@ async def toint(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
+
     if noneok and valu is None:
         return
 
@@ -9524,13 +9536,11 @@ async def toiter(valu, noneok=False):
         return
 
     try:
-        genr = iter(valu)
+        async for item in s_coro.agen(valu):
+            yield item
     except TypeError as e:
         mesg = f'Value is not iterable: {valu!r}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
-
-    for item in genr:
-        yield item
 
 async def torepr(valu, usestr=False):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
@@ -9560,3 +9570,43 @@ async def tobuidhex(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg)
 
     return valu
+
+async def totype(valu, basetypes=False) -> str:
+    '''
+    Convert a value to its Storm type string.
+
+    Args:
+        valu: The object to check.
+        basetypes (bool): If True, return the base Python class name as a fallback.
+
+    Returns:
+        str: The type name.
+
+    Raises:
+        StormRuntimeError: If the valu does not resolve to a known type and basetypes=False.
+    '''
+    if valu is undef:
+        return 'undef'
+
+    if valu is None:
+        return 'null'
+
+    if isinstance(valu, bool):
+        return 'boolean'
+
+    if isinstance(valu, int):
+        return 'int'
+
+    if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
+        return 'generator'
+
+    if isinstance(valu, (types.FunctionType, types.MethodType)):
+        return 'function'
+
+    # This may raise s_exc.NoSuchType
+    fp = fromprim(valu, basetypes=not basetypes)
+
+    if isinstance(fp, StormType):
+        return fp._storm_typename
+
+    return valu.__class__.__name__

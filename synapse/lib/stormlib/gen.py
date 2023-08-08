@@ -109,10 +109,18 @@ class LibGen(s_stormtypes.Lib):
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
-        function orgByName(name) {
+        function orgByName(name, try=$lib.false) {
+            if $try {
+                ($ok, $name) = $lib.trycast(ou:name, $name)
+                if (not $ok) { return() }
+            } else {
+                $name = $lib.cast(ou:name, $name)
+            }
+
             ou:name=$name -> ou:org
             return($node)
-            [ ou:org=* :name=$name ]
+
+            [ ou:org=(gen, name, $name) :name=$name ]
             return($node)
         }
 
@@ -120,37 +128,51 @@ class LibGen(s_stormtypes.Lib):
             if $try {
                 ($ok, $fqdn) = $lib.trycast("inet:fqdn", $fqdn)
                 if (not $ok) { return() }
+            } else {
+                $fqdn = $lib.cast(inet:fqdn, $fqdn)
             }
+
             inet:fqdn=$fqdn -> ou:org
             return($node)
-            [ ou:org=* :dns:mx+=$fqdn ]
+
+            [ ou:org=(gen, fqdn, $fqdn) :dns:mx+=$fqdn ]
             return($node)
         }
 
         function orgHqByName(name) {
             yield $lib.gen.orgByName($name)
             $org=$node
-            { -:hq [ :hq = {[ ps:contact=* :orgname=$name ]} ] }
+            $name = :name
+
+            { -:hq [ :hq = {[ ps:contact=(gen, hq, name, $name) :orgname=$name ]} ] }
+
             :hq -> ps:contact
             { -:org [ :org=$org ] }
+
             return($node)
         }
 
         function industryByName(name) {
             ou:industryname=$name -> ou:industry
             return($node)
-            [ ou:industry=* :name=$name ]
+
+            $name = $lib.cast(ou:industryname, $name)
+            [ ou:industry=(gen, name, $name)  :name=$name ]
             return($node)
         }
 
         function newsByUrl(url, try=$lib.false) {
             if $try {
-                ($ok, $url) = $lib.trycast("inet:url", $url)
+                ($ok, $url) = $lib.trycast(inet:url, $url)
                 if (not $ok) { return() }
+            } else {
+                $url = $lib.cast(inet:url, $url)
             }
+
             media:news:url=$url
             return($node)
-            [ media:news=* :url=$url ]
+
+            [ media:news=(gen, url, $url) :url=$url ]
             return($node)
         }
 
@@ -158,7 +180,9 @@ class LibGen(s_stormtypes.Lib):
             it:prod:softname=$name
             -> it:prod:soft
             return($node)
-            [ it:prod:soft=* :name=$name ]
+
+            $name = $lib.cast(it:prod:softname, $name)
+            [ it:prod:soft=(gen, name, $name) :name=$name ]
             return($node)
         }
 
@@ -166,10 +190,14 @@ class LibGen(s_stormtypes.Lib):
             if $try {
                 ($ok, $cve) = $lib.trycast("it:sec:cve", $cve)
                 if (not $ok) { return() }
+            } else {
+                $cve = $lib.cast(it:sec:cve, $cve)
             }
+
             risk:vuln:cve=$cve
             return($node)
-            [ risk:vuln=* :cve=$cve ]
+
+            [ risk:vuln=(gen, cve, $cve) :cve=$cve ]
             return($node)
         }
 
@@ -180,7 +208,10 @@ class LibGen(s_stormtypes.Lib):
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            [ risk:threat=*
+            $name = $lib.cast(ou:name, $name)
+            $reporter = $lib.cast(ou:name, $reporter)
+
+            [ risk:threat=(gen, name, reporter, $name, $reporter)
                 :org:name=$name
                 :reporter = { yield $orgByName($reporter) }
                 :reporter:name = $reporter
@@ -196,7 +227,10 @@ class LibGen(s_stormtypes.Lib):
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            [ risk:tool:software=*
+            $name = $lib.cast(it:prod:softname, $name)
+            $reporter = $lib.cast(ou:name, $reporter)
+
+            [ risk:tool:software=(gen, $name, $reporter)
                 :soft:name = $name
                 :reporter:name = $reporter
                 :reporter = { yield $orgByName($reporter) }
@@ -206,14 +240,20 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function psContactByEmail(type, email, try=$lib.false) {
+
             if $try {
                 ($ok, $email) = $lib.trycast("inet:email", $email)
                 if (not $ok) { return() }
+            } else {
+                $type = $lib.cast(ps:contact:type:taxonomy, $type)
+                $email = $lib.cast(inet:email, $email)
             }
+
             ps:contact:email = $email
             +:type = $type
             return($node)
-            [ ps:contact=*
+
+            [ ps:contact=(gen, type, email, $type, $email)
                 :email = $email
                 :type = $type
             ]
@@ -224,28 +264,33 @@ class LibGen(s_stormtypes.Lib):
             if $try {
                 ($ok, $iso2) = $lib.trycast("pol:iso2", $iso2)
                 if (not $ok) { return() }
+            } else {
+                $iso2 = $lib.cast(pol:iso2, $iso2)
             }
+
             pol:country:iso2=$iso2
             return($node)
-            [ pol:country=* :iso2=$iso2 ]
+
+            [ pol:country=(gen, iso2, $iso2) :iso2=$iso2 ]
             return($node)
         }
 
         function polCountryOrgByIso2(iso2, try=$lib.false) {
-            if $try {
-                ($ok, $iso2) = $lib.trycast("pol:iso2", $iso2)
-                if (not $ok) { return() }
-            }
-            yield $lib.gen.polCountryByIso2($iso2)
-            { -:government [ :government = $lib.gen.orgByName(`{$iso2} government`) ] }
+
+            yield $lib.gen.polCountryByIso2($iso2, try=$try)
+
+            { -:government [ :government = $lib.gen.orgByName(`{:iso2} government`) ] }
             :government -> ou:org
             return($node)
         }
 
         function langByName(name) {
+
             lang:name=$name -> lang:language
             return($node)
-            [ lang:language=* :name=$name ]
+
+            $name = $lib.cast(lang:name, $name)
+            [ lang:language=(gen, name, $name) :name=$name ]
             return($node)
         }
 
@@ -254,6 +299,8 @@ class LibGen(s_stormtypes.Lib):
             if $try {
                 ($ok, $code) = $lib.trycast(lang:code, $code)
                 if (not $ok) { return() }
+            } else {
+                $code = $lib.cast(lang:code, $code)
             }
 
             lang:language:code=$code
@@ -264,9 +311,14 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function campaign(name, reporter) {
+
             ou:campname = $name -> ou:campaign +:reporter:name=$reporter
             return($node)
-            [ ou:campaign=* :name=$name :reporter:name=$reporter ]
+
+            $name = $lib.cast(ou:campname, $name)
+            $reporter = $lib.cast(ou:name, $reporter)
+
+            [ ou:campaign=(gen, name, reporter, $name, $reporter) :name=$name :reporter:name=$reporter ]
             return($node)
         }
     '''

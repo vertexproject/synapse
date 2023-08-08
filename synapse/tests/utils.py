@@ -230,6 +230,7 @@ testmodel = {
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
         ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
+        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
@@ -342,6 +343,7 @@ testmodel = {
         ('test:auto', {}, ()),
         ('test:hexa', {}, ()),
         ('test:hex4', {}, ()),
+        ('test:zeropad', {}, ()),
         ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
         )),
@@ -2064,6 +2066,17 @@ class SynTest(unittest.TestCase):
         '''
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
         self.isin(mesg, print_str)
+
+    def stormNotInWarn(self, mesg, mesgs):
+        '''
+        Assert a string is not present in all of the warn messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.notin(mesg, print_str)
 
     def stormIsInErr(self, mesg, mesgs):
         '''

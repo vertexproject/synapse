@@ -41,7 +41,7 @@ HTTPS Certificates
 ------------------
 
 Synapse services that expose HTTPS APIs will automatically generate a self-signed certificate and key if they are not found
-at ``sslcert.crt`` and ``sslkey.pem`` in the service storage directory. At any time, you can replace these self-signed
+at ``sslcert.pem`` and ``sslkey.pem`` in the service storage directory. At any time, you can replace these self-signed
 files with a certificate and key generated using :ref:`syn-tools-easycert` or generated and signed by an external CA.
 
 Common Devops Tasks
@@ -426,6 +426,11 @@ Then restart the Axon container. As it restarts, the service will generate user 
 ``cell.yaml`` file to include the necessary AHA configuration options. The ``dmon:listen`` option will be updated
 to reflect the use of SSL/TLS and the requirement to use client certificates for authentication. As additional services
 are provisioned, you may update the URLs they use to connect to the Axon to ``aha://axon...``.
+
+.. note::
+    When specifying a connection string using AHA, you can append a ``mirror=true`` parameter to the connection string
+    (e.g. ``aha://cortex...?mirror=true``) to cause AHA to prefer connecting to a service mirror rather than the leader
+    (if mirrors are available).
 
 Deployment Options
 ------------------

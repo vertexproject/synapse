@@ -838,7 +838,7 @@ class Agenda(s_base.Base):
             await self._markfailed(appt, 'unknown view')
             return
 
-        info = {'iden': appt.iden, 'query': appt.query}
+        info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
 
         appt.task = task
@@ -906,5 +906,6 @@ class Agenda(s_base.Base):
                 appt.isrunning = False
                 appt.lastresult = result
                 if not self.isfini:
-                    await self._storeAppt(appt, nexs=True)
+                    # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+                    await self._storeAppt(appt, nexs=True)
