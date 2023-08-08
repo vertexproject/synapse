@@ -1224,7 +1224,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.stormdmons)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
-        await self._initStormDmons()
         await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
@@ -1584,6 +1583,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
+        await self._initStormDmons()
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
