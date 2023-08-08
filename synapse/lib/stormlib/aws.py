@@ -36,7 +36,7 @@ class AWSSigner(s_stormtypes.Prim):
             'sign': self._methSignature,
         })
 
-    async def sign(self, meth, url, headers=None, payloadhash=None):
+    async def _methSignature(self, meth, url, headers=None, payloadhash=None):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         headers = await s_stormtypes.toprim(headers)  # TODO validate dict || none
@@ -77,4 +77,4 @@ class LibAWS(s_stormtypes.Lib):
         if not isinstance(provider, AWSCredsHelper):
             raise s_exc.BadArg(mesg=f'provider must be an {AWSCredsHelper._storm_typename} instance.',
                                name='provider')
-        return AWSSigner(service, region, provider)
+        return AWSSigner(service, region, provider.provider)
