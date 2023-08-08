@@ -906,10 +906,14 @@ bar baz",vv
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
                 self.eq(8, resp['size'])
+                self.eq('OK', resp['reason'])
                 self.eq('application/octet-stream', resp['headers']['Content-Type'])
 
                 resp = await proxy.wget(f'http://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}')
                 self.false(resp['ok'])
+                self.eq(-1, resp['code'])
+                self.isin('Exception occurred during request: ClientOSError: [Errno 104]', resp['reason'])
+                self.isinstance(resp['err'], tuple)
 
                 async def timeout(self):
                     await asyncio.sleep(2)
@@ -948,6 +952,7 @@ bar baz",vv
                 resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', method='PUT', ssl=False)
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
+                self.eq('OK', resp['reason'])
 
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
             q = f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))'
@@ -958,7 +963,10 @@ bar baz",vv
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
             resp = await core.callStorm(q, opts=opts)
             self.eq(False, resp['ok'])
+            self.eq(-1, resp['code'])
             self.isin('Axon does not contain the requested file.', resp.get('mesg'))
+            self.isin('Exception occurred during request: NoSuchFile', resp.get('reason'))
+            self.isinstance(resp.get('err'), tuple)
 
             q = f'''
             $fields = $lib.list(

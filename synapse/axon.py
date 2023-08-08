@@ -617,7 +617,9 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
                     'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
+                    'reason': <str> - The reason phrase for the HTTP status code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - An error tuple if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
                     'size': <int> - The size in bytes of the response body.
                     'hashes': {
@@ -1585,6 +1587,7 @@ class Axon(s_cell.Cell):
                         'ok': True,
                         'url': str(resp.url),
                         'code': resp.status,
+                        'reason': s_common.httpcodereason(resp.status),
                         'headers': dict(resp.headers),
                     }
                     return info
@@ -1594,16 +1597,21 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
-                exc = s_common.excinfo(e)
-                errmsg = exc.get('errmsg')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
                 if errmsg:
-                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                    mesg = f"{err[0]}: {errmsg}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
                 else:
-                    mesg = exc.get('err')
+                    mesg = err[0]
+                    reason = f'Exception occurred during request: {err[0]}'
 
                 return {
                     'ok': False,
                     'mesg': mesg,
+                    'code': -1,
+                    'reason': reason,
+                    'err': err,
                 }
 
     def _flatten_clientresponse(self,
@@ -1614,6 +1622,7 @@ class Axon(s_cell.Cell):
             'url': str(resp.real_url),
             'code': resp.status,
             'headers': dict(resp.headers),
+            'reason': s_common.httpcodereason(resp.status),
             'request': {
                 'url': str(resp.request_info.real_url),
                 'headers': dict(resp.request_info.headers),
@@ -1651,7 +1660,9 @@ class Axon(s_cell.Cell):
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
                     'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
+                    'reason': <str> - The reason phrase for the HTTP status code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - An error tuple if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
                     'size': <int> - The size in bytes of the response body.
                     'hashes': {
@@ -1717,16 +1728,21 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
-                exc = s_common.excinfo(e)
-                errmsg = exc.get('errmsg')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
                 if errmsg:
-                    mesg = f"{exc.get('err')}: {exc.get('errmsg')}"
+                    mesg = f"{err[0]}: {errmsg}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
                 else:
-                    mesg = exc.get('err')
+                    mesg = err[0]
+                    reason = f'Exception occurred during request: {err[0]}'
 
                 return {
                     'ok': False,
                     'mesg': mesg,
+                    'code': -1,
+                    'reason': reason,
+                    'err': err,
                 }
 
 def _spawn_readlines(sock): # pragma: no cover
