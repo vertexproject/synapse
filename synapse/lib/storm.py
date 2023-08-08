@@ -5587,7 +5587,7 @@ class OnceCmd(Cmd):
     Use of "--asof now" or any future date or positive relative time offset will always
     allow the node to pass the filter.
 
-    As state tracking data for the once command is stored as nodedata, it is stored in your
+    State tracking data for the once command is stored as nodedata which is stored in your
     view's write layer, making it view-specific. So if you have two views, A and B, and they
     do not share any layers between them, and you execute this query in view A:
 
@@ -5614,13 +5614,15 @@ class OnceCmd(Cmd):
             key = f'once:{name}'
 
             envl = await node.getData(key)
-            await node.setData(key, {'tick': tick})
 
-            if envl and self.opts.asof:
+            if envl:
+                asof = self.opts.asof
                 last = envl.get('tick')
-                if last is not None and last >= self.opts.asof:
+                if last is None or asof is None or last > asof:
                     await asyncio.sleep(0)
                     continue
+
+            await node.setData(key, {'tick': tick})
 
             yield node, path
 
