@@ -4,6 +4,72 @@
 Synapse Changelog
 *****************
 
+v2.144.0 - 2023-08-09
+=====================
+
+Model Changes
+-------------
+- Update to the ``dns`` and ``it`` model.
+  (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
+  (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
+
+ New Forms
+  ---------
+
+  ``it:dev:repo:type:taxonomy``
+    A version control system type taxonomy.
+
+  ``it:dev:repo``
+    A version control system instance.
+
+  ``it:dev:repo:remote``
+    A remote repo that is tracked for changes/branches/etc.
+
+  ``it:dev:repo:branch``
+    A branch in a version control system instance.
+
+  ``it:dev:repo:commit``
+    A commit to a repository.
+
+  ``it:dev:repo:diff``
+    A diff of a file being applied in a single commit.
+
+  ``it:dev:repo:issue``
+    An issue raised in a repository.
+
+  ``it:dev:repo:issue:comment``
+    A comment on an issue in a repository.
+
+  ``it:dev:repo:diff:comment``
+    A comment on a diff in a repository.
+
+  New Properties
+  --------------
+
+  ``inet:dns:answer`
+    The form had the following properties added to it:
+
+    ``time``
+      The time that the DNS response was transmitted.
+
+Features and Enhancements
+-------------------------
+- The iden of the Cron job is now added to the Storm query log made with
+  the ``synapse.storm`` logger when using structured logging.
+  (`#3235 <https://github.com/vertexproject/synapse/pull/3235>`_)
+- Add a ``keepalive`` option to the Storm query ``opts``. TThis may be used
+  with long-running Storm queries when behind a network proxy or load balancer
+  which may terminate idle connections.
+  (`#3272 <https://github.com/vertexproject/synapse/pull/3272>`_)
+- Update the allowed versions of the ``cryptography`` library.
+  (`#3281 <https://github.com/vertexproject/synapse/pull/3281>`_)
+
+Bugfixes
+--------
+- Fix an issue where Storm Dmons could start prior to data model migrations.
+  (`#3279 <https://github.com/vertexproject/synapse/pull/3279>`_)
+
+
 v2.143.0 - 2023-07-28
 =====================
 
