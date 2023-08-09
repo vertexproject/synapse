@@ -5615,7 +5615,7 @@ class OnceCmd(Cmd):
 
             envl = await node.getData(key)
 
-            if envl:
+            if envl is not None:
                 asof = self.opts.asof
 
                 last = envl.get('tick')

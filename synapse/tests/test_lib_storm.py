@@ -2427,10 +2427,8 @@ class StormTest(s_t_utils.SynTest):
                 self.isin('bbq', node.tags)
 
             # but still, no time means if it's ever been done
-            nodes = await core.nodes('test:str | once beep | [ +#metal]')
-            self.len(0, nodes)
-            for node in nodes:
-                self.notin('meta', node.tags)
+            self.len(0, await core.nodes('test:str | once beep | [ +#metal]'))
+            self.len(0, await core.nodes('test:str $node.data.set(once:beep, ({})) | once beep'))
 
     async def test_storm_iden(self):
         async with self.getTestCore() as core:
