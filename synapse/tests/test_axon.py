@@ -906,10 +906,14 @@ bar baz",vv
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
                 self.eq(8, resp['size'])
+                self.eq('OK', resp['reason'])
                 self.eq('application/octet-stream', resp['headers']['Content-Type'])
 
                 resp = await proxy.wget(f'http://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}')
                 self.false(resp['ok'])
+                self.eq(-1, resp['code'])
+                self.isin('Exception occurred during request: ClientOSError: [Errno 104]', resp['reason'])
+                self.isinstance(resp['err'], tuple)
 
                 async def timeout(self):
                     await asyncio.sleep(2)
@@ -948,6 +952,7 @@ bar baz",vv
                 resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', method='PUT', ssl=False)
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
+                self.eq('OK', resp['reason'])
 
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
             q = f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))'
@@ -958,7 +963,10 @@ bar baz",vv
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
             resp = await core.callStorm(q, opts=opts)
             self.eq(False, resp['ok'])
+            self.eq(-1, resp['code'])
             self.isin('Axon does not contain the requested file.', resp.get('mesg'))
+            self.isin('Exception occurred during request: NoSuchFile', resp.get('reason'))
+            self.isinstance(resp.get('err'), tuple)
 
             q = f'''
             $fields = $lib.list(
@@ -979,7 +987,7 @@ bar baz",vv
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid()), 'bytes': ''}}
             resp = await core.callStorm(q, opts=opts)
             self.false(resp['ok'])
-            self.isin('Axon does not contain the requested file.', resp.get('err'))
+            self.isin('Axon does not contain the requested file.', resp.get('reason'))
 
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
@@ -1000,7 +1008,7 @@ bar baz",vv
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
                 self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
@@ -1008,7 +1016,7 @@ bar baz",vv
 
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('err', ''))
+            self.isin('InvalidURL: vertex.link', resp.get('reason'))
 
             # Bypass the Axon proxy configuration from Storm
             url = axon.getLocalUrl()
@@ -1020,7 +1028,7 @@ bar baz",vv
                 '''
                 resp = await core.callStorm(q, opts={'vars': {'fields': fields}})
                 self.false(resp.get('ok'))
-                self.isin('connect to proxy 127.0.0.1:1', resp.get('err', ''))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
                 q = f'''
                 $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
@@ -1068,7 +1076,7 @@ bar baz",vv
 
                 resp = await axon.postfiles(fields, url)
                 self.false(resp.get('ok'))
-                self.isin('unable to get local issuer certificate', resp.get('err'))
+                self.isin('unable to get local issuer certificate', resp.get('reason'))
 
             conf = {'auth:passwd': 'root', 'tls:ca:dir': tlscadir}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
