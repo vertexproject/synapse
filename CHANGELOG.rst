@@ -9,7 +9,7 @@ v2.144.0 - 2023-08-09
 
 Model Changes
 -------------
-- Update to the ``dns`` and ``it`` model.
+- Updates to the ``dns`` and ``it`` model.
   (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
   (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
 
