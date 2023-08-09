@@ -5617,7 +5617,13 @@ class OnceCmd(Cmd):
 
             if envl:
                 asof = self.opts.asof
+
                 last = envl.get('tick')
+
+                # edge case to account for old storage format
+                if last is None:
+                    await node.setData(key, {'tick': tick})
+
                 if last is None or asof is None or last > asof:
                     await asyncio.sleep(0)
                     continue
