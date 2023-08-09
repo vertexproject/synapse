@@ -572,7 +572,7 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.view.iden)
+        self.core._logStormQuery(text, user, info={'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
