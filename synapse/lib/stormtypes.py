@@ -2096,11 +2096,7 @@ class LibAxon(Lib):
         code = resp.get('code')
 
         if code != 200:
-            if code is None:
-                mesg = f'$lib.axon.urlfile(): {resp.get("mesg")}'
-            else:
-                mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
-
+            mesg = f'$lib.axon.urlfile(): HTTP code {code}: {resp.get("reason")}'
             await self.runt.warn(mesg, log=False)
             return
 

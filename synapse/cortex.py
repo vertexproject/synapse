@@ -1224,7 +1224,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.stormdmons)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
-        await self._initStormDmons()
         await self._initStormGraphs()
         await self._initLayerV3Stor()
 
@@ -1585,6 +1584,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
+        await self._initStormDmons()
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -5577,14 +5577,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user, mode, view):
+    def _logStormQuery(self, text, user, info=None):
         '''
         Log a storm query.
         '''
         if self.stormlog:
+            if info is None:
+                info = {}
+            info['text'] = text
+            info['username'] = user.name
+            info['user'] = user.iden
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode,
-                                               'view': view}})
+                            extra={'synapse': info})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
