@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 class TankApi(s_cell.CellApi):
 
-    async def slice(self, offs, size=None, iden=None):
-        async for item in self.cell.slice(offs, size=size, iden=iden):
+    async def slice(self, offs, size=None, wait=False, timeout=None, iden=None):
+        async for item in self.cell.slice(offs, size=size, wait=wait, timeout=timeout, iden=iden):
             yield item
 
     async def puts(self, items, seqn=None):
@@ -144,13 +144,16 @@ class CryoTank(s_base.Base):
 
             yield indx, item
 
-    async def slice(self, offs, size=None, iden=None):
+    async def slice(self, offs, size=None, wait=False, timeout=None, iden=None):
         '''
         Yield a number of items from the CryoTank starting at a given offset.
 
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
+            wait (bool): Once caught up, yield new results in realtime
+            timeout (int): Max time to wait for a new item.
+            iden (str): The iden for offset tracking.
 
         Yields:
             ((index, object)): Index and item values.
@@ -158,12 +161,16 @@ class CryoTank(s_base.Base):
         if iden is not None:
             self.setOffset(iden, offs)
 
-        for i, (indx, item) in enumerate(self._items.iter(offs)):
+        i = 0
+        async for indx, item in self._items.aiter(offs, wait=wait, timeout=timeout):
 
             if size is not None and i >= size:
                 return
 
             yield indx, item
+
+            i += 1
+            await asyncio.sleep(0)
 
     async def rows(self, offs, size=None, iden=None):
         '''
@@ -172,6 +179,7 @@ class CryoTank(s_base.Base):
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
+            iden (str): The iden for offset tracking.
 
         Yields:
             ((indx, bytes)): Index and msgpacked bytes.
@@ -206,9 +214,9 @@ class CryoApi(s_cell.CellApi):
         await self.cell.init(name, conf=conf)
         return True
 
-    async def slice(self, name, offs, size=None, iden=None):
+    async def slice(self, name, offs, size=None, wait=False, timeout=None, iden=None):
         tank = await self.cell.init(name)
-        async for item in tank.slice(offs, size=size, iden=iden):
+        async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout, iden=iden):
             yield item
 
     async def list(self):
