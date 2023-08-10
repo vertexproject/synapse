@@ -15,8 +15,6 @@ import synapse.lib.base as s_base
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
-from http import HTTPStatus
-
 @s_stormtypes.registry.registerType
 class WebSocket(s_base.Base, s_stormtypes.StormType):
     '''
@@ -282,10 +280,7 @@ class LibHttp(s_stormtypes.Lib):
 
     async def codereason(self, code):
         code = await s_stormtypes.toint(code)
-        try:
-            return HTTPStatus(code).phrase
-        except ValueError:
-            return f'Unknown HTTP status code {code}'
+        return s_common.httpcodereason(code)
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
                             allow_redirects=False, proxy=None):
@@ -430,9 +425,15 @@ class LibHttp(s_stormtypes.Lib):
             except Exception as e:
                 logger.exception(f'Error during http {meth} @ {url}')
                 err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    reason = f'Exception occurred during request: {err[0]}'
+
                 info = {
                     'code': -1,
-                    'reason': 'Exception occurred during request',
+                    'reason': reason,
                     'headers': dict(),
                     'url': url,
                     'body': b'',
@@ -451,7 +452,7 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'reason', 'desc': 'The reason phrase for the HTTP status code.', 'type': 'str'},
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
-        {'name': 'err', 'type': 'list', 'desc': 'Tufo of the error type and information if an exception occurred.'},
+        {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (

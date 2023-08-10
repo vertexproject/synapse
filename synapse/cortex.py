@@ -5527,14 +5527,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user, mode, view):
+    def _logStormQuery(self, text, user, info=None):
         '''
         Log a storm query.
         '''
         if self.stormlog:
+            if info is None:
+                info = {}
+            info['text'] = text
+            info['username'] = user.name
+            info['user'] = user.iden
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode,
-                                               'view': view}})
+                            extra={'synapse': info})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
