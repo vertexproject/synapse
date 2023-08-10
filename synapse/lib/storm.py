@@ -1651,7 +1651,14 @@ class StormDmon(s_base.Base):
 
         s_scope.set('storm:dmon', self.iden)
 
-        info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon')}
+        text = self.ddef.get('storm')
+        opts = self.ddef.get('stormopts', {})
+        vars = opts.setdefault('vars', {})
+        vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
+
+        viewiden = opts.get('view')
+
+        info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon'), 'view': viewiden}
         await self.core.boss.promote('storm:dmon', user=self.user, info=info)
 
         def dmonPrint(evnt):
@@ -1672,12 +1679,6 @@ class StormDmon(s_base.Base):
                                extra={'synapse': {'iden': self.iden}})
                 return
 
-            text = self.ddef.get('storm')
-            opts = self.ddef.get('stormopts', {})
-            vars = opts.setdefault('vars', {})
-            vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
-
-            viewiden = opts.get('view')
             view = self.core.getView(viewiden, user=self.user)
             if view is None:
                 self.status = 'fatal error: invalid view'
@@ -4686,7 +4687,7 @@ class BackgroundCmd(Cmd):
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
         info = {'query': query.text,
-                'opts': opts,
+                'view': opts['view'],
                 'background': True}
 
         await core.boss.promote('storm', user=user, info=info)
@@ -5566,58 +5567,35 @@ class EdgesDelCmd(Cmd):
 
 class OnceCmd(Cmd):
     '''
-    The once command ensures that a node makes it through the once command but a single time,
-    even across independent queries. The gating is keyed by a required name parameter to
-    the once command, so a node can be run through different queries, each a single time, so
-    long as the names differ.
+    The once command is used to filter out nodes which have already been processed
+    via the use of a named key. It includes an optional parameter to allow the node
+    to pass the filter again after a given amount of time.
 
     For example, to run an enrichment command on a set of nodes just once:
 
         file:bytes#my.files | once enrich:foo | enrich.foo
 
-    If you insert the once command with the same name on the same nodes, they will be
-    dropped from the pipeline. So in the above example, if we run it again, the enrichment
-    will not run a second time, as all the nodes will be dropped from the pipeline before
-    reaching the enrich.foo portion of the pipeline.
+    The once command filters out any nodes which have previously been through any other
+    use of the "once" command using the same <name> (in this case "enrich:foo").
 
-    Simlarly, running this:
+    You may also specify the --asof option to allow nodes to pass the filter after a given
+    amount of time. For example, the following command will allow any given node through
+    every 2 days:
 
-        file:bytes#my.files | once enrich:foo
+        file:bytes#my.files | once enrich:foo --asof "-2 days" | enrich.foo
 
-    Also yields no nodes. And even though the rest of the pipeline is different, this query:
+    Use of "--asof now" or any future date or positive relative time offset will always
+    allow the node to pass the filter.
 
-        file:bytes#my.files | once enrich:foo | enrich.bar
-
-    would not run the enrich.bar command, as the name "enrich:foo" has already been seen to
-    occur on the file:bytes passing through the once command, so all of the nodes will be
-    dropped from the pipeline.
-
-    However, this query:
-
-        file:bytes#my.files | once look:at:my:nodes
-
-    Would yield all the file:bytes tagged with #my.files, as the name parameter given to
-    the once command differs from the original "enrich:foo".
-
-    The once command utilizes a node's nodedata cache, and you can use the --asof parameter
-    to update the named action's timestamp in order to bypass/update the once timestamp. So
-    this command:
-
-        inet:ipv4#my.addresses | once node:enrich --asof now | my.enrich.command
-
-    Will yield all the enriched nodes the first time around. The second time that command is
-    run, all of those nodes will be re-enriched, as the asof timestamp will be greater the
-    second time around, so no nodes will be dropped.
-
-    As state tracking data for the once command is stored as nodedata, it is stored in your
+    State tracking data for the once command is stored as nodedata which is stored in your
     view's write layer, making it view-specific. So if you have two views, A and B, and they
     do not share any layers between them, and you execute this query in view A:
 
         inet:ipv4=8.8.8.8 | once enrich:address | enrich.baz
 
     And then you run it in view B, the node will still pass through the once command to the
-    enrich.baz portion of the pipeline, as the nodedata for the once command does not yet
-    exist in view B.
+    enrich.baz portion of the query because the tracking data for the once command does not
+    yet exist in view B.
     '''
     name = 'once'
 
@@ -5628,29 +5606,31 @@ class OnceCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
         async for node, path in genr:
+
+            tick = s_common.now()
             name = await s_stormtypes.tostr(self.opts.name)
             key = f'once:{name}'
+
             envl = await node.getData(key)
-            if not envl:
-                if self.opts.asof:
-                    envl = {'asof': self.opts.asof}
-                else:
-                    envl = {'asof': s_common.now()}
-                await node.setData(key, envl)
-                yield node, path
-            else:
-                ts = envl.get('asof')
-                if not ts:
-                    envl['asof'] = s_common.now()
-                    await node.setData(key, envl)
-                    yield node, path
-                else:
-                    norm = self.opts.asof
-                    if norm and norm > ts:
-                        envl['asof'] = norm
-                        await node.setData(key, envl)
-                        yield node, path
+
+            if envl is not None:
+                asof = self.opts.asof
+
+                last = envl.get('tick')
+
+                # edge case to account for old storage format
+                if last is None:
+                    await node.setData(key, {'tick': tick})
+
+                if last is None or asof is None or last > asof:
+                    await asyncio.sleep(0)
+                    continue
+
+            await node.setData(key, {'tick': tick})
+
+            yield node, path
 
 class TagPruneCmd(Cmd):
     '''

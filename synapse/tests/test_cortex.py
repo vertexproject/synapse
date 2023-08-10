@@ -6,6 +6,8 @@ import asyncio
 import hashlib
 import logging
 
+import regex
+
 from unittest.mock import patch
 
 import synapse.exc as s_exc
@@ -21,6 +23,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.backup as s_tools_backup
@@ -3066,6 +3069,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
 
             await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(badcmdpkg))
+            await self.asyncraises(s_exc.BadArg, s_common.aspin(core.storm(None)))
 
     async def test_onsetdel(self):
 
@@ -5323,6 +5327,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+            # Filter by var as node
+            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift by var as node
+            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
     async def test_storm_ifstmt(self):
 
         async with self.getTestCore() as core:
@@ -6945,7 +6959,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
 
                 opts = {'scrub': {'include': {'tags': ('visi',)}}}
-                podes = [p async for p in proxy.exportStorm('media:news inet:email', opts=opts)]
+                podes = []
+                async for p in proxy.exportStorm('media:news inet:email', opts=opts):
+                    if not podes:
+                        tasks = [t for t in core.boss.tasks.values() if t.name == 'storm:export']
+                        self.true(len(tasks) == 1 and tasks[0].info.get('view') == core.view.iden)
+                    podes.append(p)
 
                 self.len(2, podes)
                 news = [p for p in podes if p[0][0] == 'media:news'][0]
@@ -7233,3 +7252,83 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('macro.exec woot')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('hi there', msgs)
+
+    async def test_cortex_depr_props_warning(self):
+
+        conf = {
+            'modules': [
+                'synapse.tests.test_datamodel.DeprecatedModel',
+            ]
+        }
+
+        with self.getTestDir() as dirn:
+            with self.getLoggerStream('synapse.cortex') as stream:
+
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+
+                    # Create a test:deprprop so it doesn't generate a warning
+                    await core.callStorm('[test:dep:easy=foobar :guid=*]')
+
+                    # Lock test:deprprop:ext and .pdep so they don't generate a warning
+                    await core.callStorm('model.deprecated.lock test:dep:str')
+                    await core.callStorm('model.deprecated.lock ".pdep"')
+
+                # Check that we saw the warnings
+                stream.seek(0)
+                data = stream.read()
+
+                self.eq(1, data.count('deprecated properties unlocked'))
+                self.isin('deprecated properties unlocked and not in use', data)
+
+                match = regex.match(r'Detected (?P<count>\d+) deprecated properties', data)
+                count = int(match.groupdict().get('count'))
+
+                here = stream.tell()
+
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                    pass
+
+                # Check that the warnings are gone now
+                stream.seek(here)
+                data = stream.read()
+
+                self.eq(1, data.count('deprecated properties unlocked'))
+                self.isin(f'Detected {count - 4} deprecated properties', data)
+
+    async def test_cortex_dmons_after_modelrev(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # Add a dmon so something gets started
+                await core.callStorm('''
+                    $ddef = $lib.dmon.add(${
+                        $lib.print(hi)
+                        $lib.warn(omg)
+                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $lib.log.info($s, ({"iden": $auto.iden}))
+                    })
+                ''')
+
+                # Create this so we can find the model rev version before the
+                # latest
+                mrev = s_modelrev.ModelRev(core)
+
+                # Add a layer and regress the version so it gets migrated on the
+                # next start
+                ldef = await core.addLayer()
+                layr = core.getLayer(ldef['iden'])
+                await layr.setModelVers(mrev.revs[-2][0])
+
+            with self.getLoggerStream('') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
+            stream.seek(0)
+            data = stream.read()
+
+            # Check that the model migration happens before the dmons start
+            mrevstart = data.find('beginning model migration')
+            dmonstart = data.find('Starting Dmon')
+            self.ne(-1, mrevstart)
+            self.ne(-1, dmonstart)
+            self.lt(mrevstart, dmonstart)

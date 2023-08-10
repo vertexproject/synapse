@@ -321,7 +321,7 @@ Usage Notes
   limited ways described above.
 
 - The creator (owner) of a trigger can be modified (with appropriate permissions) using the Storm 
-  :ref:`stormlibs-lib-trigger` library and :ref:`stormprims-storm-trigger-f527` primitive. For example:
+  :ref:`stormlibs-lib-trigger` library and :ref:`stormprims-trigger-f527` primitive. For example:
   
   ::
   
@@ -507,7 +507,7 @@ Usage Notes
   limited ways described above.
 
 - The creator (owner) of a cron job can be modified (with appropriate permissions) using the Storm
-  :ref:`stormlibs-lib-cron` library and :ref:`stormprims-storm-cronjob-f527` primitive. For example:
+  :ref:`stormlibs-lib-cron` library and :ref:`stormprims-cronjob-f527` primitive. For example:
   
   ::
   

@@ -572,7 +572,7 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.view.iden)
+        self.core._logStormQuery(text, user, info={'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
@@ -649,6 +649,10 @@ class Snap(s_base.Base):
 
     def clearCachedNode(self, buid):
         self.livenodes.pop(buid, None)
+
+    async def keepalive(self, period):
+        while not await self.waitfini(period):
+            await self.fire('ping')
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)

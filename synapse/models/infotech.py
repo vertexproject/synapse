@@ -388,6 +388,34 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:regval', ('guid', {}), {
                     'doc': 'A Windows registry key/value pair.',
                 }),
+                ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A version control system type taxonomy.',
+                    'interfaces': ('taxonomy',)
+                }),
+                ('it:dev:repo', ('guid', {}), {
+                    'doc': 'A version control system instance.',
+                }),
+                ('it:dev:repo:remote', ('guid', {}), {
+                    'doc': 'A remote repo that is tracked for changes/branches/etc.',
+                }),
+                ('it:dev:repo:branch', ('guid', {}), {
+                    'doc': 'A branch in a version control system instance.',
+                }),
+                ('it:dev:repo:commit', ('guid', {}), {
+                    'doc': 'A commit to a repository.',
+                }),
+                ('it:dev:repo:diff', ('guid', {}), {
+                    'doc': 'A diff of a file being applied in a single commit.',
+                }),
+                ('it:dev:repo:issue', ('guid', {}), {
+                    'doc': 'An issue raised in a repository.',
+                }),
+                ('it:dev:repo:issue:comment', ('guid', {}), {
+                    'doc': 'A comment on an issue in a repository.',
+                }),
+                ('it:dev:repo:diff:comment', ('guid', {}), {
+                    'doc': 'A comment on a diff in a repository.',
+                }),
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A software product.',
                 }),
@@ -1091,6 +1119,169 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
+
+                # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
+                ('it:dev:repo:type:taxonomy', {}, ()),
+                ('it:dev:repo', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name of the repository.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A free-form description of the repository.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'When the repository was created.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL where the repository is hosted.',
+                    }),
+                    ('type', ('it:dev:repo:type:taxonomy', {}), {
+                        'doc': 'The type of the version control system used.',
+                        'ex': 'svn'
+                    }),
+                    ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
+                    }),
+                )),
+
+                ('it:dev:repo:remote', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name the repo is using for the remote repo.',
+                        'ex': 'origin'
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL the repo is using to access the remote repo.',
+                    }),
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo that is tracking the remote repo.',
+                    }),
+                    ('remote', ('it:dev:repo', {}), {
+                        'doc': 'The instance of the remote repo.',
+                    }),
+                )),
+
+                ('it:dev:repo:branch', {}, (
+                    ('parent', ('it:dev:repo:branch', {}), {
+                        'doc': 'The branch this branch was branched from.',
+                    }),
+                    ('start', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit in the parent branch this branch was created at.'
+                    }),
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The name of the branch.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the branch is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time this branch was created',
+                    }),
+                    ('merged', ('time', {}), {
+                        'doc': 'The time this branch was merged back into its parent.',
+                    }),
+                    ('deleted', ('time', {}), {
+                        'doc': 'The time this branch was deleted.',
+                    }),
+                )),
+
+                ('it:dev:repo:commit', {}, (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository the commit lives in.',
+                    }),
+                    ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': 'The commit or commits this commit is immediately based on.',
+                    }),
+                    ('branch', ('it:dev:repo:branch', {}), {
+                        'doc': 'The name of the branch the commit was made to.',
+                    }),
+                    ('mesg', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The commit message describing the changes in the commit.',
+                    }),
+                    ('id', ('str', {}), {
+                        'doc': 'The version control system specific commit identifier.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the commit was made.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the commit is hosted.',
+                    }),
+                )),
+
+                ('it:dev:repo:diff', {}, (
+                    ('commit', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit that produced this diff.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file after the commit has been applied',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the file in the repo that the diff is being applied to.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the diff is hosted.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue', {}, (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo where the issue was logged.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The title of the issue.'
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The text describing the issue.'
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the issue was created.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the issue is hosted.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:comment', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue thread that the comment was made in.',
+                    }),
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The body of the comment.',
+                    }),
+                    ('replyto', ('it:dev:repo:issue:comment', {}), {
+                        'doc': 'The comment that this comment is replying to.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the comment is hosted.',
+                    }),
+                )),
+
+                ('it:dev:repo:diff:comment', {}, (
+                    ('diff', ('it:dev:repo:diff', {}), {
+                        'doc': 'The diff the comment is being added to.',
+                    }),
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The body of the comment.',
+                    }),
+                    ('replyto', ('it:dev:repo:diff:comment', {}), {
+                        'doc': 'The comment that this comment is replying to.',
+                    }),
+                    ('line', ('int', {}), {
+                        'doc': 'The line in the file that is being commented on.',
+                    }),
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset in the line in the file that is being commented on.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the comment is hosted.',
+                    }),
+                )),
+
                 ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1111,7 +1302,7 @@ class ItModule(s_module.CoreModule):
                     ('released', ('time', {}), {
                         'doc': 'The initial release date for this hardware.'}),
                     ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
+                        'doc': 'An array of it:prod:hardware parts included in this hardware specification.'}),
                 )),
                 ('it:prod:component', {}, (
                     ('hardware', ('it:prod:hardware', {}), {
@@ -1628,13 +1819,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
                     ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 of the client during the URL retrieval..'
+                        'doc': 'The IPv4 of the client during the URL retrieval.'
                     }),
                     ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 of the client during the URL retrieval..'
+                        'doc': 'The IPv6 of the client during the URL retrieval.'
                     }),
                     ('client:port', ('inet:port', {}), {
-                        'doc': 'The client port during the URL retrieval..'
+                        'doc': 'The client port during the URL retrieval.'
                     }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'

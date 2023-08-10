@@ -4,6 +4,173 @@
 Synapse Changelog
 *****************
 
+v2.144.0 - 2023-08-09
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet:dns`` and ``it`` model.
+  (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
+  (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
+
+ New Forms
+  ---------
+
+  ``it:dev:repo:type:taxonomy``
+    A version control system type taxonomy.
+
+  ``it:dev:repo``
+    A version control system instance.
+
+  ``it:dev:repo:remote``
+    A remote repo that is tracked for changes/branches/etc.
+
+  ``it:dev:repo:branch``
+    A branch in a version control system instance.
+
+  ``it:dev:repo:commit``
+    A commit to a repository.
+
+  ``it:dev:repo:diff``
+    A diff of a file being applied in a single commit.
+
+  ``it:dev:repo:issue``
+    An issue raised in a repository.
+
+  ``it:dev:repo:issue:comment``
+    A comment on an issue in a repository.
+
+  ``it:dev:repo:diff:comment``
+    A comment on a diff in a repository.
+
+  New Properties
+  --------------
+
+  ``inet:dns:answer`
+    The form had the following properties added to it:
+
+    ``time``
+      The time that the DNS response was transmitted.
+
+Features and Enhancements
+-------------------------
+- The iden of the Cron job is now added to the Storm query log made with
+  the ``synapse.storm`` logger when using structured logging.
+  (`#3235 <https://github.com/vertexproject/synapse/pull/3235>`_)
+- Add a ``keepalive`` option to the Storm query ``opts``. This may be used
+  with long-running Storm queries when behind a network proxy or load balancer
+  which may terminate idle connections.
+  (`#3272 <https://github.com/vertexproject/synapse/pull/3272>`_)
+- Update the allowed versions of the ``cryptography`` library.
+  (`#3281 <https://github.com/vertexproject/synapse/pull/3281>`_)
+
+Bugfixes
+--------
+- Fix an issue where Storm Dmons could start prior to data model migrations.
+  (`#3279 <https://github.com/vertexproject/synapse/pull/3279>`_)
+- Adjust the storage convention for ``once`` state data to fix an edge case
+  and clarify documentation.
+  (`#3282 <https://github.com/vertexproject/synapse/pull/3282>`_)
+- Fix an issue with missing keys in storage nodes during migrations.
+  (`#3284 <https://github.com/vertexproject/synapse/pull/3284>`_)
+
+
+v2.143.0 - 2023-07-28
+=====================
+
+Model Changes
+-------------
+- Update to the ``crypto`` model.
+  (`#3256 <https://github.com/vertexproject/synapse/pull/3256>`_)
+
+  Updated Types
+  -------------
+
+  ``hex``
+    The ``zeropad`` option has been changed from a ``bool`` to an ``int``.
+    It may now be used to specify the zero extended length of the hex string.
+
+  Updated Properties
+  ------------------
+
+  ``crypto:x509:cert``
+    The form had the following properties updated on it:
+
+    ``serial``
+      The ``size`` value has been changed to ``zeropad`` to zeropad values
+      with less than 40 octets, and to allow storing large serial numbers from
+      malformed certificates.
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.model.ext.getExtModel()`` and
+  ``$lib.model.ext.addExtModel()`` Storm APIs to get all the extended model
+  definitions in a Cortex and to add extended model definitions to
+  a Cortex in bulk.
+  (`#3252 <https://github.com/vertexproject/synapse/pull/3252>`_)
+- Add ``inet:ipv6`` to the list of types identified with scrape APIs. The
+  ``inet:server`` form identified by scrape APIs now also identifies IPv6
+  server addresses.
+  (`#3259 <https://github.com/vertexproject/synapse/pull/3259>`_)
+- Add a check to the Cortex startup to identify and log the presence of
+  deprecated model elements and direct users to check and lock them
+  at :ref:`storm-model-deprecated-check`.
+  (`#3253 <https://github.com/vertexproject/synapse/pull/3253>`_)
+  (`#3264 <https://github.com/vertexproject/synapse/pull/3264>`_)
+- Add a new Storm function, ``$lib.vars.type()``,  to get the type
+  value of an object.
+  (`#3100 <https://github.com/vertexproject/synapse/pull/3100>`_)
+- Add a Storm library, ``$lib.pack``, for packing and unpacking structured
+  byte values.
+  (`#3261 <https://github.com/vertexproject/synapse/pull/3261>`_)
+- The Storm ``$lib.gen()`` functions and associated commands now generate
+  stable guid values based on their inputs when making nodes.
+  (`#3268 <https://github.com/vertexproject/synapse/pull/3268>`_)
+- Add the ``.bazar`` TLD to the list of TLDs identified by the Synapse scrape
+  functionality.
+  (`#3271 <https://github.com/vertexproject/synapse/pull/3271>`_)
+- Add the View iden to the task identifier for running Storm tasks.
+  (`#3247 <https://github.com/vertexproject/synapse/pull/3247>`_)
+- Add performance related sysctl values to the output of the Storm
+  ``Cell.getSystemInfo()`` and ``$lib.cell.getSystemInfo()`` APIs.
+  (`#3236 <https://github.com/vertexproject/synapse/pull/3236>`_)
+- Update the allowed versions of the ``vcrpy`` library. Thank you
+  ``captainGeech42`` for the contribution.
+  (`#3204 <https://github.com/vertexproject/synapse/pull/3204>`_)
+
+Bugfixes
+--------
+- Ensure the input to the ``CoreAPI.storm()`` ( and related APIs ) is a
+  string.
+  (`#3255 <https://github.com/vertexproject/synapse/pull/3255>`_)
+  (`#3269 <https://github.com/vertexproject/synapse/pull/3269>`_)
+- Fix a bug in ``synapse.tools.aha.enroll`` where a user with a
+  ``telepath.yaml`` file containing an ``aha:servers`` key with a list of
+  lists failed to enroll a local user.
+  (`#3260 <https://github.com/vertexproject/synapse/pull/3260>`_)
+- Fix an issue where Storm functions using ``emit`` failed to cleanup their
+  sub-runtimes.
+  (`#3250 <https://github.com/vertexproject/synapse/pull/3250>`_)
+- Add verification that a Storm function call is being made on a callable
+  object and raise a ``StormRuntimeError`` if the object cannot be called.
+  Previously invalid calls could raise a ``TypeError``.
+  (`#3243 <https://github.com/vertexproject/synapse/pull/3243>`_)
+- Fix the order of the Beholder ``cron:stop`` message firing when a Cron job
+  is stopped.
+  (`#3265 <https://github.com/vertexproject/synapse/pull/3265>`_)
+
+Improved Documentation
+----------------------
+- Add a section to the Storm reference for user defined functions in Storm.
+  That can be found at :ref:`storm-adv-functions`.
+  (`#3245 <https://github.com/vertexproject/synapse/pull/3245>`_)
+- Update the devops documentation to add a note about the Telepath ``aha://``
+  protocol using a ``mirror=true`` parameter to connect to a service mirror
+  instead of a leader.
+  (`#3267 <https://github.com/vertexproject/synapse/pull/3267>`_)
+- Update the ``preboot.sh`` example script to account for Docker changes
+  introduced in ``v2.133.0``.
+
 v2.142.2 - 2023-07-19
 =====================
 

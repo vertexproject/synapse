@@ -838,7 +838,7 @@ class Agenda(s_base.Base):
             await self._markfailed(appt, 'unknown view')
             return
 
-        info = {'iden': appt.iden, 'query': appt.query}
+        info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
 
         appt.task = task
@@ -879,7 +879,7 @@ class Agenda(s_base.Base):
                 # and be relatively okay. The only catch is that the nexus offset will correspond to the
                 # last nexus transaction, and not the start/stop
                 await self.core.feedBeholder('cron:start', {'iden': appt.iden})
-                async for node in view.eval(appt.query, opts=opts):
+                async for node in view.eval(appt.query, opts=opts, log_info={'cron': appt.iden}):
                     count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
@@ -906,5 +906,6 @@ class Agenda(s_base.Base):
                 appt.isrunning = False
                 appt.lastresult = result
                 if not self.isfini:
-                    await self._storeAppt(appt, nexs=True)
+                    # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+                    await self._storeAppt(appt, nexs=True)

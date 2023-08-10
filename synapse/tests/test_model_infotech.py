@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -1385,3 +1387,128 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('soft'))
             self.len(1, await core.nodes('it:host -> it:prod:softid'))
             self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))
+
+    async def test_infotech_repo(self):
+
+        async with self.getTestCore() as core:
+            diff = s_common.guid()
+            repo = s_common.guid()
+            issue = s_common.guid()
+            commit = s_common.guid()
+            branch = s_common.guid()
+            icom = s_common.guid()
+            dcom = s_common.guid()
+            origin = s_common.guid()
+            file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
+
+            props = {
+                ('it:dev:repo', repo): {
+                    'name': 'synapse',
+                    'desc': 'Synapse Central Intelligence System',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse',
+                    'type': 'svn.',
+                    'submodules': (s_common.guid(),),
+                },
+
+                ('it:dev:repo:remote', s_common.guid()): {
+                    'name': 'origin',
+                    'repo': repo,
+                    'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
+                    'remote': origin,
+                },
+
+                ('it:dev:repo:commit', commit): {
+                    'repo': repo,
+                    'branch': branch,
+                    'parents': (s_common.guid(),),
+                    'mesg': 'fancy new release',
+                    'id': 'r12345',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
+                },
+
+                ('it:dev:repo:diff', diff): {
+                    'commit': commit,
+                    'file': file,
+                    'path': 'synapse/tests/test_model_infotech.py',
+                    'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
+                },
+
+                ('it:dev:repo:issue', issue): {
+                    'repo': repo,
+                    'title': 'a fancy new release',
+                    'desc': 'Gonna be a big release friday',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse/issues/2821',
+                },
+
+                ('it:dev:repo:issue:comment', icom): {
+                    'issue': issue,
+                    'text': 'a comment on an issue',
+                    'replyto': s_common.guid(),
+                    'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
+                },
+
+                ('it:dev:repo:diff:comment', dcom): {
+                    'diff': diff,
+                    'text': 'types types types types types',
+                    'replyto': s_common.guid(),
+                    'line': 100,
+                    'offset': 100,
+                    'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069'
+                },
+
+                ('it:dev:repo:branch', branch): {
+                    'parent': s_common.guid(),
+                    'start': commit,
+                    'name': 'IT_dev_repo_models',
+                    'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
+                    'created': 0,
+                    'merged': 1,
+                    'deleted': 2
+                }
+            }
+
+            async with await core.snap() as snap:
+                for (form, valu), props in props.items():
+                    node = await snap.addNode(form, valu, props=props)
+                    self.checkNode(node, ((form, valu), props))
+
+            nodes = await core.nodes('it:dev:repo')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo <- *')
+            self.len(4, nodes)
+
+            nodes = await core.nodes('it:dev:repo:commit')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:dev:repo:type:taxonomy')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:issue:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote :repo -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', repo))
+
+            nodes = await core.nodes('it:dev:repo:remote :remote -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', origin))
+
+            nodes = await core.nodes('it:dev:repo:issue:comment=$guid :replyto -> *', {'vars': {'guid': icom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment=$guid :replyto -> *', {'vars': {'guid': dcom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:branch=$guid :parent -> *', {'vars': {'guid': branch}})
+            self.len(1, nodes)

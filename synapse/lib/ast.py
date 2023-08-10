@@ -776,55 +776,56 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async for item in s_coro.agen(valu):
+            async with s_common.aclosing(s_coro.agen(valu)) as agen:
+                async for item in agen:
 
-                if isinstance(name, (list, tuple)):
+                    if isinstance(name, (list, tuple)):
+
+                        try:
+                            numitems = len(item)
+                        except TypeError:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if len(name) != numitems:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if isinstance(item, s_stormtypes.Prim):
+                            item = await item.value()
+
+                        for x, y in itertools.zip_longest(name, item):
+                            await path.setVar(x, y)
+                            await runt.setVar(x, y)
+
+                    else:
+                        # set both so inner subqueries have it in their runtime
+                        await path.setVar(name, item)
+                        await runt.setVar(name, item)
 
                     try:
-                        numitems = len(item)
-                    except TypeError:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name)
-                        raise self.kids[1].addExcInfo(exc)
 
-                    if len(name) != numitems:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
-                        raise self.kids[1].addExcInfo(exc)
+                        # since it's possible to "multiply" the (node, path)
+                        # we must make a clone of the path to prevent yield-then-use.
+                        newg = s_common.agen((node, path.clone()))
+                        async for item in subq.inline(runt, newg):
+                            yield item
 
-                    if isinstance(item, s_stormtypes.Prim):
-                        item = await item.value()
+                    except s_stormctrl.StormBreak as e:
+                        if e.item is not None:
+                            yield e.item
+                        break
 
-                    for x, y in itertools.zip_longest(name, item):
-                        await path.setVar(x, y)
-                        await runt.setVar(x, y)
+                    except s_stormctrl.StormContinue as e:
+                        if e.item is not None:
+                            yield e.item
+                        continue
 
-                else:
-                    # set both so inner subqueries have it in their runtime
-                    await path.setVar(name, item)
-                    await runt.setVar(name, item)
-
-                try:
-
-                    # since it's possible to "multiply" the (node, path)
-                    # we must make a clone of the path to prevent yield-then-use.
-                    newg = s_common.agen((node, path.clone()))
-                    async for item in subq.inline(runt, newg):
-                        yield item
-
-                except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
-                    break
-
-                except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
-                    continue
-
-                finally:
-                    # for loops must yield per item they iterate over
-                    await asyncio.sleep(0)
+                    finally:
+                        # for loops must yield per item they iterate over
+                        await asyncio.sleep(0)
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -841,48 +842,49 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async for item in s_coro.agen(valu):
+            async with s_common.aclosing(s_coro.agen(valu)) as agen:
+                async for item in agen:
 
-                if isinstance(name, (list, tuple)):
+                    if isinstance(name, (list, tuple)):
+
+                        try:
+                            numitems = len(item)
+                        except TypeError:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if len(name) != numitems:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if isinstance(item, s_stormtypes.Prim):
+                            item = await item.value()
+
+                        for x, y in itertools.zip_longest(name, item):
+                            await runt.setVar(x, y)
+
+                    else:
+                        await runt.setVar(name, item)
 
                     try:
-                        numitems = len(item)
-                    except TypeError:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name)
-                        raise self.kids[1].addExcInfo(exc)
+                        async for jtem in subq.inline(runt, s_common.agen()):
+                            yield jtem
 
-                    if len(name) != numitems:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
-                        raise self.kids[1].addExcInfo(exc)
+                    except s_stormctrl.StormBreak as e:
+                        if e.item is not None:
+                            yield e.item
+                        break
 
-                    if isinstance(item, s_stormtypes.Prim):
-                        item = await item.value()
+                    except s_stormctrl.StormContinue as e:
+                        if e.item is not None:
+                            yield e.item
+                        continue
 
-                    for x, y in itertools.zip_longest(name, item):
-                        await runt.setVar(x, y)
-
-                else:
-                    await runt.setVar(name, item)
-
-                try:
-                    async for jtem in subq.inline(runt, s_common.agen()):
-                        yield jtem
-
-                except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
-                    break
-
-                except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
-                    continue
-
-                finally:
-                    # for loops must yield per item they iterate over
-                    await asyncio.sleep(0)
+                    finally:
+                        # for loops must yield per item they iterate over
+                        await asyncio.sleep(0)
 
 class WhileLoop(Oper):
 
@@ -2965,6 +2967,12 @@ class FuncCall(Value):
     async def compute(self, runt, path):
 
         func = await self.kids[0].compute(runt, path)
+        if not callable(func):
+            text = self.getAstText()
+            styp = await s_stormtypes.totype(func, basetypes=True)
+            mesg = f"'{styp}' object is not callable: {text}"
+            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+
         if runt.readonly and not getattr(func, '_storm_readonly', False):
             mesg = f'Function ({func.__name__}) is not marked readonly safe.'
             raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
@@ -4294,12 +4302,7 @@ class Function(AstNode):
 
         opts = {'vars': mergargs}
 
-        if self.hasemit:
-            runt = await runt.initSubRuntime(self.kids[2], opts=opts)
-            runt.funcscope = True
-            return await runt.emitter()
-
-        if self.hasretn:
+        if (self.hasretn and not self.hasemit):
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
                 # inform the sub runtime to use function scope rules
@@ -4319,8 +4322,12 @@ class Function(AstNode):
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
                 try:
-                    async for node, path in subr.execute():
-                        yield node, path
+                    if self.hasemit:
+                        async for item in await subr.emitter():
+                            yield item
+                    else:
+                        async for node, path in subr.execute():
+                            yield node, path
                 except s_stormctrl.StormStop:
                     return
 

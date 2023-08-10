@@ -32,6 +32,7 @@ and BOB@WOOT.COM is another
 
     aa:bb:cc:dd:ee:ff
 
+    # GOOD IPV4 ADDRESSES
     1.2.3.4
 
     5.6.7.8:16
@@ -40,13 +41,102 @@ and BOB@WOOT.COM is another
 
     Typo no space after sentence.211.212.213.214 is the address..
 
-    # Bad IP addresses:
+    The IP address is:2.3.4.5.
+
+    # GOOD IPV6 ADDRESSES
+
+    fff0::1
+    ::1
+    ::1010
+    ff::
+    0::1
+    0:0::1
+    ff:fe:fd::1
+    ffff:ffe:fd:c::1
+    111::333:222
+    111:222::333
+
+    1:2:3:4:5:6:7:8
+
+    1:2:3:4:5:6::7
+    1:2:3:4:5::6
+    1:2:3:4::5
+    1:2:3::4
+    1:2::3
+
+    1::2
+    1::2:3:4:5:6:7
+    1::2:3:4:5:6
+    1::2:3:4:5
+    1::2:3:4
+    1::2:3
+
+    a:2::3:4:5:6:7
+    a:2::3:4:5:6
+    a:2::3:4:5
+    a:2::3:4
+    a:2::3
+
+    2001:db8:3333:4444:5555:6666:4.3.2.1
+
+    ::3.4.5.6
+    ::ffff:4.3.2.2
+    ::FFFF:4.3.2.3
+    ::ffff:0000:4.3.2.4
+    ::1:2:3:4:4.3.2.5
+    ::1:2:3:4.3.2.6
+    ::1:2:3:4:5:4.3.2.7
+    ::ffff:255.255.255.255
+    ::ffff:111.222.33.44
+    1:2::3:4.3.2.8
+
+    1:2:3:4:5:6:7:9%eth0
+    1:2:3:4:5:6:7:a%s10
+    1:2:3:4:5:6:7:b%lo
+    1::a%eth0
+    1::a:3%lo
+    1:a::3%eth1
+
+    The IP address is:a:b:c:d:e::6.
+
+    # BAD IPV6 ADDRESSES
+    ::
+    0::0::1
+    1:2:3:4
+    1:2:3:4:5
+    1:2:3:4:5:6
+    1:2:3:4:5:6:7
+    ::ffff:4.3.2.a.5
+    ::1.3.3.4.5:4.3.2.b
+    ::1:2:3:4:5:6:4.3.2.c
+    ::1:2:3:4:5:6:7:4.3.2.d
+
+    # Bad IPV4 addresses:
     6.7.8.900
     6.7.8.9750
     1236.7.8.9
     0126.7.8.9
     6.7.8.9.6.7.8.9
     6.7.8.9.6
+
+    # GOOD INET:SERVER
+    1.2.3.4:123
+    1.2.3.4:65535
+    1.2.3.4:12346.
+    1.2.3.4:12347:
+    [::1]:123
+    [1:2:3:4:5:6:7:8]:123
+
+    # BAD INET:SERVER
+    1.2.3.4:0
+    1.2.3.4:65536
+    1.2.3.4:1.2.3.5
+    1.2.3.4:123456
+    1.2.3.4:
+    0.1.2.3.4:12345
+    1.2.3:123
+    [::1].123
+    [::1]:123.1234
 
     faß.de
 
@@ -91,6 +181,8 @@ data1 = '''
     tcp://foo.bar.org:4665/.,.
     tcp://foo.bar.org:4665/,.,
     tcp://foo.bar.org:4665/,,..a
+    tcp://[1:2:3:4:5:6:7:8]:1234/
+    tcp://[1:2:3::4:5:6]:2345/
 '''
 
 data2 = '''
@@ -334,9 +426,10 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(31, nodes)
+        self.len(83, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
+        nodes.remove(('inet:ipv4', '2.3.4.5'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
         nodes.remove(('inet:ipv4', '201.202.203.204'))
         nodes.remove(('inet:ipv4', '211.212.213.214'))
@@ -362,10 +455,61 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', 'tilde.com'))
         nodes.remove(('inet:fqdn', 'fxp.com'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
+        nodes.remove(('inet:server', '1.2.3.4:123'))
+        nodes.remove(('inet:server', '1.2.3.4:65535'))
+        nodes.remove(('inet:server', '1.2.3.4:12346'))
+        nodes.remove(('inet:server', '1.2.3.4:12347'))
+        nodes.remove(('inet:server', '[::1]:123'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:123'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
         nodes.remove(('it:sec:cwe', 'CWE-1'))
         nodes.remove(('it:sec:cwe', 'CWE-12345678'))
+        nodes.remove(('inet:ipv6', 'fff0::1'))
+        nodes.remove(('inet:ipv6', '::1'))
+        nodes.remove(('inet:ipv6', '::1010'))
+        nodes.remove(('inet:ipv6', 'ff::'))
+        nodes.remove(('inet:ipv6', '0::1'))
+        nodes.remove(('inet:ipv6', '0:0::1'))
+        nodes.remove(('inet:ipv6', 'ff:fe:fd::1'))
+        nodes.remove(('inet:ipv6', 'ffff:ffe:fd:c::1'))
+        nodes.remove(('inet:ipv6', '111::333:222'))
+        nodes.remove(('inet:ipv6', '111:222::333'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6::7'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5::6'))
+        nodes.remove(('inet:ipv6', '1:2:3:4::5'))
+        nodes.remove(('inet:ipv6', '1:2:3::4'))
+        nodes.remove(('inet:ipv6', '1:2::3'))
+        nodes.remove(('inet:ipv6', '1::2'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5:6'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5'))
+        nodes.remove(('inet:ipv6', '1::2:3:4'))
+        nodes.remove(('inet:ipv6', '1::2:3'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4'))
+        nodes.remove(('inet:ipv6', 'a:2::3'))
+        nodes.remove(('inet:ipv6', '2001:db8:3333:4444:5555:6666:4.3.2.1'))
+        nodes.remove(('inet:ipv6', '::3.4.5.6'))
+        nodes.remove(('inet:ipv6', '::ffff:4.3.2.2'))
+        nodes.remove(('inet:ipv6', '::FFFF:4.3.2.3'))
+        nodes.remove(('inet:ipv6', '::ffff:0000:4.3.2.4'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4:4.3.2.5'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4.3.2.6'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4:5:4.3.2.7'))
+        nodes.remove(('inet:ipv6', '::ffff:255.255.255.255'))
+        nodes.remove(('inet:ipv6', '::ffff:111.222.33.44'))
+        nodes.remove(('inet:ipv6', '1:2::3:4.3.2.8'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:9'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:a'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:b'))
+        nodes.remove(('inet:ipv6', '1::a'))
+        nodes.remove(('inet:ipv6', '1::a:3'))
+        nodes.remove(('inet:ipv6', '1:a::3'))
+        nodes.remove(('inet:ipv6', 'a:b:c:d:e::6'))
         self.len(0, nodes)
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))
@@ -375,7 +519,7 @@ class ScrapeTest(s_t_utils.SynTest):
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(data1))
-        self.len(10, nodes)
+        self.len(16, nodes)
         for _ in range(5):
             nodes.remove(('inet:fqdn', 'foo.bar.org'))
 
@@ -385,6 +529,13 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+
+        nodes.remove(('inet:url', 'tcp://[1:2:3:4:5:6:7:8]:1234/'))
+        nodes.remove(('inet:url', 'tcp://[1:2:3::4:5:6]:2345/'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:1234'))
+        nodes.remove(('inet:server', '[1:2:3::4:5:6]:2345'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3::4:5:6'))
 
         nodes = list(s_scrape.scrape(data2))
         nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
@@ -561,6 +712,9 @@ class ScrapeTest(s_t_utils.SynTest):
         # ensure extra-iana tlds included as tld
         txt = f'hehe woot.onion woot.bit haha'
         self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
+
+        txt = f'hehe trickbot.bazar haha'
+        self.isin('trickbot.bazar', [n[1] for n in s_scrape.scrape(txt)])
 
     def test_refang(self):
         defanged = '10[.]0[.]0[.]1'
