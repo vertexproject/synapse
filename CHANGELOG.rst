@@ -9,7 +9,7 @@ v2.144.0 - 2023-08-09
 
 Model Changes
 -------------
-- Updates to the ``dns`` and ``it`` model.
+- Updates to the ``inet:dns`` and ``it`` model.
   (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
   (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
 
@@ -57,7 +57,7 @@ Features and Enhancements
 - The iden of the Cron job is now added to the Storm query log made with
   the ``synapse.storm`` logger when using structured logging.
   (`#3235 <https://github.com/vertexproject/synapse/pull/3235>`_)
-- Add a ``keepalive`` option to the Storm query ``opts``. TThis may be used
+- Add a ``keepalive`` option to the Storm query ``opts``. This may be used
   with long-running Storm queries when behind a network proxy or load balancer
   which may terminate idle connections.
   (`#3272 <https://github.com/vertexproject/synapse/pull/3272>`_)
@@ -68,6 +68,11 @@ Bugfixes
 --------
 - Fix an issue where Storm Dmons could start prior to data model migrations.
   (`#3279 <https://github.com/vertexproject/synapse/pull/3279>`_)
+- Adjust the storage convention for ``once`` state data to fix an edge case
+  and clarify documentation.
+  (`#3282 <https://github.com/vertexproject/synapse/pull/3282>`_)
+- Fix an issue with missing keys in storage nodes during migrations.
+  (`#3284 <https://github.com/vertexproject/synapse/pull/3284>`_)
 
 
 v2.143.0 - 2023-07-28
