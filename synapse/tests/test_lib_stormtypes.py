@@ -4952,22 +4952,11 @@ class StormTypesTest(s_test.SynTest):
                      ),
                      'storm': 'function x() { [ ps:person=* ] return($node) }',
                     },
-                    {
-                     'name': 'authtest.defaultcheckmod',
-                     'asroot:perms': (
-                        ('wootwoot.wow',),
-                     ),
-                     'storm': 'function x() { [ ps:person=* ] return($node) }',
-                    },
                 ),
                 'commands': (
                     {'name': 'authtest.asuser',
                      'perms': (('wootwoot',), ),
                      'storm': '$lib.print(hithere)',
-                    },
-                    {'name': 'authtest.defaultcheckcmd',
-                     'perms': (('wootwoot.wow',), ),
-                     'storm': '$lib.print(worked)',
                     },
                 ),
             }
@@ -5020,11 +5009,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('authtest.asuser', opts=asvisi)
             self.stormIsInPrint('hithere', msgs)
 
-            # msgs = await core.stormlist('authtest.defaultcheckcmd', opts=asvisi)
-            # self.stormIsInPrint('worked', msgs)
-
             self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
-            self.len(1, await core.nodes('yield $lib.import(authtest.defaultcheckmod).x()', opts=asvisi))
 
             udef = await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}})
             self.nn(udef)

@@ -7,6 +7,7 @@ import contextlib
 import collections
 
 import synapse.exc as s_exc
+import synapse.glob as s_glob
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
@@ -2045,17 +2046,33 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
-    def confirm(self, perms, gateiden=None, default=False):
+    async def confirm(self, perms, gateiden=None, default=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
         if self.asroot:
             return
+
+        if default is None:
+            default = False
+
+            permdef = await self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
         return self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def allowed(self, perms, gateiden=None, default=False):
+    async def allowed(self, perms, gateiden=None, default=None):
         if self.asroot:
             return True
+
+        if default is None:
+            default = False
+
+            permdef = await self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def _loadRuntVars(self, query):
@@ -2760,7 +2777,7 @@ class PureCmd(Cmd):
         name = self.getName()
         perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
 
-        asroot = runt.allowed(perm)
+        asroot = await runt.allowed(perm)
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
@@ -2771,7 +2788,7 @@ class PureCmd(Cmd):
         if perms is not None:
             allowed = False
             for perm in perms:
-                if runt.allowed(perm):
+                if await runt.allowed(perm):
                     allowed = True
                     break
 
@@ -3181,7 +3198,7 @@ class CopyToCmd(Cmd):
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
 
-        runt.confirm(('view', 'read'), gateiden=view.iden)
+        await runt.confirm(('view', 'read'), gateiden=view.iden)
 
         layriden = view.layers[0].iden
 
@@ -3189,16 +3206,16 @@ class CopyToCmd(Cmd):
 
             async for node, path in genr:
 
-                runt.confirm(node.form.addperm, gateiden=layriden)
+                await runt.confirm(node.form.addperm, gateiden=layriden)
                 for name in node.props.keys():
-                    runt.confirm(node.form.props[name].setperm, gateiden=layriden)
+                    await runt.confirm(node.form.props[name].setperm, gateiden=layriden)
 
                 for tag in node.tags.keys():
-                    runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
+                    await runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
 
                 if not self.opts.no_data:
                     async for name in node.iterDataKeys():
-                        runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
+                        await runt.confirm(('node', 'data', 'set', name), gateiden=layriden)
 
                 async with snap.getEditor() as editor:
 
@@ -3237,7 +3254,7 @@ class CopyToCmd(Cmd):
                     async for (verb, n2iden) in node.iterEdgesN1():
 
                         if not verbs.get(verb):
-                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                            await runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
                             verbs[verb] = True
 
                         n2node = await snap.getNodeByBuid(s_common.uhex(n2iden))
@@ -3250,7 +3267,7 @@ class CopyToCmd(Cmd):
                     async for (verb, n1iden) in node.iterEdgesN2():
 
                         if not verbs.get(verb):
-                            runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
+                            await runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
                             verbs[verb] = True
 
                         n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
@@ -3381,33 +3398,33 @@ class MergeCmd(Cmd):
         layr1 = runt.snap.view.layers[1].iden
 
         if sode.get('valu') is not None:
-            runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
-            runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
+            await runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+            await runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
             full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            await runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+            await runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
 
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
-            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            await runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+            await runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         for tag, tagdict in sode.get('tagprops', {}).items():
             for prop, (valu, stortype) in tagdict.items():
                 tagperm = tuple(tag.split('.'))
-                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                await runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                await runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
-            runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-            runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+            await runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+            await runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
         async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.buid):
             verb = edge[0]
-            runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-            runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+            await runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+            await runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3669,33 +3686,33 @@ class MoveNodesCmd(Cmd):
                 continue
 
             if sode.get('valu') is not None:
-                self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-                self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+                await self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
             for name, (valu, stortype) in sode.get('props', {}).items():
                 full = node.form.prop(name).full
-                self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
-                self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
+                await self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
 
             for tag, valu in sode.get('tags', {}).items():
                 tagperm = tuple(tag.split('.'))
-                self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                await self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
             for tag, tagdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in tagdict.items():
                     tagperm = tuple(tag.split('.'))
-                    self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                    self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
+                    await self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                    await self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
             for name in layrdata[layr]:
-                self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
-                self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
+                await self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
             async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
                 verb = edge[0]
-                self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
-                self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
+                await self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
 
     async def execStormCmd(self, runt, genr):
 
@@ -4202,7 +4219,7 @@ class DelNodeCmd(Cmd):
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         if delbytes:
-            runt.confirm(('storm', 'lib', 'axon', 'del'))
+            await runt.confirm(('storm', 'lib', 'axon', 'del'))
             await runt.snap.core.getAxon()
             axon = runt.snap.core.axon
 
