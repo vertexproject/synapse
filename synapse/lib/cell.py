@@ -809,6 +809,14 @@ class CellApi(s_base.Base):
             'threshold': gc.get_threshold(),
         }
 
+    @adminapi(log=True)
+    async def getReloadNames(self):
+        return self.cell.getReloadNames()
+
+    @adminapi(log=True)
+    async def reloadCell(self, name=None):
+        await self.cell.reloadCell(name)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -1058,6 +1066,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sockaddr = None  # Default value...
         self.ahaclient = None
         self._checkspace = s_coro.Event()
+        self._reloadfuncs = {}  # name -> func
 
         self.conf = self._initCellConf(conf)
 
@@ -2602,11 +2611,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield dirn
 
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
+        '''
+        Add a HTTPS listener to the Cell.
+
+        Args:
+            port (int): The listening port to bind.
+            host (str): The listening host.
+            sslctx (ssl.SSLContext): An externally managed SSL Context.
+
+        Note:
+            IF the SSL context is not provided, the Cell will assume it
+            manages the SSL context it creates for a given listener and will
+            add a reload handler for reloading the SSL certificates from disk.
+        '''
 
         addr = socket.gethostbyname(host)
 
+        managed_ctx = False
         if sslctx is None:
 
+            managed_ctx = True
             pkeypath = os.path.join(self.dirn, 'sslkey.pem')
             certpath = os.path.join(self.dirn, 'sslcert.pem')
 
@@ -2627,7 +2651,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
-        return list(serv._sockets.values())[0].getsockname()
+
+        lhost, lport = list(serv._sockets.values())[0].getsockname()
+
+        if managed_ctx:
+            # If the Cell is managing the SSLCtx, then we register a reload handler
+            # for it which reloads the pkey / cert.
+            def reload():
+                sslctx.load_cert_chain(certpath, pkeypath)
+
+            self.addReloadFunc(f'HTTPS_SSL_Reload_port={lport}', reload)
+
+        return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
 
@@ -3899,3 +3934,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    def addReloadFunc(self, name: str, func):
+        self._reloadfuncs[name] = func
+
+    def getReloadNames(self):
+        return tuple(self._reloadfuncs.keys())
+
+    async def reloadCell(self, name=None):
+        if name:
+            func = self._reloadfuncs.get(name)
+            if func is None:
+                raise s_exc.NoSuchName(mesg=f'No reload function named {name}',
+                                       name=name)
+            await self._runReloadFunc(name, func)
+            return
+
+        # Run all funcs
+        for (rname, func) in self._reloadfuncs.items():
+            await self._runReloadFunc(name, func)
+
+    async def _runReloadFunc(self, name, func):
+        try:
+            logger.debug(f'Running cell reload function {name}')
+            await s_coro.ornot(func)
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(f'Error running reload function {name}')

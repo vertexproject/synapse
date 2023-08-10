@@ -19,6 +19,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.link as s_link
+import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -96,6 +97,16 @@ class EchoAuth(s_cell.Cell):
         yield 2
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
+
+class ReloadCell(s_cell.Cell):
+    async def postAnit(self):
+        self._testdata = {}
+
+    async def _addTestReload(self):
+        async def func():
+            self._testdata = {}
+
+        self.addReloadFunc('testreload', func)
 
 async def altAuthCtor(cell):
     authconf = cell.conf.get('auth:conf')
@@ -2160,3 +2171,96 @@ class CellTest(s_t_utils.SynTest):
                 info = await proxy.getGcInfo()
                 self.nn(info['stats'])
                 self.nn(info['threshold'])
+
+    async def test_cell_reload(self):
+        async with self.getTestCell(ReloadCell) as cell:  # type: ReloadCell
+            async with cell.getLocalProxy() as prox:
+
+                # No registered reload functions yet
+                names = await prox.getReloadNames()
+                self.len(0, names)
+                # No functions to run yet
+                await prox.reloadCell()
+
+                await cell.auth.rootuser.setPasswd('root')
+                hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+                # No registered reload functions yet
+                names = await prox.getReloadNames()
+                self.len(1, names)
+                name = names[0]
+
+                bitems = []
+                bstrt = asyncio.Event()
+                bdone = asyncio.Event()
+
+                # Start a beholder session that runs over TLS
+
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as bsess:
+
+                    async with bsess.ws_connect(f'wss://localhost:{hport}/api/v1/behold') as sock:
+
+                        async def beholdConsumer():
+                            await sock.send_json({'type': 'call:init'})
+                            bstrt.set()
+                            while not cell.isfini:
+                                mesg = await sock.receive_json()
+                                data = mesg.get('data')
+                                if data.get('event') == 'user:add':
+                                    bitems.append(data)
+                                if len(bitems) == 2:
+                                    bdone.set()
+                                    break
+
+                        fut = cell.schedCoro(beholdConsumer())
+                        self.true(await asyncio.wait_for(bstrt.wait(), timeout=12))
+
+                        async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            answ = await resp.json()
+                            self.eq('ok', answ['status'])
+
+                        await cell.addUser('alice')
+
+                        # Generate and save new SSL material....
+                        pkeypath = os.path.join(cell.dirn, 'sslkey.pem')
+                        certpath = os.path.join(cell.dirn, 'sslcert.pem')
+
+                        tdir = s_common.gendir(cell.dirn, 'tmp')
+                        with s_common.getTempDir(dirn=tdir) as dirn:
+                            cdir = s_certdir.CertDir(path=(dirn,))
+                            pkey, cert = cdir.genHostCert('SomeTestCertificate')
+                            cdir.savePkeyPem(pkey, pkeypath)
+                            cdir.saveCertPem(cert, certpath)
+
+                        # reload https listener by name
+                        await cell.reloadCell(name)
+
+                        # FIXME - confirm the peercert name on the SSL connection
+
+                        async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            answ = await resp.json()
+                            self.eq('ok', answ['status'])
+
+                        await cell.addUser('bob')
+
+                        self.true(await asyncio.wait_for(bdone.wait(), timeout=12))
+                        await fut
+
+                        users = {m.get('info', {}).get('name') for m in bitems}
+                        self.eq(users, {'alice', 'bob'})
+
+                # Add reload func and reload everything
+                cell._testdata['foo'] = 'bar'
+                self.eq(cell._testdata, {'foo': 'bar'})
+                await cell._addTestReload()
+                # Reload all registered functions
+                await cell.reloadCell()
+                self.eq(cell._testdata, {})
+
+                # Attempting to call a value by name that doesn't exist fails
+                with self.raises(s_exc.NoSuchName) as cm:
+                    await cell.reloadCell(name='newp')
+                self.eq('newp', cm.exception.get('name'))
+                self.isin('newp', cm.exception.get('mesg'))
