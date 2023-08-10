@@ -857,7 +857,14 @@ class ModelRev:
             stortype = prop.type.stortype
 
             async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
-                curv = sode['props'].get(prop.name)
+
+                props = sode.get('props')
+
+                # this should be impossible, but has been observed in the wild...
+                if props is None: # pragma: no cover
+                    continue
+
+                curv = props.get(prop.name)
                 if curv is None or curv[1] == stortype:
                     continue
 
@@ -926,7 +933,11 @@ class ModelRev:
                             logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
                             continue
 
-                        subcurv = sode['props'].get(subprop.name)
+                        props = sode.get('props')
+                        if props is None: # pragma: no cover
+                            continue
+
+                        subcurv = props.get(subprop.name)
                         if subcurv is not None:
                             if subcurv[1] != subprop.type.stortype: # pragma: no cover
                                 logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')
