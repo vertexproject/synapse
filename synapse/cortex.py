@@ -2638,7 +2638,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(self.stormpkgs.get(name))
 
     async def getStormPkgs(self):
-        return self._getStormPkgs(self)
+        return self._getStormPkgs()
 
     def _getStormPkgs(self):
         return copy.deepcopy(list(self.pkghive.values()))
