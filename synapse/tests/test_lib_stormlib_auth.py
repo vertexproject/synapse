@@ -396,3 +396,9 @@ class StormLibAuthTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('yield $lib.import(authtest.mod2).func()', opts=asuser2)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(
+                    'for $item in $lib.auth.users.byname(root).json.iter() { $lib.print($item) }',
+                    opts=asuser
+                )
