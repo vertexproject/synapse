@@ -41,11 +41,11 @@ class Undef:
 
 undef = Undef()
 
-def confirm(perm, gateiden=None):
-    s_scope.get('runt').confirm(perm, gateiden=gateiden)
+async def confirm(perm, gateiden=None):
+    await s_scope.get('runt').confirm(perm, gateiden=gateiden)
 
-def allowed(perm, gateiden=None):
-    return s_scope.get('runt').allowed(perm, gateiden=gateiden)
+async def allowed(perm, gateiden=None):
+    return await s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
     # The following types are currently undefined.
@@ -3275,7 +3275,7 @@ class LibQueue(Lib):
         qlist = await self.dyncall('cortex', todo)
 
         for queue in qlist:
-            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            if not await allowed(('queue', 'get'), f"queue:{queue['name']}"):
                 continue
 
             retn.append(queue)
@@ -5017,7 +5017,7 @@ class LibGlobals(Lib):
         todo = ('itemsStormVar', (), {})
 
         async for key, valu in self.runt.dyniter('cortex', todo):
-            if allowed(('globals', 'get', key)):
+            if await allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -5318,12 +5318,12 @@ class NodeProps(Prim):
         gateiden = self.valu.snap.wlyr.iden
 
         if valu is undef:
-            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            await confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
             await self.valu.pop(name, None)
             return
 
         valu = await toprim(valu)
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
+        await confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
@@ -5456,7 +5456,7 @@ class NodeData(Prim):
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'data', 'set', name), gateiden=gateiden)
+        await confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
@@ -5464,7 +5464,7 @@ class NodeData(Prim):
     async def _popNodeData(self, name):
         name = await tostr(name)
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
+        await confirm(('node', 'data', 'pop', name), gateiden=gateiden)
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
@@ -5655,7 +5655,7 @@ class Node(Prim):
         iden = await tobuidhex(iden)
 
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
+        await confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
         await self.valu.addEdge(verb, iden)
 
@@ -5664,7 +5664,7 @@ class Node(Prim):
         iden = await tobuidhex(iden)
 
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
+        await confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
         await self.valu.delEdge(verb, iden)
 
@@ -7184,7 +7184,7 @@ class LibTrigger(Lib):
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                if not allowed(('trigger', 'get'), gateiden=iden):
+                if not await allowed(('trigger', 'get'), gateiden=iden):
                     continue
 
                 match = trig
@@ -7265,7 +7265,7 @@ class LibTrigger(Lib):
         triggers = []
 
         for iden, trig in await view.listTriggers():
-            if not allowed(('trigger', 'get'), gateiden=iden):
+            if not await allowed(('trigger', 'get'), gateiden=iden):
                 continue
             triggers.append(Trigger(self.runt, trig.pack()))
 
@@ -8817,7 +8817,7 @@ class LibCron(Lib):
         for cron in crons:
             iden = cron.get('iden')
 
-            if iden.startswith(prefix) and allowed(perm, gateiden=iden):
+            if iden.startswith(prefix) and await allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
