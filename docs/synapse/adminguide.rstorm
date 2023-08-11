@@ -1179,7 +1179,7 @@ roles. In the example below, all users would have the general ``users`` role and
 +---------------------+------------------------------+-------------------------------------------------+
 | **senior analyst**  | ``node.tag.add.cno.threat``  | Senior analysts can apply tags in the           |
 |                     |                              |                                                 |
-|                     |                              | ``cno.threat`` and ``cno.mal`` trees            |
+|                     | ``node.tag.add.cno.mal``     | ``cno.threat`` and ``cno.mal`` trees            |
 |                     |                              |                                                 |
 |                     |                              | (assessments related to threat clusters and     |
 |                     |                              |                                                 |
