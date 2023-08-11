@@ -1217,6 +1217,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceNetwork()
 
     async def getPermDef(self, perm):
+        perm = tuple(perm)
         if self.permlook is None:
             self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
         return self.permlook.get(perm)
