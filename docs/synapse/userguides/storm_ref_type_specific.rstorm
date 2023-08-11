@@ -27,6 +27,7 @@ enforcement, see the online documentation_ or the Synapse source code_.
 - `guid`_ (globally unique identifier)
 - `inet:fqdn`_ (FQDN)
 - `inet:ipv4`_ (IPv4)
+- `int`_ (integer)
 - `ival`_ (time interval)
 - `loc`_ (location)
 - `str`_ (string)
@@ -896,6 +897,67 @@ Filter a set of DNS A records to only include those whose IPv4 value is within t
 
 .. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
 .. storm-cli:: inet:dns:a:fqdn=woot.com +:ipv4=172.16.0.0/12
+
+.. _type-int:
+
+int
+---
+
+An ``int`` is an integer value. Synapse stores, indexes, and displays integer values as decimal integers, but will also accept as hex or octal values as input.
+
+Indexing
+++++++++
+
+N/A
+
+Parsing
++++++++
+
+When adding or modifying integer values, Synapse will accept integer, hex (preceded by 0x), and octal (preceded by 0o) values and represent them as decimal integer values.
+
+**Examples**
+
+Set the ``:count`` of the ``biz:bundle`` to 42:
+
+.. storm-pre:: [ biz:bundle=(350,) ]
+.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+
+Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
+
+.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 :dst:proto=tcp :dst:ipv4=142.118.95.50 ]
+.. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
+
+Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
+
+.. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
+.. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+
+Insertion
++++++++++
+
+Same as for parsing.
+
+Operations
+++++++++++
+
+Use integer, hex, or octal values to lift and filter integer types using standard comparison operators.
+
+**Examples**
+
+Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
+
+.. storm-pre:: [ risk:alert=(outbound traffic to SOC-reported IP, 20230801 09:00:00, 9) :desc="outbound traffic to SOC-reported IP" :name="suspicious outbound traffic" :detected="20230801 09:00:00 :priority=8]
+.. storm-cli:: risk:alert:priority<9
+
+Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
+
+.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :dst:proto=tcp :dst:ipv4=62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-cli:: inet:flow#mytag +:ip:proto=0x06
+
+Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
+
+.. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ] 
+.. storm-cli:: it:group:posix:gid=0o426
 
 
 .. _type-ival:
