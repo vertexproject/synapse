@@ -946,7 +946,7 @@ Use integer, hex, or octal values to lift and filter integer types using standar
 
 Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
 
-.. storm-pre:: [ risk:alert=(outbound traffic to SOC-reported IP, 20230801 09:00:00, 9) :desc="outbound traffic to SOC-reported IP" :name="suspicious outbound traffic" :detected="20230801 09:00:00 :priority=8]
+.. storm-pre:: [ risk:alert=(outbound traffic to SOC-reported IP, 20230801 09:00:00, 9) :desc="outbound traffic to SOC-reported IP" :name="suspicious outbound traffic" :detected="20230801 09:00:00" :priority=8]
 .. storm-cli:: risk:alert:priority<10
 
 Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
