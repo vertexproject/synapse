@@ -248,7 +248,7 @@ class LibModelTags(s_stormtypes.Lib):
 
     async def _delTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
-        await self.runt.confirm(('model', 'tag', 'set'))
+        self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.delTagModel(tagname)
 
     async def _getTagModel(self, tagname):
@@ -261,14 +261,14 @@ class LibModelTags(s_stormtypes.Lib):
     async def _popTagModel(self, tagname, propname):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
-        await self.runt.confirm(('model', 'tag', 'set'))
+        self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
-        await self.runt.confirm(('model', 'tag', 'set'))
+        self.runt.confirm(('model', 'tag', 'set'))
         await self.runt.snap.core.setTagModel(tagname, propname, propvalu)
 
 @s_stormtypes.registry.registerLib

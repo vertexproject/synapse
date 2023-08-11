@@ -101,7 +101,7 @@ class LibModelExt(s_stormtypes.Lib):
         basetype = await s_stormtypes.tostr(basetype)
         typeopts = await s_stormtypes.toprim(typeopts)
         typeinfo = await s_stormtypes.toprim(typeinfo)
-        await s_stormtypes.confirm(('model', 'form', 'add', formname))
+        s_stormtypes.confirm(('model', 'form', 'add', formname))
         await self.runt.snap.core.addForm(formname, basetype, typeopts, typeinfo)
 
     async def addFormProp(self, formname, propname, typedef, propinfo):
@@ -109,7 +109,7 @@ class LibModelExt(s_stormtypes.Lib):
         propname = await s_stormtypes.tostr(propname)
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
-        await s_stormtypes.confirm(('model', 'prop', 'add', formname))
+        s_stormtypes.confirm(('model', 'prop', 'add', formname))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(prop=propname, mesg=mesg)
@@ -119,7 +119,7 @@ class LibModelExt(s_stormtypes.Lib):
         propname = await s_stormtypes.tostr(propname)
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
-        await s_stormtypes.confirm(('model', 'univ', 'add'))
+        s_stormtypes.confirm(('model', 'univ', 'add'))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
@@ -129,7 +129,7 @@ class LibModelExt(s_stormtypes.Lib):
         propname = await s_stormtypes.tostr(propname)
         typedef = await s_stormtypes.toprim(typedef)
         propinfo = await s_stormtypes.toprim(propinfo)
-        await s_stormtypes.confirm(('model', 'tagprop', 'add'))
+        s_stormtypes.confirm(('model', 'tagprop', 'add'))
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
@@ -137,23 +137,23 @@ class LibModelExt(s_stormtypes.Lib):
 
     async def delForm(self, formname):
         formname = await s_stormtypes.tostr(formname)
-        await s_stormtypes.confirm(('model', 'form', 'del', formname))
+        s_stormtypes.confirm(('model', 'form', 'del', formname))
         await self.runt.snap.core.delForm(formname)
 
     async def delFormProp(self, formname, propname):
         formname = await s_stormtypes.tostr(formname)
         propname = await s_stormtypes.tostr(propname)
-        await s_stormtypes.confirm(('model', 'prop', 'del', formname))
+        s_stormtypes.confirm(('model', 'prop', 'del', formname))
         await self.runt.snap.core.delFormProp(formname, propname)
 
     async def delUnivProp(self, propname):
         propname = await s_stormtypes.tostr(propname)
-        await s_stormtypes.confirm(('model', 'univ', 'del'))
+        s_stormtypes.confirm(('model', 'univ', 'del'))
         await self.runt.snap.core.delUnivProp(propname)
 
     async def delTagProp(self, propname):
         propname = await s_stormtypes.tostr(propname)
-        await s_stormtypes.confirm(('model', 'tagprop', 'del'))
+        s_stormtypes.confirm(('model', 'tagprop', 'del'))
         await self.runt.snap.core.delTagProp(propname)
 
     async def getExtModel(self):

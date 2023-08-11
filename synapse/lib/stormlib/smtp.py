@@ -150,7 +150,7 @@ class SmtpMessage(s_stormtypes.StormType):
 
     async def send(self, host, port=25, user=None, passwd=None, usetls=False, starttls=False, timeout=60):
 
-        await self.runt.confirm(('storm', 'inet', 'smtp', 'send'))
+        self.runt.confirm(('storm', 'inet', 'smtp', 'send'))
 
         try:
             if self.bodytext is None and self.bodyhtml is None:

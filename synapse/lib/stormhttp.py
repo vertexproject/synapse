@@ -379,7 +379,7 @@ class LibHttp(s_stormtypes.Lib):
 
         if fields:
             if any(['sha256' in field for field in fields]):
-                await self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+                self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
                 axon = self.runt.snap.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params,
                                             method=meth, ssl=ssl_verify, timeout=timeout, proxy=proxy)

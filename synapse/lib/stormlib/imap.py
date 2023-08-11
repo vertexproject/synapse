@@ -66,7 +66,7 @@ class ImapLib(s_stormtypes.Lib):
 
     async def connect(self, host, port=993, timeout=30, ssl=True):
 
-        await self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
 
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)
