@@ -34,6 +34,13 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
+try:
+    from yaml import CSafeLoader as Loader
+    from yaml import CSafeDumper as Dumper
+except ImportError:
+    from yaml import SafeLoader as Loader
+    from yaml import SafeDumper as Dumper
+
 class NoValu:
     pass
 
@@ -510,16 +517,14 @@ def yamlload(*paths):
         return None
 
     with io.open(path, 'rb') as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-        return yaml.safe_load(byts.decode('utf8'))
+        return yaml.load(fd, Loader)
 
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
-        s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
-                           default_style='', explicit_start=True, explicit_end=True, sort_keys=True)
+        s = yaml.dump(obj, allow_unicode=False, default_flow_style=False,
+                  default_style='', explicit_start=True, explicit_end=True,
+                  sort_keys=True, Dumper=Dumper)
         fd.truncate(0)
         fd.write(s.encode('utf8'))
 
