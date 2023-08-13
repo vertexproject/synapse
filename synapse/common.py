@@ -37,7 +37,7 @@ import synapse.lib.structlog as s_structlog
 try:
     from yaml import CSafeLoader as Loader
     from yaml import CSafeDumper as Dumper
-except ImportError:
+except ImportError:  # pragma: no cover
     from yaml import SafeLoader as Loader
     from yaml import SafeDumper as Dumper
 
