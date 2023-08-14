@@ -39,9 +39,10 @@ $node
 -----
 
 :ref:`vars-node-node` is a built-in Storm variable that references **the current node in the Storm query pipeline.**
-``$node`` can be used as a variable on its own or with the example methods listed below. See the
-:ref:`stormprims-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation
-for a full list.
+``$node`` can be used as a variable on its own or with the example methods listed below.
+
+See the :ref:`stormprims-node-f527` section of the :ref:`stormtypes-prim-header` technical documentation
+for a full list of available methods.
 
 .. NOTE::
 
@@ -203,6 +204,50 @@ The method takes no arguments.
 
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.ndef()) | spin
 
+.. _meth-node-path:
+
+$node.path
+++++++++++
+
+``$node.path`` (formerly ``$path``) refers to various aspects of the **path a node takes** as it passes
+through the pipeline of Storm query. ``$node.path`` methods are more common for various developer tasks vs.
+everyday use. We provide one example use case below (for ``$node.path.idens()``). See the :ref:`stormprims-node-path-f527`
+section of the :ref:`stormtypes-prim-header` technical documentation for a full list of available ``$node.path`` methods.
+
+.. _meth-path-idens:
+
+$node.path.idens()
+++++++++++++++++++
+
+The ``$node.path.idens()`` method returns the list of idens (:ref:`gloss-iden`) of each node in a node's path
+through a Storm query.
+
+The method takes no arguments.
+
+**Examples**
+
+- Print the list of iden(s) for the path of a single lifted node:
+
+.. storm-pre:: [ (inet:dns:a=(aunewsonline.com,67.215.66.149)) (inet:dns:a=(aunewsonline.com,184.168.221.92)) (inet:dns:a=(aunewsonline.com,104.239.213.7)) ]
+.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($path.idens()) | spin
+    
+A lift operation contains no pivots (i.e., no "path"), so the method returns only the iden of the lifted node.
+
+- Print the list of idens for the path of a single node through two pivots to a single end node:
+
+.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ipv4=67.215.66.149 -> inet:ipv4 $lib.print($path.idens()) 
+    
+The example above returns the idens of the original ``inet:fqdn`` node, the ``inet:dns:a`` node with the
+specified IP, and the ``inet:ipv4`` node.
+
+- Print the list of idens for the path of a single node through two pivots to three different end nodes
+  (i.e., three paths):
+
+.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ipv4 $lib.print($path.idens()) 
+
+In the example above, the FQDN has three DNS A records with three associated IPv4 addresses; thus there are
+three different paths that the original node takes through the query.
+
 .. _meth-node-repr:
 
 $node.repr()
@@ -316,49 +361,9 @@ See :ref:`meth-node-repr` to return the human-friendly value of a property.
 $path
 -----
 
-:ref:`vars-node-path` is a built-in Storm variable that **references the path of a node as it travels through the pipeline of a Storm query.**
-
-The ``$path`` variable is generally not used on its own, but in conjunction with its methods. See the
-:ref:`stormprims-node-path-f527` section of the :ref:`stormtypes-prim-header` technical documentation
-for a full list.
-
-.. _meth-path-idens:
-
-$path.idens()
-+++++++++++++
-
-The ``$path.idens()`` method returns the list of idens (:ref:`gloss-iden`) of each node in a node's path
-through a Storm query.
-
-The method takes no arguments.
-
-**Examples**
-
-- Print the list of iden(s) for the path of a single lifted node:
-
-.. storm-pre:: [ (inet:dns:a=(aunewsonline.com,67.215.66.149)) (inet:dns:a=(aunewsonline.com,184.168.221.92)) (inet:dns:a=(aunewsonline.com,104.239.213.7)) ]
-.. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($path.idens()) | spin
-    
 .. NOTE::
-
-  A lift operation contains no pivots (i.e., no "path"), so the method returns only the iden of the lifted node.
-
-
-- Print the list of idens for the path of a single node through two pivots to a single end node:
-
-.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ipv4=67.215.66.149 -> inet:ipv4 $lib.print($path.idens()) 
-    
-The example above returns the idens of the original ``inet:fqdn`` node, the ``inet:dns:a`` node with the
-specified IP, and the ``inet:ipv4`` node.
-
-
-- Print the list of idens for the path of a single node through two pivots to three different end nodes
-  (i.e., three paths):
-
-.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ipv4 $lib.print($path.idens()) 
-
-In the example above, the FQDN has three DNS A records, thus there are three different paths that the
-original node takes through the query.
+  
+  The ``$path`` variable has been deprecated and is now accessed via :ref:`meth-node-path`.
 
 
 .. _subqueries: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_subquery.html
