@@ -1625,7 +1625,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file basename of the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
-                        'doc': 'The path to the executable which started the process.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Create :src:proc and set :path.',
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
