@@ -510,6 +510,9 @@ def jssave(js, *paths):
     with io.open(path, 'wb') as fd:
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
+def yamlloads(data):
+    return yaml.load(data, Loader)
+
 def yamlload(*paths):
 
     path = genpath(*paths)
@@ -517,16 +520,15 @@ def yamlload(*paths):
         return None
 
     with io.open(path, 'rb') as fd:
-        return yaml.load(fd, Loader)
+        return yamlloads(fd)
 
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
-        s = yaml.dump(obj, allow_unicode=False, default_flow_style=False,
-                  default_style='', explicit_start=True, explicit_end=True,
-                  sort_keys=True, Dumper=Dumper)
         fd.truncate(0)
-        fd.write(s.encode('utf8'))
+        yaml.dump(obj, allow_unicode=True, default_flow_style=False,
+                  default_style='', explicit_start=True, explicit_end=True,
+                  encoding='utf8', stream=fd, Dumper=Dumper)
 
 def yamlmod(obj, *paths):
     '''

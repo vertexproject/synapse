@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -41,6 +42,6 @@ class LibYaml(s_stormtypes.Lib):
     async def load(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:
-            return yaml.safe_load(valu)
+            return s_common.yamlloads(valu)
         except yaml.error.YAMLError as e:
             raise s_exc.BadArg(mesg=f'Invalid YAML text: {str(e)}')
