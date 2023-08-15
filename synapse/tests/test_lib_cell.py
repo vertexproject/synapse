@@ -74,6 +74,27 @@ def lock_target(dirn, evt1):  # pragma: no cover
     asyncio.run(main())
     sys.exit(137)
 
+def reload_target(dirn, evt1, evt2):  # pragma: no cover
+    '''
+    Function to make a cell in a directory and wait to be shut down.
+    Used as a Process target for reload SIGHUP locking tests.
+
+    Args:
+        dirn (str): Cell directory.
+        evt1 (multiprocessing.Event): event to signal the cell is ready to receive sighup
+        evt2 (multiprocessing.Event): event to signal the cell has been reset
+    '''
+    async def main():
+        cell = await s_t_utils.ReloadCell.anit(dirn)
+        await cell.addSignalHandlers()
+        await cell.addTestReload()
+        cell._reloadevt = evt2
+        evt1.set()
+        await cell.waitfini(timeout=60)
+
+    asyncio.run(main())
+    sys.exit(137)
+
 class EchoAuthApi(s_cell.CellApi):
 
     def isadmin(self):
@@ -2162,7 +2183,7 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(info['stats'])
                 self.nn(info['threshold'])
 
-    async def test_cell_reload(self):
+    async def test_cell_reload_api(self):
         async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
             async with cell.getLocalProxy() as prox:
 
@@ -2170,14 +2191,70 @@ class CellTest(s_t_utils.SynTest):
                 names = await prox.getReloadNames()
                 self.len(0, names)
                 # No functions to run yet
-                await prox.reloadCell()
+                self.eq({}, await prox.reloadCell())
+
+                # Add reload func and get its name
+                await cell.addTestReload()
+                names = await prox.getReloadNames()
+                self.len(1, names)
+                name = names[0]
+
+                # Reload by name
+                self.false(cell._reloaded)
+                self.eq({name: True}, await cell.reloadCell(name))
+                self.true(cell._reloaded)
+
+                # Add a second function
+                await cell.addTestBadReload()
+
+                # Reload all registered functions
+                cell._reloaded = False
+                self.eq({'testreload': True, 'badreload': False},
+                        await cell.reloadCell())
+                self.true(cell._reloaded)
+
+                # Attempting to call a value by name that doesn't exist fails
+                with self.raises(s_exc.NoSuchName) as cm:
+                    await cell.reloadCell(name='newp')
+                self.eq('newp', cm.exception.get('name'))
+                self.isin('newp', cm.exception.get('mesg'))
+
+    async def test_cell_reload_sighup(self):
+
+        with self.getTestDir() as dirn:
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+            evt2 = ctx.Event()
+
+            proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
+            proc.start()
+
+            self.true(evt1.wait(timeout=10))
+
+            async with await s_telepath.openurl(f'cell://{dirn}') as prox:
+                cnfo = await prox.getCellInfo()
+                self.false(cnfo.get('cell', {}).get('reloaded'))
+
+                os.kill(proc.pid, signal.SIGHUP)
+                evt2.wait(timeout=10)
+
+                cnfo = await prox.getCellInfo()
+                self.true(cnfo.get('cell', {}).get('reloaded'))
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join(timeout=10)
+            self.eq(proc.exitcode, 137)
+
+    async def test_cell_reload_https(self):
+        async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
+            async with cell.getLocalProxy() as prox:
 
                 await cell.auth.rootuser.setPasswd('root')
                 hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
-                # No registered reload functions yet
                 names = await prox.getReloadNames()
-                self.len(1, names)
                 name = names[0]
 
                 bitems = []
@@ -2240,17 +2317,3 @@ class CellTest(s_t_utils.SynTest):
 
                         users = {m.get('info', {}).get('name') for m in bitems}
                         self.eq(users, {'alice', 'bob'})
-
-                # Add reload func and reload everything
-                cell._testdata['foo'] = 'bar'
-                self.eq(cell._testdata, {'foo': 'bar'})
-                await cell.addTestReload()
-                # Reload all registered functions
-                await cell.reloadCell()
-                self.eq(cell._testdata, {})
-
-                # Attempting to call a value by name that doesn't exist fails
-                with self.raises(s_exc.NoSuchName) as cm:
-                    await cell.reloadCell(name='newp')
-                self.eq('newp', cm.exception.get('name'))
-                self.isin('newp', cm.exception.get('mesg'))

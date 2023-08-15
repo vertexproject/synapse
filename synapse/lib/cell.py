@@ -4,6 +4,7 @@ import copy
 import time
 import fcntl
 import shutil
+import signal
 import socket
 import asyncio
 import logging
@@ -3934,6 +3935,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    async def addSignalHandlers(self):
+        await s_base.Base.addSignalHandlers(self)
+
+        def sighup():
+            asyncio.create_task(self.reloadCell())
+
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGHUP, sighup)
 
     def addReloadFunc(self, name: str, func):
         self._reloadfuncs[name] = func

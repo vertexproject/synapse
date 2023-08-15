@@ -833,24 +833,21 @@ test_schema = {
 
 class ReloadCell(s_cell.Cell):
     async def postAnit(self):
-        self._testdata = {}
         self._reloaded = False
+        self._reloadevt = None
+
     async def getCellInfo(self):
         info = await s_cell.Cell.getCellInfo(self)
-        info['cell']['reloaded'] = self.reloaded
+        info['cell']['reloaded'] = self._reloaded
         return info
 
     async def addTestReload(self):
         async def func():
-            self._testdata = {}
+            self._reloaded = True
+            if self._reloadevt:
+                self._reloadevt.set()
 
         self.addReloadFunc('testreload', func)
-
-    async def addTrackedReload():
-        async def func():
-            self._reloaded = True
-
-        self.addReloadFunc('trackedreload', func)
 
     async def addTestBadReload(self):
         async def func():
