@@ -34,6 +34,13 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
+try:
+    from yaml import CSafeLoader as Loader
+    from yaml import CSafeDumper as Dumper
+except ImportError:  # pragma: no cover
+    from yaml import SafeLoader as Loader
+    from yaml import SafeDumper as Dumper
+
 class NoValu:
     pass
 
@@ -50,6 +57,9 @@ buidre = regex.compile('^[0-9a-f]{64}$')
 novalu = NoValu()
 
 logger = logging.getLogger(__name__)
+
+if Loader != yaml.CSafeLoader:  # pragma: no cover
+    logger.warning('PyYAML is using the pure python fallback implementation. This will impact performance negatively.')
 
 def now():
     '''
@@ -503,6 +513,9 @@ def jssave(js, *paths):
     with io.open(path, 'wb') as fd:
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
+def yamlloads(data):
+    return yaml.load(data, Loader)
+
 def yamlload(*paths):
 
     path = genpath(*paths)
@@ -510,18 +523,15 @@ def yamlload(*paths):
         return None
 
     with io.open(path, 'rb') as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-        return yaml.safe_load(byts.decode('utf8'))
+        return yamlloads(fd)
 
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
-        s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
-                           default_style='', explicit_start=True, explicit_end=True, sort_keys=True)
         fd.truncate(0)
-        fd.write(s.encode('utf8'))
+        yaml.dump(obj, allow_unicode=True, default_flow_style=False,
+                  default_style='', explicit_start=True, explicit_end=True,
+                  encoding='utf8', stream=fd, Dumper=Dumper)
 
 def yamlmod(obj, *paths):
     '''
