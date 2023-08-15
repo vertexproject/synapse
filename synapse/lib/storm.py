@@ -2045,17 +2045,33 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
-    def confirm(self, perms, gateiden=None, default=False):
+    def confirm(self, perms, gateiden=None, default=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
         if self.asroot:
             return
+
+        if default is None:
+            default = False
+
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
         return self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def allowed(self, perms, gateiden=None, default=False):
+    def allowed(self, perms, gateiden=None, default=None):
         if self.asroot:
             return True
+
+        if default is None:
+            default = False
+
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def _loadRuntVars(self, query):

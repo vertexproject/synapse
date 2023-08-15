@@ -257,17 +257,17 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
         '''
         Return a specific permission definition.
         '''
-        return await self.cell.getPermDef(perm)
+        return self.cell.getPermDef(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         '''
         Return a non-comprehensive list of perm definitions.
         '''
-        return await self.cell.getPermDefs()
+        return self.cell.getPermDefs()
 
     @adminapi()
     def getNexsIndx(self):
@@ -1216,17 +1216,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
+        perm = tuple(perm)
         if self.permlook is None:
-            self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
+            self.permlook = {pdef['perm']: pdef for pdef in self.getPermDefs()}
         return self.permlook.get(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         if self.permdefs is None:
-            self.permdefs = await self._getPermDefs()
+            self.permdefs = self._getPermDefs()
         return self.permdefs
 
-    async def _getPermDefs(self):
+    def _getPermDefs(self):
         return ()
 
     def _clearPermDefs(self):
@@ -2492,7 +2493,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if perms:
             p = []
             for perm in perms:
-                permdef = await self.getPermDef(perm)
+                permdef = self.getPermDef(perm)
                 if permdef is not None:
                     p.append(permdef)
             kwargs['perms'] = p

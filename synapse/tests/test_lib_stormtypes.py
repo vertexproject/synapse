@@ -4987,6 +4987,14 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
             self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
 
+            async with core.getLocalProxy() as proxy:
+                for permdef in stormpkg.get('perms'):
+                    pdef = await proxy.getPermDef(permdef.get('perm'))
+                    self.eq(permdef.get('perm'), pdef.get('perm'))
+                    self.eq(permdef.get('desc'), pdef.get('desc'))
+                    self.eq(permdef.get('gate'), pdef.get('gate'))
+                    self.eq(permdef.get('default'), pdef.get('default'))
+
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
 

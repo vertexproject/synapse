@@ -7475,11 +7475,11 @@ class LibAuth(Lib):
         return text
 
     async def getPermDefs(self):
-        return await self.runt.snap.core.getPermDefs()
+        return self.runt.snap.core.getPermDefs()
 
     async def getPermDef(self, perm):
         perm = await toprim(perm)
-        return await self.runt.snap.core.getPermDef(perm)
+        return self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):
