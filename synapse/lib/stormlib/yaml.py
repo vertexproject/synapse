@@ -37,7 +37,7 @@ class LibYaml(s_stormtypes.Lib):
     async def save(self, valu, sort_keys=True):
         valu = await s_stormtypes.toprim(valu)
         sort_keys = await s_stormtypes.tobool(sort_keys)
-        return yaml.safe_dump(valu, sort_keys=sort_keys)
+        return yaml.safe_dump(valu, sort_keys=sort_keys, Dumper=s_common.Dumper)
 
     async def load(self, valu):
         valu = await s_stormtypes.tostr(valu)
