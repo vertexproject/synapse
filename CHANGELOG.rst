@@ -18,6 +18,11 @@ Storm Commands
 - splice.list
 - splice.undo
 
+Storm Options
+-------------
+
+- editformat=splices
+
 Cortex Telepath APIs
 --------------------
 
