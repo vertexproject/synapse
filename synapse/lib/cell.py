@@ -815,7 +815,7 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def reloadCell(self, name=None):
-        await self.cell.reloadCell(name)
+        return await self.cell.reloadCell(name)
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
@@ -3942,17 +3942,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return tuple(self._reloadfuncs.keys())
 
     async def reloadCell(self, name=None):
+        ret = {}
         if name:
             func = self._reloadfuncs.get(name)
             if func is None:
                 raise s_exc.NoSuchName(mesg=f'No reload function named {name}',
                                        name=name)
-            await self._runReloadFunc(name, func)
-            return
-
-        # Run all funcs
-        for (rname, func) in self._reloadfuncs.items():
-            await self._runReloadFunc(name, func)
+            ret[name] = await self._runReloadFunc(name, func)
+        else:
+            # Run all funcs
+            for (rname, func) in self._reloadfuncs.items():
+                ret[rname] = await self._runReloadFunc(rname, func)
+        return ret
 
     async def _runReloadFunc(self, name, func):
         try:
@@ -3963,3 +3964,5 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
         except Exception:
             logger.exception(f'Error running reload function {name}')
+            return False
+        return True

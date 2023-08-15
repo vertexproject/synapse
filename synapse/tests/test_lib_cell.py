@@ -98,16 +98,6 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
-class ReloadCell(s_cell.Cell):
-    async def postAnit(self):
-        self._testdata = {}
-
-    async def _addTestReload(self):
-        async def func():
-            self._testdata = {}
-
-        self.addReloadFunc('testreload', func)
-
 async def altAuthCtor(cell):
     authconf = cell.conf.get('auth:conf')
     assert authconf['foo'] == 'bar'
@@ -2173,7 +2163,7 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(info['threshold'])
 
     async def test_cell_reload(self):
-        async with self.getTestCell(ReloadCell) as cell:  # type: ReloadCell
+        async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
             async with cell.getLocalProxy() as prox:
 
                 # No registered reload functions yet
@@ -2254,7 +2244,7 @@ class CellTest(s_t_utils.SynTest):
                 # Add reload func and reload everything
                 cell._testdata['foo'] = 'bar'
                 self.eq(cell._testdata, {'foo': 'bar'})
-                await cell._addTestReload()
+                await cell.addTestReload()
                 # Reload all registered functions
                 await cell.reloadCell()
                 self.eq(cell._testdata, {})

@@ -52,6 +52,7 @@ import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
@@ -829,6 +830,33 @@ test_schema = {
         },
         'type': 'object',
     }
+
+class ReloadCell(s_cell.Cell):
+    async def postAnit(self):
+        self._testdata = {}
+        self._reloaded = False
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['cell']['reloaded'] = self.reloaded
+        return info
+
+    async def addTestReload(self):
+        async def func():
+            self._testdata = {}
+
+        self.addReloadFunc('testreload', func)
+
+    async def addTrackedReload():
+        async def func():
+            self._reloaded = True
+
+        self.addReloadFunc('trackedreload', func)
+
+    async def addTestBadReload(self):
+        async def func():
+            return 1 / 0
+
+        self.addReloadFunc('badreload', func)
 
 class SynTest(unittest.TestCase):
     '''
