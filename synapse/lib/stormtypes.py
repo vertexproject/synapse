@@ -7358,7 +7358,6 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
