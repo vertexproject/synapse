@@ -1873,8 +1873,8 @@ class N2WalkNPivo(PivotIn):
             async for item in self.getPivsIn(runt, node, path):
                 yield item
 
-            async for (verb, iden) in node.iterEdgesN2():
-                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+            async for (verb, n1nid) in node.iterEdgesN2():
+                wnode = await runt.snap.getNodeByNid(n1nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
 
@@ -3968,7 +3968,7 @@ class EditEdgeDel(Edit):
                         if subn.form.isrunt:
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-                        await subn.delEdge(verb, iden)
+                        await subn.delEdge(verb, node.nid)
 
                 else:
                     async with node.snap.getEditor() as editor:

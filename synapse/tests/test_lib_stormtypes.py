@@ -4400,8 +4400,6 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr("Unexpected token '}' at line 1, column 10", mesgs)
 
                 ##################
-                oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
-                nextoffs = (oldsplicespos + 1, 0, 0)
                 layr = core.getLayer()
                 nextlayroffs = await layr.getEditOffs() + 1
 

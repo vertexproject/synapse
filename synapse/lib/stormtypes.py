@@ -5644,11 +5644,13 @@ class Node(Prim):
         reverse = await tobool(reverse)
 
         if reverse:
-            async for edge in self.valu.iterEdgesN2(verb=verb):
-                yield edge
+            async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
+                n1iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n1nid))
+                yield (verb, n1iden)
         else:
-            async for edge in self.valu.iterEdgesN1(verb=verb):
-                yield edge
+            async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
+                n2iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n2nid))
+                yield (verb, n2iden)
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)

@@ -794,10 +794,10 @@ class CortexTest(s_t_utils.SynTest):
                 n1edges = await alist(news.iterEdgesN1())
                 n2edges = await alist(ipv4.iterEdgesN2())
 
-                self.eq(n1edges, (('refs', ipv4.iden()),))
-                self.eq(n2edges, (('refs', news.iden()),))
+                self.eq(n1edges, (('refs', ipv4.nid),))
+                self.eq(n2edges, (('refs', news.nid),))
 
-                await news.delEdge('refs', ipv4.iden())
+                await news.delEdge('refs', ipv4.nid)
 
                 self.len(0, await alist(news.iterEdgesN1()))
                 self.len(0, await alist(ipv4.iterEdgesN2()))
@@ -932,14 +932,6 @@ class CortexTest(s_t_utils.SynTest):
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
-
-            # check that edge node edits dont bork up legacy splice generation
-            nodeedits = [(ipv4.buid, 'inet:ipv4', (
-                (s_layer.EDIT_EDGE_ADD, (), ()),
-                (s_layer.EDIT_EDGE_DEL, (), ()),
-            ))]
-
-            self.eq((), await alist(core.view.layers[0].makeSplices(0, nodeedits, {})))
 
             # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
             await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
@@ -2929,7 +2921,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             ret = await proxy.getFeedFuncs()
             resp = {rec.get('name'): rec for rec in ret}
             self.isin('com.test.record', resp)
-            self.isin('syn.splice', resp)
             self.isin('syn.nodes', resp)
             self.isin('syn.nodeedits', resp)
             rec = resp.get('syn.nodes')
@@ -4253,47 +4244,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('test:cycle0=foo | delnode --force', opts=opts))
 
-    async def test_cortex_cell_splices(self):
-
-        async with self.getTestCore() as core:
-
-            async with core.getLocalProxy() as prox:
-                # TestModule creates one node and 3 splices
-                await self.agenlen(3, prox.splices((0, 0, 0), 1000))
-
-                await alist(prox.eval('[ test:str=foo ]'))
-
-                splicelist = await alist(prox.splices((0, 0, 0), 1000))
-                splicecount = len(splicelist)
-                self.ge(splicecount, 3)
-
-                # should get the same splices in reverse order
-                splicelist.reverse()
-                # TODO wtf?
-                # self.eq(await alist(prox.splicesBack(splicelist[0][0], 1000)), splicelist)
-                # self.eq(await alist(prox.splicesBack(splicelist[0][0], 3)), splicelist[:3])
-
-                # self.eq(await alist(prox.spliceHistory()), [s[1] for s in splicelist])
-
-                visi = await prox.addUser('visi')
-                await prox.setUserPasswd(visi['iden'], 'secret')
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-                await prox.addUserRule(visi['iden'], (True, ('prop', 'set')))
-
-                async with core.getLocalProxy(user='visi') as asvisi:
-
-                    # normal user can't user splicesBack
-                    await self.agenraises(s_exc.AuthDeny, asvisi.splicesBack((1000, 0, 0), 1000))
-
-                    # make sure a normal user only gets their own splices
-                    await alist(asvisi.eval('[ test:str=bar ]'))
-                    await self.agenlen(2, asvisi.spliceHistory())
-
-                    # should get all splices now as an admin
-                    await prox.setUserAdmin(visi['iden'], True)
-                    await self.agenlen(splicecount + 2, asvisi.spliceHistory())
-
     async def test_node_repr(self):
 
         async with self.getTestCore() as core:
@@ -4392,8 +4342,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str'))
 
             layr = core.getLayer()
-            await self.agenlen(0, layr.splices())
-            await self.agenlen(0, layr.splicesBack())
             await self.agenlen(0, layr.syncNodeEdits(0))
             self.eq(0, await layr.getEditIndx())
 
@@ -4590,104 +4538,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.IsDeprLocked):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
-
-    async def test_feed_syn_splice(self):
-
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            mesg = ('node:add', {'ndef': ('test:str', 'foo')})
-            await core.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.nn(node)
-
-            # test coreapi addFeedData
-            mesg = ('node:add', {'ndef': ('test:str', 'foobar')})
-            await prox.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foobar'))
-                self.nn(node)
-
-            mesg = ('prop:set', {'ndef': ('test:str', 'foo'), 'prop': 'tick', 'valu': 200})
-            await core.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.eq(200, node.get('tick'))
-
-            mesg = ('prop:del', {'ndef': ('test:str', 'foo'), 'prop': 'tick'})
-            await core.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.none(node.get('tick'))
-
-            mesg = ('tag:add', {'ndef': ('test:str', 'foo'), 'tag': 'bar', 'valu': (200, 300)})
-            await core.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.eq((200, 300), node.getTag('bar'))
-
-            mesg = ('tag:del', {'ndef': ('test:str', 'foo'), 'tag': 'bar'})
-            await core.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.none(node.getTag('bar'))
-
-            await core.addTagProp('score', ('int', {}), {})
-            splice = ('tag:prop:set', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100,
-                                       'curv': None})
-            await core.addFeedData('syn.splice', [splice])
-
-            self.len(1, await core.nodes('#lol:score=100'))
-
-            splice = ('tag:prop:del', {'ndef': ('test:str', 'foo'), 'tag': 'lol', 'prop': 'score', 'valu': 100})
-            await core.addFeedData('syn.splice', [splice])
-
-            self.len(0, await core.nodes('#lol:score=100'))
-
-            mesg = ('node:del', {'ndef': ('test:str', 'foo')})
-            await core.addFeedData('syn.splice', [mesg])
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.none(node)
-
-            # test feeding to a different view
-            vdef2 = await core.view.fork()
-            view2_iden = vdef2.get('iden')
-            view2 = core.getView(view2_iden)
-
-            mesg = ('node:add', {'ndef': ('test:str', 'bar')})
-            await core.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
-
-            async with await core.snap(view=view2) as snap:
-                node = await snap.getNodeByNdef(('test:str', 'bar'))
-                self.nn(node)
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'bar'))
-                self.none(node)
-
-            # test coreapi addFeedData to a different view
-            mesg = ('node:add', {'ndef': ('test:str', 'baz')})
-            await prox.addFeedData('syn.splice', [mesg], viewiden=view2_iden)
-
-            async with await core.snap(view=view2) as snap:
-                node = await snap.getNodeByNdef(('test:str', 'baz'))
-                self.nn(node)
-
-            async with await core.snap() as snap:
-                node = await snap.getNodeByNdef(('test:str', 'baz'))
-                self.none(node)
-
-            # sad paths
-            await self.asyncraises(s_exc.NoSuchView, core.addFeedData('syn.splice', [mesg], viewiden='badiden'))
-            await self.asyncraises(s_exc.NoSuchView, prox.addFeedData('syn.splice', [mesg], viewiden='badiden'))
 
     async def test_feed_syn_nodeedits(self):
 
@@ -6978,8 +6828,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy() as proxy:
 
-                opts = {'scrub': {'include': {'tags': ('visi',)}}}
+                opts = {}
                 podes = []
+
                 async for p in proxy.exportStorm('media:news inet:email', opts=opts):
                     if not podes:
                         tasks = [t for t in core.boss.tasks.values() if t.name == 'storm:export']
@@ -6992,10 +6843,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.nn(email[1]['tags']['visi'])
                 self.nn(email[1]['tags']['visi.woot'])
-                self.none(email[1]['tags'].get('foo'))
-                self.none(email[1]['tags'].get('foo.bar'))
-                self.len(1, email[1]['tagprops'])
-                self.eq(email[1]['tagprops'], {'visi.woot': {'rank': 43}})
+                self.nn(email[1]['tags'].get('foo'))
+                self.nn(email[1]['tags'].get('foo.bar'))
+                self.len(2, email[1]['tagprops'])
+                self.eq(email[1]['tagprops'], {'foo.bar': {'user': 'vertex'}, 'visi.woot': {'rank': 43}})
                 self.len(2, news[1]['tagprops'])
                 self.eq(news[1]['tagprops'], {'visi': {'file': '/foo/bar/baz'}, 'visi.woot': {'rank': 1}})
                 self.len(1, news[1]['edges'])
@@ -7029,10 +6880,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('err', reply.get('status'))
                 self.eq('SchemaViolation', reply.get('code'))
 
-                body = {
-                    'query': 'media:news inet:email',
-                    'opts': {'scrub': {'include': {'tags': ('visi',)}}},
-                }
+                body = {'query': 'media:news inet:email'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
                 byts = await resp.read()
 
@@ -7043,8 +6891,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.nn(email[1]['tags']['visi'])
                 self.nn(email[1]['tags']['visi.woot'])
-                self.none(email[1]['tags'].get('foo'))
-                self.none(email[1]['tags'].get('foo.bar'))
+                self.nn(email[1]['tags'].get('foo'))
+                self.nn(email[1]['tags'].get('foo.bar'))
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
 
@@ -7229,16 +7077,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     (buid3, (tm('2018', '2020'), 'inet:ipv4')),
                 ], key=lambda x: x[0])
 
-            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform',
-                                                                      starttupl=(expect[1][0], 'newpform')))
-            rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform', starttupl=(expect[1][0], 'newpform')))
+            await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform'))
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='newpform'))
             self.eq([], rows)
 
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
             # FIXME self.eq(expect, rows)
 
-            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4', starttupl=(expect[1][0],
-                                                'inet:ipv4')))
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
             # FIXME self.eq(expect[1:], rows)
 
             expect = [

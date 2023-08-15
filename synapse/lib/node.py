@@ -151,22 +151,15 @@ class Node(NodeBase):
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2iden)
 
-    async def delEdge(self, verb, n2iden):
+    async def delEdge(self, verb, n2nid):
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'delEdge() got an invalid node iden: {n2iden}'
-            raise s_exc.BadArg(mesg=mesg)
-
+        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
         nodeedits = (
             (self.buid, self.form.name, (
                 (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
             )),
         )
         await self.snap.saveNodeEdits(nodeedits)
-
-        # FIXME from merge?
-        # async with self.snap.getNodeEditor(self) as editor:
-            # return await editor.delEdge(verb, n2iden)
 
     async def iterEdgesN1(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb):
@@ -769,17 +762,17 @@ class Node(NodeBase):
             * delete all the tags (bottom up)
                 * fire onDelTag() handlers
                 * delete tag properties from storage
-                * log tag:del splices
+                * log tag:del edits
 
             * delete all secondary properties
                 * fire onDelProp handler
                 * delete secondary property from storage
-                * log prop:del splices
+                * log prop:del edits
 
             * delete the primary property
                 * fire onDel handlers for the node
                 * delete primary property from storage
-                * log node:del splices
+                * log node:del edits
         '''
 
         formname, formvalu = self.ndef

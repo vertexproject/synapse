@@ -456,16 +456,8 @@ class LayerTest(s_t_utils.SynTest):
 
                     self.len(1, await core01.nodes('inet:ipv4=5.6.7.8'))
 
-                    # make sure time and user are set on the downstream splices
+                    # TODO make sure time and user are set on the downstream edits
                     root = await core01.auth.getUserByName('root')
-
-                    splices = await alist(layr.splicesBack(size=1))
-                    self.len(1, splices)
-
-                    splice = splices[0][1][1]
-                    self.nn(splice.get('time'))
-                    self.eq(splice.get('user'), root.iden)
-                    self.none(splice.get('prov'))
 
     async def test_layer_upstream_with_mirror(self):
 
@@ -625,223 +617,6 @@ class LayerTest(s_t_utils.SynTest):
                         await asyncio.wait_for(evnt.wait(), timeout=2.0)
 
                         self.len(1, await core02.nodes('inet:ipv4=8.7.6.5'))
-
-    async def test_layer_splices(self):
-
-        self.skip('fragile order and deprecated')
-        async with self.getTestCore() as core:
-
-            layr = core.view.layers[0]
-            root = await core.auth.getUserByName('root')
-
-            splices = await alist(layr.splices(None, 10))
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
-
-            # Convert a node:add splice
-            await core.nodes('[ test:str=foo ]')
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'node:add')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a prop:set splice with no oldv
-            await core.nodes("test:str=foo [ :tick=2000 ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'prop:set')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['prop'], 'tick')
-            self.eq(splice[1]['valu'], 946684800000)
-            self.eq(splice[1]['oldv'], None)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a prop:set splice with an oldv
-            await core.nodes("test:str=foo [ :tick=2001 ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'prop:set')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['prop'], 'tick')
-            self.eq(splice[1]['valu'], 978307200000)
-            self.eq(splice[1]['oldv'], 946684800000)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a prop:del splice
-            await core.nodes("test:str=foo [ -:tick ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'prop:del')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['prop'], 'tick')
-            self.eq(splice[1]['valu'], 978307200000)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a tag:add splice with no oldv
-            await core.nodes("test:str=foo [ +#haha=2000 ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[4][1]
-            self.eq(splice[0], 'tag:add')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['tag'], 'haha')
-            self.eq(splice[1]['valu'], (946684800000, 946684800001))
-            self.eq(splice[1]['oldv'], None)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a tag:add splice with an oldv
-            await core.nodes("test:str=foo [ +#haha=2001 ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'tag:add')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['tag'], 'haha')
-            self.eq(splice[1]['valu'], (946684800000, 978307200001))
-            self.eq(splice[1]['oldv'], (946684800000, 946684800001))
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a tag:del splice
-            await core.nodes("test:str=foo [ -#haha ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'tag:del')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['tag'], 'haha')
-            self.eq(splice[1]['valu'], (946684800000, 978307200001))
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a tag:prop:add splice with no oldv
-            await core.nodes("test:str=foo [ +#rep:risk=50 ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[5][1]
-            self.eq(splice[0], 'tag:prop:set')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['tag'], 'rep')
-            self.eq(splice[1]['prop'], 'risk')
-            self.eq(splice[1]['valu'], 50)
-            self.eq(splice[1]['oldv'], None)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a tag:prop:add splice with an oldv
-            await core.nodes("test:str=foo [ +#rep:risk=0 ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'tag:prop:set')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['tag'], 'rep')
-            self.eq(splice[1]['prop'], 'risk')
-            self.eq(splice[1]['valu'], 0)
-            self.eq(splice[1]['oldv'], 50)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Convert a tag:prop:del splice
-            await core.nodes("test:str=foo [ -#rep:risk ]")
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[0][1]
-            self.eq(splice[0], 'tag:prop:del')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['tag'], 'rep')
-            self.eq(splice[1]['prop'], 'risk')
-            self.eq(splice[1]['valu'], 0)
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            spliceoffs = (splices[-1][0][0] + 1, 0, 0)
-
-            # Nodedata edits don't make splices
-            nodes = await core.nodes('test:str=foo')
-            await nodes[0].setData('baz', 'nodedataiscool')
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-            self.len(0, splices)
-
-            # Make sure nodedata edits have oldv set
-            nedit = await layr.iterNodeEditLog(spliceoffs[0]).__anext__()
-            self.eq(nedit[1][0][2][0][1], ('baz', 'nodedataiscool', None))
-
-            spliceoffs = (spliceoffs[0] + 1, 0, 0)
-
-            await nodes[0].setData('baz', 'stillcool')
-            nedit = await layr.iterNodeEditLog(spliceoffs[0]).__anext__()
-            self.eq(nedit[1][0][2][0][1], ('baz', 'stillcool', 'nodedataiscool'))
-
-            # Convert a node:del splice
-            await core.nodes('test:str=foo | delnode')
-
-            splices = await alist(layr.splices(spliceoffs, 10))
-
-            splice = splices[2][1]
-            self.eq(splice[0], 'node:del')
-            self.eq(splice[1]['ndef'], ('test:str', 'foo'))
-            self.eq(splice[1]['user'], root.iden)
-            self.nn(splice[1].get('time'))
-
-            # Get all the splices
-            splices = [x async for x in layr.splices()]
-            self.len(26, splices)
-
-            # Get all but the first splice
-            await self.agenlen(25, layr.splices(splices[1][0]))
-
-            await self.agenlen(4, layr.splicesBack(splices[3][0]))
-
-            # Make sure we still get two splices when
-            # offset is not at the beginning of a nodeedit
-            await self.agenlen(2, layr.splices((1, 0, 200), 2))
-            await self.agenlen(2, layr.splicesBack((3, 0, -1), 2))
-
-            # Use the layer api to get the splices
-            url = core.getLocalUrl('*/layer')
-            async with await s_telepath.openurl(url) as layrprox:
-                await self.agenlen(26, layrprox.splices())
 
     async def test_layer_stortype_hier(self):
         stor = s_layer.StorTypeHier(None, None)
@@ -1489,9 +1264,9 @@ class LayerTest(s_t_utils.SynTest):
             '''
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             layr = core.getLayer(None)
-            lbefore = len(await alist(layr.splices()))
+            lbefore = len(await alist(layr.iterNodeEditLog()))
             await core.nodes('[test:str=foo .seen=(2015, 2016)]')
-            lafter = len(await alist(layr.splices()))
+            lafter = len(await alist(layr.iterNodeEditLog()))
             self.eq(lbefore, lafter)
 
     async def test_layer_del_then_lift(self):

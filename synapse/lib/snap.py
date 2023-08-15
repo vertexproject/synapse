@@ -22,37 +22,6 @@ import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
-class Scrubber:
-
-    def __init__(self, rules):
-        self.rules = rules
-        # TODO support props
-        # TODO support tagprops
-        # TODO support exclude rules
-        incs = rules.get('include', {})
-
-        self.hasinctags = incs.get('tags') is not None
-        self.inctags = set(incs.get('tags', ()))
-        self.inctagprefs = [f'{tag}.' for tag in incs.get('tags', ())]
-
-    def scrub(self, pode):
-
-        if self.hasinctags and pode[1].get('tags'):
-            pode[1]['tags'] = {k: v for (k, v) in pode[1]['tags'].items() if self._isTagInc(k)}
-
-            if pode[1].get('tagprops'):
-                pode[1]['tagprops'] = {k: v for (k, v) in pode[1]['tagprops'].items() if self._isTagInc(k)}
-
-        return pode
-
-    @s_cache.memoizemethod()
-    def _isTagInc(self, tag):
-        if tag in self.inctags:
-            return True
-        if any(tag.startswith(pref) for pref in self.inctagprefs):
-            return True
-        return False
-
 class ProtoNode:
     '''
     A prototype node used for staging node adds using a SnapEditor.
@@ -466,12 +435,6 @@ class Snap(s_base.Base):
     The Snap object contains the bulk of the Cortex API to
     facilitate performance through careful use of transaction
     boundaries.
-
-    Transactions produce the following EventBus events:
-
-    (...any splice...)
-    ('log', {'level': 'mesg': })
-    ('print', {}),
     '''
     tagcachesize = 1000
     nodecachesize = 100000
@@ -561,11 +524,6 @@ class Snap(s_base.Base):
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
 
-        scrubber = None
-        # NOTE: This option is still experimental and subject to change.
-        if opts.get('scrub') is not None:
-            scrubber = Scrubber(opts.get('scrub'))
-
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
@@ -574,9 +532,6 @@ class Snap(s_base.Base):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
-
-            if scrubber is not None:
-                pode = scrubber.scrub(pode)
 
             if embeds is not None:
                 embdef = embeds.get(node.form.name)

@@ -168,19 +168,6 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
-    async def splices(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
-
-        Nodeedits will be flattened into splices before being yielded.
-        '''
-        s_common.deprecated('LayerApi.splices')
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.splices(offs=offs, size=size):
-            yield item
-
     async def getEditIndx(self):
         '''
         Returns what will be the *next* nodeedit log index.
@@ -3604,7 +3591,7 @@ class Layer(s_nexus.Pusher):
 
     async def iterTagRows(self, tag, form=None):
         '''
-        Yields (nid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (nid, (valu, form)) values that match a tag and optional form.
 
         Args:
             tag (str): the tag to match
@@ -3896,76 +3883,6 @@ class Layer(s_nexus.Pusher):
             return deepcopy(sode)
         return collections.defaultdict(dict)
 
-    async def splices(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
-
-        Nodeedits will be flattened into splices before being yielded.
-        '''
-        s_common.deprecated('Layer.splices')
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (0, 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
-
-                    if splice[0] < offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count = count + 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
-
-                    if splice[0] < offs:
-                        continue
-
-                    yield splice
-
-    async def splicesBack(self, offs=None, size=None):
-
-        s_common.deprecated('Layer.splicesBack')
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (await self.getEditIndx(), 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count += 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    yield splice
-
     async def iterNodeEditLog(self, offs=0):
         '''
         Iterate the node edit log and yield (offs, edits, meta) tuples.
@@ -4056,119 +3973,6 @@ class Layer(s_nexus.Pusher):
             count += 1
             if count % 1000 == 0:
                 yield (curoff, (None, None, EDIT_PROGRESS, (), ()))
-
-    async def makeSplices(self, offs, nodeedits, meta, reverse=False):
-        '''
-        Flatten a set of nodeedits into splices.
-        '''
-        if meta is None:
-            meta = {}
-
-        user = meta.get('user')
-        time = meta.get('time')
-        prov = meta.get('prov')
-
-        if reverse:
-            nodegenr = reversed(list(enumerate(nodeedits)))
-        else:
-            nodegenr = enumerate(nodeedits)
-
-        for nodeoffs, (buid, form, edits) in nodegenr:
-
-            formvalu = None
-
-            if reverse:
-                editgenr = reversed(list(enumerate(edits)))
-            else:
-                editgenr = enumerate(edits)
-
-            for editoffs, (edit, info, _) in editgenr:
-
-                if edit in (EDIT_NODEDATA_SET, EDIT_NODEDATA_DEL, EDIT_EDGE_ADD, EDIT_EDGE_DEL):
-                    continue
-
-                spliceoffs = (offs, nodeoffs, editoffs)
-
-                props = {
-                    'time': time,
-                    'user': user,
-                }
-
-                if prov is not None:
-                    props['prov'] = prov
-
-                if edit == EDIT_NODE_ADD:
-                    formvalu, stortype = info
-                    props['ndef'] = (form, formvalu)
-
-                    yield (spliceoffs, ('node:add', props))
-                    continue
-
-                if edit == EDIT_NODE_DEL:
-                    formvalu, stortype = info
-                    props['ndef'] = (form, formvalu)
-
-                    yield (spliceoffs, ('node:del', props))
-                    continue
-
-                if formvalu is None:
-                    nid = self.core.getNidByBuid(buid)
-                    ndef = self.core.getNidNdef(nid)
-                    formvalu = ndef[0]
-
-                props['ndef'] = (form, formvalu)
-
-                if edit == EDIT_PROP_SET:
-                    prop, valu, oldv, stortype = info
-                    props['prop'] = prop
-                    props['valu'] = valu
-                    props['oldv'] = oldv
-
-                    yield (spliceoffs, ('prop:set', props))
-                    continue
-
-                if edit == EDIT_PROP_DEL:
-                    prop, valu, stortype = info
-                    props['prop'] = prop
-                    props['valu'] = valu
-
-                    yield (spliceoffs, ('prop:del', props))
-                    continue
-
-                if edit == EDIT_TAG_SET:
-                    tag, valu, oldv = info
-                    props['tag'] = tag
-                    props['valu'] = valu
-                    props['oldv'] = oldv
-
-                    yield (spliceoffs, ('tag:add', props))
-                    continue
-
-                if edit == EDIT_TAG_DEL:
-                    tag, valu = info
-                    props['tag'] = tag
-                    props['valu'] = valu
-
-                    yield (spliceoffs, ('tag:del', props))
-                    continue
-
-                if edit == EDIT_TAGPROP_SET:
-                    tag, prop, valu, oldv, stortype = info
-                    props['tag'] = tag
-                    props['prop'] = prop
-                    props['valu'] = valu
-                    props['oldv'] = oldv
-
-                    yield (spliceoffs, ('tag:prop:set', props))
-                    continue
-
-                if edit == EDIT_TAGPROP_DEL:
-                    tag, prop, valu, stortype = info
-                    props['tag'] = tag
-                    props['prop'] = prop
-                    props['valu'] = valu
-
-                    yield (spliceoffs, ('tag:prop:del', props))
 
     @contextlib.asynccontextmanager
     async def getNodeEditWindow(self):

@@ -646,49 +646,6 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    @s_cell.adminapi()
-    async def splices(self, offs=None, size=None, layriden=None):
-        '''
-        This API is deprecated.
-
-        Return the list of splices at the given offset.
-        '''
-        s_common.deprecated('CoreApi.splices')
-        layr = self.cell.getLayer(layriden)
-        count = 0
-        async for mesg in layr.splices(offs=offs, size=size):
-            count += 1
-            if not count % 1000:
-                await asyncio.sleep(0)
-            yield mesg
-
-    @s_cell.adminapi()
-    async def splicesBack(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Return the list of splices backwards from the given offset.
-        '''
-        s_common.deprecated('CoreApi.splicesBack')
-        count = 0
-        async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
-            count += 1
-            if not count % 1000:  # pragma: no cover
-                await asyncio.sleep(0)
-            yield mesg
-
-    async def spliceHistory(self):
-        '''
-        This API is deprecated.
-
-        Yield splices backwards from the end of the splice log.
-
-        Will only return the user's own splices unless they are an admin.
-        '''
-        s_common.deprecated('CoreApi.spliceHistory')
-        async for splice in self.cell.spliceHistory(self.user):
-            yield splice
-
     async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
@@ -932,25 +889,19 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+    async def iterTagRows(self, layriden, tag, form=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (buid, (valu, form)) values that match a tag and optional form.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
-            form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
         '''
         self.user.confirm(('layer', 'lift', layriden))
-        async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
+        async for item in self.cell.iterTagRows(layriden, tag, form=form):
             yield item
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
@@ -1138,7 +1089,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.viewsbylayer = collections.defaultdict(list)
 
         self.modules = {}
-        self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
 
@@ -1191,7 +1141,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self._onCoreFini)
 
         await self._initCoreHive()
-        self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
 
@@ -3879,23 +3828,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         # Help out the garbage collector
                         del layrgenrs[layriden]
 
-    async def spliceHistory(self, user):
-        '''
-        Yield splices backwards from the end of the nodeedit log.
-
-        Will only return user's own splices unless they are an admin.
-        '''
-        layr = self.view.layers[0]
-
-        count = 0
-        async for _, mesg in layr.splicesBack():
-            count += 1
-            if not count % 1000:  # pragma: no cover
-                await asyncio.sleep(0)
-
-            if user.iden == mesg[1]['user'] or user.isAdmin():
-                yield mesg
-
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
@@ -4096,8 +4028,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.IntersectCmd)
         self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
-        self.addStormCmd(s_storm.SpliceListCmd)
-        self.addStormCmd(s_storm.SpliceUndoCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
 
         for cdef in s_stormsvc.stormcmds:
@@ -4153,29 +4083,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if path:
                 self.addStormLib(path, ctor)
 
-    def _initSplicers(self):
-        '''
-        Registration for splice handlers.
-        '''
-        splicers = {
-            'tag:add': self._onFeedTagAdd,
-            'tag:del': self._onFeedTagDel,
-            'node:add': self._onFeedNodeAdd,
-            'node:del': self._onFeedNodeDel,
-            'prop:set': self._onFeedPropSet,
-            'prop:del': self._onFeedPropDel,
-            'tag:prop:set': self._onFeedTagPropSet,
-            'tag:prop:del': self._onFeedTagPropDel,
-        }
-        self.splicers.update(**splicers)
-
     def _initFeedFuncs(self):
         '''
         Registration for built-in Cortex feed functions.
         '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
-        self.setFeedFunc('syn.splice', self._addSynSplice)
-        self.setFeedFunc('syn.nodeedits', self._addSynNodeEdits)
 
     def _initCortexHttpApi(self):
         '''
@@ -5204,117 +5116,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for node in snap.addNodes(items):
             pass
 
-    async def _addSynSplice(self, snap, items):
-        s_common.deprecated('Cortex.addFeedData(syn.splice, ...)')
-
-        for item in items:
-            func = self.splicers.get(item[0])
-
-            if func is None:
-                await snap.warn(f'no such splice: {item!r}')
-                continue
-
-            try:
-                await func(snap, item)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception as e:
-                logger.exception('splice error')
-                await snap.warn(f'splice error: {e}')
-
-    async def _onFeedNodeAdd(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-
-        if ndef is None:
-            await snap.warn(f'Invalid Splice: {mesg!r}')
-            return
-
-        await snap.addNode(*ndef)
-
-    async def _onFeedNodeDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.delete()
-
-    async def _onFeedPropSet(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        name = mesg[1].get('prop')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.set(name, valu)
-
-    async def _onFeedPropDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        name = mesg[1].get('prop')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.pop(name)
-
-    async def _onFeedTagAdd(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        tag = mesg[1].get('tag')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.addTag(tag, valu=valu)
-
-    async def _onFeedTagDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        tag = mesg[1].get('tag')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.delTag(tag)
-
-    async def _onFeedTagPropSet(self, snap, mesg):
-
-        tag = mesg[1].get('tag')
-        prop = mesg[1].get('prop')
-        ndef = mesg[1].get('ndef')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is not None:
-            await node.setTagProp(tag, prop, valu)
-
-    async def _onFeedTagPropDel(self, snap, mesg):
-
-        tag = mesg[1].get('tag')
-        prop = mesg[1].get('prop')
-        ndef = mesg[1].get('ndef')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is not None:
-            await node.delTagProp(tag, prop)
-
-    async def _addSynNodeEdits(self, snap, items):
-        s_common.deprecated('Cortex.addFeedData(syn.nodeedits, ...)')
-        for item in items:
-            item = s_common.unjsonsafe_nodeedits(item)
-            await snap.saveNodeEdits(item, None)
-
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
         await self._bumpUserDmons(iden)
@@ -5413,28 +5214,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+
             async with await self.snap(user=user, view=view) as snap:
 
-                async for pode in snap.iterStormPodes(text, opts=opts):
-                    await spooldict.set(pode[1]['iden'], pode)
-                    await asyncio.sleep(0)
+                async for node, path in snap.storm(text, opts=opts):
+                    await spooldict.set(node.nid, node.pack())
 
-                for iden, pode in spooldict.items():
+                for nid1, pode1 in spooldict.items():
                     await asyncio.sleep(0)
 
                     edges = []
-                    async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+
+                    for nid2, pode2 in spooldict.items():
                         await asyncio.sleep(0)
 
-                        if not spooldict.has(n2iden):
-                            continue
-
-                        edges.append((verb, n2iden))
+                        async for (n1, verb, n2) in snap.iterNodeEdgesN1N2(nid1, nid2):
+                            edges.append((verb, s_common.ehex(snap.core.getBuidByNid(n2))))
 
                     if edges:
-                        pode[1]['edges'] = edges
+                        pode1[1]['edges'] = edges
 
-                    yield pode
+                    yield pode1
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
@@ -6156,21 +5956,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def iterTagRows(self, layriden, tag, form=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (buid, (valu, form)) values that match a tag and optional form.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields buids of nodes that match the form.
             buid (Optional[buid]): if present, begin iterating from the given buid ( used to resume )
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
         '''
         layr = self.getLayer(layriden)
         if layr is None:
