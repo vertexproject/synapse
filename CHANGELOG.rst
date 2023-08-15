@@ -4,6 +4,59 @@
 Synapse Changelog
 *****************
 
+Deprecation Deadline - 2023-10-01
+=================================
+
+It's time to shed some long standing deprecations to reduce technical debt
+and prepare for some new features and subsystems!  The deprecated APIs and
+commands will be removed on 2023-10-01:
+
+Storm Commands
+--------------
+
+- sudo
+- splice.list
+- splice.undo
+
+Cortex Telepath APIs
+--------------------
+
+- stat()
+- addCronJob()
+- delCronJob()
+- updateCronJob()
+- enableCronJob()
+- disableCronJob()
+- listCronJobs()
+- editCronJob()
+- setStormCmd()
+- delStormCmd()
+- addNodeTag()
+- delNodeTag()
+- setNodeProp()
+- delNodeProp()
+- eval()
+- watch()
+- splices()
+- splicesBack()
+- spliceHistory()
+- addFeedData(syn.splice, ...)
+- addFeedData(syn.nodeedits, ...)
+
+Layer Telepath APIs
+-------------------
+
+- splices()
+- splicesBack()
+- truncate()
+
+Cmdr Commands
+-------------
+
+- at
+- cron
+- trigger
+
 v2.144.0 - 2023-08-09
 =====================
 
@@ -14,7 +67,7 @@ Model Changes
   (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
 
  New Forms
-  ---------
+ ---------
 
   ``it:dev:repo:type:taxonomy``
     A version control system type taxonomy.

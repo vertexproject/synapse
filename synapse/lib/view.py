@@ -451,6 +451,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
+        if editformat == 'splices':
+            s_common.deprdate('storm option editformat=splices', '2023-11-01')
+
         texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
         async def runStorm():

@@ -480,7 +480,7 @@ class StormV1(StormHandler):
         if opts is None:
             return
 
-        opts['editformat'] = 'splices'
+        opts.setdefault('editformat', 'splices')
 
         async for mesg in self.getCore().storm(query, opts=opts):
             self.write(json.dumps(mesg))
@@ -613,7 +613,7 @@ class WatchSockV1(WebSocket):
             await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
 
     async def on_message(self, byts):
-        s_common.deprecated('WatchSockV1')
+        s_common.deprdate('/api/v1/watch HTTP API', s_common.splicedepr)
         self.cell.schedCoro(self.onWatchMesg(byts))
 
 class BeholdSockV1(WebSocket):

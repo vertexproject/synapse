@@ -190,7 +190,7 @@ class CoreApi(s_cell.CellApi):
 
     def stat(self):
         self.user.confirm(('status',))
-        s_common.deprecated('CoreApi.stat')
+        s_common.deprdate('Cortex.stat() telepath API', s_common.splicedepr)
         return self.cell.stat()
 
     async def getModelDict(self):
@@ -289,7 +289,7 @@ class CoreApi(s_cell.CellApi):
         '''
         cdef['creator'] = self.user.iden
 
-        s_common.deprecated('CoreApi.addCronJob')
+        s_common.deprdate('Cortex.addCronJob() telepath API', s_common.splicedepr)
         self.user.confirm(('cron', 'add'), gateiden='cortex')
         return await self.cell.addCronJob(cdef)
 
@@ -302,7 +302,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        s_common.deprecated('CoreApi.delCronJob')
+        s_common.deprdate('Cortex.delCronJob() telepath API', s_common.splicedepr)
         self.user.confirm(('cron', 'del'), gateiden=iden)
         await self.cell.delCronJob(iden)
 
@@ -315,7 +315,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('CoreApi.updateCronJob')
+        s_common.deprdate('Cortex.updateCronJob() telepath API', s_common.splicedepr)
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.updateCronJob(iden, query)
 
@@ -328,7 +328,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('CoreApi.enableCronJob')
+        s_common.deprdate('Cortex.enableCronJob() telepath API', s_common.splicedepr)
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
@@ -341,7 +341,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('CoreApi.disableCronJob')
+        s_common.deprdate('Cortex.disableCronJob() telepath API', s_common.splicedepr)
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.disableCronJob(iden)
 
@@ -351,7 +351,7 @@ class CoreApi(s_cell.CellApi):
 
         Get information about all the cron jobs accessible to the current user
         '''
-        s_common.deprecated('CoreApi.listCronJobs')
+        s_common.deprdate('Cortex.listCronJobs() telepath API', s_common.splicedepr)
 
         crons = []
         for cron in await self.cell.listCronJobs():
@@ -370,6 +370,8 @@ class CoreApi(s_cell.CellApi):
         iden = str(iden)
         name = str(name)
 
+        s_common.deprdate('Cortex.editCronJob() telepath API', s_common.splicedepr)
+
         if name == 'creator':
             # this permission must be granted cortex wide
             # to prevent abuse...
@@ -384,6 +386,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
+        s_common.deprdate('Cortex.setStormCmd() telepath API', s_common.splicedepr)
         self.user.confirm(('admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
@@ -391,6 +394,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove a pure storm command from the cortex.
         '''
+        s_common.deprdate('Cortex.delStormCmd() telepath API', s_common.splicedepr)
         self.user.confirm(('admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
@@ -410,27 +414,31 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
-        s_common.deprecated('CoreApi.addNodeTag')
+        s_common.deprdate('Cortex.addNodeTag() telepath API', s_common.splicedepr)
         await self._reqDefLayerAllowed(('node', 'tag', 'add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
         '''
+        This API is deprecated.
+
         Delete a tag from the node specified by iden. Deprecated in 2.0.0.
 
         Args:
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
-        s_common.deprecated('CoreApi.delNodeTag')
+        s_common.deprdate('Cortex.delNodeTag() telepath API', s_common.splicedepr)
         await self._reqDefLayerAllowed(('node', 'tag', 'del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
     async def setNodeProp(self, iden, name, valu):
         '''
-        Set a property on a single node. Deprecated in 2.0.0.
+        This API is deprecated.
+
+        Set a property on a single node.
         '''
-        s_common.deprecated('CoreApi.setNodeProp')
+        s_common.deprdate('Cortex.setNodeProp() telepath API', s_common.splicedepr)
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -449,9 +457,11 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeProp(self, iden, name):
         '''
-        Delete a property from a single node. Deprecated in 2.0.0.
+        This API is deprecated.
+
+        Delete a property from a single node.
         '''
-        s_common.deprecated('CoreApi.delNodeProp')
+        s_common.deprdate('Cortex.delNodeProp() telepath API', s_common.splicedepr)
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -571,11 +581,11 @@ class CoreApi(s_cell.CellApi):
 
     async def eval(self, text, opts=None):
         '''
-        Evaluate a storm query and yield packed nodes.
+        This API is deprecated.
 
-        NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
+        Evaluate a storm query and yield packed nodes.
         '''
-        s_common.deprecated('CoreApi.eval')
+        s_common.deprdate('Cortex.eval() telepath API', s_common.splicedepr)
         opts = self._reqValidStormOpts(opts)
         view = self.cell._viewFromOpts(opts)
         async for pode in view.iterStormPodes(text, opts=opts):
@@ -622,7 +632,7 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
-        s_common.deprecated('CoreApi.watch')
+        s_common.deprdate('Cortex.watch() telepath API', s_common.splicedepr)
         iden = wdef.get('view', self.cell.view.iden)
         self.user.confirm(('watch',), gateiden=iden)
 
@@ -653,7 +663,7 @@ class CoreApi(s_cell.CellApi):
 
         Return the list of splices at the given offset.
         '''
-        s_common.deprecated('CoreApi.splices')
+        s_common.deprdate('Cortex.splices() telepath API', s_common.splicedepr)
         layr = self.cell.getLayer(layriden)
         count = 0
         async for mesg in layr.splices(offs=offs, size=size):
@@ -669,7 +679,7 @@ class CoreApi(s_cell.CellApi):
 
         Return the list of splices backwards from the given offset.
         '''
-        s_common.deprecated('CoreApi.splicesBack')
+        s_common.deprdate('Cortex.splicesBack() telepath API', s_common.splicedepr)
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
@@ -685,7 +695,7 @@ class CoreApi(s_cell.CellApi):
 
         Will only return the user's own splices unless they are an admin.
         '''
-        s_common.deprecated('CoreApi.spliceHistory')
+        s_common.deprdate('Cortex.spliceHistory() telepath API', s_common.splicedepr)
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
@@ -5158,7 +5168,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             pass
 
     async def _addSynSplice(self, snap, items):
-        s_common.deprecated('Cortex.addFeedData(syn.splice, ...)')
+        s_common.deprdate('Cortex.addFeedData(syn.splice, ...) API', s_common.splicedepr)
 
         for item in items:
             func = self.splicers.get(item[0])
@@ -5263,7 +5273,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await node.delTagProp(tag, prop)
 
     async def _addSynNodeEdits(self, snap, items):
-        s_common.deprecated('Cortex.addFeedData(syn.nodeedits, ...)')
+        s_common.deprdate('Cortex.addFeedData(syn.nodeedits, ...) API', s_common.splicedepr)
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.saveNodeEdits(item, None)
@@ -5458,11 +5468,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def eval(self, text, opts=None):
         '''
-        Evaluate a storm query and yield packed nodes.
+        This API is deprecated.
 
-        NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
+        Evaluate a storm query and yield packed nodes.
         '''
-        s_common.deprecated('Cortex.eval')
+        s_common.deprdate('Cortex.eval() API', s_common.splicedepr)
         opts = self._initStormOpts(opts)
         view = self._viewFromOpts(opts)
         async for node in view.eval(text, opts=opts):
