@@ -58,6 +58,9 @@ novalu = NoValu()
 
 logger = logging.getLogger(__name__)
 
+if Loader != yaml.CSafeLoader:  # pragma: no cover
+    logger.warning('PyYAML is using the pure python fallback implementation. This will impact performance negatively.')
+
 def now():
     '''
     Get the current epoch time in milliseconds.

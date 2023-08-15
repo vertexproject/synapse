@@ -289,6 +289,10 @@ class CommonTest(s_t_utils.SynTest):
                 fd.write(s.encode())
             self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
 
+            # Make sure we're testing the CSafeLoader and not the python native
+            # implementation
+            self.eq(s_common.Loader, yaml.CSafeLoader)
+
             data = '{"foo":"bar", "unicode": "✊"}'
             obj = s_common.yamlloads(data)
             self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
