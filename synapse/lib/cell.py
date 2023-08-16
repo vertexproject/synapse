@@ -2622,7 +2622,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx (ssl.SSLContext): An externally managed SSL Context.
 
         Note:
-            IF the SSL context is not provided, the Cell will assume it
+            If the SSL context is not provided, the Cell will assume it
             manages the SSL context it creates for a given listener and will
             add a reload handler for reloading the SSL certificates from disk.
         '''
