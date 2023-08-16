@@ -54,7 +54,7 @@ shave'''
             )
         }
         callsig = s_autodoc.genCallsig(rtype)
-        self.eq(callsig, '(foo, bar=None, **kwargs)')
+        self.eq(callsig, '(foo, bar=$lib.null, **kwargs)')
         self.eq(s_autodoc.genCallsig({}), '()')
         self.eq(s_autodoc.genCallsig({'args': ({'name': 'beep'},)}), '(beep)')
 
@@ -170,8 +170,8 @@ Returns:
 
 .. _test-lib-test-someargs:
 
-someargs(valu, bar=True, faz=None)
-==================================
+someargs(valu, bar=$lib.true, faz=$lib.null)
+============================================
 
 Example storm func with args.
 
@@ -237,8 +237,8 @@ Returns:
 
 .. _test-lib-test-someargs:
 
-$lib.test.someargs(valu, bar=True, faz=None)
-============================================
+$lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)
+======================================================
 
 Example storm func with args.
 
