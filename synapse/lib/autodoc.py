@@ -194,15 +194,15 @@ def genCallsig(rtype):
         if defv is s_common.novalu:
             item = name
         elif defv is None:
-            item = f'{item}=$lib.null'
+            item = f'{name}=$lib.null'
         elif defv is True:
-            item = f'{item}=$lib.true'
+            item = f'{name}=$lib.true'
         elif defv is False:
-            item = f'{item}=$lib.false'
+            item = f'{name}=$lib.false'
         elif isinstance(defv, str):
-            item = f'{item}={defv}'
+            item = f'{name}={defv}'
         elif isinstance(defv, int):
-            item = f'{item}=({defv})'
+            item = f'{name}=({defv})'
         else:  # pragma: no cover
             raise s_exc.BadArg(mesg=f'Failed to make call sig for {arg=}')
 
