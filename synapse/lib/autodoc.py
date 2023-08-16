@@ -1,5 +1,6 @@
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.config as s_config
@@ -203,7 +204,7 @@ def genCallsig(rtype):
             elif isinstance(defv, int):
                 item = f'{item}=({defv})'
             else:  # pragma: no cover
-                raise ValueError(f'Failed to make call sig for {arg}')
+                raise s_exc.BadArg(mesg=f'Failed to make call sig for {arg=}')
 
         items.append(item)
 
