@@ -4152,6 +4152,10 @@ class StormTypesTest(s_test.SynTest):
             tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
             self.eq(tdef.get('doc'), 'awesome trigger')
 
+            with self.raises(s_exc.BadArg):
+                q = '$t = $lib.trigger.get($trig) $t.set("foo", "bar")'
+                await core.callStorm(q, opts={'vars': {'trig': trig}})
+
             nodes = await core.nodes('[ test:str=test1 ]')
             self.nn(nodes[0].tags.get('tagged'))
 
@@ -4982,6 +4986,14 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
             self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
             self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
+
+            async with core.getLocalProxy() as proxy:
+                for permdef in stormpkg.get('perms'):
+                    pdef = await proxy.getPermDef(permdef.get('perm'))
+                    self.eq(permdef.get('perm'), pdef.get('perm'))
+                    self.eq(permdef.get('desc'), pdef.get('desc'))
+                    self.eq(permdef.get('gate'), pdef.get('gate'))
+                    self.eq(permdef.get('default'), pdef.get('default'))
 
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}

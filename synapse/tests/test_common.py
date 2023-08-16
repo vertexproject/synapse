@@ -289,6 +289,20 @@ class CommonTest(s_t_utils.SynTest):
                 fd.write(s.encode())
             self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
 
+            # Make sure we're testing the CSafeLoader and not the python native
+            # implementation
+            self.eq(s_common.Loader, yaml.CSafeLoader)
+
+            data = '{"foo":"bar", "unicode": "✊"}'
+            obj = s_common.yamlloads(data)
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads(data.encode('utf8'))
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads('{"foo": "bar", "unicode": "\u270A"}')
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
     def test_switchext(self):
         retn = s_common.switchext('foo.txt', ext='.rdf')
         self.eq(retn, s_common.genpath('foo.rdf'))

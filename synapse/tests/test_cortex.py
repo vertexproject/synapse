@@ -5919,6 +5919,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
 
+            await core.stormlist('auth.user.add user')
+            user = await core.auth.getUserByName('user')
+            asuser = {'user': user.iden}
+
+            ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
+            iden = ddef.get('iden')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(f'$lib.dmon.del({iden})', opts=asuser)
+
     async def test_cortex_storm_dmon_view(self):
 
         with self.getTestDir() as dirn:
