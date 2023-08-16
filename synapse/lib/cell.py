@@ -2662,7 +2662,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             def reload():
                 sslctx.load_cert_chain(certpath, pkeypath)
 
-            self.addReloadFunc(f'HTTPS_SSL_Reload_port={lport}', reload)
+            self.addReloadFunc(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
 
         return (lhost, lport)
 
