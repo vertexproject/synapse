@@ -313,6 +313,9 @@ class Auth(s_nexus.Pusher):
         if gateiden is not None:
             info = await user.genGateInfo(gateiden)
 
+        if name in ('locked', 'archived') and not valu:
+            self.checkUserLimit()
+
         await info.set(name, valu)
 
         if mesg is None:
@@ -413,6 +416,32 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
+    def checkUserLimit(self):
+        '''
+        Check if we're at the specified user limit.
+
+        This should be called right before adding/unlocking/unarchiving a user.
+
+        Raises: s_exc_HitLimit if the number of active users is at the maximum.
+        '''
+        if self.maxusers == 0:
+            return
+
+        numusers = 0
+
+        for user in self.users():
+            if user.name == 'root':
+                continue
+
+            if user.isLocked() or user.isArchived():
+                continue
+
+            numusers += 1
+
+        if numusers >= self.maxusers:
+            mesg = f'Cell at maximum number of users ({self.maxusers}).'
+            raise s_exc.HitLimit(mesg=mesg)
+
     async def addUser(self, name, passwd=None, email=None, iden=None):
         '''
         Add a User to the Hive.
@@ -427,10 +456,7 @@ class Auth(s_nexus.Pusher):
             HiveUser: A Hive User.
         '''
 
-        #  GT instead of GE allows us to not count root
-        if self.maxusers and len(self.users()) > self.maxusers:
-            mesg = f'Cell at maximum number of users ({self.maxusers}).'
-            raise s_exc.HitLimit(mesg=mesg)
+        self.checkUserLimit()
 
         if self.usersbyname.get(name) is not None:
             raise s_exc.DupUserName(name=name)
@@ -1088,6 +1114,9 @@ class HiveUser(HiveRuler):
 
         return gateinfo.get('admin', False)
 
+    def isArchived(self):
+        return self.info.get('archived')
+
     async def setAdmin(self, admin, gateiden=None, logged=True):
         if not isinstance(admin, bool):
             raise s_exc.BadArg(mesg='setAdmin requires a boolean')
@@ -1107,7 +1136,6 @@ class HiveUser(HiveRuler):
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
             raise s_exc.BadArg(mesg='setArchived requires a boolean')
-        archived = bool(archived)
         await self.auth.setUserInfo(self.iden, 'archived', archived)
         if archived:
             await self.setLocked(True)
