@@ -205,7 +205,7 @@ class Config(c_abc.MutableMapping):
                     logger.debug(f'Boolean type is missing default information. Will not form argparse for [{name}]')
                     continue
                 default = bool(default)
-                akwargs['type'] = yaml.safe_load
+                akwargs['type'] = s_common.yamlloads
                 akwargs['choices'] = [True, False]
                 akwargs['help'] = akwargs['help'] + f' This option defaults to {default}.'
 
@@ -304,7 +304,7 @@ class Config(c_abc.MutableMapping):
             for name, envar in name2envar.items():
                 envv = os.getenv(envar)
                 if envv is not None:
-                    envv = yaml.safe_load(envv)
+                    envv = s_common.yamlloads(envv)
 
                     curv = self.get(name, s_common.novalu)
                     if curv is not s_common.novalu:

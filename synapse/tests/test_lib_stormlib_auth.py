@@ -307,3 +307,98 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('node.add.<form>', msgs)
             self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
             self.stormIsInPrint('default: false', msgs)
+
+    async def test_stormlib_auth_default_allow(self):
+        async with self.getTestCore() as core:
+
+            stormpkg = {
+                'name': 'authtest',
+                'version': '0.0.1',
+                'perms': (
+                    {'perm': ('authtest', 'perm'), 'desc': 'Default deny', 'gate': 'cortex'},
+                    {'perm': ('authtest', 'perm2'), 'desc': 'Default allow', 'gate': 'cortex', 'default': True},
+                ),
+                'modules': (
+                    {
+                     'name': 'authtest.mod',
+                     'asroot:perms': (
+                        ('authtest', 'perm'),
+                     ),
+                     'storm': 'function func() { [ ps:person=* ] return($node) }',
+                    },
+                    {
+                     'name': 'authtest.mod2',
+                     'asroot:perms': (
+                        ('authtest', 'perm2'),
+                     ),
+                     'storm': 'function func() { [ ps:person=* ] return($node) }',
+                    },
+                ),
+                'commands': (
+                    {'name': 'authtest.cmd',
+                    #  'asroot': True,
+                     'perms': [
+                        ('authtest', 'perm')
+                     ],
+                     'storm': '$lib.print(woot)',
+                    },
+                    {'name': 'authtest.cmd2',
+                     'perms': [
+                         ('authtest', 'perm2')
+                     ],
+                    #  'asroot': True,
+                     'storm': '$lib.print(woot2)',
+                    },
+                ),
+            }
+
+            await core.stormlist('auth.user.add user')
+            await core.stormlist('auth.user.add user2')
+
+            await core.addStormPkg(stormpkg)
+
+            msgs = await core.stormlist('pkg.perms.list authtest')
+            self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
+            self.stormIsInPrint('authtest.perm                    : Default deny ( default: false )', msgs)
+            self.stormIsInPrint('authtest.perm2                   : Default allow ( default: true )', msgs)
+
+            user = await core.auth.getUserByName('user')
+            asuser = {'user': user.iden}
+
+            user2 = await core.auth.getUserByName('user2')
+            asuser2 = {'user': user2.iden}
+
+            await core.stormlist('auth.user.addrule user authtest.perm')
+            await core.stormlist('auth.user.addrule user2 "!authtest.perm2"')
+
+            # At this point, user should be able to access everything and user2
+            # should not be able to access anything
+
+            msgs = await core.stormlist('authtest.cmd', opts=asuser)
+            self.stormIsInPrint('woot', msgs)
+
+            msgs = await core.stormlist('authtest.cmd2', opts=asuser)
+            self.stormIsInPrint('woot2', msgs)
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('authtest.cmd', opts=asuser2)
+            self.eq('Command (authtest.cmd) requires permission: authtest.perm', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                await core.callStorm('authtest.cmd2', opts=asuser2)
+            self.eq('Command (authtest.cmd2) requires permission: authtest.perm2', exc.exception.get('mesg'))
+
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod).func()', opts=asuser))
+            self.len(1, await core.nodes('yield $lib.import(authtest.mod2).func()', opts=asuser))
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(authtest.mod).func()', opts=asuser2)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('yield $lib.import(authtest.mod2).func()', opts=asuser2)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(
+                    'for $item in $lib.auth.users.byname(root).json.iter() { $lib.print($item) }',
+                    opts=asuser
+                )

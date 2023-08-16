@@ -7368,7 +7368,6 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
@@ -7486,11 +7485,11 @@ class LibAuth(Lib):
         return text
 
     async def getPermDefs(self):
-        return await self.runt.snap.core.getPermDefs()
+        return self.runt.snap.core.getPermDefs()
 
     async def getPermDef(self, perm):
         perm = await toprim(perm)
-        return await self.runt.snap.core.getPermDef(perm)
+        return self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):

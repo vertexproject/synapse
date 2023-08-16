@@ -1485,12 +1485,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
 
-    async def _getPermDefs(self):
+    def _getPermDefs(self):
 
-        permdefs = list(await s_cell.Cell._getPermDefs(self))
+        permdefs = list(s_cell.Cell._getPermDefs(self))
         permdefs.extend(self._cortex_permdefs)
 
-        for spkg in await self.getStormPkgs():
+        for spkg in self._getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
 
         for (path, ctor) in self.stormlibs:
@@ -2652,6 +2652,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(self.stormpkgs.get(name))
 
     async def getStormPkgs(self):
+        return self._getStormPkgs()
+
+    def _getStormPkgs(self):
         return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
