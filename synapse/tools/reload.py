@@ -41,7 +41,7 @@ async def main(argv, outp=s_output.stdout):
                     return 1
 
                 if not ret:
-                    outp.printf('No subsystems executed.')
+                    outp.printf('No subsystems reloaded.')
                 else:
                     outp.printf(f'{"Name:".ljust(40)}{"Result:".ljust(10)}Value:')
                     for name, (isok, valu) in ret.items():

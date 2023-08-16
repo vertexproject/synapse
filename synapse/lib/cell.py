@@ -3947,12 +3947,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGHUP, sighup)
 
-    def addReloadSystem(self, name: str, func):
+    def addReloadableSystem(self, name: str, func: callable):
         '''
-        Add a reload system. This may be dynamically called at at time.
+        Add a reloadable system. This may be dynamically called at at time.
 
         Args:
-            name (str): Name of the function.
+            name (str): Name of the system.
             func: The callable for reloading a given system.
 
         Note:
@@ -3964,7 +3964,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         self._reloadfuncs[name] = func
 
-    def getReloadSystems(self):
+    def getReloadableSystems(self):
         return tuple(self._reloadfuncs.keys())
 
     async def reload(self, subsystem=None):
