@@ -1,7 +1,9 @@
 import os
+import ssl
 import sys
 import time
 import signal
+import socket
 import asyncio
 import tarfile
 import collections
@@ -18,6 +20,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
@@ -29,6 +32,8 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
+
+from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -2255,11 +2260,28 @@ class CellTest(s_t_utils.SynTest):
                 hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
                 names = await prox.getReloadNames()
-                name = names[0]
+                self.ge(len(names), 1)
 
                 bitems = []
                 bstrt = asyncio.Event()
                 bdone = asyncio.Event()
+
+               def get_pem_cert():
+                    # Only run this in a executor thread
+                    ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    conn = socket.create_connection((hhost, hport))
+                    sock = ctx.wrap_socket(conn)
+                    sock.settimeout(60)
+                    der_cert = sock.getpeercert(binary_form=True)
+                    sock.close()
+                    conn.close()
+                    return ssl.DER_cert_to_PEM_cert(der_cert)
+
+                original_cert = await s_coro.executor(get_pem_cert)
+                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
+                self.eq(ocert.get_subject().CN, 'reloadcell')
 
                 # Start a beholder session that runs over TLS
 
@@ -2300,10 +2322,12 @@ class CellTest(s_t_utils.SynTest):
                             cdir.savePkeyPem(pkey, pkeypath)
                             cdir.saveCertPem(cert, certpath)
 
-                        # reload https listener by name
-                        await cell.reloadCell(name)
+                        # reload listeners
+                        await cell.reloadCell()
 
-                        # FIXME - confirm the peercert name on the SSL connection
+                        original_cert = await s_coro.executor(get_pem_cert)
+                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
+                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                             resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
