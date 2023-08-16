@@ -20,7 +20,7 @@ class ReloadToolTest(s_test.SynTest):
             argv = argb + ('reload',)
             ret = await s_t_reload.main(argv, outp)
             self.eq(0, ret)
-            outp.expect('No subsystems executed.')
+            outp.expect('No subsystems reloaded.')
 
             await cell.addTestReload()
             await cell.addTestBadReload()

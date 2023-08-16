@@ -2193,14 +2193,14 @@ class CellTest(s_t_utils.SynTest):
             async with cell.getLocalProxy() as prox:
 
                 # No registered reload functions yet
-                names = await prox.getReloadSystems()
+                names = await prox.getReloadableSystems()
                 self.len(0, names)
                 # No functions to run yet
                 self.eq({}, await prox.reload())
 
                 # Add reload func and get its name
                 await cell.addTestReload()
-                names = await prox.getReloadSystems()
+                names = await prox.getReloadableSystems()
                 self.len(1, names)
                 name = names[0]
 
@@ -2263,7 +2263,7 @@ class CellTest(s_t_utils.SynTest):
                 await cell.auth.rootuser.setPasswd('root')
                 hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
-                names = await prox.getReloadSystems()
+                names = await prox.getReloadableSystems()
                 self.ge(len(names), 1)
 
                 bitems = []

@@ -24,7 +24,7 @@ async def main(argv, outp=s_output.stdout):
         async with await s_telepath.openurl(opts.svcurl) as cell:
 
             if opts.cmd == 'list':
-                names = await cell.getReloadSystems()
+                names = await cell.getReloadableSystems()
                 if names:
                     outp.printf(f'Cell at {s_urlhelp.sanitizeUrl(opts.svcurl)} has the following reload subsystems:')
                     for name in names:

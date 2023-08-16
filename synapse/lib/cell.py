@@ -811,8 +811,8 @@ class CellApi(s_base.Base):
         }
 
     @adminapi()
-    async def getReloadSystems(self):
-        return self.cell.getReloadSystems()
+    async def getReloadableSystems(self):
+        return self.cell.getReloadableSystems()
 
     @adminapi(log=True)
     async def reload(self, subsystem=None):
@@ -2663,7 +2663,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 sslctx.load_cert_chain(certpath, pkeypath)
                 return True
 
-            self.addReloadSystem(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
+            self.addReloadableSystem(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
 
         return (lhost, lport)
 
