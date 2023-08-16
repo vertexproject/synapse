@@ -2325,8 +2325,8 @@ class CellTest(s_t_utils.SynTest):
                         # reload listeners
                         await cell.reloadCell()
 
-                        original_cert = await s_coro.executor(get_pem_cert)
-                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
+                        reloaded_cert = await s_coro.executor(get_pem_cert)
+                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
                         self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
 
                         async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
