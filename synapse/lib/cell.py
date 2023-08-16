@@ -810,7 +810,7 @@ class CellApi(s_base.Base):
             'threshold': gc.get_threshold(),
         }
 
-    @adminapi(log=True)
+    @adminapi()
     async def getReloadNames(self):
         return self.cell.getReloadNames()
 
@@ -3976,4 +3976,5 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception:
             logger.exception(f'Error running reload function {name}')
             return False
+        logger.debug(f'Completed cell reload function {name}')
         return True
