@@ -114,12 +114,22 @@ class LibTst(s_stormtypes.Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
+        {'name': 'someargs',
+         'desc': '''Example storm func with args.''',
+         'type': {'type': 'function', '_funcname': 'someargs',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                      {'name': 'bar', 'type': 'bool', 'desc': 'The value to beep.', 'default': True, },
+                      {'name': 'faz', 'type': 'str', 'desc': 'The value to beep.', 'default': None, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
 
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
+            'someargs': self.someargs(),
         })
 
     async def beep(self, valu):
@@ -127,6 +137,13 @@ class LibTst(s_stormtypes.Lib):
         Example storm func
         '''
         ret = f'A {valu} beep!'
+        return ret
+
+    async def someargs(self, valu, bar=True, faz=None):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
 
 class TestType(s_types.Type):

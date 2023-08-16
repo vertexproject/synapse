@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 class AutodocTest(s_t_utils.SynTest):
 
-    def test_rst(self):
+    def test_autodoc_rsthelp(self):
 
         page = s_autodoc.RstHelp()
 
@@ -35,7 +35,7 @@ burma
 shave'''
         self.eq(text, expected)
 
-    def test_helpers(self):
+    def test_autodoc_helpers(self):
 
         # callsig
         rtype = {
@@ -165,6 +165,29 @@ Args:
 
 
 Returns:
+    The beeped string. The return type is ``str``.
+
+
+.. _test-lib-test-someargs:
+
+someargs(valu, bar=True, faz=None)
+==================================
+
+Example storm func with args.
+
+
+Args:
+    valu (str): The value to beep.
+
+
+    bar (bool): The value to beep.
+
+
+    faz (str): The value to beep.
+
+
+
+Returns:
     The beeped string. The return type is ``str``.'''
         self.eq(text, expected)
 
@@ -205,6 +228,29 @@ Notes:
 
 Args:
     valu (str): The value to beep.
+
+
+
+Returns:
+    The beeped string. The return type is ``str``.
+
+
+.. _test-lib-test-someargs:
+
+$lib.test.someargs(valu, bar=True, faz=None)
+============================================
+
+Example storm func with args.
+
+
+Args:
+    valu (str): The value to beep.
+
+
+    bar (bool): The value to beep.
+
+
+    faz (str): The value to beep.
 
 
 
