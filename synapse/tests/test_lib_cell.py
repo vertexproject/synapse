@@ -2266,7 +2266,7 @@ class CellTest(s_t_utils.SynTest):
                 bstrt = asyncio.Event()
                 bdone = asyncio.Event()
 
-               def get_pem_cert():
+                def get_pem_cert():
                     # Only run this in a executor thread
                     ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
                     ctx.check_hostname = False
