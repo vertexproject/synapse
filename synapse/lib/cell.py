@@ -2814,7 +2814,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellHiveAuth(self):
 
-        maxusers = self.conf.get('max:users')
+        maxusers = self.conf.get('max:users', 0)
 
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
