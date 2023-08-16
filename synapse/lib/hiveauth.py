@@ -422,7 +422,7 @@ class Auth(s_nexus.Pusher):
 
         This should be called right before adding/unlocking/unarchiving a user.
 
-        Raises: s_exc_HitLimit if the number of active users is at the maximum.
+        Raises: s_exc.HitLimit if the number of active users is at the maximum.
         '''
         if self.maxusers == 0:
             return
