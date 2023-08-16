@@ -815,8 +815,8 @@ class CellApi(s_base.Base):
         return self.cell.getReloadSystems()
 
     @adminapi(log=True)
-    async def reload(self, name=None):
-        return await self.cell.reload(name)
+    async def reload(self, subsystem=None):
+        return await self.cell.reload(subsystem=subsystem)
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
@@ -3967,14 +3967,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getReloadSystems(self):
         return tuple(self._reloadfuncs.keys())
 
-    async def reload(self, name=None):
+    async def reload(self, subsystem=None):
         ret = {}
-        if name:
-            func = self._reloadfuncs.get(name)
+        if subsystem:
+            func = self._reloadfuncs.get(subsystem)
             if func is None:
-                raise s_exc.NoSuchName(mesg=f'No reload system named {name}',
-                                       name=name)
-            ret[name] = await self._runReloadFunc(name, func)
+                raise s_exc.NoSuchName(mesg=f'No reload system named {subsystem}',
+                                       name=subsystem)
+            ret[subsystem] = await self._runReloadFunc(subsystem, func)
         else:
             # Run all funcs
             for (rname, func) in self._reloadfuncs.items():

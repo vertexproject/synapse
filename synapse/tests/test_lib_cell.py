@@ -2224,7 +2224,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Attempting to call a value by name that doesn't exist fails
                 with self.raises(s_exc.NoSuchName) as cm:
-                    await cell.reload(name='newp')
+                    await cell.reload(subsystem='newp')
                 self.eq('newp', cm.exception.get('name'))
                 self.isin('newp', cm.exception.get('mesg'))
 
