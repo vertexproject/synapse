@@ -129,7 +129,7 @@ class LibTst(s_stormtypes.Lib):
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
-            'someargs': self.someargs(),
+            'someargs': self.someargs,
         })
 
     async def beep(self, valu):
