@@ -4367,6 +4367,10 @@ class MoveTagCmd(Cmd):
             if olddoc is not None:
                 await newnode.set('doc', olddoc)
 
+            olddocurl = node.get('doc:url')
+            if olddocurl is not None:
+                await newnode.set('doc:url', olddocurl)
+
             oldtitle = node.get('title')
             if oldtitle is not None:
                 await newnode.set('title', oldtitle)
