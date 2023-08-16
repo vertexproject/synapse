@@ -2196,7 +2196,7 @@ class CellTest(s_t_utils.SynTest):
                 names = await prox.getReloadNames()
                 self.len(0, names)
                 # No functions to run yet
-                self.eq({}, await prox.reloadCell())
+                self.eq({}, await prox.reload())
 
                 # Add reload func and get its name
                 await cell.addTestReload()
@@ -2206,7 +2206,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Reload by name
                 self.false(cell._reloaded)
-                self.eq({name: True}, await cell.reloadCell(name))
+                self.eq({name: True}, await cell.reload(name))
                 self.true(cell._reloaded)
 
                 # Add a second function
@@ -2215,12 +2215,12 @@ class CellTest(s_t_utils.SynTest):
                 # Reload all registered functions
                 cell._reloaded = False
                 self.eq({'testreload': True, 'badreload': False},
-                        await cell.reloadCell())
+                        await cell.reload())
                 self.true(cell._reloaded)
 
                 # Attempting to call a value by name that doesn't exist fails
                 with self.raises(s_exc.NoSuchName) as cm:
-                    await cell.reloadCell(name='newp')
+                    await cell.reload(name='newp')
                 self.eq('newp', cm.exception.get('name'))
                 self.isin('newp', cm.exception.get('mesg'))
 
@@ -2323,7 +2323,7 @@ class CellTest(s_t_utils.SynTest):
                             cdir.saveCertPem(cert, certpath)
 
                         # reload listeners
-                        await cell.reloadCell()
+                        await cell.reload()
 
                         reloaded_cert = await s_coro.executor(get_pem_cert)
                         rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)

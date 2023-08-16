@@ -35,7 +35,7 @@ async def main(argv, outp=s_output.stdout):
             if opts.cmd == 'reload':
                 outp.printf(f'Reloading cell at {s_urlhelp.sanitizeUrl(opts.svcurl)}')
                 try:
-                    ret = await cell.reloadCell(name=opts.name)
+                    ret = await cell.reload(name=opts.name)
                 except Exception as e:
                     outp.printf(f'Error reloading cell: {e}')
                     return 1

@@ -815,8 +815,8 @@ class CellApi(s_base.Base):
         return self.cell.getReloadNames()
 
     @adminapi(log=True)
-    async def reloadCell(self, name=None):
-        return await self.cell.reloadCell(name)
+    async def reload(self, name=None):
+        return await self.cell.reload(name)
 
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
@@ -3941,7 +3941,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await s_base.Base.addSignalHandlers(self)
 
         def sighup():
-            asyncio.create_task(self.reloadCell())
+            asyncio.create_task(self.reload())
 
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGHUP, sighup)
@@ -3952,7 +3952,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getReloadNames(self):
         return tuple(self._reloadfuncs.keys())
 
-    async def reloadCell(self, name=None):
+    async def reload(self, name=None):
         ret = {}
         if name:
             func = self._reloadfuncs.get(name)
