@@ -846,6 +846,7 @@ class ReloadCell(s_cell.Cell):
             self._reloaded = True
             if self._reloadevt:
                 self._reloadevt.set()
+            return True
 
         self.addReloadFunc('testreload', func)
 

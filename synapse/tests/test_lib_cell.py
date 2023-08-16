@@ -2206,7 +2206,7 @@ class CellTest(s_t_utils.SynTest):
 
                 # Reload by name
                 self.false(cell._reloaded)
-                self.eq({name: True}, await cell.reload(name))
+                self.eq({name: (True, True)}, await cell.reload(name))
                 self.true(cell._reloaded)
 
                 # Add a second function
@@ -2214,8 +2214,12 @@ class CellTest(s_t_utils.SynTest):
 
                 # Reload all registered functions
                 cell._reloaded = False
-                self.eq({'testreload': True, 'badreload': False},
-                        await cell.reload())
+                ret = await cell.reload()
+                self.eq(ret.get('testreload'), (True, True))
+                fail = ret.get('badreload')
+                self.false(fail[0])
+                self.eq('ZeroDivisionError', fail[1][0])
+                self.eq('division by zero', fail[1][1].get('mesg'))
                 self.true(cell._reloaded)
 
                 # Attempting to call a value by name that doesn't exist fails

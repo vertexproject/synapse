@@ -43,13 +43,18 @@ async def main(argv, outp=s_output.stdout):
                 if not ret:
                     outp.printf('No functions executed.')
                 else:
-                    outp.printf(f'{"Name:".ljust(40)}Result:')
-                    for name, valu in ret.items():
-                        if valu:
+                    outp.printf(f'{"Name:".ljust(40)}{"Result:".ljust(10)}Value:')
+                    for name, (isok, valu) in ret.items():
+                        if isok:
+                            mesg = str(valu)
                             result = 'Success'
                         else:
+                            mesg = valu[1].get('mesg')
+                            if mesg is None:
+                                mesg = valu[0]
                             result = 'Failed'
-                        outp.printf(f'{name.ljust(40)}{result}')
+
+                        outp.printf(f'{name.ljust(40)}{result.ljust(10)}{mesg}')
     return 0
 
 def getArgParser():

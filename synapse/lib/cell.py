@@ -2661,6 +2661,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             # for it which reloads the pkey / cert.
             def reload():
                 sslctx.load_cert_chain(certpath, pkeypath)
+                return True
 
             self.addReloadFunc(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
 
@@ -3947,6 +3948,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         loop.add_signal_handler(signal.SIGHUP, sighup)
 
     def addReloadFunc(self, name: str, func):
+        '''
+        Add a reload functoin. This may be dynamically called at at time.
+
+        Args:
+            name (str): Name of the function.
+            func:
+
+        Note:
+            Reload functions take no arguments when they are executed.
+            Values returned by the reload function must be msgpack friendly.
+
+        Returns:
+            None
+        '''
         self._reloadfuncs[name] = func
 
     def getReloadNames(self):
@@ -3969,12 +3984,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _runReloadFunc(self, name, func):
         try:
             logger.debug(f'Running cell reload function {name}')
-            await s_coro.ornot(func)
+            ret = await s_coro.ornot(func)
             await asyncio.sleep(0)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
             logger.exception(f'Error running reload function {name}')
-            return False
+            return s_common.retnexc(e)
         logger.debug(f'Completed cell reload function {name}')
-        return True
+        return (True, ret)
