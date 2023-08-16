@@ -14,13 +14,13 @@ class ReloadToolTest(s_test.SynTest):
             argv = argb + ('list',)
             ret = await s_t_reload.main(argv, outp)
             self.eq(0, ret)
-            outp.expect('no registered reload functions')
+            outp.expect('no registered reload subsystems')
 
             outp.clear()
             argv = argb + ('reload',)
             ret = await s_t_reload.main(argv, outp)
             self.eq(0, ret)
-            outp.expect('No functions executed.')
+            outp.expect('No subsystems executed.')
 
             await cell.addTestReload()
             await cell.addTestBadReload()

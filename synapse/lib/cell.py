@@ -811,8 +811,8 @@ class CellApi(s_base.Base):
         }
 
     @adminapi()
-    async def getReloadNames(self):
-        return self.cell.getReloadNames()
+    async def getReloadSystems(self):
+        return self.cell.getReloadSystems()
 
     @adminapi(log=True)
     async def reload(self, name=None):
@@ -2663,7 +2663,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 sslctx.load_cert_chain(certpath, pkeypath)
                 return True
 
-            self.addReloadFunc(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
+            self.addReloadSystem(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
 
         return (lhost, lport)
 
@@ -3947,13 +3947,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGHUP, sighup)
 
-    def addReloadFunc(self, name: str, func):
+    def addReloadSystem(self, name: str, func):
         '''
-        Add a reload functoin. This may be dynamically called at at time.
+        Add a reload system. This may be dynamically called at at time.
 
         Args:
             name (str): Name of the function.
-            func:
+            func: The callable for reloading a given system.
 
         Note:
             Reload functions take no arguments when they are executed.
@@ -3964,7 +3964,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         self._reloadfuncs[name] = func
 
-    def getReloadNames(self):
+    def getReloadSystems(self):
         return tuple(self._reloadfuncs.keys())
 
     async def reload(self, name=None):
@@ -3972,7 +3972,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if name:
             func = self._reloadfuncs.get(name)
             if func is None:
-                raise s_exc.NoSuchName(mesg=f'No reload function named {name}',
+                raise s_exc.NoSuchName(mesg=f'No reload system named {name}',
                                        name=name)
             ret[name] = await self._runReloadFunc(name, func)
         else:
@@ -3983,13 +3983,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _runReloadFunc(self, name, func):
         try:
-            logger.debug(f'Running cell reload function {name}')
+            logger.debug(f'Running cell reload system {name}')
             ret = await s_coro.ornot(func)
             await asyncio.sleep(0)
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.exception(f'Error running reload function {name}')
+            logger.exception(f'Error running reload system {name}')
             return s_common.retnexc(e)
-        logger.debug(f'Completed cell reload function {name}')
+        logger.debug(f'Completed cell reload system {name}')
         return (True, ret)

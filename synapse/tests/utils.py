@@ -848,13 +848,13 @@ class ReloadCell(s_cell.Cell):
                 self._reloadevt.set()
             return True
 
-        self.addReloadFunc('testreload', func)
+        self.addReloadSystem('testreload', func)
 
     async def addTestBadReload(self):
         async def func():
             return 1 / 0
 
-        self.addReloadFunc('badreload', func)
+        self.addReloadSystem('badreload', func)
 
 class SynTest(unittest.TestCase):
     '''
