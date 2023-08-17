@@ -966,7 +966,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The organization name. Used for entity resolution.'}),
 
                     ('window', ('ival', {}), {
-                        'doc': 'The time window which these metrics cover.'}),
+                        'doc': 'The time window used to compute the metrics.'}),
 
                     ('alert:meantime:triage', ('duration', {}), {
                         'doc': 'The mean-time-to-triage for alerts generated within the time window.'}),
