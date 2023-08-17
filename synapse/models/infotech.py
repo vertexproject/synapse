@@ -214,11 +214,11 @@ loglevels = (
 )
 
 tlplevels = (
-    (100, 'clear'),
-    (200, 'green'),
-    (300, 'amber'),
-    (400, 'amber-strict'),
-    (500, 'red'),
+    (10, 'clear'),
+    (20, 'green'),
+    (30, 'amber'),
+    (40, 'amber-strict'),
+    (50, 'red'),
 )
 
 class ItModule(s_module.CoreModule):
