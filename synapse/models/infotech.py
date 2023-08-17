@@ -213,6 +213,14 @@ loglevels = (
     (80, 'emerg'),
 )
 
+tlplevels = (
+    (100, 'clear'),
+    (200, 'green'),
+    (300, 'amber'),
+    (400, 'amber-strict'),
+    (500, 'red'),
+)
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -338,6 +346,20 @@ class ItModule(s_module.CoreModule):
                     'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
                     'ex': 'CWE-120',
                 }),
+
+                ('it:sec:tlp', ('int', {'enums': tlplevels}), {
+                    'doc': 'A Traffic-Light-Protocol enumeration. Levels defined by US CISA.',
+                    'ex': 'green'}),
+
+                ('it:sec:metrics', ('guid', {}), {
+                    'doc': "A node used to track metrics of an organization's infosec program."}),
+
+                ('it:sec:vuln:scan', ('guid', {}), {
+                    'doc': "An instance of running a vulnerablity scan."}),
+
+                ('it:sec:vuln:scan:hit', ('guid', {}), {
+                    'doc': "An instance of a scan detecting a vulnerability in an asset."}),
+
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
                     'doc': 'A Mitre ATT&CK element status.',
                     'ex': 'current',
@@ -934,6 +956,92 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ChildOf CWE Relationships.'
                     }),
                 )),
+
+                (('it:sec:metrics', {}, (
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization whose security program is being measured.'}),
+
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The organization name. Used for entity resolution.'}),
+
+                    ('window', ('ival', {}), {
+                        'doc': 'The time window which these metrics cover.'}),
+
+                    ('alert:meantime:triage', ('duration', {}), {
+                        'doc': 'The mean-time-to-triage for alerts generated within the time window.'}),
+
+                    ('alert:count', ('int', {}), {
+                        'doc': 'The total number of alerts generated within the time window.'}),
+
+                    ('alert:falsepos', ('int', {}), {
+                        'doc': 'The number of alerts generated within the time window that were determined to be false positives.'}),
+
+                    ('assets:hosts', ('int', {}), {
+                        'doc': 'The total number of hosts within scope for the information security program.'}),
+
+                    ('assets:users', ('int', {}), {
+                        'doc': 'The total number of users within scope for the information security program.'}),
+
+                    ('assets:vulns:existing', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the beginning of the window.'}),
+
+                    ('assets:vulns:discovered', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities discovered during the window.'}),
+
+                    ('assets:vulns:mitigated', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities mitigated during the window.'}),
+
+                    ('assets:vulns:meantime:mitigate', ('duration', {}), {
+                        'doc': 'The mean-time to mitigate for vulnerable assets mitigated during the time window.'}),
+
+                )),
+
+                ('it:sec:vuln:scan', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan was started.'}),
+
+                    ('desc', ('str', {}), {
+                        'doc': 'Description of the scan and scope.'}),
+
+                    ('soft', ('it:prod:softver', {}), {
+                        'doc': 'The scanning software used.'}),
+
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'Contact information for the scan operator.'}),
+
+                )),
+
+                ('it:sec:vuln:scan:hit', {}, (
+
+                    ('scan', ('risk:vuln:scan', {}), {
+                        'doc': 'The scan that discovered the vulnerability in the asset.'}),
+
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability detected in the asset.'}),
+
+                    ('asset', ('ndef', {}), {
+                        'doc': 'The node which is vulnerable.'}),
+
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the vulnerabilty and how it was detected in the asset.'}),
+
+                    ('mitigated', ('time', {}), {
+                        'doc': 'The time that the vulnerability in the asset was mitigated.'}),
+
+                    ('discovered', ('time', {}), {
+                        'doc': 'The time that the scan discovered the vulnerability in the asset.'}),
+
+                    ('priority', ('meta:priority', {}), {}),
+                        'doc': 'The priority of mitigating the vulnerablity.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'The severity of the vulnerability in the specific asset.'}),
+                ))
                 ('it:mitre:attack:group', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
