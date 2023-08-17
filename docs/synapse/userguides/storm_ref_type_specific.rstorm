@@ -48,7 +48,7 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **set** consists of a unique group of entries.
 
 ``Array`` types can be used for properties where that property is likely to have multiple values, but it is
-undesirable to represent those values using multiple :ref:`form-relationship` nodes. Examples of array
+undesirable to represent those values using multiple :ref:`node-relationship` nodes. Examples of array
 secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``.
 You can view all secondary properties that are ``array`` types using the following Storm query:
 
@@ -1265,7 +1265,7 @@ syn:\tag
 ``syn:tag`` is a specialized type used for :ref:`data-tag` nodes within Synapse. Tags represent domain-specific,
 analytically relevant observations or assessments. They support a hierarchical namespace based on user-defined
 dot-separated strings. This hierarchy allows recording classes or categories of analytical observations that can
-be defined with increasing specificity. (See :ref:`analytical-model-tags` for more information.)
+be defined with increasing specificity. (See :ref:`analytical-model` for more information.)
 
 ``syn:tag`` is an extension of the :ref:`type-str` type. However, because ``syn:tag`` types use strings that
 comprise a dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for
