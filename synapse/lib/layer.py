@@ -2899,6 +2899,7 @@ class Layer(s_nexus.Pusher):
 
         if refs <= 0:
             self.dirty.pop(nid, None)
+            self.weakcache.pop(nid, None)
             self.buidcache.pop(nid, None)
             self.layrslab.delete(nid, db=self.bybuidv3)
             self.core.incBuidNid(nid, inc=-1)
@@ -2908,6 +2909,7 @@ class Layer(s_nexus.Pusher):
             nid = sode['nid'] = self.core.genBuidNid(buid)
 
         self.setSodeDirty(sode)
+        return refs
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):
@@ -3054,10 +3056,10 @@ class Layer(s_nexus.Pusher):
         if self.nodeDelHook is not None:
             self.nodeDelHook()
 
-        self._incSodeRefs(buid, sode, inc=-1)
-
         await self._wipeNodeData(buid, sode)
         await self._delNodeEdges(buid, sode)
+
+        self._incSodeRefs(buid, sode, inc=-1)
 
         return (
             (EDIT_NODE_DEL, (valu, stortype), ()),
@@ -3394,9 +3396,16 @@ class Layer(s_nexus.Pusher):
             if self.layrslab.hasdup(n1nid + n2nid, venc, db=self.edgesn1n2):
                 return ()
 
-        # we are creating a new edge for this layer.
-        self._incSodeRefs(buid, sode)
         n2nid = self.core.genBuidNid(n2buid)
+        n2sode = self._genStorNode(n2nid)
+
+        # we are creating a new edge for this layer.
+        sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) + 1
+        n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) + 1
+
+        # inc the sode refs and mark them both dirty
+        self._incSodeRefs(buid, sode)
+        self._incSodeRefs(n2buid, n2sode)
 
         n1n2nid = n1nid + n2nid
 
@@ -3413,6 +3422,7 @@ class Layer(s_nexus.Pusher):
 
     async def _editNodeEdgeDel(self, buid, form, edit, sode, meta):
 
+        # TODO n1verb / n2verb!
         verb, n2iden = edit[1]
 
         venc = verb.encode()
@@ -3748,7 +3758,7 @@ class Layer(s_nexus.Pusher):
                 edits.append((EDIT_NODEDATA_SET, (prop, valu, None), ()))
 
             async for verb, n2nid in self.iterNodeEdgesN1(nid):
-                # LOCAL edits vs COMPAT edits?
+                # TODO LOCAL edits vs COMPAT edits?
                 n2iden = s_common.ehex(self.core.getBuidByNid(nid))
                 edits.append((EDIT_EDGE_ADD, (verb, n2iden), ()))
 

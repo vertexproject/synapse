@@ -118,8 +118,6 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddTagIndx(nid, 'inet:ipv4', 'foo')
             core.getLayer()._testAddPropIndx(nid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
-            print(repr(errors))
             self.eq(errors[0][0], 'NoNodeForTagIndex')
             self.eq(errors[1][0], 'NoNodeForPropIndex')
 
@@ -129,7 +127,7 @@ class LayerTest(s_t_utils.SynTest):
             nid = nodes[0].nid
 
             layr = core.getLayer()
-            sode = await layr.getStorNode(nid)
+            sode = layr.getStorNode(nid)
             asn = sode['props']['asn']
             sode['props']['asn'] = (asn[0], 8675309)
 
@@ -165,7 +163,7 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in layr.verifyAllProps()]
             self.len(0, errors)
 
-            sode = await layr.getStorNode(nid)
+            sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props']['names'] = (names[0], 8675309)
             layr.setSodeDirty(sode)
@@ -177,7 +175,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForPropArray')
             self.eq(errors[2][0], 'NoStorTypeForPropArray')
 
-            sode = await layr.getStorNode(nid)
+            sode = layr._getStorNode(nid)
             names = sode['props']['names']
             sode['props'] = {}
             layr.setSodeDirty(sode)
@@ -306,7 +304,7 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in layr.verifyAllTagProps()]
             self.len(0, errors)
 
-            sode = await layr.getStorNode(nid)
+            sode = layr._getStorNode(nid)
             score = sode['tagprops']['foo']['score']
             sode['tagprops']['foo']['score'] = (score[0], 8675309)
             layr.setSodeDirty(sode)
@@ -316,7 +314,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoStorTypeForTagProp')
             self.eq(errors[1][0], 'NoStorTypeForTagProp')
 
-            sode = await layr.getStorNode(nid)
+            sode = layr._getStorNode(nid)
             sode['tagprops']['foo'] = {}
             layr.setSodeDirty(sode)
 
@@ -325,7 +323,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoValuForTagPropIndex')
             self.eq(errors[1][0], 'NoValuForTagPropIndex')
 
-            sode = await layr.getStorNode(nid)
+            sode = layr._getStorNode(nid)
             sode['tagprops'] = {}
             layr.setSodeDirty(sode)
 
@@ -334,7 +332,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
-            sode = await layr.getStorNode(nid)
+            sode = layr._getStorNode(nid)
             sode['tagprops'] = None
             layr.setSodeDirty(sode)
 

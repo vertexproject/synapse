@@ -818,7 +818,6 @@ class Node(NodeBase):
         for tag in tags:
             edits.extend(await self._getTagDelEdits(tag, init=True))
 
-        # TODO should this be only from the top sode?
         props = self._getPropsDict()
         for name in props.keys():
             edits.extend(await self._getPropDelEdits(name, init=True))
