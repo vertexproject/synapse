@@ -969,7 +969,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time window used to compute the metrics.'}),
 
                     ('alert:meantime:triage', ('duration', {}), {
-                        'doc': 'The mean-time-to-triage for alerts generated within the time window.'}),
+                        'doc': 'The mean time to triage for alerts generated within the time window.'}),
 
                     ('alert:count', ('int', {}), {
                         'doc': 'The total number of alerts generated within the time window.'}),
@@ -993,7 +993,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The number of asset vulnerabilities mitigated during the window.'}),
 
                     ('assets:vulns:meantime:mitigate', ('duration', {}), {
-                        'doc': 'The mean-time to mitigate for vulnerable assets mitigated during the time window.'}),
+                        'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time window.'}),
 
                 )),
 
