@@ -1223,6 +1223,37 @@ class CellTest(s_t_utils.SynTest):
                 await cell.auth.addUser('visi4')
             self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
 
+            # Archive user and add new user
+            visi1 = await cell.auth.getUserByName('visi1')
+            await visi1.setArchived(True)
+
+            await cell.auth.addUser('visi4')
+
+            with self.raises(s_exc.HitLimit):
+                await cell.auth.addUser('visi5')
+
+            # Try to unarchive user while we're at the limit
+            with self.raises(s_exc.HitLimit):
+                await visi1.setArchived(False)
+
+            # Lock user and add new user
+            visi2 = await cell.auth.getUserByName('visi2')
+            await visi2.setLocked(True)
+
+            await cell.auth.addUser('visi5')
+
+            with self.raises(s_exc.HitLimit):
+                await cell.auth.addUser('visi6')
+
+            # Delete user and add new user
+            visi3 = await cell.auth.getUserByName('visi3')
+            await cell.auth.delUser(visi3.iden)
+
+            await cell.auth.addUser('visi6')
+
+            with self.raises(s_exc.HitLimit):
+                await cell.auth.addUser('visi7')
+
         with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
             with self.getTestDir() as dirn:
                 async with await s_cell.Cell.initFromArgv([dirn]) as cell:
