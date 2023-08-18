@@ -88,10 +88,10 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
                 ('meta:priority', ('int', {'enums': prioenums}), {
-                    'doc': 'A generic priority enumeration used in various parts of the model.'})
+                    'doc': 'A generic priority enumeration.'}),
 
                 ('meta:severity', ('int', {'enums': prioenums}), {
-                    'doc': 'A generic severity enumeration used in various parts of the model.'})
+                    'doc': 'A generic severity enumeration.'}),
 
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),

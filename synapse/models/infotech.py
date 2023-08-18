@@ -355,7 +355,7 @@ class ItModule(s_module.CoreModule):
                     'doc': "A node used to track metrics of an organization's infosec program."}),
 
                 ('it:sec:vuln:scan', ('guid', {}), {
-                    'doc': "An instance of running a vulnerablity scan."}),
+                    'doc': "An instance of running a vulnerability scan."}),
 
                 ('it:sec:vuln:scan:hit', ('guid', {}), {
                     'doc': "An instance of a scan detecting a vulnerability in an asset."}),
@@ -957,7 +957,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
-                (('it:sec:metrics', {}, (
+                ('it:sec:metrics', {}, (
 
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization whose security program is being measured.'}),
@@ -965,16 +965,19 @@ class ItModule(s_module.CoreModule):
                     ('org:name', ('ou:name', {}), {
                         'doc': 'The organization name. Used for entity resolution.'}),
 
+                    ('org:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The organization FQDN. Used for entity resolution.'}),
+
                     ('window', ('ival', {}), {
                         'doc': 'The time window used to compute the metrics.'}),
 
-                    ('alert:meantime:triage', ('duration', {}), {
+                    ('alerts:meantime:triage', ('duration', {}), {
                         'doc': 'The mean time to triage for alerts generated within the time window.'}),
 
-                    ('alert:count', ('int', {}), {
+                    ('alerts:count', ('int', {}), {
                         'doc': 'The total number of alerts generated within the time window.'}),
 
-                    ('alert:falsepos', ('int', {}), {
+                    ('alerts:falsepos', ('int', {}), {
                         'doc': 'The number of alerts generated within the time window that were determined to be false positives.'}),
 
                     ('assets:hosts', ('int', {}), {
@@ -983,7 +986,10 @@ class ItModule(s_module.CoreModule):
                     ('assets:users', ('int', {}), {
                         'doc': 'The total number of users within scope for the information security program.'}),
 
-                    ('assets:vulns:existing', ('int', {}), {
+                    ('assets:vulns:count', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the end of the window.'}),
+
+                    ('assets:vulns:preexisting', ('int', {}), {
                         'doc': 'The number of asset vulnerabilities being tracked at the beginning of the window.'}),
 
                     ('assets:vulns:discovered', ('int', {}), {
@@ -1003,12 +1009,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time that the scan was started.'}),
 
                     ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'Description of the scan and scope.'}),
 
-                    ('soft', ('it:prod:softver', {}), {
+                    ('software', ('it:prod:softver', {}), {
                         'doc': 'The scanning software used.'}),
 
-                    ('soft:name', ('it:prod:softname', {}), {
+                    ('software:name', ('it:prod:softname', {}), {
                         'doc': 'The name of the scanner software.'}),
 
                     ('operator', ('ps:contact', {}), {
@@ -1018,7 +1025,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:sec:vuln:scan:hit', {}, (
 
-                    ('scan', ('risk:vuln:scan', {}), {
+                    ('scan', ('it:sec:vuln:scan', {}), {
                         'doc': 'The scan that discovered the vulnerability in the asset.'}),
 
                     ('vuln', ('risk:vuln', {}), {
@@ -1030,18 +1037,22 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A description of the vulnerabilty and how it was detected in the asset.'}),
 
+                    ('mitigation', ('risk:mitigation', {}), {
+                        'doc': 'The mitigation used to address this specific asset vulnerability.'}),
+
                     ('mitigated', ('time', {}), {
                         'doc': 'The time that the vulnerability in the asset was mitigated.'}),
 
                     ('discovered', ('time', {}), {
                         'doc': 'The time that the scan discovered the vulnerability in the asset.'}),
 
-                    ('priority', ('meta:priority', {}), {}),
+                    ('priority', ('meta:priority', {}), {
                         'doc': 'The priority of mitigating the vulnerablity.'}),
 
                     ('severity', ('meta:severity', {}), {
                         'doc': 'The severity of the vulnerability in the specific asset.'}),
-                ))
+                )),
+
                 ('it:mitre:attack:group', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
