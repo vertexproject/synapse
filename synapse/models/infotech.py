@@ -1037,14 +1037,14 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A description of the vulnerabilty and how it was detected in the asset.'}),
 
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan result was produced.'}),
+
                     ('mitigation', ('risk:mitigation', {}), {
                         'doc': 'The mitigation used to address this asset vulnerability.'}),
 
                     ('mitigated', ('time', {}), {
                         'doc': 'The time that the vulnerability in the asset was mitigated.'}),
-
-                    ('discovered', ('time', {}), {
-                        'doc': 'The time that the scan discovered the vulnerability in the asset.'}),
 
                     ('priority', ('meta:priority', {}), {
                         'doc': 'The priority of mitigating the vulnerablity.'}),

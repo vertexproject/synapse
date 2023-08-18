@@ -1542,7 +1542,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :scan={it:sec:vuln:scan}
                     :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
                     :desc="Network service is vulnerable to nucsploit9k"
-                    :discovered=2023081808190828
+                    :time=2023081808190828
                     :mitigated=2023081808190930
                     :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
                     :asset=(inet:server, tcp://1.2.3.4:443)
@@ -1553,8 +1553,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(40, nodes[0].get('priority'))
             self.eq(50, nodes[0].get('severity'))
+            self.eq(1692346748280, nodes[0].get('time'))
             self.eq(1692346749300, nodes[0].get('mitigated'))
-            self.eq(1692346748280, nodes[0].get('discovered'))
             self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
 
             self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
