@@ -1015,7 +1015,7 @@ class ItModule(s_module.CoreModule):
                     ('ext:id', ('str', {}), {
                         'doc': 'An externally generated ID for the scan.'}),
 
-                    ('ext:url', ('str', {}), {
+                    ('ext:url', ('inet:url', {}), {
                         'doc': 'An external URL which documents the scan.'}),
 
                     ('software', ('it:prod:softver', {}), {
@@ -1049,7 +1049,7 @@ class ItModule(s_module.CoreModule):
                     ('ext:id', ('str', {}), {
                         'doc': 'An externally generated ID for the scan result.'}),
 
-                    ('ext:url', ('str', {}), {
+                    ('ext:url', ('inet:url', {}), {
                         'doc': 'An external URL which documents the scan result.'}),
 
                     ('mitigation', ('risk:mitigation', {}), {
