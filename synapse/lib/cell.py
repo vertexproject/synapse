@@ -2624,7 +2624,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Note:
             If the SSL context is not provided, the Cell will assume it
             manages the SSL context it creates for a given listener and will
-            add a reload handler for reloading the SSL certificates from disk.
+            add a reload handler named https:certs to enabled reloading the
+            SSL certificates from disk.
         '''
 
         addr = socket.gethostbyname(host)
@@ -2663,7 +2664,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 sslctx.load_cert_chain(certpath, pkeypath)
                 return True
 
-            self.addReloadableSystem(f'HTTPS_SSL_Reload_Cert_port={lport}', reload)
+            self.addReloadableSystem('https:certs', reload)
 
         return (lhost, lport)
 
