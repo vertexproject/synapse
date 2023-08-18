@@ -197,13 +197,20 @@ class SlabSeqn:
             (indx, valu): The index and valu of the item.
         '''
         startkey = s_common.int64en(offs)
+        scanoffs = None
         for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
-            offs = s_common.int64un(lkey)
+            scanoffs = s_common.int64un(lkey)
             valu = s_msgpack.un(lval)
-            yield offs, valu
+            yield scanoffs, valu
 
         # no awaiting between here and evnt.timewait()
         if wait:
+
+            if scanoffs is None:
+                offs -= 1
+            else:
+                offs = scanoffs
+
             evnt = s_coro.Event()
             try:
                 self.addevents.append(evnt)
