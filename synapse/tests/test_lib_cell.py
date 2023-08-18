@@ -1,7 +1,9 @@
 import os
+import ssl
 import sys
 import time
 import signal
+import socket
 import asyncio
 import tarfile
 import collections
@@ -18,7 +20,9 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -28,6 +32,8 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
+
+from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -67,6 +73,27 @@ def lock_target(dirn, evt1):  # pragma: no cover
     async def main():
         cell = await s_cell.Cell.anit(dirn)
         await cell.addSignalHandlers()
+        evt1.set()
+        await cell.waitfini(timeout=60)
+
+    asyncio.run(main())
+    sys.exit(137)
+
+def reload_target(dirn, evt1, evt2):  # pragma: no cover
+    '''
+    Function to make a cell in a directory and wait to be shut down.
+    Used as a Process target for reload SIGHUP locking tests.
+
+    Args:
+        dirn (str): Cell directory.
+        evt1 (multiprocessing.Event): event to signal the cell is ready to receive sighup
+        evt2 (multiprocessing.Event): event to signal the cell has been reset
+    '''
+    async def main():
+        cell = await s_t_utils.ReloadCell.anit(dirn)
+        await cell.addSignalHandlers()
+        await cell.addTestReload()
+        cell._reloadevt = evt2
         evt1.set()
         await cell.waitfini(timeout=60)
 
@@ -2191,3 +2218,161 @@ class CellTest(s_t_utils.SynTest):
                 info = await proxy.getGcInfo()
                 self.nn(info['stats'])
                 self.nn(info['threshold'])
+
+    async def test_cell_reload_api(self):
+        async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
+            async with cell.getLocalProxy() as prox:
+
+                # No registered reload functions yet
+                names = await prox.getReloadableSystems()
+                self.len(0, names)
+                # No functions to run yet
+                self.eq({}, await prox.reload())
+
+                # Add reload func and get its name
+                await cell.addTestReload()
+                names = await prox.getReloadableSystems()
+                self.len(1, names)
+                name = names[0]
+
+                # Reload by name
+                self.false(cell._reloaded)
+                self.eq({name: (True, True)}, await cell.reload(name))
+                self.true(cell._reloaded)
+
+                # Add a second function
+                await cell.addTestBadReload()
+
+                # Reload all registered functions
+                cell._reloaded = False
+                ret = await cell.reload()
+                self.eq(ret.get('testreload'), (True, True))
+                fail = ret.get('badreload')
+                self.false(fail[0])
+                self.eq('ZeroDivisionError', fail[1][0])
+                self.eq('division by zero', fail[1][1].get('mesg'))
+                self.true(cell._reloaded)
+
+                # Attempting to call a value by name that doesn't exist fails
+                with self.raises(s_exc.NoSuchName) as cm:
+                    await cell.reload(subsystem='newp')
+                self.eq('newp', cm.exception.get('name'))
+                self.isin('newp', cm.exception.get('mesg'))
+
+    async def test_cell_reload_sighup(self):
+
+        with self.getTestDir() as dirn:
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+            evt2 = ctx.Event()
+
+            proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
+            proc.start()
+
+            self.true(evt1.wait(timeout=10))
+
+            async with await s_telepath.openurl(f'cell://{dirn}') as prox:
+                cnfo = await prox.getCellInfo()
+                self.false(cnfo.get('cell', {}).get('reloaded'))
+
+                os.kill(proc.pid, signal.SIGHUP)
+                evt2.wait(timeout=10)
+
+                cnfo = await prox.getCellInfo()
+                self.true(cnfo.get('cell', {}).get('reloaded'))
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join(timeout=10)
+            self.eq(proc.exitcode, 137)
+
+    async def test_cell_reload_https(self):
+        async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
+            async with cell.getLocalProxy() as prox:
+
+                await cell.auth.rootuser.setPasswd('root')
+                hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+                names = await prox.getReloadableSystems()
+                self.ge(len(names), 1)
+
+                bitems = []
+                bstrt = asyncio.Event()
+                bdone = asyncio.Event()
+
+                def get_pem_cert():
+                    # Only run this in a executor thread
+                    ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    conn = socket.create_connection((hhost, hport))
+                    sock = ctx.wrap_socket(conn)
+                    sock.settimeout(60)
+                    der_cert = sock.getpeercert(binary_form=True)
+                    sock.close()
+                    conn.close()
+                    return ssl.DER_cert_to_PEM_cert(der_cert)
+
+                original_cert = await s_coro.executor(get_pem_cert)
+                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
+                self.eq(ocert.get_subject().CN, 'reloadcell')
+
+                # Start a beholder session that runs over TLS
+
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as bsess:
+
+                    async with bsess.ws_connect(f'wss://localhost:{hport}/api/v1/behold') as sock:
+
+                        async def beholdConsumer():
+                            await sock.send_json({'type': 'call:init'})
+                            bstrt.set()
+                            while not cell.isfini:
+                                mesg = await sock.receive_json()
+                                data = mesg.get('data')
+                                if data.get('event') == 'user:add':
+                                    bitems.append(data)
+                                if len(bitems) == 2:
+                                    bdone.set()
+                                    break
+
+                        fut = cell.schedCoro(beholdConsumer())
+                        self.true(await asyncio.wait_for(bstrt.wait(), timeout=12))
+
+                        async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            answ = await resp.json()
+                            self.eq('ok', answ['status'])
+
+                        await cell.addUser('alice')
+
+                        # Generate and save new SSL material....
+                        pkeypath = os.path.join(cell.dirn, 'sslkey.pem')
+                        certpath = os.path.join(cell.dirn, 'sslcert.pem')
+
+                        tdir = s_common.gendir(cell.dirn, 'tmp')
+                        with s_common.getTempDir(dirn=tdir) as dirn:
+                            cdir = s_certdir.CertDir(path=(dirn,))
+                            pkey, cert = cdir.genHostCert('SomeTestCertificate')
+                            cdir.savePkeyPem(pkey, pkeypath)
+                            cdir.saveCertPem(cert, certpath)
+
+                        # reload listeners
+                        await cell.reload()
+
+                        reloaded_cert = await s_coro.executor(get_pem_cert)
+                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
+                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
+
+                        async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            answ = await resp.json()
+                            self.eq('ok', answ['status'])
+
+                        await cell.addUser('bob')
+
+                        self.true(await asyncio.wait_for(bdone.wait(), timeout=12))
+                        await fut
+
+                        users = {m.get('info', {}).get('name') for m in bitems}
+                        self.eq(users, {'alice', 'bob'})
