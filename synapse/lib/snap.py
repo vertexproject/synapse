@@ -617,7 +617,6 @@ class Snap(s_base.Base):
         query = await self.core.getStormQuery(text, mode=mode)
         async with self.getStormRuntime(query, opts=opts, user=user) as runt:
             async for x in runt.execute():
-                continue
                 yield x
 
     @s_coro.genrhelp
