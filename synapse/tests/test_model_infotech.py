@@ -1571,7 +1571,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :org:name=vertex
                     :org:fqdn=vertex.link
 
-                    :window=(202307, 202308)
+                    :period=(202307, 202308)
 
                     :alerts:count=100
                     :alerts:falsepos=90
@@ -1593,7 +1593,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.eq('vertex', nodes[0].get('org:name'))
             self.eq('vertex.link', nodes[0].get('org:fqdn'))
-            self.eq((1688169600000, 1690848000000), nodes[0].get('window'))
+            self.eq((1688169600000, 1690848000000), nodes[0].get('period'))
 
             self.eq(100, nodes[0].get('alerts:count'))
             self.eq(90, nodes[0].get('alerts:falsepos'))

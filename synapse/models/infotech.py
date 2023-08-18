@@ -968,17 +968,17 @@ class ItModule(s_module.CoreModule):
                     ('org:fqdn', ('inet:fqdn', {}), {
                         'doc': 'The organization FQDN. Used for entity resolution.'}),
 
-                    ('window', ('ival', {}), {
-                        'doc': 'The time window used to compute the metrics.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period used to compute the metrics.'}),
 
                     ('alerts:meantime:triage', ('duration', {}), {
-                        'doc': 'The mean time to triage for alerts generated within the time window.'}),
+                        'doc': 'The mean time to triage alerts generated within the time period.'}),
 
                     ('alerts:count', ('int', {}), {
-                        'doc': 'The total number of alerts generated within the time window.'}),
+                        'doc': 'The total number of alerts generated within the time period.'}),
 
                     ('alerts:falsepos', ('int', {}), {
-                        'doc': 'The number of alerts generated within the time window that were determined to be false positives.'}),
+                        'doc': 'The number of alerts generated within the time period that were determined to be false positives.'}),
 
                     ('assets:hosts', ('int', {}), {
                         'doc': 'The total number of hosts within scope for the information security program.'}),
@@ -987,19 +987,19 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The total number of users within scope for the information security program.'}),
 
                     ('assets:vulns:count', ('int', {}), {
-                        'doc': 'The number of asset vulnerabilities being tracked at the end of the window.'}),
+                        'doc': 'The number of asset vulnerabilities being tracked at the end of the time period.'}),
 
                     ('assets:vulns:preexisting', ('int', {}), {
-                        'doc': 'The number of asset vulnerabilities being tracked at the beginning of the window.'}),
+                        'doc': 'The number of asset vulnerabilities being tracked at the beginning of the time period.'}),
 
                     ('assets:vulns:discovered', ('int', {}), {
-                        'doc': 'The number of asset vulnerabilities discovered during the window.'}),
+                        'doc': 'The number of asset vulnerabilities discovered during the time period.'}),
 
                     ('assets:vulns:mitigated', ('int', {}), {
-                        'doc': 'The number of asset vulnerabilities mitigated during the window.'}),
+                        'doc': 'The number of asset vulnerabilities mitigated during the time period.'}),
 
                     ('assets:vulns:meantime:mitigate', ('duration', {}), {
-                        'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time window.'}),
+                        'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time period.'}),
 
                 )),
 
