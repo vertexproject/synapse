@@ -357,8 +357,8 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:vuln:scan', ('guid', {}), {
                     'doc': "An instance of running a vulnerability scan."}),
 
-                ('it:sec:vuln:scan:hit', ('guid', {}), {
-                    'doc': "An instance of a scan detecting a vulnerability in an asset."}),
+                ('it:sec:vuln:scan:result', ('guid', {}), {
+                    'doc': "A vulnerabilty scan result for an asset."}),
 
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
                     'doc': 'A Mitre ATT&CK element status.',
@@ -1023,7 +1023,7 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
-                ('it:sec:vuln:scan:hit', {}, (
+                ('it:sec:vuln:scan:result', {}, (
 
                     ('scan', ('it:sec:vuln:scan', {}), {
                         'doc': 'The scan that discovered the vulnerability in the asset.'}),
@@ -1038,7 +1038,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A description of the vulnerabilty and how it was detected in the asset.'}),
 
                     ('mitigation', ('risk:mitigation', {}), {
-                        'doc': 'The mitigation used to address this specific asset vulnerability.'}),
+                        'doc': 'The mitigation used to address this asset vulnerability.'}),
 
                     ('mitigated', ('time', {}), {
                         'doc': 'The time that the vulnerability in the asset was mitigated.'}),
@@ -1050,7 +1050,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The priority of mitigating the vulnerablity.'}),
 
                     ('severity', ('meta:severity', {}), {
-                        'doc': 'The severity of the vulnerability in the specific asset.'}),
+                        'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
                 )),
 
                 ('it:mitre:attack:group', {}, (

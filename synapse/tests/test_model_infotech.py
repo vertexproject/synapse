@@ -1538,7 +1538,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:vuln:scan -> it:prod:softver +:name=nessus'))
 
             nodes = await core.nodes('''
-                [ it:sec:vuln:scan:hit=*
+                [ it:sec:vuln:scan:result=*
                     :scan={it:sec:vuln:scan}
                     :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
                     :desc="Network service is vulnerable to nucsploit9k"
@@ -1557,9 +1557,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1692346748280, nodes[0].get('discovered'))
             self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
 
-            self.len(1, await core.nodes('it:sec:vuln:scan:hit :asset -> * +inet:server'))
-            self.len(1, await core.nodes('it:sec:vuln:scan:hit -> risk:vuln +:name=nucsploit9k'))
-            self.len(1, await core.nodes('it:sec:vuln:scan:hit -> risk:mitigation +:name="mitigate this"'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
 
     async def test_infotech_it_sec_metrics(self):
 
