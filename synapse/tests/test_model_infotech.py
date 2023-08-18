@@ -1520,6 +1520,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 [ it:sec:vuln:scan=*
                     :time=202308180819
                     :desc="Woot Woot"
+                    :ext:id=FOO-10
+                    :ext:url=https://vertex.link/scans/FOO-10
                     :software:name=nessus
                     :software={[ it:prod:softver=* :name=nessus ]}
                     :operator={[ ps:contact=* :name=visi ]}
@@ -1530,6 +1532,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1692346740000, nodes[0].get('time'))
             self.eq('nessus', nodes[0].get('software:name'))
             self.eq('Woot Woot', nodes[0].get('desc'))
+            self.eq('FOO-10', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10', nodes[0].get('ext:url'))
 
             self.nn(nodes[0].get('operator'))
             self.nn(nodes[0].get('software'))
@@ -1542,6 +1546,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :scan={it:sec:vuln:scan}
                     :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
                     :desc="Network service is vulnerable to nucsploit9k"
+                    :ext:id=FOO-10.0
+                    :ext:url=https://vertex.link/scans/FOO-10/0
                     :time=2023081808190828
                     :mitigated=2023081808190930
                     :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
@@ -1556,6 +1562,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1692346748280, nodes[0].get('time'))
             self.eq(1692346749300, nodes[0].get('mitigated'))
             self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
+            self.eq('FOO-10.0', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
 
             self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
             self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))

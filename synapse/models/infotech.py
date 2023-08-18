@@ -1012,6 +1012,12 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'Description of the scan and scope.'}),
 
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An externally generated ID for the scan.'}),
+
+                    ('ext:url', ('str', {}), {
+                        'doc': 'An external URL which documents the scan.'}),
+
                     ('software', ('it:prod:softver', {}), {
                         'doc': 'The scanning software used.'}),
 
@@ -1039,6 +1045,12 @@ class ItModule(s_module.CoreModule):
 
                     ('time', ('time', {}), {
                         'doc': 'The time that the scan result was produced.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An externally generated ID for the scan result.'}),
+
+                    ('ext:url', ('str', {}), {
+                        'doc': 'An external URL which documents the scan result.'}),
 
                     ('mitigation', ('risk:mitigation', {}), {
                         'doc': 'The mitigation used to address this asset vulnerability.'}),
