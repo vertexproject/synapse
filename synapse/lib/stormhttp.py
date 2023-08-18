@@ -67,7 +67,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            _type, data, extra = await asyncio.wait_for(self.resp.receive(), timeout=timeout)
+            _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
             if _type == aiohttp.WSMsgType.BINARY:
                 return (True, json.loads(data))
             if _type == aiohttp.WSMsgType.TEXT:

@@ -997,8 +997,10 @@ class CmdOper(Oper):
                         raise s_stormctrl.StormExit()
 
                 if runtsafe or not empty:
-                    async for item in scmd.execStormCmd(runt, genr):
-                        yield item
+                    async with s_common.aclosing(scmd.execStormCmd(runt, genr)) as agen:
+                        async for item in agen:
+                            yield item
+
             finally:
                 await genr.aclose()
 
