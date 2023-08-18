@@ -348,7 +348,7 @@ class ItModule(s_module.CoreModule):
                 }),
 
                 ('it:sec:tlp', ('int', {'enums': tlplevels}), {
-                    'doc': 'A Traffic-Light-Protocol enumeration. Levels defined by US CISA.',
+                    'doc': 'The US CISA Traffic-Light-Protocol used to designate information sharing boundaries.',
                     'ex': 'green'}),
 
                 ('it:sec:metrics', ('guid', {}), {
@@ -358,7 +358,7 @@ class ItModule(s_module.CoreModule):
                     'doc': "An instance of running a vulnerability scan."}),
 
                 ('it:sec:vuln:scan:result', ('guid', {}), {
-                    'doc': "A vulnerabilty scan result for an asset."}),
+                    'doc': "A vulnerability scan result for an asset."}),
 
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
                     'doc': 'A Mitre ATT&CK element status.',
@@ -1035,7 +1035,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The node which is vulnerable.'}),
 
                     ('desc', ('str', {}), {
-                        'doc': 'A description of the vulnerabilty and how it was detected in the asset.'}),
+                        'doc': 'A description of the vulnerability and how it was detected in the asset.'}),
 
                     ('time', ('time', {}), {
                         'doc': 'The time that the scan result was produced.'}),
@@ -1047,7 +1047,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time that the vulnerability in the asset was mitigated.'}),
 
                     ('priority', ('meta:priority', {}), {
-                        'doc': 'The priority of mitigating the vulnerablity.'}),
+                        'doc': 'The priority of mitigating the vulnerability.'}),
 
                     ('severity', ('meta:severity', {}), {
                         'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
