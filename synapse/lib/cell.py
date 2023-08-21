@@ -4,6 +4,7 @@ import copy
 import time
 import fcntl
 import shutil
+import signal
 import socket
 import asyncio
 import logging
@@ -809,6 +810,14 @@ class CellApi(s_base.Base):
             'threshold': gc.get_threshold(),
         }
 
+    @adminapi()
+    async def getReloadableSystems(self):
+        return self.cell.getReloadableSystems()
+
+    @adminapi(log=True)
+    async def reload(self, subsystem=None):
+        return await self.cell.reload(subsystem=subsystem)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -861,7 +870,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'max:users': {
             'default': 0,
-            'description': 'Maximum number of users allowed on system, not including root (0 is no limit).',
+            'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
             'type': 'integer',
             'minimum': 0
         },
@@ -1058,6 +1067,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sockaddr = None  # Default value...
         self.ahaclient = None
         self._checkspace = s_coro.Event()
+        self._reloadfuncs = {}  # name -> func
 
         self.conf = self._initCellConf(conf)
 
@@ -2603,11 +2613,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield dirn
 
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
+        '''
+        Add a HTTPS listener to the Cell.
+
+        Args:
+            port (int): The listening port to bind.
+            host (str): The listening host.
+            sslctx (ssl.SSLContext): An externally managed SSL Context.
+
+        Note:
+            If the SSL context is not provided, the Cell will assume it
+            manages the SSL context it creates for a given listener and will
+            add a reload handler named https:certs to enabled reloading the
+            SSL certificates from disk.
+        '''
 
         addr = socket.gethostbyname(host)
 
+        managed_ctx = False
         if sslctx is None:
 
+            managed_ctx = True
             pkeypath = os.path.join(self.dirn, 'sslkey.pem')
             certpath = os.path.join(self.dirn, 'sslcert.pem')
 
@@ -2628,7 +2654,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
-        return list(serv._sockets.values())[0].getsockname()
+
+        lhost, lport = list(serv._sockets.values())[0].getsockname()
+
+        if managed_ctx:
+            # If the Cell is managing the SSLCtx, then we register a reload handler
+            # for it which reloads the pkey / cert.
+            def reload():
+                sslctx.load_cert_chain(certpath, pkeypath)
+                return True
+
+            self.addReloadableSystem('https:certs', reload)
+
+        return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
 
@@ -3900,3 +3938,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    async def addSignalHandlers(self):
+        await s_base.Base.addSignalHandlers(self)
+
+        def sighup():
+            asyncio.create_task(self.reload())
+
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGHUP, sighup)
+
+    def addReloadableSystem(self, name: str, func: callable):
+        '''
+        Add a reloadable system. This may be dynamically called at at time.
+
+        Args:
+            name (str): Name of the system.
+            func: The callable for reloading a given system.
+
+        Note:
+            Reload functions take no arguments when they are executed.
+            Values returned by the reload function must be msgpack friendly.
+
+        Returns:
+            None
+        '''
+        self._reloadfuncs[name] = func
+
+    def getReloadableSystems(self):
+        return tuple(self._reloadfuncs.keys())
+
+    async def reload(self, subsystem=None):
+        ret = {}
+        if subsystem:
+            func = self._reloadfuncs.get(subsystem)
+            if func is None:
+                raise s_exc.NoSuchName(mesg=f'No reload system named {subsystem}',
+                                       name=subsystem)
+            ret[subsystem] = await self._runReloadFunc(subsystem, func)
+        else:
+            # Run all funcs
+            for (rname, func) in self._reloadfuncs.items():
+                ret[rname] = await self._runReloadFunc(rname, func)
+        return ret
+
+    async def _runReloadFunc(self, name, func):
+        try:
+            logger.debug(f'Running cell reload system {name}')
+            ret = await s_coro.ornot(func)
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception(f'Error running reload system {name}')
+            return s_common.retnexc(e)
+        logger.debug(f'Completed cell reload system {name}')
+        return (True, ret)

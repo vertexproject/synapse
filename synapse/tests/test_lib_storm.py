@@ -2126,6 +2126,7 @@ class StormTest(s_t_utils.SynTest):
                 tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
 
                 await tagnode.set('doc', 'haha doc')
+                await tagnode.set('doc:url', 'http://haha.doc.com')
 
             await core.nodes('movetag hehe woot')
 
@@ -2136,6 +2137,7 @@ class StormTest(s_t_utils.SynTest):
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
 
                 self.eq(newt.get('doc'), 'haha doc')
+                self.eq(newt.get('doc:url'), 'http://haha.doc.com')
 
         # Test moving a tag which has tags on it.
         async with self.getTestCore() as core:

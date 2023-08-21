@@ -3895,6 +3895,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('A baz beep!', nodes[0].ndef[1])
 
+            q = 'return ( $lib.test.someargs(hehe, bar=haha, faz=wow) )'
+            valu = await core.callStorm(q)
+            self.eq(valu, 'A hehe beep which haha the wow!')
+
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
