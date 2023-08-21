@@ -1732,6 +1732,18 @@ class LayerTest(s_t_utils.SynTest):
             verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
             self.len(0, verbs)
 
+            await core.nodes('ps:contact:name=visi [ +(has)> { mat:item:name=laptop } ]')
+
+            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.eq(('has',), verbs)
+
+            await core.nodes('ps:contact:name=visi | delnode --force')
+
+            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.len(0, verbs)
+
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)
