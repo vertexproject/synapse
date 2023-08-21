@@ -452,7 +452,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadConfValu(mesg='editformat')
 
         if editformat == 'splices':
-            s_common.deprdate('storm option editformat=splices', '2023-11-01')
+            s_common.deprdate('storm option editformat=splices', s_common._splicedepr)
 
         texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
