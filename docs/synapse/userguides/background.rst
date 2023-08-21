@@ -11,9 +11,9 @@ Why Synapse?
 ============
 
 **Synapse is a versatile central intelligence and analysis system created to support analyst teams in every stage of the intelligence life cycle.**
-We designed Synapse to answer complex questions which require the fusion of large data sets from disparate
-sources that span multiple disciplines. Analysis is based on the ability to represent data in a structured model
-that allows analysts or algorithms to query, annotate, navigate, and reason over the collected data.
+We designed Synapse to answer complex questions which require the fusion of large data sets from a broad range of 
+sources that span multiple disciplines. Analysis is based on representing all data in a structured model that allows
+analysts or algorithms to query, annotate, navigate, and reason over the collected data.
 
 .. TIP::
   
@@ -21,7 +21,7 @@ that allows analysts or algorithms to query, annotate, navigate, and reason over
 
 Synapse is based on a proven methodology informed by real-world experience. Synapse grew out of the need to
 track a complex, diverse, and very large data set: namely, cyber threat data. Synapse is the successor to the
-proprietary, directed graph-based analysis platform (Nucleus) used within Mandiant_ to produce the APT1_ Report.
+proprietary, directed graph-based analysis platform (Nucleus) used within Mandiant to produce the APT1_ Report.
 
 Synapse and its predecessors were designed from the beginning to support the following critical elements:
 
@@ -42,17 +42,17 @@ These features give Synapse the following advantages:
   the structure of the data itself. Analysis can readily be questioned, reviewed, deconflicted, and ultimately improved.
 
 - Because Synapse's knowledge store is continually expanded, updated, and revised, it always represents the
-  current, combined understanding of its data and analysis. Unlike reports or tickets, Synapse is never stale
+  current, combined understanding of its data and analysis. Unlike prose reports or tickets, Synapse is never stale
   or outdated.
   
-Synapse's hypergraph design addresses many of the shortcomings identified with earlier directed graph and prototype
+Synapse's hypergraph design addresses many of the shortcomings we identified with earlier directed graph and prototype
 hypergraph systems. In addition, because our experience taught us the power of a flexible analysis platform over
 any large and disparate data set, Synapse has been designed to be flexible, modular, and adaptable to **any**
 knowledge domain - not just cyber threat data.
 
 Many of the real-world examples in this User Guide reference data from the fields of information technology or
 cyber threat intelligence, given Synapse’s history. But Synapse's structures, processes, and queries can be applied
-to other knowledge domains and data sets as well. **The intent of Synapse is that any data that could be represented in a spreadsheet, database, or graph database can be represented in a Synapse hypergraph using an appropriate data model.**
+to other knowledge domains and data sets. **The intent of Synapse is that any data that could be represented in aspreadsheet, database, or graph database can be represented in Synapse using an appropriate data model.**
 
 .. _bkd-graphs-hypergraphs:
 
@@ -76,10 +76,10 @@ A **graph** is a mathematical structure used to model pairwise relations between
 
 |graph|
 
-Edges are specifically pairwise or two-dimensional: an edge connects exactly two nodes. Both nodes and edges
-may have properties that describe their relevant features. In this sense both nodes and edges can be thought
-of as representational objects within the graph: nodes typically represent things ("nouns") and edges typically
-represent relationships ("verbs").
+Edges connect exactly two nodes; they are "pairwise" or "two-dimensional". Both nodes and edges may have properties
+that describe their relevant features. In this sense both nodes and edges can be thought of as representational
+objects within the graph: nodes typically represent things ("nouns") and edges typically represent relationships
+("verbs").
 
 **Examples**
 
@@ -89,8 +89,8 @@ would be an edge. Since you can travel from City A to City B or from City B to C
 graph is **directionless** or **undirected.**
 
 **Social Networks.** Another example is social networks based on "connections", such as LinkedIn. In this case,
-each person would be a node and the connection between two people would be an edge. Because in most cases,
-LinkedIn reqiures a mutual connection (you must request a connetion and the other party must accept), it can
+each person would be a node and the connection between two people would be an edge. In most cases, LinkedIn
+reqiures a mutual connection (you must request a connetion and the other party must accept); in this sense it can
 be considered a directionless graph. (This is a simplification, but serves our purpose as an example.)
 
 .. _bkd-directed-graphs:
@@ -113,7 +113,7 @@ B to City A.
 **Social Networks.** Social networks that support a "follows" relationship (such as Twitter) can be represented
 as directed graphs. Each person is still a node, but the "follows" relationship is one way – I can "follow" you,
 but you don’t have to follow me. If you choose to follow me, that would be a second, independent one-way edge
-in the opposite direction. (Again, this is a simplification but works for a basic illustration.)
+in the opposite direction. (This is also a simplification but works for a basic illustration.)
 
 **Other Examples.** Many other types of data can be represented with nodes and directed edges.  For example, in
 information security you can represent data and relationships such as:
@@ -142,7 +142,7 @@ Analysis with Graphs
 When working with graphs and directed graphs, analysts typically select (or lift) objects (nodes) and
 navigate the graph by traversing the edges (relationships) that connect those nodes. A key limitation to
 this approach is that all relationships (edges) between objects must be explicitly defined. You must know
-the relationships that you want to represent a priori, which makes the discovery of novel relationships
+all of the relationships that you want to represent in advance, which makes the discovery of novel relationships
 among the data extremely difficult.
 
 .. _bkd-hypergraphs:
@@ -180,12 +180,12 @@ Synapse is a specific implementation of a hypergraph model. Synapse's data store
 is a scalable hypergraph implementation which includes key/value-based node properties and a data model that
 facilitates normalization.
 
-In Synapse, objects and most relationships are nodes (though Synapse uses what we call "lightweight" or "light"
-edges in some cases). This means that most relationships in Synapse are based on nodes sharing a common property
-value. Instead of an FQDN being related to an IPv4 using a "resolves to" edge:
+In Synapse, all objects and most relationships are nodes (though Synapse uses what we call "lightweight" or "light"
+edges, similar to directed edges, in some cases). This means that most relationships in Synapse are based on nodes
+sharing a common property value. Instead of an FQDN being related to an IPv4 using a "resolves to" edge:
 
 - the FQDN node is related to a DNS A record because the FQDN is a **property** of the DNS A node;
-- the DNS A node is related to an IPv4 because the IPv4 is also a **property** of the DNS A node.
+- the DNS A node is related to an IPv4 because the IPv4 is a **property** of the DNS A node.
 
 So, in Synapse to understand the relationship between an FQDN and the IPv4 it resolves to, you navigate
 (pivot) from the FQDN to the DNS A node to the IPv4 node using those nodes' shared property values.
@@ -201,7 +201,6 @@ URL you enter looks reasonably like a URL) and **property normalization** to ens
 consistently (e.g., in many cases Synapse converts string-based values to all lowercase for consistency). These
 methods make the data as consistent and "clean" as possible to facilitate navigation and discovery.
 
-.. _Mandiant: https://www.mandiant.com/
 .. _APT1: https://www.mandiant.com/media/9941/download
 
 .. |graph| image:: https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Undirected_graph_no_background.svg/320px-Undirected_graph_no_background.svg.png 

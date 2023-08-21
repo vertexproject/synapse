@@ -17,7 +17,7 @@ current sections are:
    userguides/background
    userguides/data_model
    userguides/analytical_model
-   userguides/index_design
+   userguides/views_layers
    userguides/index_tools
    userguides/index_storm_ref
    userguides/index_storm_adv
