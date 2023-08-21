@@ -165,7 +165,7 @@ async def getAhaProxy(urlinfo):
                     'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false')))
                 }
                 ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
-            else:
+            else:  # pragma: no cover
                 ahasvc = await s_common.wait_for(proxy.getAhaSvc(host), timeout=5)
 
             if ahasvc is None:
