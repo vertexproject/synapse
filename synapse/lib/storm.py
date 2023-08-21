@@ -4274,9 +4274,9 @@ class SudoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprdate('storm command: sudo', s_common.splicedepr)
+        s_common.deprdate('storm command: sudo', s_common._splicedepr)
 
-        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common.splicedepr}')
+        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common._splicedepr}')
         async for node, path in genr:
             yield node, path
 
@@ -5162,9 +5162,9 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprdate('storm command: splice.list', s_common.splicedepr)
+        s_common.deprdate('storm command: splice.list', s_common._splicedepr)
 
-        mesg = f'splice.list is deprecated and will be removed on {s_common.splicedepr}'
+        mesg = f'splice.list is deprecated and will be removed on {s_common._splicedepr}'
         await runt.snap.warn(mesg)
 
         maxtime = None
@@ -5399,9 +5399,9 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprdate('storm command: splice.undo', s_common.splicedepr)
+        s_common.deprdate('storm command: splice.undo', s_common._splicedepr)
 
-        mesg = f'splice.undo is deprecated and will be removed on {s_common.splicedepr}'
+        mesg = f'splice.undo is deprecated and will be removed on {s_common._splicedepr}'
         await runt.snap.warn(mesg)
 
         if self.opts.force:

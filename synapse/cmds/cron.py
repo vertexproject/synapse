@@ -569,7 +569,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     async def runCmdOpts(self, opts):
 
-        s_common.deprdate('cmdr> cron', s_common.splicedepr)
+        s_common.deprdate('cmdr> cron', s_common._splicedepr)
 
         line = opts.get('line')
         if line is None:
@@ -649,7 +649,7 @@ Examples:
 
     async def runCmdOpts(self, opts):
 
-        s_common.deprdate('cmdr> at', s_common.splicedepr)
+        s_common.deprdate('cmdr> at', s_common._splicedepr)
 
         line = opts.get('line')
         if line is None:

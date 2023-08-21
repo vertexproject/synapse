@@ -613,7 +613,7 @@ class WatchSockV1(WebSocket):
             await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
 
     async def on_message(self, byts):
-        s_common.deprdate('/api/v1/watch HTTP API', s_common.splicedepr)
+        s_common.deprdate('/api/v1/watch HTTP API', s_common._splicedepr)
         self.cell.schedCoro(self.onWatchMesg(byts))
 
 class BeholdSockV1(WebSocket):
