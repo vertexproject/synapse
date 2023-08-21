@@ -2391,7 +2391,7 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
-    async def _v9toV10Prop(self):
+    async def _layrV9toV10(self):
 
         logger.warning(f'Adding n1+n2 index to edges in layer {self.iden}')
 
@@ -2400,7 +2400,7 @@ class Layer(s_nexus.Pusher):
             putkeys.clear()
 
         putkeys = []
-        for lkey, n2buid in self.layrslab.scanByFull():
+        for lkey, n2buid in self.layrslab.scanByFull(db=self.edgesn1):
 
             n1buid = lkey[:32]
             venc = lkey[32:]
@@ -2519,7 +2519,7 @@ class Layer(s_nexus.Pusher):
             await self._layrV8toV9()
 
         if self.layrvers < 10:
-            await self._layrV9to10()
+            await self._layrV9toV10()
 
         if self.layrvers != 10:
             mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'

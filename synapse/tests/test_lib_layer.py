@@ -1707,7 +1707,11 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_v10(self):
 
-        async with self.getTestCore() as core:
+        async with self.getRegrCore('layer-v10') as core:
+
+            nodes = await core.nodes('file:bytes inet:user')
+            verbs = [verb async for verb in nodes[0].iterEdgeVerbs(nodes[1].buid)]
+            self.eq(('refs',), verbs)
 
             nodes0 = await core.nodes('[ ps:contact=* :name=visi +(has)> {[ mat:item=* :name=laptop ]} ]')
             self.len(1, nodes0)
