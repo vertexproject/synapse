@@ -193,7 +193,7 @@ class SmtpMessage(s_stormtypes.StormType):
                                    username=user,
                                    password=passwd)
 
-            await asyncio.wait_for(futu, timeout=timeout)
+            await s_common.wait_for(futu, timeout=timeout)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise
