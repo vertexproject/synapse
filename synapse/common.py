@@ -1189,6 +1189,7 @@ def httpcodereason(code):
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
 # ignoring cancellation https://github.com/python/cpython/issues/86296
-async def wait_for(futu, timeout):
+async def wait_for(fut, timeout):
+    fut = asyncio.ensure_future(fut)
     async with asyncio.timeout(timeout):
-        return await futu
+        return await fut
