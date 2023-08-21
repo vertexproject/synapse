@@ -1439,7 +1439,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'repo': repo,
                     'title': 'a fancy new release',
                     'desc': 'Gonna be a big release friday',
-                    'created': 0,
+                    'created': 1,
+                    'updated': 1,
+                    'ext:id': '1234',
                     'url': 'https://github.com/vertexproject/synapse/issues/2821',
                 },
 
@@ -1448,6 +1450,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'text': 'a comment on an issue',
                     'replyto': s_common.guid(),
                     'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
+                    'created': 12,
+                    'updated': 93,
                 },
 
                 ('it:dev:repo:diff:comment', dcom): {
@@ -1456,7 +1460,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'replyto': s_common.guid(),
                     'line': 100,
                     'offset': 100,
-                    'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069'
+                    'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
+                    'created': 1,
+                    'updated': 3,
                 },
 
                 ('it:dev:repo:branch', branch): {

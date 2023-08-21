@@ -1224,8 +1224,14 @@ class ItModule(s_module.CoreModule):
                     ('created', ('time', {}), {
                         'doc': 'The time the issue was created.',
                     }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the issue was updated.',
+                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the issue is hosted.',
+                    }),
+                    ('ext:id', ('str', {'strip': True}), {
+                        'doc': 'An issue ID from an external system.',
                     }),
                 )),
 
@@ -1242,6 +1248,12 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the comment is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the comment was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the comment was updated.',
                     }),
                 )),
 
@@ -1264,6 +1276,12 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the comment is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the comment was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the comment was updated.',
                     }),
                 )),
 
