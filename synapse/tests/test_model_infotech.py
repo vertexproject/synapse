@@ -1518,3 +1518,107 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('it:dev:repo:branch=$guid :parent -> *', {'vars': {'guid': branch}})
             self.len(1, nodes)
+
+    async def test_infotech_vulnscan(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan=*
+                    :time=202308180819
+                    :desc="Woot Woot"
+                    :ext:id=FOO-10
+                    :ext:url=https://vertex.link/scans/FOO-10
+                    :software:name=nessus
+                    :software={[ it:prod:softver=* :name=nessus ]}
+                    :operator={[ ps:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.eq(1692346740000, nodes[0].get('time'))
+            self.eq('nessus', nodes[0].get('software:name'))
+            self.eq('Woot Woot', nodes[0].get('desc'))
+            self.eq('FOO-10', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10', nodes[0].get('ext:url'))
+
+            self.nn(nodes[0].get('operator'))
+            self.nn(nodes[0].get('software'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('it:sec:vuln:scan -> it:prod:softver +:name=nessus'))
+
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan:result=*
+                    :scan={it:sec:vuln:scan}
+                    :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
+                    :desc="Network service is vulnerable to nucsploit9k"
+                    :ext:id=FOO-10.0
+                    :ext:url=https://vertex.link/scans/FOO-10/0
+                    :time=2023081808190828
+                    :mitigated=2023081808190930
+                    :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
+                    :asset=(inet:server, tcp://1.2.3.4:443)
+                    :priority=high
+                    :severity=highest
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(40, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('severity'))
+            self.eq(1692346748280, nodes[0].get('time'))
+            self.eq(1692346749300, nodes[0].get('mitigated'))
+            self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
+            self.eq('FOO-10.0', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
+
+    async def test_infotech_it_sec_metrics(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:metrics=*
+
+                    :org={ gen.ou.org vertex }
+                    :org:name=vertex
+                    :org:fqdn=vertex.link
+
+                    :period=(202307, 202308)
+
+                    :alerts:count=100
+                    :alerts:falsepos=90
+                    :alerts:meantime:triage=2:00:00
+
+                    :assets:users=13
+                    :assets:hosts=123
+
+                    :assets:vulns:count=4
+                    :assets:vulns:mitigated=2
+                    :assets:vulns:discovered=4
+                    :assets:vulns:preexisting=2
+
+                    :assets:vulns:meantime:mitigate="1D 2:37:00"
+
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.eq('vertex', nodes[0].get('org:name'))
+            self.eq('vertex.link', nodes[0].get('org:fqdn'))
+            self.eq((1688169600000, 1690848000000), nodes[0].get('period'))
+
+            self.eq(100, nodes[0].get('alerts:count'))
+            self.eq(90, nodes[0].get('alerts:falsepos'))
+            self.eq(7200000, nodes[0].get('alerts:meantime:triage'))
+
+            self.eq(13, nodes[0].get('assets:users'))
+            self.eq(123, nodes[0].get('assets:hosts'))
+
+            self.eq(4, nodes[0].get('assets:vulns:count'))
+            self.eq(2, nodes[0].get('assets:vulns:mitigated'))
+            self.eq(4, nodes[0].get('assets:vulns:discovered'))
+            self.eq(2, nodes[0].get('assets:vulns:preexisting'))
+
+            self.len(1, await core.nodes('it:sec:metrics -> ou:org +:name=vertex'))
