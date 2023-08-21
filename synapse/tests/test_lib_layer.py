@@ -1705,6 +1705,29 @@ class LayerTest(s_t_utils.SynTest):
 
             self.checkLayrvers(core)
 
+    async def test_layer_v10(self):
+
+        async with self.getTestCore() as core:
+
+            nodes0 = await core.nodes('[ ps:contact=* :name=visi +(has)> {[ mat:item=* :name=laptop ]} ]')
+            self.len(1, nodes0)
+            buid1 = nodes0[0].buid
+
+            nodes1 = await core.nodes('mat:item')
+            self.len(1, nodes1)
+            buid2 = nodes1[0].buid
+
+            layr = core.getView().layers[0]
+            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.eq(('has',), verbs)
+
+            await core.nodes('ps:contact:name=visi [ -(has)> { mat:item:name=laptop } ]')
+
+            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.len(0, verbs)
+
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)

@@ -2391,6 +2391,32 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
+    async def _v9toV10Prop(self):
+
+        logger.warning(f'Adding n1+n2 index to edges in layer {self.iden}')
+
+        def commit():
+            self.layrslab.putmulti(putkeys, db=self.edgesn1n2)
+            putkeys.clear()
+
+        putkeys = []
+        for lkey, n2buid in self.layrslab.scanByFull():
+
+            n1buid = lkey[:32]
+            venc = lkey[32:]
+
+            putkeys.append((n1buid + n2buid, venc))
+            if len(putkeys) > 1000:
+                commit()
+
+        if len(putkeys):
+            commit()
+
+        self.meta.set('version', 10)
+        self.layrvers = 10
+
+        logger.warning(f'...complete!')
+
     async def _initSlabs(self, slabopts):
 
         otherslabopts = {
@@ -2424,6 +2450,7 @@ class Layer(s_nexus.Pusher):
         self.byverb = self.layrslab.initdb('byverb', dupsort=True)
         self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
         self.edgesn2 = self.layrslab.initdb('edgesn2', dupsort=True)
+        self.edgesn1n2 = self.layrslab.initdb('edgesn1n2', dupsort=True)
 
         self.bytag = self.layrslab.initdb('bytag', dupsort=True)
         self.byprop = self.layrslab.initdb('byprop', dupsort=True)
@@ -2451,7 +2478,7 @@ class Layer(s_nexus.Pusher):
         await self._initSlabs(slabopts)
 
         if self.fresh:
-            self.meta.set('version', 9)
+            self.meta.set('version', 10)
 
         if self.readonly:
             await self.layrslab.fini()
@@ -2491,8 +2518,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 9:
             await self._layrV8toV9()
 
-        if self.layrvers != 9:
-            mesg = f'Got layer version {self.layrvers}.  Expected 9.  Accidental downgrade?'
+        if self.layrvers < 10:
+            await self._layrV9to10()
+
+        if self.layrvers != 10:
+            mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
@@ -3408,6 +3438,7 @@ class Layer(s_nexus.Pusher):
         self.layrslab.put(venc, buid + n2buid, db=self.byverb)
         self.layrslab.put(n1key, n2buid, db=self.edgesn1)
         self.layrslab.put(n2buid + venc, buid, db=self.edgesn2)
+        self.layrslab.put(buid + n2buid, venc, db=self.edgesn1n2)
 
         return (
             (EDIT_EDGE_ADD, (verb, n2iden), ()),
@@ -3426,6 +3457,7 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
         self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
+        self.layrslab.delete(buid + n2buid, venc, db=self.edgesn1n2)
 
         self.mayDelBuid(buid, sode)
         return (
@@ -3486,6 +3518,10 @@ class Layer(s_nexus.Pusher):
         for lkey, n1buid in self.layrslab.scanByPref(pref, db=self.edgesn2):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n1buid)
+
+    async def iterEdgeVerbs(self, n1buid, n2buid):
+        for lkey, venc in self.layrslab.scanByDups(n1buid + n2buid, db=self.edgesn1n2):
+            yield venc.decode()
 
     async def hasNodeEdge(self, buid1, verb, buid2):
         lkey = buid1 + verb.encode()
