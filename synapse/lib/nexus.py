@@ -294,7 +294,7 @@ class NexsRoot(s_base.Base):
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta)
-            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):
         '''
