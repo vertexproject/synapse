@@ -255,7 +255,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('Created cron job'))
 
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
                     self.eq('year1', await getNextFoo())
 
                     outp.clear()
@@ -272,7 +272,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('Created cron job'))
 
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('year2', await getNextFoo())
 
@@ -318,7 +318,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("at 202104170415 {$lib.queue.get(foo).put(at3)}")
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('at3', await getNextFoo())
                     outp.clear()
