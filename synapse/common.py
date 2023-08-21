@@ -11,6 +11,7 @@ import types
 import base64
 import shutil
 import struct
+import asyncio
 import decimal
 import fnmatch
 import hashlib
@@ -1184,3 +1185,11 @@ def httpcodereason(code):
         return http.HTTPStatus(code).phrase
     except ValueError:
         return f'Unknown HTTP status code {code}'
+
+# TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
+# This is a workaround for a race where asyncio.wait_for can end up
+# ignoring cancellation https://github.com/python/cpython/issues/86296
+async def wait_for(fut, timeout):
+    fut = asyncio.ensure_future(fut)
+    async with asyncio.timeout(timeout):
+        return await fut
