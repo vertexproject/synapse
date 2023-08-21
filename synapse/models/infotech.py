@@ -1230,8 +1230,8 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the issue is hosted.',
                     }),
-                    ('ext:id', ('str', {'strip': True}), {
-                        'doc': 'An issue ID from an external system.',
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the issue in the repository system.',
                     }),
                 )),
 

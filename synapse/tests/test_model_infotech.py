@@ -1441,7 +1441,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'desc': 'Gonna be a big release friday',
                     'created': 1,
                     'updated': 1,
-                    'ext:id': '1234',
+                    'id': '1234',
                     'url': 'https://github.com/vertexproject/synapse/issues/2821',
                 },
 
