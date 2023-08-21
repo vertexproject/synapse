@@ -2308,6 +2308,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
+                await core.nodes("inet:fqdn parallel { } | limit 1")
 
                 async for node in core.storm("function foo() { emit foo } for $x in $foo() { $lib.raise(foo, bar) }"):
                     pass
