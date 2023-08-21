@@ -3487,6 +3487,7 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
             self.layrslab.delete(lkey, n2buid, db=self.edgesn1)
             self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
+            self.layrslab.delete(buid + n2buid, venc, db=self.edgesn1n2)
 
     def getStorIndx(self, stortype, valu):
 
