@@ -1142,8 +1142,7 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
             logger.exception(f'Error loading {certpath}')
     return sslctx
 
-# TODO:  Remove when this is added to contextlib in py 3.10
-class aclosing(contextlib.AbstractAsyncContextManager):
+class aclosing(contextlib.AbstractAsyncContextManager):  # pragma: no cover
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
@@ -1162,6 +1161,7 @@ class aclosing(contextlib.AbstractAsyncContextManager):
 
     """
     def __init__(self, thing):
+        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
         self.thing = thing
     async def __aenter__(self):
         return self.thing
