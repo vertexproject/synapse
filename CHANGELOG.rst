@@ -1,5 +1,7 @@
 .. vim: set textwidth=79
 
+.. _changelog:
+
 *****************
 Synapse Changelog
 *****************

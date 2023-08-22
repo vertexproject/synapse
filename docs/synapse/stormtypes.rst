@@ -20,7 +20,8 @@ nodes from text (:ref:`stormlibs-lib-scrape`), manipulating Cortex objects such 
 and StormDmons (:ref:`stormlibs-lib-dmon`), creating new Cron Jobs (:ref:`stormlibs-lib-cron`), and more. Many of these
 libraries accept or return Storm Types as part of their usage. For instance, there is a library in Storm for
 interacting with OAuthv1 servers (:ref:`stormlibs-lib-inet-http-oauth-v1-client`), and it accepts several String Storm
-Types as parameters and returns an OAuthV1 client object for later usage (:ref:`stormprims-oauth-v1-client-f527`).
+Types as parameters and returns an OAuthV1 client object for later usage
+(:ref:`stormprims-inet-http-oauth-v1-client-f527`).
 
 Storm Libraries form a powerful bench of tools for usage within the Storm query language.
 
