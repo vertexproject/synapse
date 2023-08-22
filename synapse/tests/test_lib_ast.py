@@ -1977,13 +1977,13 @@ class AstTest(s_test.SynTest):
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')
-            msgs = await core.stormlist('media:news', opts={'graph': True})
+            msgs = await core.stormlist('media:news test:int', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
-            self.len(1, nodes)
+            self.len(2, nodes)
             self.len(1, nodes[0][1]['path']['edges'])
             self.eq('refs', nodes[0][1]['path']['edges'][0][1]['verb'])
 
-            msgs = await core.stormlist('media:news | graph --no-edges')
+            msgs = await core.stormlist('media:news test:int | graph --no-edges')
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes[0][1]['path']['edges'])
 
