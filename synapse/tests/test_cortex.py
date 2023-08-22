@@ -3059,6 +3059,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadVersion):
                 await core.addStormPkg(oldverpkg)
 
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'synapse_requirement': '>=0.0.1,<2.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
             noverpkg = {
                 'name': 'nomin',
                 'version': (0, 0, 1),
