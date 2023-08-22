@@ -1162,6 +1162,7 @@ class aclosing(contextlib.AbstractAsyncContextManager):
 
     """
     def __init__(self, thing):
+        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
         self.thing = thing
     async def __aenter__(self):
         return self.thing
