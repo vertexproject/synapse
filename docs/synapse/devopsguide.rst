@@ -972,6 +972,8 @@ The following ``aha.yaml`` can be used to deploy an Aha service.
 
 This can be deployed via ``kubectl apply``. That will create the PVC, deployment, and service.
 
+.. highlight:: bash
+
 ::
 
     $ kubectl apply -f aha.yaml
@@ -980,6 +982,8 @@ This can be deployed via ``kubectl apply``. That will create the PVC, deployment
     service/aha created
 
 You can see the startup logs as well:
+
+.. highlight:: bash
 
 ::
 
@@ -1007,6 +1011,8 @@ The following ``axon.yaml`` can be used as the basis to deploy an Axon service.
 Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
 like the following:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.axon
@@ -1015,12 +1021,16 @@ like the following:
 We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
+.. highlight:: yaml
+
 ::
 
     - name: SYN_AXON_AHA_PROVISION
       value: "ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
 
 This can then be deployed via ``kubectl apply``:
+
+.. highlight:: bash
 
 ::
 
@@ -1029,6 +1039,8 @@ This can then be deployed via ``kubectl apply``:
     deployment.apps/axon00 created
 
 You can see the Axon logs as well. These show provisioning and listening for traffic:
+
+.. highlight:: bash
 
 ::
 
@@ -1060,6 +1072,8 @@ The following ``jsonstor.yaml`` can be used as the basis to deploy a JSONStor se
 Before we deploy that, we need to create the Aha provisioning URL. We can do that via ``kubectl exec``. That should look
 like the following:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
@@ -1067,6 +1081,8 @@ like the following:
 
 We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block looks like the
 following:
+
+.. highlight:: yaml
 
 ::
 
@@ -1076,6 +1092,8 @@ following:
 
 This can then be deployed via ``kubectl apply``:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl apply -f jsonstor.yaml
@@ -1083,6 +1101,8 @@ This can then be deployed via ``kubectl apply``:
     deployment.apps/jsonstor00 created
 
 You can see the JSONStor logs as well. These show provisioning and listening for traffic:
+
+.. highlight:: bash
 
 ::
 
@@ -1118,6 +1138,8 @@ like the following:
 We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
+.. highlight:: bash
+
 ::
 
     - name: SYN_CORTEX_AHA_PROVISION
@@ -1125,6 +1147,8 @@ following:
 
 
 This can then be deployed via ``kubectl apply``:
+
+.. highlight:: bash
 
 ::
 
@@ -1136,6 +1160,8 @@ This can then be deployed via ``kubectl apply``:
 
 You can see the Cortex logs as well. These show provisioning and listening for traffic, as well as the connection being
 made to the Axon and JSONStor services:
+
+.. highlight:: bash
 
 ::
 
@@ -1170,6 +1196,8 @@ This does assume that your local environment has the Python synapse package avai
 
 First add a user to the Cortex:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --add --admin true visi
@@ -1178,6 +1206,8 @@ First add a user to the Cortex:
 
 Then we need to generate a user provisioning URL:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec -it deployment/aha -- python -m synapse.tools.aha.provision.user visi
@@ -1185,12 +1215,16 @@ Then we need to generate a user provisioning URL:
 
 Port-forward the AHA provisioning service to your local environment:
 
+.. highlight:: bash
+
 ::
 
-    kubectl port-forward service/aha 27272:provisioning
+    $ kubectl port-forward service/aha 27272:provisioning
 
 Run the enroll tool to create a user certificate pair and have it signed by the Aha service. We replace the service DNS
 name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
+
+.. highlight:: bash
 
 ::
 
@@ -1201,12 +1235,16 @@ name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
 
 The Aha service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
 
+.. highlight:: bash
+
 ::
 
     kubectl port-forward service/cortex 27492:telepath
 
 Then connect to the Cortex via the Storm CLI, using the URL
 ``ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local``.
+
+.. highlight:: bash
 
 ::
 
@@ -1244,6 +1282,8 @@ The following ``optic.yaml`` can be used as the basis to deploy Optic.
 Before we deploy that, we need to create the Aha provisioning URL. We do this via ``kubectl exec``. That should look
 like the following:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
@@ -1252,6 +1292,8 @@ like the following:
 We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block looks like the
 following:
 
+.. highlight:: yaml
+
 ::
 
     - name: SYN_OPTIC_AHA_PROVISION
@@ -1259,6 +1301,8 @@ following:
 
 
 This can then be deployed via ``kubectl apply``:
+
+.. highlight:: bash
 
 ::
 
@@ -1269,6 +1313,8 @@ This can then be deployed via ``kubectl apply``:
 
 You can see the Optic logs as well. These show provisioning and listening for traffic, as well as the connection being
 made to the Axon, Cortex, and JSONStor services:
+
+.. highlight:: bash
 
 ::
 
@@ -1302,6 +1348,8 @@ made to the Axon, Cortex, and JSONStor services:
 Once Optic is connected, we will need to set a password for the user we previously created in order to log in. This can
 be done via ``kubectl exec``, setting the password for the user on the Cortex:
 
+.. highlight:: bash
+
 ::
 
     $ kubectl exec -it deployment/cortex00 -- python -m synapse.tools.moduser --passwd secretPassword visi
@@ -1309,6 +1357,8 @@ be done via ``kubectl exec``, setting the password for the user on the Cortex:
     ...setting passwd: secretPassword
 
 Enable a port-forward to connect to the Optic service:
+
+.. highlight:: bash
 
 ::
 
@@ -1369,12 +1419,16 @@ The following ``sysctl.yaml`` can be used as the basis to deploy these modificat
 
 This can be deployed via ``kubectl apply``. That will create the DaemonSet for you..
 
+.. highlight:: bash
+
 ::
 
     $ kubectl apply -f sysctl_dset.yaml
     daemonset.apps/setsysctl created
 
 You can see the sysctl pods by running the following command:
+
+.. highlight:: bash
 
 ::
 

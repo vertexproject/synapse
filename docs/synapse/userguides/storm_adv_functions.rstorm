@@ -676,8 +676,8 @@ node).
           //Yield the node (e.g., media:news node) created by invoking an existing function that
           // creates the media:news node from the $report
           yield $ingest.addReport($report)
-    }
-}
+      }
+  }
 
 .. _storm-func-privsep:
 
