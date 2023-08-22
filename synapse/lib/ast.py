@@ -413,28 +413,35 @@ class SubGraph:
 
         if self.rules.get('refs'):
 
-            for _, ndef in node.getNodeRefs():
+            for propname, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
                 if pivonode is None:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
-                yield (pivonode, path.fork(pivonode))
+                yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
 
         for pivq in self.rules.get('pivots'):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield node, path, {'type': 'rules', 'scope': 'global', 'index': indx}
+                indx += 1
 
-        rules = self.rules['forms'].get(node.form.name)
+        scope = node.form.name
+
+        rules = self.rules['forms'].get(scope)
         if rules is None:
-            rules = self.rules['forms'].get('*')
+            scope = '*'
+            rules = self.rules['forms'].get(scope)
 
         if rules is None:
             return
 
         for pivq in rules.get('pivots', ()):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
+                indx += 1
 
     async def run(self, runt, genr):
 
@@ -499,11 +506,11 @@ class SubGraph:
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
                 edges = []
-                async for pivn, pivp in self.pivots(runt, node, path):
+                async for pivn, pivp, pinfo in self.pivots(runt, node, path):
 
                     await asyncio.sleep(0)
 
-                    edges.append((pivn.iden(), {'type': 'pivot', 'prop': pivp.full}))
+                    edges.append((pivn.iden(), pinfo))
 
                     # we dont pivot from omitted nodes
                     if omitted:
@@ -537,7 +544,7 @@ class SubGraph:
 
             if doedges:
 
-                edges = []
+                edges = info.get('edges')
                 for n2buid in buids:
                     n2iden = s_common.ehex(n2buid)
                     async for verb in node.iterEdgeVerbs(n2buid):
@@ -549,14 +556,12 @@ class SubGraph:
                     n2buid = s_common.uhex(n2iden)
                     async for verb in node.iterEdgeVerbs(n2buid):
                         await asyncio.sleep(0)
-                        edges.extend((n2iden, {'type': 'edge', 'verb': verb}))
+                        edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
                     # for existing nodes, we need to add n2 -> n1 edges in reverse
                     async for verb in runt.snap.iterEdgeVerbs(n2buid, n1buid):
                         await asyncio.sleep(0)
-                        edges.extend((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
-
-                info['edges'].extend(edges)
+                        edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
             path = runt.initPath(node)
             path.metadata.update(info)

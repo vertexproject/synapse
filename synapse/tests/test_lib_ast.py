@@ -2503,3 +2503,33 @@ class AstTest(s_test.SynTest):
 
             q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
             await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+    async def test_ast_subgraph_2pass(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ media:news=40ebf9be8fb56bd60fff542299c1b5c2 +(refs)> {[ inet:ipv4=1.2.3.4 ]} ] inet:ipv4
+            ''')
+            news = nodes[0]
+            ipv4 = nodes[1]
+
+            msgs = await core.stormlist('media:news inet:ipv4', opts={'graph': True})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(2, nodes)
+            self.eq(nodes[0][1]['path']['edges'], (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                        {'type': 'edge', 'verb': 'refs'}),))
+
+            opts = {'graph': {'existing': (news.iden(),)}}
+            msgs = await core.stormlist('inet:ipv4', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
+                        {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+
+            opts = {'graph': {'existing': (ipv4.iden(),)}}
+            msgs = await core.stormlist('media:news', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['path']['edges'], (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                        {'type': 'edge', 'verb': 'refs'}),))
