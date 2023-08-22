@@ -1,6 +1,5 @@
 .. highlight:: none
 
-.. storm-cortex:: default
 
 .. _userguide_views_layers:
 
