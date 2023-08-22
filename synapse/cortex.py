@@ -2789,7 +2789,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadVersion(mesg=mesg)
 
         # Check synapse version requirement
-        reqversion = pkgdef.get('synapse_requirement')
+        reqversion = pkgdef.get('synapse_version')
         if reqversion is not None:
             mesg = f'Storm package {pkgname} requires Synapse {reqversion} but ' \
                    f'Cortex is running {s_version.version}'

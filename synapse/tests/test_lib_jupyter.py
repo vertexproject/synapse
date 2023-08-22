@@ -16,7 +16,8 @@ class TstsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
         {
             'name': 'testsvc',
             'version': (0, 0, 1),
-            'synapse_requirement': '>=2.8.0',
+            'synapse_minversion': [2, 145, 0],
+            'synapse_version': '>=2.8.0',
             'commands': (
                 {
                     'name': 'testsvc.magic',
