@@ -1,7 +1,7 @@
 name: foopkg
 version: 1.0.0
-synapse_minversion: [2, 145, 0]
-synapse_version: '>=2.145.0,<3.0.0',
+synapse_minversion: [2, 144, 0]
+synapse_version: '>=2.144.0,<3.0.0',
 
 onload: $lib.import(foomod).onload()
 

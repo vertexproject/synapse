@@ -15,7 +15,7 @@ import synapse.tools.backup as s_tools_backup
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
-    'synapse_minversion': [2, 145, 0],
+    'synapse_minversion': [2, 144, 0],
     'synapse_version': '>=2.8.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
@@ -40,7 +40,7 @@ old_pkg = {
 new_old_pkg = {
     'name': 'old',
     'version': (0, 1, 0),
-    'synapse_minversion': [2, 145, 0],
+    'synapse_minversion': [2, 144, 0],
     'synapse_version': '>=2.8.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
@@ -65,7 +65,7 @@ new_old_pkg = {
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
-    'synapse_minversion': [2, 145, 0],
+    'synapse_minversion': [2, 144, 0],
     'synapse_version': '>=2.8.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
@@ -124,7 +124,7 @@ class RealService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'modules': (
                 {'name': 'foo.bar',
@@ -188,7 +188,7 @@ class NodeCreateService(s_stormsvc.StormSvc):
         {
             'name': 'ncreate',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'commands': (
                 {
@@ -207,7 +207,7 @@ class BoomService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'modules': (
                 {'name': 'blah', 'storm': '+}'},
@@ -266,7 +266,7 @@ class LifterService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'commands': (
                 {
@@ -292,7 +292,7 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'commands': (
                 {
@@ -356,7 +356,7 @@ class ShareService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'sharer',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'modules': (
                 {
@@ -480,7 +480,7 @@ class StormSvcTest(s_test.SynTest):
         pkg = {
             'name': 'foobar',
             'version': (0, 0, 1),
-            'synapse_minversion': [2, 145, 0],
+            'synapse_minversion': [2, 144, 0],
             'synapse_version': '>=2.8.0',
             'modules': (
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
