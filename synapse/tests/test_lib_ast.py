@@ -2533,3 +2533,11 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1]['path']['edges'], (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
                         {'type': 'edge', 'verb': 'refs'}),))
+
+            msgs = await core.stormlist('media:news inet:ipv4', opts={'graph': {'maxsize': 1}})
+            self.len(1, [m[1] for m in msgs if m[0] == 'node'])
+            self.stormIsInWarn('Graph projection hit max size 1. Truncating results.', msgs)
+
+            msgs = await core.stormlist('media:news', opts={'graph': {'pivots': ('--> *',)}})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(2, nodes[0][1]['path']['edges'])

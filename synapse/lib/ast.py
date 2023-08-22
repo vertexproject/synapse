@@ -489,7 +489,7 @@ class SubGraph:
                 count += 1
 
                 if count > maxsize:
-                    runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating resutls.')
+                    await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
                     break
 
                 await done.add(node.buid)
