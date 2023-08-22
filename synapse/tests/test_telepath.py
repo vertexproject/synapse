@@ -908,7 +908,9 @@ class TeleTest(s_t_utils.SynTest):
             self.eq(1, fail0.count)
             self.eq(0, fail1.count)
 
+            _prox = targ._t_proxy
             await dmon0.fini()
+            self.true(await _prox.waitfini(10))
 
             self.eq(110, await targ.dostuff(100))
             self.eq(1, fail0.count)

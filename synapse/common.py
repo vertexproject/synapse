@@ -1190,6 +1190,6 @@ def httpcodereason(code):
 # This is a workaround for a race where asyncio.wait_for can end up
 # ignoring cancellation https://github.com/python/cpython/issues/86296
 async def wait_for(fut, timeout):
-    fut = asyncio.ensure_future(fut)
+    assert timeout is None or timeout > 0
     async with asyncio.timeout(timeout):
         return await fut
