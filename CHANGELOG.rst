@@ -13,8 +13,7 @@ Model Changes
   (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
   (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
 
- New Forms
-  ---------
+  **New Forms**
 
   ``it:dev:repo:type:taxonomy``
     A version control system type taxonomy.
@@ -43,10 +42,9 @@ Model Changes
   ``it:dev:repo:diff:comment``
     A comment on a diff in a repository.
 
-  New Properties
-  --------------
+  **New Properties**
 
-  ``inet:dns:answer`
+  ``inet:dns:answer``
     The form had the following properties added to it:
 
     ``time``
@@ -83,15 +81,13 @@ Model Changes
 - Update to the ``crypto`` model.
   (`#3256 <https://github.com/vertexproject/synapse/pull/3256>`_)
 
-  Updated Types
-  -------------
+  **Updated Types**
 
   ``hex``
     The ``zeropad`` option has been changed from a ``bool`` to an ``int``.
     It may now be used to specify the zero extended length of the hex string.
 
-  Updated Properties
-  ------------------
+  **Updated Properties**
 
   ``crypto:x509:cert``
     The form had the following properties updated on it:
@@ -210,14 +206,12 @@ Model Changes
   (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
   (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
 
-  New Forms
-  ---------
+  **New Forms**
 
   ``risk:vulnname``
     Add a form to capture vulnerability name such as log4j or rowhammer.
 
-  Updated Types
-  -------------
+  **Updated Types**
 
   ``hex``
     The ``hex`` base type now accepts a ``zeropad`` option that can be used
@@ -229,8 +223,7 @@ Model Changes
   ``cvss:v3``
     The type now accepts and normalizes unordered CVSS vectors.
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``it:sec:c2:config``
     The form had the following properties added to it:
@@ -319,8 +312,7 @@ Model Changes
 - Update to the ``it`` and ``lang`` models.
   (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``it:host``
     The form had the following properties added to it:
@@ -395,15 +387,13 @@ Model Changes
   (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
   (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
 
-  New Types
-  ---------
+  **New Types**
 
   ``file:archive:entry``
     Add a type to capture an archive entry representing a file and metadata
     from within a parent archive file.
 
-  Updated Types
-  -------------
+  **Updated Types**
 
   ``time``
     Time values with precision beyond milliseconds are now truncated to
@@ -554,14 +544,12 @@ Model Changes
   and ``transport`` models.
   (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
 
-  New Types
-  ---------
+  **New Types**
 
   ``it:mitre:attack:matrix``
     Add a type to capture the enumeration of MITRE ATT&CK matrix values.
 
-  New Forms
-  ---------
+  **New Forms**
 
   ``inet:egress``
     Add a form to capture a host using a specific network egress client
@@ -582,8 +570,7 @@ Model Changes
     Add a form to capture the license to operate a land vehicle issued to a
     contact.
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``inet:http:request``
     The form had the following property added to it:
@@ -663,8 +650,7 @@ Model Changes
     ``vector``
       The attack assessed to be the initial compromise vector.
 
-  Light Edges
-  -----------
+  **Light Edges**
 
   ``detects``
     When used with a ``meta:rule`` node, the edge indicates the rule was
@@ -680,9 +666,7 @@ Model Changes
     When used between two ``geo:place`` nodes, the edge indicates the source
     place completely contains the target place.
 
-
-  Deprecated Properties
-  ---------------------
+  **Deprecated Properties**
 
   ``geo:place``
     The form had the following property marked as deprecated:
@@ -821,8 +805,7 @@ Model Changes
 - Updates to the ``risk`` model.
   (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
 
-  Light Edges
-  -----------
+  **Light Edges**
 
   ``addresses``
     When used with a ``risk:mitigation`` and a ``ou:technique`` node, the
@@ -886,8 +869,7 @@ Model Changes
 - Updates to the ``risk`` model.
   (`#3123 <https://github.com/vertexproject/synapse/pull/3123>`_)
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``risk:vuln``
     The ``risk:vuln`` form had the following properties added to it:
@@ -921,8 +903,7 @@ Model Changes
     ``cvss:v3_1:score:environmental``
         The CVSS v3.1 environmental score for the vulnerability.
 
-  Deprecated Properties
-  ---------------------
+  **Deprecated Properties**
 
   ``risk:vuln``
     The ``risk:vuln`` form had the following properties marked as deprecated:
