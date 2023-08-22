@@ -249,12 +249,12 @@ the ``file:bytes`` value can be copied and pasted for use in a query.
 The primary property of a ``file:bytes`` node indicates how the node was created (i.e., via the SHA256 hash or via a guid):
 
 - A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended
-to the SHA256 hash:
+  to the SHA256 hash:
 
   ``file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``
 
 - A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the
-``guid`` value:
+  ``guid`` value:
   
   ``file:bytes=guid:22d4ed1b75c9eb5ff8070e0df1e8ed6b``
 
