@@ -503,7 +503,7 @@ class SubGraph:
 
                     await asyncio.sleep(0)
 
-                    edges.add((pivn.iden(), {'type': 'pivot', 'prop': pivp.full}))
+                    edges.append((pivn.iden(), {'type': 'pivot', 'prop': pivp.full}))
 
                     # we dont pivot from omitted nodes
                     if omitted:
