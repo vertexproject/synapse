@@ -52,7 +52,7 @@ knowledge domain - not just cyber threat data.
 
 Many of the real-world examples in this User Guide reference data from the fields of information technology or
 cyber threat intelligence, given Synapse’s history. But Synapse's structures, processes, and queries can be applied
-to other knowledge domains and data sets. **The intent of Synapse is that any data that could be represented in aspreadsheet, database, or graph database can be represented in Synapse using an appropriate data model.**
+to other knowledge domains and data sets. **The intent of Synapse is that any data that could be represented in a spreadsheet, database, or graph database can be represented in Synapse using an appropriate data model.**
 
 .. _bkd-graphs-hypergraphs:
 
@@ -90,7 +90,7 @@ graph is **directionless** or **undirected.**
 
 **Social Networks.** Another example is social networks based on "connections", such as LinkedIn. In this case,
 each person would be a node and the connection between two people would be an edge. In most cases, LinkedIn
-reqiures a mutual connection (you must request a connetion and the other party must accept); in this sense it can
+requires a mutual connection (you must request a connection and the other party must accept); in this sense it can
 be considered a directionless graph. (This is a simplification, but serves our purpose as an example.)
 
 .. _bkd-directed-graphs:
@@ -157,7 +157,7 @@ join any number (n-number) of nodes is **n-dimensional.**
 
 |hypergraph|
 
-Looked at another way, they key features of a hypergraph are:
+Looked at another way, the key features of a hypergraph are:
 
 - **Everything is a node.** In hypergraph, objects ("nouns") are still nodes, similar to a directed graph.
   However, relationships ("verbs", commonly represented as edges in a directed graph) may also be represented

@@ -84,9 +84,8 @@ See the :ref:`type-syn-tag` section within :ref:`storm-ref-type-specific` for ad
 Tags as Labels
 ==============
 
-A tag's value (``syn:tag = <valu>``) is simply a string and can be set to any user-defined alphanumeric value. (Tags
-do not support special characters except for the underscore ( ``_`` ). Special characters incuded in tag strings are
-automatically converted to underscores.)
+A tag's value (``syn:tag = <valu>``) is simply a string and can be set to any user-defined alphanumeric value. Tags
+do not support special characters except for the underscore ( ``_`` ).
 
 Tag strings use a dotted naming convention, with the period ( ``.`` ) used as a separator to delimit individual elements
 of a tag if necessary. This dotted notation supports the creation of tag hierarchies or tag trees. These trees can be
@@ -333,7 +332,7 @@ command).
 
 **No one designs a complete, perfect tag structure from the start.** It is common to design an initial tag tree and then
 make changes once you have tested it in practice. Your tag trees will grow over time as analysts identify new
-obesrvations they want to record. Your analytical needs may change, requiring you to reorganize multiple trees.
+observations they want to record. Your analytical needs may change, requiring you to reorganize multiple trees.
 
 This is fine (and expected)! **Don't be afraid to try things or change your mind.** In most cases, bulk changes and
 migrations can be made using Storm.

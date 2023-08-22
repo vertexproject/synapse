@@ -15,9 +15,9 @@ analysts (and algorithms) can ask analytical questions directly of the data - an
 and easily.
 
 Capturing data and analysis in a structured model abstracts away some of the subtleties and caveats that can
-be conveyed in prose, and  finished reporting is still appropriate in many cases. But a **good** data model
+be conveyed in prose, and finished reporting is still appropriate in many cases. But a **good** data model
 can represent enough information so that key objects, relationships, and assessments are well-defined,
-unambigous, and self-evident upon examiniation.
+unambigous, and self-evident upon examination.
 
 This section provides background on the components of Synapse's data model and their use.
 
@@ -134,13 +134,8 @@ A **node** is a unique object within Synapse; they are specific instances of gen
   properties must be unique for a given form; the uniqueness of the ``<form> = <valu>`` pair ensures there can 
   be only one node in Synapse that represents the domain ``woot.com``.
   
-  .. TIP::
-    
-    Nodes are **deconflicted** based on their primary property to ensure (as far as possible) that duplicate
-    nodes (that represent the same "thing") cannot exist within a single Cortex.
-    
-    Because the unique pair "defines" the node, the comma-separated form / value combination (``<form>,<valu>``)
-    is also known as the node’s :ref:`gloss-ndef` (short for "node definition").
+  Because the unique pair "defines" the node, the comma-separated form / value combination (``<form>,<valu>``)
+  is also known as the node’s :ref:`gloss-ndef` (short for "node definition").
 
 - One or more **universal properties.** As the name implies, universal properties are applicable to all nodes.
 
@@ -247,7 +242,7 @@ elements of the property name. However, not all separators represent property "b
 "sub-namespace" separators.
 
 For example ``file:bytes`` is a primary property / form. A ``file:bytes`` form may include
-secondary properties such as ``:mime:pe:imphash`` and ``:mime:pe:complied``.  In this case ``:mime`` and ``:mime:pe``
+secondary properties such as ``:mime:pe:imphash`` and ``:mime:pe:compiled``.  In this case ``:mime`` and ``:mime:pe``
 are not secondary properties, but sub-namespaces for individual MIME data types and the "PE executable" data type
 specifically.
 
