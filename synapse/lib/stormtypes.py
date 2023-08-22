@@ -16,6 +16,7 @@ import binascii
 import datetime
 import calendar
 import functools
+import contextlib
 import collections
 from typing import Any
 
@@ -5216,7 +5217,7 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async with s_common.aclosing(self._getRuntGenr()) as genr:
+        async with contextlib.aclosing(self._getRuntGenr()) as genr:
             async for node, path in genr:
                 yield node
 
