@@ -429,12 +429,15 @@ class AhaTest(s_test.SynTest):
             host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
             await aha.auth.rootuser.setPasswd('hehehaha')
 
+            aharegistry = [f'tcp://root:hehehaha@127.0.0.1:{port}',
+                          f'tcp://root:hehehaha@127.0.0.1:{port}']
+            atup = tuple(aharegistry)
+
             wait00 = aha.waiter(1, 'aha:svcadd')
             conf = {
                 'aha:name': '0.cryo.mynet',
                 'aha:admin': 'root@cryo.mynet',
-                'aha:registry': [f'tcp://root:hehehaha@127.0.0.1:{port}',
-                                 f'tcp://root:hehehaha@127.0.0.1:{port}'],
+                'aha:registry': aharegistry,
                 'dmon:listen': 'tcp://0.0.0.0:0/',
             }
             async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
@@ -447,15 +450,27 @@ class AhaTest(s_test.SynTest):
 
                 await wait00.wait(timeout=2)
 
+                self.isin(atup, s_telepath.aha_clients)
+
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
+                _ahaclient = s_telepath.aha_clients.get(atup).get('client')
+                _aprx = _ahaclient._t_proxy
+
                 await aha.fini()
 
-                with self.raises(s_exc.LinkShutDown):
+                self.true(await _aprx.waitfini(timeout=10))
 
-                    async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
-                        self.fail('Should never reach a connection.')
+                orig = s_telepath.Client.proxy
+                async def quickproxy(self, timeout):
+                    return await orig(self, timeout=0.1)
+
+                with mock.patch('synapse.telepath.Client.proxy', quickproxy):
+                    with self.raises(asyncio.TimeoutError):
+
+                        async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                            self.fail('Should never reach a connection.')
 
     async def test_lib_aha_onlink_fail(self):
 
