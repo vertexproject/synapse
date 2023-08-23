@@ -1399,6 +1399,20 @@ class Snap(s_base.Base):
                 return True
         return False
 
+    async def iterEdgeVerbs(self, n1buid, n2buid):
+
+        last = None
+        gens = [layr.iterEdgeVerbs(n1buid, n2buid) for layr in self.layers]
+
+        async for verb in s_common.merggenr2(gens):
+
+            if verb == last: # pragma: no cover
+                await asyncio.sleep(0)
+                continue
+
+            last = verb
+            yield verb
+
     async def hasNodeData(self, buid, name):
         '''
         Return True if the buid has nodedata set on it under the given name

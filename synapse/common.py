@@ -11,6 +11,7 @@ import types
 import base64
 import shutil
 import struct
+import asyncio
 import decimal
 import fnmatch
 import hashlib
@@ -1141,8 +1142,7 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
             logger.exception(f'Error loading {certpath}')
     return sslctx
 
-# TODO:  Remove when this is added to contextlib in py 3.10
-class aclosing(contextlib.AbstractAsyncContextManager):
+class aclosing(contextlib.AbstractAsyncContextManager):  # pragma: no cover
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
@@ -1161,6 +1161,7 @@ class aclosing(contextlib.AbstractAsyncContextManager):
 
     """
     def __init__(self, thing):
+        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
         self.thing = thing
     async def __aenter__(self):
         return self.thing
@@ -1184,3 +1185,43 @@ def httpcodereason(code):
         return http.HTTPStatus(code).phrase
     except ValueError:
         return f'Unknown HTTP status code {code}'
+
+# TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
+# This is a workaround for a race where asyncio.wait_for can end up
+# ignoring cancellation https://github.com/python/cpython/issues/86296
+async def wait_for(fut, timeout):
+
+    if timeout is not None and timeout <= 0:
+        fut = asyncio.ensure_future(fut)
+
+        if fut.done():
+            return fut.result()
+
+        await _cancel_and_wait(fut)
+        try:
+            return fut.result()
+        except asyncio.CancelledError as exc:
+            raise TimeoutError from exc
+
+    async with asyncio.timeout(timeout):
+        return await fut
+
+def _release_waiter(waiter, *args):
+    if not waiter.done():
+        waiter.set_result(None)
+
+async def _cancel_and_wait(fut):
+    """Cancel the *fut* future or task and wait until it completes."""
+
+    loop = asyncio.get_running_loop()
+    waiter = loop.create_future()
+    cb = functools.partial(_release_waiter, waiter)
+    fut.add_done_callback(cb)
+
+    try:
+        fut.cancel()
+        # We cannot wait on *fut* directly to make
+        # sure _cancel_and_wait itself is reliably cancellable.
+        await waiter
+    finally:
+        fut.remove_done_callback(cb)

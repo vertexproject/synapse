@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import subprocess
 
@@ -425,3 +426,15 @@ class CommonTest(s_t_utils.SynTest):
                 self.true(stream.wait(10))
             ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
             self.isin(((('commonName', 'test'),),), ca_subjects)
+
+    async def test_wait_for(self):
+
+        async def foo():
+            return 123
+
+        loop = asyncio.get_running_loop()
+        footask = loop.create_task(foo())
+
+        await footask
+
+        self.eq(123, await s_common.wait_for(footask, timeout=-1))
