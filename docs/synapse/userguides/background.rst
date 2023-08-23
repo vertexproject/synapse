@@ -124,7 +124,7 @@ or
 
 ``domain --(resolves to)--> ip_address``
 
-In these examples, files, domains and IP addresses are nodes and "performed DNS lookup for" and "resolves to"
+In these examples, files, domains, and IP addresses are nodes and "performed DNS lookup for" and "resolves to"
 are edges (relationships). The edges are directed because a malware binary can contain programming to resolve
 a domain name, but a domain can’t "perform a lookup" for a malware binary; the relationship (edge) is one-way.
 
@@ -151,15 +151,13 @@ Hypergraphs
 -----------
 
 A **hypergraph** is a generalization of a graph in which an edge can join any number of nodes. Because an edge
-is no longer limited to joining exactly two nodes, edges in a hypergraph are often called **hyperedges.** If a
-directed graph where edges join exactly two nodes is two-dimensional, then a hypergraph where a hyperedge can
-join any number (n-number) of nodes is **n-dimensional.**
+is no longer limited to joining exactly two nodes, edges in a hypergraph are often called **hyperedges.**
 
 |hypergraph|
 
 Looked at another way, the key features of a hypergraph are:
 
-- **Everything is a node.** In hypergraph, objects ("nouns") are still nodes, similar to a directed graph.
+- **Everything is a node.** In a hypergraph, objects ("nouns") are still nodes, similar to a directed graph.
   However, relationships ("verbs", commonly represented as edges in a directed graph) may also be represented
   as nodes. An edge in a directed graph consists of three objects (two nodes and the edge connecting them), but
   in a hypergraph the same data may be represented as a single multi-dimensional node.

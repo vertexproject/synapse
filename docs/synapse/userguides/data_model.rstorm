@@ -17,7 +17,7 @@ and easily.
 Capturing data and analysis in a structured model abstracts away some of the subtleties and caveats that can
 be conveyed in prose, and finished reporting is still appropriate in many cases. But a **good** data model
 can represent enough information so that key objects, relationships, and assessments are well-defined,
-unambigous, and self-evident upon examination.
+unambiguous, and self-evident upon examination.
 
 This section provides background on the components of Synapse's data model and their use.
 
@@ -211,7 +211,7 @@ Universal Property
 Synapse defines a subset of secondary properties as **universal properties** that are applicable to all forms:
 
 - ``.created``, which is set automatically by Synapse for all nodes and whose value is the date/time that the
-  node was created  within that instance of Synapse (Cortex).
+  node was created within that instance of Synapse (Cortex).
 - ``.seen``, which is optional for all nodes and whose value is a time interval (minimum or "first seen" and
   maximum or "last seen") during which the node was observed, existed, or was valid.
 
