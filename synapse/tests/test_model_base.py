@@ -37,6 +37,9 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
             self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
+            await core.nodes('meta:note | [ :updated=now ]')
+            self.len(1, await core.nodes('meta:note:updated<=now'))
+
 
             # Notes are always unique when made by note.add
             nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
