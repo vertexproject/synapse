@@ -198,7 +198,7 @@ class Query(AstNode):
 
         async with contextlib.AsyncExitStack() as stack:
             for oper in self.kids:
-                genr = await stack.enter_async_context(s_common.aclosing(oper.run(runt, genr)))
+                genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
 
             async for node, path in genr:
                 runt.tick()
@@ -776,7 +776,7 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async with s_common.aclosing(s_coro.agen(valu)) as agen:
+            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -842,7 +842,7 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async with s_common.aclosing(s_coro.agen(valu)) as agen:
+            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -1235,14 +1235,14 @@ class YieldValu(Oper):
 
         async for node, path in genr:
             valu = await self.kids[0].compute(runt, path)
-            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
             yield node, path
 
         if node is None and self.kids[0].isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
 
@@ -1324,7 +1324,7 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Prim):
-            async with s_common.aclosing(valu.nodes()) as genr:
+            async with contextlib.aclosing(valu.nodes()) as genr:
                 async for node in genr:
                     if node.snap.view.iden != viewiden:
                         mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'

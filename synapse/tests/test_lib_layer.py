@@ -26,7 +26,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 9)
+            self.eq(layr.layrvers, 10)
 
     async def test_layer_verify(self):
 
@@ -1704,6 +1704,45 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
 
             self.checkLayrvers(core)
+
+    async def test_layer_v10(self):
+
+        async with self.getRegrCore('layer-v10') as core:
+
+            nodes = await core.nodes('file:bytes inet:user')
+            verbs = [verb async for verb in nodes[0].iterEdgeVerbs(nodes[1].buid)]
+            self.eq(('refs',), verbs)
+
+            nodes0 = await core.nodes('[ ps:contact=* :name=visi +(has)> {[ mat:item=* :name=laptop ]} ]')
+            self.len(1, nodes0)
+            buid1 = nodes0[0].buid
+
+            nodes1 = await core.nodes('mat:item')
+            self.len(1, nodes1)
+            buid2 = nodes1[0].buid
+
+            layr = core.getView().layers[0]
+            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.eq(('has',), verbs)
+
+            await core.nodes('ps:contact:name=visi [ -(has)> { mat:item:name=laptop } ]')
+
+            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.len(0, verbs)
+
+            await core.nodes('ps:contact:name=visi [ +(has)> { mat:item:name=laptop } ]')
+
+            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.eq(('has',), verbs)
+
+            await core.nodes('ps:contact:name=visi | delnode --force')
+
+            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.len(0, verbs)
 
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
