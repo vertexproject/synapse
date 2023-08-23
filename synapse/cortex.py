@@ -5231,8 +5231,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     for nid2, pode2 in spooldict.items():
                         await asyncio.sleep(0)
 
-                        async for (n1, verb, n2) in snap.iterNodeEdgesN1N2(nid1, nid2):
-                            edges.append((verb, s_common.ehex(snap.core.getBuidByNid(n2))))
+                        async for verb in snap.iterEdgeVerbs(nid1, nid2):
+                            n2buid = snap.core.getBuidByNid(nid2)
+                            edges.append((verb, s_common.ehex(n2buid)))
 
                     if edges:
                         pode1[1]['edges'] = edges

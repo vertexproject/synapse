@@ -1251,19 +1251,19 @@ class Snap(s_base.Base):
                 return True
         return False
 
-    async def iterNodeEdgesN1N2(self, n1nid, n2nid):
+    async def iterEdgeVerbs(self, n1nid, n2nid):
 
         last = None
-        gens = [layr.iterNodeEdgesN1N2(n1nid, n2nid) for layr in self.layers]
+        gens = [layr.iterEdgeVerbs(n1nid, n2nid) for layr in self.layers]
 
-        async for edge in s_common.merggenr2(gens):
+        async for verb in s_common.merggenr2(gens):
 
-            if edge == last: # pragma: no cover
+            if verb == last: # pragma: no cover
                 await asyncio.sleep(0)
                 continue
 
-            last = edge
-            yield edge
+            last = verb
+            yield verb
 
     async def hasNodeData(self, buid, name):
         '''
