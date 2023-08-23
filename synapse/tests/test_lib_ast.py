@@ -21,7 +21,7 @@ foo_stormpkg = {
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
     'synapse_minversion': [2, 144, 0],
-    'synapse_version': '>=2.8.0',
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': [
         {
             'name': 'hehe.haha',
@@ -959,14 +959,14 @@ class AstTest(s_test.SynTest):
             'name': 'foosball',
             'version': '0.0.1',
             'synapse_minversion': [2, 144, 0],
-            'synapse_version': '>=2.8.0',
+            'synapse_version': '>=2.8.0,<3.0.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
             'synapse_minversion': [2, 144, 0],
-            'synapse_version': '>=2.8.0',
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -979,7 +979,7 @@ class AstTest(s_test.SynTest):
             'name': 'stormpkg',
             'version': '1.2.4',
             'synapse_minversion': [2, 144, 0],
-            'synapse_version': '>=2.8.0',
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -992,7 +992,7 @@ class AstTest(s_test.SynTest):
             'name': 'jsonpkg',
             'version': '1.2.3',
             'synapse_minversion': [2, 144, 0],
-            'synapse_version': '>=2.8.0',
+            'synapse_version': '>=2.8.0,<3.0.0',
             'docs': (
                 {
                  'title': 'User Guide',

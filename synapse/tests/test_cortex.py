@@ -2941,7 +2941,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 8, 0),
+                'synapse_minversion': (2, 144, 0),
+                'synapse_version': '>=2.8.0,<3.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -3000,7 +3001,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'name': 'foosball',
                 'version': '0.0.1',
                 'synapse_minversion': [2, 144, 0],
-                'synapse_version': '>=2.8.0',
+                'synapse_version': '>=2.8.0,<3.0.0',
                 'commands': ({
                     'name': 'testcmd',
                     'descr': 'test command',
@@ -6548,7 +6549,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                             'name': 'foo',
                             'version': (0, 0, 1),
                             'synapse_minversion': [2, 144, 0],
-                            'synapse_version': '>=2.100.0',
+                            'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
                         }
