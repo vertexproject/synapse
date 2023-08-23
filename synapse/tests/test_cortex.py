@@ -2941,7 +2941,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 8, 0),
+                'synapse_minversion': (2, 144, 0),
+                'synapse_version': '>=2.8.0,<3.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -2999,7 +3000,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 8, 0),
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=2.8.0,<3.0.0',
                 'commands': ({
                     'name': 'testcmd',
                     'descr': 'test command',
@@ -3043,6 +3045,28 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'name': 'versionfail',
                 'version': (0, 0, 1),
                 'synapse_minversion': (1337, 0, 0),
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=0.0.1,<2.0.0',
                 'commands': ()
             }
 
@@ -6524,7 +6548,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_minversion': (2, 100, 0),
+                            'synapse_minversion': [2, 144, 0],
+                            'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
                         }
