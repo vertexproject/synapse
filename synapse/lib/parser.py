@@ -127,6 +127,7 @@ terminalEnglishMap = {
     '_MATCHHASH': '#',
     '_MATCHHASHSPACE': '#',
     '_RETURN': 'return',
+    '_REVERSE': 'reverse',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_STOP': 'stop',
@@ -444,6 +445,13 @@ class AstConverter(lark.Transformer):
             newkids.append(caseentry)
 
         return s_ast.SwitchCase(astinfo, newkids)
+
+    @lark.v_args(meta=True)
+    def liftreverse(self, meta, kids):
+        assert len(kids) == 1
+        astinfo = self.metaToAstInfo(meta)
+        kids[0].reverseLift(astinfo)
+        return kids[0]
 
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
