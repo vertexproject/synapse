@@ -456,7 +456,7 @@ class AhaTest(s_test.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 _ahaclient = s_telepath.aha_clients.get(atup).get('client')
-                _aprx = _ahaclient._t_proxy
+                _aprx = await _ahaclient.proxy()
 
                 await aha.fini()
 
