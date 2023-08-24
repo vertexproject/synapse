@@ -641,18 +641,18 @@ class Snap(s_base.Base):
         buid = s_common.buid(ndef)
         return await self.getNodeByBuid(buid)
 
-    async def nodesByTagProp(self, form, tag, name):
+    async def nodesByTagProp(self, form, tag, name, reverse=False):
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        async for nid, srefs in self.view.liftByTagProp(form, tag, name):
+        async for nid, srefs in self.view.liftByTagProp(form, tag, name, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu):
+    async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False):
 
         prop = self.core.model.getTagProp(name)
         if prop is None:
@@ -664,7 +664,7 @@ class Snap(s_base.Base):
         if not cmprvals:
             return
 
-        async for nid, srefs in self.view.liftByTagPropValu(form, tag, name, cmprvals):
+        async for nid, srefs in self.view.liftByTagPropValu(form, tag, name, cmprvals, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
@@ -714,7 +714,7 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def nodesByProp(self, full):
+    async def nodesByProp(self, full, reverse=False):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -727,10 +727,10 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-            genr = self.view.liftByProp(prop.name, None)
+            genr = self.view.liftByProp(prop.name, None, reverse=reverse)
 
         elif prop.isuniv:
-            genr = self.view.liftByProp(None, prop.name)
+            genr = self.view.liftByProp(None, prop.name, reverse=reverse)
 
         else:
             genr = self.view.liftByProp(prop.form.name, prop.name)
@@ -740,14 +740,21 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def nodesByPropValu(self, full, cmpr, valu):
+    async def nodesByPropValu(self, full, cmpr, valu, reverse=False):
 
         if cmpr == 'type=':
-            async for node in self.nodesByPropValu(full, '=', valu):
-                yield node
+            if reverse:
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
+                    yield node
 
-            async for node in self.nodesByPropTypeValu(full, valu):
-                yield node
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                    yield node
+            else:
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                    yield node
+
+                async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
+                    yield node
             return
 
         prop = self.core.model.prop(full)
@@ -770,45 +777,45 @@ class Snap(s_base.Base):
             genr = self.view.liftByFormValu(prop.name, cmprvals)
 
         elif prop.isuniv:
-            genr = self.view.liftByPropValu(None, prop.name, cmprvals)
+            genr = self.view.liftByPropValu(None, prop.name, cmprvals, reverse=reverse)
 
         else:
-            genr = self.view.liftByPropValu(prop.form.name, prop.name, cmprvals)
+            genr = self.view.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTag(self, tag, form=None):
-        async for nid, srefs in self.view.liftByTag(tag, form=form):
+    async def nodesByTag(self, tag, form=None, reverse=False):
+        async for nid, srefs in self.view.liftByTag(tag, form=form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagValu(self, tag, cmpr, valu, form=None):
+    async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
 
         norm, info = self.core.model.type('ival').norm(valu)
-        async for nid, srefs in self.view.liftByTagValu(tag, cmpr, norm, form):
+        async for nid, srefs in self.view.liftByTagValu(tag, cmpr, norm, form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByPropTypeValu(self, name, valu):
+    async def nodesByPropTypeValu(self, name, valu, reverse=False):
 
         _type = self.core.model.types.get(name)
         if _type is None:
             raise s_exc.NoSuchType(name=name)
 
         for prop in self.core.model.getPropsByType(name):
-            async for node in self.nodesByPropValu(prop.full, '=', valu):
+            async for node in self.nodesByPropValu(prop.full, '=', valu, reverse=reverse):
                 yield node
 
         for prop in self.core.model.getArrayPropsByType(name):
-            async for node in self.nodesByPropArray(prop.full, '=', valu):
+            async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse):
                 yield node
 
-    async def nodesByPropArray(self, full, cmpr, valu):
+    async def nodesByPropArray(self, full, cmpr, valu, reverse=False):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -816,20 +823,20 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchProp(mesg=mesg)
 
         if not isinstance(prop.type, s_types.Array):
-            mesg = f'Array synax is invalid on non array type: {prop.type.name}.'
+            mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
         if prop.isform:
-            genr = self.view.liftByPropArray(prop.name, None, cmprvals)
+            genr = self.view.liftByPropArray(prop.name, None, cmprvals, reverse=reverse)
 
         else:
             formname = None
             if prop.form is not None:
                 formname = prop.form.name
 
-            genr = self.view.liftByPropArray(formname, prop.name, cmprvals)
+            genr = self.view.liftByPropArray(formname, prop.name, cmprvals, reverse=reverse)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)
