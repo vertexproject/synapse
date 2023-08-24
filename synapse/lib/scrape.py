@@ -112,30 +112,40 @@ def cve_check(match: regex.Match):
     valu = s_chop.replaceUnicodeDashes(valu)
     return valu, cbfo
 
+ipv4_match = r'(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)'
+ipv4_regex = fr'''
+(?<!\d|\d\.|[0-9a-f:]:)
+({ipv4_match})
+(?!\d|\.\d)
+'''
+
 # Simplified IPv6 regex based on RFC3986, will have false positives and
 # requires validating matches.
-ipaddr_define = r'''
-(?(DEFINE)
-  (?<OCTET>25[0-5]|2[0-4]\d|[01]?\d\d?)
-  (?<IPV4>(?:(?&OCTET)\.){3}(?&OCTET))
-  (?<H16>[0-9a-fA-F]{1,4})
-  (?<IPV6>
-    (?:(?:(?&H16):){1,7}(?:(?: :?(?:(?&H16):){0,5}(?:(?&H16)|(?&IPV4)))|:)) |
-    (?: ::(?:(?&H16):){0,6}(?:(?&H16)|(?&IPV4)))
-  )
-
-  (?<IPV4_ADDR>
-    (?<!\d|\d\.|[0-9a-fA-F:]:)
-    (?&IPV4)
-    (?!\d|\.\d)
-  )
-
-  (?<IPV6_ADDR>
-    (?<![0-9a-fA-F]:|:[0-9a-fA-F]|::|\d\.)
-    (?&IPV6)
-    (?![0-9a-fA-F:]|\.\d)
-  )
+ipv6_match = fr'''
+(?:
+    (?:[0-9a-f]{{1,4}}:){{1,7}}
+    (?:
+        (?:
+            :?
+            (?:[0-9a-f]{{1,4}}:){{0,5}}
+            (?:
+                {ipv4_match} | [0-9a-f]{{1,4}}
+            )
+        ) | :
+    )
+) |
+(?:
+    ::
+    ([0-9a-f]{{1,4}}:){{0,6}}
+    (?:
+        [0-9a-f]{{1,4}} | {ipv4_match}
+    )
 )
+'''
+ipv6_regex = fr'''
+(?<![0-9a-f]:|:[0-9a-f]|::|\d\.)
+({ipv6_match})
+(?![0-9a-f:]|\.\d)
 '''
 
 # these must be ordered from most specific to least specific to allow first=True to work
@@ -143,11 +153,10 @@ scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
      {'callback': fqdn_prefix_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
-    ('inet:server', ipaddr_define + r'(?P<valu>(?:(?<!\d|\d\.|[0-9a-fA-F:]:)((?P<addr>(?&IPV4))|\[(?P<v6addr>(?&IPV6))\]):(?P<port>\d{1,5})(?!\d|\.\d)))',
+    ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|[0-9a-f:]:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
      {'callback': inet_server_check, 'flags': regex.VERBOSE}),
-    ('inet:ipv4', ipaddr_define + r'(?P<valu>(?&IPV4_ADDR))', {'flags': regex.VERBOSE}),
-    ('inet:ipv6', ipaddr_define + r'(?P<valu>(?&IPV6_ADDR))',
-     {'callback': ipv6_check, 'flags': regex.VERBOSE}),
+    ('inet:ipv4', fr'(?P<valu>{ipv4_regex})', {'flags': regex.VERBOSE}),
+    ('inet:ipv6', fr'(?P<valu>{ipv6_regex})', {'callback': ipv6_check, 'flags': regex.VERBOSE}),
     ('inet:fqdn', r'(?=(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|^|[' + idna_disallowed + '])(?P<valu>(?:((?![' + idna_disallowed + r'])[\p{L}\p{M}\p{N}\p{S}_-]){1,63}[\u3002\uff0e\uff61\.]){1,10}(?:' + tldcat + r'))(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|[\u3002\uff0e\uff61.]([\p{Z}\p{Cc}]|$)|$|[' + idna_disallowed + r']))', {'callback': fqdn_check}),
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
