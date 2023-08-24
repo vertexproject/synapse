@@ -1,66 +1,10 @@
 .. vim: set textwidth=79
 
+-.. _changelog:
+
 *****************
 Synapse Changelog
 *****************
-
-Deprecation Deadline - 2023-10-01
-=================================
-
-It's time to shed some long standing deprecations to reduce technical debt
-and prepare for some new features and subsystems!  The deprecated APIs and
-commands will be removed on 2023-10-01:
-
-Storm Commands
---------------
-
-- sudo
-- splice.list
-- splice.undo
-
-Storm Options
--------------
-
-- editformat=splices
-
-Cortex Telepath APIs
---------------------
-
-- stat()
-- addCronJob()
-- delCronJob()
-- updateCronJob()
-- enableCronJob()
-- disableCronJob()
-- listCronJobs()
-- editCronJob()
-- setStormCmd()
-- delStormCmd()
-- addNodeTag()
-- delNodeTag()
-- setNodeProp()
-- delNodeProp()
-- eval()
-- watch()
-- splices()
-- splicesBack()
-- spliceHistory()
-- addFeedData(syn.splice, ...)
-- addFeedData(syn.nodeedits, ...)
-
-Layer Telepath APIs
--------------------
-
-- splices()
-- splicesBack()
-- truncate()
-
-Cmdr Commands
--------------
-
-- at
-- cron
-- trigger
 
 v2.144.0 - 2023-08-09
 =====================
@@ -8049,3 +7993,63 @@ v2.0.0 - 2020-06-08
 ===================
 
 Initial 2.0.0 release.
+
+.. _changelog-depr-20231001
+
+API Deprecation Notice - 2023-10-01
+===================================
+
+It's time to shed some long standing deprecations to reduce technical debt
+and prepare for some new features and subsystems!  The following deprecated
+APIs and commands will be removed on 2023-10-01:
+
+Storm Commands
+--------------
+
+- ``sudo``
+- ``splice.list``
+- ``splice.undo``
+
+Storm Options
+-------------
+
+- ``editformat=splices``
+
+Cortex Telepath APIs
+--------------------
+
+- ``stat()``
+- ``addCronJob()``
+- ``delCronJob()``
+- ``updateCronJob()``
+- ``enableCronJob()``
+- ``disableCronJob()``
+- ``listCronJobs()``
+- ``editCronJob()``
+- ``setStormCmd()``
+- ``delStormCmd()``
+- ``addNodeTag()``
+- ``delNodeTag()``
+- ``setNodeProp()``
+- ``delNodeProp()``
+- ``eval()``
+- ``watch()``
+- ``splices()``
+- ``splicesBack()``
+- ``spliceHistory()``
+- ``addFeedData(syn.splice, ...)``
+- ``addFeedData(syn.nodeedits, ...)``
+
+Layer Telepath APIs
+-------------------
+
+- ``splices()``
+- ``splicesBack()``
+- ``truncate()``
+
+Cmdr Commands
+-------------
+
+- ``at``
+- ``cron``
+- ``trigger``
