@@ -112,9 +112,9 @@ def cve_check(match: regex.Match):
     valu = s_chop.replaceUnicodeDashes(valu)
     return valu, cbfo
 
-#    (?:(?:(?&H16):){0,6}(::)?(?:(?&H16):){0,7}((?&H16)|(?&IPV4))?) |
-# This excellent IPV6 regex comes from RFC3986. Slightly modified to not capture
-# '::' (any-address)
+# Simplified IPv6 regex based on RFC3986, will have false positives and
+# requires validating matches.
+
 ipaddr_define = r'''
 (?(DEFINE)
   (?<OCTET>25[0-5]|2[0-4]\d|[01]?\d\d?)
