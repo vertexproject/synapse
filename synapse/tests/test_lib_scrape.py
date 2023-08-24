@@ -482,7 +482,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:ipv6', '1:2:3::4'))
         nodes.remove(('inet:ipv6', '1:2::3'))
         nodes.remove(('inet:ipv6', '1::2'))
-        nodes.remove(('inet:ipv6', '1::2:3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', '::2:3:4:5:6:7'))
         nodes.remove(('inet:ipv6', '1::2:3:4:5:6'))
         nodes.remove(('inet:ipv6', '1::2:3:4:5'))
         nodes.remove(('inet:ipv6', '1::2:3:4'))
