@@ -6,6 +6,156 @@
 Synapse Changelog
 *****************
 
+v2.145.0 - Unreleased
+=====================
+
+Automatic Migrations
+--------------------
+- Update indexing for light edges to index the N1 and N2 node identifiers
+  together.
+  (`#3302 <https://github.com/vertexproject/synapse/pull/3302>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``inet``, ``it``, and ``meta`` models.
+  (`#3285 <https://github.com/vertexproject/synapse/pull/3285>`_)
+  (`#3298 <https://github.com/vertexproject/synapse/pull/3298>`_)
+  (`#3301 <https://github.com/vertexproject/synapse/pull/3301>`_)
+  (`#3310 <https://github.com/vertexproject/synapse/pull/3310>`_)
+
+  **New Types**
+
+  ``it:sec:tlp``
+    The US CISA Traffic-Light-Protocol used to designate information sharing
+    boundaries.
+
+  ``meta:priority``
+    A generic priority enumeration.
+
+  ``meta:severity``
+    A generic severity enumeration.
+
+
+  **New Forms**
+
+  ``it:sec:metrics``
+    A node used to track metrics of an organization's infosec program.
+
+  ``it:sec:vuln:scan``
+    An instance of running a vulnerability scan.
+
+  ``it:sec:vuln:scan:result``
+    A vulnerability scan result for an asset.``
+
+  **New Properties**
+
+  ``it:dev:repo:issue``
+    The form had the following properties updated on it:
+
+    ``updated``
+      The time the issue was updated.
+
+    ``id``
+      The ID of the issue in the repository system
+
+  ``it:dev:repo:issue:comment``
+    The form had the following properties updated on it:
+
+    ``created``
+      The time the comment was created.
+
+    ``updated``
+      The time the comment was updated.
+
+  ``it:dev:repo:diff:comment``
+    The form had the following properties updated on it:
+
+    ``created``
+      The time the comment was created.
+
+    ``updated``
+      The time the comment was updated.
+
+  ``meta:note``
+    The form had the following properties updated on it:
+
+    ``updated``
+      The time the note was updated.
+
+  **Deprecated Properties**
+
+  ``it:exec:proc``
+    The ``it:exec:proc`` form had the following property marked as deprecated:
+
+    * ``src:exe``
+
+  ``inet:whois:iprec``
+    The ``inet:whois:iprec`` form had the following property marked as deprecated:
+
+    * ``registrant``
+
+
+Features and Enhancements
+-------------------------
+- Update indexing for light edges to index the N1 and N2 node identifiers
+  together.
+  (`#3302 <https://github.com/vertexproject/synapse/pull/3302>`_)
+- Update the Storm ``once`` command behavior and documentation to be more
+  intuitive when setting its timestamp and allowing nodes through it.
+  (`#3282 <https://github.com/vertexproject/synapse/pull/3282>`_)
+- Add a ``synapse_version`` key to the Storm Package schema. This can be used
+  to provide a string version indentifier with a minimum and maximum version,
+  such as ``>=2.145.0,<3.0.0``.
+  (`#3304 <https://github.com/vertexproject/synapse/pull/3304>`_)
+- Add a ``SIGHUP`` handler to the base Cell which can be used to reload HTTPS
+  certificate files from disk. The ``synapse.tools.reload`` tool can also be
+  used to trigger this behavior.
+  (`#3293 <https://github.com/vertexproject/synapse/pull/3293>`_)
+- The optional ``max:users`` feature no longer counts ``locked`` or
+  ``archived`` users when adding users.
+  (`#3295 <https://github.com/vertexproject/synapse/pull/3295>`_)
+- Update the YAML functions to use the ``yaml.CSafeLoader`` and
+  ``yaml.CSafeDumper``.
+  (`#3289 <https://github.com/vertexproject/synapse/pull/3289>`_)
+
+Bugfixes
+--------
+- Replace ``asyncio.wait_for()`` use with a copy of the Python 3.12
+  implementation to avoid a race condition when cancelling tasks.
+  (`#3299 <https://github.com/vertexproject/synapse/pull/3299>`_)
+  (`#3307 <https://github.com/vertexproject/synapse/pull/3307>`_)
+- Fix an issue with the Storm trigger ``set()`` method not properly checking
+  the values that it allows to be set.
+  (`#3290 <https://github.com/vertexproject/synapse/pull/3290>`_)
+- Fix an off-by-one bug in the ``SlabSeqn.aiter()`` method.
+  (`#3300 <https://github.com/vertexproject/synapse/pull/3300>`_)
+
+Improved Documentation
+----------------------
+- Revise the Storm User Guide to consolidate the background information
+  and data modeling sections. Add a user focused section on Views and Layers.
+  (`#3303 <https://github.com/vertexproject/synapse/pull/3303>`_)
+- Add ``int`` type specific information to the Storm documentation.
+  (`#3288 <https://github.com/vertexproject/synapse/pull/3288>`_)
+- The Storm ``movetag`` command now moves the ``doc:url`` property from the
+  old ``syn:tag`` node to the new ``syn:tag`` node.
+  (`#3294 <https://github.com/vertexproject/synapse/pull/3294>`_)
+- Storm Library and Type documentation no longer renders function signatures
+  with Python style defaults.
+  (`#3296 <https://github.com/vertexproject/synapse/pull/3296>`_)
+
+Deprecations
+------------
+- Many deprecated Cortex and splice related APIs have been marked for removal
+  after 2023-10-01.  The full list of APIs which will be removed can be found
+  at :ref:`changelog-depr-20231001`.
+  (`#3292 <https://github.com/vertexproject/synapse/pull/3292>`_)
+- The use of ``synapse.common.aclosing()`` has been replaced with
+  ``contextlib.aclosing()``.  The vendored ``aclosing()`` implementation will
+  be removed in ``v2.250.0``.
+  (`#3206 <https://github.com/vertexproject/synapse/pull/3206>`_)
+
 v2.144.0 - 2023-08-09
 =====================
 
