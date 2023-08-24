@@ -121,25 +121,20 @@ ipv4_regex = fr'''
 
 # Simplified IPv6 regex based on RFC3986, will have false positives and
 # requires validating matches.
+H16 = r'[0-9a-f]{1,4}'
 ipv6_match = fr'''
-(?:
-    (?:[0-9a-f]{{1,4}}:){{1,7}}
-    (?:
-        (?:
+(?: (?: {H16}: ){{1,7}}
+    (?:(?:
             :?
-            (?:[0-9a-f]{{1,4}}:){{0,5}}
-            (?:
-                {ipv4_match} | [0-9a-f]{{1,4}}
-            )
-        ) | :
+            (?: {H16}:){{0,5}}
+            (?: {ipv4_match} | {H16} )
+        ) |
+        :
     )
 ) |
-(?:
-    ::
-    ([0-9a-f]{{1,4}}:){{0,6}}
-    (?:
-        [0-9a-f]{{1,4}} | {ipv4_match}
-    )
+(?: ::
+    ( {H16}: ){{0,6}}
+    (?: {ipv4_match} | {H16} )
 )
 '''
 ipv6_regex = fr'''
