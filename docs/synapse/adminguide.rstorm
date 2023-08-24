@@ -308,7 +308,7 @@ Revoke the role "a-cat-emic researcher" from user "ron":
   
   - revoke the roles and grant them in the desired order;
   - use the ``--index`` option to specify the location to insert the role;
-  - use :ref:`stormprims-storm-auth-user-setRoles` to replace the user's roles with a new list of roles; or
+  - use :ref:`stormprims-auth-user-setRoles` to replace the user's roles with a new list of roles; or
   - use the commercial Synapse UI (Optic) to reorder the roles using drag-and drop.
   
   See :ref:`admin_perms_background` for additional detail on permissions and :ref:`admin_bkd_precedence`.
@@ -715,7 +715,7 @@ Specifying rules at the global (Cortex) level may be sufficient for many basic S
   - use the ``--index`` option with ``auth.user.addrule`` or ``auth.role.addrule`` to specify a location to
     insert a specific rule;
   - remove and re-add the rules in the desired order;
-  - use :ref:`stormprims-storm-auth-user-setRules` or :ref:`stormprims-storm-auth-role-setRules` to replace the
+  - use :ref:`stormprims-auth-user-setRules` or :ref:`stormprims-auth-role-setRules` to replace the
     rules for a user or role with a new set of rules; or
   - use the commercial Synapse UI (Optic) to reorder rules using drag-and-drop.
 
