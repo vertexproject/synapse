@@ -682,6 +682,9 @@ Queries = [
     "$lib.print((({'unicode': 1}).(:prop)+(2)))",
     '*$form#$tag',
     '*$form#$tag:$prop',
+    'reverse(inet:ipv4)',
+    'reverse(inet:ipv4=1.2.3.4)',
+    'reverse(*$form=$valu)',
 ]
 
 # Generated with print_parse_list below
@@ -1268,6 +1271,9 @@ _ParseResults = [
     'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [DollarExpr: [ExprNode: [VarDeref: [DollarExpr: [ExprDict: [Const: unicode, Const: 1]], DollarExpr: [RelPropValue: [Const: prop]]], Const: +, DollarExpr: [Const: 2]]]], CallKwargs: []]]]',
     'Query: [LiftFormTag: [VarValue: [Const: form], TagName: [VarValue: [Const: tag]]]]',
     'Query: [LiftFormTagProp: [FormTagProp: [VarValue: [Const: form], TagName: [VarValue: [Const: tag]], VarValue: [Const: prop]]]]',
+    'Query: [LiftProp: [Const: inet:ipv4]]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4]]',
+    'Query: [LiftPropBy: [VarValue: [Const: form], Const: =, VarValue: [Const: valu]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
