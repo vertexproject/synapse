@@ -114,7 +114,6 @@ def cve_check(match: regex.Match):
 
 # Simplified IPv6 regex based on RFC3986, will have false positives and
 # requires validating matches.
-
 ipaddr_define = r'''
 (?(DEFINE)
   (?<OCTET>25[0-5]|2[0-4]\d|[01]?\d\d?)
