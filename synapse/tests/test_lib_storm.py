@@ -2319,7 +2319,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('reindex currently does nothing', mesgs)
 
             msgs = await core.stormlist('.created | sudo')
-            self.stormIsInWarn('Sudo is deprecated and does nothing', msgs)
+            self.stormIsInWarn('sudo command is deprecated and will be removed on 2023-10-01', msgs)
 
     async def test_storm_count(self):
 
