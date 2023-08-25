@@ -51,16 +51,16 @@ Model Changes
   **New Properties**
 
   ``it:dev:repo:issue``
-    The form had the following properties updated on it:
+    The form had the following properties added to it:
 
     ``updated``
       The time the issue was updated.
 
     ``id``
-      The ID of the issue in the repository system
+      The ID of the issue in the repository system.
 
   ``it:dev:repo:issue:comment``
-    The form had the following properties updated on it:
+    The form had the following properties added to it:
 
     ``created``
       The time the comment was created.
@@ -69,7 +69,7 @@ Model Changes
       The time the comment was updated.
 
   ``it:dev:repo:diff:comment``
-    The form had the following properties updated on it:
+    The form had the following properties added to it:
 
     ``created``
       The time the comment was created.
@@ -78,7 +78,7 @@ Model Changes
       The time the comment was updated.
 
   ``meta:note``
-    The form had the following properties updated on it:
+    The form had the following properties added to it:
 
     ``updated``
       The time the note was updated.
@@ -98,6 +98,9 @@ Model Changes
 
 Features and Enhancements
 -------------------------
+- Add a new Storm keyword, ``reverse( ... )``, which can be used to run a lift
+  operation in reverse order.
+  (`#3266 <https://github.com/vertexproject/synapse/pull/3266>`_)
 - Update indexing for light edges to index the N1 and N2 node identifiers
   together.
   (`#3302 <https://github.com/vertexproject/synapse/pull/3302>`_)
@@ -108,6 +111,10 @@ Features and Enhancements
   to provide a string version indentifier with a minimum and maximum version,
   such as ``>=2.145.0,<3.0.0``.
   (`#3304 <https://github.com/vertexproject/synapse/pull/3304>`_)
+- Update the Storm runtime to respect permissions declared with a ``default``
+  value of ``true``. This allows Storm packages to define permissions which
+  are defaulted to ``true``.
+  (`#3287 <https://github.com/vertexproject/synapse/pull/3287>`_)
 - Add a ``SIGHUP`` handler to the base Cell which can be used to reload HTTPS
   certificate files from disk. The ``synapse.tools.reload`` tool can also be
   used to trigger this behavior.
@@ -130,6 +137,9 @@ Bugfixes
   (`#3290 <https://github.com/vertexproject/synapse/pull/3290>`_)
 - Fix an off-by-one bug in the ``SlabSeqn.aiter()`` method.
   (`#3300 <https://github.com/vertexproject/synapse/pull/3300>`_)
+- Fix a performance issue with the IPv6 regular expression used in the scrape
+  APIs.
+  (`#3311 <https://github.com/vertexproject/synapse/pull/3311>`_)
 
 Improved Documentation
 ----------------------
