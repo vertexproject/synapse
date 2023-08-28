@@ -6047,6 +6047,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mesg = f'editCronJob name {name} is not supported for editing.'
         raise s_exc.BadArg(mesg=mesg)
 
+    @contextlib.asynccontextmanager
+    async def enterMigrationMode(self):
+        await self._enableMigrationMode()
+        yield
+        await self._disableMigrationMode()
+
     async def _enableMigrationMode(self):
         '''
         Prevents cron jobs and triggers from running
