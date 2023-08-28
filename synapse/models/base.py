@@ -148,6 +148,8 @@ class BaseModule(s_module.CoreModule):
 
                     ('created', ('time', {}), {
                         'doc': 'The time the note was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the note was updated.'}),
                 )),
 
                 ('meta:timeline', {}, (

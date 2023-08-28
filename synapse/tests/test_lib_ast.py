@@ -20,7 +20,8 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': [
         {
             'name': 'hehe.haha',
@@ -957,13 +958,15 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -975,7 +978,8 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -987,7 +991,8 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'docs': (
                 {
                  'title': 'User Guide',
@@ -2119,12 +2124,12 @@ class AstTest(s_test.SynTest):
         origprop = s_snap.Snap.nodesByProp
         origvalu = s_snap.Snap.nodesByPropValu
 
-        async def checkProp(self, name):
+        async def checkProp(self, name, reverse=False):
             calls.append(('prop', name))
             async for node in origprop(self, name):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu):
+        async def checkValu(self, name, cmpr, valu, reverse=False):
             calls.append(('valu', name, cmpr, valu))
             async for node in origvalu(self, name, cmpr, valu):
                 yield node

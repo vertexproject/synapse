@@ -3025,7 +3025,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
                         }),
                         ('registrant', ('inet:whois:ipcontact', {}), {
-                            'doc': 'The registrant contact from the record.'
+                            'deprecated': True,
+                            'doc': 'Deprecated. Add the registrant inet:whois:ipcontact to the :contacts array.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',

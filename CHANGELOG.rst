@@ -1,8 +1,170 @@
 .. vim: set textwidth=79
 
+-.. _changelog:
+
 *****************
 Synapse Changelog
 *****************
+
+v2.145.0 - 2023-08-25
+=====================
+
+Automatic Migrations
+--------------------
+- Update indexing for light edges to index the N1 and N2 node identifiers
+  together.
+  (`#3302 <https://github.com/vertexproject/synapse/pull/3302>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``inet``, ``it``, and ``meta`` models.
+  (`#3285 <https://github.com/vertexproject/synapse/pull/3285>`_)
+  (`#3298 <https://github.com/vertexproject/synapse/pull/3298>`_)
+  (`#3301 <https://github.com/vertexproject/synapse/pull/3301>`_)
+  (`#3310 <https://github.com/vertexproject/synapse/pull/3310>`_)
+
+  **New Types**
+
+  ``it:sec:tlp``
+    The US CISA Traffic-Light-Protocol used to designate information sharing
+    boundaries.
+
+  ``meta:priority``
+    A generic priority enumeration.
+
+  ``meta:severity``
+    A generic severity enumeration.
+
+
+  **New Forms**
+
+  ``it:sec:metrics``
+    A node used to track metrics of an organization's infosec program.
+
+  ``it:sec:vuln:scan``
+    An instance of running a vulnerability scan.
+
+  ``it:sec:vuln:scan:result``
+    A vulnerability scan result for an asset.``
+
+  **New Properties**
+
+  ``it:dev:repo:issue``
+    The form had the following properties added to it:
+
+    ``updated``
+      The time the issue was updated.
+
+    ``id``
+      The ID of the issue in the repository system.
+
+  ``it:dev:repo:issue:comment``
+    The form had the following properties added to it:
+
+    ``created``
+      The time the comment was created.
+
+    ``updated``
+      The time the comment was updated.
+
+  ``it:dev:repo:diff:comment``
+    The form had the following properties added to it:
+
+    ``created``
+      The time the comment was created.
+
+    ``updated``
+      The time the comment was updated.
+
+  ``meta:note``
+    The form had the following properties added to it:
+
+    ``updated``
+      The time the note was updated.
+
+  **Deprecated Properties**
+
+  ``it:exec:proc``
+    The ``it:exec:proc`` form had the following property marked as deprecated:
+
+    * ``src:exe``
+
+  ``inet:whois:iprec``
+    The ``inet:whois:iprec`` form had the following property marked as deprecated:
+
+    * ``registrant``
+
+
+Features and Enhancements
+-------------------------
+- Add a new Storm keyword, ``reverse( ... )``, which can be used to run a lift
+  operation in reverse order.
+  (`#3266 <https://github.com/vertexproject/synapse/pull/3266>`_)
+- Update indexing for light edges to index the N1 and N2 node identifiers
+  together.
+  (`#3302 <https://github.com/vertexproject/synapse/pull/3302>`_)
+- Update the Storm ``once`` command behavior and documentation to be more
+  intuitive when setting its timestamp and allowing nodes through it.
+  (`#3282 <https://github.com/vertexproject/synapse/pull/3282>`_)
+- Add a ``synapse_version`` key to the Storm Package schema. This can be used
+  to provide a string version indentifier with a minimum and maximum version,
+  such as ``>=2.145.0,<3.0.0``.
+  (`#3304 <https://github.com/vertexproject/synapse/pull/3304>`_)
+- Update the Storm runtime to respect permissions declared with a ``default``
+  value of ``true``. This allows Storm packages to define permissions which
+  are defaulted to ``true``.
+  (`#3287 <https://github.com/vertexproject/synapse/pull/3287>`_)
+- Add a ``SIGHUP`` handler to the base Cell which can be used to reload HTTPS
+  certificate files from disk. The ``synapse.tools.reload`` tool can also be
+  used to trigger this behavior.
+  (`#3293 <https://github.com/vertexproject/synapse/pull/3293>`_)
+- The optional ``max:users`` feature no longer counts ``locked`` or
+  ``archived`` users when adding users.
+  (`#3295 <https://github.com/vertexproject/synapse/pull/3295>`_)
+- Update the YAML functions to use the ``yaml.CSafeLoader`` and
+  ``yaml.CSafeDumper``.
+  (`#3289 <https://github.com/vertexproject/synapse/pull/3289>`_)
+
+Bugfixes
+--------
+- Replace ``asyncio.wait_for()`` use with a copy of the Python 3.12
+  implementation to avoid a race condition when cancelling tasks.
+  (`#3299 <https://github.com/vertexproject/synapse/pull/3299>`_)
+  (`#3307 <https://github.com/vertexproject/synapse/pull/3307>`_)
+- Fix an issue with the Storm trigger ``set()`` method not properly checking
+  the values that it allows to be set.
+  (`#3290 <https://github.com/vertexproject/synapse/pull/3290>`_)
+- Fix an off-by-one bug in the ``SlabSeqn.aiter()`` method.
+  (`#3300 <https://github.com/vertexproject/synapse/pull/3300>`_)
+- Fix a performance issue with the IPv6 regular expression used in the scrape
+  APIs.
+  (`#3311 <https://github.com/vertexproject/synapse/pull/3311>`_)
+
+Improved Documentation
+----------------------
+- Revise the Storm User Guide to consolidate the background information
+  and data modeling sections. Add a user focused section on Views and Layers.
+  (`#3303 <https://github.com/vertexproject/synapse/pull/3303>`_)
+- Add ``int`` type specific information to the Storm documentation.
+  (`#3288 <https://github.com/vertexproject/synapse/pull/3288>`_)
+- The Storm ``movetag`` command now moves the ``doc:url`` property from the
+  old ``syn:tag`` node to the new ``syn:tag`` node.
+  (`#3294 <https://github.com/vertexproject/synapse/pull/3294>`_)
+- Storm Library and Type documentation no longer renders function signatures
+  with Python style defaults.
+  (`#3296 <https://github.com/vertexproject/synapse/pull/3296>`_)
+
+Deprecations
+------------
+- Many deprecated Cortex and splice related APIs have been marked for removal
+  after 2023-10-01.  The full list of APIs which will be removed can be found
+  at :ref:`changelog-depr-20231001`.
+  (`#3292 <https://github.com/vertexproject/synapse/pull/3292>`_)
+- The use of ``synapse.common.aclosing()`` has been replaced with
+  ``contextlib.aclosing()``.  The vendored ``aclosing()`` implementation will
+  be removed in ``v2.250.0``.
+  (`#3206 <https://github.com/vertexproject/synapse/pull/3206>`_)
 
 v2.144.0 - 2023-08-09
 =====================
@@ -13,8 +175,7 @@ Model Changes
   (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
   (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
 
- New Forms
-  ---------
+  **New Forms**
 
   ``it:dev:repo:type:taxonomy``
     A version control system type taxonomy.
@@ -43,10 +204,9 @@ Model Changes
   ``it:dev:repo:diff:comment``
     A comment on a diff in a repository.
 
-  New Properties
-  --------------
+  **New Properties**
 
-  ``inet:dns:answer`
+  ``inet:dns:answer``
     The form had the following properties added to it:
 
     ``time``
@@ -83,15 +243,13 @@ Model Changes
 - Update to the ``crypto`` model.
   (`#3256 <https://github.com/vertexproject/synapse/pull/3256>`_)
 
-  Updated Types
-  -------------
+  **Updated Types**
 
   ``hex``
     The ``zeropad`` option has been changed from a ``bool`` to an ``int``.
     It may now be used to specify the zero extended length of the hex string.
 
-  Updated Properties
-  ------------------
+  **Updated Properties**
 
   ``crypto:x509:cert``
     The form had the following properties updated on it:
@@ -210,14 +368,12 @@ Model Changes
   (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
   (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
 
-  New Forms
-  ---------
+  **New Forms**
 
   ``risk:vulnname``
     Add a form to capture vulnerability name such as log4j or rowhammer.
 
-  Updated Types
-  -------------
+  **Updated Types**
 
   ``hex``
     The ``hex`` base type now accepts a ``zeropad`` option that can be used
@@ -229,8 +385,7 @@ Model Changes
   ``cvss:v3``
     The type now accepts and normalizes unordered CVSS vectors.
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``it:sec:c2:config``
     The form had the following properties added to it:
@@ -319,8 +474,7 @@ Model Changes
 - Update to the ``it`` and ``lang`` models.
   (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``it:host``
     The form had the following properties added to it:
@@ -395,15 +549,13 @@ Model Changes
   (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
   (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
 
-  New Types
-  ---------
+  **New Types**
 
   ``file:archive:entry``
     Add a type to capture an archive entry representing a file and metadata
     from within a parent archive file.
 
-  Updated Types
-  -------------
+  **Updated Types**
 
   ``time``
     Time values with precision beyond milliseconds are now truncated to
@@ -554,14 +706,12 @@ Model Changes
   and ``transport`` models.
   (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
 
-  New Types
-  ---------
+  **New Types**
 
   ``it:mitre:attack:matrix``
     Add a type to capture the enumeration of MITRE ATT&CK matrix values.
 
-  New Forms
-  ---------
+  **New Forms**
 
   ``inet:egress``
     Add a form to capture a host using a specific network egress client
@@ -582,8 +732,7 @@ Model Changes
     Add a form to capture the license to operate a land vehicle issued to a
     contact.
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``inet:http:request``
     The form had the following property added to it:
@@ -663,8 +812,7 @@ Model Changes
     ``vector``
       The attack assessed to be the initial compromise vector.
 
-  Light Edges
-  -----------
+  **Light Edges**
 
   ``detects``
     When used with a ``meta:rule`` node, the edge indicates the rule was
@@ -680,9 +828,7 @@ Model Changes
     When used between two ``geo:place`` nodes, the edge indicates the source
     place completely contains the target place.
 
-
-  Deprecated Properties
-  ---------------------
+  **Deprecated Properties**
 
   ``geo:place``
     The form had the following property marked as deprecated:
@@ -821,8 +967,7 @@ Model Changes
 - Updates to the ``risk`` model.
   (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
 
-  Light Edges
-  -----------
+  **Light Edges**
 
   ``addresses``
     When used with a ``risk:mitigation`` and a ``ou:technique`` node, the
@@ -886,8 +1031,7 @@ Model Changes
 - Updates to the ``risk`` model.
   (`#3123 <https://github.com/vertexproject/synapse/pull/3123>`_)
 
-  New Properties
-  --------------
+  **New Properties**
 
   ``risk:vuln``
     The ``risk:vuln`` form had the following properties added to it:
@@ -921,8 +1065,7 @@ Model Changes
     ``cvss:v3_1:score:environmental``
         The CVSS v3.1 environmental score for the vulnerability.
 
-  Deprecated Properties
-  ---------------------
+  **Deprecated Properties**
 
   ``risk:vuln``
     The ``risk:vuln`` form had the following properties marked as deprecated:
@@ -8010,3 +8153,63 @@ v2.0.0 - 2020-06-08
 ===================
 
 Initial 2.0.0 release.
+
+.. _changelog-depr-20231001
+
+API Deprecation Notice - 2023-10-01
+===================================
+
+It's time to shed some long standing deprecations to reduce technical debt
+and prepare for some new features and subsystems!  The following deprecated
+APIs and commands will be removed on 2023-10-01:
+
+Storm Commands
+--------------
+
+- ``sudo``
+- ``splice.list``
+- ``splice.undo``
+
+Storm Options
+-------------
+
+- ``editformat=splices``
+
+Cortex Telepath APIs
+--------------------
+
+- ``stat()``
+- ``addCronJob()``
+- ``delCronJob()``
+- ``updateCronJob()``
+- ``enableCronJob()``
+- ``disableCronJob()``
+- ``listCronJobs()``
+- ``editCronJob()``
+- ``setStormCmd()``
+- ``delStormCmd()``
+- ``addNodeTag()``
+- ``delNodeTag()``
+- ``setNodeProp()``
+- ``delNodeProp()``
+- ``eval()``
+- ``watch()``
+- ``splices()``
+- ``splicesBack()``
+- ``spliceHistory()``
+- ``addFeedData(syn.splice, ...)``
+- ``addFeedData(syn.nodeedits, ...)``
+
+Layer Telepath APIs
+-------------------
+
+- ``splices()``
+- ``splicesBack()``
+- ``truncate()``
+
+Cmdr Commands
+-------------
+
+- ``at``
+- ``cron``
+- ``trigger``

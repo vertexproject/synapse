@@ -923,6 +923,11 @@ def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
 
+_splicedepr = '2023-10-01'
+def deprdate(name, date):
+    mesg = f'{name} is deprecated and will be removed on {date}.'
+    warnings.warn(mesg, DeprecationWarning)
+
 def reqjsonsafe(item):
     '''
     Returns None if item is json serializable, otherwise raises an exception.

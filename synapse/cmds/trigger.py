@@ -293,7 +293,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
     async def runCmdOpts(self, opts):
 
-        s_common.deprecated('cmdr> trigger')
+        s_common.deprdate('cmdr> trigger', s_common._splicedepr)
 
         line = opts.get('line')
         if line is None:
