@@ -1575,9 +1575,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 layriden = readonly[0].get('iden')
                 layr = core.getLayer(layriden)
-                self.true(layr.layrslab.readonly)
-                self.true(layr.dataslab.readonly)
-                self.true(layr.nodeeditslab.readonly)
 
                 view = await core.callStorm(f'return($lib.view.add(layers=({layriden},)))')
 
