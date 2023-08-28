@@ -1561,6 +1561,9 @@ class LayerTest(s_t_utils.SynTest):
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
 
+            with self.raises(s_exc.IsReadOnly):
+                await readlayr.truncate()
+
     async def test_layer_ro(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -1575,9 +1578,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 layriden = readonly[0].get('iden')
                 layr = core.getLayer(layriden)
-                self.true(layr.layrslab.readonly)
-                self.true(layr.dataslab.readonly)
-                self.true(layr.nodeeditslab.readonly)
 
                 view = await core.callStorm(f'return($lib.view.add(layers=({layriden},)))')
 
