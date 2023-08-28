@@ -60,6 +60,16 @@ class Set(Spooled):
         self.realset = set()
         self.len = 0
 
+    async def __aiter__(self):
+
+        if not self.fallback:
+            for item in self.realset:
+                yield item
+            return
+
+        for byts in self.slab.scanByKeys():
+            yield s_msgpack.un(byts)
+
     def __contains__(self, valu):
         if self.fallback:
             return self.slab.get(s_msgpack.en(valu)) is not None
