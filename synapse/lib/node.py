@@ -893,7 +893,7 @@ def _tagscommon(pode, leafonly):
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
-        if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
+        if (leafonly or val == (None, None) or val == [None, None]) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
     return retn
@@ -1022,7 +1022,7 @@ def reprTag(pode, tag):
     valu = pode[1]['tags'].get(tag)
     if valu is None:
         return None
-    if valu == (None, None):
+    if valu == (None, None) or valu == [None, None]:
         return ''
     mint = s_time.repr(valu[0])
     maxt = s_time.repr(valu[1])
