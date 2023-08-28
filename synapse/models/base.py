@@ -12,6 +12,15 @@ sophenums = (
     (50, 'very high'),
 )
 
+prioenums = (
+    (0, 'none'),
+    (10, 'lowest'),
+    (20, 'low'),
+    (30, 'medium'),
+    (40, 'high'),
+    (50, 'highest'),
+)
+
 class BaseModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -78,6 +87,12 @@ class BaseModule(s_module.CoreModule):
                 ('graph:timeedge', ('timeedge', {}), {
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
+                ('meta:priority', ('int', {'enums': prioenums}), {
+                    'doc': 'A generic priority enumeration.'}),
+
+                ('meta:severity', ('int', {'enums': prioenums}), {
+                    'doc': 'A generic severity enumeration.'}),
+
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
             ),
@@ -133,6 +148,8 @@ class BaseModule(s_module.CoreModule):
 
                     ('created', ('time', {}), {
                         'doc': 'The time the note was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the note was updated.'}),
                 )),
 
                 ('meta:timeline', {}, (

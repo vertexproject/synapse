@@ -2123,6 +2123,7 @@ class StormTest(s_t_utils.SynTest):
                 tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
 
                 await tagnode.set('doc', 'haha doc')
+                await tagnode.set('doc:url', 'http://haha.doc.com')
 
             await core.nodes('movetag hehe woot')
 
@@ -2133,6 +2134,7 @@ class StormTest(s_t_utils.SynTest):
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
 
                 self.eq(newt.get('doc'), 'haha doc')
+                self.eq(newt.get('doc:url'), 'http://haha.doc.com')
 
         # Test moving a tag which has tags on it.
         async with self.getTestCore() as core:
@@ -2317,7 +2319,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('reindex currently does nothing', mesgs)
 
             msgs = await core.stormlist('.created | sudo')
-            self.stormIsInWarn('Sudo is deprecated and does nothing', msgs)
+            self.stormIsInWarn('sudo command is deprecated and will be removed on 2023-10-01', msgs)
 
     async def test_storm_count(self):
 
@@ -2398,24 +2400,16 @@ class StormTest(s_t_utils.SynTest):
 
             # it kinda works like asof in stormtypes, so if as is too far out,
             # we won't update it
-            q = 'test:str=foo | once tagger --asof -30days | [+#another.tag]'
-            self.len(0, await core.nodes(q))
+            self.len(0, await core.nodes('test:str=foo | once tagger --asof -30days | [+#another.tag]'))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
 
             # but if it's super recent, we can override it
-            q = 'test:str | once tagger --asof now | [ +#tag.the.third ]'
-            nodes = await core.nodes(q)
+            nodes = await core.nodes('test:str | once tagger --asof now | [ +#tag.the.third ]')
             self.len(6, nodes)
             for node in nodes:
                 self.isin('tag.the.third', node.tags)
-
-            # for coverage
-            await core.nodes('test:str=foo $node.data.set(once:tagger, $lib.dict(lol=yup))')
-            nodes = await core.nodes('test:str=foo | once tagger | [ +#fourth ]')
-            self.len(1, nodes)
-            self.isin('fourth', nodes[0].tags)
 
             # keys shouldn't interact
             nodes = await core.nodes('test:str | once ninja | [ +#lottastrings ]')
@@ -2428,12 +2422,6 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.isin('boop', node.tags)
 
-            # timestamp is more recent than the last, so the things get to run again
-            nodes = await core.nodes('test:str | once beep --asof -15days | [ +#zomg ]')
-            self.len(6, nodes)
-            for node in nodes:
-                self.isin('zomg', node.tags)
-
             # we update to the more recent timestamp, so providing now should update things
             nodes = await core.nodes('test:str | once beep --asof now | [ +#bbq ]')
             self.len(6, nodes)
@@ -2441,10 +2429,8 @@ class StormTest(s_t_utils.SynTest):
                 self.isin('bbq', node.tags)
 
             # but still, no time means if it's ever been done
-            nodes = await core.nodes('test:str | once beep | [ +#metal]')
-            self.len(0, nodes)
-            for node in nodes:
-                self.notin('meta', node.tags)
+            self.len(0, await core.nodes('test:str | once beep | [ +#metal]'))
+            self.len(0, await core.nodes('test:str $node.data.set(once:beep, ({})) | once beep'))
 
     async def test_storm_iden(self):
         async with self.getTestCore() as core:

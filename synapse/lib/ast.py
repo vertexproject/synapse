@@ -198,7 +198,7 @@ class Query(AstNode):
 
         async with contextlib.AsyncExitStack() as stack:
             for oper in self.kids:
-                genr = await stack.enter_async_context(s_common.aclosing(oper.run(runt, genr)))
+                genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
 
             async for node, path in genr:
                 runt.tick()
@@ -776,7 +776,7 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async with s_common.aclosing(s_coro.agen(valu)) as agen:
+            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -842,7 +842,7 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async with s_common.aclosing(s_coro.agen(valu)) as agen:
+            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -997,8 +997,10 @@ class CmdOper(Oper):
                         raise s_stormctrl.StormExit()
 
                 if runtsafe or not empty:
-                    async for item in scmd.execStormCmd(runt, genr):
-                        yield item
+                    async with contextlib.aclosing(scmd.execStormCmd(runt, genr)) as agen:
+                        async for item in agen:
+                            yield item
+
             finally:
                 await genr.aclose()
 
@@ -1202,6 +1204,14 @@ class CaseEntry(AstNode):
 
 class LiftOper(Oper):
 
+    def __init__(self, astinfo, kids=()):
+        Oper.__init__(self, astinfo, kids=kids)
+        self.reverse = False
+
+    def reverseLift(self, astinfo):
+        self.astinfo = astinfo
+        self.reverse = True
+
     async def run(self, runt, genr):
 
         if self.isRuntSafe(runt):
@@ -1233,14 +1243,14 @@ class YieldValu(Oper):
 
         async for node, path in genr:
             valu = await self.kids[0].compute(runt, path)
-            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
             yield node, path
 
         if node is None and self.kids[0].isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
 
@@ -1322,7 +1332,7 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Prim):
-            async with s_common.aclosing(valu.nodes()) as genr:
+            async with contextlib.aclosing(valu.nodes()) as genr:
                 async for node in genr:
                     if node.snap.view.iden != viewiden:
                         mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'
@@ -1341,12 +1351,12 @@ class LiftTag(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await toprim(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu):
+            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTag(tag):
+        async for node in runt.snap.nodesByTag(tag, reverse=self.reverse):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1359,7 +1369,7 @@ class LiftByArray(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        async for node in runt.snap.nodesByPropArray(name, cmpr, valu):
+        async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
             yield node
 
 class LiftTagProp(LiftOper):
@@ -1375,12 +1385,12 @@ class LiftTagProp(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu):
+            async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTagProp(None, tag, prop):
+        async for node in runt.snap.nodesByTagProp(None, tag, prop, reverse=self.reverse):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1400,12 +1410,12 @@ class LiftFormTagProp(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu):
+            async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTagProp(form, tag, prop):
+        async for node in runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse):
             yield node
 
 class LiftTagTag(LiftOper):
@@ -1425,11 +1435,11 @@ class LiftTagTag(LiftOper):
         if len(self.kids) == 3:
             cmpr = await self.kids[1].compute(runt, path)
             valu = await toprim(await self.kids[2].compute(runt, path))
-            genr = runt.snap.nodesByTagValu(tagname, cmpr, valu)
+            genr = runt.snap.nodesByTagValu(tagname, cmpr, valu, reverse=self.reverse)
 
         else:
 
-            genr = runt.snap.nodesByTag(tagname)
+            genr = runt.snap.nodesByTag(tagname, reverse=self.reverse)
 
         done = set([tagname])
         todo = collections.deque([genr])
@@ -1445,7 +1455,7 @@ class LiftTagTag(LiftOper):
                     tagname = node.ndef[1]
                     if tagname not in done:
                         done.add(tagname)
-                        todo.append(runt.snap.nodesByTag(tagname))
+                        todo.append(runt.snap.nodesByTag(tagname, reverse=self.reverse))
 
                     continue
 
@@ -1467,12 +1477,12 @@ class LiftFormTag(LiftOper):
             cmpr = await self.kids[2].compute(runt, path)
             valu = await toprim(await self.kids[3].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form):
+            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTag(tag, form=form):
+        async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
             yield node
 
 class LiftProp(LiftOper):
@@ -1493,7 +1503,7 @@ class LiftProp(LiftOper):
             async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
-                    async for node in runt.snap.nodesByTag(tagname, form=name):
+                    async for node in runt.snap.nodesByTag(tagname, form=name, reverse=self.reverse):
                         yield node
                     return
 
@@ -1516,7 +1526,7 @@ class LiftProp(LiftOper):
                     if cmpr is not None and valu is not None:
                         try:
                             # try lifting by valu but no guarantee a cmpr is available
-                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
+                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
                                 yield node
                             return
                         except asyncio.CancelledError:  # pragma: no cover
@@ -1524,11 +1534,11 @@ class LiftProp(LiftOper):
                         except:
                             pass
 
-                    async for node in runt.snap.nodesByProp(fullname):
+                    async for node in runt.snap.nodesByProp(fullname, reverse=self.reverse):
                         yield node
                     return
 
-        async for node in runt.snap.nodesByProp(name):
+        async for node in runt.snap.nodesByProp(name, reverse=self.reverse):
             yield node
 
     async def getRightHints(self, runt, path):
@@ -1561,7 +1571,7 @@ class LiftPropBy(LiftOper):
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
         try:
-            async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
+            async for node in runt.snap.nodesByPropValu(name, cmpr, valu, reverse=self.reverse):
                 yield node
 
         except s_exc.BadTypeValu as e:

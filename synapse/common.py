@@ -3,6 +3,7 @@ import os
 import ssl
 import sys
 import json
+import http
 import stat
 import time
 import heapq
@@ -10,6 +11,7 @@ import types
 import base64
 import shutil
 import struct
+import asyncio
 import decimal
 import fnmatch
 import hashlib
@@ -33,6 +35,13 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
+try:
+    from yaml import CSafeLoader as Loader
+    from yaml import CSafeDumper as Dumper
+except ImportError:  # pragma: no cover
+    from yaml import SafeLoader as Loader
+    from yaml import SafeDumper as Dumper
+
 class NoValu:
     pass
 
@@ -49,6 +58,9 @@ buidre = regex.compile('^[0-9a-f]{64}$')
 novalu = NoValu()
 
 logger = logging.getLogger(__name__)
+
+if Loader != yaml.CSafeLoader:  # pragma: no cover
+    logger.warning('PyYAML is using the pure python fallback implementation. This will impact performance negatively.')
 
 def now():
     '''
@@ -502,6 +514,9 @@ def jssave(js, *paths):
     with io.open(path, 'wb') as fd:
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
+def yamlloads(data):
+    return yaml.load(data, Loader)
+
 def yamlload(*paths):
 
     path = genpath(*paths)
@@ -509,18 +524,15 @@ def yamlload(*paths):
         return None
 
     with io.open(path, 'rb') as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-        return yaml.safe_load(byts.decode('utf8'))
+        return yamlloads(fd)
 
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
-        s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
-                           default_style='', explicit_start=True, explicit_end=True, sort_keys=True)
         fd.truncate(0)
-        fd.write(s.encode('utf8'))
+        yaml.dump(obj, allow_unicode=True, default_flow_style=False,
+                  default_style='', explicit_start=True, explicit_end=True,
+                  encoding='utf8', stream=fd, Dumper=Dumper)
 
 def yamlmod(obj, *paths):
     '''
@@ -911,6 +923,11 @@ def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
 
+_splicedepr = '2023-10-01'
+def deprdate(name, date):
+    mesg = f'{name} is deprecated and will be removed on {date}.'
+    warnings.warn(mesg, DeprecationWarning)
+
 def reqjsonsafe(item):
     '''
     Returns None if item is json serializable, otherwise raises an exception.
@@ -1130,8 +1147,7 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
             logger.exception(f'Error loading {certpath}')
     return sslctx
 
-# TODO:  Remove when this is added to contextlib in py 3.10
-class aclosing(contextlib.AbstractAsyncContextManager):
+class aclosing(contextlib.AbstractAsyncContextManager):  # pragma: no cover
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
@@ -1150,8 +1166,67 @@ class aclosing(contextlib.AbstractAsyncContextManager):
 
     """
     def __init__(self, thing):
+        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
         self.thing = thing
     async def __aenter__(self):
         return self.thing
     async def __aexit__(self, exc, cls, tb):
         await self.thing.aclose()
+
+def httpcodereason(code):
+    '''
+    Get the reason for an HTTP status code.
+
+    Args:
+        code (int): The code.
+
+    Note:
+        If the status code is unknown, a string indicating it is unknown is returned.
+
+    Returns:
+        str: A string describing the status code.
+    '''
+    try:
+        return http.HTTPStatus(code).phrase
+    except ValueError:
+        return f'Unknown HTTP status code {code}'
+
+# TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
+# This is a workaround for a race where asyncio.wait_for can end up
+# ignoring cancellation https://github.com/python/cpython/issues/86296
+async def wait_for(fut, timeout):
+
+    if timeout is not None and timeout <= 0:
+        fut = asyncio.ensure_future(fut)
+
+        if fut.done():
+            return fut.result()
+
+        await _cancel_and_wait(fut)
+        try:
+            return fut.result()
+        except asyncio.CancelledError as exc:
+            raise TimeoutError from exc
+
+    async with asyncio.timeout(timeout):
+        return await fut
+
+def _release_waiter(waiter, *args):
+    if not waiter.done():
+        waiter.set_result(None)
+
+async def _cancel_and_wait(fut):
+    """Cancel the *fut* future or task and wait until it completes."""
+
+    loop = asyncio.get_running_loop()
+    waiter = loop.create_future()
+    cb = functools.partial(_release_waiter, waiter)
+    fut.add_done_callback(cb)
+
+    try:
+        fut.cancel()
+        # We cannot wait on *fut* directly to make
+        # sure _cancel_and_wait itself is reliably cancellable.
+        await waiter
+    finally:
+        fut.remove_done_callback(cb)

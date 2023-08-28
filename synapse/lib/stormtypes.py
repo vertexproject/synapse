@@ -16,6 +16,7 @@ import binascii
 import datetime
 import calendar
 import functools
+import contextlib
 import collections
 from typing import Any
 
@@ -2096,11 +2097,7 @@ class LibAxon(Lib):
         code = resp.get('code')
 
         if code != 200:
-            if code is None:
-                mesg = f'$lib.axon.urlfile(): {resp.get("mesg")}'
-            else:
-                mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
-
+            mesg = f'$lib.axon.urlfile(): HTTP code {code}: {resp.get("reason")}'
             await self.runt.warn(mesg, log=False)
             return
 
@@ -5220,7 +5217,7 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async with s_common.aclosing(self._getRuntGenr()) as genr:
+        async with contextlib.aclosing(self._getRuntGenr()) as genr:
             async for node, path in genr:
                 yield node
 
@@ -7362,7 +7359,6 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
@@ -7480,11 +7476,11 @@ class LibAuth(Lib):
         return text
 
     async def getPermDefs(self):
-        return await self.runt.snap.core.getPermDefs()
+        return self.runt.snap.core.getPermDefs()
 
     async def getPermDef(self, perm):
         perm = await toprim(perm)
-        return await self.runt.snap.core.getPermDef(perm)
+        return self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):
