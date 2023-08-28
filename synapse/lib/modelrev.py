@@ -751,6 +751,8 @@ class ModelRev:
 
     async def revCoreLayers(self):
 
+        await self.core._enableMigrationMode()
+
         version = self.revs[-1][0] if self.revs else maxvers
 
         # do a first pass to detect layers at the wrong version
@@ -782,7 +784,6 @@ class ModelRev:
         if not layers:
             return
 
-        await self.core._enableMigrationMode()
         for revvers, revmeth in self.revs:
 
             todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
