@@ -2022,7 +2022,7 @@ class Layer(s_nexus.Pusher):
 
     async def truncate(self):
         self._reqNotReadOnly(self)
-        await self._push('layer:truncate')
+        return await self._push('layer:truncate')
 
     @s_nexus.Pusher.onPush('layer:truncate')
     async def _truncate(self):
@@ -4120,7 +4120,7 @@ class Layer(s_nexus.Pusher):
 
     async def setModelVers(self, vers):
         self._reqNotReadOnly()
-        await self._push('layer:set:modelvers', vers)
+        return await self._push('layer:set:modelvers', vers)
 
     @s_nexus.Pusher.onPush('layer:set:modelvers')
     async def _setModelVers(self, vers):
