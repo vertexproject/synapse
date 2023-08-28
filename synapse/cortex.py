@@ -1154,6 +1154,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
+        self.migration = False
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -6050,6 +6051,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Prevents cron jobs and triggers from running
         '''
+        self.migration = True
         self.agenda.enabled = False
         self.trigson = False
 
@@ -6057,6 +6059,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Allows cron jobs and triggers to run
         '''
+        self.migration = False
         if self.conf.get('cron:enable'):
             self.agenda.enabled = True
 

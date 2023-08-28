@@ -1504,7 +1504,7 @@ class Layer(s_nexus.Pusher):
         self.readonly = layrinfo.get('readonly')
 
     def _reqNotReadOnly(self):
-        if self.readonly:
+        if self.readonly and not self.core.migration:
             mesg = f'Layer {self.iden} is read only!'
             raise s_exc.IsReadOnly(mesg=mesg)
 
