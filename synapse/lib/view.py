@@ -1082,47 +1082,47 @@ class View(s_nexus.Pusher):  # type: ignore
             async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
                 yield pode
 
-    async def _mergeLiftRows(self, genrs):
-        async for indx, nid, sref in s_common.merggenr2(genrs):
+    async def _mergeLiftRows(self, genrs, reverse=False):
+        async for indx, nid, sref in s_common.merggenr2(genrs, reverse=reverse):
             yield nid, [layr.genStorNodeRef(nid) for layr in self.layers]
 
     # view "lift by" functions yield (nid, srefs) tuples for results.
-    async def liftByProp(self, form, prop):
-        genrs = [layr.liftByProp(form, prop) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByProp(self, form, prop, reverse=False):
+        genrs = [layr.liftByProp(form, prop, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByFormValu(self, form, cmprvals):
-        genrs = [layr.liftByFormValu(form, cmprvals) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByFormValu(self, form, cmprvals, reverse=False):
+        genrs = [layr.liftByFormValu(form, cmprvals, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByPropValu(self, form, prop, cmprvals):
-        genrs = [layr.liftByPropValu(form, prop, cmprvals) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+        genrs = [layr.liftByPropValu(form, prop, cmprvals, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByTag(self, tag, form=None):
-        genrs = [layr.liftByTag(tag, form=form) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByTag(self, tag, form=None, reverse=False):
+        genrs = [layr.liftByTag(tag, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByTagValu(self, tag, cmpr, valu, form=None):
-        genrs = [layr.liftByTagValu(tag, cmpr, valu, form=form) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+        genrs = [layr.liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByTagProp(self, form, tag, prop):
-        genrs = [layr.liftByTagProp(form, tag, prop) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByTagProp(self, form, tag, prop, reverse=False):
+        genrs = [layr.liftByTagProp(form, tag, prop, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByTagPropValu(self, form, tag, prop, cmprvals):
-        genrs = [layr.liftByTagPropValu(form, tag, prop, cmprvals) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
+        genrs = [layr.liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByPropArray(self, form, prop, cmprvals):
-        genrs = [layr.liftByPropArray(form, prop, cmprvals) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs):
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+        genrs = [layr.liftByPropArray(form, prop, cmprvals, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
