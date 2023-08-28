@@ -2021,7 +2021,7 @@ class Layer(s_nexus.Pusher):
         return ret
 
     async def truncate(self):
-        self._reqNotReadOnly(self)
+        self._reqNotReadOnly()
         return await self._push('layer:truncate')
 
     @s_nexus.Pusher.onPush('layer:truncate')
