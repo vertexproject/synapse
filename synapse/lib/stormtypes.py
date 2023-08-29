@@ -242,12 +242,16 @@ class StormTypesRegistry:
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
         assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
-    def getLibDocs(self):
+    def getLibDocs(self, lib=None):
         # Ensure type docs are loaded/verified.
         _ = self.getTypeDocs()
 
-        libs = self.iterLibs()
-        libs.sort(key=lambda x: x[0])
+        if lib is None:
+            libs = self.iterLibs()
+            libs.sort(key=lambda x: x[0])
+        else:
+            libs = ((lib._storm_lib_path, lib),)
+
         docs = []
         for (sname, slib) in libs:
             sname = slib.__class__.__name__
@@ -288,7 +292,10 @@ class StormTypesRegistry:
 
         return docs
 
-    def getTypeDocs(self):
+    def getTypeDocs(self, styp=None):
+
+        if styp is None:
+            pass
 
         types = self.iterTypes()
         types.sort(key=lambda x: x[1]._storm_typename)

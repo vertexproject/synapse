@@ -3545,6 +3545,20 @@ class StormTest(s_t_utils.SynTest):
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
 
+            msgs = await core.stormlist('help $lib.macro')
+            # for m in msgs:
+            #     if m[0] == 'print':
+            #         print(m[1].get('mesg'))
+            #     else:
+            #         print(m)
+
+            msgs = await core.stormlist('$list=() help $list')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 

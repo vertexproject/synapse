@@ -21,7 +21,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
-import synapse.lib.scrape as s_scrape
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
@@ -3024,6 +3024,20 @@ class HelpCmd(Cmd):
         async for item in genr:
             yield item
 
+        await runt.printf(f'{self.opts.command=} {type(self.opts.command)}')
+        if isinstance(self.opts.command, s_stormtypes.Lib):
+            await self._handleLibHelp(self.opts.command, runt)
+            return
+
+        # Handle $lib.inet.http.get
+        # Handle $lib.inet.http
+        # if isinstance(self.opts.command, method):
+        #     await self._handleBoundMethod(self.opts.command, runt)
+
+        if isinstance(self.opts.command, s_stormtypes.Prim):
+            await self._handlePrimHelp(self.opts.command, runt)
+            return
+
         stormcmds = sorted(runt.snap.core.getStormCmds())
 
         if self.opts.command:
@@ -3080,6 +3094,26 @@ class HelpCmd(Cmd):
                 await runt.printf('')
 
             await runt.printf('For detailed help on any command, use <cmd> --help')
+
+    async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime):
+        print(lib)
+        await runt.printf(f'{lib=}')
+
+        libsinfo = s_stormtypes.registry.getLibDocs(lib)
+
+        page = s_autodoc.RstHelp()
+
+        s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                islib=True,
+                                known_types=s_stormtypes.registry.known_types,
+                                )
+        for line in page.lines:
+            await runt.printf(line)
+
+    async def _handlePrimHelp(self, prim: s_stormtypes.Prim, runt: Runtime):
+        print(prim)
+        await runt.printf(f'{prim=}')
+        pass
 
 class DiffCmd(Cmd):
     '''
