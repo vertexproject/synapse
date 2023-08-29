@@ -67,7 +67,7 @@ class Set(Spooled):
                 yield item
             return
 
-        for byts in self.slab.scanByKeys():
+        for byts in self.slab.scanKeys():
             yield s_msgpack.un(byts)
 
     def __contains__(self, valu):
