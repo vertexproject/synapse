@@ -6,6 +6,31 @@
 Synapse Changelog
 *****************
 
+v2.146.0 - 2023-08-29
+=====================
+
+Features and Enhancements
+-------------------------
+- Update Storm ``graph`` projection to only include edges between nodes in the
+  result set and include a `"reverse": true` in the edge info when embedding
+  an edge on its target node once it is yielded.
+  (`#3305 <https://github.com/vertexproject/synapse/pull/3305>`_)
+- Map the Nexus LMDB slab with ``map_async=True`` by default.
+  (`#3314 <https://github.com/vertexproject/synapse/pull/3314>`_)
+- Mark the Storm ``macro.exec`` as a ``readonly`` safe command. Mark the
+  Storm APIs ``$lib.macro.list()`` and ``$lib.macro.get()`` as ``readonly``
+  safe. Mark the ``str`` APIs as ``readonly`` safe.
+  (`#3316 <https://github.com/vertexproject/synapse/pull/3316>`_)
+
+Bugfixes
+--------
+- Fix an issue where Layer data migrations failed when a layer was marked
+  as ``readonly``.
+  (`#3313 <https://github.com/vertexproject/synapse/pull/3313>`_)
+- Fix an issue where utility functions for packed nodes in
+  ``synapse.lib.node`` did not handle nodes from HTTP API endpoints.
+  (`#3315 <https://github.com/vertexproject/synapse/pull/3315>`_)
+
 v2.145.0 - 2023-08-25
 =====================
 
