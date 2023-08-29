@@ -18,6 +18,7 @@ class SpooledTest(s_test.SynTest):
 
             await sset.add(10)
             self.len(1, sset)
+            self.true(sset.has(10))
 
             sset.discard(10)
             self.false(10 in sset)
@@ -40,6 +41,7 @@ class SpooledTest(s_test.SynTest):
             self.nn(sset.slab)
             self.true(sset.fallback)
 
+            self.true(sset.has(10))
             self.eq((10, 20, 30, None), [x async for x in sset])
 
             self.true(10 in sset)
