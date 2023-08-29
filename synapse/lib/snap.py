@@ -774,7 +774,7 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
-            genr = self.view.liftByFormValu(prop.name, cmprvals)
+            genr = self.view.liftByFormValu(prop.name, cmprvals, reverse=reverse)
 
         elif prop.isuniv:
             genr = self.view.liftByPropValu(None, prop.name, cmprvals, reverse=reverse)

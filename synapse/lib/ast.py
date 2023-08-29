@@ -568,7 +568,7 @@ class SubGraph:
 
                 for n2node, n2path in nodepaths.values():
                     await asyncio.sleep(0)
-                    async for n1nid, verb, n2nid in runt.snap.iterNodeEdgesN1N2(node.nid, n2node.nid):
+                    async for verb in runt.snap.iterNodeEdgesN1N2(node.nid, n2node.nid):
                         n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
                         edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 

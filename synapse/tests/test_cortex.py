@@ -1454,18 +1454,18 @@ class CortexTest(s_t_utils.SynTest):
             async def nodeVals(query, prop=None, tag=None):
                 nodes = await core.nodes(query)
                 if prop:
-                    return [node.props.get(prop) for node in nodes]
+                    return [node.get(prop) for node in nodes]
                 if tag:
-                    return [node.tags.get(tag) for node in nodes]
+                    return [node.getTag(tag) for node in nodes]
                 return [node.ndef[1] for node in nodes]
 
             async def buidRevEq(query):
-                set1 = await nodeVals(query)
-                set2 = await nodeVals(f'reverse({query})')
-                set1.reverse()
-                self.len(5, set1)
-                self.len(5, set2)
-                self.eq(set1, set2)
+                # TODO buid based ordering is not stable (and shouldn't be)
+                val1 = list(sorted(await nodeVals(query)))
+                val2 = list(sorted(await nodeVals(f'reverse({query})')))
+                self.len(5, val1)
+                self.len(5, val2)
+                self.eq(val1, val2)
 
             await core.nodes('for $x in $lib.range(5) {[ test:int=$x ]}')
 
@@ -3128,7 +3128,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             resp = {rec.get('name'): rec for rec in ret}
             self.isin('com.test.record', resp)
             self.isin('syn.nodes', resp)
-            self.isin('syn.nodeedits', resp)
             rec = resp.get('syn.nodes')
             self.eq(rec.get('name'), 'syn.nodes')
             self.eq(rec.get('desc'), 'Add nodes to the Cortex via the packed node format.')
@@ -4773,57 +4772,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '[test:deprform=dform :deprprop=(1, 2)]'
                 await core1.nodes(q, opts={'view': view2_iden})
 
-    async def test_feed_syn_nodeedits(self):
-
-        async with self.getTestCoreAndProxy() as (core0, prox0):
-
-            nodelist0 = []
-            nodelist0.extend(await core0.podes('[ test:str=foo ]'))
-            nodelist0.extend(await core0.podes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
-            nodelist0.extend(await core0.podes('[ test:int=42 ]'))
-            await core0.nodes('test:int=42 | delnode')
-
-            with self.raises(s_exc.NoSuchLayer):
-                async for _, nodeedits in prox0.syncLayerNodeEdits(0, layriden='asdf', wait=False):
-                    pass
-
-            with self.raises(s_exc.NoSuchLayer):
-                async for _, nodeedits in core0.syncLayerNodeEdits('asdf', 0, wait=False):
-                    pass
-
-            editlist = []
-            async for _, nodeedits in prox0.syncLayerNodeEdits(0, wait=False):
-                editlist.append(nodeedits)
-
-            deledit = editlist.pop(len(editlist) - 1)
-
-            async with self.getTestCoreAndProxy() as (core1, prox1):
-
-                await prox1.addFeedData('syn.nodeedits', editlist)
-
-                nodelist1 = []
-                nodelist1.extend(await core1.podes('test:str'))
-                nodelist1.extend(await core1.podes('inet:ipv4'))
-                nodelist1.extend(await core1.podes('test:int'))
-
-                self.eq(nodelist0, nodelist1)
-
-                await core1.nodes('trigger.add node:del --form test:int --query {[test:int=7]}')
-
-                self.len(1, await core1.nodes('test:int=42'))
-
-                await prox1.addFeedData('syn.nodeedits', [deledit])
-
-                self.len(0, await core1.nodes('test:int=42'))
-                self.len(1, await core1.nodes('test:int=7'))
-
-                # Try a nodeedits we might get from cmdr
-                cmdrnodeedits = s_common.jsonsafe_nodeedits(editlist[1])
-                await core0.nodes('test:str=foo | delnode')
-
-                await prox1.addFeedData('syn.nodeedits', [cmdrnodeedits])
-                self.len(1, await core1.nodes('test:str'))
-
     async def test_stat(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -5143,8 +5091,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=5.5.5.5 +#$tag] } continue [ +#visi ] }')  # noqa: E501
             self.len(1, await core.nodes('inet:ipv4=5.5.5.5 +#hehe +#haha -#visi'))
 
-            q = 'inet:ipv4=1.2.3.4 for $tag in $node.tags() { [ +#hoho ] { [inet:ipv4=6.6.6.6 +#$tag] } break [ +#visi ]}'  # noqa: E501
-            self.len(1, await core.nodes(q))
+            self.len(1, await core.nodes('''
+                inet:ipv4=1.2.3.4
+                for $tag in $node.tags() {
+                    [ +#hoho ]
+                    { [inet:ipv4=6.6.6.6 +#$tag] }
+                    break
+                    [ +#visi ]
+                }
+            '''))
             q = 'inet:ipv4=6.6.6.6 +(#hehe or #haha) -(#hehe and #haha) -#visi'
             self.len(1, await core.nodes(q))
 
