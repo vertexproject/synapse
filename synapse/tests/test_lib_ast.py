@@ -2545,4 +2545,7 @@ class AstTest(s_test.SynTest):
 
             msgs = await core.stormlist('media:news', opts={'graph': {'pivots': ('--> *',)}})
             nodes = [m[1] for m in msgs if m[0] == 'node']
-            self.len(1, nodes[0][1]['path']['edges'])
+            # none yet...
+            self.len(0, nodes[0][1]['path']['edges'])
+            # one for the refs edge (via doedges) and one for the rule..
+            self.len(2, nodes[1][1]['path']['edges'])

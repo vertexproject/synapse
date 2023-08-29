@@ -464,6 +464,7 @@ class SubGraph:
             done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
             # load the existing graph as already done
             [await results.add(s_common.uhex(b)) for b in existing]
@@ -504,12 +505,17 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                edges = []
+                edges = list(revpivs.get(node.buid, defv=()))
                 async for pivn, pivp, pinfo in self.pivots(runt, node, path):
 
                     await asyncio.sleep(0)
 
-                    edges.append((pivn.iden(), pinfo))
+                    if results.has(pivn.buid):
+                        edges.append((pivn.iden(), pinfo))
+                    else:
+                        pinfo['reverse'] = True
+                        pivedges = revpivs.get(pivn.buid, defv=())
+                        await revpivs.set(pivn.buid, pivedges + ((pivn.iden(), pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:

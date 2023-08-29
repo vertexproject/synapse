@@ -99,6 +99,11 @@ class Set(Spooled):
             self.len = len(self.realset)
             self.realset.clear()
 
+    def has(self, key):
+        if self.fallback:
+            return self.slab.has(s_msgpack.en(key))
+        return key in self.realset
+
     def discard(self, valu):
 
         if self.fallback:
