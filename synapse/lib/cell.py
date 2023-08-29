@@ -880,8 +880,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
         },
         'nexslog:async': {
-            'default': False,
-            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'default': True,
+            'description': 'Set to false to disable async memory mapping of the nexus change log.',
             'type': 'boolean',
             'hidedocs': True,
             'hidecmdl': True,
