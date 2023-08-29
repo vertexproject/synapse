@@ -1459,7 +1459,7 @@ class Layer(s_nexus.Pusher):
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot)
 
         self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
-        self.readonly = layrinfo.get('readonly')
+        self.readonly = False
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
@@ -1551,6 +1551,14 @@ class Layer(s_nexus.Pusher):
         self.leadtask = None
         self.ismirror = layrinfo.get('mirror') is not None
         self.activetasks = []
+
+        # this must be last!
+        self.readonly = layrinfo.get('readonly')
+
+    def _reqNotReadOnly(self):
+        if self.readonly and not self.core.migration:
+            mesg = f'Layer {self.iden} is read only!'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
     @contextlib.contextmanager
     def getIdenFutu(self, iden=None):
@@ -2064,13 +2072,17 @@ class Layer(s_nexus.Pusher):
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
-    @s_nexus.Pusher.onPushAuto('layer:truncate')
     async def truncate(self):
+        self._reqNotReadOnly()
+        return await self._push('layer:truncate')
+
+    @s_nexus.Pusher.onPush('layer:truncate')
+    async def _truncate(self):
         '''
         Nuke all the contents in the layer, leaving an empty layer
         NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
-        s_common.deprecated('Layer.truncate')
+        s_common.deprdate('Layer.truncate() API', s_common._splicedepr)
 
         self.dirty.clear()
         self.buidcache.clear()
@@ -2737,14 +2749,6 @@ class Layer(s_nexus.Pusher):
         if self.fresh:
             self.meta.set('version', 10)
 
-        if self.readonly:
-            await self.layrslab.fini()
-            await self.dataslab.fini()
-            await self.nodeeditslab.fini()
-
-            slabopts['readonly'] = True
-            await self._initSlabs(slabopts)
-
         self.layrslab.addResizeCallback(self.core.checkFreeSpace)
         self.dataslab.addResizeCallback(self.core.checkFreeSpace)
         self.nodeeditslab.addResizeCallback(self.core.checkFreeSpace)
@@ -2789,8 +2793,12 @@ class Layer(s_nexus.Pusher):
         realsize, _ = s_common.getDirSize(self.dirn)
         return realsize
 
-    @s_nexus.Pusher.onPushAuto('layer:set')
     async def setLayerInfo(self, name, valu):
+        self._reqNotReadOnly()
+        return await self._push('layer:set', name, valu)
+
+    @s_nexus.Pusher.onPush('layer:set')
+    async def _setLayerInfo(self, name, valu):
         '''
         Set a mutable layer property.
         '''
@@ -3128,6 +3136,8 @@ class Layer(s_nexus.Pusher):
 
         Note: nexsoffs will be None if there are no changes.
         '''
+        self._reqNotReadOnly()
+
         if self.ismirror:
 
             if self.core.isactive:
@@ -3235,6 +3245,7 @@ class Layer(s_nexus.Pusher):
 
         Does not return the updated nodes.
         '''
+        self._reqNotReadOnly()
         await self._push('edits', nodeedits, meta)
 
     async def _editNodeAdd(self, buid, form, edit, sode, meta):
@@ -4125,7 +4136,8 @@ class Layer(s_nexus.Pusher):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
     async def setModelVers(self, vers):
-        await self._push('layer:set:modelvers', vers)
+        self._reqNotReadOnly()
+        return await self._push('layer:set:modelvers', vers)
 
     @s_nexus.Pusher.onPush('layer:set:modelvers')
     async def _setModelVers(self, vers):
@@ -4146,7 +4158,6 @@ class Layer(s_nexus.Pusher):
         '''
         Return a *COPY* of the storage node (or an empty default dict).
         '''
-        sode = self._getStorNode(nid)
         if sode is not None:
             return deepcopy(sode)
         return collections.defaultdict(dict)

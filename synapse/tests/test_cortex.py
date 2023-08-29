@@ -367,6 +367,8 @@ class CortexTest(s_t_utils.SynTest):
                 await core00.nodes('trigger.add node:del --form inet:fqdn --query {[test:str=foo]}', opts=view00opts)
 
                 await core01.nodes('inet:fqdn=vertex.link | delnode', opts=view01opts)
+
+                await core00.sync()
                 self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
                 self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 

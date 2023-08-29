@@ -4275,12 +4275,10 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        s_common.deprecated('storm command: sudo')
 
-        mesg = 'Sudo is deprecated and does nothing in ' \
-               '2.x.x and will be removed in 3.0.0.'
+        s_common.deprdate('storm command: sudo', s_common._splicedepr)
 
-        await runt.snap.warn(mesg)
+        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common._splicedepr}')
         async for node, path in genr:
             yield node, path
 
