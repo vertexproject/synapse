@@ -3960,6 +3960,7 @@ class Str(Prim):
             return str(self) == str(othr)
         return False
 
+    @stormfunc(readonly=True)
     async def _methStrFind(self, valu):
         text = await tostr(valu)
         retn = self.valu.find(text)
@@ -3967,63 +3968,80 @@ class Str(Prim):
             retn = None
         return retn
 
+    @stormfunc(readonly=True)
     async def _methStrFormat(self, **kwargs):
         text = await kwarg_format(self.valu, **kwargs)
         return text
 
+    @stormfunc(readonly=True)
     async def _methStrSize(self):
         return len(self.valu)
 
+    @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
+    @stormfunc(readonly=True)
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
         return self.valu.split(text, maxsplit=maxsplit)
 
+    @stormfunc(readonly=True)
     async def _methStrRsplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
         return self.valu.rsplit(text, maxsplit=maxsplit)
 
+    @stormfunc(readonly=True)
     async def _methStrEndswith(self, text):
         return self.valu.endswith(text)
 
+    @stormfunc(readonly=True)
     async def _methStrStartswith(self, text):
         return self.valu.startswith(text)
 
+    @stormfunc(readonly=True)
     async def _methStrRjust(self, size, fillchar=' '):
         return self.valu.rjust(await toint(size), await tostr(fillchar))
 
+    @stormfunc(readonly=True)
     async def _methStrLjust(self, size, fillchar=' '):
         return self.valu.ljust(await toint(size), await tostr(fillchar))
 
+    @stormfunc(readonly=True)
     async def _methStrReplace(self, oldv, newv, maxv=None):
         if maxv is None:
             return self.valu.replace(oldv, newv)
         else:
             return self.valu.replace(oldv, newv, int(maxv))
 
+    @stormfunc(readonly=True)
     async def _methStrStrip(self, chars=None):
         return self.valu.strip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrLstrip(self, chars=None):
         return self.valu.lstrip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrRstrip(self, chars=None):
         return self.valu.rstrip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrLower(self):
         return self.valu.lower()
 
+    @stormfunc(readonly=True)
     async def _methStrUpper(self):
         return self.valu.upper()
 
+    @stormfunc(readonly=True)
     async def _methStrTitle(self):
         return self.valu.title()
 
+    @stormfunc(readonly=True)
     async def _methStrSlice(self, start, end=None):
         start = await toint(start)
 
@@ -4033,6 +4051,7 @@ class Str(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
+    @stormfunc(readonly=True)
     async def _methStrReverse(self):
         return self.valu[::-1]
 
