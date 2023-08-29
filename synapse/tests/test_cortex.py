@@ -3027,10 +3027,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             for node in nodes:
                 if node[0][0] == 'inet:dns:a':
-                    edges = node[1]['path']['edges']
-                    idens = list(sorted(e[0] for e in edges))
-                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                                    'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
+                    self.len(0, node[1]['path']['edges'])
+                elif node[0][0] == 'inet:ipv4':
+                    self.eq(node[1]['path']['edges'], (
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'ipv4', 'reverse': True}),
+                    ))
+                elif node[0] == ('inet:fqdn', 'woot.com'):
+                    self.eq(node[1]['path']['edges'], (
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                    ))
 
             await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
 
@@ -3038,13 +3043,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(3, nodes)
-            self.eq(nodes[0][0][0], 'edge:refs')
-            edges = nodes[0][1]['path']['edges']
-            idens = list(sorted(e[0] for e in edges))
-            self.eq(idens, (
-                '2ff879e667e9cca52f1c78485f7864c4c5a242c67d4b90105210dde8edf3c068',
-                '979b56497b5fd75813676738172c2f435aee3e4bdcf43930843eba5b34bb06fc',
-            ))
+            self.len(0, nodes[0][1]['path']['edges'])
+            self.len(1, nodes[1][1]['path']['edges'])
+            self.len(1, nodes[2][1]['path']['edges'])
 
     async def test_onadd(self):
         arg_hit = {}
