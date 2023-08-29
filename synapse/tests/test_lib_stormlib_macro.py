@@ -294,3 +294,29 @@ class MacroTest(s_test.SynTest):
             await visi.addRule((True, ('storm', 'macro', 'admin')))
             msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
             self.stormHasNoWarnErr(msgs)
+
+    async def test_stormlib_macro_readonly(self):
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('macro.set print { $lib.print("macro has words") }')
+            self.stormHasNoWarnErr(msgs)
+            msgs = await core.stormlist('macro.set node { [test:guid=*] }')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('macro.exec print', opts={'readonly': True})
+            self.stormIsInPrint('macro has words', msgs)
+
+            msgs = await core.stormlist('macro.exec node', opts={'readonly': True})
+            self.stormIsInErr('runtime is in readonly mode', msgs)
+            self.len(0, await core.nodes('test:guid'))
+
+            msgs = await core.stormlist('macro.list', opts={'readonly': True})
+            self.stormIsInPrint('node', msgs)
+            self.stormIsInPrint('print', msgs)
+            msgs = await core.stormlist('macro.get print', opts={'readonly': True})
+            self.stormIsInPrint('$lib.print("macro', msgs)
+
+            msgs = await core.stormlist('macro.set newp { }', opts={'readonly': True})
+            self.stormIsInErr('not marked readonly safe', msgs)
+
+            msgs = await core.stormlist('macro.del print', opts={'readonly': True})
+            self.stormIsInErr('not marked readonly safe', msgs)
