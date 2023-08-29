@@ -13,13 +13,13 @@ Features and Enhancements
 -------------------------
 - Update Storm ``graph`` projection to only include edges between nodes in the
   result set and include a `"reverse": true` in the edge info when embedding
-  an edge on it's target node once it is yielded.
+  an edge on its target node once it is yielded.
   (`#3305 <https://github.com/vertexproject/synapse/pull/3305>`_)
 - Map the Nexus LMDB slab with ``map_async=True`` by default.
   (`#3314 <https://github.com/vertexproject/synapse/pull/3314>`_)
 - Mark the Storm ``macro.exec`` as a ``readonly`` safe command. Mark the
-  Storm APIs ``$lib.macro.list()`` and ``$lib.macro.get()`` as ``readonly``.
-  Mark the ``str`` APIs as ``readonly`` safe.
+  Storm APIs ``$lib.macro.list()`` and ``$lib.macro.get()`` as ``readonly``
+  safe. Mark the ``str`` APIs as ``readonly`` safe.
   (`#3316 <https://github.com/vertexproject/synapse/pull/3316>`_)
 
 Bugfixes
