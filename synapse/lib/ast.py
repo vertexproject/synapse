@@ -515,7 +515,7 @@ class SubGraph:
                     else:
                         pinfo['reverse'] = True
                         pivedges = revpivs.get(pivn.buid, defv=())
-                        await revpivs.set(pivn.buid, pivedges + ((pivn.iden(), pinfo),))
+                        await revpivs.set(pivn.buid, pivedges + ((node.iden(), pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:

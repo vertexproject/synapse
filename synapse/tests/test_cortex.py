@@ -3030,11 +3030,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(0, node[1]['path']['edges'])
                 elif node[0][0] == 'inet:ipv4':
                     self.eq(node[1]['path']['edges'], (
-                        ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f', {'type': 'prop', 'prop': 'ipv4', 'reverse': True}),
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'ipv4', 'reverse': True}),
                     ))
                 elif node[0] == ('inet:fqdn', 'woot.com'):
                     self.eq(node[1]['path']['edges'], (
-                        ('d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
                     ))
 
             await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
