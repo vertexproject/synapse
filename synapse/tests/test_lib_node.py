@@ -1,3 +1,4 @@
+import json
 import collections
 
 import synapse.exc as s_exc
@@ -190,7 +191,51 @@ class NodeTest(s_t_utils.SynTest):
                 self.false(await node.pop('nope'))
                 snap.strict = True
 
-    async def test_helpers(self):
+    async def test_node_helpers(self):
+
+        def _test_pode(strpode, intpode):
+            self.eq(s_node.ndef(strpode), ('test:str', 'cool'))
+            self.eq(s_node.reprNdef(strpode), ('test:str', 'cool'))
+            self.eq(s_node.ndef(intpode), ('test:int', 1234))
+            self.eq(s_node.reprNdef(intpode), ('test:int', '1234'))
+
+            e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
+            self.eq(s_node.iden(strpode), e)
+
+            self.true(s_node.tagged(strpode, 'test'))
+            self.true(s_node.tagged(strpode, '#test.foo.bar'))
+            self.true(s_node.tagged(strpode, 'test.foo.bar.duck'))
+            self.false(s_node.tagged(strpode, 'test.foo.bar.newp'))
+
+            self.len(3, s_node.tags(strpode, leaf=True))
+            self.len(5, s_node.tagsnice(strpode))
+            self.len(6, s_node.tags(strpode))
+            self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
+            self.none(s_node.reprTag(strpode, 'test.foo.newp'))
+
+            self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
+            self.eq(s_node.prop(strpode, 'tick'), 12345)
+            self.eq(s_node.prop(strpode, ':tick'), 12345)
+            self.eq(s_node.prop(strpode, 'test:str:tick'), 12345)
+            self.none(s_node.prop(strpode, 'newp'))
+
+            self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
+            self.eq(s_node.reprProp(strpode, 'tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, ':tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970/01/01 00:00:12.345')
+            self.none(s_node.reprProp(strpode, 'newp'))
+
+            self.eq(s_node.reprTagProps(strpode, 'test'),
+                    [('note', 'words'), ('score', '0')])
+            self.eq(s_node.reprTagProps(strpode, 'newp'), [])
+            self.eq(s_node.reprTagProps(strpode, 'test.foo'), [])
+
+            props = s_node.props(strpode)
+            self.isin('.created', props)
+            self.isin('tick', props)
+            self.notin('newp', props)
+
         form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345,
@@ -215,47 +260,45 @@ class NodeTest(s_t_utils.SynTest):
                 node2 = await snap.addNode('test:int', '1234')
                 pode2 = node2.pack(dorepr=True)
 
-        self.eq(s_node.ndef(pode), ('test:str', 'cool'))
-        self.eq(s_node.reprNdef(pode), ('test:str', 'cool'))
-        self.eq(s_node.ndef(pode2), ('test:int', 1234))
-        self.eq(s_node.reprNdef(pode2), ('test:int', '1234'))
+            _test_pode(strpode=pode, intpode=pode2)
 
-        e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
-        self.eq(s_node.iden(pode), e)
+            # Now get those packed nodes via Telepath
+            async with core.getLocalProxy() as prox:
+                telepath_nodes = []
+                async for m in prox.storm('test:str=cool test:int=1234',
+                                          opts={'repr': True}):
+                    if m[0] == 'node':
+                        telepath_nodes.append(m[1])
+                self.len(2, telepath_nodes)
+                telepath_pode = [n for n in telepath_nodes if n[0][0] == 'test:str'][0]
+                telepath_pode2 = [n for n in telepath_nodes if n[0][0] == 'test:int'][0]
+                _test_pode(strpode=telepath_pode, intpode=telepath_pode2)
 
-        self.true(s_node.tagged(pode, 'test'))
-        self.true(s_node.tagged(pode, '#test.foo.bar'))
-        self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
-        self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
+            # Now get those packed nodes via HTTPAPI
+            self.none(await core.callStorm('return($lib.auth.users.byname(root).setPasswd(root))'))
+            _, port = await core.addHttpsPort(0, host='127.0.0.1')
+            https_nodes = []
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'root', 'passwd': 'root'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('root', retn['result']['name'])
 
-        self.len(3, s_node.tags(pode, leaf=True))
-        self.len(5, s_node.tagsnice(pode))
-        self.len(6, s_node.tags(pode))
-        self.eq(s_node.reprTag(pode, '#test.foo.bar'), '')
-        self.eq(s_node.reprTag(pode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
-        self.none(s_node.reprTag(pode, 'test.foo.newp'))
+                body = {'query': 'test:str=cool test:int=1234',
+                        'opts': {'repr': True}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+                    async for byts, x in resp.content.iter_chunks():
+                        if not byts:
+                            break
+                        mesg = json.loads(byts)
+                        if mesg[0] == 'node':
+                            https_nodes.append(mesg[1])
 
-        self.eq(s_node.prop(pode, 'hehe'), 'hehe')
-        self.eq(s_node.prop(pode, 'tick'), 12345)
-        self.eq(s_node.prop(pode, ':tick'), 12345)
-        self.eq(s_node.prop(pode, 'test:str:tick'), 12345)
-        self.none(s_node.prop(pode, 'newp'))
-
-        self.eq(s_node.reprProp(pode, 'hehe'), 'hehe')
-        self.eq(s_node.reprProp(pode, 'tick'), '1970/01/01 00:00:12.345')
-        self.eq(s_node.reprProp(pode, ':tick'), '1970/01/01 00:00:12.345')
-        self.eq(s_node.reprProp(pode, 'test:str:tick'), '1970/01/01 00:00:12.345')
-        self.none(s_node.reprProp(pode, 'newp'))
-
-        self.eq(s_node.reprTagProps(pode, 'test'),
-                [('note', 'words'), ('score', '0')])
-        self.eq(s_node.reprTagProps(pode, 'newp'), [])
-        self.eq(s_node.reprTagProps(pode, 'test.foo'), [])
-
-        props = s_node.props(pode)
-        self.isin('.created', props)
-        self.isin('tick', props)
-        self.notin('newp', props)
+            self.len(2, https_nodes)
+            http_pode = [n for n in https_nodes if n[0][0] == 'test:str'][0]
+            http_pode2 = [n for n in https_nodes if n[0][0] == 'test:int'][0]
+            _test_pode(strpode=http_pode, intpode=http_pode2)
 
     async def test_storm(self):
 
