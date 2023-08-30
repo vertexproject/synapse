@@ -186,7 +186,7 @@ class StormTypesRegistry:
 
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
-        funcname = rtype.pop('_funcname')
+        funcname = rtype.get('_funcname')
         if funcname == '_storm_query':
             # Sentinel used for future validation of pure storm
             # functions defined in _storm_query data.
@@ -292,13 +292,12 @@ class StormTypesRegistry:
 
         return docs
 
-    def getTypeDocs(self, styp=None):
-
+    def getTypeDocs(self, styp: str =None):
         if styp is None:
-            pass
-
-        types = self.iterTypes()
-        types.sort(key=lambda x: x[1]._storm_typename)
+            types = self.iterTypes()
+            types.sort(key=lambda x: x[1]._storm_typename)
+        else:
+            types = [(k, v) for (k, v) in self.iterTypes() if styp == v._storm_typename]
 
         docs = []
         for (sname, styp) in types:

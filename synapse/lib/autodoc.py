@@ -22,6 +22,8 @@ stormtype_doc_schema = {
             'type': ['string', 'array', 'object'],
             'items': {'type': 'string'},
             'properties': {
+                '_funcname': {'type': 'string',
+                              'description': 'The name of the python function implementing the method.'},
                 'name': {'type': 'string',
                          'description': 'For a function argument, the name of the argument.'},
                 'desc': {'type': 'string',

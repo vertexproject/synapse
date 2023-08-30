@@ -3546,13 +3546,48 @@ class StormTest(s_t_utils.SynTest):
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
 
             msgs = await core.stormlist('help $lib.macro')
-            # for m in msgs:
-            #     if m[0] == 'print':
-            #         print(m[1].get('mesg'))
-            #     else:
-            #         print(m)
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
 
-            msgs = await core.stormlist('$list=() help $list')
+            msgs = await core.stormlist('help list')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            msgs = await core.stormlist('help $lib.regex')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            msgs = await core.stormlist('help $lib.inet.http.get')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            msgs = await core.stormlist('$str=hehe help $str.split')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            msgs = await core.stormlist('help $lib.gen.orgByName')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            msgs = await core.stormlist('function f(){} help $f')
             for m in msgs:
                 if m[0] == 'print':
                     print(m[1].get('mesg'))
