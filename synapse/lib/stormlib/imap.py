@@ -184,6 +184,8 @@ class ImapServer(s_stormtypes.StormType):
                 'args': (
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
+                    {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
+                     'desc': 'The CHARSET used for the search. May be set to $lib.null to disable CHARSET.'},
                 ),
                 'returns': {
                     'type': 'list',
@@ -315,10 +317,10 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, None
 
-    async def search(self, *args):
+    async def search(self, *args, charset='utf-8'):
         args = [await s_stormtypes.tostr(arg) for arg in args]
-
-        coro = self.imap_cli.uid_search(*args)
+        charset = await s_stormtypes.tostr(charset, noneok=True)
+        coro = self.imap_cli.uid_search(*args, charset=charset)
         data = await run_imap_coro(coro)
 
         uids = data[0].decode().split(' ') if data[0] else []
