@@ -1256,46 +1256,30 @@ class _Timeout:
         self._task = None
         self._when = when
 
-    def when(self):
-        """Return the current deadline."""
-        return self._when
-
     def reschedule(self, when):
         """Reschedule the timeout."""
         assert self._state is not _State.CREATED
-        if self._state is not _State.ENTERED:
+        if self._state is not _State.ENTERED:  # pragma: no cover
             raise RuntimeError(
                 f"Cannot change state of {self._state.value} Timeout",
             )
         self._when = when
         if self._timeout_handler is not None:
             self._timeout_handler.cancel()
-        if when is None:
+        if when is None:  # pragma: no cover
             self._timeout_handler = None
         else:
             loop = asyncio.get_running_loop()
-            if when <= loop.time():
+            if when <= loop.time():  # pragma: no cover
                 self._timeout_handler = loop.call_soon(self._on_timeout)
             else:
                 self._timeout_handler = loop.call_at(when, self._on_timeout)
-
-    def expired(self) -> bool:
-        """Is timeout expired during execution?"""
-        return self._state in (_State.EXPIRING, _State.EXPIRED)
-
-    def __repr__(self) -> str:
-        info = ['']
-        if self._state is _State.ENTERED:
-            when = round(self._when, 3) if self._when is not None else None
-            info.append(f"when={when}")
-        info_str = ' '.join(info)
-        return f"<Timeout [{self._state.value}]{info_str}>"
 
     async def __aenter__(self):
         self._state = _State.ENTERED
         self._task = asyncio.current_task()
         self._cancelling = self._task.cancelling()
-        if self._task is None:
+        if self._task is None:  # pragma: no cover
             raise RuntimeError("Timeout should be used inside a task")
         self.reschedule(self._when)
         return self
