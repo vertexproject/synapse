@@ -1234,7 +1234,6 @@ async def _cancel_and_wait(fut):
         fut.remove_done_callback(cb)
 
 
-# TODO: Remove when base images include py 3.11.3+
 class _State(enum.Enum):
     CREATED = "created"
     ENTERED = "active"
@@ -1266,9 +1265,9 @@ class _Timeout:
                 f"Cannot change state of {self._state.value} Timeout",
             )
         self._when = when
-        if self._timeout_handler is not None:
+        if self._timeout_handler is not None:  # pragma: no cover
             self._timeout_handler.cancel()
-        if when is None:  # pragma: no cover
+        if when is None:
             self._timeout_handler = None
         else:
             loop = asyncio.get_running_loop()
