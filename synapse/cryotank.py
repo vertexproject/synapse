@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 class TankApi(s_cell.CellApi):
 
-    async def slice(self, offs, size=None, wait=False, timeout=None, iden=None):
-        async for item in self.cell.slice(offs, size=size, wait=wait, timeout=timeout, iden=iden):
+    async def slice(self, offs, size=None, iden=None, wait=False, timeout=None):
+        async for item in self.cell.slice(offs, size=size, iden=iden, wait=wait, timeout=timeout):
             yield item
 
     async def puts(self, items, seqn=None):
