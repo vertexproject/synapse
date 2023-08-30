@@ -1269,7 +1269,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (1, self._storUpdateMacros),
         ), nexs=False)
 
-        await self._initVaults()
+        self._initVaults()
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -6181,7 +6181,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def _initVaults(self):
+    def _initVaults(self):
         self.vaultsdb = self.slab.initdb('vaults')
         # { idenb: s_msgpack.en(vault), ... }
 
@@ -6199,13 +6199,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for idenb, byts in genr:
             yield s_msgpack.un(byts)
 
-    def _getVaultByIden(self, iden):
+    def _getVaultByIden(self, iden, throw=False):
         idenb = s_common.uhex(iden)
-        return self._getVaultByIdenb(idenb)
+        return self._getVaultByIdenb(idenb, throw=throw)
 
-    def _getVaultByIdenb(self, idenb):
+    def _getVaultByIdenb(self, idenb, throw=False):
         byts = self.slab.get(idenb, db=self.vaultsdb)
         if byts is None:
+            if throw:
+                iden = s_common.ehex(idenb)
+                raise s_exc.NoSuchIden(f'Vault not found for iden: {iden}')
             return None
 
         vault = s_msgpack.un(byts)
@@ -6285,7 +6288,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _setVaultTypeDefault(self, vtype, default):
         self.slab.put(vtype.encode(), s_msgpack.en(default), db=self.vaultdefaultsdb)
 
-    async def getVault(self, iden, user=None):
+    def getVaultByName(self, name, user=None):
+        if user is None:
+            user = self.auth.rootuser
+
+        vault = self._getVaultByName(name)
+
+        if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
+            return vault
+
+        if self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+            vault.pop('data')
+            return vault
+
+    def getVaultByIden(self, iden, user=None):
         '''
         Get a vault by `iden`.
 
@@ -6304,23 +6320,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        vault = self._getVaultByIden(iden)
-        if vault is None:
-            raise s_exc.NoSuchIden(mesg='Vault not found')
+        vault = self._getVaultByIden(iden, throw=True)
+        if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
+            return vault
 
-        self._reqEasyPerm(vault, user, s_cell.PERM_EDIT)
+        if self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+            vault.pop('data')
+            return vault
 
-        return vault
+        return None
 
-    async def getVaultForUser(self, iden, user):
-        vault = self._getVaultByIden(iden)
-        if vault is None:
-            raise s_exc.NoSuchIden(mesg='Vault not found')
-
-        self._reqEasyPerm(vault, user, s_cell.PERM_READ)
-        return vault
-
-    async def openVault(self, vtype, scope=None, user=None):
+    def openVault(self, vtype, scope=None, user=None):
         '''
         Open a vault of type `vtype` and scope `scope`.
 
@@ -6351,18 +6361,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def _getVault(_scope):
             vault = None
             if _scope == 'user':
-                vname = f'user:{user.name}:{vtype}'
+                vname = f'{vtype}:user:{user.name}'
                 vault = self._getVaultByName(vname)
 
             elif _scope == 'role':
                 for role in user.getRoles():
-                    vname = f'role:{role.name}:{vtype}'
+                    vname = f'{vtype}:role:{role.name}'
                     vault = self._getVaultByName(vname)
                     if vault:
                         break
 
             elif _scope == 'global':
-                vname = f'global::{vtype}'
+                vname = f'{vtype}:global'
                 vault = self._getVaultByName(vname)
 
             if vault:
@@ -6465,7 +6475,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if scope == 'global':
             user.confirm(('vaults', 'global', 'add'))
 
-            vname = f'global::{vtype}'
+            vname = f'{vtype}:global'
             ident = None
 
             # The creator is the admin, everyone else gets read access
@@ -6480,7 +6490,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = f'User {user.name} cannot create vaults for user {ident}'
                 raise s_exc.AuthDeny(mesg=mesg)
 
-            vname = f'user:{_user.name}:{vtype}'
+            vname = f'{vtype}:user:{_user.name}'
             ident = _user.iden
 
             # The user is the admin, everyone else is denied
@@ -6495,7 +6505,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mesg = f'User {user.name} cannot create vaults for role {ident}'
                 raise s_exc.AuthDeny(mesg=mesg)
 
-            vname = f'role:{role.name}:{vtype}'
+            vname = f'{vtype}:role:{role.name}'
             ident = role.iden
 
             # The creator is the admin, members of the role can edit, everyone else is denied
@@ -6538,9 +6548,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: None
         '''
-        vault = self._getVaultByIden(iden)
-        if vault is None:
-            raise s_exc.NoSuchIden(f'Vault not found: {iden}')
+        vault = self._getVaultByIden(iden, throw=True)
 
         if user is None:
             user = self.auth.rootuser
@@ -6555,7 +6563,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _setVaultData(self, iden, vault):
         self._setVault(iden, vault)
 
-    async def listVaults(self, user=None):
+    def listVaults(self, user=None):
         '''
         Yields vaults the user has access to.
 
@@ -6594,9 +6602,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: None
         '''
-        vault = self._getVaultByIden(iden)
-        if vault is None:
-            raise s_exc.NoSuchIden(f'Vault not found: {iden}')
+        vault = self._getVaultByIden(iden, throw=True)
 
         if user is None:
             user = self.auth.rootuser
