@@ -1233,6 +1233,8 @@ async def _cancel_and_wait(fut):
     finally:
         fut.remove_done_callback(cb)
 
+
+# TODO: Remove when base images include py 3.11.3+
 class _State(enum.Enum):
     CREATED = "created"
     ENTERED = "active"
