@@ -6183,104 +6183,69 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initVaults(self):
         self.vaultsdb = self.slab.initdb('vaults')
+        # { idenb: s_msgpack.en(vault), ... }
 
-        self.vaulttypes = {}
-        # { vtype: schema, ... }
+        self.vaultsbytypedb = self.slab.initdb('vaults:bytype', dupsort=True)
+        # { vtype.encode(): idenb, ... }
 
-        self.vaultsbyname = {}
-        # { name: vault, ... }
+        self.vaultsbynamedb = self.slab.initdb('vaults:byname')
+        # { name.encode(): idenb, ... }
 
-        self.vaultsbyiden = {}
-        # { iden: vault, ... }
+        self.vaultdefaultsdb = self.slab.initdb('vaults:defaults')
+        # { vtype.encode(): s_msgpack.en(default), ... }
 
-    async def addVaultType(self, vtype, vdef, user=None):
-        '''
-        Create a new vault type with a specified schema.
+    def _getVaults(self):
+        genr = self.slab.scanByFull(db=self.vaultsdb)
+        for idenb, byts in genr:
+            yield s_msgpack.un(byts)
 
-        Permissions: vaults.types.add
+    def _getVaultByIden(self, iden):
+        idenb = s_common.uhex(iden)
+        return self._getVaultByIdenb(idenb)
 
-        Args:
-            vtype (str): Name of the type to create.
-            vdef (dict): JSON schema to enforce on type data.
-            user (Optional[HiveUser]): User trying to create the type.
+    def _getVaultByIdenb(self, idenb):
+        byts = self.slab.get(idenb, db=self.vaultsdb)
+        if byts is None:
+            return None
 
-        Raises:
-            synapse.exc.BadArg:
-                - `vtype` is not a string.
-                - `vtype` already exists.
+        vault = s_msgpack.un(byts)
+        vault['iden'] = s_common.ehex(idenb)
 
-            synapse.exc.AuthDeny: `user` does not have permission to create types.
+        return vault
 
-        Returns: None
-        '''
-        if not isinstance(vtype, str):
-            raise s_exc.BadArg(mesg='Vault type invalid')
+    def _setVault(self, iden, vault):
+        idenb = s_common.uhex(iden)
+        name = vault.get('name')
+        vtype = vault.get('type')
 
-        vtype = vtype.lower()
+        self.slab.put(idenb, s_msgpack.en(vault), db=self.vaultsdb)
+        self.slab.put(name.encode(), idenb, db=self.vaultsbynamedb)
+        self.slab.put(vtype.encode(), idenb, db=self.vaultsbytypedb)
 
-        if vtype in self.vaulttypes:
-            raise s_exc.BadArg(mesg=f'Vault type {vtype} already exists')
+    def _getVaultByName(self, name):
+        idenb = self.slab.get(name.encode(), db=self.vaultsbynamedb)
+        if idenb is None:
+            return None
+        return self._getVaultByIdenb(idenb)
 
-        if user is None:
-            user = self.auth.rootuser
+    def _getVaultsByType(self, vtype):
+        genr = self.slab.scanByDups(vtype.encode(), db=self.vaultsbytypedb)
+        for _, idenb in genr:
+            yield self._getVaultByIdenb(idenb)
 
-        user.confirm(('vaults', 'types', 'add'))
+    def _delVaultByIden(self, iden):
+        idenb = s_common.uhex(iden)
+        vault = self._getVaultByIdenb(idenb)
 
-        # Make sure this parses as a valid jsschema
-        s_config.getJsValidator(vdef)
+        self.slab.delete(vault.get('type').encode(), idenb, db=self.vaultsbytypedb)
+        self.slab.delete(vault.get('name').encode(), db=self.vaultsbynamedb)
+        self.slab.delete(idenb, db=self.vaultsdb)
 
-        typeinfo = {'schema': vdef, 'default': None}
-
-        return await self._push('cortex:vault:type:add', vtype, typeinfo)
-
-    @s_nexus.Pusher.onPushAuto('cortex:vault:type:add')
-    async def _addVaultType(self, vtype, typeinfo):
-        self.vaulttypes[vtype] = typeinfo
-        return self.slab.put(vtype.encode(), s_msgpack.en(typeinfo), db=self.vaultsdb)
-
-    async def delVaultType(self, vtype, user=None):
-        '''
-        Delete a vault type with a specified schema.
-
-        Permissions: vaults.types.del
-
-        Args:
-            vtype (str): Name of the type to delete.
-            user (Optional[HiveUser]): User trying to delete the type.
-
-        Raises:
-            synapse.exc.BadArg:
-                - `vtype` does not exist.
-                - `vtype` is in use.
-
-            synapse.exc.AuthDeny: `user` does not have permission to delete types.
-
-        Returns: None
-        '''
-        if vtype not in self.vaulttypes:
-            raise s_exc.BadArg(mesg=f'Vault type {vtype} not found')
-
-        if user is None:
-            user = self.auth.rootuser
-
-        user.confirm(('vaults', 'types', 'del'))
-
-        for vault in self.vaultsbyiden.values():
-            if vault.get('type') == vtype:
-                raise s_exc.BadArg(mesg=f'Cannot delete in-use vault type {vtype}')
-
-        return await self._push('cortex:vault:type:del', vtype)
-
-    @s_nexus.Pusher.onPushAuto('cortex:vault:type:del')
-    async def _delVaultType(self, vtype):
-        self.vaulttypes.pop(vtype)
-        self.slab.delete(vtype.encode(), db=self.vaultsdb)
-
-    async def setVaultTypeDefault(self, vtype, default, user=None):
+    async def setVaultDefault(self, vtype, default, user=None):
         '''
         Set a default scope for a vault type.
 
-        Permissions: vaults.types.set
+        Permissions: vaults.set
 
         Args:
             vtype (str): Name of the type to set.
@@ -6297,23 +6262,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: None
         '''
-        if vtype not in self.vaulttypes:
-            raise s_exc.BadArg(mesg=f'Vault type {vtype} not found')
-
         if default not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid default value: {default})')
 
         if user is None:
             user = self.auth.rootuser
 
-        user.confirm(('vaults', 'types', 'set'))
+        user.confirm(('vaults', 'set'))
 
         if default is not None:
             # Scan for a vault of this specified type with the specified scope
-            for _, vault in self.vaultsbyiden.items():
-                if vault.get('type') != vtype:
-                    continue
-
+            for vault in self._getVaultsByType(vtype):
                 if vault.get('scope') == default:
                     break
 
@@ -6324,9 +6283,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('cortex:vault:type:default')
     async def _setVaultTypeDefault(self, vtype, default):
-        typeinfo = self.vaulttypes[vtype]
-        typeinfo['default'] = default
-        self.slab.put(vtype.encode(), s_msgpack.en(typeinfo), db=self.vaultsdb)
+        self.slab.put(vtype.encode(), s_msgpack.en(default), db=self.vaultdefaultsdb)
 
     async def getVault(self, iden, user=None):
         '''
@@ -6347,7 +6304,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        vault = self.vaultsbyiden.get(iden)
+        vault = self._getVaultByIden(iden)
         if vault is None:
             raise s_exc.NoSuchIden(mesg='Vault not found')
 
@@ -6356,7 +6313,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return vault
 
     async def getVaultForUser(self, iden, user):
-        vault = self.vaultsbyiden.get(iden)
+        vault = self._getVaultByIden(iden)
         if vault is None:
             raise s_exc.NoSuchIden(mesg='Vault not found')
 
@@ -6395,26 +6352,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             vault = None
             if _scope == 'user':
                 vname = f'user:{user.name}:{vtype}'
-                vault = self.vaultsbyname.get(vname)
+                vault = self._getVaultByName(vname)
 
             elif _scope == 'role':
                 for role in user.getRoles():
                     vname = f'role:{role.name}:{vtype}'
-                    vault = self.vaultsbyname.get(vname)
+                    vault = self._getVaultByName(vname)
                     if vault:
                         break
 
             elif _scope == 'global':
                 vname = f'global::{vtype}'
-                vault = self.vaultsbyname.get(vname)
+                vault = self._getVaultByName(vname)
 
             if vault:
                 self._reqEasyPerm(vault, user, s_cell.PERM_READ)
 
             return vault
-
-        if vtype not in self.vaulttypes:
-            raise s_exc.BadArg(mesg=f'Vault type {vtype} not found')
 
         if scope not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
@@ -6430,9 +6384,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         # Now try the default vault
-        typeinfo = self.vaulttypes.get(vtype)
-        default = typeinfo.get('default')
-        if default is not None:
+        byts = self.slab.get(vtype.encode(), db=self.vaultdefaultsdb)
+        if byts and (default := s_msgpack.un(byts)):
             vault = _getVault(default)
             if vault:
                 return vault.get('iden')
@@ -6476,23 +6429,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: iden of new vault
         '''
-        if vtype not in self.vaulttypes:
-            raise s_exc.BadArg(f'Invalid vault type: {vtype}')
-
         if scope not in ('user', 'role', 'global'):
-            raise s_exc.BadArg(f'Invalid vault scope: {scope}')
+            raise s_exc.BadArg(mesg=f'Invalid vault scope: {scope}')
 
         if user is None:
             user = self.auth.rootuser
 
-        typeinfo = self.vaulttypes.get(vtype)
-        validator = s_config.getJsValidator(typeinfo.get('schema'))
-        validator(data)
+        # Iden is a randomly generated guid to uniquely identify this vault
+        iden = s_common.guid()
 
         vault = {
-            # Iden is a randomly generated guid to uniquely identify this vault
-            'iden': s_common.guid(),
-
             # Name is a combination of '<scope>:<ident>:<vtype>'
             'name': None,
 
@@ -6557,26 +6503,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._setEasyPerm(vault, 'roles', role.iden, s_cell.PERM_EDIT)
             await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
 
-        if vname in self.vaultsbyname:
+        if self._getVaultByName(vname) is not None:
             raise s_exc.DupName(f'Vault {vname} already exists')
 
         vault['name'] = vname
         vault['ident'] = ident
 
-        return await self._push('cortex:vault:add', vault)
+        return await self._push('cortex:vault:add', iden, vault)
 
     @s_nexus.Pusher.onPushAuto('cortex:vault:add')
-    async def _addVault(self, vault):
-        vname = vault.get('name')
-        iden = vault.get('iden')
-
-        self.vaultsbyname[vname] = vault
-        self.vaultsbyiden[iden] = vault
-
-        self.slab.put(iden.encode(), s_msgpack.en(vault), db=self.vaultsdb)
+    async def _addVault(self, iden, vault):
+        self._setVault(iden, vault)
         return iden
 
-    async def setVault(self, iden, data, user=None):
+    async def setVaultData(self, iden, data, user=None):
         '''
         Set vault data.
 
@@ -6598,7 +6538,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: None
         '''
-        vault = self.vaultsbyiden.get(iden)
+        vault = self._getVaultByIden(iden)
         if vault is None:
             raise s_exc.NoSuchIden(f'Vault not found: {iden}')
 
@@ -6607,19 +6547,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._reqEasyPerm(vault, user, s_cell.PERM_EDIT)
 
-        typeinfo = self.vaulttypes.get(vault.get('type'))
-        validator = s_config.getJsValidator(typeinfo.get('schema'))
-        validator(data)
-
-        return await self._push('cortex:vault:set', iden, data)
-
-    @s_nexus.Pusher.onPushAuto('cortex:vault:set')
-    async def _setVault(self, iden, data):
-
-        vault = self.vaultsbyiden.get(iden)
         vault['data'] = data
 
-        self.slab.put(iden.encode(), s_msgpack.en(vault), db=self.vaultsdb)
+        return await self._push('cortex:vault:set', iden, vault)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:set')
+    async def _setVaultData(self, iden, vault):
+        self._setVault(iden, vault)
 
     async def listVaults(self, user=None):
         '''
@@ -6638,11 +6572,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        for name, vault in self.vaultsbyname.items():
+        for vault in self._getVaults():
             if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
                 continue
 
-            yield (vault.get('iden'), name, vault.get('type'), vault.get('scope'))
+            yield (vault.get('iden'), vault.get('name'), vault.get('type'), vault.get('scope'))
 
     async def delVault(self, iden, user=None):
         '''
@@ -6660,8 +6594,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: None
         '''
-        # ok = delVault(iden)
-        vault = self.vaultsbyiden.get(iden)
+        vault = self._getVaultByIden(iden)
         if vault is None:
             raise s_exc.NoSuchIden(f'Vault not found: {iden}')
 
@@ -6674,11 +6607,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('cortex:vault:del')
     async def _delVault(self, iden):
-        vault = self.vaultsbyiden.pop(iden)
-
-        self.vaultsbyname.pop(vault.get('name'))
-
-        return self.slab.delete(iden.encode(), db=self.vaultsdb)
+        self._delVaultByIden(iden)
 
 # $lib.vault.add(scope, data, default=$lib.true)
 # $lib.vault.get(scope)

@@ -7582,14 +7582,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_cortex_vaults(self):
         async with self.getTestCore() as core:
 
-            vdef = {
-                'type': 'object',
-                'properties': {
-                    'apikey': {'type': 'string'},
-                },
-                'additionalProperties': True,
-                'required': ['apikey'],
-            }
             vtype = 'synapse-test'
 
             # Create some test users
@@ -7599,14 +7591,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             contributor = await core.auth.addRole('contributor')
             await visi1.grant(contributor.iden)
 
-            # Add a vault type
-            await core.addVaultType(vtype, vdef)
-            self.isin(vtype, core.vaulttypes)
-
             # visi1 can create visi1 vaults
             uiden = await core.addVault('user', 'visi1', vtype, {'apikey': 'test1234'}, user=visi1)
-            self.isin(f'user:visi1:{vtype}', core.vaultsbyname)
-            self.isin(uiden, core.vaultsbyiden)
 
             vault = await core.getVault(uiden)
             self.nn(vault)
@@ -7615,8 +7601,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # visi1 is a contributor so he can create contributor vaults
             riden = await core.addVault('role', 'contributor', vtype, {'apikey': 'test2345'}, user=visi1)
-            self.isin(f'role:contributor:{vtype}', core.vaultsbyname)
-            self.isin(riden, core.vaultsbyiden)
 
             vault = await core.getVault(riden)
             self.nn(vault)
@@ -7625,8 +7609,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Admin can create global vaults
             giden = await core.addVault('global', None, vtype, {'apikey': 'test3456'}, user=root)
-            self.isin(f'global::{vtype}', core.vaultsbyname)
-            self.isin(giden, core.vaultsbyiden)
 
             vault = await core.getVault(giden)
             self.nn(vault)
@@ -7634,25 +7616,25 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(vault['data'], {'apikey': 'test3456'})
 
             # Change the data in each of the vaults
-            await core.setVault(uiden, {'apikey': 'foo1234'})
+            await core.setVaultData(uiden, {'apikey': 'foo1234'})
             vault = await core.getVault(uiden)
             self.eq(vault['data'], {'apikey': 'foo1234'})
 
-            await core.setVault(riden, {'apikey': 'foo2345'})
+            await core.setVaultData(riden, {'apikey': 'foo2345'})
             vault = await core.getVault(riden)
             self.eq(vault['data'], {'apikey': 'foo2345'})
 
-            await core.setVault(giden, {'apikey': 'foo3456'})
+            await core.setVaultData(giden, {'apikey': 'foo3456'})
             vault = await core.getVault(giden)
             self.eq(vault['data'], {'apikey': 'foo3456'})
 
             # Set default vault to global and open vault
-            await core.setVaultTypeDefault(vtype, 'global')
+            await core.setVaultDefault(vtype, 'global')
             iden = await core.openVault(vtype, user=visi1)
             self.eq(iden, giden)
 
             # Set default vault to role and open vault
-            await core.setVaultTypeDefault(vtype, 'role')
+            await core.setVaultDefault(vtype, 'role')
             iden = await core.openVault(vtype, user=visi1)
             self.eq(iden, riden)
 
@@ -7677,20 +7659,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delVault(riden)
             await core.delVault(giden)
 
-            await core.delVaultType(vtype)
-            self.notin(vtype, core.vaulttypes)
-
     async def test_cortex_vaults2(self):
         async with self.getTestCore() as core:
 
-            vdef = {
-                'type': 'object',
-                'properties': {
-                    'apikey': {'type': 'string'},
-                },
-                'additionalProperties': True,
-                'required': ['apikey'],
-            }
             vtype = 'synapse-test'
 
             # Create some test users
@@ -7700,10 +7671,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             contributor = await core.auth.addRole('contributor')
             await visi1.grant(contributor.iden)
             await visi1.allow(('vaults', 'global', 'add'))
-
-            # Add a vault type
-            await core.addVaultType(vtype, vdef)
-            self.isin(vtype, core.vaulttypes)
 
             # visi2 does not have permission to create visi1 vaults
             with self.raises(s_exc.AuthDeny):
@@ -7767,28 +7734,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # core.setVaultPerm()
 
-            with self.raises(s_exc.BadArg) as exc:
-                await core.delVaultType(vtype)
-            self.eq(f'Cannot delete in-use vault type {vtype}', exc.exception.get('mesg'))
-
             await core.delVault(uiden)
             await core.delVault(riden)
             await core.delVault(giden)
-
-            await core.delVaultType(vtype)
-            self.notin(vtype, core.vaulttypes)
-
-            # Sad path tests
-            await core.addVaultType(vtype, vdef)
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.addVaultType(vtype, vdef)
-            self.eq(f'Vault type {vtype} already exists', exc.exception.get('mesg'))
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.addVaultType(1234, vdef)
-            self.eq('Vault type invalid', exc.exception.get('mesg'))
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.delVaultType('newp')
-            self.eq(f'Vault type newp not found', exc.exception.get('mesg'))
