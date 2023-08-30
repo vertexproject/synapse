@@ -1269,6 +1269,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (1, self._storUpdateMacros),
         ), nexs=False)
 
+        await self._initVaults()
+
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
 
@@ -6178,6 +6180,533 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
             yield item
+
+    async def _initVaults(self):
+        self.vaultsdb = self.slab.initdb('vaults')
+
+        self.vaulttypes = {}
+        # { vtype: schema, ... }
+
+        self.vaultsbyname = {}
+        # { name: vault, ... }
+
+        self.vaultsbyiden = {}
+        # { iden: vault, ... }
+
+    async def addVaultType(self, vtype, vdef, user=None):
+        '''
+        Create a new vault type with a specified schema.
+
+        Permissions: vaults.types.add
+
+        Args:
+            vtype (str): Name of the type to create.
+            vdef (dict): JSON schema to enforce on type data.
+            user (Optional[HiveUser]): User trying to create the type.
+
+        Raises:
+            synapse.exc.BadArg:
+                - `vtype` is not a string.
+                - `vtype` already exists.
+
+            synapse.exc.AuthDeny: `user` does not have permission to create types.
+
+        Returns: None
+        '''
+        if not isinstance(vtype, str):
+            raise s_exc.BadArg(mesg='Vault type invalid')
+
+        vtype = vtype.lower()
+
+        if vtype in self.vaulttypes:
+            raise s_exc.BadArg(mesg=f'Vault type {vtype} already exists')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('vaults', 'types', 'add'))
+
+        # Make sure this parses as a valid jsschema
+        s_config.getJsValidator(vdef)
+
+        typeinfo = {'schema': vdef, 'default': None}
+
+        return await self._push('cortex:vault:type:add', vtype, typeinfo)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:type:add')
+    async def _addVaultType(self, vtype, typeinfo):
+        self.vaulttypes[vtype] = typeinfo
+        return self.slab.put(vtype.encode(), s_msgpack.en(typeinfo), db=self.vaultsdb)
+
+    async def delVaultType(self, vtype, user=None):
+        '''
+        Delete a vault type with a specified schema.
+
+        Permissions: vaults.types.del
+
+        Args:
+            vtype (str): Name of the type to delete.
+            user (Optional[HiveUser]): User trying to delete the type.
+
+        Raises:
+            synapse.exc.BadArg:
+                - `vtype` does not exist.
+                - `vtype` is in use.
+
+            synapse.exc.AuthDeny: `user` does not have permission to delete types.
+
+        Returns: None
+        '''
+        if vtype not in self.vaulttypes:
+            raise s_exc.BadArg(mesg=f'Vault type {vtype} not found')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('vaults', 'types', 'del'))
+
+        for vault in self.vaultsbyiden.values():
+            if vault.get('type') == vtype:
+                raise s_exc.BadArg(mesg=f'Cannot delete in-use vault type {vtype}')
+
+        return await self._push('cortex:vault:type:del', vtype)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:type:del')
+    async def _delVaultType(self, vtype):
+        self.vaulttypes.pop(vtype)
+        self.slab.delete(vtype.encode(), db=self.vaultsdb)
+
+    async def setVaultTypeDefault(self, vtype, default, user=None):
+        '''
+        Set a default scope for a vault type.
+
+        Permissions: vaults.types.set
+
+        Args:
+            vtype (str): Name of the type to set.
+            default (str|None): The scope to set as default or None for no default.
+            user (Optional[HiveUser]): User trying to set the default value.
+
+        Raises:
+            synapse.exc.BadArg:
+                - `vtype` does not exist.
+                - `default` is not one of: None, 'user', 'role', 'global'.
+                - A `vtype` vault with `default` scope does not exist.
+
+            synapse.exc.AuthDeny: `user` does not have permission to set vault type values.
+
+        Returns: None
+        '''
+        if vtype not in self.vaulttypes:
+            raise s_exc.BadArg(mesg=f'Vault type {vtype} not found')
+
+        if default not in (None, 'user', 'role', 'global'):
+            raise s_exc.BadArg(mesg=f'Invalid default value: {default})')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        user.confirm(('vaults', 'types', 'set'))
+
+        if default is not None:
+            # Scan for a vault of this specified type with the specified scope
+            for _, vault in self.vaultsbyiden.items():
+                if vault.get('type') != vtype:
+                    continue
+
+                if vault.get('scope') == default:
+                    break
+
+            else:
+                raise s_exc.BadArg(mesg=f'Vault type with {default} scope does not exist')
+
+        return await self._push('cortex:vault:type:default', vtype, default)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:type:default')
+    async def _setVaultTypeDefault(self, vtype, default):
+        typeinfo = self.vaulttypes[vtype]
+        typeinfo['default'] = default
+        self.slab.put(vtype.encode(), s_msgpack.en(typeinfo), db=self.vaultsdb)
+
+    async def getVault(self, iden, user=None):
+        '''
+        Get a vault by `iden`.
+
+        Permissions: `user` must have `PERM_EDIT` for the requested vault.
+
+        Args:
+            iden (str): Iden of the vault to get.
+            user (Optional[HiveUser]): User trying to get the vault.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` is not found.
+            synapse.exc.AuthDeny: `user` does not have permission to access vault.
+
+        Returns: None
+        '''
+        if user is None:
+            user = self.auth.rootuser
+
+        vault = self.vaultsbyiden.get(iden)
+        if vault is None:
+            raise s_exc.NoSuchIden(mesg='Vault not found')
+
+        self._reqEasyPerm(vault, user, s_cell.PERM_EDIT)
+
+        return vault
+
+    async def getVaultForUser(self, iden, user):
+        vault = self.vaultsbyiden.get(iden)
+        if vault is None:
+            raise s_exc.NoSuchIden(mesg='Vault not found')
+
+        self._reqEasyPerm(vault, user, s_cell.PERM_READ)
+        return vault
+
+    async def openVault(self, vtype, scope=None, user=None):
+        '''
+        Open a vault of type `vtype` and scope `scope`.
+
+        This function allows the caller to open a vault of the specified
+        `vtype`. The search order for opening vaults is as follows:
+            - If `scope` is specified, open the vault with `vtype` and `scope`.
+              Return None if such a vault doesn't exist.
+            - If `vtype` has a default scope, attempt to open that vault. If
+              such a vault doesn't exist, continue to the next step.
+            - Check 'user' scope for a vault of `vtype`. Continue if non-existent.
+            - Check 'role' scope for a vault of `vtype`. Continue if non-existent.
+            - Check 'global' scope for a vault of `vtype`. Continue if non-existent.
+            - Return None
+
+        Permissions: `user` must have at least `PERM_READ` for the vault to be returned.
+
+        Args:
+            vtype (str): Type of the vault to open.
+            scope (Optional[str]|None): The vault scope to open.
+            user (Optional[HiveUser]): User trying to open the vault.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` is not found.
+            synapse.exc.AuthDeny: `user` does not have permission to access vault.
+
+        Returns: vault or None
+        '''
+        def _getVault(_scope):
+            vault = None
+            if _scope == 'user':
+                vname = f'user:{user.name}:{vtype}'
+                vault = self.vaultsbyname.get(vname)
+
+            elif _scope == 'role':
+                for role in user.getRoles():
+                    vname = f'role:{role.name}:{vtype}'
+                    vault = self.vaultsbyname.get(vname)
+                    if vault:
+                        break
+
+            elif _scope == 'global':
+                vname = f'global::{vtype}'
+                vault = self.vaultsbyname.get(vname)
+
+            if vault:
+                self._reqEasyPerm(vault, user, s_cell.PERM_READ)
+
+            return vault
+
+        if vtype not in self.vaulttypes:
+            raise s_exc.BadArg(mesg=f'Vault type {vtype} not found')
+
+        if scope not in (None, 'user', 'role', 'global'):
+            raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        # If caller specified a scope, return that vault
+        if scope is not None:
+            vault = _getVault(scope)
+            if vault:
+                return vault.get('iden')
+            return None
+
+        # Now try the default vault
+        typeinfo = self.vaulttypes.get(vtype)
+        default = typeinfo.get('default')
+        if default is not None:
+            vault = _getVault(default)
+            if vault:
+                return vault.get('iden')
+
+        # Finally, try the user, role, and global vaults in order
+        vault = _getVault('user')
+        if vault:
+            return vault.get('iden')
+
+        vault = _getVault('role')
+        if vault:
+            return vault.get('iden')
+
+        vault = _getVault('global')
+        if vault:
+            return vault.get('iden')
+
+        return None
+
+    async def addVault(self, scope, ident, vtype, data, user=None):
+        '''
+        Create a new vault.
+
+        Permissions: vaults.<scope>.add
+
+        Args:
+            scope (str): The scope of the new vault. One of: 'user', 'role', 'global'.
+            ident (str): Scope specific identity for this vault. For user scope,
+                         this would be a username. For role scope, this will be a rolename.
+                         Ignored for global scope.
+            vtype (str): Type of the vault to create.
+            data (object): Vault data. Must conform to the schema specified by `vtype`.
+            user (Optional[HiveUser]): User trying to create the vault.
+
+        Raises:
+            synapse.exc.BadArg:
+                - `vtype` is not a valid vault type
+                - `scope` is not one of 'user', 'role', 'global'
+
+            synapse.exc.AuthDeny: `user` does not have permission to create vault.
+
+        Returns: iden of new vault
+        '''
+        if vtype not in self.vaulttypes:
+            raise s_exc.BadArg(f'Invalid vault type: {vtype}')
+
+        if scope not in ('user', 'role', 'global'):
+            raise s_exc.BadArg(f'Invalid vault scope: {scope}')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        typeinfo = self.vaulttypes.get(vtype)
+        validator = s_config.getJsValidator(typeinfo.get('schema'))
+        validator(data)
+
+        vault = {
+            # Iden is a randomly generated guid to uniquely identify this vault
+            'iden': s_common.guid(),
+
+            # Name is a combination of '<scope>:<ident>:<vtype>'
+            'name': None,
+
+            # Type is one of vault types from addVaultType()
+            'type': vtype,
+
+            # Scope is one of {user, role, global}
+            'scope': scope,
+
+            # Ident is the iden of the user/role that created this vault
+            'ident': None,
+
+            # Data is an opaque structure defined by the type
+            'data': data,
+        }
+
+        self._initEasyPerm(vault)
+
+        # PERM_DENY = no access
+        # PERM_READ = use
+        # PERM_EDIT = read/write/list
+        # PERM_ADMIN = read/write/list/delete
+
+        if scope == 'global':
+            user.confirm(('vaults', 'global', 'add'))
+
+            vname = f'global::{vtype}'
+            ident = None
+
+            # The creator is the admin, everyone else gets read access
+            await self._setEasyPerm(vault, 'users', user.iden, s_cell.PERM_ADMIN)
+            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_READ)
+
+        elif scope == 'user':
+            user.confirm(('vaults', 'user', 'add'), default=True)
+
+            _user = await self.auth.reqUserByName(ident)
+            if user.iden != _user.iden and not user.isAdmin():
+                mesg = f'User {user.name} cannot create vaults for user {ident}'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+            vname = f'user:{_user.name}:{vtype}'
+            ident = _user.iden
+
+            # The user is the admin, everyone else is denied
+            await self._setEasyPerm(vault, 'users', _user.iden, s_cell.PERM_ADMIN)
+            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
+
+        elif scope == 'role':
+            user.confirm(('vaults', 'role', 'add'), default=True)
+
+            role = await self.auth.reqRoleByName(ident)
+            if not user.hasRole(role.iden):
+                mesg = f'User {user.name} cannot create vaults for role {ident}'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+            vname = f'role:{role.name}:{vtype}'
+            ident = role.iden
+
+            # The creator is the admin, members of the role can edit, everyone else is denied
+            await self._setEasyPerm(vault, 'users', user.iden, s_cell.PERM_ADMIN)
+            await self._setEasyPerm(vault, 'roles', role.iden, s_cell.PERM_EDIT)
+            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
+
+        if vname in self.vaultsbyname:
+            raise s_exc.DupName(f'Vault {vname} already exists')
+
+        vault['name'] = vname
+        vault['ident'] = ident
+
+        return await self._push('cortex:vault:add', vault)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:add')
+    async def _addVault(self, vault):
+        vname = vault.get('name')
+        iden = vault.get('iden')
+
+        self.vaultsbyname[vname] = vault
+        self.vaultsbyiden[iden] = vault
+
+        self.slab.put(iden.encode(), s_msgpack.en(vault), db=self.vaultsdb)
+        return iden
+
+    async def setVault(self, iden, data, user=None):
+        '''
+        Set vault data.
+
+        This function completely replaces the existing vault data with `data`.
+        `data` must conform to the schema specified by the existing vault's
+        type.
+
+        Permissions: `user` must have at least `PERM_EDIT` on the vault.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            data (object): Vault data. Must conform to the schema specified by `vtype`.
+            user (Optional[HiveUser]): User trying to edit the vault data.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+            synapse.exc.AuthDeny: `user` does not have permission to edit vault.
+            synapse.exc.SchemaViolation: `data` does not conform to the vault type schema.
+
+        Returns: None
+        '''
+        vault = self.vaultsbyiden.get(iden)
+        if vault is None:
+            raise s_exc.NoSuchIden(f'Vault not found: {iden}')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        self._reqEasyPerm(vault, user, s_cell.PERM_EDIT)
+
+        typeinfo = self.vaulttypes.get(vault.get('type'))
+        validator = s_config.getJsValidator(typeinfo.get('schema'))
+        validator(data)
+
+        return await self._push('cortex:vault:set', iden, data)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:set')
+    async def _setVault(self, iden, data):
+
+        vault = self.vaultsbyiden.get(iden)
+        vault['data'] = data
+
+        self.slab.put(iden.encode(), s_msgpack.en(vault), db=self.vaultsdb)
+
+    async def listVaults(self, user=None):
+        '''
+        Yields vaults the user has access to.
+
+        Permissions: `user` must have at least `PERM_READ` on a vault for it to
+        be included in the results.
+
+        Args:
+            user (Optional[HiveUser]): User to list vaults for.
+
+        Raises: None
+
+        Yields: tuples of vault info: (<iden>, <name>, <type>, <scope>).
+        '''
+        if user is None:
+            user = self.auth.rootuser
+
+        for name, vault in self.vaultsbyname.items():
+            if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                continue
+
+            yield (vault.get('iden'), name, vault.get('type'), vault.get('scope'))
+
+    async def delVault(self, iden, user=None):
+        '''
+        Delete a vault.
+
+        Permissions: `user` must have least `PERM_ADMIN` on the vault to be delete.
+
+        Args:
+            iden (str): iden of the vault to delete.
+            user (Optional[HiveUser]): User requesting a vault deletion.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with iden does not exist.
+            synapse.exc.AuthDeny: `user` does not have sufficient permissions to delete vault.
+
+        Returns: None
+        '''
+        # ok = delVault(iden)
+        vault = self.vaultsbyiden.get(iden)
+        if vault is None:
+            raise s_exc.NoSuchIden(f'Vault not found: {iden}')
+
+        if user is None:
+            user = self.auth.rootuser
+
+        self._reqEasyPerm(vault, user, s_cell.PERM_ADMIN)
+
+        return await self._push('cortex:vault:del', iden)
+
+    @s_nexus.Pusher.onPushAuto('cortex:vault:del')
+    async def _delVault(self, iden):
+        vault = self.vaultsbyiden.pop(iden)
+
+        self.vaultsbyname.pop(vault.get('name'))
+
+        return self.slab.delete(iden.encode(), db=self.vaultsdb)
+
+# $lib.vault.add(scope, data, default=$lib.true)
+# $lib.vault.get(scope)
+# $lib.vault.set(scope, data)
+# $lib.vault.del(scope)
+# vaulted configs here
+# Opaque dictionaries wrapped in an envelope
+# Envelope defines 'iden', 'type', 'scope' (user, role, global)
+# Need a default item per scope
+# Work through permissions edge cases carefully
+# - What if a user wants to share their config with another user? What if
+# Creators should be restricted based on scope
+# Read probably means they can use it but not see it
+# Update should be restricted based on scope
+# Delete should be restricted based on scope
+# For role in roles, first matching role wins
+# Order of precedence: user, role (for role in role...), global
+# One global config per type
+# One config per type per role
+# One user config per type
+# Easy perms control access
+# IF no default, must specify which config to use
+# Must use nexus to record the changes
+# Something about cortex slab to store the values
+# Need storm APIs
+# Need storm commands
+# Need docs
+# Need tests
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
