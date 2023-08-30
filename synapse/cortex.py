@@ -6208,7 +6208,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if byts is None:
             if throw:
                 iden = s_common.ehex(idenb)
-                raise s_exc.NoSuchIden(f'Vault not found for iden: {iden}')
+                raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}')
             return None
 
         vault = s_msgpack.un(byts)
@@ -6225,9 +6225,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.put(name.encode(), idenb, db=self.vaultsbynamedb)
         self.slab.put(vtype.encode(), idenb, db=self.vaultsbytypedb)
 
-    def _getVaultByName(self, name):
+    def _getVaultByName(self, name, throw=False):
         idenb = self.slab.get(name.encode(), db=self.vaultsbynamedb)
         if idenb is None:
+            if throw:
+                raise s_exc.NoSuchName(mesg=f'Vault not found for name: {name}')
             return None
         return self._getVaultByIdenb(idenb)
 
@@ -6292,7 +6294,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        vault = self._getVaultByName(name)
+        vault = self._getVaultByName(name, throw=True)
 
         if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
             return vault
@@ -6514,7 +6516,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
 
         if self._getVaultByName(vname) is not None:
-            raise s_exc.DupName(f'Vault {vname} already exists')
+            raise s_exc.DupName(mesg=f'Vault {vname} already exists')
 
         vault['name'] = vname
         vault['ident'] = ident

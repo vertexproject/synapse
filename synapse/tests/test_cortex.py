@@ -7580,6 +7580,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.lt(mrevstart, dmonstart)
 
     async def test_cortex_vaults(self):
+        '''
+        Simple usage testing.
+        '''
         async with self.getTestCore() as core:
 
             vtype = 'synapse-test'
@@ -7643,6 +7646,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             vault = core.getVaultByName(f'{vtype}:user:visi1')
             self.eq(vault.get('iden'), uiden)
+            self.nn(vault.get('data'))
+
+            vault = core.getVaultByName(f'{vtype}:global')
+            self.eq(vault.get('iden'), giden)
+            self.nn(vault.get('data'))
+
+            vault = core.getVaultByName(f'{vtype}:global', user=visi1)
+            self.eq(vault.get('iden'), giden)
+            self.none(vault.get('data'))
+
+            vault = core.getVaultByIden(giden)
+            self.nn(vault.get('data'))
+
+            vault = core.getVaultByIden(giden, user=visi1)
+            self.none(vault.get('data'))
 
             # Root sees all
             vaults = [k for k in core.listVaults()]
@@ -7662,7 +7680,58 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delVault(riden)
             await core.delVault(giden)
 
-    async def test_cortex_vaults2(self):
+    async def test_cortex_vaults_errors(self):
+        '''
+        Simple argument checking and simple permission checking tests.
+        '''
+        async with self.getTestCore() as core:
+
+            vtype = 'synapse-test'
+
+            # Create some test users
+            visi1 = await core.auth.addUser('visi1')
+            visi2 = await core.auth.addUser('visi2')
+            root = core.auth.rootuser
+            contributor = await core.auth.addRole('contributor')
+            await visi1.grant(contributor.iden)
+            # await visi1.allow(('vaults', 'global', 'add'))
+
+            await core.addVault('global', None, vtype, {})
+
+            with self.raises(s_exc.BadArg):
+                await core.setVaultDefault(vtype, 'newp')
+
+            with self.raises(s_exc.BadArg):
+                await core.setVaultDefault(vtype, 'user')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.setVaultDefault(vtype, 'global', user=visi1)
+
+            with self.raises(s_exc.NoSuchName):
+                core.getVaultByName('foo')
+
+            with self.raises(s_exc.NoSuchIden):
+                core.getVaultByIden('1234')
+
+            with self.raises(s_exc.BadArg):
+                core.openVault(vtype, 'newp')
+
+            with self.raises(s_exc.BadArg):
+                await core.addVault('newp', None, vtype, {})
+
+            with self.raises(s_exc.DupName):
+                await core.addVault('global', None, vtype, {})
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.setVaultData('1234', {})
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.delVault('1234')
+
+    async def test_cortex_vaults_perms(self):
+        '''
+        Complex permission testing.
+        '''
         async with self.getTestCore() as core:
 
             vtype = 'synapse-test'
