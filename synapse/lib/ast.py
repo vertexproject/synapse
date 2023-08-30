@@ -372,10 +372,12 @@ class SubGraph:
         self.rules.setdefault('forms', {})
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
+        self.rules.setdefault('existing', ())
 
         self.rules.setdefault('refs', False)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
+        self.rules.setdefault('maxsize', 100000)
 
         self.rules.setdefault('filterinput', True)
         self.rules.setdefault('yieldfiltered', False)
@@ -411,33 +413,44 @@ class SubGraph:
 
         if self.rules.get('refs'):
 
-            for _, ndef in node.getNodeRefs():
+            for propname, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
                 if pivonode is None:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
-                yield (pivonode, path.fork(pivonode))
+                yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
 
         for pivq in self.rules.get('pivots'):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield node, path, {'type': 'rules', 'scope': 'global', 'index': indx}
+                indx += 1
 
-        rules = self.rules['forms'].get(node.form.name)
+        scope = node.form.name
+
+        rules = self.rules['forms'].get(scope)
         if rules is None:
-            rules = self.rules['forms'].get('*')
+            scope = '*'
+            rules = self.rules['forms'].get(scope)
 
         if rules is None:
             return
 
         for pivq in rules.get('pivots', ()):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
+                indx += 1
 
     async def run(self, runt, genr):
 
+        # NOTE: this function must agressively yield the ioloop
+
         doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
+        maxsize = self.rules.get('maxsize')
+        existing = self.rules.get('existing')
         filterinput = self.rules.get('filterinput')
         yieldfiltered = self.rules.get('yieldfiltered')
 
@@ -450,6 +463,11 @@ class SubGraph:
 
             done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+
+            # load the existing graph as already done
+            [await results.add(s_common.uhex(b)) for b in existing]
 
             async def todogenr():
 
@@ -460,12 +478,19 @@ class SubGraph:
                 while todo:
                     yield todo.popleft()
 
+            count = 0
             async for node, path, dist in todogenr():
 
                 await asyncio.sleep(0)
 
                 if node.buid in done:
                     continue
+
+                count += 1
+
+                if count > maxsize:
+                    await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
+                    break
 
                 await done.add(node.buid)
                 intodo.discard(node.buid)
@@ -480,12 +505,17 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                pivoedges = set()
-                async for pivn, pivp in self.pivots(runt, node, path):
+                edges = list(revpivs.get(node.buid, defv=()))
+                async for pivn, pivp, pinfo in self.pivots(runt, node, path):
 
                     await asyncio.sleep(0)
 
-                    pivoedges.add(pivn.iden())
+                    if results.has(pivn.buid):
+                        edges.append((pivn.iden(), pinfo))
+                    else:
+                        pinfo['reverse'] = True
+                        pivedges = revpivs.get(pivn.buid, defv=())
+                        await revpivs.set(pivn.buid, pivedges + ((node.iden(), pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:
@@ -504,14 +534,25 @@ class SubGraph:
                         todo.append((pivn, pivp, dist + 1))
                         await intodo.add(pivn.buid)
 
-                edges = [(iden, {}) for iden in pivoedges]
-
                 if doedges:
-                    async for verb, n2iden in node.iterEdgesN1():
-                        edges.append((n2iden, {'verb': verb}))
+
+                    async for buid01 in results:
+
                         await asyncio.sleep(0)
 
-                path.meta('edges', edges)
+                        iden01 = s_common.ehex(buid01)
+                        async for verb in node.iterEdgeVerbs(buid01):
+                            await asyncio.sleep(0)
+                            edges.append((iden01, {'type': 'edge', 'verb': verb}))
+
+                        # for existing nodes, we need to add n2 -> n1 edges in reverse
+                        async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                            await asyncio.sleep(0)
+                            edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+                    await results.add(node.buid)
+
+                path.metadata['edges'] = edges
                 yield node, path
 
 class Oper(AstNode):

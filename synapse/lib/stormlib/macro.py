@@ -94,6 +94,7 @@ class MacroExecCmd(s_storm.Cmd):
     '''
 
     name = 'macro.exec'
+    readonly = True
 
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
@@ -174,11 +175,13 @@ class LibMacro(s_stormtypes.Lib):
             'grant': self._funcMacroGrant,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _funcMacroList(self):
         macros = await self.runt.snap.core.getStormMacros(user=self.runt.user)
         # backward compatible (name, mdef) tuples...
         return [(m['name'], m) for m in macros]
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _funcMacroGet(self, name):
         name = await s_stormtypes.tostr(name)
 

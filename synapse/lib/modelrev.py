@@ -751,52 +751,52 @@ class ModelRev:
 
     async def revCoreLayers(self):
 
-        version = self.revs[-1][0] if self.revs else maxvers
+        async with self.core.enterMigrationMode():
 
-        # do a first pass to detect layers at the wrong version
-        # that we are not able to rev ourselves and bail...
+            version = self.revs[-1][0] if self.revs else maxvers
 
-        layers = []
-        for layr in self.core.layers.values():
+            # do a first pass to detect layers at the wrong version
+            # that we are not able to rev ourselves and bail...
 
-            if layr.fresh:
-                await layr.setModelVers(version)
-                continue
+            layers = []
+            for layr in self.core.layers.values():
 
-            vers = await layr.getModelVers()
-            if vers == version:
-                continue
+                if layr.fresh:
+                    await layr.setModelVers(version)
+                    continue
 
-            if not layr.canrev and vers != version:
-                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+                vers = await layr.getModelVers()
+                if vers == version:
+                    continue
 
-            if vers > version:
-                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+                if not layr.canrev and vers != version:
+                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
+                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-            # realistically all layers are probably at the same version... but...
-            layers.append(layr)
+                if vers > version:
+                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
+                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-        # got anything to do?
-        if not layers:
-            return
+                # realistically all layers are probably at the same version... but...
+                layers.append(layr)
 
-        await self.core._enableMigrationMode()
-        for revvers, revmeth in self.revs:
+            # got anything to do?
+            if not layers:
+                return
 
-            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
-            if not todo:
-                continue
+            for revvers, revmeth in self.revs:
 
-            logger.warning(f'beginning model migration -> {revvers}')
+                todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
+                if not todo:
+                    continue
 
-            await revmeth(todo)
+                logger.warning(f'beginning model migration -> {revvers}')
 
-            [await lyr.setModelVers(revvers) for lyr in todo]
+                await revmeth(todo)
 
-        await self.core._disableMigrationMode()
-        logger.warning('...model migrations complete!')
+                [await lyr.setModelVers(revvers) for lyr in todo]
+
+            logger.warning('...model migrations complete!')
 
     async def _normPropValu(self, layers, propfull):
 
