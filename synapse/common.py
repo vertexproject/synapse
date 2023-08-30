@@ -1257,6 +1257,10 @@ class _Timeout:
         self._task = None
         self._when = when
 
+    def when(self):  # pragma: no cover
+        """Return the current deadline."""
+        return self._when
+
     def reschedule(self, when):
         """Reschedule the timeout."""
         assert self._state is not _State.CREATED
@@ -1275,6 +1279,18 @@ class _Timeout:
                 self._timeout_handler = loop.call_soon(self._on_timeout)
             else:
                 self._timeout_handler = loop.call_at(when, self._on_timeout)
+
+    def expired(self):  # pragma: no cover
+        """Is timeout expired during execution?"""
+        return self._state in (_State.EXPIRING, _State.EXPIRED)
+
+    def __repr__(self):  # pragma: no cover
+        info = ['']
+        if self._state is _State.ENTERED:
+            when = round(self._when, 3) if self._when is not None else None
+            info.append(f"when={when}")
+        info_str = ' '.join(info)
+        return f"<Timeout [{self._state.value}]{info_str}>"
 
     async def __aenter__(self):
         self._state = _State.ENTERED
