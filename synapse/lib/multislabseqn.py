@@ -469,7 +469,10 @@ class MultiSlabSeqn(s_base.Base):
         '''
 
         if offs < self.indx:
+            logger.info(f'returning True {offs=}')
             return True
 
         evnt = self.getOffsetEvent(offs)
-        return await s_coro.event_wait(evnt, timeout=timeout)
+        ret = await s_coro.event_wait(evnt, timeout=timeout)
+        logger.info(f'ret {offs=} {ret=}')
+        return ret

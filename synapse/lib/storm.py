@@ -3101,14 +3101,27 @@ class HelpCmd(Cmd):
             await runt.printf('For detailed help on any command, use <cmd> --help')
 
     async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime):
-        libsinfo = s_stormtypes.registry.getLibDocs(lib)
+
+        corelibs = runt.snap.core.getStormLib(lib.name)
+        if corelibs is None:
+            raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
+
+        root, libdict, ctor = corelibs
+
+        from pprint import pprint
+        print(f'{lib.name=}')
+        pprint(corelibs)
+
+        libsinfo = []
+        if hasattr(lib, '_storm_lib_path'):
+            libsinfo = s_stormtypes.registry.getLibDocs(lib)
 
         page = s_autodoc.RstHelp()
 
         s_autodoc.runtimeDocStormTypes(page, libsinfo,
-                                islib=True,
-                                known_types=s_stormtypes.registry.known_types,
-                                )
+                                       islib=True,
+                                       known_types=s_stormtypes.registry.known_types,
+                                       )
         for line in page.lines:
             await runt.printf(line)
 
