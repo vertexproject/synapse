@@ -3594,6 +3594,20 @@ class StormTest(s_t_utils.SynTest):
                 else:
                     print(m)
 
+            msgs = await core.stormlist('help $lib.inet')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            msgs = await core.stormlist('help $lib.inet.http')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
