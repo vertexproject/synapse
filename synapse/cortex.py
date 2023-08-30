@@ -1544,6 +1544,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
              'ex': 'node.prop.del.inet:ipv4:asn',
              'desc': 'Controls removing a specific property from a node in a layer.'},
+
+            {'perm': ('vaults', 'defaults'), 'gate': 'cortex',
+             'desc': 'Controls vault defaults modification in a cortex.'},
+            {'perm': ('vaults', 'global', 'add'), 'gate': 'cortex',
+             'desc': 'Controls global scoped vault creation in a cortex.'},
+            {'perm': ('vaults', 'user', 'add'), 'gate': 'cortex',
+             'desc': 'Controls user scoped vault creation in a cortex.'},
+            {'perm': ('vaults', 'role', 'add'), 'gate': 'cortex',
+             'desc': 'Controls role scoped vault creation in a cortex.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -6273,7 +6282,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        user.confirm(('vaults', 'set'))
+        user.confirm(('vaults', 'defaults'))
 
         if default is not None:
             # Scan for a vault of this specified type with the specified scope
