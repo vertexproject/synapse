@@ -144,16 +144,16 @@ class CryoTank(s_base.Base):
 
             yield indx, item
 
-    async def slice(self, offs, size=None, wait=False, timeout=None, iden=None):
+    async def slice(self, offs, size=None, iden=None, wait=False, timeout=None):
         '''
         Yield a number of items from the CryoTank starting at a given offset.
 
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
+            iden (str): The iden for offset tracking.
             wait (bool): Once caught up, yield new results in realtime
             timeout (int): Max time to wait for a new item.
-            iden (str): The iden for offset tracking.
 
         Yields:
             ((index, object)): Index and item values.
@@ -214,9 +214,9 @@ class CryoApi(s_cell.CellApi):
         await self.cell.init(name, conf=conf)
         return True
 
-    async def slice(self, name, offs, size=None, wait=False, timeout=None, iden=None):
+    async def slice(self, name, offs, size=None, iden=None, wait=False, timeout=None):
         tank = await self.cell.init(name)
-        async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout, iden=iden):
+        async for item in tank.slice(offs, size=size, iden=iden, wait=wait, timeout=timeout):
             yield item
 
     async def list(self):
