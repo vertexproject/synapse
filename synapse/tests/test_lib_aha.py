@@ -997,6 +997,8 @@ class AhaTest(s_test.SynTest):
                 # session is not an admin user.
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
 
+            self.true(conn.ahaclient.isfini)
+
     async def test_aha_util_helpers(self):
 
         # Mainly for test helper coverage.
