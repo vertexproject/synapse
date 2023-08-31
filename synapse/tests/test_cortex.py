@@ -7824,3 +7824,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delVault(uiden)
             await core.delVault(riden)
             await core.delVault(giden)
+
+            # Ensure vault permissions show up in auth.perms.list
+            perms = (
+                # ( perm, default ), ...
+                (('vaults', 'defaults'), False),
+                (('vaults', 'global', 'add'), False),
+                (('vaults', 'user', 'add'), True),
+                (('vaults', 'role', 'add'), True),
+            )
+
+            for perm, default in perms:
+                permdef = core.getPermDef(perm)
+                self.eq(permdef.get('perm'), perm)
+                self.eq(permdef.get('default'), default)

@@ -1550,9 +1550,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('vaults', 'global', 'add'), 'gate': 'cortex',
              'desc': 'Controls global scoped vault creation in a cortex.'},
             {'perm': ('vaults', 'user', 'add'), 'gate': 'cortex',
-             'desc': 'Controls user scoped vault creation in a cortex.'},
+             'desc': 'Controls user scoped vault creation in a cortex.',
+             'default': True},
             {'perm': ('vaults', 'role', 'add'), 'gate': 'cortex',
-             'desc': 'Controls role scoped vault creation in a cortex.'},
+             'desc': 'Controls role scoped vault creation in a cortex.',
+             'default': True},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -6492,7 +6494,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_READ)
 
         elif scope == 'user':
-            user.confirm(('vaults', 'user', 'add'), default=True)
+            user.confirm(('vaults', 'user', 'add'), default=True) # TODO: Remove default=True when SYN-6097 is resolved.
 
             _user = await self.auth.reqUserByName(ident)
             if user.iden != _user.iden and not user.isAdmin():
@@ -6507,7 +6509,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
 
         elif scope == 'role':
-            user.confirm(('vaults', 'role', 'add'), default=True)
+            user.confirm(('vaults', 'role', 'add'), default=True) # TODO: Remove default=True when SYN-6097 is resolved.
 
             role = await self.auth.reqRoleByName(ident)
             if not user.hasRole(role.iden):
