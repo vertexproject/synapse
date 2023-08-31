@@ -267,6 +267,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'key': ('baz', True), 'data': {'bam': 2}}, items[0][1])
             self.eq({'key': 'baz', 'data': {'bam': 3}}, items[1][1])
 
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel(newp/newp, nah))'))
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel(foo/bar, baz))'))
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel((foo, bar), (baz, $lib.true)))'))
+            await self.agenlen(0, core.jsonstor.getPathObjs(path))
+
             with self.raises(s_exc.NoSuchType):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, $lib.queue, (1)))')
 
@@ -274,6 +279,8 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.jsonstor.cacheget(foo, bar))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo, bar, baz))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.cachedel(foo, bar))', opts=asvisi)
 
     async def test_stormtypes_userjson(self):
 
