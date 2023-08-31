@@ -7801,9 +7801,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             giden = await core.addVault('global', None, vtype, {'apikey': 'test3456'}, user=visi1)
 
             await core.setVaultPerm(riden, visi1, 'users', s_cell.PERM_DENY)
-
             iden = core.openVault(vtype, visi1, scope='role')
             self.none(iden)
+
+            await core.setVaultPerm(riden, visi1, 'users', None)
+            iden = core.openVault(vtype, visi1, scope='role')
+            self.eq(iden, riden)
 
             await core.delVault(uiden)
             await core.delVault(riden)
