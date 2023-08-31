@@ -16,6 +16,7 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -7799,27 +7800,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             # visi1 has vaults.global.add perm so he can create global vaults
             giden = await core.addVault('global', None, vtype, {'apikey': 'test3456'}, user=visi1)
 
-            await core.setVaultData(uiden, {'apikey': 'test1234'})
-            await core.setVaultData(riden, {'apikey': 'test2345'})
-            await core.setVaultData(giden, {'apikey': 'test3456'})
+            await core.setVaultPerm(riden, visi1, 'users', s_cell.PERM_DENY)
 
-            await core.setVaultDefault(vtype, 'global')
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, giden)
-
-            await core.setVaultDefault(vtype, 'role')
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, riden)
-
-            iden = core.openVault(vtype, visi1, scope='user')
-            self.eq(iden, uiden)
-
-            # entry = await core.getVaultEntryByType(vtype, user=visi1)
-            # entry = await core.getVaultEntryByIden(uiden, user=visi1)
-            # entry = await core.getVaultEntryByIden(riden, user=visi1)
-            # entry = await core.getVaultEntryByIden(giden, user=visi1)
-
-            # core.setVaultPerm()
+            iden = core.openVault(vtype, visi1, scope='role')
+            self.none(iden)
 
             await core.delVault(uiden)
             await core.delVault(riden)

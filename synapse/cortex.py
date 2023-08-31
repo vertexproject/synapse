@@ -6388,6 +6388,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     vault = self._getVaultByName(vname)
                     if vault:
                         if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                            vault = None
                             continue
 
                         break
@@ -6476,7 +6477,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'data': data,
         }
 
-        self._initEasyPerm(vault)
+        self._initEasyPerm(vault, worldreadable=False)
 
         # PERM_DENY = no access
         # PERM_READ = use
@@ -6506,7 +6507,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # The user is the admin, everyone else is denied
             await self._setEasyPerm(vault, 'users', _user.iden, s_cell.PERM_ADMIN)
-            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
 
         elif scope == 'role':
             user.confirm(('vaults', 'role', 'add'), default=True) # TODO: Remove default=True when SYN-6097 is resolved.
@@ -6522,7 +6522,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # The creator is the admin, members of the role can edit, everyone else is denied
             await self._setEasyPerm(vault, 'users', user.iden, s_cell.PERM_ADMIN)
             await self._setEasyPerm(vault, 'roles', role.iden, s_cell.PERM_EDIT)
-            await self._setEasyPerm(vault, 'roles', self.auth.allrole.iden, s_cell.PERM_DENY)
 
         if self._getVaultByName(vname) is not None:
             raise s_exc.DupName(mesg=f'Vault {vname} already exists')
@@ -6596,6 +6595,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
 
             yield (vault.get('iden'), vault.get('name'), vault.get('type'), vault.get('scope'))
+
+    async def setVaultPerm(self, iden, user, scope, level):
+        vault = self._getVaultByIden(iden, throw=True)
+        await self._setEasyPerm(vault, scope, user.iden, level)
+        return await self._push(('cortex:vault:set'), iden, vault)
 
     async def delVault(self, iden, user=None):
         '''
