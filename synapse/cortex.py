@@ -6297,7 +6297,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('cortex:vault:type:default')
     async def _setVaultTypeDefault(self, vtype, default):
-        self.slab.put(vtype.encode(), s_msgpack.en(default), db=self.vaultdefaultsdb)
+        if default is None:
+            self.slab.delete(vtype.encode(), db=self.vaultdefaultsdb)
+        else:
+            self.slab.put(vtype.encode(), s_msgpack.en(default), db=self.vaultdefaultsdb)
 
     def getVaultByName(self, name, user=None):
         if user is None:
@@ -6341,12 +6344,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return None
 
-    def openVault(self, vtype, scope=None, user=None):
+    def openVault(self, vtype, user, scope=None):
         '''
-        Open a vault of type `vtype` and scope `scope`.
+        Open a vault of type `vtype` and scope `scope` for `user`.
 
         This function allows the caller to open a vault of the specified
-        `vtype`. The search order for opening vaults is as follows:
+        `vtype` by searching for the first available vault that matches the
+        `vtype` and `scope` criteria. The search order for opening vaults is as
+        follows:
             - If `scope` is specified, open the vault with `vtype` and `scope`.
               Return None if such a vault doesn't exist.
             - If `vtype` has a default scope, attempt to open that vault. If
@@ -6360,8 +6365,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Args:
             vtype (str): Type of the vault to open.
+            user (HiveUser): User trying to open the vault.
             scope (Optional[str]|None): The vault scope to open.
-            user (Optional[HiveUser]): User trying to open the vault.
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` is not found.
@@ -6380,6 +6385,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     vname = f'{vtype}:role:{role.name}'
                     vault = self._getVaultByName(vname)
                     if vault:
+                        if not self._hasEasyPerm(vault, user, s_cell.PERM_READ):
+                            continue
+
                         break
 
             elif _scope == 'global':
@@ -6394,10 +6402,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if scope not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
 
-        if user is None:
-            user = self.auth.rootuser
-
-        # If caller specified a scope, return that vault
+        # If caller specified a scope, return that vault if it exists
         if scope is not None:
             vault = _getVault(scope)
             if vault:
@@ -6412,17 +6417,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return vault.get('iden')
 
         # Finally, try the user, role, and global vaults in order
-        vault = _getVault('user')
-        if vault:
-            return vault.get('iden')
-
-        vault = _getVault('role')
-        if vault:
-            return vault.get('iden')
-
-        vault = _getVault('global')
-        if vault:
-            return vault.get('iden')
+        for _scope in ('user', 'role', 'global'):
+            vault = _getVault(_scope)
+            if vault:
+                return vault.get('iden')
 
         return None
 
