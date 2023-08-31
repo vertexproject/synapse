@@ -1403,7 +1403,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.ahaclient._fini_atexit = True
 
             async def finiaha():
+                logger.info(f'removing aha url {ahaurl} {s_telepath.aha_clients}')
                 await s_telepath.delAhaUrl(ahaurl)
+                await self.ahaclient.fini()
+                logger.info(f'Removed url {ahaurl} {s_telepath.aha_clients}')
 
             self.onfini(finiaha)
 

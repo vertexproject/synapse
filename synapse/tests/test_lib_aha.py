@@ -1113,3 +1113,9 @@ class AhaTest(s_test.SynTest):
                     online = svcinfo.get('online')
                     self.nn(online)
                     self.true(ready)
+
+    async def test_xxx(self):
+        print('XXXXX TEST')
+        await asyncio.sleep(20)
+        self.true(True)
+        print('XXXX TEST END')

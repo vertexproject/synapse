@@ -969,6 +969,7 @@ class Client(s_base.Base):
             }
 
     '''
+    alives = 0
     async def __anit__(self, url, opts=None, conf=None, onlink=None):
 
         await s_base.Base.__anit__(self)
@@ -995,15 +996,21 @@ class Client(s_base.Base):
             self._t_onlinks.append(onlink)
 
         async def fini():
+            self.__class__.alives = self.__class__.alives - 1
             if self._t_proxy is not None:
                 await self._t_proxy.fini()
             # Wake any waiters which may be waiting on waitready() calls so those
             # without timeouts specified are not waiting forever.
             self._t_ready.set()
+            logger.error(f'Fini client: {self}')
 
         self.onfini(fini)
 
         await self._fireLinkLoop()
+
+    async def postAnit(self):
+        self.__class__.alives = self.__class__.alives + 1
+        logger.error(f'Created client: {self}')
 
     def _initUrlDeque(self):
         self._t_urls.clear()
