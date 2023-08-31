@@ -4,22 +4,36 @@ import synapse.lib.stormtypes as s_stormtypes
 #     {
 #         'name': 'vault.add',
 #         'descr': '''
-#             Add a user.
+#             Add a vault.
 
 #             Examples:
 
-#                 // Add a user named "visi" with the email address "visi@vertex.link"
+#                 // Add a vault with type `synapse-test`
 #                 auth.user.add visi --email visi@vertex.link
 #         ''',
 #         'cmdargs': (
-#             ('name', {'type': 'str', 'help': 'The name of the user.'}),
-#             ('--email', {'type': 'str', 'help': "The user's email address.", 'default': None}),
+#             ('type', {'type': 'str', 'help': 'The vault type name.'}),
+#             ('iden', {'type': 'str', 'help': 'The user/role to the vault for ($lib.null for a global vault).'}),
+#             ('data', {'type': 'prim', 'help': 'The data to store in the new vault.'}),
 #         ),
 #         'storm': '''
+#             $iden = $lib.null
+#             if $cmdopts.iden {
+#                 $iden
+#             }
 #             $user = $lib.auth.users.add($cmdopts.name, email=$cmdopts.email)
 #             $lib.print('User ({name}) added with iden: {iden}', name=$user.name, iden=$user.iden)
 #         ''',
 #     },
+
+#     # 'add': self._addVault,
+#     # 'get': self._getVaultData,
+#     # 'set': self._setVault,
+#     # 'del': self._delVault,
+#     # 'list': self._listVaults,
+#     # 'open': self._openVault,
+#     # 'setPerm': self._setPerm,
+#     # 'setDefault': self._setDefault,
 # )
 
 @s_stormtypes.registry.registerLib
@@ -73,11 +87,12 @@ class LibVault(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_openVault',
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to open.'},
-                      {'name': 'scope', 'type': 'str', 'desc': 'The scope to open for the specified type. If $lib.null, then openVault will search.'},
+                      {'name': 'scope', 'type': 'str', 'default': None,
+                       'desc': 'The scope to open for the specified type. If $lib.null, then openVault will search.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Iden of the opened vault or None if no vault was opened.'}}},
         {'name': 'setPerm', 'desc': 'Set permissions on a vault. Current user must have PERM_EDIT permissions or higher.',
-         'type': {'type': 'function', '_funcname': '_openVault',
+         'type': {'type': 'function', '_funcname': '_setPerm',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name or iden of the vault to modify.'},
                       {'name': 'iden', 'type': 'str', 'desc': 'The user/role iden to add to the vault permissions.'},
@@ -85,7 +100,7 @@ class LibVault(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
         {'name': 'setDefault', 'desc': "Set default scope of a given vault type. Current user must have ('vaults', 'defaults') permission.",
-         'type': {'type': 'function', '_funcname': '_openVault',
+         'type': {'type': 'function', '_funcname': '_setDefault',
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to modify.'},
                       {'name': 'valu', 'type': 'str', 'desc': 'The default scope for this vault type. Set to $lib.null for no default value.'},
