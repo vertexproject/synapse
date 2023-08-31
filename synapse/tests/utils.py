@@ -873,9 +873,6 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-
-from pprint import pprint
-
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
@@ -893,15 +890,6 @@ class SynTest(unittest.TestCase):
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
                 setattr(self, s, s_glob.synchelp(attr))
-
-    def tearDown(self) -> None:
-        if s_telepath.aha_clients:
-            print('FOUND DANGLING AHA CLIENTS')
-            pprint(s_telepath.aha_clients)
-            print('------------------------------------------------------------------------')
-        if s_telepath.Client.alives > 0:
-            print(f'FOUND DANGLING TELEPATH CLIENTS: {s_telepath.Client.alives=}')
-            print('------------------------------------------------------------------------')
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected

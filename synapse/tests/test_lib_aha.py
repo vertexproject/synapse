@@ -997,6 +997,8 @@ class AhaTest(s_test.SynTest):
                 # session is not an admin user.
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
 
+            self.true(conn.ahaclient.isfini)
+
     async def test_aha_util_helpers(self):
 
         # Mainly for test helper coverage.
@@ -1113,9 +1115,3 @@ class AhaTest(s_test.SynTest):
                     online = svcinfo.get('online')
                     self.nn(online)
                     self.true(ready)
-
-    async def test_xxx(self):
-        print('XXXXX TEST')
-        await asyncio.sleep(20)
-        self.true(True)
-        print('XXXX TEST END')
