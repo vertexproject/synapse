@@ -11,7 +11,7 @@ v2.147.0 - 2023-08-31
 
 Features and Enhancements
 -------------------------
-- Add ``wait`` and ``timeout`` arguments to Cryotank ``.slice()`` APIs.
+- Add ``wait`` and ``timeout`` arguments to Cryotank ``slice()`` APIs.
   (`#3320 <https://github.com/vertexproject/synapse/pull/3320>`_)
 - Add a ``charset`` parameter to the Storm ``inet:imap:server.search()`` API.
   This can be used to specify the ``CHARSET`` value when crafting a search
