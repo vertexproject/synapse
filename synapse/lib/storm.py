@@ -3101,29 +3101,63 @@ class HelpCmd(Cmd):
             await runt.printf('For detailed help on any command, use <cmd> --help')
 
     async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime):
+        #
+        page = s_autodoc.RstHelp()
+        await self._addLibHeader(page, lib)
 
-        corelibs = runt.snap.core.getStormLib(lib.name)
+        # libsinfo = []
+        # if hasattr(lib, '_storm_lib_path'):
+        #     libsinfo = s_stormtypes.registry.getLibDocs(lib)
+        #
+        # s_autodoc.runtimeDocStormTypes(page, libsinfo,
+        #                                islib=True,
+        #                                known_types=s_stormtypes.registry.known_types,
+        #                                )
+
+        for line in page.lines:
+            await runt.printf(line)
+
+    async def _addLibHeader(self, page: s_autodoc.RstHelp, lib: s_stormtypes.Lib):
+        corelibs = self.runt.snap.core.getStormLib(lib.name)
+        print(lib.name)
         if corelibs is None:
             raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
-
-        root, libdict, ctor = corelibs
 
         from pprint import pprint
         print(f'{lib.name=}')
         pprint(corelibs)
+        data = []
+        libbase = ('lib',) + lib.name
+        q = collections.deque()
+        for child, lnfo in corelibs[1].items():
+            q.append(((child,), lnfo))
+        while q:
+            child, lnfo = q.popleft()
+            path = libbase + child
+            _, subs, cnfo = lnfo
+            ctor = cnfo.get('ctor')
+            if ctor:
+                data.append((path, ctor))
+            for sub, lnfo in subs.items():
+                _sub = child + (sub,)
+                q.append((_sub, lnfo))
 
-        libsinfo = []
-        if hasattr(lib, '_storm_lib_path'):
-            libsinfo = s_stormtypes.registry.getLibDocs(lib)
+        if not data:
+            return
 
-        page = s_autodoc.RstHelp()
+        data = sorted(data, key=lambda x: x[0])
+        parts = []
 
-        s_autodoc.runtimeDocStormTypes(page, libsinfo,
-                                       islib=True,
-                                       known_types=s_stormtypes.registry.known_types,
-                                       )
-        for line in page.lines:
-            await runt.printf(line)
+        for path, ctor in data:
+            name = f'${".".join(path)}'
+            desc = ctor.__doc__
+            if desc is None:
+                desc = ''
+            else:
+                desc = desc.strip().split('\n')[0]
+            parts.append((name, desc))
+
+        pprint(parts)
 
     async def _handleTypeHelp(self, styp: str, runt: Runtime):
         typeinfo = s_stormtypes.registry.getTypeDocs(styp)
