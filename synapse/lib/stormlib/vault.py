@@ -1,5 +1,26 @@
-import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
+
+# stormcmds = (
+#     {
+#         'name': 'vault.add',
+#         'descr': '''
+#             Add a user.
+
+#             Examples:
+
+#                 // Add a user named "visi" with the email address "visi@vertex.link"
+#                 auth.user.add visi --email visi@vertex.link
+#         ''',
+#         'cmdargs': (
+#             ('name', {'type': 'str', 'help': 'The name of the user.'}),
+#             ('--email', {'type': 'str', 'help': "The user's email address.", 'default': None}),
+#         ),
+#         'storm': '''
+#             $user = $lib.auth.users.add($cmdopts.name, email=$cmdopts.email)
+#             $lib.print('User ({name}) added with iden: {iden}', name=$user.name, iden=$user.iden)
+#         ''',
+#     },
+# )
 
 @s_stormtypes.registry.registerLib
 class LibVault(s_stormtypes.Lib):
@@ -19,7 +40,7 @@ class LibVault(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'Iden of the newly created vault.'}}},
         {'name': 'get', 'desc': 'Get data from a vault by name or iden.',
-         'type': {'type': 'function', '_funcname': '_getVault',
+         'type': {'type': 'function', '_funcname': '_getVaultData',
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': '''
