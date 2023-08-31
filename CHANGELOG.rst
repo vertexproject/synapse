@@ -6,6 +6,25 @@
 Synapse Changelog
 *****************
 
+v2.147.0 - 2023-08-31
+=====================
+
+Features and Enhancements
+-------------------------
+- Add ``wait`` and ``timeout`` arguments to Cryotank ``slice()`` APIs.
+  (`#3320 <https://github.com/vertexproject/synapse/pull/3320>`_)
+- Add a ``charset`` parameter to the Storm ``inet:imap:server.search()`` API.
+  This can be used to specify the ``CHARSET`` value when crafting a search
+  query.
+  (`#3318 <https://github.com/vertexproject/synapse/pull/3318>`_)
+
+Bugfixes
+--------
+- Vendor the ``asyncio.timeouts.Timeout`` class from Python 3.11.3 to ensure
+  correct task cancellation behavior is available for
+  ``synapse.common.wait_for()``.
+  (`#3321 <https://github.com/vertexproject/synapse/pull/3321>`_)
+
 v2.146.0 - 2023-08-29
 =====================
 
