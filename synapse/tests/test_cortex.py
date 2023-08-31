@@ -7800,11 +7800,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             # visi1 has vaults.global.add perm so he can create global vaults
             giden = await core.addVault('global', None, vtype, {'apikey': 'test3456'}, user=visi1)
 
-            await core.setVaultPerm(riden, visi1, 'users', s_cell.PERM_DENY)
+            await core.setVaultPerm(riden, visi1.iden, 'users', s_cell.PERM_DENY)
             iden = core.openVault(vtype, visi1, scope='role')
             self.none(iden)
 
-            await core.setVaultPerm(riden, visi1, 'users', None)
+            with self.raises(s_exc.AuthDeny):
+                await core.setVaultPerm(riden, visi1.iden, 'users', None, user=visi1)
+
+            await core.setVaultPerm(riden, visi1.iden, 'users', None)
             iden = core.openVault(vtype, visi1, scope='role')
             self.eq(iden, riden)
 

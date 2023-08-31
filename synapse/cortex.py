@@ -6529,9 +6529,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         vault['name'] = vname
         vault['ident'] = ident
 
-        return await self._push('cortex:vault:add', iden, vault)
+        return await self._push('cortex:vault:set', iden, vault)
 
-    @s_nexus.Pusher.onPushAuto('cortex:vault:add')
+    @s_nexus.Pusher.onPushAuto('cortex:vault:set')
     async def _addVault(self, iden, vault):
         self._setVault(iden, vault)
         return iden
@@ -6569,10 +6569,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('cortex:vault:set', iden, vault)
 
-    @s_nexus.Pusher.onPushAuto('cortex:vault:set')
-    async def _setVaultData(self, iden, vault):
-        self._setVault(iden, vault)
-
     def listVaults(self, user=None):
         '''
         Yields vaults the user has access to.
@@ -6596,10 +6592,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             yield (vault.get('iden'), vault.get('name'), vault.get('type'), vault.get('scope'))
 
-    async def setVaultPerm(self, iden, user, scope, level):
-        vault = self._getVaultByIden(iden, throw=True)
-        await self._setEasyPerm(vault, scope, user.iden, level)
-        return await self._push(('cortex:vault:set'), iden, vault)
+    async def setVaultPerm(self, viden, iden, scope, level, user=None):
+        vault = self._getVaultByIden(viden, throw=True)
+
+        if user is None:
+            user = self.auth.rootuser
+
+        self._reqEasyPerm(vault, user, s_cell.PERM_EDIT)
+
+        await self._setEasyPerm(vault, scope, iden, level)
+        return await self._push(('cortex:vault:set'), viden, vault)
 
     async def delVault(self, iden, user=None):
         '''

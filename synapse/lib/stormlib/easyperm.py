@@ -21,7 +21,7 @@ class LibEasyPerm(s_stormtypes.Lib):
                   'args': (
                       {'name': 'edef', 'type': 'dict', 'default': None,
                        'desc': 'A dictionary to add easy perms to.'},
-                      {'name': 'worldreadble', 'type': 'boolean', 'default': True,
+                      {'name': 'worldreadable', 'type': 'boolean', 'default': True,
                        'desc': 'Specify if the item should be world readable by default.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary with the easy perm structure.'}}},
