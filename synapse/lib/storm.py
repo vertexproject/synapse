@@ -3028,7 +3028,7 @@ class HelpCmd(Cmd):
 
         command = self.opts.command
 
-        await runt.printf(f'{command=} {type(command)} {self.opts.verbose=}')
+        # await runt.printf(f'{command=} {type(command)} {self.opts.verbose=}')
         if isinstance(command, s_stormtypes.Lib):
             await self._handleLibHelp(command, runt, verbose=self.opts.verbose)
             return

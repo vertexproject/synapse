@@ -478,14 +478,13 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
         locls = info.get('locals', ())
         locls = sorted(locls, key=lambda x: x.get('name'))
 
-        for locl in locls:
+        funcs = []
+        nofuncs = []
 
+        for locl in locls:
             name = locl.get('name')
             loclname = '.'.join((sname, name))
-            desc = locl.get('desc')
             rtype = locl.get('type')
-            assert desc is not None
-            assert rtype is not None
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
@@ -506,6 +505,28 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
                     isgtor = True
                 if rname == 'stor' or 'stor' in rname:
                     isstor = True
+
+                if isfunc:
+                    funcs.append((locl, isstor, isfunc, isgtor, isctor))
+                else:
+                    nofuncs.append((locl, isstor, isfunc, isgtor, isctor))
+                continue
+
+            nofuncs.append((locl, False, False, False, False))
+
+        def renderer(locl, isstor, isfunc, isgtor, isctor):
+            name = locl.get('name')
+            loclname = '.'.join((sname, name))
+            desc = locl.get('desc')
+            rtype = locl.get('type')
+            assert desc is not None
+            assert rtype is not None
+
+            if isinstance(rtype, dict):
+                rname = rtype.get('type')
+
+                if isinstance(rname, dict):
+                    raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
 
                 lines = prepareRstLines(desc)
                 arglines = runtimeGetArgLines(rtype)
@@ -535,3 +556,73 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
             else:
                 page.addHead(header, lvl=lvl + 1, addsuffixline=False)
                 page.addLines(*lines)
+
+        if funcs:
+            page.addLines('The following functions are available:', '')
+            for locl, isstor, isfunc, isgtor, isctor in funcs:
+                renderer(locl, isstor, isfunc, isgtor, isctor)
+
+        if nofuncs:
+            page.addLines('The following references are available:', '')
+            for locl, isstor, isfunc, isgtor, isctor in nofuncs:
+                renderer(locl, isstor, isfunc, isgtor, isctor)
+
+        return
+
+        # for locl in locls:
+        #
+        #     name = locl.get('name')
+        #     loclname = '.'.join((sname, name))
+        #     desc = locl.get('desc')
+        #     rtype = locl.get('type')
+        #     assert desc is not None
+        #     assert rtype is not None
+        #
+        #     if isinstance(rtype, dict):
+        #         rname = rtype.get('type')
+        #
+        #         if isinstance(rname, dict):
+        #             raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
+        #
+        #         isstor = False
+        #         isfunc = False
+        #         isgtor = False
+        #         isctor = False
+        #
+        #         if rname == 'ctor' or 'ctor' in rname:
+        #             isctor = True
+        #         if rname == 'function' or 'function' in rname:
+        #             isfunc = True
+        #         if rname == 'gtor' or 'gtor' in rname:
+        #             isgtor = True
+        #         if rname == 'stor' or 'stor' in rname:
+        #             isstor = True
+        #
+        #         lines = prepareRstLines(desc)
+        #         arglines = runtimeGetArgLines(rtype)
+        #         lines.extend(arglines)
+        #
+        #         retlines = getReturnLines(rtype, isstor=isstor)
+        #         lines.extend(retlines)
+        #
+        #         callsig = ''
+        #         if isfunc:
+        #             callsig = genCallsig(rtype)
+        #         header = f'{name}{callsig}'
+        #
+        #     else:
+        #         header = name
+        #         lines = prepareRstLines(desc)
+        #
+        #         retlines = getReturnLines(rtype)
+        #         lines.extend(retlines)
+        #
+        #     if islib:
+        #         header = '.'.join((sname, header))
+        #         header = f'${header}'
+        #
+        #     if oneline:
+        #         page.addLines(header, lines[0], '')
+        #     else:
+        #         page.addHead(header, lvl=lvl + 1, addsuffixline=False)
+        #         page.addLines(*lines)
