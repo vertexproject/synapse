@@ -3011,6 +3011,8 @@ class HelpCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
+        pars.add_argument('--verbose', default=False, action='store_true',
+                          help='Display detailed help when available.')
         pars.add_argument('command', nargs='?',
                           help='Only list commands and their brief description whose name contains the argument.')
         return pars
@@ -3026,21 +3028,21 @@ class HelpCmd(Cmd):
 
         command = self.opts.command
 
-        await runt.printf(f'{command=} {type(command)}')
+        await runt.printf(f'{command=} {type(command)} {self.opts.verbose=}')
         if isinstance(command, s_stormtypes.Lib):
-            await self._handleLibHelp(command, runt)
+            await self._handleLibHelp(command, runt, verbose=self.opts.verbose)
             return
 
         if command in s_stormtypes.registry.known_types:
-            await self._handleTypeHelp(command, runt)
+            await self._handleTypeHelp(command, runt, verbose=self.opts.verbose)
             return
 
         # Handle $lib.inet.http.get / $str.split
         if callable(command):
             if hasattr(command, '__func__'):
-                await self._handleBoundMethod(command, runt)
+                await self._handleBoundMethod(command, runt, verbose=self.opts.verbose)
                 return
-            await runt.warn('help does not currently support user defined functions.')
+            await runt.warn('help does not currently support runtime defined functions.')
             return
 
         stormcmds = sorted(runt.snap.core.getStormCmds())
@@ -3100,33 +3102,35 @@ class HelpCmd(Cmd):
 
             await runt.printf('For detailed help on any command, use <cmd> --help')
 
-    async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime):
+    async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime, verbose: bool =False):
         #
         page = s_autodoc.RstHelp()
-        await self._addLibHeader(page, lib)
 
-        # libsinfo = []
-        # if hasattr(lib, '_storm_lib_path'):
-        #     libsinfo = s_stormtypes.registry.getLibDocs(lib)
-        #
-        # s_autodoc.runtimeDocStormTypes(page, libsinfo,
-        #                                islib=True,
-        #                                known_types=s_stormtypes.registry.known_types,
-        #                                )
+        preamble = self._getChildLibs(lib)
+
+        if hasattr(lib, '_storm_lib_path'):
+            libsinfo = s_stormtypes.registry.getLibDocs(lib)
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           known_types=s_stormtypes.registry.known_types,
+                                           oneline=not verbose,
+                                           preamble=preamble,
+                                           )
+        else:
+            page.addLines(*preamble)
 
         for line in page.lines:
             await runt.printf(line)
 
-    async def _addLibHeader(self, page: s_autodoc.RstHelp, lib: s_stormtypes.Lib):
+    def _getChildLibs(self, lib: s_stormtypes.Lib):
         corelibs = self.runt.snap.core.getStormLib(lib.name)
-        print(lib.name)
         if corelibs is None:
             raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
 
-        from pprint import pprint
-        print(f'{lib.name=}')
-        pprint(corelibs)
         data = []
+        lines = []
+
         libbase = ('lib',) + lib.name
         q = collections.deque()
         for child, lnfo in corelibs[1].items():
@@ -3141,36 +3145,34 @@ class HelpCmd(Cmd):
             for sub, lnfo in subs.items():
                 _sub = child + (sub,)
                 q.append((_sub, lnfo))
-
         if not data:
-            return
+            return lines
 
         data = sorted(data, key=lambda x: x[0])
-        parts = []
 
+        lines.append('The following libraries are available:')
+        lines.append('')
         for path, ctor in data:
             name = f'${".".join(path)}'
-            desc = ctor.__doc__
-            if desc is None:
-                desc = ''
-            else:
-                desc = desc.strip().split('\n')[0]
-            parts.append((name, desc))
+            desc = ctor.__doc__.strip().split('\n')[0]
+            lines.append(f'{name.ljust(30)}: {desc}')
+        lines.append('')
 
-        pprint(parts)
+        return lines
 
-    async def _handleTypeHelp(self, styp: str, runt: Runtime):
+    async def _handleTypeHelp(self, styp: str, runt: Runtime, verbose: bool =False):
         typeinfo = s_stormtypes.registry.getTypeDocs(styp)
         page = s_autodoc.RstHelp()
 
         s_autodoc.runtimeDocStormTypes(page, typeinfo,
                                        islib=False,
                                        known_types=s_stormtypes.registry.known_types,
+                                       oneline=not verbose,
                                        )
         for line in page.lines:
             await runt.printf(line)
 
-    async def _handleBoundMethod(self, func, runt: Runtime):
+    async def _handleBoundMethod(self, func, runt: Runtime, verbose: bool =False):
         # Bound methods must be bound to a Lib or Prim object.
         # Determine what they are, get those docs exactly, and then render them.
 
@@ -3180,7 +3182,14 @@ class HelpCmd(Cmd):
         if isinstance(cls, s_stormtypes.Lib):
             libsinfo = s_stormtypes.registry.getLibDocs(cls)
             for lifo in libsinfo:
-                lifo['locals'] = [loc for loc in lifo['locals'] if loc.get('type', {}).get('_funcname', '') == fname]
+                nlocs = []
+                for locl in lifo['locals']:
+                    ltyp = locl.get('type')
+                    if not isinstance(ltyp, dict):
+                        continue
+                    if ltyp.get('_funcname', '') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
                 if len(lifo['locals']) == 0:
                     await runt.warn(f'Unable to find doc for {func}')
 
@@ -3189,6 +3198,8 @@ class HelpCmd(Cmd):
             s_autodoc.runtimeDocStormTypes(page, libsinfo,
                                            islib=True,
                                            known_types=s_stormtypes.registry.known_types,
+                                           addheader=False,
+                                           oneline=not verbose,
                                            )
             for line in page.lines:
                 await runt.printf(line)
@@ -3205,12 +3216,13 @@ class HelpCmd(Cmd):
             s_autodoc.runtimeDocStormTypes(page, typeinfo,
                                            islib=False,
                                            known_types=s_stormtypes.registry.known_types,
+                                           oneline=not verbose,
                                            )
             for line in page.lines:
                 await runt.printf(line)
 
         else:  # pragma: no cover
-            raise s_exc.StormRuntimeError(mesgf='Unkown bound method {func}')
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
 
 class DiffCmd(Cmd):
     '''

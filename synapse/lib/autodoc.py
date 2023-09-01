@@ -428,11 +428,11 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
             page.addLines(*lines)
 
 def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
-                         known_types=None,
+                         known_types=None, oneline=False,
+                         addheader=True, preamble=None,
                          ):
     '''
     Process a list of StormTypes doc information to add them to a RstHelp object.
-
 
     Args:
         page (RstHelp): The RST page to add .
@@ -441,10 +441,15 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
         islib (bool): Treat the data as a library. This will preface the header and
             attribute values with ``$`` and use full paths for attributes.
         lvl (int): The base header level to use when adding headers to the page.
+        known_types:
+        oneline:
+        preamble:
 
     Returns:
         None
     '''
+    if preamble is None:
+        preamble = []
 
     if known_types is None:
         known_types = set()
@@ -456,15 +461,19 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
 
         sname = '.'.join(path)
 
-        if islib:
-            page.addHead(f"${sname}", lvl=lvl, addprefixline=False, addsuffixline=False)
-        else:
-            page.addHead(sname, lvl=lvl, addprefixline=False, addsuffixline=False)
+        if addheader:
 
-        typedoc = info.get('desc')
-        lines = prepareRstLines(typedoc)
+            if islib:
+                page.addHead(f"${sname}", lvl=lvl, addprefixline=False, addsuffixline=False)
+            else:
+                page.addHead(sname, lvl=lvl, addprefixline=False, addsuffixline=False)
 
-        page.addLines(*lines)
+            typedoc = info.get('desc')
+            lines = prepareRstLines(typedoc)
+
+            page.addLines(*lines)
+
+        page.addLines(*preamble)
 
         locls = info.get('locals', ())
         locls = sorted(locls, key=lambda x: x.get('name'))
@@ -521,5 +530,8 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
                 header = '.'.join((sname, header))
                 header = f'${header}'
 
-            page.addHead(header, lvl=lvl + 1, addsuffixline=False)
-            page.addLines(*lines)
+            if oneline:
+                page.addLines(header, lines[0], '')
+            else:
+                page.addHead(header, lvl=lvl + 1, addsuffixline=False)
+                page.addLines(*lines)
