@@ -1,40 +1,48 @@
 import synapse.lib.stormtypes as s_stormtypes
 
-# stormcmds = (
-#     {
-#         'name': 'vault.add',
-#         'descr': '''
-#             Add a vault.
+__stormcmds = (
+    {
+        'name': 'vault.add',
+        'descr': '''
+            Add a vault.
 
-#             Examples:
+            Examples:
 
-#                 // Add a vault with type `synapse-test`
-#                 auth.user.add visi --email visi@vertex.link
-#         ''',
-#         'cmdargs': (
-#             ('type', {'type': 'str', 'help': 'The vault type name.'}),
-#             ('iden', {'type': 'str', 'help': 'The user/role to the vault for ($lib.null for a global vault).'}),
-#             ('data', {'type': 'prim', 'help': 'The data to store in the new vault.'}),
-#         ),
-#         'storm': '''
-#             $iden = $lib.null
-#             if $cmdopts.iden {
-#                 $iden
-#             }
-#             $user = $lib.auth.users.add($cmdopts.name, email=$cmdopts.email)
-#             $lib.print('User ({name}) added with iden: {iden}', name=$user.name, iden=$user.iden)
-#         ''',
-#     },
+                // Add a vault with type `synapse-test`
+                auth.user.add visi --email visi@vertex.link
+        ''',
+        'cmdargs': (
+            ('type', {'type': 'str', 'help': 'The vault type name.'}),
+            ('name', {'type': 'str', 'help': 'Name of the user or role to add the vault for ($lib.null for a global vault).'}),
+            ('data', {'type': 'prim', 'help': 'The data to store in the new vault.'}),
+        ),
+        'storm': '''
+            $iden = $lib.null
+            if $cmdopts.iden {
+                $iden = $lib.auth.users.get($cmdopts.name)
+                if (not $iden) {
+                    $iden = $lib.auth.roles.get($cmdopts.name)
+                }
+            }
 
-#     # 'add': self._addVault,
-#     # 'get': self._getVaultData,
-#     # 'set': self._setVault,
-#     # 'del': self._delVault,
-#     # 'list': self._listVaults,
-#     # 'open': self._openVault,
-#     # 'setPerm': self._setPerm,
-#     # 'setDefault': self._setDefault,
-# )
+            $ok = $lib.vault.add($cmdopts.type, $iden, $cmdopts.data)
+            if $ok {
+                $lib.print(`Vault added successfully. Type: {$cmdopts.type}, iden: {$cmdopts.iden}.`)
+            } else {
+                $lib.warn('Error when adding vault.')
+            }
+        ''',
+    },
+
+    # 'add': self._addVault,
+    # 'get': self._getVaultData,
+    # 'set': self._setVault,
+    # 'del': self._delVault,
+    # 'list': self._listVaults,
+    # 'open': self._openVault,
+    # 'setPerm': self._setPerm,
+    # 'setDefault': self._setDefault,
+)
 
 @s_stormtypes.registry.registerLib
 class LibVault(s_stormtypes.Lib):
