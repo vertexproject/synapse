@@ -510,7 +510,14 @@ class Lib(StormType):
             async for item in self.modrunt.execute():
                 await asyncio.sleep(0)  # pragma: no cover
 
-            self.locls.update(self.modrunt.vars)
+            for k, v in self.modrunt.vars.items():
+                # Annotate the name and lib onto the callable so we can know
+                # that it can be inspected later:
+                if callable(v) and v.__name__ == 'realfunc':
+                    v._storm_runtime_lib = self
+                    v._storm_runtime_lib_func = k
+
+                self.locls[k] = v
 
     async def stormrepr(self):
         if '__module__' in self.locls:

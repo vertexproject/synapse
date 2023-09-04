@@ -428,11 +428,14 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
             page.addLines(*lines)
 
 def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
-                         known_types=None, oneline=False,
-                         addheader=True, preamble=None,
+                         oneline=False,
+                         addheader=True,
+                         preamble=None,
                          ):
     '''
     Process a list of StormTypes doc information to add them to a RstHelp object.
+
+    Used for Storm runtime help generation.
 
     Args:
         page (RstHelp): The RST page to add .
@@ -441,18 +444,14 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
         islib (bool): Treat the data as a library. This will preface the header and
             attribute values with ``$`` and use full paths for attributes.
         lvl (int): The base header level to use when adding headers to the page.
-        known_types:
-        oneline:
-        preamble:
+        oneline (bool): Only display the first line of description. Omits local headers.
+        preamble (list): Lines added after the header; and before locls.
 
     Returns:
         None
     '''
     if preamble is None:
         preamble = []
-
-    if known_types is None:
-        known_types = set()
 
     for info in docinfo:
         reqValidStormTypeDoc(info)
@@ -557,13 +556,17 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
                 page.addHead(header, lvl=lvl + 1, addsuffixline=False)
                 page.addLines(*lines)
 
+        more_than_one_item = (len(funcs) + len(nofuncs)) > 1
+
         if funcs:
-            page.addLines('The following functions are available:', '')
+            if more_than_one_item:
+                page.addLines('The following functions are available:', '')
             for locl, isstor, isfunc, isgtor, isctor in funcs:
                 renderer(locl, isstor, isfunc, isgtor, isctor)
 
         if nofuncs:
-            page.addLines('The following references are available:', '')
+            if more_than_one_item:
+                page.addLines('The following references are available:', '')
             for locl, isstor, isfunc, isgtor, isctor in nofuncs:
                 renderer(locl, isstor, isfunc, isgtor, isctor)
 

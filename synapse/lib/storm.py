@@ -3028,7 +3028,6 @@ class HelpCmd(Cmd):
 
         command = self.opts.command
 
-        # await runt.printf(f'{command=} {type(command)} {self.opts.verbose=}')
         if isinstance(command, s_stormtypes.Lib):
             await self._handleLibHelp(command, runt, verbose=self.opts.verbose)
             return
@@ -3037,11 +3036,18 @@ class HelpCmd(Cmd):
             await self._handleTypeHelp(command, runt, verbose=self.opts.verbose)
             return
 
-        # Handle $lib.inet.http.get / $str.split
+        # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
         if callable(command):
+
             if hasattr(command, '__func__'):
+                # https://docs.python.org/3/reference/datamodel.html#instance-methods
                 await self._handleBoundMethod(command, runt, verbose=self.opts.verbose)
                 return
+
+            if hasattr(command, '_storm_runtime_lib_func'):
+                await self._handleStormLibMethod(command, runt, verbose=self.opts.verbose)
+                return
+
             await runt.warn('help does not currently support runtime defined functions.')
             return
 
@@ -3113,7 +3119,6 @@ class HelpCmd(Cmd):
 
             s_autodoc.runtimeDocStormTypes(page, libsinfo,
                                            islib=True,
-                                           known_types=s_stormtypes.registry.known_types,
                                            oneline=not verbose,
                                            preamble=preamble,
                                            )
@@ -3166,7 +3171,6 @@ class HelpCmd(Cmd):
 
         s_autodoc.runtimeDocStormTypes(page, typeinfo,
                                        islib=False,
-                                       known_types=s_stormtypes.registry.known_types,
                                        oneline=not verbose,
                                        )
         for line in page.lines:
@@ -3197,7 +3201,6 @@ class HelpCmd(Cmd):
 
             s_autodoc.runtimeDocStormTypes(page, libsinfo,
                                            islib=True,
-                                           known_types=s_stormtypes.registry.known_types,
                                            addheader=False,
                                            oneline=not verbose,
                                            )
@@ -3215,7 +3218,6 @@ class HelpCmd(Cmd):
 
             s_autodoc.runtimeDocStormTypes(page, typeinfo,
                                            islib=False,
-                                           known_types=s_stormtypes.registry.known_types,
                                            oneline=not verbose,
                                            )
             for line in page.lines:
@@ -3223,6 +3225,37 @@ class HelpCmd(Cmd):
 
         else:  # pragma: no cover
             raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
+
+    async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Bound methods must be bound to a Lib or Prim object.
+        # Determine what they are, get those docs exactly, and then render them.
+
+        cls = getattr(func, '_storm_runtime_lib', None)
+        fname = getattr(func, '_storm_runtime_lib_func', None)
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    if locl.get('name') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown runtime lib method {func} {cls} {fname}')
 
 class DiffCmd(Cmd):
     '''
