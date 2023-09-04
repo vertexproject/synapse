@@ -511,8 +511,8 @@ class Lib(StormType):
                 await asyncio.sleep(0)  # pragma: no cover
 
             for k, v in self.modrunt.vars.items():
-                # Annotate the name and lib onto the callable so we can know
-                # that it can be inspected later:
+                # Annotate the name and lib onto the callable
+                # so that it can be inspected later.
                 if callable(v) and v.__name__ == 'realfunc':
                     v._storm_runtime_lib = self
                     v._storm_runtime_lib_func = k
