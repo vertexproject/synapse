@@ -3227,8 +3227,8 @@ class HelpCmd(Cmd):
             raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
 
     async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
-        # Bound methods must be bound to a Lib or Prim object.
-        # Determine what they are, get those docs exactly, and then render them.
+        # Storm library methoeds must be derived from a library defition.
+        # Determine the parent lib and get those docs exactly, and then render them.
 
         cls = getattr(func, '_storm_runtime_lib', None)
         fname = getattr(func, '_storm_runtime_lib_func', None)
