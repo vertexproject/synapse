@@ -1,10 +1,11 @@
+import os
 import asyncio
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
 import synapse.lib.const as s_const
+import synapse.lib.slaboffs as s_slaboffs
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -27,9 +28,10 @@ class CryoTest(s_t_utils.SynTest):
 
                 self.eq((), await prox.list())
 
-                self.true(await prox.init('foo'))
+                footankiden = await prox.init('foo')
+                self.nn(footankiden)
 
-                self.eq('foo', (await prox.list())[0][0])
+                self.eq([('foo', footankiden)], [(info[0], info[1]['iden']) for info in await prox.list()])
 
                 self.none(await prox.last('foo'))
 
@@ -140,14 +142,12 @@ class CryoTest(s_t_utils.SynTest):
             await cryo.addUserRule(utank0, (True, ('cryo', 'tank', 'add')))
 
             await cryo.init('tank1')
-            tankiden1 = cryo.getTankIdenByName('tank1')
 
             async with cryo.getLocalProxy(user='tank0') as prox:
 
                 # creator is admin
 
-                self.true(await prox.init('tank0'))
-                tankiden0 = cryo.getTankIdenByName('tank0')
+                tankiden0 = await prox.init('tank0')
 
                 self.eq(1, await prox.puts('tank0', ('foo',)))
                 self.nn(await prox.last('tank0'))
@@ -198,5 +198,49 @@ class CryoTest(s_t_utils.SynTest):
 
                 self.eq(1, await prox.puts('tank0', ('bar',)))
 
-            # todo: migration for idens
-            # todo: remove offset tracking / drop during migration
+    async def test_cryo_migrate_v2(self):
+
+        with self.withNexusReplay():
+
+            with self.getRegrDir('cells', 'cryotank-2.147.0') as dirn:
+
+                async with self.getTestCryoAndProxy(dirn=dirn) as (cryo, prox):
+
+                    tank00iden = 'a4f502db5ebb7740eb8423639144ecf4'
+                    tank01iden = '1cfca0e6d5c4b9daff65f75e29db25dd'
+
+                    seqniden = 'acf2a29b8f2a88c29e6d6ff359c86667'
+
+                    self.eq(
+                        [(0, 'foo'), (1, 'bar')],
+                        await alist(prox.slice('tank00', 0, wait=False))
+                    )
+
+                    self.eq(
+                        [(0, 'cat'), (1, 'dog'), (2, 'emu')],
+                        await alist(prox.slice('tank01', 0, wait=False))
+                    )
+
+                    tank00 = await cryo.init('tank00')
+                    self.true(tank00iden == cryo.names.get('tank00').valu[0] == tank00.iden())
+                    self.false(os.path.exists(os.path.join(tank00.dirn, 'cell.guid')))
+                    self.false(os.path.exists(os.path.join(tank00.dirn, 'slabs', 'cell.lmdb')))
+                    self.eq(0, s_slaboffs.SlabOffs(tank00.slab, 'offsets').get(seqniden))
+
+                    tank01 = await cryo.init('tank01')
+                    self.true(tank01iden == cryo.names.get('tank01').valu[0] == tank01.iden())
+                    self.false(os.path.exists(os.path.join(tank01.dirn, 'cell.guid')))
+                    self.false(os.path.exists(os.path.join(tank01.dirn, 'slabs', 'cell.lmdb')))
+                    self.eq(0, s_slaboffs.SlabOffs(tank01.slab, 'offsets').get(seqniden))
+
+                    await prox.puts('tank00', ('bam',))
+                    self.eq(
+                        [(1, 'bar'), (2, 'bam')],
+                        await alist(prox.slice('tank00', 1, wait=False))
+                    )
+
+                    await prox.puts('tank01', ('eek',))
+                    self.eq(
+                        [(2, 'emu'), (3, 'eek')],
+                        await alist(prox.slice('tank01', 2, wait=False))
+                    )

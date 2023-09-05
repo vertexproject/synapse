@@ -28,13 +28,13 @@ class TankApi(s_cell.CellApi):
             yield item
 
     async def iden(self):
-        return await self.cell.iden()
+        return self.cell.iden()
 
 class CryoTank(s_base.Base):
     '''
     A CryoTank implements a stream of structured data.
     '''
-    async def __anit__(self, dirn, conf=None):
+    async def __anit__(self, dirn, iden, conf=None):
 
         await s_base.Base.__anit__(self)
 
@@ -44,7 +44,7 @@ class CryoTank(s_base.Base):
         self.conf = conf
         self.dirn = s_common.gendir(dirn)
 
-        self._iden = self._getTankIden()
+        self._iden = iden
 
         path = s_common.gendir(self.dirn, 'tank.lmdb')
 
@@ -55,34 +55,8 @@ class CryoTank(s_base.Base):
 
         self.onfini(self.slab.fini)
 
-    async def iden(self):
+    def iden(self):
         return self._iden
-
-    def _getTankIden(self):
-
-        path = s_common.genpath(self.dirn, 'guid')
-        if os.path.isfile(path):
-            with open(path, 'r') as fd:
-                return fd.read().strip()
-
-        # legacy cell code...
-        cellpath = s_common.genpath(self.dirn, 'cell.guid')
-        if os.path.isfile(cellpath):
-
-            with open(cellpath, 'r') as fd:
-                iden = fd.read().strip()
-
-            with open(path, 'w') as fd:
-                fd.write(iden)
-
-            os.unlink(cellpath)
-            return iden
-
-        iden = s_common.guid()
-        with open(path, 'w') as fd:
-            fd.write(iden)
-
-        return iden
 
     def last(self):
         '''
@@ -180,7 +154,12 @@ class CryoTank(s_base.Base):
             dict: A dict containing items and metrics indexes.
         '''
         stat = self._items.stat()
-        return {'indx': self._items.index(), 'metrics': self._metrics.index(), 'stat': stat}
+        return {
+            'iden': self._iden,
+            'indx': self._items.index(),
+            'metrics': self._metrics.index(),
+            'stat': stat,
+        }
 
 class CryoApi(s_cell.CellApi):
     '''
@@ -194,16 +173,16 @@ class CryoApi(s_cell.CellApi):
 
         await self._reqUserAllowed(('cryo', 'tank', 'add'))
         tank = await self.cell.init(name, conf=conf)
-        await self.user.setAdmin(True, gateiden=self.cell.getTankIdenByName(name))
+        await self.user.setAdmin(True, gateiden=tank.iden())
         return tank
 
     async def init(self, name, conf=None):
-        await self._reqInit(name, conf=conf)
-        return self.cell.getTankIdenByName(name)
+        tank = await self._reqInit(name, conf=conf)
+        return tank.iden()
 
     async def slice(self, name, offs, size=None, wait=False, timeout=None):
         tank = await self._reqInit(name)
-        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
 
@@ -212,23 +191,23 @@ class CryoApi(s_cell.CellApi):
 
     async def last(self, name):
         tank = await self._reqInit(name)
-        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         return tank.last()
 
     async def puts(self, name, items):
         tank = await self._reqInit(name)
-        self.user.confirm(('cryo', 'tank', 'put'), gateiden=self.cell.getTankIdenByName(name))
+        self.user.confirm(('cryo', 'tank', 'put'), gateiden=tank.iden())
         return await tank.puts(items)
 
     async def rows(self, name, offs, size):
         tank = await self._reqInit(name)
-        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.rows(offs, size):
             yield item
 
     async def metrics(self, name, offs, size=None):
         tank = await self._reqInit(name)
-        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.metrics(offs, size=size):
             yield item
 
@@ -260,11 +239,55 @@ class CryoCell(s_cell.Cell):
 
             path = s_common.genpath(self.dirn, 'tanks', iden)
 
-            tank = await CryoTank.anit(path, conf)
+            tank = await CryoTank.anit(path, iden, conf)
 
             self.tanks.put(name, tank)
 
             await self.auth.addAuthGate(iden, 'tank')
+
+    async def _execCellUpdates(self):
+        await self._bumpCellVers('cryotank', (
+            (2, self._migrateToV2),
+        ))
+
+    async def _migrateToV2(self):
+
+        logger.warning('Beginning migration to V2')
+
+        self.names = await self.hive.open(('cryo', 'names'))
+
+        for name, node in self.names:
+
+            iden, conf = node.valu
+            if conf is None:
+                conf = {}
+
+            logger.info(f'Migrating tank {name=} {iden=}')
+
+            path = s_common.genpath(self.dirn, 'tanks', iden)
+
+            # remove old guid file
+            guidpath = s_common.genpath(path, 'guid')
+            if os.path.isfile(path):
+                os.unlink(guidpath)
+
+            # if its a legacy cell remove that too
+            cellpath = s_common.genpath(path, 'cell.guid')
+            if os.path.isfile(cellpath):
+
+                os.unlink(cellpath)
+
+                cellslabpath = s_common.genpath(path, 'slabs', 'cell.lmdb')
+                if os.path.isdir(cellslabpath):
+                    shutil.rmtree(cellslabpath, ignore_errors=True)
+
+            # drop offsets
+            slabpath = s_common.genpath(path, 'tank.lmdb')
+            async with await s_lmdbslab.Slab.anit(slabpath, **conf) as slab:
+                offs = s_slaboffs.SlabOffs(slab, 'offsets')
+                slab.dropdb(offs.db)
+
+        logger.warning('...migration complete')
 
     @classmethod
     def getEnvPrefix(cls):
@@ -283,12 +306,6 @@ class CryoCell(s_cell.Cell):
 
     async def exists(self, name):
         return self.tanks.get(name) is not None
-
-    def getTankIdenByName(self, name):
-        node = self.names.get(name)
-        if node is None:
-            raise s_exc.BadArg(mesg=f'Tank {name} does not exist')
-        return node.valu[0]
 
     async def init(self, name, conf=None):
         '''
@@ -310,7 +327,7 @@ class CryoCell(s_cell.Cell):
 
         path = s_common.genpath(self.dirn, 'tanks', iden)
 
-        tank = await CryoTank.anit(path, conf)
+        tank = await CryoTank.anit(path, iden, conf)
 
         node = await self.names.open((name,))
         await node.set((iden, conf))
@@ -333,13 +350,10 @@ class CryoCell(s_cell.Cell):
 
         for name, tank in self.tanks.items():
 
-            iden = self.getTankIdenByName(name)
-            if user is not None and not user.allowed(('cryo', 'tank', 'read'), gateiden=iden):
+            if user is not None and not user.allowed(('cryo', 'tank', 'read'), gateiden=tank.iden()):
                 continue
 
-            info = await tank.info()
-            info['iden'] = self.getTankIdenByName(name)
-            infos.append((name, info))
+            infos.append((name, await tank.info()))
 
         return infos
 
