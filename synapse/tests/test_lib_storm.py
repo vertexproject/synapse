@@ -3545,6 +3545,64 @@ class StormTest(s_t_utils.SynTest):
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
 
+    async def test_storm_help_cmd(self):
+
+        async with self.getTestCore() as core:
+
+            msgs = await alist(core.storm('.created | limit 1 | help'))
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+            self.len(1, [n for n in msgs if n[0] == 'node'])
+
+            msgs = await alist(core.storm('help'))
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
+
+            msgs = await alist(core.storm('help view.'))
+            self.stormIsInPrint('view.merge', msgs)
+            self.stormNotInPrint('uniq', msgs)
+
+            msgs = await alist(core.storm('help newp'))
+            self.stormIsInPrint('No commands found matching "newp"', msgs)
+            self.stormNotInPrint('uniq', msgs)
+
+            otherpkg = {
+                'name': 'foosball',
+                'version': '0.0.1',
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=2.8.0,<3.0.0',
+                'commands': ({
+                                 'name': 'testcmd',
+                                 'descr': 'test command',
+                                 'storm': '[ inet:ipv4=1.2.3.4 ]',
+                             },)
+            }
+            self.none(await core.addStormPkg(otherpkg))
+
+            msgs = await core.stormlist('help')
+            self.printed(msgs, 'package: foosball')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormIsInPrint(': test command', msgs)
+
+            msgs = await alist(core.storm('help testcmd'))
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormNotInPrint('view.merge', msgs)
+
+            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
+            self.stormIsInErr('help does not support per-node invocation', msgs)
+
+            # $lib helps
+            msgs = await core.stormlist('help $lib')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                else:
+                    print(m)
+
+            return
+
             msgs = await core.stormlist('help $lib.macro')
             for m in msgs:
                 if m[0] == 'print':

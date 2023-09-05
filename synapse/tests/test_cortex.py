@@ -3202,34 +3202,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(AssertionError):
                 self.stormIsInPrint('uniq', msgs)
 
-            # test that storm package commands that didn't come from
-            # a storm service are displayed
-            otherpkg = {
-                'name': 'foosball',
-                'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
-                'synapse_version': '>=2.8.0,<3.0.0',
-                'commands': ({
-                    'name': 'testcmd',
-                    'descr': 'test command',
-                    'storm': '[ inet:ipv4=1.2.3.4 ]',
-                },)
-            }
-            self.none(await core.addStormPkg(otherpkg))
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: foosball')
-            self.stormIsInPrint('testcmd', msgs)
-            self.stormIsInPrint(': test command', msgs)
-
-            msgs = await alist(core.storm('help testcmd'))
-            self.stormIsInPrint('testcmd', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('view.merge', msgs)
-
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
-            self.stormIsInErr('help does not support per-node invocation', msgs)
-
             await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
             self.eq(2, await core.count('inet:user'))
