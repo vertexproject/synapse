@@ -210,37 +210,52 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
+    async def _reqInit(self, name, conf=None):
+        if await self.cell.exists(name):
+            return await self.cell.init(name)
+
+        await self._reqUserAllowed(('cryo', 'tank', 'add'))
+        tank = await self.cell.init(name, conf=conf)
+        await self.user.setAdmin(True, gateiden=self.cell.getTankIdenByName(name))
+        return tank
+
     async def init(self, name, conf=None):
-        await self.cell.init(name, conf=conf)
-        return True
+        await self._reqInit(name, conf=conf)
+        return self.cell.getTankIdenByName(name)
 
     async def slice(self, name, offs, size=None, iden=None, wait=False, timeout=None):
-        tank = await self.cell.init(name)
+        tank = await self._reqInit(name)
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
         async for item in tank.slice(offs, size=size, iden=iden, wait=wait, timeout=timeout):
             yield item
 
     async def list(self):
-        return await self.cell.list()
+        return await self.cell.list(user=self.user)
 
     async def last(self, name):
-        tank = await self.cell.init(name)
+        tank = await self._reqInit(name)
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
         return tank.last()
 
     async def puts(self, name, items, seqn=None):
-        tank = await self.cell.init(name)
+        tank = await self._reqInit(name)
+        self.user.confirm(('cryo', 'tank', 'put'), gateiden=self.cell.getTankIdenByName(name))
         return await tank.puts(items, seqn=seqn)
 
     async def offset(self, name, iden):
-        tank = await self.cell.init(name)
+        tank = await self._reqInit(name)
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
         return tank.getOffset(iden)
 
     async def rows(self, name, offs, size, iden=None):
-        tank = await self.cell.init(name)
+        tank = await self._reqInit(name)
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
         async for item in tank.rows(offs, size, iden=iden):
             yield item
 
     async def metrics(self, name, offs, size=None):
-        tank = await self.cell.init(name)
+        tank = await self._reqInit(name)
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
         async for item in tank.metrics(offs, size=size):
             yield item
 
@@ -276,6 +291,8 @@ class CryoCell(s_cell.Cell):
 
             self.tanks.put(name, tank)
 
+            await self.auth.addAuthGate(iden, 'tank')
+
     @classmethod
     def getEnvPrefix(cls):
         return ('SYN_CRYOTANK', )
@@ -290,6 +307,15 @@ class CryoCell(s_cell.Cell):
             return await self.tankapi.anit(tank, link, user)
 
         raise s_exc.NoSuchPath(path=path)
+
+    async def exists(self, name):
+        return self.tanks.get(name) is not None
+
+    def getTankIdenByName(self, name):
+        node = self.names.get(name)
+        if node is None:
+            raise s_exc.BadArg(mesg=f'Tank {name} does not exist')
+        return node.valu[0]
 
     async def init(self, name, conf=None):
         '''
@@ -318,16 +344,31 @@ class CryoCell(s_cell.Cell):
 
         self.tanks.put(name, tank)
 
+        await self.auth.addAuthGate(iden, 'tank')
+
         return tank
 
-    async def list(self):
+    async def list(self, user=None):
         '''
         Get a list of (name, info) tuples for the CryoTanks.
 
         Returns:
             list: A list of tufos.
         '''
-        return [(name, await tank.info()) for (name, tank) in self.tanks.items()]
+
+        infos = []
+
+        for name, tank in self.tanks.items():
+
+            iden = self.getTankIdenByName(name)
+            if user is not None and not user.allowed(('cryo', 'tank', 'read'), gateiden=iden):
+                continue
+
+            info = await tank.info()
+            info['iden'] = self.getTankIdenByName(name)
+            infos.append((name, info))
+
+        return infos
 
     async def delete(self, name):
 
@@ -335,8 +376,10 @@ class CryoCell(s_cell.Cell):
         if tank is None:
             return False
 
-        await self.names.pop((name,))
+        iden, _ = await self.names.pop((name,))
         await tank.fini()
         shutil.rmtree(tank.dirn, ignore_errors=True)
+
+        await self.auth.delAuthGate(iden)
 
         return True

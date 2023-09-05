@@ -1,5 +1,6 @@
 import asyncio
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
@@ -142,3 +143,77 @@ class CryoTest(s_t_utils.SynTest):
                 self.eq(tank.slab.mapsize, s_const.mebibyte * 64)
                 _, conf = await cryo.hive.get(('cryo', 'names', 'conftest'))
                 self.eq(conf, {'map_size': s_const.mebibyte * 64})
+
+    async def test_cryo_perms(self):
+
+        async with self.getTestCryo() as cryo:
+
+            uadmin = (await cryo.addUser('admin'))['iden']
+            await cryo.setUserAdmin(uadmin, True)
+
+            ulower = (await cryo.addUser('lower'))['iden']
+
+            utank0 = (await cryo.addUser('tank0'))['iden']
+            await cryo.addUserRule(utank0, (True, ('cryo', 'tank', 'add')))
+
+            await cryo.init('tank1')
+            tankiden1 = cryo.getTankIdenByName('tank1')
+
+            async with cryo.getLocalProxy(user='tank0') as prox:
+
+                # creator is admin
+
+                self.true(await prox.init('tank0'))
+                tankiden0 = cryo.getTankIdenByName('tank0')
+
+                self.eq(1, await prox.puts('tank0', ('foo',)))
+                self.nn(await prox.last('tank0'))
+                self.len(1, await alist(prox.slice('tank0', 0, wait=False)))
+                self.len(1, await alist(prox.rows('tank0', 0, 10)))
+                self.len(1, await alist(prox.metrics('tank0', 0)))
+
+                # ..but only admin on that tank
+
+                await self.asyncraises(s_exc.AuthDeny, prox.puts('tank1', ('bar',)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.rows('tank1', 0, 10)))
+
+                # only sees tanks in list() they have read access to
+
+                self.len(1, await prox.list())
+                self.len(2, await cryo.list())
+
+                # only admin can delete
+
+                await self.asyncraises(s_exc.AuthDeny, prox.delete('tank0'))
+
+            async with cryo.getLocalProxy(user='lower') as prox:
+
+                # default user has no access
+
+                self.len(0, await prox.list())
+
+                await self.asyncraises(s_exc.AuthDeny, prox.init('tank2'))
+                await self.asyncraises(s_exc.AuthDeny, prox.puts('tank0', ('bar',)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.slice('tank0', 0, wait=False)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.rows('tank0', 0, 10)))
+                await self.asyncraises(s_exc.AuthDeny, alist(prox.metrics('tank0', 0)))
+
+                # add read access
+
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'read')), gateiden=tankiden0)
+
+                self.len(1, await prox.list())
+
+                await self.asyncraises(s_exc.AuthDeny, prox.puts('tank0', ('bar',)))
+                self.len(1, await alist(prox.slice('tank0', 0, wait=False)))
+                self.len(1, await alist(prox.rows('tank0', 0, 10)))
+                self.len(1, await alist(prox.metrics('tank0', 0)))
+
+                # add write access
+
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'put')), gateiden=tankiden0)
+
+                self.eq(1, await prox.puts('tank0', ('bar',)))
+
+            # todo: migration for idens
+            # todo: remove offset tracking / drop during migration
