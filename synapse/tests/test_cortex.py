@@ -7596,118 +7596,110 @@ class CortexBasicTest(s_t_utils.SynTest):
             await visi1.grant(contributor.iden)
 
             # visi1 can create visi1 vaults
-            uiden = await core.addVault(vtype, visi1.iden, {'apikey': 'test1234'}, user=visi1)
+            uiden = await core.addVault('uvault', vtype, 'user', visi1.iden, {'apikey': 'user'}, user=visi1)
 
-            vault = core.getVault(uiden)
+            vault = core.getVaultByIden(uiden)
             self.nn(vault)
             self.eq(vault['ident'], visi1.iden)
-            self.eq(vault['data'], {'apikey': 'test1234'})
+            self.eq(vault['data'], {'apikey': 'user'})
 
             # visi1 is a contributor so he can create contributor vaults
-            riden = await core.addVault(vtype, contributor.iden, {'apikey': 'test2345'}, user=visi1)
+            riden = await core.addVault('rvault', vtype, 'role', contributor.iden, {'apikey': 'role'}, user=visi1)
 
-            vault = core.getVault(riden)
+            vault = core.getVaultByIden(riden)
             self.nn(vault)
             self.eq(vault['ident'], contributor.iden)
-            self.eq(vault['data'], {'apikey': 'test2345'})
+            self.eq(vault['data'], {'apikey': 'role'})
 
             # Admin can create global vaults
-            giden = await core.addVault(vtype, None, {'apikey': 'test3456'}, user=root)
+            giden = await core.addVault('gvault', vtype, 'global', None, {'apikey': 'global'}, user=root)
 
-            vault = core.getVault(giden)
+            vault = core.getVaultByIden(giden)
             self.nn(vault)
             self.none(vault['ident'])
-            self.eq(vault['data'], {'apikey': 'test3456'})
+            self.eq(vault['data'], {'apikey': 'global'})
 
             # Change the data in each of the vaults
-            await core.setVaultData(uiden, {'apikey': 'foo1234'})
-            vault = core.getVault(uiden)
-            self.eq(vault['data'], {'apikey': 'foo1234'})
+            await core.setVaultData('uvault', 'apikey', 'user1')
+            vault = core.getVaultByIden(uiden)
+            self.eq(vault['data'], {'apikey': 'user1'})
 
-            await core.setVaultData(riden, {'apikey': 'foo2345'})
-            vault = core.getVault(riden)
-            self.eq(vault['data'], {'apikey': 'foo2345'})
+            await core.setVaultData('rvault', 'apikey', 'role1')
+            vault = core.getVaultByIden(riden)
+            self.eq(vault['data'], {'apikey': 'role1'})
 
-            await core.setVaultData(giden, {'apikey': 'foo3456'})
-            vault = core.getVault(giden)
-            self.eq(vault['data'], {'apikey': 'foo3456'})
-
-            # Try different data types
-            for data in (1000, 'foobar', [1, 2, 3, 4, 5], 'abcde'.split(), {'foo': 'bar'}):
-                await core.setVaultData(giden, data)
-                vault = core.getVault(giden)
-                self.eq(vault['data'], data)
+            await core.setVaultData('gvault', 'apikey', 'global1')
+            vault = core.getVaultByIden(giden)
+            self.eq(vault['data'], {'apikey': 'global1'})
 
             # Set default vault to global and open vault
             await core.setVaultDefault(vtype, 'global')
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, giden)
+            data = core.openVaultByType(vtype, None, visi1)
+            self.eq(data, {'apikey': 'global1'})
 
             # Set default vault to role and open vault
             await core.setVaultDefault(vtype, 'role')
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, riden)
+            data = core.openVaultByType(vtype, None, visi1)
+            self.eq(data, {'apikey': 'role1'})
 
-            iden = core.openVault(vtype, visi1, scope='user')
-            self.eq(iden, uiden)
+            data = core.openVaultByType(vtype, 'user', visi1)
+            self.eq(data, {'apikey': 'user1'})
 
-            vault = core.getVault(f'{vtype}:user:visi1')
+            vault = core._getVaultByTSI(vtype, 'user', visi1.iden)
             self.eq(vault.get('iden'), uiden)
-            self.nn(vault.get('data'))
+            self.eq(vault.get('data'), {'apikey': 'user1'})
 
-            vault = core.getVault(f'{vtype}:global')
+            vault = core._getVaultByTSI(vtype, 'global', None)
             self.eq(vault.get('iden'), giden)
             self.nn(vault.get('data'))
 
-            vault = core.getVault(f'{vtype}:global', user=visi1)
-            self.eq(vault.get('iden'), giden)
-            self.none(vault.get('data'))
-
-            vault = core.getVault(giden)
+            vault = core.getVaultByIden(giden)
             self.nn(vault.get('data'))
 
-            vault = core.getVault(giden, user=visi1)
+            vault = core.getVaultByIden(giden, user=visi1)
             self.none(vault.get('data'))
 
             # Root sees all
             vaults = [k for k in core.listVaults()]
             self.len(3, vaults)
-            self.isin((uiden, f'{vtype}:user:visi1', vtype, 'user'), vaults)
-            self.isin((riden, f'{vtype}:role:contributor', vtype, 'role'), vaults)
-            self.isin((giden, f'{vtype}:global', vtype, 'global'), vaults)
+            vaults = [(k.get('iden'), k.get('name'), k.get('type'), k.get('scope')) for k in vaults]
+            self.isin((uiden, f'uvault', vtype, 'user'), vaults)
+            self.isin((riden, f'rvault', vtype, 'role'), vaults)
+            self.isin((giden, f'gvault', vtype, 'global'), vaults)
 
             # visi2 can't list any vaults because he only has PERM_READ to global
             vaults = [k for k in core.listVaults(user=visi2)]
             self.len(1, vaults)
-            self.isin((giden, f'{vtype}:global', vtype, 'global'), vaults)
+            vaults = [(k.get('iden'), k.get('name'), k.get('type'), k.get('scope')) for k in vaults]
+            self.isin((giden, f'gvault', vtype, 'global'), vaults)
 
             # Test openVault searching
             await core.setVaultDefault(vtype, None)
 
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, uiden)
+            data = core.openVaultByType(vtype, None, visi1)
+            self.eq(data, {'apikey': 'user1'})
 
-            await core.delVault(uiden)
+            await core.delVault('uvault')
 
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, riden)
+            data = core.openVaultByType(vtype, None, visi1)
+            self.eq(data, {'apikey': 'role1'})
 
-            iden = core.openVault(vtype, visi1, scope='user')
-            self.none(iden)
+            data = core.openVaultByType(vtype, 'user', visi1)
+            self.none(data)
 
-            await core.delVault(riden)
+            await core.delVault('rvault')
 
-            iden = core.openVault(vtype, visi1)
-            self.eq(iden, giden)
+            data = core.openVaultByType(vtype, None, visi1)
+            self.eq(data, {'apikey': 'global1'})
 
-            await core.delVault(giden)
+            await core.delVault('gvault')
 
-            iden = core.openVault(vtype, visi1)
-            self.none(iden)
+            data = core.openVaultByType(vtype, None, visi1)
+            self.none(data)
 
             # Root won't get any vaults because he's not a member of the all role
-            iden = core.openVault(vtype, root)
-            self.none(iden)
+            data = core.openVaultByType(vtype, None, root)
+            self.none(data)
 
     async def test_cortex_vaults_errors(self):
         '''
@@ -7723,7 +7715,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             contributor = await core.auth.addRole('contributor')
             await visi1.grant(contributor.iden)
 
-            await core.addVault(vtype, None, {})
+            await core.addVault('foo1', vtype, None, None, {})
 
             with self.raises(s_exc.BadArg):
                 await core.setVaultDefault(vtype, 'newp')
@@ -7735,33 +7727,33 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.setVaultDefault(vtype, 'global', user=visi1)
 
             with self.raises(s_exc.NoSuchName):
-                core.getVault('foo')
+                core.getVaultByName('noexist')
 
-            with self.raises(s_exc.NoSuchName):
-                core.getVault('1234')
+            with self.raises(s_exc.NoSuchIden):
+                core.getVaultByIden('1234')
 
             with self.raises(s_exc.BadArg):
-                core.openVault(vtype, visi1, 'newp')
+                core.openVaultByType(vtype, 'newp', visi1)
 
             with self.raises(s_exc.DupName):
-                await core.addVault(vtype, None, {})
+                await core.addVault('foo1', vtype, None, None, {})
 
             with self.raises(s_exc.NoSuchName):
-                await core.setVaultData('1234', {})
+                await core.setVaultData('1234', 'key', 'valu')
 
             with self.raises(s_exc.NoSuchName):
                 await core.delVault('1234')
 
             self.none(core._getVaultByIden('1234'))
 
-            iden = await core.addVault(vtype, visi1.iden, {}, user=visi1)
-            self.none(core.getVault(iden, user=visi2))
+            iden = await core.addVault('foo2', vtype, 'user', visi1.iden, {}, user=visi1)
+            self.none(core.getVaultByIden(iden, user=visi2))
 
             with self.raises(s_exc.BadArg):
-                await core.setVaultData(iden, core)
+                await core.setVaultData('foo2', 'key', core)
 
             with self.raises(s_exc.BadArg):
-                await core.addVault(vtype, None, core)
+                await core.addVault('foo3', vtype, None, None, {'key', core})
 
     async def test_cortex_vaults_perms(self):
         '''
@@ -7781,42 +7773,42 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # visi2 does not have permission to create visi1 vaults
             with self.raises(s_exc.AuthDeny):
-                await core.addVault(vtype, visi1.iden, {'apikey': 'test1234'}, user=visi2)
+                await core.addVault('uvault1', vtype, 'user', visi1.iden, {}, user=visi2)
 
             # visi1 can create visi1 vaults
-            uiden = await core.addVault(vtype, visi1.iden, {'apikey': 'test1234'}, user=visi1)
+            uiden = await core.addVault('uvault1', vtype, 'user', visi1.iden, {}, user=visi1)
 
             with self.raises(s_exc.DupName):
-                await core.addVault(vtype, visi1.iden, {'apikey': 'test1234'}, user=visi1)
+                await core.addVault('uvault1', vtype, 'user', visi1.iden, {}, user=visi1)
 
             # visi2 doesn't have the contributor role so he can't create contributor vaults
             with self.raises(s_exc.AuthDeny):
-                await core.addVault(vtype, contributor.iden, {'apikey': 'test1234'}, user=visi2)
+                await core.addVault('rvault1', vtype, 'role', contributor.iden, {}, user=visi2)
 
             # visi1 is a contributor
-            riden = await core.addVault(vtype, contributor.iden, {'apikey': 'test2345'}, user=visi1)
+            riden = await core.addVault('rvault1', vtype, 'role', contributor.iden, {'apikey': 'rvault'}, user=visi1)
 
             # visi2 is not an admin so no global vaults for you
             with self.raises(s_exc.AuthDeny):
-                await core.addVault(vtype, None, {'apikey': 'test1234'}, user=visi2)
+                await core.addVault('gvault1', vtype, 'global', None, {}, user=visi2)
 
             # visi1 has vaults.global.add perm so he can create global vaults
-            giden = await core.addVault(vtype, None, {'apikey': 'test3456'}, user=visi1)
+            giden = await core.addVault('gvault1', vtype, 'global', None, {}, user=visi1)
 
-            await core.setVaultPerm(riden, visi1.iden, s_cell.PERM_DENY)
-            iden = core.openVault(vtype, visi1, scope='role')
-            self.none(iden)
+            await core.setVaultPerm('rvault1', visi1.iden, s_cell.PERM_DENY)
+            data = core.openVaultByType(vtype, 'role', user=visi1)
+            self.none(data)
 
             with self.raises(s_exc.AuthDeny):
-                await core.setVaultPerm(riden, visi1.iden, None, user=visi1)
+                await core.setVaultPerm('rvault1', visi1.iden, None, user=visi1)
 
-            await core.setVaultPerm(riden, visi1.iden, None)
-            iden = core.openVault(vtype, visi1, scope='role')
-            self.eq(iden, riden)
+            await core.setVaultPerm('rvault1', visi1.iden, None)
+            data = core.openVaultByType(vtype, 'role', user=visi1)
+            self.eq(data, {'apikey': 'rvault'})
 
-            await core.delVault(uiden)
-            await core.delVault(riden)
-            await core.delVault(giden)
+            await core.delVault('uvault1')
+            await core.delVault('rvault1')
+            await core.delVault('gvault1')
 
             # Ensure vault permissions show up in auth.perms.list
             perms = (
