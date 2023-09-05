@@ -212,7 +212,7 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
-            python -m build --wheel "-C=--build-option=--python-tag $PYTHON_TAG"
+            python -m build --wheel -C--build-option=--python-tag=$PYTHON_TAG
 
       - run:
           name: smoke packages
