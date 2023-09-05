@@ -159,6 +159,7 @@ class CryoTank(s_base.Base):
             ((index, object)): Index and item values.
         '''
         if iden is not None:
+            s_common.deprecated('cryotank(iden=...) argument, ', curv='2.148.0', eolv='2.150.0')
             self.setOffset(iden, offs)
 
         i = 0
