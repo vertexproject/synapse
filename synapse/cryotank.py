@@ -16,19 +16,16 @@ logger = logging.getLogger(__name__)
 
 class TankApi(s_cell.CellApi):
 
-    async def slice(self, offs, size=None, iden=None, wait=False, timeout=None):
-        async for item in self.cell.slice(offs, size=size, iden=iden, wait=wait, timeout=timeout):
+    async def slice(self, offs, size=None, wait=False, timeout=None):
+        async for item in self.cell.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
 
-    async def puts(self, items, seqn=None):
-        return await self.cell.puts(items, seqn=seqn)
+    async def puts(self, items):
+        return await self.cell.puts(items)
 
     async def metrics(self, offs, size=None):
         async for item in self.cell.metrics(offs, size=size):
             yield item
-
-    async def offset(self, iden):
-        return self.cell.getOffset(iden)
 
     async def iden(self):
         return await self.cell.iden()
@@ -53,7 +50,6 @@ class CryoTank(s_base.Base):
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_async=True, **conf)
 
-        self.offs = s_slaboffs.SlabOffs(self.slab, 'offsets')
         self._items = s_slabseqn.SlabSeqn(self.slab, 'items')
         self._metrics = s_slabseqn.SlabSeqn(self.slab, 'metrics')
 
@@ -88,27 +84,18 @@ class CryoTank(s_base.Base):
 
         return iden
 
-    def getOffset(self, iden):
-        s_common.deprecated('cryotank.getOffset(...) API, ', curv='2.148.0', eolv='2.150.0')
-        return self.offs.get(iden)
-
-    def setOffset(self, iden, offs):
-        s_common.deprecated('cryotank.setOffset(...) API, ', curv='2.148.0', eolv='2.150.0')
-        return self.offs.set(iden, offs)
-
     def last(self):
         '''
         Return an (offset, item) tuple for the last element in the tank ( or None ).
         '''
         return self._items.last()
 
-    async def puts(self, items, seqn=None):
+    async def puts(self, items):
         '''
         Add the structured data from items to the CryoTank.
 
         Args:
             items (list):  A list of objects to store in the CryoTank.
-            seqn (iden, offs): An iden / offset pair to record. This argument is deprecated. Callers should track offsets.
 
         Returns:
             int: The ending offset of the items or seqn.
@@ -121,11 +108,6 @@ class CryoTank(s_base.Base):
             await self.fire('cryotank:puts', numrecords=len(chunk))
             size += len(chunk)
             await asyncio.sleep(0)
-
-        if seqn is not None:
-            s_common.deprecated('cryotank.puts(seqn=...) argument, ', curv='2.148.0', eolv='2.150.0')
-            iden, offs = seqn
-            self.setOffset(iden, offs + size)
 
         return size
 
@@ -147,23 +129,19 @@ class CryoTank(s_base.Base):
 
             yield indx, item
 
-    async def slice(self, offs, size=None, iden=None, wait=False, timeout=None):
+    async def slice(self, offs, size=None, wait=False, timeout=None):
         '''
         Yield a number of items from the CryoTank starting at a given offset.
 
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
-            iden (str): The iden for offset tracking. This argument is deprecated. Callers should track offsets.
             wait (bool): Once caught up, yield new results in realtime
             timeout (int): Max time to wait for a new item.
 
         Yields:
             ((index, object)): Index and item values.
         '''
-        if iden is not None:
-            s_common.deprecated('cryotank.slice(iden=...) argument, ', curv='2.148.0', eolv='2.150.0')
-            self.setOffset(iden, offs)
 
         i = 0
         async for indx, item in self._items.aiter(offs, wait=wait, timeout=timeout):
@@ -176,22 +154,17 @@ class CryoTank(s_base.Base):
             i += 1
             await asyncio.sleep(0)
 
-    async def rows(self, offs, size=None, iden=None):
+    async def rows(self, offs, size=None):
         '''
         Yield a number of raw items from the CryoTank starting at a given offset.
 
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
-            iden (str): The iden for offset tracking. This argument is deprecated. Callers should track offsets.
 
         Yields:
             ((indx, bytes)): Index and msgpacked bytes.
         '''
-        if iden is not None:
-            s_common.deprecated('cryotank.rows(iden=...) argument, ', curv='2.148.0', eolv='2.150.0')
-            self.setOffset(iden, offs)
-
         for i, (indx, byts) in enumerate(self._items.rows(offs)):
 
             if size is not None and i >= size:
@@ -228,12 +201,10 @@ class CryoApi(s_cell.CellApi):
         await self._reqInit(name, conf=conf)
         return self.cell.getTankIdenByName(name)
 
-    async def slice(self, name, offs, size=None, iden=None, wait=False, timeout=None):
-        if iden:
-            s_common.deprecated('cryocell.slice(iden=...) argument.', curv='2.148.0', eolv='2.150.0')
+    async def slice(self, name, offs, size=None, wait=False, timeout=None):
         tank = await self._reqInit(name)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
-        async for item in tank.slice(offs, size=size, iden=iden, wait=wait, timeout=timeout):
+        async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
 
     async def list(self):
@@ -244,25 +215,15 @@ class CryoApi(s_cell.CellApi):
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
         return tank.last()
 
-    async def puts(self, name, items, seqn=None):
-        if seqn:
-            s_common.deprecated('cryocell.puts(seqn=...) argument.', curv='2.148.0', eolv='2.150.0')
+    async def puts(self, name, items):
         tank = await self._reqInit(name)
         self.user.confirm(('cryo', 'tank', 'put'), gateiden=self.cell.getTankIdenByName(name))
-        return await tank.puts(items, seqn=seqn)
+        return await tank.puts(items)
 
-    async def offset(self, name, iden):
-        s_common.deprecated('cryocell.offset() API.', curv='2.148.0', eolv='2.150.0')
+    async def rows(self, name, offs, size):
         tank = await self._reqInit(name)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
-        return tank.getOffset(iden)
-
-    async def rows(self, name, offs, size, iden=None):
-        if iden:
-            s_common.deprecated('cryocell.rows(iden=...) Argument.', curv='2.148.0', eolv='2.150.0')
-        tank = await self._reqInit(name)
-        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.getTankIdenByName(name))
-        async for item in tank.rows(offs, size, iden=iden):
+        async for item in tank.rows(offs, size):
             yield item
 
     async def metrics(self, name, offs, size=None):
