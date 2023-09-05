@@ -283,7 +283,7 @@ class LibVault(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_setDefault',
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to modify.'},
-                      {'name': 'valu', 'type': 'str', 'desc': 'The default scope for this vault type. Set to $lib.null for no default value.'},
+                      {'name': 'scope', 'type': 'str', 'desc': 'The default scope for this vault type. Set to $lib.null for no default value.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
     )
@@ -348,7 +348,7 @@ class LibVault(s_stormtypes.Lib):
         level = await s_stormtypes.toint(level, noneok=True)
         return await self.runt.snap.core.setVaultPerm(name, iden, level, user=self.runt.user)
 
-    async def _setDefault(self, vtype, default):
+    async def _setDefault(self, vtype, scope):
         vtype = await s_stormtypes.tostr(vtype)
-        default = await s_stormtypes.tostr(default, noneok=True)
-        return await self.runt.snap.core.setVaultDefault(vtype, default, user=self.runt.user)
+        scope = await s_stormtypes.tostr(scope, noneok=True)
+        return await self.runt.snap.core.setVaultDefault(vtype, scope, user=self.runt.user)

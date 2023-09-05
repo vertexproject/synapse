@@ -6291,7 +6291,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(vault.get('name').encode(), db=self.vaultsbynamedb)
         return self.slab.delete(idenb, db=self.vaultsdb)
 
-    async def setVaultDefault(self, vtype, default, user=None):
+    async def setVaultDefault(self, vtype, scope, user=None):
         '''
         Set a default scope for a vault type.
 
@@ -6299,7 +6299,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Args:
             vtype (str): Name of the type to set.
-            default (str|None): The scope to set as default or None for no default.
+            scope (str|None): The scope to set as default or None for no default.
             user (Optional[HiveUser]): User trying to set the default value.
 
         Raises:
@@ -6312,31 +6312,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: (boolean) True if default was set, false otherwise.
         '''
-        if default not in (None, 'user', 'role', 'global'):
-            raise s_exc.BadArg(mesg=f'Invalid default value: {default})')
+        if scope not in (None, 'user', 'role', 'global'):
+            raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
 
         if user is None:
             user = self.auth.rootuser
 
         user.confirm(('vaults', 'defaults'))
 
-        if default is not None:
+        if scope is not None:
             # Scan for a vault of this specified type with the specified scope
             for vault in self._getVaultsByType(vtype):
-                if vault.get('scope') == default:
+                if vault.get('scope') == scope:
                     break
 
             else:
-                raise s_exc.BadArg(mesg=f'Vault type with {default} scope does not exist')
+                raise s_exc.BadArg(mesg=f'Vault type with {scope} scope does not exist')
 
-        return await self._push('cortex:vault:default', vtype, default)
+        return await self._push('cortex:vault:default', vtype, scope)
 
     @s_nexus.Pusher.onPushAuto('cortex:vault:default')
-    async def _setVaultDefault(self, vtype, default):
-        if default is None:
+    async def _setVaultDefault(self, vtype, scope):
+        if scope is None:
             return self.slab.delete(vtype.encode(), db=self.vaultdefaultsdb)
         else:
-            return self.slab.put(vtype.encode(), s_msgpack.en(default), db=self.vaultdefaultsdb)
+            return self.slab.put(vtype.encode(), s_msgpack.en(scope), db=self.vaultdefaultsdb)
 
     def getVaultByIden(self, iden, user=None):
         '''
