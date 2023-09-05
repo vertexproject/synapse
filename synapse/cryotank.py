@@ -151,7 +151,7 @@ class CryoTank(s_base.Base):
         Args:
             offs (int): The index of the desired datum (starts at 0)
             size (int): The max number of items to yield.
-            iden (str): The iden for offset tracking.
+            iden (str): The iden for offset tracking. This argument is deprecated. Callers should track offsets.
             wait (bool): Once caught up, yield new results in realtime
             timeout (int): Max time to wait for a new item.
 
