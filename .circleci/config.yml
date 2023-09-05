@@ -546,6 +546,7 @@ workflows:
             branches:
               only:
                 - master
+                - bug_pypi_package
 
       - deploy_pypi:
           requires:
