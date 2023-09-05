@@ -2995,17 +2995,38 @@ class BatchCmd(Cmd):
 
 class HelpCmd(Cmd):
     '''
-    List available commands and a brief description for each.
+    List available information about Storm and brief descriptions of different items.
+
+    Notes:
+
+        If an item is provided, this can be a string or a function.
 
     Examples:
 
-        // Get all available commands and their brief descriptions.
+        // Get all available commands, libraries, types, and their brief descriptions.
 
         help
 
         // Only get commands which have "model" in the name.
 
         help model
+
+        // Get help about the base Storm library
+
+        help $lib
+
+        // Get detailed help about a specific library function
+
+        help --verbose $lib.
+
+        // Get detailed help about a named Storm type
+
+        help --verbose str
+
+        // Get help about a method from a $node object
+
+        <inbound $node> help $node.tags
+
     '''
     name = 'help'
 
@@ -3013,50 +3034,57 @@ class HelpCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--verbose', default=False, action='store_true',
                           help='Display detailed help when available.')
-        pars.add_argument('command', nargs='?',
-                          help='Only list commands and their brief description whose name contains the argument.')
+        pars.add_argument('item', nargs='?',
+                          help='List information about a subset of commands or a specific item.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runtsafe:
-            mesg = 'help does not support per-node invocation'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+        node = None
+        async for node, path in genr:
+            await self._runHelp(runt)
+            yield node, path
 
-        async for item in genr:
-            yield item
+        if node is None and self.runtsafe:
+            await self._runHelp(runt)
 
-        command = self.opts.command
+    async def _runHelp(self, runt: Runtime):
 
-        if isinstance(command, s_stormtypes.Lib):
-            await self._handleLibHelp(command, runt, verbose=self.opts.verbose)
+        item = self.opts.item
+
+        if isinstance(item, s_stormtypes.Lib):
+            await self._handleLibHelp(item, runt, verbose=self.opts.verbose)
             return
 
-        if command in s_stormtypes.registry.known_types:
-            await self._handleTypeHelp(command, runt, verbose=self.opts.verbose)
+        if item in s_stormtypes.registry.known_types:
+            await self._handleTypeHelp(item, runt, verbose=self.opts.verbose)
             return
 
         # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
-        if callable(command):
+        if callable(item):
 
-            if hasattr(command, '__func__'):
+            if hasattr(item, '__func__'):
                 # https://docs.python.org/3/reference/datamodel.html#instance-methods
-                await self._handleBoundMethod(command, runt, verbose=self.opts.verbose)
+                await self._handleBoundMethod(item, runt, verbose=self.opts.verbose)
                 return
 
-            if hasattr(command, '_storm_runtime_lib_func'):
-                await self._handleStormLibMethod(command, runt, verbose=self.opts.verbose)
+            if hasattr(item, '_storm_runtime_lib_func'):
+                await self._handleStormLibMethod(item, runt, verbose=self.opts.verbose)
                 return
 
             await runt.warn('help does not currently support runtime defined functions.')
             return
 
+        return await self._handleGenericCommandHelp(item, runt)
+
+    async def _handleGenericCommandHelp(self, item, runt):
+
         stormcmds = sorted(runt.snap.core.getStormCmds())
 
-        if command:
-            stormcmds = [c for c in stormcmds if command in c[0]]
+        if item:
+            stormcmds = [c for c in stormcmds if item in c[0]]
             if not stormcmds:
-                await runt.printf(f'No commands found matching "{command}"')
+                await runt.printf(f'No commands found matching "{item}"')
                 return
 
         stormpkgs = await runt.snap.core.getStormPkgs()

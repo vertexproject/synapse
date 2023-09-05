@@ -3590,7 +3590,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('testcmd', msgs)
             self.stormNotInPrint('view.merge', msgs)
 
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
+            msgs = await alist(core.storm('[test:str=uniq] | help $node.value'))
             self.stormIsInErr('help does not support per-node invocation', msgs)
 
             # $lib helps
