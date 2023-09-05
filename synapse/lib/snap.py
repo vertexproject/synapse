@@ -1462,3 +1462,9 @@ class Snap(s_base.Base):
 
                     await sset.add(name)
                     yield name
+
+    async def getNdefRefs(self, buid):
+        gens = [layr.getNdefRefs(buid) for layr in self.layers]
+        async for (refsbuid, prop) in s_common.merggenr2(gens):
+            node = await self.getNodeByBuid(refsbuid)
+            yield node, prop
