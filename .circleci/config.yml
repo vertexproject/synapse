@@ -152,7 +152,7 @@ commands:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip twine build==0.10.0
+            python3 -m pip install -U wheel pip twine build
             python3 -m pip install -U -r requirements_dev.txt
 
       - save_cache:
@@ -212,7 +212,9 @@ commands:
           name: create packages
           command: |
             . venv/bin/activate
-            python -m build --wheel "-C=--build-option=--python-tag $PYTHON_TAG"
+            export DIST_EXTRA_CONFIG=/tmp/build-opts.cfg
+            echo -e "[bdist_wheel]\npython_tag=$PYTHON_TAG" > $DIST_EXTRA_CONFIG
+            python -m build --wheel
 
       - run:
           name: smoke packages
@@ -546,6 +548,7 @@ workflows:
             branches:
               only:
                 - master
+                - bug_build_fix
 
       - deploy_pypi:
           requires:
