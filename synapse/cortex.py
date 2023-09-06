@@ -1556,6 +1556,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('vaults', 'role', 'add'), 'gate': 'cortex',
              'desc': 'Controls role scoped vault creation in a cortex.',
              'default': True},
+            {'perm': ('vaults', 'add'), 'gate': 'cortex',
+             'desc': 'Controls unscoped vault creation in a cortex.',
+             'default': True},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)

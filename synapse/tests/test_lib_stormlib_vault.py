@@ -29,6 +29,13 @@ class StormlibVaultTest(s_test.SynTest):
             vault = core.getVaultByIden(uiden)
             self.nn(vault)
 
+            ret = await core.callStorm('return($lib.vault.getByName(uvault))')
+            self.eq(ret, vault)
+
+            opts = {'vars': {'uiden': uiden}}
+            ret = await core.callStorm('return($lib.vault.openByIden($uiden))', opts=opts)
+            self.eq(ret, vault.get('data'))
+
             # Create role vault
             opts = {'vars': {'vtype': vtype, 'iden': contributor.iden}}
             riden = await core.callStorm('return($lib.vault.add(rvault, $vtype, role, $iden, ({"name": "rvault"})))', opts=opts)
