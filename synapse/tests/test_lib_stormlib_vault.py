@@ -1,3 +1,5 @@
+import textwrap
+
 import regex
 
 import synapse.exc as s_exc
@@ -107,10 +109,9 @@ class StormlibVaultTest(s_test.SynTest):
             vaults = [k async for k in ret]
             self.len(0, vaults)
 
-    async def _test_stormlib_vault_cmds(self):
+    async def test_stormlib_vault_cmds(self):
         async with self.getTestCore() as core:
 
-            root = core.auth.rootuser
             visi1 = await core.auth.addUser('visi1')
             visi2 = await core.auth.addUser('visi2')
             contributor = await core.auth.addRole('contributor')
@@ -118,83 +119,100 @@ class StormlibVaultTest(s_test.SynTest):
 
             vtype = 'synapse-test'
 
-            # Create user vault
-            opts = {'vars': {'vtype': vtype}}
-            uiden = await core.callStorm('return($lib.vault.add($vtype, $iden, ({})))', opts=opts)
+            # vault.add
+            opts = {'vars': {'vtype': vtype, 'iden': visi1.iden}}
+            uiden = await core.callStorm('vault.add uvault $vtype user $iden ({"apikey": "uvault"})', opts=opts)
             self.nn(regex.match(s_config.re_iden, uiden))
 
-            vault = core.getVault(uiden)
-            self.nn(vault)
-
-            # Create role vault
             opts = {'vars': {'vtype': vtype, 'iden': contributor.iden}}
-            riden = await core.callStorm('return($lib.vault.add($vtype, $iden, ({})))', opts=opts)
+            riden = await core.callStorm('vault.add rvault $vtype role $iden ({"apikey": "rvault"})', opts=opts)
             self.nn(regex.match(s_config.re_iden, riden))
 
-            vault = core.getVault(uiden)
-            self.nn(vault)
+            uvault = core.getVaultByIden(uiden)
+            self.nn(uvault)
+            self.eq(uvault.get('data'), {'apikey': 'uvault'})
 
-            # Create global vault
-            opts = {'vars': {'vtype': vtype, 'iden': None}}
-            giden = await core.callStorm('return($lib.vault.add($vtype, $iden, ({})))', opts=opts)
-            self.nn(regex.match(s_config.re_iden, giden))
+            rvault = core.getVaultByIden(riden)
+            self.nn(rvault)
+            self.eq(rvault.get('data'), {'apikey': 'rvault'})
 
-            vault = core.getVault(uiden)
-            self.nn(vault)
+            # vault.get
+            ret = await core.callStorm('vault.get uvault')
+            self.eq(ret, uvault)
 
-            # Set some data
-            data = {'foo': 'bar'}
-            opts = {'vars': {'iden': uiden, 'data': data}}
-            self.true(await core.callStorm('return($lib.vault.set($iden, $data))', opts=opts))
-
-            # Get some data
+            # vault.get.byiden
             opts = {'vars': {'iden': uiden}}
-            ret = await core.callStorm('return($lib.vault.get($iden))', opts=opts)
-            self.eq(ret, data)
+            ret = await core.callStorm('vault.get.byiden $iden', opts=opts)
+            self.eq(ret, uvault)
 
-            # Open some vaults
+            # vault.set
+            self.true(await core.callStorm('vault.set uvault apikey uvault1'))
+            vault = core.getVaultByIden(uiden)
+            self.eq(vault.get('data'), {'apikey': 'uvault1'})
+
+            # vault.list
+            opts = {'user': visi1.iden}
+            msgs = await core.stormlist('vault.list', opts=opts)
+            output = f'''
+            Available Vaults
+            ----------------
+            Vault: uvault
+              Type: {vtype}
+              Scope: user
+              Iden: {uiden}
+              Permissions:
+                Users:
+                  visi1: admin
+                Roles: None
+
+            Vault: rvault
+              Type: {vtype}
+              Scope: role
+              Iden: {riden}
+              Permissions:
+                Users:
+                  root: admin
+                Roles:
+                  contributor: edit
+            '''
+            for line in textwrap.dedent(output[1:]).split('\n'):
+                self.stormIsInPrint(line, msgs)
+
+            # vault.open
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            iden = await core.callStorm('return($lib.vault.open($vtype))', opts=opts)
-            self.eq(iden, uiden)
+            data = await core.callStorm('vault.open $vtype', opts=opts)
+            self.eq(data, {'apikey': 'uvault1'})
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            iden = await core.callStorm('return($lib.vault.open($vtype, role))', opts=opts)
-            self.eq(iden, riden)
+            data = await core.callStorm('vault.open $vtype --scope role', opts=opts)
+            self.eq(data, {'apikey': 'rvault'})
 
-            # Set default and then open
+            # vault.open.byname
+            opts = {'user': visi1.iden}
+            data = await core.callStorm('vault.open.byname uvault', opts=opts)
+            self.eq(data, {'apikey': 'uvault1'})
+
+            # vault.open.byiden
+            opts = {'vars': {'iden': uiden}, 'user': visi1.iden}
+            data = await core.callStorm('vault.open.byiden $iden', opts=opts)
+            self.eq(data, {'apikey': 'uvault1'})
+
+            # vault.setperm
             opts = {'vars': {'vtype': vtype}}
-            self.true(await core.callStorm('return($lib.vault.setDefault($vtype, global))', opts=opts))
-
-            opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            iden = await core.callStorm('return($lib.vault.open($vtype))', opts=opts)
-            self.eq(iden, giden)
-
-            # List vaults
-            opts = {'user': visi1.iden}
-            ret = await core.callStorm('return($lib.vault.list())', opts=opts)
-            vaults = [k async for k in ret]
-            self.len(3, vaults)
-
-            # Delete some vaults
-            opts = {'vars': {'iden': uiden}}
-            self.true(await core.callStorm('return($lib.vault.del($iden))', opts=opts))
-
-            opts = {'vars': {'iden': riden}}
-            self.true(await core.callStorm('return($lib.vault.del($iden))', opts=opts))
-
-            # List vaults again
-            opts = {'user': visi1.iden}
-            ret = await core.callStorm('return($lib.vault.list())', opts=opts)
-            vaults = [k async for k in ret]
-            self.len(1, vaults)
-
-            # Set permissions on global vault
-            opts = {'vars': {'viden': giden, 'iden': visi1.iden}}
-            q = 'return($lib.vault.setPerm($viden, $iden, $lib.auth.easyperm.level.deny))'
+            q = 'vault.setperm rvault $lib.auth.users.byname(visi1).iden $lib.auth.easyperm.level.read'
             self.true(await core.callStorm(q, opts=opts))
 
-            # List vaults again
-            opts = {'user': visi1.iden}
-            ret = await core.callStorm('return($lib.vault.list())', opts=opts)
-            vaults = [k async for k in ret]
-            self.len(0, vaults)
+            vault = core.getVaultByName('rvault')
+            self.true(core._hasEasyPerm(vault, visi1, s_cell.PERM_READ))
+
+            # vault.setdefault
+            opts = {'vars': {'vtype': vtype}}
+            self.true(await core.callStorm('vault.setdefault $vtype role', opts=opts))
+
+            opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
+            data = await core.callStorm('vault.open $vtype', opts=opts)
+            self.eq(data, {'apikey': 'rvault'})
+
+            # vault.del
+            self.true(await core.callStorm('vault.del uvault'))
+            self.true(await core.callStorm('vault.del rvault'))

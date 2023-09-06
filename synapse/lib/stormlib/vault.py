@@ -1,6 +1,6 @@
 import synapse.lib.stormtypes as s_stormtypes
 
-_stormcmds = (
+stormcmds = (
     {
         'name': 'vault.add',
         'descr': '''
@@ -9,48 +9,72 @@ _stormcmds = (
             Examples:
 
                 // Add a global vault with type `synapse-test`
-                vault.add synapse-test $lib.null ({'apikey': 'foobar'})
+                vault.add "synapse-test:global" synapse-test global $lib.null ({'apikey': 'foobar'})
 
                 // Add a user vault with type `synapse-test`
-                vault.add synapse-test $lib.auth.users.byname(visi).iden ({'apikey': 'barbaz'})
+                vault.add "synapse-test:visi" synapse-test user $lib.auth.users.byname(visi).iden ({'apikey': 'barbaz'})
 
                 // Add a role vault with type `synapse-test`
-                vault.add synapse-test $lib.auth.roles.byname(contributor).iden ({'apikey': 'bazquux'})
+                vault.add "synapse-test:contributor" synapse-test role $lib.auth.roles.byname(contributor).iden ({'apikey': 'bazquux'})
+
+                // Add an unscoped vault with type `synapse-test`
+                vault.add "my_synapse-test_vault" synapse-test $lib.null $lib.null ({'apikey': 'quuxquo'})
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
             ('type', {'type': 'str', 'help': 'The vault type.'}),
             ('scope', {'type': 'str', 'help': 'The scope of the vault (user, role, global, or $lib.null for unscoped vaults).'}),
-            ('iden', {'type': 'str', 'help': 'The user iden or role iden to add the vault for ($lib.null for global and unscoped vaults).'}),
-            ('data', {'type': 'dict', 'help': 'The data to store in the new vault.'}),
+            ('iden', {'help': 'The user iden or role iden to add the vault for ($lib.null for global and unscoped vaults).'}),
+            ('data', {'help': 'The data to store in the new vault.'}),
         ),
         'storm': '''
-            $ok = $lib.vault.add($cmdopts.type, $cmdopts.iden, $cmdopts.data)
-            if $ok {
-                $lib.print(`Vault added successfully. Type: {$cmdopts.type}, iden: {$cmdopts.iden}.`)
+            $iden = $lib.vault.add($cmdopts.name, $cmdopts.type, $cmdopts.scope, $cmdopts.iden, $cmdopts.data)
+            if $iden {
+                $lib.print(`Vault created with iden: {$iden}.`)
             } else {
-                $lib.warn('Error adding vault.')
+                $lib.warn('Error creating vault.')
             }
+            return($iden)
         ''',
     },
     {
         'name': 'vault.get',
         'descr': '''
-            Get vault data.
+            Get vault by vault name.
 
             Examples:
 
-                // Get data from visi's user vault
-                vault.get synapse-test:user:visi
+                // Get vault from visi's user vault
+                vault.get "synapse-test:visi"
 
-                // Get data from contributor's role vault
-                vault.get synapse-test:role:contributor
+                // Get vault from contributor's role vault
+                vault.get "synapse-test:contributor"
+
+                // Get vault from unscoped vault
+                vault.get "my_synapse-test_vault"
         ''',
         'cmdargs': (
-            ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
+            ('name', {'type': 'str', 'help': 'The vault name.'}),
         ),
         'storm': '''
-            return($lib.vault.get($cmdopts.name))
+            return($lib.vault.getByName($cmdopts.name))
+        ''',
+    },
+    {
+        'name': 'vault.get.byiden',
+        'descr': '''
+            Get vault by vault iden.
+
+            Examples:
+
+                // Get vault by iden
+                vault.get.byiden $iden
+        ''',
+        'cmdargs': (
+            ('iden', {'type': 'str', 'help': 'The vault iden.'}),
+        ),
+        'storm': '''
+            return($lib.vault.getByIden($cmdopts.iden))
         ''',
     },
     {
@@ -61,10 +85,10 @@ _stormcmds = (
             Examples:
 
                 // Set data to visi's user vault
-                vault.set synapse-test:user:visi ({'apikey': 'foobar'})
+                vault.set "synapse-test:visi" apikey foobar
 
                 // Set data to contributor's role vault
-                vault.set synapse-test:role:contributor ({'apikey': 'barbaz'})
+                vault.set "synapse-test:contributor" apikey barbaz
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
@@ -83,13 +107,13 @@ _stormcmds = (
             Examples:
 
                 // Delete visi's user vault
-                vault.del synapse-test:user:visi
+                vault.del "synapse-test:visi"
 
                 // Delete contributor's role vault
-                vault.del synapse-test:role:contributor
+                vault.del "synapse-test:contributor"
         ''',
         'cmdargs': (
-            ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
+            ('name', {'type': 'str', 'help': 'The vault name.'}),
         ),
         'storm': '''
             return($lib.vault.del($cmdopts.name))
@@ -102,40 +126,109 @@ _stormcmds = (
         ''',
         'cmdargs': (),
         'storm': '''
+            $lvlnames = ({})
+            for ($name, $level) in $lib.auth.easyperm.level {
+                $level = $lib.cast(str, $level)
+                $lvlnames.$level = $name
+            }
+
             $lib.print("Available Vaults")
             $lib.print("----------------")
-            for ($iden, $name, $type, $scope) in $lib.vault.list() {
-                $lib.print($name)
-                $lib.print(`  iden: {$iden}`)
-                $lib.print(`  type: {$type}`)
-                $lib.print(`  scope: {$scope}`)
-                $lib.print()
+
+            for $vault in $lib.vault.list() {
+                $lib.print(`Vault: {$vault.name}`)
+                $lib.print(`  Type: {$vault.type}`)
+                $lib.print(`  Scope: {$vault.scope}`)
+                $lib.print(`  Iden: {$vault.iden}`)
+                $lib.print('  Permissions:')
+
+                if $vault.permissions.users {
+                    $lib.print('    Users:')
+                    for ($iden, $level) in $vault.permissions.users {
+                        $user = $lib.auth.users.get($iden)
+                        $level = $lib.cast(str, $level)
+                        $lib.print(`      {$user.name}: {$lvlnames.$level}`)
+                    }
+                } else {
+                    $lib.print('    Users: None')
+                }
+
+                if $vault.permissions.roles {
+                    $lib.print('    Roles:')
+                    for ($iden, $level) in $vault.permissions.roles {
+                        $user = $lib.auth.roles.get($iden)
+                        $level = $lib.cast(str, $level)
+                        $lib.print(`      {$user.name}: {$lvlnames.$level}`)
+                    }
+                } else {
+                    $lib.print('    Roles: None')
+                }
+
+                $lib.print('')
             }
         ''',
     },
     {
         'name': 'vault.open',
         'descr': '''
-            Open a vault type.
+            Open a vault by type.
 
             Examples:
 
                 // Open the default or first available vault for the
                 // synapse-test type
-                vault.open synapse-test
+                vault.open "synapse-test"
 
                 // Open a role vault for the synapse-test type
-                vault.open synapse-test role
+                vault.open "synapse-test" --scope role
 
                 // Open the global vault for the synapse-test type
-                vault.open synapse-test global
+                vault.open "synapse-test" --scope global
         ''',
         'cmdargs': (
             ('type', {'type': 'str', 'help': 'The vault type to open.'}),
-            ('scope', {'type': 'str', 'default': None, 'help': 'Restrict the vault to this scope.'}),
+            ('--scope', {'type': 'str', 'default': None, 'help': 'Restrict the vault to this scope.'}),
         ),
         'storm': '''
-            return($lib.vault.open($cmdopts.type, $cmdopts.scope))
+            return($lib.vault.openByType($cmdopts.type, $cmdopts.scope))
+        ''',
+    },
+    {
+        'name': 'vault.open.byname',
+        'descr': '''
+            Open a vault by name.
+
+            Examples:
+
+                // Open visi's user vault by name
+                vault.open.byname "synapse-test:visi"
+
+                // Open the contributor role vault by name
+                vault.open.byname "synapse-test:contributor"
+        ''',
+        'cmdargs': (
+            ('name', {'type': 'str', 'help': 'The vault name to open.'}),
+        ),
+        'storm': '''
+            $vault = $lib.vault.getByName($cmdopts.name)
+            return($lib.vault.openByIden($vault.iden))
+        ''',
+    },
+    {
+        'name': 'vault.open.byiden',
+        'descr': '''
+            Open a vault by iden.
+
+            Examples:
+
+                // Open a vault by iden
+                vault.open.byiden f2f147c66d91484fc0cfcc70cf248bca
+        ''',
+        'cmdargs': (
+            ('iden', {'type': 'str', 'help': 'The vault iden to open.'}),
+        ),
+        'storm': '''
+            return($lib.vault.openByIden($cmdopts.iden))
         ''',
     },
     {
@@ -146,17 +239,17 @@ _stormcmds = (
             Examples:
 
                 // Give blackout read permissions to visi's user vault
-                vault.setperm synapse-test:user:visi $lib.auth.users.byname(blackout).iden $lib.auth.easyperm.read
+                vault.setperm synapse-test:visi $lib.auth.users.byname(blackout).iden $lib.auth.easyperm.read
 
                 // Give the contributor role read permissions to visi's user vault
-                vault.setperm synapse-test:user:visi $lib.auth.roles.byname(contributor).iden $lib.auth.easyperm.read
+                vault.setperm synapse-test:visi $lib.auth.roles.byname(contributor).iden $lib.auth.easyperm.read
 
                 // Revoke blackout's permissions from visi's user vault
-                vault.setperm synapse-test:user:visi $lib.auth.users.byname(blackout).iden $lib.null
+                vault.setperm synapse-test:visi $lib.auth.users.byname(blackout).iden $lib.null
 
                 // Give visi read permissions to the contributor role vault. (Assume
                 // visi is not a member of the contributor role).
-                vault.setperm synapse-test:role:contributor $lib.auth.users.byname(visi).iden $lib.auth.easyperm.read
+                vault.setperm synapse-test:contributor $lib.auth.users.byname(visi).iden $lib.auth.easyperm.read
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden to set permissiosn on.'}),
@@ -185,10 +278,10 @@ _stormcmds = (
         ''',
         'cmdargs': (
             ('type', {'type': 'str', 'help': 'The vault type to set the default for.'}),
-            ('valu', {'type': 'str', 'help': 'The default scope. One of "user", "role", "global", or $lib.null to remove the value.'}),
+            ('scope', {'type': 'str', 'help': 'The default scope. One of "user", "role", "global", or $lib.null to remove the value.'}),
         ),
         'storm': '''
-            return($lib.vault.setDefault($cmdopts.type, $cmdopts.valu))
+            return($lib.vault.setDefault($cmdopts.type, $cmdopts.scope))
         ''',
     },
 )

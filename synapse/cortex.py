@@ -4091,6 +4091,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_model.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_vault.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
     async def _initPureStormCmds(self):
         oldcmds = []
         for name, cdef in self.cmdhive.items():
