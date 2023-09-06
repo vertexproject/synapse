@@ -7793,6 +7793,14 @@ class LibJsonStor(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The cached asof time and path.'}}},
+        {'name': 'cachedel',
+         'desc': 'Remove cached data set with cacheset.',
+         'type': {'type': 'function', '_funcname': 'cachedel',
+                  'args': (
+                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
     )
 
     def addLibFuncs(self):
@@ -7804,6 +7812,7 @@ class LibJsonStor(Lib):
             'iter': self.iter,
             'cacheget': self.cacheget,
             'cacheset': self.cacheset,
+            'cachedel': self.cachedel,
         })
 
     async def has(self, path):
@@ -7955,6 +7964,23 @@ class LibJsonStor(Lib):
             'asof': now,
             'path': cachepath,
         }
+
+    async def cachedel(self, path, key):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.cachedel() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        key = await toprim(key)
+        path = await toprim(path)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+
+        await self.runt.snap.core.delJsonObj(fullpath)
+        return True
 
 @registry.registerType
 class UserProfile(Prim):

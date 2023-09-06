@@ -152,7 +152,7 @@ commands:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -U wheel pip twine build
+            python3 -m pip install -U wheel pip twine build==0.10.0
             python3 -m pip install -U -r requirements_dev.txt
 
       - save_cache:
