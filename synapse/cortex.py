@@ -1494,12 +1494,48 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _initCorePerms(self):
         self._cortex_permdefs.extend((
-            {'perm': ('view',), 'gate': 'cortex',
-             'desc': 'Controls all view permissions.'},
-            {'perm': ('view', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to add a new view including forks.'},
-            {'perm': ('view', 'read'), 'gate': 'view',
-             'desc': 'Used to control read access to a view.'},
+            {'perm': ('admin', 'cmds'), 'gate': 'cortex',
+             'desc': 'Controls access to create cron jobs.'},
+
+            {'perm': ('axon', 'get'), 'gate': 'cortex',
+             'desc': 'Controls access to retrieving data from an axon.'},
+            {'perm': ('axon', 'upload'), 'gate': 'cortex',
+             'desc': 'Controls access to upload data to an axon.'},
+
+            {'perm': ('globals', 'get'), 'gate': 'cortex',
+             'desc': 'Controls access to getting global storm variables.'},
+            {'perm': ('globals', 'pop'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting (and returning) global storm variables.'},
+            {'perm': ('globals', 'set'), 'gate': 'cortex',
+             'desc': 'Controls access to setting global storm variables.'},
+
+            {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model forms.'},
+            {'perm': ('model', 'form', 'add', '<form>'), 'gate': 'cortex',
+             'desc': 'Controls access to adding specific extended model forms.'},
+            {'perm': ('model', 'form', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model forms.'},
+            {'perm': ('model', 'form', 'del', '<form>'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting specific extended model forms.'},
+
+            {'perm': ('model', 'prop', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model properties.'},
+            {'perm': ('model', 'prop', 'add', '<form>'), 'gate': 'cortex',
+             'desc': 'Controls access to adding specific extended model properties.'},
+            {'perm': ('model', 'prop', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model properties.'},
+            {'perm': ('model', 'prop', 'del', '<form>'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting specific extended model properties.'},
+
+            {'perm': ('model', 'tagprop', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model tag properties.'},
+            {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model tag propertie.'},
+
+            {'perm': ('model', 'univ', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model universal properties.'},
+            {'perm': ('model', 'univ', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model universal properties.'},
 
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
@@ -1542,6 +1578,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
              'ex': 'node.prop.del.inet:ipv4:asn',
              'desc': 'Controls removing a specific property from a node in a layer.'},
+
+            {'perm': ('pkg', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding storm packages.'},
+            {'perm': ('pkg', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting storm packages.'},
+
+            {'perm': ('storm', 'macro', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to add a storm macro.',
+             'default': True},
+            {'perm': ('storm', 'macro', 'admin'), 'gate': 'macro',
+             'desc': 'Controls access to edit/set/delete a storm macro.'},
+            {'perm': ('storm', 'macro', 'edit'), 'gate': 'macro',
+             'desc': 'Controls access to edit a storm macro.'},
+
+            {'perm': ('view',), 'gate': 'cortex',
+             'desc': 'Controls all view permissions.'},
+            {'perm': ('view', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to add a new view including forks.'},
+            {'perm': ('view', 'del'), 'gate': 'view',
+             'desc': 'Controls access to delete a view.'},
+            {'perm': ('view', 'read'), 'gate': 'view',
+             'desc': 'Used to control read access to a view.'},
+            {'perm': ('view', 'set', '<setting>'), 'gate': 'view',
+             'desc': 'Used to control changing view settings.'},
+
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
