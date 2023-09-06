@@ -6621,15 +6621,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Set vault data.
 
-        This function completely replaces the existing vault data with `data`.
-        `data` must conform to the schema specified by the existing vault's
-        type.
+        This function sets the `key`:`valu` into the vault.
 
         Permissions: `user` must have at least `PERM_EDIT` on the vault.
 
         Args:
             name (str): The name or iden of the vault to edit.
-            data (object): Vault data. Must conform to the schema specified by `vtype`.
+            key (str): Vault data key.
+            valu (str): Vault data value.
             user (Optional[HiveUser]): User trying to edit the vault data.
 
         Raises:
@@ -6750,34 +6749,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('cortex:vault:del')
     async def _delVault(self, iden):
         return self._delVaultByIden(iden)
-
-# $lib.vault.add(scope, data, default=$lib.true)
-# $lib.vault.get(scope)
-# $lib.vault.set(scope, data)
-# $lib.vault.del(scope)
-# vaulted configs here
-# Opaque dictionaries wrapped in an envelope
-# Envelope defines 'iden', 'type', 'scope' (user, role, global)
-# Need a default item per scope
-# Work through permissions edge cases carefully
-# - What if a user wants to share their config with another user? What if
-# Creators should be restricted based on scope
-# Read probably means they can use it but not see it
-# Update should be restricted based on scope
-# Delete should be restricted based on scope
-# For role in roles, first matching role wins
-# Order of precedence: user, role (for role in role...), global
-# One global config per type
-# One config per type per role
-# One user config per type
-# Easy perms control access
-# IF no default, must specify which config to use
-# Must use nexus to record the changes
-# Something about cortex slab to store the values
-# Need storm APIs
-# Need storm commands
-# Need docs
-# Need tests
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
