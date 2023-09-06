@@ -1890,6 +1890,14 @@ class LayerTest(s_t_utils.SynTest):
             edits2 = [e async for e in layer.syncNodeEdits(0, wait=False)]
             self.gt(len(edits2), len(edits1))
 
+            self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
+            await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ipv4=7.7.7.7]'))
+            await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(logedits, $lib.false)'))
+
+            self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.false) return($layer.get(readonly))'))
+            self.len(1, await core.nodes('[inet:ipv4=7.7.7.7]'))
+            self.false(await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.false) return($layer.get(logedits))'))
+
             with self.raises(s_exc.BadOptValu):
                 await core.callStorm('$layer = $lib.layer.get() $layer.set(newp, hehe)')
 
