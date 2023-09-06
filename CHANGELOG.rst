@@ -6,6 +6,42 @@
 Synapse Changelog
 *****************
 
+v2.148.0 - 2023-09-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a ``$lib.jsonstor.cachedel()`` API to allow for the removal of data
+  created by ``$lib.jsonstor.cacheget()``.
+  (`#3322 <https://github.com/vertexproject/synapse/pull/3322>`_)
+
+Bugfixes
+--------
+- Ensure the base Cell ``fini()``'s the Aha client that it creates. This fixes
+  a unit test performance issue.
+  (`#3324 <https://github.com/vertexproject/synapse/pull/3324>`_)
+
+Deprecations
+------------
+- Mark the following Cryotank related API arguments and functions as
+  deprecated. These APIs are related to server-side offset tracking for
+  callers. Code which relies on these should be updated to do local offset
+  tracking. These APIs and arguments will be removed in v2.150.0.
+  (`#3326 <https://github.com/vertexproject/synapse/pull/3326>`_)
+
+    - ``CryoApi.puts(seqn=...)`` argument.
+    - ``CryoApi.rows(seqn=...)`` argument.
+    - ``CryoApi.slice(iden=...)`` argument.
+    - ``CryoApi.offset()`` function.
+    - ``CryoTank.getOffset()`` function.
+    - ``CryoTank.setOffset()`` function.
+    - ``CryoTank.puts(seqn=...)`` argument.
+    - ``CryoTank.rows(seqn=...)`` argument.
+    - ``CryoTank.slice(iden=...)`` argument.
+    - ``TankAPI.offset()`` function.
+    - ``TankApi.puts(seqn=...)`` argument.
+    - ``TankAPI.slice(iden=...)`` argument.
+
 v2.147.0 - 2023-08-31
 =====================
 
