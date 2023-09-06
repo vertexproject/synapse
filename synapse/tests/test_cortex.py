@@ -7820,6 +7820,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.DupName):
                 await core.addVault('uvault1', vtype, 'user', visi1.iden, {}, user=visi1)
 
+            self.none(core.getVaultByName('uvault1', user=visi2))
+
             # visi2 doesn't have the contributor role so he can't create contributor vaults
             with self.raises(s_exc.AuthDeny):
                 await core.addVault('rvault1', vtype, 'role', contributor.iden, {}, user=visi2)

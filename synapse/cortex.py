@@ -6574,7 +6574,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             user.confirm(('vaults', 'user', 'add'), default=True) # TODO: Remove default=True when SYN-6097 is resolved.
 
             _user = self.auth.user(iden)
-            if user is None:
+            if _user is None:
                 raise s_exc.NoSuchUser(mesg=f'User with iden {iden} not found')
 
             if user.iden != iden and not user.isAdmin():
