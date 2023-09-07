@@ -3943,6 +3943,46 @@ class StormTypesTest(s_test.SynTest):
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(0, edits)
 
+        async with self.getTestCore() as core:
+
+            allrole = core.auth.allrole
+
+            # Add a layer
+            ldef = await core.addLayer()
+            layer = core.getLayer(ldef.get('iden'))
+
+            # Add a view via stormlib, worldreadable=False (default)
+            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},)).iden)')
+            self.nn(iden)
+            self.false(allrole.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via stormlib, worldreadable=True (default)
+            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},), worldreadable=$lib.true).iden)')
+            self.nn(newiden)
+            self.true(allrole.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via storm cmd, worldreadable=False (default)
+            msgs = await core.stormlist(f'view.add --name view1 --layers {layer.iden}')
+            self.stormIsInPrint('View added.', msgs)
+
+            views = core.listViews()
+            views = {view.info.get('name'): view.iden for view in views}
+
+            iden = views.get('view1')
+            self.nn(iden)
+            self.false(allrole.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via storm cmd, worldreadable=True
+            msgs = await core.stormlist(f'view.add --name view1 --worldreadable $lib.true --layers {layer.iden}')
+            self.stormIsInPrint('View added.', msgs)
+
+            views = core.listViews()
+            views = {view.info.get('name'): view.iden for view in views}
+
+            iden = views.get('view1')
+            self.nn(iden)
+            self.true(allrole.allowed(('view', 'read'), gateiden=iden))
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
