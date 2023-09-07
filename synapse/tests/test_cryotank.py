@@ -155,17 +155,27 @@ class CryoTest(s_t_utils.SynTest):
                 self.len(1, await alist(prox.rows('tank0', 0, 10)))
                 self.len(1, await alist(prox.metrics('tank0', 0)))
 
+                async with cryo.getLocalProxy(user='tank0', share='cryotank/tank0b') as share:
+                    tankiden0b = await share.iden()
+                    self.eq(1, await share.puts(('foo',)))
+                    self.len(1, await alist(share.slice(0, wait=False)))
+                    self.len(1, await alist(share.metrics(0)))
+
                 # ..but only admin on that tank
 
                 await self.asyncraises(s_exc.AuthDeny, prox.puts('tank1', ('bar',)))
                 await self.asyncraises(s_exc.AuthDeny, alist(prox.rows('tank1', 0, 10)))
 
+                async with cryo.getLocalProxy(user='tank0', share='cryotank/tank1') as share:
+                    await self.asyncraises(s_exc.AuthDeny, share.puts(('bar',)))
+                    await self.asyncraises(s_exc.AuthDeny, alist(share.slice(0, wait=False)))
+
                 # only sees tanks in list() they have read access to
 
-                self.len(1, await prox.list())
-                self.len(2, await cryo.list())
+                self.len(2, await prox.list())
+                self.len(3, await cryo.list())
 
-                # only admin can delete
+                # only global admin can delete
 
                 await self.asyncraises(s_exc.AuthDeny, prox.delete('tank0'))
 
@@ -181,22 +191,42 @@ class CryoTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, alist(prox.rows('tank0', 0, 10)))
                 await self.asyncraises(s_exc.AuthDeny, alist(prox.metrics('tank0', 0)))
 
+                with self.raises(s_exc.AuthDeny):
+                    async with cryo.getLocalProxy(user='lower', share='cryotank/tank2'):
+                        pass
+
+                async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
+                    self.eq(tankiden0b, await share.iden())
+                    await self.asyncraises(s_exc.AuthDeny, share.puts(('bar',)))
+                    await self.asyncraises(s_exc.AuthDeny, alist(share.slice(0, wait=False)))
+                    await self.asyncraises(s_exc.AuthDeny, alist(share.metrics(0)))
+
                 # add read access
 
                 await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'read')), gateiden=tankiden0)
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'read')), gateiden=tankiden0b)
 
-                self.len(1, await prox.list())
+                self.len(2, await prox.list())
 
                 await self.asyncraises(s_exc.AuthDeny, prox.puts('tank0', ('bar',)))
                 self.len(1, await alist(prox.slice('tank0', 0, wait=False)))
                 self.len(1, await alist(prox.rows('tank0', 0, 10)))
                 self.len(1, await alist(prox.metrics('tank0', 0)))
 
+                async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
+                    await self.asyncraises(s_exc.AuthDeny, share.puts(('bar',)))
+                    self.len(1, await alist(share.slice(0, wait=False)))
+                    self.len(1, await alist(share.metrics(0)))
+
                 # add write access
 
                 await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'put')), gateiden=tankiden0)
+                await cryo.addUserRule(ulower, (True, ('cryo', 'tank', 'put')), gateiden=tankiden0b)
 
                 self.eq(1, await prox.puts('tank0', ('bar',)))
+
+                async with cryo.getLocalProxy(user='lower', share='cryotank/tank0b') as share:
+                    self.eq(1, await share.puts(('bar',)))
 
     async def test_cryo_migrate_v2(self):
 

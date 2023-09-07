@@ -17,13 +17,16 @@ logger = logging.getLogger(__name__)
 class TankApi(s_cell.CellApi):
 
     async def slice(self, offs, size=None, wait=False, timeout=None):
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.iden())
         async for item in self.cell.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
 
     async def puts(self, items):
+        self.user.confirm(('cryo', 'tank', 'put'), gateiden=self.cell.iden())
         return await self.cell.puts(items)
 
     async def metrics(self, offs, size=None):
+        self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.iden())
         async for item in self.cell.metrics(offs, size=size):
             yield item
 
@@ -167,21 +170,12 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
-    async def _reqInit(self, name, conf=None):
-        if await self.cell.exists(name):
-            return await self.cell.init(name)
-
-        await self._reqUserAllowed(('cryo', 'tank', 'add'))
-        tank = await self.cell.init(name, conf=conf)
-        await self.user.setAdmin(True, gateiden=tank.iden())
-        return tank
-
     async def init(self, name, conf=None):
-        tank = await self._reqInit(name, conf=conf)
+        tank = await self.cell.init(name, conf=conf, user=self.user)
         return tank.iden()
 
     async def slice(self, name, offs, size=None, wait=False, timeout=None):
-        tank = await self._reqInit(name)
+        tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
@@ -190,23 +184,23 @@ class CryoApi(s_cell.CellApi):
         return await self.cell.list(user=self.user)
 
     async def last(self, name):
-        tank = await self._reqInit(name)
+        tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         return tank.last()
 
     async def puts(self, name, items):
-        tank = await self._reqInit(name)
+        tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'put'), gateiden=tank.iden())
         return await tank.puts(items)
 
     async def rows(self, name, offs, size):
-        tank = await self._reqInit(name)
+        tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.rows(offs, size):
             yield item
 
     async def metrics(self, name, offs, size=None):
-        tank = await self._reqInit(name)
+        tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.metrics(offs, size=size):
             yield item
@@ -299,7 +293,7 @@ class CryoCell(s_cell.Cell):
             return await self.cellapi.anit(self, link, user)
 
         if len(path) == 1:
-            tank = await self.init(path[0])
+            tank = await self.init(path[0], user=user)
             return await self.tankapi.anit(tank, link, user)
 
         raise s_exc.NoSuchPath(path=path)
@@ -307,12 +301,13 @@ class CryoCell(s_cell.Cell):
     async def exists(self, name):
         return self.tanks.get(name) is not None
 
-    async def init(self, name, conf=None):
+    async def init(self, name, conf=None, user=None):
         '''
-        Generate a new CryoTank with a given name or get an reference to an existing CryoTank.
+        Generate a new CryoTank with a given name or get a reference to an existing CryoTank.
 
         Args:
             name (str): Name of the CryoTank.
+            user (HiveUser): The Telepath user.
 
         Returns:
             CryoTank: A CryoTank instance.
@@ -320,6 +315,9 @@ class CryoCell(s_cell.Cell):
         tank = self.tanks.get(name)
         if tank is not None:
             return tank
+
+        if user is not None:
+            user.confirm(('cryo', 'tank', 'add'))
 
         iden = s_common.guid()
 
@@ -336,6 +334,9 @@ class CryoCell(s_cell.Cell):
 
         await self.auth.addAuthGate(iden, 'tank')
 
+        if user is not None:
+            await user.setAdmin(True, gateiden=tank.iden())
+
         return tank
 
     async def list(self, user=None):
@@ -344,6 +345,7 @@ class CryoCell(s_cell.Cell):
 
         Returns:
             list: A list of tufos.
+            user (HiveUser): The Telepath user.
         '''
 
         infos = []
