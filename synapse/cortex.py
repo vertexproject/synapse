@@ -1494,21 +1494,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _initCorePerms(self):
         self._cortex_permdefs.extend((
-            {'perm': ('admin', 'cmds'), 'gate': 'cortex',
-             'desc': 'Controls access to create cron jobs.'},
-
-            {'perm': ('axon', 'get'), 'gate': 'cortex',
-             'desc': 'Controls access to retrieving data from an axon.'},
-            {'perm': ('axon', 'upload'), 'gate': 'cortex',
-             'desc': 'Controls access to upload data to an axon.'},
-
-            {'perm': ('globals', 'get'), 'gate': 'cortex',
-             'desc': 'Controls access to getting global storm variables.'},
-            {'perm': ('globals', 'pop'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting (and returning) global storm variables.'},
-            {'perm': ('globals', 'set'), 'gate': 'cortex',
-             'desc': 'Controls access to setting global storm variables.'},
-
             {'perm': ('model', 'form', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model forms.'},
             {'perm': ('model', 'form', 'add', '<form>'), 'gate': 'cortex',
@@ -1530,7 +1515,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('model', 'tagprop', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model tag properties.'},
             {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model tag propertie.'},
+             'desc': 'Controls access to deleting extended model tag properties.'},
 
             {'perm': ('model', 'univ', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model universal properties.'},
