@@ -3945,7 +3945,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            allrole = core.auth.allrole
+            visi = await core.auth.addUser('visi')
 
             # Add a layer
             ldef = await core.addLayer()
@@ -3954,12 +3954,12 @@ class StormTypesTest(s_test.SynTest):
             # Add a view via stormlib, worldreadable=False (default)
             iden = await core.callStorm(f'return($lib.view.add(({layer.iden},)).iden)')
             self.nn(iden)
-            self.false(allrole.allowed(('view', 'read'), gateiden=iden))
+            self.false(visi.allowed(('view', 'read'), gateiden=iden))
 
             # Add a view via stormlib, worldreadable=True (default)
             iden = await core.callStorm(f'return($lib.view.add(({layer.iden},), worldreadable=$lib.true).iden)')
             self.nn(newiden)
-            self.true(allrole.allowed(('view', 'read'), gateiden=iden))
+            self.true(visi.allowed(('view', 'read'), gateiden=iden))
 
             # Add a view via storm cmd, worldreadable=False (default)
             msgs = await core.stormlist(f'view.add --name view1 --layers {layer.iden}')
@@ -3970,7 +3970,7 @@ class StormTypesTest(s_test.SynTest):
 
             iden = views.get('view1')
             self.nn(iden)
-            self.false(allrole.allowed(('view', 'read'), gateiden=iden))
+            self.false(visi.allowed(('view', 'read'), gateiden=iden))
 
             # Add a view via storm cmd, worldreadable=True
             msgs = await core.stormlist(f'view.add --name view1 --worldreadable $lib.true --layers {layer.iden}')
@@ -3981,7 +3981,7 @@ class StormTypesTest(s_test.SynTest):
 
             iden = views.get('view1')
             self.nn(iden)
-            self.true(allrole.allowed(('view', 'read'), gateiden=iden))
+            self.true(visi.allowed(('view', 'read'), gateiden=iden))
 
     async def test_storm_view_deporder(self):
 
