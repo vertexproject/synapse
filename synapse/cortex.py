@@ -4400,11 +4400,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._calcViewsByLayer()
 
-    async def addView(self, vdef, nexs=True, worldreadable=False):
+    async def addView(self, vdef, nexs=True):
 
         vdef['iden'] = s_common.guid()
         vdef.setdefault('parent', None)
-        vdef.setdefault('worldreadable', worldreadable)
+        vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
 
         s_view.reqValidVdef(vdef)
