@@ -409,7 +409,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A version control system type taxonomy.',
-                    'interfaces': ('taxonomy',)
+                    'interfaces': ('meta:taxonomy',)
                 }),
                 ('it:dev:repo', ('guid', {}), {
                     'doc': 'A version control system instance.',
@@ -455,7 +455,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:hardwaretype', ('taxonomy', {}), {
                     'doc': 'An IT hardware type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),

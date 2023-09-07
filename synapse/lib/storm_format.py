@@ -83,6 +83,7 @@ TerminalPygMap = {
     'WHILE': p_t.Keyword,
     'WHITETOKN': p_t.Literal.String,
     'WILDCARD': p_t.Name,
+    'WILDPROPS': p_t.Name,
     'WILDTAGSEGNOVAR': p_t.Name,
     'YIELD': p_t.Keyword,
     '_ARRAYCONDSTART': p_t.Punctuation,

@@ -44,7 +44,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A vulnerability name such as log4j or rowhammer.'}),
 
                 ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of vulnerability types.'}),
 
                 ('risk:vuln:soft:range', ('guid', {}), {
@@ -73,19 +73,19 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of attack types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:compromisetype', ('taxonomy', {}), {
                     'doc': 'A taxonomy of compromise types.',
                     'ex': 'cno.breach',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:tool:software:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of software / tool types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:availability', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of availability status values.',
                 }),
                 ('risk:tool:software', ('guid', {}), {

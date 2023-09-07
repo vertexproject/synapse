@@ -101,6 +101,7 @@ terminalEnglishMap = {
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
     'WILDCARD': '*',
+    'WILDPROPS': 'property name potentially with wildcards',
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
@@ -606,6 +607,26 @@ def massage_vartokn(astinfo, x):
 terminalClassMap = {
     'ABSPROP': s_ast.AbsProp,
     'ABSPROPNOUNIV': s_ast.AbsProp,
+    'ALLTAGS': lambda astinfo, _: s_ast.TagMatch(astinfo, ''),
+    'BREAK': lambda astinfo, _: s_ast.BreakOper(astinfo),
+    'CONTINUE': lambda astinfo, _: s_ast.ContinueOper(astinfo),
+    'DOUBLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, unescape(x)),  # drop quotes and handle escape characters
+    'FORMATTEXT': lambda astinfo, x: s_ast.Const(astinfo, format_unescape(x)),  # handle escape characters
+    'TRIPLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[3:-3]), # drop the triple 's
+    'NUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'HEXNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
+    'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
+    'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
+    'NONQUOTEWORD': massage_vartokn,
+    'VARTOKN': massage_vartokn,
+    'EXPRVARTOKN': massage_vartokn,
+}
+
+# For AstConverter, one-to-one replacements from lark to synapse AST
+ruleClassMap = {
+    'abspropcond': s_ast.AbsPropCond,
+    'argvquery': s_ast.ArgvQuery,
     'ALLTAGS': lambda astinfo, _: s_ast.TagMatch(astinfo, ''),
     'BREAK': lambda astinfo, _: s_ast.BreakOper(astinfo),
     'CONTINUE': lambda astinfo, _: s_ast.ContinueOper(astinfo),

@@ -450,7 +450,7 @@ class Model:
 
         self.propsbytype = collections.defaultdict(list)  # name: Prop()
         self.arraysbytype = collections.defaultdict(list)
-        # TODO use this for <nodes> -> foo:iface
+        self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
         self.edgesbyn1 = collections.defaultdict(list)
         self.edgesbyn2 = collections.defaultdict(list)
@@ -580,6 +580,8 @@ class Model:
                 ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
                 ('parent', ('$self', {}), {'ro': True, 'doc': 'The taxonomy parent.', }),
             ),
+            'doc': 'Deprecated. Please use meta:taxonomy.',
+            'deprecated': True
         })
 
     def getPropsByType(self, name):
@@ -828,7 +830,7 @@ class Model:
             self.arraysbytype[form.type.arraytype.name].remove(form)
 
         for ifname in form.ifaces.keys():
-            self.formsbyiface[ifname].remove(form)
+            self.formsbyiface[ifname].remove(formname)
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
@@ -899,14 +901,18 @@ class Model:
             mesg = f'Form {form.name} depends on non-existant interface: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
 
+        if iface.get('deprecated'):
+            mesg = f'Interface {name} is deprecated and will be removed in 3.0.0'
+            logger.warning(mesg)
+
         for propname, typedef, propinfo in iface.get('props', ()):
             if typedef[0] == '$self':
                 typedef = (form.name, typedef[1])
-            self._addFormProp(form, propname, typedef, propinfo)
+            prop = self._addFormProp(form, propname, typedef, propinfo)
+            self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
-        # TODO use this to allow storm: +foo:iface
         form.ifaces[name] = iface
-        self.formsbyiface[name].append(form)
+        self.formsbyiface[name].append(form.name)
 
         for ifname in iface.get('interfaces', ()):
             self._addFormIface(form, ifname)
