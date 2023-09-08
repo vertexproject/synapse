@@ -2047,7 +2047,7 @@ class FormPivot(PivotOper):
         # -> baz:ndef
         if isinstance(prop.type, s_types.Ndef):
 
-            async def pgenr(node):
+            async def pgenr(node, strict=True):
                 async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef):
                     yield pivo
 
@@ -2056,7 +2056,7 @@ class FormPivot(PivotOper):
             isarray = isinstance(prop.type, s_types.Array)
 
             # plain old pivot...
-            async def pgenr(node):
+            async def pgenr(node, strict=True):
 
                 valu = node.ndef[1]
 
@@ -2074,7 +2074,7 @@ class FormPivot(PivotOper):
 
             full = prop.name + ':n1'
 
-            async def pgenr(node):
+            async def pgenr(node, strict=True):
                 async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
                     yield pivo
 
@@ -2248,7 +2248,7 @@ class FormPivot(PivotOper):
         async for node, path in genr:
 
             if pgenr is None or not self.kids[0].isconst:
-                name = await tostr(await self.kids[0].compute(runt, None))
+                name = await self.kids[0].compute(runt, None)
                 pgenr = self.buildgenr(runt, name)
 
             if self.isjoin:
@@ -2370,48 +2370,27 @@ class PropPivot(PivotOper):
             proplist = None
             if isinstance(name, list):
                 proplist = name
-
-            if proplist is None:
-                proplist = runt.model.formsbyiface.get(name)
-
-            if proplist is None:
+            else:
                 proplist = runt.model.ifaceprops.get(name)
 
-            if proplist is None and name.endswith('*'):
-                pref = name[:-1]
-                proplist = []
-                for prop in runt.model.props:
-                    if isinstance(prop, str) and prop.startswith(pref):
-                        proplist.append(prop)
-
-                if not proplist:
-                    for form in runt.model.forms:
-                        if form.startswith(pref):
-                            proplist.append(form)
-
-                if not proplist:
-                    mesg = f'No properties match pattern {name}.'
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
-
-            if proplist is not None:
-                pgenrs = []
-                for propname in proplist:
-                    prop = runt.model.props.get(propname)
-                    if prop is None:
-                        raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
-
-                    pgenrs.append(self.pivogenr(runt, prop))
-
-                async def listpivot(node, srcprop, valu):
-                    for pgenr in pgenrs:
-                        async for pivo in pgenr(node, srcprop, valu, strict=False):
-                            yield pivo
-
-                return(listpivot)
-
-            else:
+            if proplist is None:
                 mesg = f'No property named {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+
+            pgenrs = []
+            for propname in proplist:
+                prop = runt.model.props.get(propname)
+                if prop is None:
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
+
+                pgenrs.append(self.pivogenr(runt, prop))
+
+            async def listpivot(node, srcprop, valu):
+                for pgenr in pgenrs:
+                    async for pivo in pgenr(node, srcprop, valu, strict=False):
+                        yield pivo
+
+            return(listpivot)
 
         return self.pivogenr(runt, prop)
 
@@ -2423,7 +2402,7 @@ class PropPivot(PivotOper):
         async for node, path in genr:
 
             if pgenr is None or not self.kids[1].isconst:
-                name = await tostr(await self.kids[1].compute(runt, None))
+                name = await self.kids[1].compute(runt, None)
                 pgenr = self.buildgenr(runt, name)
 
             if self.isjoin:
@@ -3709,9 +3688,6 @@ class UnivProp(RelProp):
         if self.isconst:
             return valu
         return '.' + valu
-
-class AbsProp(Const):
-    pass
 
 class Edit(Oper):
     pass

@@ -20,8 +20,6 @@ import synapse.lib.datfile as s_datfile
 # For easier-to-understand syntax errors
 terminalEnglishMap = {
     'AS': 'as',
-    'ABSPROP': 'absolute or universal property',
-    'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
     'BACKQUOTE': '`',
@@ -605,8 +603,6 @@ def massage_vartokn(astinfo, x):
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
 terminalClassMap = {
-    'ABSPROP': s_ast.AbsProp,
-    'ABSPROPNOUNIV': s_ast.AbsProp,
     'ALLTAGS': lambda astinfo, _: s_ast.TagMatch(astinfo, ''),
     'BREAK': lambda astinfo, _: s_ast.BreakOper(astinfo),
     'CONTINUE': lambda astinfo, _: s_ast.ContinueOper(astinfo),

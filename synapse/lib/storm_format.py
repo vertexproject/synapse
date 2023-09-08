@@ -4,8 +4,6 @@ import pygments.lexer   # type: ignore
 import pygments.token as p_t  # type: ignore
 
 TerminalPygMap = {
-    'ABSPROP': p_t.Name,
-    'ABSPROPNOUNIV': p_t.Name,
     'ALLTAGS': p_t.Operator,
     'AND': p_t.Keyword,
     'BACKQUOTE': p_t.Punctuation,

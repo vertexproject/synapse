@@ -698,6 +698,106 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :foo -> *'))
             self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> inet:asn'))
 
+            q = '''[
+                it:log:event=(event,)
+                it:exec:query=(query,)
+                it:screenshot=(screenshot,)
+                :host=(host,)
+
+                it:screenshot=(nohost,)
+
+                inet:dns:a=(vertex.link, 1.2.3.4)
+                inet:dns:aaaa=(vertex.link, 1::)
+                inet:dns:mx=(vertex.link, foo.com)
+                inet:dns:ns=(vertex.link, bar.com)
+            ]'''
+            await core.nodes(q)
+
+            self.len(3, await core.nodes('it:host=(host,) -> it:host:activity'))
+            self.len(3, await core.nodes('it:host=(host,) -> it:host:activity:host'))
+            self.len(3, await core.nodes('it:log:event=(event,) :host -> it:host:activity:host'))
+
+            self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns*'))
+            self.len(4, await core.nodes('inet:fqdn=vertex.link -> inet:dns:*'))
+            self.len(2, await core.nodes('inet:fqdn=vertex.link -> inet:dns:a*'))
+            self.len(2, await core.nodes('inet:fqdn=vertex.link -> (inet:dns:a, inet:dns:mx)'))
+            self.len(1, await core.nodes('$form=inet:dns:a inet:fqdn=vertex.link -> $form'))
+            self.len(4, await core.nodes('$form=inet:dns:* inet:fqdn=vertex.link -> $form'))
+            self.len(2, await core.nodes('$form=(inet:dns:a, inet:dns:mx) inet:fqdn=vertex.link -> $form'))
+
+            self.len(5, await core.nodes('inet:fqdn=vertex.link -+> inet:dns*'))
+            self.len(5, await core.nodes('inet:fqdn=vertex.link -+> inet:dns:*'))
+            self.len(3, await core.nodes('inet:fqdn=vertex.link -+> inet:dns:a*'))
+            self.len(3, await core.nodes('inet:fqdn=vertex.link -+> (inet:dns:a, inet:dns:mx)'))
+            self.len(2, await core.nodes('$form=inet:dns:a inet:fqdn=vertex.link -+> $form'))
+            self.len(5, await core.nodes('$form=inet:dns:* inet:fqdn=vertex.link -+> $form'))
+            self.len(3, await core.nodes('$form=(inet:dns:a, inet:dns:mx) inet:fqdn=vertex.link -+> $form'))
+
+            self.len(2, await core.nodes('inet:fqdn=vertex.link :zone -> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
+            self.len(1, await core.nodes('$form=inet:dns:a:fqdn inet:fqdn=vertex.link :zone -> $form'))
+
+            self.len(3, await core.nodes('inet:fqdn=vertex.link :zone -+> (inet:dns:a:fqdn, inet:dns:mx:fqdn)'))
+            self.len(2, await core.nodes('$form=inet:dns:a:fqdn inet:fqdn=vertex.link :zone -+> $form'))
+
+            await core.nodes('inet:fqdn=vertex.link [ +(refs)> { inet:dns:* } ]')
+
+            self.len(4, await core.nodes('inet:fqdn=vertex.link -(refs)> inet:dns*'))
+            self.len(4, await core.nodes('inet:fqdn=vertex.link -(refs)> inet:dns:*'))
+            self.len(2, await core.nodes('inet:fqdn=vertex.link -(refs)> inet:dns:a*'))
+
+            await core.nodes('inet:fqdn=vertex.link [ <(refs)+ { inet:dns:* } ]')
+
+            self.len(4, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns*'))
+            self.len(4, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:*'))
+            self.len(2, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:a*'))
+
+    async def test_ast_lift(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            q = '''[
+                it:log:event=(event,)
+                it:exec:query=(query,)
+                it:screenshot=(screenshot,)
+                :host=(host,)
+
+                it:screenshot=(nohost,)
+
+                inet:dns:a=(vertex.link, 1.2.3.4)
+                inet:dns:aaaa=(vertex.link, 1::)
+                inet:dns:mx=(vertex.link, foo.com)
+                inet:dns:ns=(vertex.link, bar.com)
+                +#foo:score=5
+            ]'''
+            await core.nodes(q)
+
+            self.len(4, await core.nodes('it:host:activity'))
+            self.len(4, await core.nodes('it:host:activity#foo'))
+            self.len(4, await core.nodes('it:host:activity#foo:score=5'))
+            self.len(3, await core.nodes('it:host:activity:host'))
+            self.len(3, await core.nodes('it:host:activity:host=(host,)'))
+
+            self.len(4, await core.nodes('.created +it:host:activity'))
+            self.len(3, await core.nodes('.created +it:host:activity:host'))
+
+            self.len(4, await core.nodes('inet:dns*'))
+            self.len(4, await core.nodes('inet:dns:*'))
+            self.len(2, await core.nodes('inet:dns:a*'))
+
+            self.len(4, await core.nodes('inet:dns*#foo'))
+            self.len(4, await core.nodes('inet:dns:*#foo'))
+            self.len(2, await core.nodes('inet:dns:a*#foo'))
+
+            self.len(4, await core.nodes('inet:dns*#foo:score'))
+            self.len(4, await core.nodes('inet:dns:*#foo:score'))
+            self.len(2, await core.nodes('inet:dns:a*#foo:score'))
+
+            self.len(4, await core.nodes('inet:dns*#foo:score=5'))
+            self.len(4, await core.nodes('inet:dns:*#foo:score=5'))
+            self.len(2, await core.nodes('inet:dns:a*#foo:score=5'))
+
     async def test_ast_lift_filt_array(self):
 
         async with self.getTestCore() as core:
