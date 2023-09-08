@@ -21,6 +21,10 @@ class SmtpLib(s_stormtypes.Lib):
                                       'desc': 'The newly constructed inet:smtp:message.'}}},
     )
     _storm_lib_path = ('inet', 'smtp',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'inet', 'smtp', 'send'), 'gate': 'cortex',
+         'desc': 'Controls sending SMTP messages to external servers.'},
+    )
 
     def getObjLocals(self):
         return {
