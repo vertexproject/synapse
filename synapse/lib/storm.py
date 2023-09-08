@@ -3032,7 +3032,7 @@ class HelpCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--verbose', default=False, action='store_true',
+        pars.add_argument('-v', '--verbose', default=False, action='store_true',
                           help='Display detailed help when available.')
         pars.add_argument('item', nargs='?',
                           help='List information about a subset of commands or a specific item.')
@@ -3052,12 +3052,13 @@ class HelpCmd(Cmd):
 
         item = self.opts.item
 
+        if not isinstance(item, str) and not isinstance(item, s_stormtypes.Lib) and not callable(item):
+            mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
+                   f' {await s_stormtypes.totype(item, basetypes=True)}'
+            raise s_exc.BadArg(mesg=mesg)
+
         if isinstance(item, s_stormtypes.Lib):
             await self._handleLibHelp(item, runt, verbose=self.opts.verbose)
-            return
-
-        if item in s_stormtypes.registry.known_types:
-            await self._handleTypeHelp(item, runt, verbose=self.opts.verbose)
             return
 
         # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
@@ -3075,17 +3076,23 @@ class HelpCmd(Cmd):
             await runt.warn('help does not currently support runtime defined functions.')
             return
 
-        return await self._handleGenericCommandHelp(item, runt)
+        foundtype = False
+        if item in s_stormtypes.registry.known_types:
+            foundtype = True
+            await self._handleTypeHelp(item, runt, verbose=self.opts.verbose)
 
-    async def _handleGenericCommandHelp(self, item, runt):
+        return await self._handleGenericCommandHelp(item, runt, foundtype=foundtype)
+
+    async def _handleGenericCommandHelp(self, item, runt, foundtype=False):
 
         stormcmds = sorted(runt.snap.core.getStormCmds())
 
         if item:
             stormcmds = [c for c in stormcmds if item in c[0]]
             if not stormcmds:
-                await runt.printf(f'No commands found matching "{item}"')
-                return
+                if not foundtype:
+                    await runt.printf(f'No commands found matching "{item}"')
+                    return
 
         stormpkgs = await runt.snap.core.getStormPkgs()
 
@@ -3105,6 +3112,14 @@ class HelpCmd(Cmd):
                 pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
         if stormcmds:
+
+            if foundtype:
+                await runt.printf('')
+                await runt.printf('*' * 80)
+                await runt.printf('')
+
+            await runt.printf('The following Storm commands are available:')
+
             maxlen = max(len(x[0]) for x in stormcmds)
 
             for name, ctor in stormcmds:
