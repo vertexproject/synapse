@@ -9,6 +9,9 @@ import synapse.lib.config as s_config
 
 import synapse.tests.utils as s_test
 
+def split(text):
+    return textwrap.dedent(text).split('\n')
+
 class StormlibVaultTest(s_test.SynTest):
 
     async def test_stormlib_vault(self):
@@ -125,41 +128,53 @@ class StormlibVaultTest(s_test.SynTest):
 
             # vault.add
             opts = {'vars': {'vtype': vtype, 'iden': visi1.iden}}
-            uiden = await core.callStorm('vault.add uvault $vtype user $iden ({"apikey": "uvault"})', opts=opts)
-            self.nn(regex.match(s_config.re_iden, uiden))
-
-            opts = {'vars': {'vtype': vtype, 'iden': contributor.iden}}
-            riden = await core.callStorm('vault.add rvault $vtype role $iden ({"apikey": "rvault"})', opts=opts)
-            self.nn(regex.match(s_config.re_iden, riden))
-
-            uvault = core.getVaultByIden(uiden)
-            self.nn(uvault)
+            msgs = await core.stormlist('vault.add uvault $vtype user $iden ({"apikey": "uvault"})', opts=opts)
+            uvault = core.getVaultByName('uvault')
+            uiden = uvault.get('iden')
+            self.stormIsInPrint(f'Vault created with iden: {uiden}', msgs)
             self.eq(uvault.get('data'), {'apikey': 'uvault'})
 
-            rvault = core.getVaultByIden(riden)
-            self.nn(rvault)
+            opts = {'vars': {'vtype': vtype, 'iden': contributor.iden}}
+            msgs = await core.stormlist('vault.add rvault $vtype role $iden ({"apikey": "rvault"})', opts=opts)
+            rvault = core.getVaultByName('rvault')
+            riden = rvault.get('iden')
+            self.stormIsInPrint(f'Vault created with iden: {riden}', msgs)
             self.eq(rvault.get('data'), {'apikey': 'rvault'})
 
+            uvault_out = split(f'''
+            Vault: uvault
+              Type: {vtype}
+              Scope: user
+              Iden: {uiden}
+              Permissions:
+                Users:
+                  visi1: admin
+                Roles: None
+            ''')[1:]
+
             # vault.get
-            ret = await core.callStorm('vault.get uvault')
-            self.eq(ret, uvault)
+            msgs = await core.stormlist('vault.get uvault')
+            for line in uvault_out:
+                self.stormIsInPrint(line, msgs)
 
             # vault.get.byiden
             opts = {'vars': {'iden': uiden}}
-            ret = await core.callStorm('vault.get.byiden $iden', opts=opts)
-            self.eq(ret, uvault)
+            msgs = await core.stormlist('vault.get.byiden $iden', opts=opts)
+            for line in uvault_out:
+                self.stormIsInPrint(line, msgs)
 
             # vault.set
-            self.true(await core.callStorm('vault.set uvault foo bar'))
-            self.true(await core.callStorm('vault.set uvault foo $lib.undef'))
-            self.true(await core.callStorm('vault.set uvault apikey uvault1'))
+            for key, val in (('foo', 'bar'), ('foo', '$lib.undef'), ('apikey', 'uvault1')):
+                msgs = await core.stormlist(f'vault.set uvault {key} {val}')
+                self.stormIsInPrint(f'Successfully set {key}={val} into vault uvault.', msgs)
+
             vault = core.getVaultByIden(uiden)
             self.eq(vault.get('data'), {'apikey': 'uvault1'})
 
             # vault.list
             opts = {'user': visi1.iden}
             msgs = await core.stormlist('vault.list', opts=opts)
-            output = f'''
+            list_out = split(f'''
             Available Vaults
             ----------------
             Vault: uvault
@@ -180,45 +195,54 @@ class StormlibVaultTest(s_test.SynTest):
                   root: admin
                 Roles:
                   contributor: edit
-            '''
-            for line in textwrap.dedent(output[1:]).split('\n'):
+            ''')[1:]
+
+            for line in list_out:
                 self.stormIsInPrint(line, msgs)
 
             # vault.open
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            data = await core.callStorm('vault.open $vtype', opts=opts)
-            self.eq(data, {'apikey': 'uvault1'})
+            msgs = await core.stormlist('vault.open $vtype', opts=opts)
+            self.stormIsInPrint("{'apikey': 'uvault1'}", msgs)
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            data = await core.callStorm('vault.open $vtype --scope role', opts=opts)
-            self.eq(data, {'apikey': 'rvault'})
+            msgs = await core.stormlist('vault.open $vtype --scope role', opts=opts)
+            self.stormIsInPrint("{'apikey': 'rvault'}", msgs)
 
             # vault.open.byname
             opts = {'user': visi1.iden}
-            data = await core.callStorm('vault.open.byname uvault', opts=opts)
-            self.eq(data, {'apikey': 'uvault1'})
+            msgs = await core.stormlist('vault.open.byname uvault', opts=opts)
+            self.stormIsInPrint('Vault: uvault', msgs)
+            self.stormIsInPrint("{'apikey': 'uvault1'}", msgs)
 
             # vault.open.byiden
             opts = {'vars': {'iden': uiden}, 'user': visi1.iden}
-            data = await core.callStorm('vault.open.byiden $iden', opts=opts)
-            self.eq(data, {'apikey': 'uvault1'})
+            msgs = await core.stormlist('vault.open.byiden $iden', opts=opts)
+            self.stormIsInPrint('Vault: uvault', msgs)
+            self.stormIsInPrint("{'apikey': 'uvault1'}", msgs)
 
             # vault.setperm
             opts = {'vars': {'vtype': vtype}}
             q = 'vault.setperm rvault $lib.auth.users.byname(visi1).iden $lib.auth.easyperm.level.read'
-            self.true(await core.callStorm(q, opts=opts))
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInPrint('Successfully set permissions on vault rvault.', msgs)
 
             vault = core.getVaultByName('rvault')
             self.true(core._hasEasyPerm(vault, visi1, s_cell.PERM_READ))
 
             # vault.setdefault
             opts = {'vars': {'vtype': vtype}}
-            self.true(await core.callStorm('vault.setdefault $vtype role', opts=opts))
+            msgs = await core.stormlist('vault.setdefault $vtype role', opts=opts)
+            msg = f'Successfully set default scope to role for vault type {vtype}.'
+            self.stormIsInPrint(msg, msgs)
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            data = await core.callStorm('vault.open $vtype', opts=opts)
-            self.eq(data, {'apikey': 'rvault'})
+            msgs = await core.stormlist('vault.open $vtype', opts=opts)
+            self.stormIsInPrint("{'apikey': 'rvault'}", msgs)
 
             # vault.del
-            self.true(await core.callStorm('vault.del uvault'))
-            self.true(await core.callStorm('vault.del rvault'))
+            msgs = await core.stormlist('vault.del uvault')
+            self.stormIsInPrint('Successfully deleted vault uvault.', msgs)
+
+            msgs = await core.stormlist('vault.del rvault')
+            self.stormIsInPrint('Successfully deleted vault rvault.', msgs)

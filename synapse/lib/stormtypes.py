@@ -38,7 +38,8 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
-    pass
+    def __str__(self):
+        return '$lib.undef'
 
 undef = Undef()
 

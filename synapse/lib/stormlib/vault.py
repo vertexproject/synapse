@@ -36,7 +36,6 @@ stormcmds = (
             } else {
                 $lib.warn('Error creating vault.')
             }
-            return($iden)
         ''',
     },
     {
@@ -59,7 +58,9 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
         ),
         'storm': '''
-            return($lib.vault.getByName($cmdopts.name))
+            $vault = $lib.vault.getByName($cmdopts.name)
+            $lib.vault.print($vault)
+            $lib.print('')
         ''',
     },
     {
@@ -76,7 +77,9 @@ stormcmds = (
             ('iden', {'type': 'str', 'help': 'The vault iden.'}),
         ),
         'storm': '''
-            return($lib.vault.getByIden($cmdopts.iden))
+            $vault = $lib.vault.getByIden($cmdopts.iden)
+            $lib.vault.print($vault)
+            $lib.print('')
         ''',
     },
     {
@@ -98,7 +101,12 @@ stormcmds = (
             ('value', {'help': 'The data value to store in the vault.'}),
         ),
         'storm': '''
-            return($lib.vault.set($cmdopts.name, $cmdopts.key, $cmdopts.value))
+            $ok = $lib.vault.set($cmdopts.name, $cmdopts.key, $cmdopts.value)
+            if $ok {
+                $lib.print(`Successfully set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
+            } else {
+                $lib.warn(`Error setting {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
+            }
         ''',
     },
     {
@@ -118,7 +126,12 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
         ),
         'storm': '''
-            return($lib.vault.del($cmdopts.name))
+            $ok = $lib.vault.del($cmdopts.name)
+            if $ok {
+                $lib.print(`Successfully deleted vault {$cmdopts.name}.`)
+            } else {
+                $lib.warn(`Error deleting vault {$cmdopts.name}.`)
+            }
         ''',
     },
     {
@@ -128,44 +141,11 @@ stormcmds = (
         ''',
         'cmdargs': (),
         'storm': '''
-            $lvlnames = ({})
-            for ($name, $level) in $lib.auth.easyperm.level {
-                $level = $lib.cast(str, $level)
-                $lvlnames.$level = $name
-            }
-
             $lib.print("Available Vaults")
             $lib.print("----------------")
 
             for $vault in $lib.vault.list() {
-                $lib.print(`Vault: {$vault.name}`)
-                $lib.print(`  Type: {$vault.type}`)
-                $lib.print(`  Scope: {$vault.scope}`)
-                $lib.print(`  Iden: {$vault.iden}`)
-                $lib.print('  Permissions:')
-
-                if $vault.permissions.users {
-                    $lib.print('    Users:')
-                    for ($iden, $level) in $vault.permissions.users {
-                        $user = $lib.auth.users.get($iden)
-                        $level = $lib.cast(str, $level)
-                        $lib.print(`      {$user.name}: {$lvlnames.$level}`)
-                    }
-                } else {
-                    $lib.print('    Users: None')
-                }
-
-                if $vault.permissions.roles {
-                    $lib.print('    Roles:')
-                    for ($iden, $level) in $vault.permissions.roles {
-                        $user = $lib.auth.roles.get($iden)
-                        $level = $lib.cast(str, $level)
-                        $lib.print(`      {$user.name}: {$lvlnames.$level}`)
-                    }
-                } else {
-                    $lib.print('    Roles: None')
-                }
-
+                $lib.vault.print($vault)
                 $lib.print('')
             }
         ''',
@@ -192,7 +172,9 @@ stormcmds = (
             ('--scope', {'type': 'str', 'default': None, 'help': 'Restrict the vault to this scope.'}),
         ),
         'storm': '''
-            return($lib.vault.openByType($cmdopts.type, $cmdopts.scope))
+            $data = $lib.vault.openByType($cmdopts.type, $cmdopts.scope)
+            $lib.pprint($data)
+            $lib.print('')
         ''',
     },
     {
@@ -213,7 +195,10 @@ stormcmds = (
         ),
         'storm': '''
             $vault = $lib.vault.getByName($cmdopts.name)
-            return($lib.vault.openByIden($vault.iden))
+            $data = $lib.vault.openByIden($vault.iden)
+            $lib.print(`Vault: {$cmdopts.name}`)
+            $lib.pprint($data)
+            $lib.print('')
         ''',
     },
     {
@@ -230,7 +215,11 @@ stormcmds = (
             ('iden', {'type': 'str', 'help': 'The vault iden to open.'}),
         ),
         'storm': '''
-            return($lib.vault.openByIden($cmdopts.iden))
+            $vault = $lib.vault.getByIden($cmdopts.iden)
+            $data = $lib.vault.openByIden($cmdopts.iden)
+            $lib.print(`Vault: {$vault.name}`)
+            $lib.pprint($data)
+            $lib.print('')
         ''',
     },
     {
@@ -259,7 +248,12 @@ stormcmds = (
             ('level', {'type': 'str', 'help': 'The permission level to grant, $lib.null to revoke an existing permission.'}),
         ),
         'storm': '''
-            return($lib.vault.setPerm($cmdopts.name, $cmdopts.iden, $cmdopts.level))
+            $ok = $lib.vault.setPerm($cmdopts.name, $cmdopts.iden, $cmdopts.level)
+            if $ok {
+                $lib.print(`Successfully set permissions on vault {$cmdopts.name}.`)
+            } else {
+                $lib.warn(`Error setting permissions on vault {$cmdopts.name}.`)
+            }
         ''',
     },
     {
@@ -283,7 +277,12 @@ stormcmds = (
             ('scope', {'type': 'str', 'help': 'The default scope. One of "user", "role", "global", or $lib.null to remove the value.'}),
         ),
         'storm': '''
-            return($lib.vault.setDefault($cmdopts.type, $cmdopts.scope))
+            $ok = $lib.vault.setDefault($cmdopts.type, $cmdopts.scope)
+            if $ok {
+                $lib.print(`Successfully set default scope to {$cmdopts.scope} for vault type {$cmdopts.type}.`)
+            } else {
+                $lib.warn(`Error setting default scope to {$cmdopts.scope} for vault type {$cmdopts.type}.`)
+            }
         ''',
     },
 )
@@ -366,6 +365,12 @@ class LibVault(s_stormtypes.Lib):
                        'desc': 'The scope to open for the specified type. If $lib.null, then openByType will search.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be opened.'}}},
+        {'name': 'print', 'desc': 'Print the details of the specified vault.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'vault', 'desc': 'The vault to print.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
         {'name': 'setPerm', 'desc': 'Set permissions on a vault. Current user must have PERM_EDIT permissions or higher.',
          'type': {'type': 'function', '_funcname': '_setPerm',
                   'args': (
@@ -383,6 +388,43 @@ class LibVault(s_stormtypes.Lib):
                   'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
     )
     _storm_lib_path = ('vault',)
+    _storm_query = '''
+        function print(vault) {
+            $lvlnames = ({})
+            for ($name, $level) in $lib.auth.easyperm.level {
+                $level = $lib.cast(str, $level)
+                $lvlnames.$level = $name
+            }
+
+            $lib.print(`Vault: {$vault.name}`)
+            $lib.print(`  Type: {$vault.type}`)
+            $lib.print(`  Scope: {$vault.scope}`)
+            $lib.print(`  Iden: {$vault.iden}`)
+            $lib.print('  Permissions:')
+
+            if $vault.permissions.users {
+                $lib.print('    Users:')
+                for ($iden, $level) in $vault.permissions.users {
+                    $user = $lib.auth.users.get($iden)
+                    $level = $lib.cast(str, $level)
+                    $lib.print(`      {$user.name}: {$lvlnames.$level}`)
+                }
+            } else {
+                $lib.print('    Users: None')
+            }
+
+            if $vault.permissions.roles {
+                $lib.print('    Roles:')
+                for ($iden, $level) in $vault.permissions.roles {
+                    $user = $lib.auth.roles.get($iden)
+                    $level = $lib.cast(str, $level)
+                    $lib.print(`      {$user.name}: {$lvlnames.$level}`)
+                }
+            } else {
+                $lib.print('    Roles: None')
+            }
+        }
+    '''
 
     def getObjLocals(self):
         return {
