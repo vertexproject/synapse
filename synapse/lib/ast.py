@@ -1613,11 +1613,6 @@ class LiftProp(LiftOper):
                     proplist.append(form)
 
             if not proplist:
-                for prop in runt.model.props:
-                    if isinstance(prop, str) and prop.startswith(pref):
-                        proplist.append(prop)
-
-            if not proplist:
                 mesg = f'No properties match pattern {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
@@ -1626,11 +1621,7 @@ class LiftProp(LiftOper):
 
         props = []
         for propname in proplist:
-            prop = runt.model.props.get(propname)
-            if prop is None:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
-
-            props.append(prop)
+            props.append(runt.model.props.get(propname))
 
         if len(props) == 1 or props[0].isform:
             for prop in props:
@@ -2211,13 +2202,8 @@ class FormPivot(PivotOper):
                         proplist.append(form)
 
                 if not proplist:
-                    for prop in runt.model.props:
-                        if isinstance(prop, str) and prop.startswith(pref):
-                            proplist.append(prop)
-
-                if not proplist:
-                    mesg = f'No properties match pattern {name}.'
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+                    mesg = f'No forms match pattern {name}.'
+                    raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
 
             if proplist is None:
                 mesg = f'No property named {name}.'
@@ -2835,7 +2821,7 @@ class HasAbsPropCond(Cond):
 
             if not formlist:
                 mesg = f'No forms match pattern {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+                raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
 
             async def cond(node, path):
                 return node.form.name in formlist

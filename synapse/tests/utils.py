@@ -208,7 +208,14 @@ testmodel = {
         ('test:type', 'synapse.tests.utils.TestType', {}, {}),
         ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
     ),
-
+    'interfaces': (
+        ('test:interface', {
+            'props': (
+                ('size', ('int', {}), {}),
+                ('names', ('array', {'type': 'str'}), {}),
+            ),
+        }),
+    ),
     'types': (
         ('test:type10', ('test:type', {'foo': 10}), {
             'doc': 'A fake type.'}),
@@ -259,7 +266,8 @@ testmodel = {
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
-
+        ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
+        ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
     ),
 
     'univs': (
@@ -395,7 +403,10 @@ testmodel = {
         ('test:ro', {}, (
             ('writeable', ('str', {}), {'doc': 'writeable property'}),
             ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
-        ))
+        )),
+
+        ('test:hasiface', {}, ()),
+        ('test:hasiface2', {}, ()),
 
     ),
 }

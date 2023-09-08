@@ -759,6 +759,28 @@ class AstTest(s_test.SynTest):
 
             self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:activity'))
 
+            self.len(3, await core.nodes('it:host:activity +it:host:activity:host'))
+
+            self.len(0, await core.nodes('it:host +inet:fqdn:zone'))
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('it:host:activity +it:host:activity:host>5')
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('it:host:activity +newp:*')
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('inet:fqdn=vertex.link -> newp:*')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:fqdn=vertex.link -> (newp:newp, newp:newp)')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:fqdn=vertex.link :zone -> newp:newp')
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('inet:fqdn=vertex.link -(refs)> newp:*')
+
     async def test_ast_lift(self):
 
         async with self.getTestCore() as core:
@@ -809,6 +831,26 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('.created +inet:dns*'))
             self.len(4, await core.nodes('.created +inet:dns:*'))
             self.len(2, await core.nodes('.created +inet:dns:a*'))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('newp:*')
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('newp:*#foo')
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('newp:*#foo:score')
+
+            q = '''[
+                (test:hasiface=foo :names=(foo, bar))
+                (test:hasiface=bar :names=(foo, baz))
+                (test:hasiface=baz :names=(foobar, baz))
+            ]
+            '''
+            await core.nodes(q)
+
+            self.len(2, await core.nodes('test:interface:names*[=foo]'))
+            self.len(3, await core.nodes('test:interface:names*[^=foo]'))
 
     async def test_ast_lift_filt_array(self):
 

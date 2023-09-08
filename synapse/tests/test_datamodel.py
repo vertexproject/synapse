@@ -124,6 +124,13 @@ class DataModelTest(s_t_utils.SynTest):
         modl.delFormProp('foo:foo', 'bar')
         modl.delForm('foo:foo')
 
+        with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            modl.addType('foo:bar', 'int', {}, {'interfaces': ('taxonomy',)})
+            modl.addForm('foo:bar', {}, ())
+
+        dstream.seek(0)
+        self.isin('Interface taxonomy is deprecated', dstream.read())
+
     async def test_datamodel_del_prop(self):
 
         modl = s_datamodel.Model()
