@@ -368,7 +368,7 @@ class LibVault(s_stormtypes.Lib):
         {'name': 'print', 'desc': 'Print the details of the specified vault.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'vault', 'desc': 'The vault to print.'},
+                      {'name': 'vault', 'type': 'dict', 'desc': 'The vault to print.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
         {'name': 'setPerm', 'desc': 'Set permissions on a vault. Current user must have PERM_EDIT permissions or higher.',
