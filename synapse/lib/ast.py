@@ -2915,6 +2915,9 @@ class AbsPropCond(Cond):
                 return cond
 
             async def cond(node, path):
+                if node.ndef[0] != prop.form.name:
+                    return False
+
                 val1 = node.get(prop.name)
                 if val1 is None:
                     return False

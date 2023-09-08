@@ -758,10 +758,11 @@ class AstTest(s_test.SynTest):
             await core.nodes('it:host=(host,) [ <(refs)+ { it:host:activity:host } ]')
 
             self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:activity'))
-
             self.len(3, await core.nodes('it:host:activity +it:host:activity:host'))
+            self.len(3, await core.nodes('.created +it:host:activity:host=(host,)'))
 
             self.len(0, await core.nodes('it:host +inet:fqdn:zone'))
+            self.len(1, await core.nodes('.created +inet:fqdn:zone=vertex.link'))
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('it:host:activity +it:host:activity:host>5')
@@ -777,6 +778,9 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:fqdn=vertex.link :zone -> newp:newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('inet:fqdn=vertex.link :zone -> (newp:newp, newp:newp)')
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:fqdn=vertex.link -(refs)> newp:*')
