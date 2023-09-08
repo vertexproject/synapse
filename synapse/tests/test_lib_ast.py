@@ -751,6 +751,14 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:*'))
             self.len(2, await core.nodes('inet:fqdn=vertex.link <(refs)- inet:dns:a*'))
 
+            await core.nodes('it:host=(host,) [ +(refs)> { it:host:activity:host } ]')
+
+            self.len(3, await core.nodes('it:host=(host,) -(refs)> it:host:activity'))
+
+            await core.nodes('it:host=(host,) [ <(refs)+ { it:host:activity:host } ]')
+
+            self.len(3, await core.nodes('it:host=(host,) <(refs)- it:host:activity'))
+
     async def test_ast_lift(self):
 
         async with self.getTestCore() as core:

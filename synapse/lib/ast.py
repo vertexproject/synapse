@@ -4035,6 +4035,7 @@ class N1Walk(Oper):
                 continue
 
             if (formlist := runt.model.formsbyiface.get(destform)) is not None:
+                forms.update(formlist)
                 continue
 
             if destform.endswith('*'):
