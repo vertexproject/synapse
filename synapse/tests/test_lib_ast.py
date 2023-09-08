@@ -806,6 +806,10 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:dns:*#foo:score=5'))
             self.len(2, await core.nodes('inet:dns:a*#foo:score=5'))
 
+            self.len(4, await core.nodes('.created +inet:dns*'))
+            self.len(4, await core.nodes('.created +inet:dns:*'))
+            self.len(2, await core.nodes('.created +inet:dns:a*'))
+
     async def test_ast_lift_filt_array(self):
 
         async with self.getTestCore() as core:

@@ -2826,16 +2826,30 @@ class HasAbsPropCond(Cond):
 
             return cond
 
-        formlist = runt.model.formsbyiface.get(name)
-        if formlist is not None:
+        if name.endswith('*'):
+            pref = name[:-1]
+            formlist = []
+            for form in runt.model.forms:
+                if form.startswith(pref):
+                    formlist.append(form)
+
+            if not formlist:
+                mesg = f'No forms match pattern {name}.'
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
 
             async def cond(node, path):
                 return node.form.name in formlist
 
             return cond
 
-        proplist = runt.model.ifaceprops.get(name)
-        if proplist is not None:
+        if (formlist := runt.model.formsbyiface.get(name)) is not None:
+
+            async def cond(node, path):
+                return node.form.name in formlist
+
+            return cond
+
+        if (proplist := runt.model.ifaceprops.get(name)) is not None:
 
             formlist = []
             for propname in proplist:

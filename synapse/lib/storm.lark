@@ -375,8 +375,8 @@ hasrelpropcond: relprop | univprop
 relpropcond: relpropvalue _cmpr _valu
 relpropvalue: relprop | univprop
 
-abspropcond: PROPS _cmpr _valu
-hasabspropcond: PROPS
+abspropcond: (PROPS | WILDPROPS) _cmpr _valu
+hasabspropcond: (PROPS | WILDPROPS)
 
 tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
 hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
