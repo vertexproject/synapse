@@ -1,3 +1,5 @@
+import synapse.common as s_common
+
 import synapse.lib.stormtypes as s_stormtypes
 
 stormcmds = (
@@ -339,7 +341,7 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The data value to set into the vault.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the data was successfully set, false otherwise.', }}},
+                              'desc': '`$lib.true` if the data was successfully set, `$lib.false` otherwise.', }}},
         {'name': 'del', 'desc': 'Delete a vault.',
          'type': {'type': 'function', '_funcname': '_delVault',
                   'args': (
@@ -415,7 +417,10 @@ class LibVault(s_stormtypes.Lib):
     async def _setVault(self, name, key, valu):
         name = await s_stormtypes.tostr(name)
         key = await s_stormtypes.tostr(key)
-        valu = await s_stormtypes.toprim(valu)
+        if valu is s_stormtypes.undef:
+            valu = s_common.novalu
+        else:
+            valu = await s_stormtypes.toprim(valu)
         return await self.runt.snap.core.setVaultData(name, key, valu, user=self.runt.user)
 
     async def _delVault(self, name):

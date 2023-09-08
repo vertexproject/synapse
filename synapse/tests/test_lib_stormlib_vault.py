@@ -57,6 +57,10 @@ class StormlibVaultTest(s_test.SynTest):
             # Set some data
             self.true(await core.callStorm('return($lib.vault.set(uvault, foo, bar))'))
 
+            # Set and delete data
+            self.true(await core.callStorm('return($lib.vault.set(uvault, foo2, bar2))'))
+            self.true(await core.callStorm('return($lib.vault.set(uvault, foo2, $lib.undef))'))
+
             # Get some data
             opts = {'vars': {'iden': uiden}}
             ret = await core.callStorm('return($lib.vault.getByIden($iden))', opts=opts)
@@ -146,6 +150,8 @@ class StormlibVaultTest(s_test.SynTest):
             self.eq(ret, uvault)
 
             # vault.set
+            self.true(await core.callStorm('vault.set uvault foo bar'))
+            self.true(await core.callStorm('vault.set uvault foo $lib.undef'))
             self.true(await core.callStorm('vault.set uvault apikey uvault1'))
             vault = core.getVaultByIden(uiden)
             self.eq(vault.get('data'), {'apikey': 'uvault1'})

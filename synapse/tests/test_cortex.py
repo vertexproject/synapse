@@ -7636,7 +7636,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             vault = core.getVaultByIden(giden)
             self.eq(vault['data'], {'apikey': 'global1', 'foo': 'bar'})
 
-            await core.setVaultData('gvault', 'foo', None)
+            await core.setVaultData('gvault', 'foo', s_common.novalu)
             vault = core.getVaultByIden(giden)
             self.eq(vault['data'], {'apikey': 'global1'})
 
@@ -7737,6 +7737,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             await visi1.grant(contributor.iden)
 
             await core.addVault('foo1', vtype, None, None, {})
+            await core.addVault('global1', vtype, 'global', None, {})
+
+            with self.raises(s_exc.DupName):
+                await core.addVault('global2', vtype, 'global', None, {})
 
             with self.raises(s_exc.BadArg):
                 await core.addVault('foo', vtype, 'newp', None, {})
