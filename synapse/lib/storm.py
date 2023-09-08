@@ -3052,7 +3052,10 @@ class HelpCmd(Cmd):
 
         item = self.opts.item
 
-        if not isinstance(item, str) and not isinstance(item, s_stormtypes.Lib) and not callable(item):
+        if item is not None and \
+                not isinstance(item, str) and \
+                not isinstance(item, s_stormtypes.Lib) and \
+                not callable(item):
             mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
                    f' {await s_stormtypes.totype(item, basetypes=True)}'
             raise s_exc.BadArg(mesg=mesg)
@@ -3073,8 +3076,7 @@ class HelpCmd(Cmd):
                 await self._handleStormLibMethod(item, runt, verbose=self.opts.verbose)
                 return
 
-            await runt.warn('help does not currently support runtime defined functions.')
-            return
+            raise s_exc.BadArg(mesg='help does not currently support runtime defined functions.')
 
         foundtype = False
         if item in s_stormtypes.registry.known_types:
@@ -3152,10 +3154,13 @@ class HelpCmd(Cmd):
             await runt.printf('For detailed help on any command, use <cmd> --help')
 
     async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime, verbose: bool =False):
-        #
-        page = s_autodoc.RstHelp()
 
-        preamble = self._getChildLibs(lib)
+        try:
+            preamble = self._getChildLibs(lib)
+        except s_exc.NoSuchName as e:
+            raise s_exc.BadArg(mesg='Help does not currently support imported Storm modules.') from None
+
+        page = s_autodoc.RstHelp()
 
         if hasattr(lib, '_storm_lib_path'):
             libsinfo = s_stormtypes.registry.getLibDocs(lib)
@@ -4136,13 +4141,13 @@ class MoveNodesCmd(Cmd):
                 for prop, (valu, stortype) in tagdict.items():
                     if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
-                            if not self.opts.apply:
-                                valurepr = repr(valu)
-                                mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                                await self.runt.printf(mesg)
-                            else:
-                                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                                ecnt += 1
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                            await self.runt.printf(mesg)
+                        else:
+                            self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                            ecnt += 1
 
                     movekeys.add((tag, prop))
 
