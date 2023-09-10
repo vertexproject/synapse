@@ -209,7 +209,7 @@ def runtimeGetArgLines(rtype):
             assert len(atyp) > 1
             for obj in atyp:
                 assert isinstance(obj, str)
-            tdata = ', '.join([f'``{obj}``' for obj in atyp])
+            tdata = ', '.join(atyp)
             rline = f'The input type may one one of the following: {tdata}.'
             line = f'    {name}: {desc} {rline}'
         elif isinstance(atyp, dict):
@@ -304,6 +304,53 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None, isst
         elif isinstance(rettype, (list, tuple)):
             assert len(rettype) > 1
             tdata = ', '.join([f'{getRtypeStr(obj, known_types, types_prefix, suffix)}' for obj in rettype])
+            rline = f'The return type may be one of the following: {tdata}.'
+            parts.append(rline)
+        elif isinstance(rettype, dict):
+            logger.warning('Fully declarative input types are not yet supported.')
+            rline = f"The return type is derived from the declarative type ``{rettype}``."
+            parts.append(rline)
+        else:
+            raise AssertionError(f'unknown return type: {rettype}')
+        line = ' '.join(parts)
+        lines.append(line)
+    if isstor:
+        line = f'{whitespace} When this is used to set the value, it does not have a return type.'
+        lines.append(line)
+    return lines
+
+def runtimeGetReturnLines(rtype, isstor=False):
+    # Allow someone to plumb in name=Yields as a return type.
+    lines = ['']
+    whitespace = '   '
+    if isinstance(rtype, str):
+        lines.append('Returns:')
+        lines.append(f'    The type is {rtype}.')
+    elif isinstance(rtype, (list, tuple)):
+        assert len(rtype) > 1
+        tdata = ', '.join(rtype)
+        lines.append('Returns:')
+        lines.append(f'    The type may be one of the following: {tdata}.')
+    elif isinstance(rtype, dict):
+        returns = rtype.get('returns')
+        assert returns is not None, f'Invalid returns for {rtype}'
+        name = returns.get('name', 'Returns')
+
+        desc = returns.get('desc')
+        rettype = returns.get('type')
+
+        lines.append(f'{name}:')
+        # Now switch on the type.
+
+        parts = [whitespace]
+        if desc:
+            parts.append(desc)
+
+        if isinstance(rettype, str):
+            parts.append(f"The return type is {rettype}.")
+        elif isinstance(rettype, (list, tuple)):
+            assert len(rettype) > 1
+            tdata = ', '.join(rettype)
             rline = f'The return type may be one of the following: {tdata}.'
             parts.append(rline)
         elif isinstance(rettype, dict):
@@ -531,7 +578,7 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
                 arglines = runtimeGetArgLines(rtype)
                 lines.extend(arglines)
 
-                retlines = getReturnLines(rtype, isstor=isstor)
+                retlines = runtimeGetReturnLines(rtype, isstor=isstor)
                 lines.extend(retlines)
 
                 callsig = ''
@@ -543,7 +590,7 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
                 header = name
                 lines = prepareRstLines(desc)
 
-                retlines = getReturnLines(rtype)
+                retlines = runtimeGetReturnLines(rtype)
                 lines.extend(retlines)
 
             if islib:
@@ -566,7 +613,7 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
 
         if nofuncs:
             if more_than_one_item:
-                page.addLines('The following references are available:', '')
+                page.addLines('', 'The following references are available:', '')
             for locl, isstor, isfunc, isgtor, isctor in nofuncs:
                 renderer(locl, isstor, isfunc, isgtor, isctor)
 
