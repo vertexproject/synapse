@@ -389,7 +389,7 @@ class LibVault(s_stormtypes.Lib):
     )
     _storm_lib_path = ('vault',)
     _storm_query = '''
-        function print(vault) {
+        function print(vault, showdata=$lib.false) {
             $lvlnames = ({})
             for ($name, $level) in $lib.auth.easyperm.level {
                 $level = $lib.cast(str, $level)
@@ -422,6 +422,17 @@ class LibVault(s_stormtypes.Lib):
                 }
             } else {
                 $lib.print('    Roles: None')
+            }
+
+            if $showdata {
+                if $vault.data {
+                    $lib.print('    Data:')
+                    for ($key, $valu) in $vault.data {
+                        $lib.print(`      {$key}: {$valu}`)
+                    }
+                } else {
+                    $lib.print('    Data: None')
+                }
             }
         }
     '''
