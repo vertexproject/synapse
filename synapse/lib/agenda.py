@@ -809,7 +809,17 @@ class Agenda(s_base.Base):
                     logger.warning(mesg,
                                    extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
                 else:
-                    await self._execute(appt)
+                    try:
+                        await self._execute(appt)
+                    except s_exc.SynErr as e:
+                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
+                        user = self.core.auth.user(appt.creator)
+                        if user is not None:
+                            extra['username'] = user.name
+                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: '
+                                         f'{e.get("mesg", str(e))}',
+                                         extra={'synapse': extra})
+                        await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
         '''
@@ -831,6 +841,7 @@ class Agenda(s_base.Base):
             return
 
         view = self.core.getView(iden=appt.view, user=user)
+
         if view is None:
             logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
                            extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
