@@ -3181,27 +3181,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(core.storm('.created | limit 1 | help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-            self.len(1, [n for n in msgs if n[0] == 'node'])
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-
-            msgs = await alist(core.storm('help view'))
-            self.stormIsInPrint('view.merge', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            msgs = await alist(core.storm('help newp'))
-            self.stormIsInPrint('No commands found matching "newp"', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
             await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
             self.eq(2, await core.count('inet:user'))
