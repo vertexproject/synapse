@@ -120,7 +120,7 @@ class LibGen(s_stormtypes.Lib):
         function orgIdNumber(type, value) {
             $idtype = $orgIdType($type)
 
-            ou:id:number:type=$idtype +:value=$value
+            ou:id:number=($idtype, $value)
             return($node)
 
             [ ou:id:number=($idtype, $value) ]
