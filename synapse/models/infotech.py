@@ -1364,6 +1364,9 @@ class ItModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the issue in the repository system.',
                     }),
+                    ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of labels applied to the issue.',
+                    }),
                 )),
 
                 ('it:dev:repo:issue:comment', {}, (

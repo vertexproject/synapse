@@ -1443,6 +1443,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'updated': 1,
                     'id': '1234',
                     'url': 'https://github.com/vertexproject/synapse/issues/2821',
+                    'labels': ('bar', 'biz', 'foo')
                 },
 
                 ('it:dev:repo:issue:comment', icom): {
