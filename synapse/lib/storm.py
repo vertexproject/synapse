@@ -3077,6 +3077,10 @@ class HelpCmd(Cmd):
                 await self._handleStormLibMethod(item, runt, verbose=self.opts.verbose)
                 return
 
+            styp = await s_stormtypes.totype(item, basetypes=True)
+            if styp in ('telepath:proxy:method', 'telepath:proxy:genrmethod'):
+                raise s_exc.BadArg(mesg='help does not support Telepath proxy methods.')
+
             raise s_exc.BadArg(mesg='help does not currently support runtime defined functions.')
 
         foundtype = False

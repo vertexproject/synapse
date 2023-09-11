@@ -3666,6 +3666,15 @@ class StormTest(s_t_utils.SynTest):
             err = 'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got dict'
             self.stormIsInErr(err, msgs)
 
+            url = core.getLocalUrl()
+            msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.getCellInfo',
+                                        opts={'vars': {'url': url}})
+            self.stormIsInErr('help does not support Telepath proxy methods.', msgs)
+
+            msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.storm',
+                                        opts={'vars': {'url': url}})
+            self.stormIsInErr('help does not support Telepath proxy methods.', msgs)
+
             msgs = await core.stormlist('function f(){} help $f')
             self.stormIsInErr('help does not currently support runtime defined functions.', msgs)
 
