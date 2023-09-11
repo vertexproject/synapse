@@ -4016,7 +4016,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('user', mesgs)
-
+            self.stormIsInPrint('node:add', mesgs)
             self.stormIsInPrint('root', mesgs)
 
             nodes = await core.nodes('syn:trigger')
@@ -4170,15 +4170,56 @@ class StormTypesTest(s_test.SynTest):
             mainview = await core.callStorm('return($lib.view.get().iden)')
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
 
+            forkopts = {'view': forkview}
+            await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            nodes = await core.nodes('syn:trigger', opts=forkopts)
+            self.stormNotInPrint(mainview, mesgs)
+            self.stormIsInPrint(forkview, mesgs)
+            self.len(1, nodes)
+            othr = nodes[0].ndef[1]
+
+            # fetch a trigger from another view
+            othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
+            self.nn(othrtrig)
+
+            # mess with things to make a bad trigger and make sure move doesn't delete it
+            core.views[forkview].triggers.triggers[othr].tdef.pop('storm')
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            self.stormIsInErr('Cannot move invalid trigger', mesgs)
+
+            mesgs = await core.stormlist('trigger.list')
+            self.stormNotInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint(othr, mesgs)
+
+            core.views[forkview].triggers.triggers[othr].tdef['storm'] = '[ +#naughty.trigger'
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            self.stormIsInErr('Cannot move invalid trigger', mesgs)
+
+            mesgs = await core.stormlist('trigger.list')
+            self.stormNotInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            self.stormIsInPrint(othr, mesgs)
+
+            # update a trigger in another view
+            await core.stormlist(f'trigger.mod {othr} {{ [ +#neato.trigger ] }}')
+            othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
+            self.eq('[ +#neato.trigger ]', othrtrig['storm'])
+
+            await core.stormlist(f'trigger.del {othr}')
+            othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
+            self.none(othrtrig)
+
             await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
 
             nodes = await core.nodes('[ test:str=test2 ]')
             self.none(nodes[0].tags.get('tagged'))
 
-            nodes = await core.nodes('[ test:str=test3 ]', opts={'view': forkview})
+            nodes = await core.nodes('[ test:str=test3 ]', opts=forkopts)
             self.nn(nodes[0].tags.get('tagged'))
 
-            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts={'view': forkview})
+            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts=forkopts)
             nodes = await core.nodes('[ test:str=test4 ]')
             self.nn(nodes[0].tags.get('tagged'))
 
@@ -4197,6 +4238,16 @@ class StormTypesTest(s_test.SynTest):
             '''
             with self.raises(s_exc.DupIden):
                 await core.callStorm(q, opts={'view': forkview, 'vars': {'trig': trig}})
+
+            # toggle trigger in other view
+            mesgs = await core.stormlist(f'trigger.disable {othr}')
+            self.stormIsInPrint(f'Disabled trigger: {othr}', mesgs)
+
+            mesgs = await core.stormlist(f'trigger.enable {othr}')
+            self.stormIsInPrint(f'Enabled trigger: {othr}', mesgs)
+
+            mesgs = await core.stormlist(f'trigger.mod {othr} {{ [ +#burrito ] }}')
+            self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')

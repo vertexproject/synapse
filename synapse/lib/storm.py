@@ -1005,6 +1005,7 @@ stormcmds = (
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--view', {'help': 'The view to add the trigger to.'})
         ),
         'storm': '''
             $opts = $lib.copy($cmdopts)
@@ -1042,17 +1043,20 @@ stormcmds = (
     {
         'name': 'trigger.list',
         'descr': "List existing triggers in the cortex.",
-        'cmdargs': (),
+        'cmdargs': (
+            ('--all', {'help': 'List every trigger in the cortex, regardless of view.', 'action': 'store_true'}),
+        ),
         'storm': '''
-            $triggers = $lib.trigger.list()
+            $triggers = $lib.trigger.list($cmdopts.all)
 
             if $triggers {
 
-                $lib.print("user       iden                             en?    async? cond      object                    storm query")
+                $lib.print("user       iden                             en?    async? view                             cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
+                    $view = $trigger.view.ljust(12)
                     ($ok, $async) = $lib.trycast(bool, $trigger.async)
                     if $ok {
                         $async = $lib.model.type(bool).repr($async).ljust(6)
@@ -1087,9 +1091,9 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {enabled} {async} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, enabled=$enabled, async=$async, cond=$cond,
-                              obj=$obj, obj2=$obj2, query=$trigger.storm)
+                    $lib.print("{user} {iden} {enabled} {async} {view} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, async=$async, view=$view,
+                              cond=$cond, obj=$obj, obj2=$obj2, query=$trigger.storm)
                 }
             } else {
                 $lib.print("No triggers found")

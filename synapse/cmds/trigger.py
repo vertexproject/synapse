@@ -134,7 +134,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        subparsers.add_parser('list', help="List triggers you're allowed to manipulate", usage=ListHelp)
+        parser_list = subparsers.add_parser('list', help="List triggers you're allowed to manipulate", usage=ListHelp)
+        parser_list.add_argument('--all', action='store_true', help='List every trigger from all readable views')
 
         parser_add = subparsers.add_parser('add', help='add a trigger', usage=AddHelp)
         parser_add.add_argument('condition', choices=s_trigger.Conditions, type=str.lower,
@@ -221,12 +222,17 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         self.printf(f'Added trigger {iden}')
 
-    async def _get_list(self, core, view):
-        opts = {'view': view}
-        return await core.callStorm('return($lib.trigger.list())', opts=opts)
+    async def _get_list(self, core, view, all=False):
+        opts = {
+            'view': view,
+            'vars': {
+                'all': all
+            }
+        }
+        return await core.callStorm('return($lib.trigger.list($all))', opts=opts)
 
     async def _handle_list(self, core, opts):
-        triglist = await self._get_list(core, opts.view)
+        triglist = await self._get_list(core, opts.view, opts.all)
 
         if not triglist:
             self.printf('No triggers found')
@@ -239,7 +245,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             idenf = iden[:8] + '..'
             user = trig.get('username', '<None>')
             query = trig.get('storm', '<missing>')
-            cond = trig.get('cond', '<missing')
+            cond = trig.get('cond', '<missing>')
+            view = trig.get('view', '<missing>')
             enabled = 'Y' if trig.get('enabled', True) else 'N'
             if cond.startswith('tag:'):
                 tag = '#' + trig.get('tag', '<missing>')
