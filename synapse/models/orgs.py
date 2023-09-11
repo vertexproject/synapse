@@ -191,7 +191,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
-                    'doc': 'A title for a position within an org.',
+                    'doc': 'A taxonomy of job types.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('ou:employment', ('taxonomy', {}), {
