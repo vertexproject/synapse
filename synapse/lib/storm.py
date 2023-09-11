@@ -1044,7 +1044,7 @@ stormcmds = (
         'name': 'trigger.list',
         'descr': "List existing triggers in the cortex.",
         'cmdargs': (
-            ('--all', {'help': 'List every trigger in the cortex, regardless of view.', 'action': 'store_true'}),
+            ('--all', {'help': 'List every trigger in every readable view, rather than just the current view.', 'action': 'store_true'}),
         ),
         'storm': '''
             $triggers = $lib.trigger.list($cmdopts.all)
