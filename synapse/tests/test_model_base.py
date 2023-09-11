@@ -50,6 +50,12 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('text'), 'yieldnote')
 
+            nodes = await core.nodes('note.add --yield "nonodes"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'nonodes')
+
+            self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
+
     async def test_model_base_node(self):
 
         async with self.getTestCore() as core:
