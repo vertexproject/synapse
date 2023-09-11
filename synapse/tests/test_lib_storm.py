@@ -3632,8 +3632,13 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('append(valu)\nAppend a value to the list.', msgs)
             self.stormIsInPrint('auth.user.list : List all users.', msgs)
 
-            msgs = await core.stormlist('help $lib.regex')
+            # email stor / gettr has a multi value return type
+            msgs = await core.stormlist('help -v auth:user')
+            self.stormIsInPrint('Implements the Storm API for a User.', msgs)
+            self.stormIsInPrint("A user's email. This can also be used to set the user's email.", msgs)
+            self.stormIsInPrint('The return type may be one of the following: str, null.', msgs)
 
+            msgs = await core.stormlist('help $lib.regex')
             self.stormIsInPrint('The following references are available:\n\n'
                                 '$lib.regex.flags.i\n'
                                 'Regex flag to indicate that case insensitive matches are allowed.\n\n'
