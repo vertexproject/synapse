@@ -1051,7 +1051,7 @@ stormcmds = (
 
             if $triggers {
 
-                $lib.print("user       iden                             en?    async? view                             cond      object                    storm query")
+                $lib.print("user       iden                             view                             en?    async? cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
@@ -1091,8 +1091,8 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {enabled} {async} {view} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, enabled=$enabled, async=$async, view=$view,
+                    $lib.print("{user} {iden} {view} {enabled} {async} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, view=$view, enabled=$enabled, async=$async,
                               cond=$cond, obj=$obj, obj2=$obj2, query=$trigger.storm)
                 }
             } else {

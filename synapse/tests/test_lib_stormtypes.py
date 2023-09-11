@@ -3969,15 +3969,16 @@ class StormTypesTest(s_test.SynTest):
         async with self.getRegrCore('2.112.0-trigger-noasyncdef') as core:
 
             # Old trigger - created in v2.70.0 with no async flag set
+            view = await core.callStorm('return($lib.view.get().iden)')
             tdef = await core.callStorm('return ( $lib.trigger.get(bc1cbf350d151bba5936e6654dd13ff5) )')
             self.notin('async', tdef)
 
             msgs = await core.stormlist('trigger.list')
             self.stormHasNoWarnErr(msgs)
-            trgs = ('iden                             en?    async? cond      object',
-                    '8af9a5b134d08fded3edb667f8d8bbc2 true   true   tag:add   inet:ipv4',
-                    '99b637036016dadd6db513552a1174b8 true   false  tag:add            ',
-                    'bc1cbf350d151bba5936e6654dd13ff5 true   false  node:add  inet:ipv4',
+            trgs = ('iden                             view                             en?    async? cond      object',
+                    f'8af9a5b134d08fded3edb667f8d8bbc2 {view} true   true   tag:add   inet:ipv4',
+                    f'99b637036016dadd6db513552a1174b8 {view} true   false  tag:add            ',
+                    f'bc1cbf350d151bba5936e6654dd13ff5 {view} true   false  node:add  inet:ipv4',
                     )
             for m in trgs:
                 self.stormIsInPrint(m, msgs)
@@ -4190,6 +4191,8 @@ class StormTypesTest(s_test.SynTest):
 
             mesgs = await core.stormlist('trigger.list')
             self.stormNotInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            self.stormIsInPrint(othr, mesgs)
             mesgs = await core.stormlist('trigger.list --all')
             self.stormIsInPrint(othr, mesgs)
 
@@ -4201,15 +4204,13 @@ class StormTypesTest(s_test.SynTest):
             self.stormNotInPrint(othr, mesgs)
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
             self.stormIsInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint(othr, mesgs)
 
             # update a trigger in another view
             await core.stormlist(f'trigger.mod {othr} {{ [ +#neato.trigger ] }}')
             othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
             self.eq('[ +#neato.trigger ]', othrtrig['storm'])
-
-            await core.stormlist(f'trigger.del {othr}')
-            othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
-            self.none(othrtrig)
 
             await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
 
@@ -4248,6 +4249,9 @@ class StormTypesTest(s_test.SynTest):
 
             mesgs = await core.stormlist(f'trigger.mod {othr} {{ [ +#burrito ] }}')
             self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
+
+            await core.stormlist(f'trigger.del {othr}')
+            await self.asyncraises(s_exc.NoSuchIden, core.callStorm(f'return($lib.trigger.get({othr}))'))
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')

@@ -238,7 +238,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             self.printf('No triggers found')
             return
 
-        self.printf(f'{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
+        self.printf(f'{"user":10} {"iden":12} {"view":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
 
         for trig in triglist:
             iden = trig['iden']
@@ -246,7 +246,10 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             user = trig.get('username', '<None>')
             query = trig.get('storm', '<missing>')
             cond = trig.get('cond', '<missing>')
-            view = trig.get('view', '<missing>')
+
+            view = trig['view']
+            viewf = view[:8] + '..'
+
             enabled = 'Y' if trig.get('enabled', True) else 'N'
             if cond.startswith('tag:'):
                 tag = '#' + trig.get('tag', '<missing>')
@@ -256,7 +259,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
                 obj = trig.get('prop', trig.get('form', '<missing>'))
                 obj2 = ''
 
-            self.printf(f'{user:10} {idenf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
+            self.printf(f'{user:10} {idenf:12} {viewf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
