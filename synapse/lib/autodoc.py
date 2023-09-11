@@ -354,7 +354,7 @@ def runtimeGetReturnLines(rtype, isstor=False):
             rline = f'The return type may be one of the following: {tdata}.'
             parts.append(rline)
         elif isinstance(rettype, dict):
-            logger.warning('Fully declarative input types are not yet supported.')
+            logger.warning('Fully declarative return types are not yet supported.')
             rline = f"The return type is derived from the declarative type ``{rettype}``."
             parts.append(rline)
         else:

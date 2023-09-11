@@ -3016,7 +3016,7 @@ class HelpCmd(Cmd):
 
         help $lib
 
-        // Get detailed help about a specific library function
+        // Get detailed help about a specific library or library function
 
         help --verbose $lib.
 
@@ -3280,7 +3280,7 @@ class HelpCmd(Cmd):
             raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
 
     async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
-        # Storm library methoeds must be derived from a library defition.
+        # Storm library methods must be derived from a library definition.
         # Determine the parent lib and get those docs exactly, and then render them.
 
         cls = getattr(func, '_storm_runtime_lib', None)
