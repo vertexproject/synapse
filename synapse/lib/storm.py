@@ -896,10 +896,11 @@ stormcmds = (
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
             ('--name', {'default': None, 'help': 'The name of the new view.'}),
+            ('--worldreadable', {'type': 'bool', 'default': False, 'help': 'Grant read access to the `all` role.'}),
             ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name)
+            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name, worldreadable=$cmdopts.worldreadable)
             $lib.print($view.repr())
             $lib.print("View added.")
         ''',

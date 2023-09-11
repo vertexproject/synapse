@@ -6015,12 +6015,20 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_addview(self):
         async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+
             (await core.addLayer()).get('iden')
             deflayr = (await core.getLayerDef()).get('iden')
 
             vdef = {'layers': (deflayr,)}
             view = (await core.addView(vdef)).get('iden')
             self.nn(core.getView(view))
+            self.false(visi.allowed(('view', 'read'), gateiden=view))
+
+            vdef['worldreadable'] = True
+            view = (await core.addView(vdef)).get('iden')
+            self.nn(core.getView(view))
+            self.true(visi.allowed(('view', 'read'), gateiden=view))
 
             # Missing layers
             vdef = {'name': 'mylayer'}
