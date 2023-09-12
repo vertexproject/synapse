@@ -3054,7 +3054,8 @@ class HelpCmd(Cmd):
         item = self.opts.item
 
         if item is not None and \
-                not isinstance(item, (str, s_node.Node, s_node.Path, s_stormtypes.StormType)):
+                not isinstance(item, (str, s_node.Node, s_node.Path, s_stormtypes.StormType)) and \
+                not callable(item):
             mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
                    f' {await s_stormtypes.totype(item, basetypes=True)}'
             raise s_exc.BadArg(mesg=mesg)
