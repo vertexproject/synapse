@@ -1399,6 +1399,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             icom = s_common.guid()
             dcom = s_common.guid()
             origin = s_common.guid()
+            label = s_common.guid()
+            issuelabel = s_common.guid()
             file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
 
             props = {
@@ -1443,7 +1445,19 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'updated': 1,
                     'id': '1234',
                     'url': 'https://github.com/vertexproject/synapse/issues/2821',
-                    'labels': ('bar', 'biz', 'foo')
+                },
+
+                ('it:dev:label', label): {
+                    'id': '123456789',
+                    'title': 'new feature',
+                    'desc': 'a super cool new feature'
+                },
+
+                ('it:dev:repo:issue:label', issuelabel): {
+                    'issue': issue,
+                    'label': label,
+                    'applied': 97,
+                    'removed': 98
                 },
 
                 ('it:dev:repo:issue:comment', icom): {
@@ -1452,7 +1466,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'replyto': s_common.guid(),
                     'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
                     'created': 12,
-                    'updated': 93,
+                    'updated': 93
                 },
 
                 ('it:dev:repo:diff:comment', dcom): {
@@ -1463,7 +1477,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'offset': 100,
                     'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
                     'created': 1,
-                    'updated': 3,
+                    'updated': 3
                 },
 
                 ('it:dev:repo:branch', branch): {

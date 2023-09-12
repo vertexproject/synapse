@@ -389,7 +389,7 @@ class ItModule(s_module.CoreModule):
                     'ex': 'S0154',
                 }),
                 ('it:dev:str', ('str', {}), {
-                    'doc': 'A developer-selected string.'
+                    'doc': 'A developer selected string.'
                 }),
                 ('it:dev:pipe', ('str', {}), {
                     'doc': 'A string representing a named pipe.',
@@ -411,6 +411,9 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A version control system type taxonomy.',
                     'interfaces': ('taxonomy',)
                 }),
+                ('it:dev:label', ('guid', {}), {
+                    'doc': 'A developer selected label.',
+                }),
                 ('it:dev:repo', ('guid', {}), {
                     'doc': 'A version control system instance.',
                 }),
@@ -428,6 +431,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
+                }),
+                ('it:dev:repo:issue:label', ('guid', {}), {
+                    'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue:comment', ('guid', {}), {
                     'doc': 'A comment on an issue in a repository.',
@@ -1364,8 +1370,32 @@ class ItModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the issue in the repository system.',
                     }),
-                    ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of labels applied to the issue.',
+                )),
+                ('it:dev:label', {}, (
+                    ('id', ('str', {}), {
+                        'doc': 'The ID of the label.',
+                    }),
+                    ('title', ('str', {}), {
+                        'doc': 'The human friendly name of the label.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the label.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:label', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue the label was applied to.',
+                    }),
+                    ('label', ('it:dev:label', {}), {
+                        'doc': 'The label that was applied to the issue.',
+                    }),
+                    ('applied', ('time', {}), {
+                        'doc': 'The time the label was applied.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The time the label was removed.',
                     }),
                 )),
 
