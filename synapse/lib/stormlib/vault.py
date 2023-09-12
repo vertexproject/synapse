@@ -335,7 +335,7 @@ class LibVault(s_stormtypes.Lib):
                   'args': (),
                   'returns': {'type': 'list', 'desc': 'Yields vaults.'}}},
         {'name': 'open', 'desc': 'Open a vault for a specified vault type.',
-         'type': {'type': 'function', '_funcname': '_openByType',
+         'type': {'type': 'function', '_funcname': '_open',
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to open.'},
                       {'name': 'scope', 'type': 'str', 'default': None,
@@ -346,13 +346,14 @@ class LibVault(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'vault', 'type': 'dict', 'desc': 'The vault to print.'},
-                  )}},
+                  ),
+                  'returns': {'type': 'null'}}},
         {'name': 'getByIdenOrName', 'desc': 'Get a vault by iden or name.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'vault', 'type': 'dict', 'desc': 'The vault name or iden to retrieve.'},
                   ),
-                  'returns': {'type': 'vault', 'desc': 'The requested vault.'}}},
+                  'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
         {'name': 'setPerm', 'desc': 'Set permissions on a vault. Current user must have PERM_EDIT permissions or higher.',
          'type': {'type': 'function', '_funcname': '_setPerm',
                   'args': (
@@ -453,9 +454,9 @@ class LibVault(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name)
         return self.runt.snap.core.getVaultByName(name, user=self.runt.user)
 
-    async def _getByIden(self, iden):
-        iden = await s_stormtypes.tostr(iden)
-        return self.runt.snap.core.getVaultByIden(iden, user=self.runt.user)
+    async def _getByIden(self, viden):
+        viden = await s_stormtypes.tostr(viden)
+        return self.runt.snap.core.getVaultByIden(viden, user=self.runt.user)
 
     async def _setVault(self, viden, key, valu):
         viden = await s_stormtypes.tostr(viden)
