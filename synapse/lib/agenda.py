@@ -844,7 +844,6 @@ class Agenda(s_base.Base):
             return
 
         view = self.core.getView(iden=appt.view, user=user)
-
         if view is None:
             logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
                            extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
