@@ -2211,6 +2211,28 @@ class CellTest(s_t_utils.SynTest):
             stat01 = os.stat(lmdbfile)
             self.ne(stat00.st_ino, stat01.st_ino)
 
+            _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
+            realstat = os.stat
+            def diffdev(path):
+                real = realstat(path)
+                if path.endswith('mdb'):
+                    return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
+                elif path.endswith('tmp'):
+                    return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
+                return real
+
+            with mock.patch('os.stat', diffdev):
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    conf = {'onboot:optimize': True}
+                    async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                        pass
+
+                    stream.seek(0)
+                    buf = stream.read()
+                    self.notin('onboot optimization complete!', buf)
+                    self.isin('not on the same volume', buf)
+
     async def test_cell_gc(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy() as proxy:

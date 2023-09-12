@@ -1268,10 +1268,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onBootOptimize(self):
 
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        tdev = os.stat(tdir).st_dev
+
         lmdbs = []
         for (root, dirs, files) in os.walk(self.dirn):
             for dirname in dirs:
-                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                filepath = os.path.join(root, dirname, 'data.mdb')
+                if os.path.isfile(filepath):
+                    if os.stat(filepath).st_dev != tdev:
+                        logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
+                        return
+
                     lmdbs.append(os.path.join(root, dirname))
 
         if not lmdbs: # pragma: no cover
