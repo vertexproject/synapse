@@ -7181,13 +7181,15 @@ class LibTrigger(Lib):
     _storm_lib_perms = (
         {'perm': ('trigger', 'add'), 'gate': 'cortex',
          'desc': 'Controls adding triggers.'},
-        {'perm': ('trigger', 'del'), 'gate': 'cortex',
+        {'perm': ('trigger', 'del'), 'gate': 'view',
          'desc': 'Controls deleting triggers.'},
-        {'perm': ('trigger', 'get'), 'gate': 'cortex',
+        {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
-        {'perm': ('trigger', 'set'), 'gate': 'cortex',
+        {'perm': ('trigger', 'set'), 'gate': 'view',
          'desc': 'Controls modifying triggers.'},
-        {'perm': ('trigger', 'set', '<name>'), 'gate': 'cortex',
+        {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Controls modifying the user property of triggers.'}
+        {'perm': ('trigger', 'set', '<name>'), 'gate': 'view',
          'desc': 'Controls modifying specific trigger properties.',
          'ex': 'trigger.set.enabled'},
     )

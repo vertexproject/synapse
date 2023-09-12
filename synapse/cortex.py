@@ -1586,9 +1586,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('storm', 'macro', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm macro.',
              'default': True},
-            {'perm': ('storm', 'macro', 'admin'), 'gate': 'macro',
+            {'perm': ('storm', 'macro', 'admin'), 'gate': 'cortex',
              'desc': 'Controls access to edit/set/delete a storm macro.'},
-            {'perm': ('storm', 'macro', 'edit'), 'gate': 'macro',
+            {'perm': ('storm', 'macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
 
             {'perm': ('view',), 'gate': 'cortex',
