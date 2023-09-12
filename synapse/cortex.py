@@ -6368,6 +6368,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
+        if not s_common.isguid(viden):
+            return None
+
         vault = self._reqVaultByIden(viden)
 
         if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
@@ -6408,16 +6411,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return None
 
-    def openVaultByIden(self, iden, user=None):
-        if not s_common.isguid(iden):
-            raise s_exc.BadArg(f'Iden {iden} is not in iden format')
-
-        if user is None:
-            user = self.auth.rootuser
-
-        vault = self.getVaultByIden(iden, user=user)
-        return vault.get('data', {})
-
     def openVaultByType(self, vtype, scope, user=None):
         '''
         Open a vault of type `vtype` and scope `scope` for `user`.
@@ -6447,7 +6440,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             synapse.exc.NoSuchIden: Vault with `iden` is not found.
             synapse.exc.AuthDeny: `user` does not have permission to access vault.
 
-        Returns: data or None
+        Returns: vault or None
         '''
         if scope not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
@@ -6481,24 +6474,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # If caller specified a scope, return that vault if it exists
         if scope is not None:
-            vault = _getVault(scope)
-            if vault:
-                return vault.get('data', {})
-
-            return None
+            return _getVault(scope)
 
         # Now try the default vault
         byts = self.slab.get(vtype.encode(), db=self.vaultdefaultsdb)
         if byts and (default := s_msgpack.un(byts)):
             vault = _getVault(default)
             if vault:
-                return vault.get('data', {})
+                return vault
 
         # Finally, try the user, role, and global vaults in order
         for _scope in ('user', 'role', 'global'):
             vault = _getVault(_scope)
             if vault:
-                return vault.get('data', {})
+                return vault
 
         return None
 

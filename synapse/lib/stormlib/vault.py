@@ -39,46 +39,50 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'vault.get',
+        'name': 'vault.byname',
         'descr': '''
             Get vault by vault name.
 
             Examples:
 
                 // Get vault from visi's user vault
-                vault.get "synapse-test:visi"
+                vault.byname "synapse-test:visi"
 
                 // Get vault from contributor's role vault
-                vault.get "synapse-test:contributor"
+                vault.byname "synapse-test:contributor"
 
                 // Get vault from unscoped vault
-                vault.get "my_synapse-test_vault"
+                vault.byname "my_synapse-test_vault"
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
+            ('--showdata', {'type': 'bool', 'action': 'store_true',
+                'default': False, 'help': 'Print vault data if permissible.'}),
         ),
         'storm': '''
             $vault = $lib.vault.getByName($cmdopts.name)
-            $lib.vault.print($vault)
+            $lib.vault.print($vault, $cmdopts.showdata)
             $lib.print('')
         ''',
     },
     {
-        'name': 'vault.get.byiden',
+        'name': 'vault.byiden',
         'descr': '''
             Get vault by vault iden.
 
             Examples:
 
                 // Get vault by iden
-                vault.get.byiden $iden
+                vault.byiden $iden
         ''',
         'cmdargs': (
-            ('iden', {'type': 'str', 'help': 'The vault iden.'}),
+            ('viden', {'type': 'str', 'help': 'The vault iden.'}),
+            ('--showdata', {'type': 'bool', 'action': 'store_true',
+                'default': False, 'help': 'Print vault data.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getByIden($cmdopts.iden)
-            $lib.vault.print($vault)
+            $vault = $lib.vault.getByIden($cmdopts.viden)
+            $lib.vault.print($vault, $cmdopts.showdata)
             $lib.print('')
         ''',
     },
@@ -101,7 +105,13 @@ stormcmds = (
             ('value', {'help': 'The data value to store in the vault.'}),
         ),
         'storm': '''
-            $ok = $lib.vault.set($cmdopts.name, $cmdopts.key, $cmdopts.value)
+            $vault = $lib.vault.getVaultByIdenOrName($cmdopts.name)
+            if (not $vault) {
+                $lib.warn(`Vault with name or iden not found: {$cmdopts.name}.`)
+                return($lib.null)
+            }
+
+            $ok = $lib.vault.set($vault.iden, $cmdopts.key, $cmdopts.value)
             if $ok {
                 $lib.print(`Successfully set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
             } else {
@@ -123,10 +133,16 @@ stormcmds = (
                 vault.del "synapse-test:contributor"
         ''',
         'cmdargs': (
-            ('name', {'type': 'str', 'help': 'The vault name.'}),
+            ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
         ),
         'storm': '''
-            $ok = $lib.vault.del($cmdopts.name)
+            $vault = $lib.vault.getVaultByIdenOrName($cmdopts.name)
+            if (not $vault) {
+                $lib.warn(`Vault with name or iden not found: {$cmdopts.name}.`)
+                return($lib.null)
+            }
+
+            $ok = $lib.vault.del($vault.iden)
             if $ok {
                 $lib.print(`Successfully deleted vault {$cmdopts.name}.`)
             } else {
@@ -139,13 +155,16 @@ stormcmds = (
         'descr': '''
             List available vaults.
         ''',
-        'cmdargs': (),
+        'cmdargs': (
+            ('--showdata', {'type': 'bool', 'action': 'store_true',
+                'default': False, 'help': 'Print vault data.'}),
+        ),
         'storm': '''
             $lib.print("Available Vaults")
             $lib.print("----------------")
 
             for $vault in $lib.vault.list() {
-                $lib.vault.print($vault)
+                $lib.vault.print($vault, $cmdopts.showdata)
                 $lib.print('')
             }
         ''',
@@ -169,86 +188,50 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('type', {'type': 'str', 'help': 'The vault type to open.'}),
-            ('--scope', {'type': 'str', 'default': None, 'help': 'Restrict the vault to this scope.'}),
+            ('--scope', {'type': 'str', 'default': None,
+                'help': 'Restrict the vault to this scope.'}),
+            ('--showdata', {'type': 'bool', 'action': 'store_true',
+                'default': False, 'help': 'Print vault data.'}),
         ),
         'storm': '''
-            $data = $lib.vault.openByType($cmdopts.type, $cmdopts.scope)
-            $lib.pprint($data)
+            $vault = $lib.vault.open($cmdopts.type, $cmdopts.scope)
+            $lib.vault.print($vault, $cmdopts.showdata)
             $lib.print('')
         ''',
     },
     {
-        'name': 'vault.open.byname',
-        'descr': '''
-            Open a vault by name.
-
-            Examples:
-
-                // Open visi's user vault by name
-                vault.open.byname "synapse-test:visi"
-
-                // Open the contributor role vault by name
-                vault.open.byname "synapse-test:contributor"
-        ''',
-        'cmdargs': (
-            ('name', {'type': 'str', 'help': 'The vault name to open.'}),
-        ),
-        'storm': '''
-            $vault = $lib.vault.getByName($cmdopts.name)
-            $data = $lib.vault.openByIden($vault.iden)
-            $lib.print(`Vault: {$cmdopts.name}`)
-            $lib.pprint($data)
-            $lib.print('')
-        ''',
-    },
-    {
-        'name': 'vault.open.byiden',
-        'descr': '''
-            Open a vault by iden.
-
-            Examples:
-
-                // Open a vault by iden
-                vault.open.byiden f2f147c66d91484fc0cfcc70cf248bca
-        ''',
-        'cmdargs': (
-            ('iden', {'type': 'str', 'help': 'The vault iden to open.'}),
-        ),
-        'storm': '''
-            $vault = $lib.vault.getByIden($cmdopts.iden)
-            $data = $lib.vault.openByIden($cmdopts.iden)
-            $lib.print(`Vault: {$vault.name}`)
-            $lib.pprint($data)
-            $lib.print('')
-        ''',
-    },
-    {
-        'name': 'vault.setperm',
+        'name': 'vault.set.perm',
         'descr': '''
             Set permissions on a vault.
 
             Examples:
 
                 // Give blackout read permissions to visi's user vault
-                vault.setperm synapse-test:visi $lib.auth.users.byname(blackout).iden $lib.auth.easyperm.read
+                vault.set.perm synapse-test:visi $lib.auth.users.byname(blackout).iden $lib.auth.easyperm.read
 
                 // Give the contributor role read permissions to visi's user vault
-                vault.setperm synapse-test:visi $lib.auth.roles.byname(contributor).iden $lib.auth.easyperm.read
+                vault.set.perm synapse-test:visi $lib.auth.roles.byname(contributor).iden $lib.auth.easyperm.read
 
                 // Revoke blackout's permissions from visi's user vault
-                vault.setperm synapse-test:visi $lib.auth.users.byname(blackout).iden $lib.null
+                vault.set.perm synapse-test:visi $lib.auth.users.byname(blackout).iden $lib.null
 
                 // Give visi read permissions to the contributor role vault. (Assume
                 // visi is not a member of the contributor role).
-                vault.setperm synapse-test:contributor $lib.auth.users.byname(visi).iden $lib.auth.easyperm.read
+                vault.set.perm synapse-test:contributor $lib.auth.users.byname(visi).iden $lib.auth.easyperm.read
         ''',
         'cmdargs': (
-            ('name', {'type': 'str', 'help': 'The vault name or iden to set permissiosn on.'}),
+            ('name', {'type': 'str', 'help': 'The vault name or iden to set permissions on.'}),
             ('iden', {'type': 'str', 'help': 'The user iden or role iden to add the vault.'}),
             ('level', {'type': 'str', 'help': 'The permission level to grant, $lib.null to revoke an existing permission.'}),
         ),
         'storm': '''
-            $ok = $lib.vault.setPerm($cmdopts.name, $cmdopts.iden, $cmdopts.level)
+            $vault = $lib.vault.getVaultByIdenOrName($cmdopts.name)
+            if (not $vault) {
+                $lib.warn(`Vault with name or iden not found: {$cmdopts.name}.`)
+                return($lib.null)
+            }
+
+            $ok = $lib.vault.setPerm($vault.iden, $cmdopts.iden, $cmdopts.level)
             if $ok {
                 $lib.print(`Successfully set permissions on vault {$cmdopts.name}.`)
             } else {
@@ -257,20 +240,20 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'vault.setdefault',
+        'name': 'vault.set.default',
         'descr': '''
             Set default scope for a vault type.
 
             Examples:
 
                 // Set the global vault as default for the synapse-test vault type
-                vault.setdefault synapse-test global
+                vault.set.default synapse-test global
 
                 // Set the user vault as default for the synapse-test vault type
-                vault.setdefault synapse-test user
+                vault.set.default synapse-test user
 
                 // Unset a default scope for the synapse-test vault type
-                vault.setdefault synapse-test $lib.null
+                vault.set.default synapse-test $lib.null
         ''',
         'cmdargs': (
             ('type', {'type': 'str', 'help': 'The vault type to set the default for.'}),
@@ -323,7 +306,7 @@ class LibVault(s_stormtypes.Lib):
         {'name': 'getByIden', 'desc': 'Get data from a vault by iden.',
          'type': {'type': 'function', '_funcname': '_getByIden',
                   'args': (
-                      {'name': 'iden', 'type': 'str',
+                      {'name': 'viden', 'type': 'str',
                        'desc': '''
                             The iden of the vault to retrieve.  If user only has
                             PERM_READ, the data will not be returned.  If the
@@ -335,7 +318,7 @@ class LibVault(s_stormtypes.Lib):
         {'name': 'set', 'desc': 'Set data into a vault. Requires PERM_EDIT or higher on the vault.',
          'type': {'type': 'function', '_funcname': '_setVault',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name or iden of the vault to operate on.'},
+                      {'name': 'viden', 'type': 'str', 'desc': 'The vault iden to operate on.'},
                       {'name': 'key', 'type': 'str', 'desc': 'The data key to set into the vault.'},
                       {'name': 'valu', 'type': 'str', 'desc': 'The data value to set into the vault.'},
                   ),
@@ -344,37 +327,36 @@ class LibVault(s_stormtypes.Lib):
         {'name': 'del', 'desc': 'Delete a vault.',
          'type': {'type': 'function', '_funcname': '_delVault',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the vault to delete.'},
+                      {'name': 'viden', 'type': 'str', 'desc': 'The vault iden to delete.'},
                   ),
                   'returns': {'type': 'null'}}},
         {'name': 'list', 'desc': 'List vaults accessible to the current user.',
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
                   'returns': {'type': 'list', 'desc': 'Yields vaults.'}}},
-        {'name': 'openByIden', 'desc': 'Open a vault for a specified vault type.',
-         'type': {'type': 'function', '_funcname': '_openByIden',
-                  'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The vault iden to open.'},
-                  ),
-                  'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be opened.'}}},
-        {'name': 'openByType', 'desc': 'Open a vault for a specified vault type.',
+        {'name': 'open', 'desc': 'Open a vault for a specified vault type.',
          'type': {'type': 'function', '_funcname': '_openByType',
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to open.'},
                       {'name': 'scope', 'type': 'str', 'default': None,
-                       'desc': 'The scope to open for the specified type. If $lib.null, then openByType will search.'},
+                       'desc': 'The scope to open for the specified type. If $lib.null, then open will search.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be opened.'}}},
         {'name': 'print', 'desc': 'Print the details of the specified vault.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'vault', 'type': 'dict', 'desc': 'The vault to print.'},
+                  )}},
+        {'name': 'getByIdenOrName', 'desc': 'Get a vault by iden or name.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'vault', 'type': 'dict', 'desc': 'The vault name or iden to retrieve.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
+                  'returns': {'type': 'vault', 'desc': 'The requested vault.'}}},
         {'name': 'setPerm', 'desc': 'Set permissions on a vault. Current user must have PERM_EDIT permissions or higher.',
          'type': {'type': 'function', '_funcname': '_setPerm',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name or iden of the vault to modify.'},
+                      {'name': 'viden', 'type': 'str', 'desc': 'The vault iden to modify.'},
                       {'name': 'iden', 'type': 'str', 'desc': 'The user/role iden to add to the vault permissions.'},
                       {'name': 'level', 'type': 'int', 'desc': 'The easy perms level to add to the vault.'},
                   ),
@@ -389,6 +371,15 @@ class LibVault(s_stormtypes.Lib):
     )
     _storm_lib_path = ('vault',)
     _storm_query = '''
+        function getVaultByIdenOrName(name) {
+            $vault = $lib.vault.getByIden($name)
+            if $vault {
+                return($vault)
+            }
+
+            return($lib.vault.getByName($name))
+        }
+
         function print(vault, showdata=$lib.false) {
             $lvlnames = ({})
             for ($name, $level) in $lib.auth.easyperm.level {
@@ -426,12 +417,12 @@ class LibVault(s_stormtypes.Lib):
 
             if $showdata {
                 if $vault.data {
-                    $lib.print('    Data:')
+                    $lib.print('  Data:')
                     for ($key, $valu) in $vault.data {
-                        $lib.print(`      {$key}: {$valu}`)
+                        $lib.print(`    {$key}: {$valu}`)
                     }
                 } else {
-                    $lib.print('    Data: None')
+                    $lib.print('  Data: None (or only PERM_READ)')
                 }
             }
         }
@@ -445,8 +436,7 @@ class LibVault(s_stormtypes.Lib):
             'set': self._setVault,
             'del': self._delVault,
             'list': self._listVaults,
-            'openByIden': self._openByIden,
-            'openByType': self._openByType,
+            'open': self._open,
             'setPerm': self._setPerm,
             'setDefault': self._setDefault,
         }
@@ -467,37 +457,35 @@ class LibVault(s_stormtypes.Lib):
         iden = await s_stormtypes.tostr(iden)
         return self.runt.snap.core.getVaultByIden(iden, user=self.runt.user)
 
-    async def _setVault(self, name, key, valu):
-        name = await s_stormtypes.tostr(name)
+    async def _setVault(self, viden, key, valu):
+        viden = await s_stormtypes.tostr(viden)
         key = await s_stormtypes.tostr(key)
+
         if valu is s_stormtypes.undef:
             valu = s_common.novalu
         else:
             valu = await s_stormtypes.toprim(valu)
-        return await self.runt.snap.core.setVaultData(name, key, valu, user=self.runt.user)
 
-    async def _delVault(self, name):
-        name = await s_stormtypes.tostr(name)
-        return await self.runt.snap.core.delVault(name, user=self.runt.user)
+        return await self.runt.snap.core.setVaultData(viden, key, valu, user=self.runt.user)
+
+    async def _delVault(self, viden):
+        viden = await s_stormtypes.tostr(viden)
+        return await self.runt.snap.core.delVault(viden, user=self.runt.user)
 
     async def _listVaults(self):
         for vault in self.runt.snap.core.listVaults(user=self.runt.user):
             yield vault
 
-    async def _openByIden(self, iden):
-        iden = await s_stormtypes.tostr(iden)
-        return self.runt.snap.core.openVaultByIden(iden, self.runt.user)
-
-    async def _openByType(self, vtype, scope=None):
+    async def _open(self, vtype, scope=None):
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
-        return self.runt.snap.core.openVaultByType(vtype, scope, self.runt.user)
+        return self.runt.snap.core.openVaultByType(vtype, scope, user=self.runt.user)
 
-    async def _setPerm(self, name, iden, level):
-        name = await s_stormtypes.tostr(name)
+    async def _setPerm(self, viden, iden, level):
+        viden = await s_stormtypes.tostr(viden)
         iden = await s_stormtypes.tostr(iden)
         level = await s_stormtypes.toint(level, noneok=True)
-        return await self.runt.snap.core.setVaultPerm(name, iden, level, user=self.runt.user)
+        return await self.runt.snap.core.setVaultPerm(viden, iden, level, user=self.runt.user)
 
     async def _setDefault(self, vtype, scope):
         vtype = await s_stormtypes.tostr(vtype)
