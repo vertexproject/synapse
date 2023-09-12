@@ -247,7 +247,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             query = trig.get('storm', '<missing>')
             cond = trig.get('cond', '<missing>')
 
-            view = trig['view']
+            view = trig.get('view', '<missing>')
             viewf = view[:8] + '..'
 
             enabled = 'Y' if trig.get('enabled', True) else 'N'

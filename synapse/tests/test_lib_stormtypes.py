@@ -4181,8 +4181,7 @@ class StormTypesTest(s_test.SynTest):
             othr = nodes[0].ndef[1]
 
             # fetch a trigger from another view
-            othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
-            self.nn(othrtrig)
+            self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))
 
             # mess with things to make a bad trigger and make sure move doesn't delete it
             core.views[forkview].triggers.triggers[othr].tdef.pop('storm')
@@ -4207,10 +4206,15 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.list --all')
             self.stormIsInPrint(othr, mesgs)
 
-            # update a trigger in another view
+            # fix that trigger in another view
             await core.stormlist(f'trigger.mod {othr} {{ [ +#neato.trigger ] }}')
             othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
             self.eq('[ +#neato.trigger ]', othrtrig['storm'])
+
+            # now we can move it while being in a different view
+            await core.nodes(f'$lib.trigger.get({othr}).move({mainview})')
+            # but still retrieve it from the other view
+            self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))', opts=forkopts))
 
             await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
 
