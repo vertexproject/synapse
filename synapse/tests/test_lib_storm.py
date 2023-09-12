@@ -3549,25 +3549,25 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            msgs = await alist(core.storm('.created | limit 1 | help'))
+            msgs = await core.stormlist('.created | limit 1 | help')
             self.printed(msgs, 'package: synapse')
             self.stormIsInPrint('help', msgs)
             self.stormIsInPrint('List available information about Storm and brief descriptions of different items.',
                                 msgs)
             self.len(1, [n for n in msgs if n[0] == 'node'])
 
-            msgs = await alist(core.storm('help'))
+            msgs = await core.stormlist('help')
             self.printed(msgs, 'package: synapse')
             self.stormIsInPrint('help', msgs)
             self.stormIsInPrint('List available information about Storm and brief descriptions of different items.',
                                 msgs)
 
-            msgs = await alist(core.storm('help view'))
+            msgs = await core.stormlist('help view')
             self.stormIsInPrint('Storm api for a View instance', msgs)
             self.stormIsInPrint('view.merge', msgs)
             self.stormNotInPrint('uniq', msgs)
 
-            msgs = await alist(core.storm('help newp'))
+            msgs = await core.stormlist('help newp')
             self.stormIsInPrint('No commands found matching "newp"', msgs)
             self.stormNotInPrint('uniq', msgs)
 
@@ -3598,15 +3598,26 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('testcmd', msgs)
             self.stormIsInPrint(': test command', msgs)
 
-            msgs = await alist(core.storm('help testcmd'))
+            msgs = await core.stormlist('help testcmd')
             self.stormIsInPrint('testcmd', msgs)
             self.stormNotInPrint('view.merge', msgs)
 
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value'))
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value')
             self.stormIsInPrint('Get the value of the primary property of the Node.', msgs)
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
+
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value()')
             self.stormNotInPrint('get the value of the primary property of the Node.', msgs)
             self.stormIsInPrint('uniq: Filter nodes by their uniq iden values.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $node.props')
+            self.stormIsInPrint('A Storm Primitive representing the properties on a Node.', msgs)
+            self.stormIsInPrint('set(prop, valu)\nSet a specific property value by name.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $node')
+            self.stormIsInPrint('Implements the Storm api for a node instance.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $path')
+            self.stormIsInPrint('Implements the Storm API for the Path object.', msgs)
 
             # $lib helps
             msgs = await core.stormlist('help $lib')
@@ -3674,11 +3685,11 @@ class StormTest(s_t_utils.SynTest):
             url = core.getLocalUrl()
             msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.getCellInfo',
                                         opts={'vars': {'url': url}})
-            self.stormIsInErr('help does not support Telepath proxy methods.', msgs)
+            self.stormIsInPrint('Implements the call methods for the telepath:proxy.', msgs)
 
             msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.storm',
                                         opts={'vars': {'url': url}})
-            self.stormIsInErr('help does not support Telepath proxy methods.', msgs)
+            self.stormIsInPrint('Implements the generator methods for the telepath:proxy.', msgs)
 
             msgs = await core.stormlist('function f(){} help $f')
             self.stormIsInErr('help does not currently support runtime defined functions.', msgs)

@@ -3541,8 +3541,17 @@ class Proxy(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyMethod(StormType):
+    '''
+    Implements the call methods for the telepath:proxy.
+
+    An example of calling a method which returns data::
+
+        $prox = $lib.telepath.open($url)
+        $result = $prox.doWork($data)
+        $doStuff($result)
+    '''
 
     _storm_typename = 'telepath:proxy:method'
 
@@ -3564,9 +3573,18 @@ class ProxyMethod(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyGenrMethod(StormType):
+    '''
+    Implements the generator methods for the telepath:proxy.
 
+    An example of calling a method which is a generator::
+
+        $prox = $lib.telepath.open($url)
+        for $item in = $prox.genrStuff($data) {
+            $doStuff($item)
+        }
+    '''
     _storm_typename = 'telepath:proxy:genrmethod'
 
     def __init__(self, meth, path=None):

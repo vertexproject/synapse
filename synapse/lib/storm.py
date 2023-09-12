@@ -3054,15 +3054,27 @@ class HelpCmd(Cmd):
         item = self.opts.item
 
         if item is not None and \
-                not isinstance(item, str) and \
-                not isinstance(item, s_stormtypes.Lib) and \
-                not callable(item):
+                not isinstance(item, (str, s_node.Node, s_node.Path, s_stormtypes.StormType)):
             mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
                    f' {await s_stormtypes.totype(item, basetypes=True)}'
             raise s_exc.BadArg(mesg=mesg)
 
         if isinstance(item, s_stormtypes.Lib):
             await self._handleLibHelp(item, runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_stormtypes.StormType):
+            if item._storm_typename in s_stormtypes.registry.known_types:
+                await self._handleTypeHelp(item._storm_typename, runt, verbose=self.opts.verbose)
+                return
+            raise s_exc.BadArg(mesg=f'Unknown storm type encountered: {s_stormtypes.totype(item, basetypes=True)}')
+
+        if isinstance(item, s_node.Node):
+            await self._handleTypeHelp('node', runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_node.Path):
+            await self._handleTypeHelp('node:path', runt, verbose=self.opts.verbose)
             return
 
         # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
