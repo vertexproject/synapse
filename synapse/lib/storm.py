@@ -3018,7 +3018,7 @@ class HelpCmd(Cmd):
 
         // Get detailed help about a specific library or library function
 
-        help --verbose $lib.
+        help --verbose $lib.print
 
         // Get detailed help about a named Storm type
 
