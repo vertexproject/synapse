@@ -778,7 +778,7 @@ class Agenda(s_base.Base):
         '''
         Task loop to issue query tasks at the right times.
         '''
-        while True:
+        while not self.isfini:
 
             timeout = None
             if self.apptheap:
@@ -811,13 +811,16 @@ class Agenda(s_base.Base):
                 else:
                     try:
                         await self._execute(appt)
-                    except s_exc.SynErr as e:
+                    except Exception as e:
                         extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
                         user = self.core.auth.user(appt.creator)
                         if user is not None:
                             extra['username'] = user.name
-                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: '
-                                         f'{e.get("mesg", str(e))}',
+                        if isinstance(e, s_exc.SynErr):
+                            mesg = e.get('mesg', str(e))
+                        else:  # pragma: no cover
+                            mesg = str(e)
+                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
                                          extra={'synapse': extra})
                         await self._markfailed(appt, f'error: {e}')
 
