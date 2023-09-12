@@ -1545,20 +1545,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'prop', 'del', '<prop>'), 'gate': 'layer',
              'ex': 'node.prop.del.inet:ipv4:asn',
              'desc': 'Controls removing a specific property from a node in a layer.'},
-
-            {'perm': ('vaults', 'defaults'), 'gate': 'cortex',
-             'desc': 'Controls vault defaults modification in a cortex.'},
-            {'perm': ('vaults', 'global', 'add'), 'gate': 'cortex',
-             'desc': 'Controls global scoped vault creation in a cortex.'},
-            {'perm': ('vaults', 'user', 'add'), 'gate': 'cortex',
-             'desc': 'Controls user scoped vault creation in a cortex.',
-             'default': True},
-            {'perm': ('vaults', 'role', 'add'), 'gate': 'cortex',
-             'desc': 'Controls role scoped vault creation in a cortex.',
-             'default': True},
-            {'perm': ('vaults', 'add'), 'gate': 'cortex',
-             'desc': 'Controls unscoped vault creation in a cortex.',
-             'default': True},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -6218,6 +6204,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # { vtype.encode(): s_msgpack.en(default), ... }
 
     def _getVaults(self):
+        '''
+        Slab helper function for getting all vaults.
+        '''
         genr = self.slab.scanByFull(db=self.vaultsdb)
         for idenb, byts in genr:
             vault = s_msgpack.un(byts)
@@ -6225,10 +6214,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             yield vault
 
     def _getVaultByIden(self, viden):
+        '''
+        Slab helper function for getting a vault by iden (hex string).
+        '''
         videnb = s_common.uhex(viden)
         return self._getVaultByIdenb(videnb)
 
     def _getVaultByIdenb(self, videnb):
+        '''
+        Slab helper function for getting a vault by iden (bytes).
+        '''
         byts = self.slab.get(videnb, db=self.vaultsdb)
         if byts is None:
             return None
@@ -6239,6 +6234,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return vault
 
     def _getVaultByTSI(self, vtype, scope, iden):
+        '''
+        Slab helper function for getting a vault by type,scope,iden.
+        '''
         if scope == 'global':
             tsi = f'{vtype}:global'
         elif scope in ('user', 'role'):
@@ -6253,6 +6251,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self._getVaultByIdenb(idenb)
 
     def _setVault(self, viden, vault):
+        '''
+        Slab helper function for writing a vault to slab.
+        '''
         videnb = s_common.uhex(viden)
         name = vault.get('name')
         vtype = vault.get('type')
@@ -6273,29 +6274,44 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return self.slab.put(videnb, s_msgpack.en(vault), db=self.vaultsdb)
 
     def _getVaultByName(self, name):
+        '''
+        Slab helper function for getting a vault by name.
+        '''
         videnb = self.slab.get(name.encode(), db=self.vaultsbynamedb)
         if videnb is None:
             return None
         return self._getVaultByIdenb(videnb)
 
     def _reqVaultByName(self, name):
+        '''
+        Helper function for requiring a vault by name.
+        '''
         vault = self._getVaultByName(name)
         if vault is None:
             raise s_exc.NoSuchName(mesg=f'Vault not found for iden: {name}')
         return vault
 
     def _reqVaultByIden(self, viden):
+        '''
+        Helper function for requiring a vault by iden.
+        '''
         vault = self._getVaultByIden(viden)
         if vault is None:
             raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {viden}')
         return vault
 
     def _getVaultsByType(self, vtype):
+        '''
+        Slab helper function for getting all vaults of a specified type.
+        '''
         genr = self.slab.scanByDups(vtype.encode(), db=self.vaultsbytypedb)
         for _, videnb in genr:
             yield self._getVaultByIdenb(videnb)
 
     def _delVaultByIden(self, viden):
+        '''
+        Slab helper function for deleting a vault.
+        '''
         videnb = s_common.uhex(viden)
         vault = self._getVaultByIdenb(videnb)
 
@@ -6303,11 +6319,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(vault.get('name').encode(), db=self.vaultsbynamedb)
         return self.slab.delete(videnb, db=self.vaultsdb)
 
+    def _checkVault(self, vault, user):
+        '''
+        Helper function for ensuring users with EDIT permission don't get the vault data.
+        '''
+        read = self._hasEasyPerm(vault, user, s_cell.PERM_READ)
+        edit = self._hasEasyPerm(vault, user, s_cell.PERM_EDIT)
+
+        if edit:
+            return vault
+
+        if read:
+            vault.pop('data')
+            return vault
+
+        return None
+
     async def setVaultDefault(self, vtype, scope, user=None):
         '''
         Set a default scope for a vault type.
 
-        Permissions: vaults.set
+        Requires admin privileges.
 
         Args:
             vtype (str): Name of the type to set.
@@ -6320,9 +6352,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 - `default` is not one of: None, 'user', 'role', 'global'.
                 - A `vtype` vault with `default` scope does not exist.
 
-            synapse.exc.AuthDeny: `user` does not have permission to set vault type values.
+            synapse.exc.AuthDeny: `user` is not an admin.
 
-        Returns: (boolean) True if default was set, false otherwise.
+        Returns: (boolean) True if default was set, False otherwise.
         '''
         if scope not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
@@ -6330,7 +6362,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        user.confirm(('vaults', 'defaults'))
+        if not user.isAdmin():
+            mesg = f'User {user.name} cannot change vault defaults'
+            raise s_exc.AuthDeny(mesg=mesg)
 
         if scope is not None:
             # Scan for a vault of this specified type with the specified scope
@@ -6343,7 +6377,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('cortex:vault:default', vtype, scope)
 
-    @s_nexus.Pusher.onPushAuto('cortex:vault:default')
+    @s_nexus.Pusher.onPush('cortex:vault:default')
     async def _setVaultDefault(self, vtype, scope):
         if scope is None:
             return self.slab.delete(vtype.encode(), db=self.vaultdefaultsdb)
@@ -6354,7 +6388,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Get a vault by iden.
 
-        Permissions: `user` must have at least `PERM_EDIT` for the requested vault.
+        Permissions: If `user` has `PERM_READ`, the vault will be returned without the vault data.
+        Permission levels of PERM_EDIT or higher will include the vault data.
 
         Args:
             viden (str): Iden of the vault to get.
@@ -6372,28 +6407,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         vault = self._reqVaultByIden(viden)
-
-        if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
-            return vault
-
-        if self._hasEasyPerm(vault, user, s_cell.PERM_READ):
-            vault.pop('data')
-            return vault
-
-        return None
+        return self._checkVault(vault, user)
 
     def getVaultByName(self, name, user=None):
         '''
         Get a vault by name.
 
-        Permissions: `user` must have at least `PERM_EDIT` for the requested vault.
+        Permissions: If `user` has `PERM_READ`, the vault will be returned without the vault data.
+        Permission levels of PERM_EDIT or higher will include the vault data.
 
         Args:
             name (str): Name of the vault to get.
             user (Optional[HiveUser]): User trying to get the vault.
 
         Raises:
-            synapse.exc.NoSuchIden: Vault with `name` not found.
+            synapse.exc.NoSuchName: Vault with `name` not found.
 
         Returns: vault or None if user doesn't have permission to requested vault.
         '''
@@ -6401,34 +6429,27 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             user = self.auth.rootuser
 
         vault = self._reqVaultByName(name)
+        return self._checkVault(vault, user)
 
-        if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
-            return vault
-
-        if self._hasEasyPerm(vault, user, s_cell.PERM_READ):
-            vault.pop('data')
-            return vault
-
-        return None
-
-    def openVaultByType(self, vtype, scope, user=None):
+    def getVaultByType(self, vtype, scope=None, user=None):
         '''
-        Open a vault of type `vtype` and scope `scope` for `user`.
+        Get a vault of type `vtype` and scope `scope` for `user`.
 
-        This function allows the caller to open a vault of the specified
+        This function allows the caller to retrieve a vault of the specified
         `vtype` by searching for the first available vault that matches the
         `vtype` and `scope` criteria. The search order for opening vaults is as
         follows:
-            - If `scope` is specified, open the vault with `vtype` and `scope`.
+            - If `scope` is specified, return the vault with `vtype` and `scope`.
               Return None if such a vault doesn't exist.
-            - If `vtype` has a default scope, attempt to open that vault. If
+            - If `vtype` has a default scope, return that vault. If
               such a vault doesn't exist, continue to the next step.
             - Check 'user' scope for a vault of `vtype`. Continue if non-existent.
             - Check 'role' scope for a vault of `vtype`. Continue if non-existent.
             - Check 'global' scope for a vault of `vtype`. Continue if non-existent.
             - Return None
 
-        Permissions: `user` must have at least `PERM_READ` for the vault to be returned.
+        Permissions: `user` must have at least `PERM_READ` for the vault to be returned. If `user`
+        has `PERM_EDIT` or higher, then the vault data will be returned as well.
 
         Args:
             vtype (str): Type of the vault to open.
@@ -6468,7 +6489,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 vault = self._getVaultByTSI(vtype, _scope, None)
 
             if vault:
-                self._reqEasyPerm(vault, user, s_cell.PERM_READ)
+                return self._checkVault(vault, user)
 
             return vault
 
@@ -6495,14 +6516,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Create a new vault.
 
-        Permissions: vaults.<scope>.add
+        Permissions: Admin privileges are required to create role- and global-scoped vaults.
 
         Args:
             name (str): Then name of the new vault.
             vtype (str): Type of the vault to create.
             iden (str): User iden for user scoped vaults. Role iden for role
-                        scoped vaults. None for global vaults.
-            data (object): Vault data. Must conform to the schema specified by `vtype`.
+                        scoped vaults. None for global and unscoped vaults.
+            data (dict): Initial vault data. Must be serializable with msgpack.
             user (Optional[HiveUser]): User trying to create the vault.
 
         Raises:
@@ -6514,11 +6535,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: iden of new vault
         '''
-        if len(name) > 256:
-            raise s_exc.BadArg(mesg='Name must be less than 256 characters.')
+        if 0 < len(name) > 256:
+            raise s_exc.BadArg(mesg='Invalid name specified.')
 
-        if len(vtype) > 256:
-            raise s_exc.BadArg(mesg='Vault type must be less than 256 characters.')
+        if 0 < len(vtype) > 256:
+            raise s_exc.BadArg(mesg='Invalid vault type specified.')
 
         if scope not in (None, 'user', 'role', 'global'):
             raise s_exc.BadArg(mesg=f'Invalid scope provided: {scope}')
@@ -6538,16 +6559,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             user = self.auth.rootuser
 
         vault = {
-            # Name is a combination of '<scope>:<ident>:<vtype>'
+            # NOTE: The vault doesn't have an `iden` key for itself. Whenever a vault is retrieved
+            # from a slab, the iden is added to the vault dictionary before being returned to the
+            # caller. This is done to save slab storage.
+
             'name': name,
-
-            # Type is one of vault types from addVaultType()
             'type': vtype,
-
-            # Scope is one of {user, role, global}
             'scope': scope,
-
-            # Ident is the iden of the user/role that created this vault
             'ident': iden,
 
             # Data is an arbitrary dictionary. The only requirement
@@ -6556,11 +6574,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
 
         self._initEasyPerm(vault, worldreadable=False)
-
-        # PERM_DENY = no access
-        # PERM_READ = use
-        # PERM_EDIT = read/write/list
-        # PERM_ADMIN = read/write/list/delete
 
         if scope == 'global':
             if not user.isAdmin():
@@ -6613,7 +6626,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('cortex:vault:set', viden, vault)
 
-    @s_nexus.Pusher.onPushAuto('cortex:vault:set')
+    @s_nexus.Pusher.onPush('cortex:vault:set')
     async def _addVault(self, viden, vault):
         self._setVault(viden, vault)
         return viden
@@ -6747,7 +6760,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return await self._push('cortex:vault:del', viden)
 
-    @s_nexus.Pusher.onPushAuto('cortex:vault:del')
+    @s_nexus.Pusher.onPush('cortex:vault:del')
     async def _delVault(self, viden):
         return self._delVaultByIden(viden)
 

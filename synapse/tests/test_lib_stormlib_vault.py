@@ -69,20 +69,20 @@ class StormlibVaultTest(s_test.SynTest):
 
             # Open some vaults
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            vault = await core.callStorm('return($lib.vault.open($vtype))', opts=opts)
+            vault = await core.callStorm('return($lib.vault.getByType($vtype))', opts=opts)
+            self.nn(vault)
+            self.eq(vault.get('name'), 'uvault')
             self.eq(vault.get('data'), {'name': 'uvault', 'foo': 'bar'})
 
-            opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            vault = await core.callStorm('return($lib.vault.open($vtype, role))', opts=opts)
-            self.eq(vault.get('data'), {'name': 'rvault'})
-
-            # Set default and then open
+            # Set default and then getByType
             opts = {'vars': {'vtype': vtype}}
             self.true(await core.callStorm('return($lib.vault.setDefault($vtype, global))', opts=opts))
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            vault = await core.callStorm('return($lib.vault.open($vtype))', opts=opts)
-            self.eq(vault.get('data'), {'name': 'gvault'})
+            vault = await core.callStorm('return($lib.vault.getByType($vtype))', opts=opts)
+            self.nn(vault)
+            self.eq(vault.get('name'), 'gvault')
+            self.none(vault.get('data'))
 
             # List vaults
             opts = {'user': visi1.iden}
@@ -196,14 +196,14 @@ class StormlibVaultTest(s_test.SynTest):
             for line in rvault_out:
                 self.stormIsInPrint(line, msgs)
 
-            # vault.open
+            # vault.bytype
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            msgs = await core.stormlist('vault.open $vtype', opts=opts)
+            msgs = await core.stormlist('vault.bytype $vtype', opts=opts)
             for line in uvault_out:
                 self.stormIsInPrint(line, msgs)
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            msgs = await core.stormlist('vault.open $vtype --scope role', opts=opts)
+            msgs = await core.stormlist('vault.bytype $vtype --scope role', opts=opts)
             for line in rvault_out:
                 self.stormIsInPrint(line, msgs)
 
@@ -235,7 +235,7 @@ class StormlibVaultTest(s_test.SynTest):
             ''')[1:]
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            msgs = await core.stormlist('vault.open $vtype', opts=opts)
+            msgs = await core.stormlist('vault.bytype $vtype', opts=opts)
             for line in rvault_out:
                 self.stormIsInPrint(line, msgs)
 

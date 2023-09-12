@@ -87,6 +87,36 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'vault.bytype',
+        'descr': '''
+            Get a vault by type.
+
+            Examples:
+
+                // Get the default or first available vault for the
+                // synapse-test type
+                vault.bytype "synapse-test"
+
+                // Get a role vault for the synapse-test type
+                vault.bytype "synapse-test" --scope role
+
+                // Get the global vault for the synapse-test type
+                vault.bytype "synapse-test" --scope global
+        ''',
+        'cmdargs': (
+            ('type', {'type': 'str', 'help': 'The vault type to retrieve.'}),
+            ('--scope', {'type': 'str', 'default': None,
+                'help': 'Restrict the vault to this scope.'}),
+            ('--showdata', {'type': 'bool', 'action': 'store_true',
+                'default': False, 'help': 'Print vault data.'}),
+        ),
+        'storm': '''
+            $vault = $lib.vault.getByType($cmdopts.type, $cmdopts.scope)
+            $lib.vault.print($vault, $cmdopts.showdata)
+            $lib.print('')
+        ''',
+    },
+    {
         'name': 'vault.set',
         'descr': '''
             Set vault data.
@@ -167,36 +197,6 @@ stormcmds = (
                 $lib.vault.print($vault, $cmdopts.showdata)
                 $lib.print('')
             }
-        ''',
-    },
-    {
-        'name': 'vault.open',
-        'descr': '''
-            Open a vault by type.
-
-            Examples:
-
-                // Open the default or first available vault for the
-                // synapse-test type
-                vault.open "synapse-test"
-
-                // Open a role vault for the synapse-test type
-                vault.open "synapse-test" --scope role
-
-                // Open the global vault for the synapse-test type
-                vault.open "synapse-test" --scope global
-        ''',
-        'cmdargs': (
-            ('type', {'type': 'str', 'help': 'The vault type to open.'}),
-            ('--scope', {'type': 'str', 'default': None,
-                'help': 'Restrict the vault to this scope.'}),
-            ('--showdata', {'type': 'bool', 'action': 'store_true',
-                'default': False, 'help': 'Print vault data.'}),
-        ),
-        'storm': '''
-            $vault = $lib.vault.open($cmdopts.type, $cmdopts.scope)
-            $lib.vault.print($vault, $cmdopts.showdata)
-            $lib.print('')
         ''',
     },
     {
@@ -291,7 +291,7 @@ class LibVault(s_stormtypes.Lib):
                        'desc': 'The initial data to store in this vault.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Iden of the newly created vault.'}}},
-        {'name': 'getByName', 'desc': 'Get data from a vault by name.',
+        {'name': 'getByName', 'desc': 'Get a vault by name.',
          'type': {'type': 'function', '_funcname': '_getByName',
                   'args': (
                       {'name': 'name', 'type': 'str',
@@ -303,7 +303,7 @@ class LibVault(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
-        {'name': 'getByIden', 'desc': 'Get data from a vault by iden.',
+        {'name': 'getByIden', 'desc': 'Get a vault by iden.',
          'type': {'type': 'function', '_funcname': '_getByIden',
                   'args': (
                       {'name': 'viden', 'type': 'str',
@@ -315,6 +315,14 @@ class LibVault(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
+        {'name': 'getByType', 'desc': 'Get a vault for a specified vault type.',
+         'type': {'type': 'function', '_funcname': '_getByType',
+                  'args': (
+                      {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to retrieved.'},
+                      {'name': 'scope', 'type': 'str', 'default': None,
+                       'desc': 'The scope for the specified type. If $lib.null, then getByType will search.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be retrieved.'}}},
         {'name': 'set', 'desc': 'Set data into a vault. Requires PERM_EDIT or higher on the vault.',
          'type': {'type': 'function', '_funcname': '_setVault',
                   'args': (
@@ -334,14 +342,6 @@ class LibVault(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
                   'returns': {'type': 'list', 'desc': 'Yields vaults.'}}},
-        {'name': 'open', 'desc': 'Open a vault for a specified vault type.',
-         'type': {'type': 'function', '_funcname': '_open',
-                  'args': (
-                      {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to open.'},
-                      {'name': 'scope', 'type': 'str', 'default': None,
-                       'desc': 'The scope to open for the specified type. If $lib.null, then open will search.'},
-                  ),
-                  'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be opened.'}}},
         {'name': 'print', 'desc': 'Print the details of the specified vault.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -434,10 +434,10 @@ class LibVault(s_stormtypes.Lib):
             'add': self._addVault,
             'getByName': self._getByName,
             'getByIden': self._getByIden,
+            'getByType': self._getByType,
             'set': self._setVault,
             'del': self._delVault,
             'list': self._listVaults,
-            'open': self._open,
             'setPerm': self._setPerm,
             'setDefault': self._setDefault,
         }
@@ -458,6 +458,11 @@ class LibVault(s_stormtypes.Lib):
         viden = await s_stormtypes.tostr(viden)
         return self.runt.snap.core.getVaultByIden(viden, user=self.runt.user)
 
+    async def _getByType(self, vtype, scope=None):
+        vtype = await s_stormtypes.tostr(vtype)
+        scope = await s_stormtypes.tostr(scope, noneok=True)
+        return self.runt.snap.core.getVaultByType(vtype, scope, user=self.runt.user)
+
     async def _setVault(self, viden, key, valu):
         viden = await s_stormtypes.tostr(viden)
         key = await s_stormtypes.tostr(key)
@@ -476,11 +481,6 @@ class LibVault(s_stormtypes.Lib):
     async def _listVaults(self):
         for vault in self.runt.snap.core.listVaults(user=self.runt.user):
             yield vault
-
-    async def _open(self, vtype, scope=None):
-        vtype = await s_stormtypes.tostr(vtype)
-        scope = await s_stormtypes.tostr(scope, noneok=True)
-        return self.runt.snap.core.openVaultByType(vtype, scope, user=self.runt.user)
 
     async def _setPerm(self, viden, iden, level):
         viden = await s_stormtypes.tostr(viden)
