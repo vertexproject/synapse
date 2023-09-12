@@ -373,7 +373,12 @@ class LibVault(s_stormtypes.Lib):
     _storm_lib_path = ('vault',)
     _storm_query = '''
         function getVaultByIdenOrName(name) {
-            $vault = $lib.vault.getByIden($name)
+            $vault = $lib.null
+
+            try {
+                $vault = $lib.vault.getByIden($name)
+            } catch BadArg as err {}
+
             if $vault {
                 return($vault)
             }

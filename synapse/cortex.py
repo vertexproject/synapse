@@ -6404,7 +6404,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             user = self.auth.rootuser
 
         if not s_common.isguid(viden):
-            return None
+            raise s_exc.BadArg(mesg=f'Viden is not a valid iden: {viden}')
 
         vault = self._reqVaultByIden(viden)
         return self._checkVault(vault, user)

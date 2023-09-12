@@ -7642,15 +7642,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # Set default vault to global and open vault
             await core.setVaultDefault(vtype, 'global')
-            vault = core.getVaultByType(vtype, visi1)
-            self.eq(vault.get('data'), {'apikey': 'global1'})
+            vault = core.getVaultByType(vtype, user=visi1)
+            self.nn(vault)
+            self.eq(vault.get('name'), 'gvault')
+            self.none(vault.get('data'))
 
             # Set default vault to role and open vault
             await core.setVaultDefault(vtype, 'role')
-            vault = core.getVaultByType(vtype, visi1)
-            self.eq(vault.get('data'), {'apikey': 'role1'})
+            vault = core.getVaultByType(vtype, user=visi1)
+            self.nn(vault)
+            self.eq(vault.get('name'), 'rvault')
+            self.none(vault.get('data'))
 
-            vault = core.getVaultByType(vtype, 'user', visi1)
+            vault = core.getVaultByType(vtype, 'user', user=visi1)
             self.eq(vault.get('data'), {'apikey': 'user1'})
 
             vault = core._getVaultByTSI(vtype, 'user', visi1.iden)
@@ -7701,7 +7705,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delVault(uiden)
 
             vault = core.getVaultByType(vtype, user=visi1)
-            self.eq(vault.get('data'), {'apikey': 'role1'})
+            self.nn(vault)
+            self.eq(vault.get('name'), 'rvault')
+            self.none(vault.get('data'))
 
             vault = core.getVaultByType(vtype, 'user', user=visi1)
             self.none(vault)
@@ -7709,7 +7715,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.delVault(riden)
 
             vault = core.getVaultByType(vtype, user=visi1)
-            self.eq(vault.get('data'), {'apikey': 'global1'})
+            self.nn(vault)
+            self.eq(vault.get('name'), 'gvault')
+            self.none(vault.get('data'))
 
             await core.delVault(giden)
 
@@ -7760,8 +7768,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchName):
                 core.getVaultByName('noexist')
 
-            with self.raises(s_exc.NoSuchIden):
+            with self.raises(s_exc.BadArg):
                 core.getVaultByIden('1234')
+
+            with self.raises(s_exc.NoSuchIden):
+                core.getVaultByIden('0123456789abcdef0123456789abcdef')
 
             with self.raises(s_exc.BadArg):
                 core.getVaultByType(vtype, 'newp', visi1)
