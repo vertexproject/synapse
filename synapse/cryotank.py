@@ -262,7 +262,7 @@ class CryoCell(s_cell.Cell):
 
             # remove old guid file
             guidpath = s_common.genpath(path, 'guid')
-            if os.path.isfile(path):
+            if os.path.isfile(guidpath):
                 os.unlink(guidpath)
 
             # if its a legacy cell remove that too
@@ -297,9 +297,6 @@ class CryoCell(s_cell.Cell):
             return await self.tankapi.anit(tank, link, user)
 
         raise s_exc.NoSuchPath(path=path)
-
-    async def exists(self, name):
-        return self.tanks.get(name) is not None
 
     async def init(self, name, conf=None, user=None):
         '''
