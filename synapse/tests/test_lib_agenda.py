@@ -771,9 +771,10 @@ class AgendaTest(s_t_utils.SynTest):
                 core.agenda._addTickOff(55)
                 self.true(await stream.wait(timeout=12))
 
+            await core.addUserRule(user, (True, ('storm',)))
             await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
 
-            with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job'):
+            with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job') as stream:
                 core.agenda._addTickOff(60)
                 self.true(await stream.wait(timeout=12))
 
