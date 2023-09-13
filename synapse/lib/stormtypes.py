@@ -8904,6 +8904,8 @@ class LibCron(Lib):
          'desc': 'Permits a user to list cron jobs.'},
         {'perm': ('cron', 'set'), 'gate': 'cronjob',
          'desc': 'Permits a user to modify/move a cron job.'},
+        {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the creator property of a cron job.'},
     )
 
     def getObjLocals(self):
