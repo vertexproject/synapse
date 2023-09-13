@@ -7765,6 +7765,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addVault('foo', vtype, 'role', '1234', {})
 
             with self.raises(s_exc.BadArg):
+                await core.addVault('A' * 257, vtype, 'role', '1234', {})
+
+            with self.raises(s_exc.BadArg):
+                await core.addVault('', vtype, 'role', '1234', {})
+
+            with self.raises(s_exc.BadArg):
+                await core.addVault('foo', '', 'role', '1234', {})
+
+            with self.raises(s_exc.BadArg):
+                await core.addVault('foo', 'A' * 257, 'role', '1234', {})
+
+            with self.raises(s_exc.BadArg):
+                await core.addVault('foo', vtype, 'role', '1234', {'foo': core})
+
+            with self.raises(s_exc.BadArg):
                 await core.setVaultDefault(vtype, 'newp')
 
             with self.raises(s_exc.BadArg):

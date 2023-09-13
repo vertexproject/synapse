@@ -6535,10 +6535,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: iden of new vault
         '''
-        if 0 < len(name) > 256:
+        namelen = len(name)
+        if namelen == 0 or len(name) > 256:
             raise s_exc.BadArg(mesg='Invalid name specified.')
 
-        if 0 < len(vtype) > 256:
+        vtypelen = len(vtype)
+        if vtypelen == 0 or vtypelen > 256:
             raise s_exc.BadArg(mesg='Invalid vault type specified.')
 
         if scope not in (None, 'user', 'role', 'global'):
