@@ -6135,7 +6135,7 @@ class Layer(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the Layer definition.',
+        {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name to set.', },
@@ -6660,6 +6660,8 @@ class Layer(Prim):
                 valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
             valu = await tobool(valu)
+        elif name == 'readonly':
+            valu = await tobool(valu)
         else:
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
@@ -6714,7 +6716,8 @@ class LibView(Lib):
          'type': {'type': 'function', '_funcname': '_methViewAdd',
                   'args': (
                       {'name': 'layers', 'type': 'list', 'desc': 'A list of layer idens which make up the view.', },
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, }
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, },
+                      {'name': 'worldreadable', 'type': 'boolean', 'desc': 'Grant read access to the `all` role.', 'default': False, },
                   ),
                   'returns': {'type': 'view', 'desc': 'A ``view`` object representing the new View.', }}},
         {'name': 'del', 'desc': 'Delete a View from the Cortex.',
@@ -6747,13 +6750,15 @@ class LibView(Lib):
             'list': self._methViewList,
         }
 
-    async def _methViewAdd(self, layers, name=None):
+    async def _methViewAdd(self, layers, name=None, worldreadable=False):
         name = await tostr(name, noneok=True)
         layers = await toprim(layers)
+        worldreadable = await tobool(worldreadable)
 
         vdef = {
             'creator': self.runt.user.iden,
-            'layers': layers
+            'layers': layers,
+            'worldreadable': worldreadable,
         }
 
         if name is not None:
