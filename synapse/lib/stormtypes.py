@@ -7191,7 +7191,7 @@ class LibTrigger(Lib):
         {'perm': ('trigger', 'set'), 'gate': 'view',
          'desc': 'Controls modifying triggers.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
-         'desc': 'Controls modifying the user property of triggers.'}
+         'desc': 'Controls modifying the user property of triggers.'},
         {'perm': ('trigger', 'set', '<name>'), 'gate': 'view',
          'desc': 'Controls modifying specific trigger properties.',
          'ex': 'trigger.set.enabled'},
