@@ -115,6 +115,7 @@ def cve_check(match: regex.Match):
     return valu, cbfo
 
 linux_path_regex = r'''
+(?<![\w\d]+)
 (?P<valu>
     (?:/[^\x00\n]+)+
 )
@@ -145,7 +146,6 @@ windows_path_regex = r'''
 (?P<valu>
     [a-zA-Z]+:\\
     (?:[^<>:"/|\?\*\n\x00]+)+
-    #(?:[^<>:"/\\|\?\*\n\x00]+)?
 )
 '''
 
@@ -157,6 +157,9 @@ windows_path_reserved = (
     'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
 )
 
+windows_drive_paths = [f'{letter}:\\' for letter in string.ascii_lowercase]
+
+# https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 def windows_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
@@ -164,9 +167,7 @@ def windows_path_check(match: regex.Match):
     path = pathlib.PureWindowsPath(valu)
     parts = path.parts
 
-    if (parts[0][0] not in string.ascii_lowercase or
-        parts[0][1] != ':' or
-        parts[0][2] != '\\'):
+    if parts[0].lower() not in windows_drive_paths:
         return None, {}
 
     for part in parts:

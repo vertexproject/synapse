@@ -420,10 +420,26 @@ linux_paths = '''
 /var/run/foo/
 /var/run/foo/bar
 //var/run/bar
+The observed path is:/root/.aaa/bbb
+The observed paths are:
+ - /root/.aaa/ccc
+ - /root/.aaa/ddd
+ -/root/.aaa/eee
 
 # BAD PATHS
 /
 /foo/bar
+/foo/bin/ls
+foo/bin/ls
+bin/ls
+bin/foo/bar
+bin/foo\x00
+bin/foo//
+bin/foo//bar
+home/foo/bar/baz.txt
+tmp/foo/bar
+var/run/foo/
+var/run/foo/bar
 '''
 
 windows_paths = '''
@@ -439,6 +455,11 @@ d:\\foo\\
 d:\\foo
 d:\\foo.txt
 c:\\\\foo\\bar
+The observed path is:c:\\aaa\\bbb
+The observed paths are:
+ - c:\\aaa\\ccc
+ - c:\\aaa\\ddd
+ -c:\\aaa\\eee
 
 # BAD PATHS
 c:\\windows\\system32\\foo.
@@ -693,7 +714,7 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = list(s_scrape.scrape(linux_paths))
 
-        self.len(9, nodes)
+        self.len(13, nodes)
         nodes.remove(('file:path', '/bin/ls'))
         nodes.remove(('file:path', '/bin/foo/bar'))
         nodes.remove(('file:path', '/bin/foo'))
@@ -703,10 +724,14 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('file:path', '/tmp/foo/bar'))
         nodes.remove(('file:path', '/var/run/foo/'))
         nodes.remove(('file:path', '/var/run/foo/bar'))
+        nodes.remove(('file:path', '/root/.aaa/bbb'))
+        nodes.remove(('file:path', '/root/.aaa/ccc'))
+        nodes.remove(('file:path', '/root/.aaa/ddd'))
+        nodes.remove(('file:path', '/root/.aaa/eee'))
 
         nodes = list(s_scrape.scrape(windows_paths))
 
-        self.len(11, nodes)
+        self.len(15, nodes)
         nodes.remove(('file:path', 'c:\\temp'))
         nodes.remove(('file:path', 'c:\\temp.txt'))
         nodes.remove(('file:path', 'c:\\windows\\'))
@@ -718,6 +743,10 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('file:path', 'd:\\foo'))
         nodes.remove(('file:path', 'd:\\foo.txt'))
         nodes.remove(('file:path', 'c:\\\\foo\\bar'))
+        nodes.remove(('file:path', 'c:\\aaa\\bbb'))
+        nodes.remove(('file:path', 'c:\\aaa\\ccc'))
+        nodes.remove(('file:path', 'c:\\aaa\\ddd'))
+        nodes.remove(('file:path', 'c:\\aaa\\eee'))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
