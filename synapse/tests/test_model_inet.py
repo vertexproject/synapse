@@ -2622,6 +2622,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :date=2015
                 :body="there are mad sploitz here!"
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
+                :cc=(foo@bar.com, baz@faz.org)
                 :bytes="*"
             ]
 
@@ -2641,6 +2642,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
+            self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
+            self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:
