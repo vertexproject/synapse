@@ -451,6 +451,10 @@ class OuModule(s_module.CoreModule):
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
+
+                    ('timeline', ('meta:timeline', {}), {
+                        'doc': 'A timeline relevent events in the campaign.'}),
+
                     ('camptype', ('ou:camptype', {}), {
                         'disp': {'hint': 'taxonomy'},
                         'doc': 'The campaign type taxonomy.'}),
