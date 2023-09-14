@@ -9,6 +9,44 @@ Synapse Changelog
 v2.149.0 - 2023-09-14
 =====================
 
+Model Changes
+-------------
+- Update to the ``it``, ``meta``, and ``org`` models.
+  (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
+
+  **New Properties**
+
+  ``taxonomoy``
+    The interface had the following property added to it:
+
+    ``description``
+      'A definition of the taxonomy entry.
+
+  ``inet:email:message``
+    The form had the following property added to it:
+
+    ``cc``
+      Email addresses parsed from the "cc" header.
+
+  ``meta:source``
+    The form had the following property added to it:
+
+    ``url``
+      A URL which documents the meta source.
+
+  ``ou:campaign``
+    The form had the following property added to it:
+
+    ``timeline``
+      A timeline relevent events in the campaign.
+
+  **Deprecated Properties**
+
+  ``taxonomy``
+    The ``taxonomy`` interface had the following property marked as deprecated:
+
+    * ``summary``
+
 Features and Enhancements
 -------------------------
 - Add best-effort support to scrape APIs to identify Windows and Linux file
@@ -41,7 +79,6 @@ Bugfixes
 - Protect the Cortex Cron scheduling loop from errors that could happen when
   starting an agenda item.
   (`#3340 <https://github.com/vertexproject/synapse/pull/3340>`_)
-
 
 v2.148.0 - 2023-09-05
 =====================
