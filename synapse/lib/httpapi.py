@@ -158,7 +158,7 @@ class HandlerBase:
         enfo = {'uri': uri,
                 'remoteip': remote_ip,
                 }
-        errm = f'Failed to authenticate request to {uri} from {remote_ip}'
+        errm = f'Failed to authenticate request to {uri} from {remote_ip} '
         if mesg:
             errm = f'{errm}: {mesg}'
         if user:
