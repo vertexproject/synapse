@@ -453,7 +453,7 @@ class OuModule(s_module.CoreModule):
                     }),
 
                     ('timeline', ('meta:timeline', {}), {
-                        'doc': 'A timeline relevent events in the campaign.'}),
+                        'doc': 'A timeline of significant events related to the campaign.'}),
 
                     ('camptype', ('ou:camptype', {}), {
                         'disp': {'hint': 'taxonomy'},
