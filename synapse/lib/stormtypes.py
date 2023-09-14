@@ -6135,7 +6135,7 @@ class Layer(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the Layer definition.',
+        {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name to set.', },
@@ -6659,6 +6659,8 @@ class Layer(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
+            valu = await tobool(valu)
+        elif name == 'readonly':
             valu = await tobool(valu)
         else:
             mesg = f'Layer does not support setting: {name}'
