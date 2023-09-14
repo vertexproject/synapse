@@ -3510,7 +3510,7 @@ class Proxy(StormType):
     An example of calling a method which is a generator::
 
         $prox = $lib.telepath.open($url)
-        for $item in = $prox.genrStuff($data) {
+        for $item in $prox.genrStuff($data) {
             $doStuff($item)
         }
 
@@ -3581,7 +3581,7 @@ class ProxyGenrMethod(StormType):
     An example of calling a method which is a generator::
 
         $prox = $lib.telepath.open($url)
-        for $item in = $prox.genrStuff($data) {
+        for $item in $prox.genrStuff($data) {
             $doStuff($item)
         }
     '''
