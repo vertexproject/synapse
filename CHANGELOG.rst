@@ -38,7 +38,7 @@ Model Changes
     The form had the following property added to it:
 
     ``timeline``
-      A timeline relevent events in the campaign.
+      A timeline of significant events related to the campaign.
 
   **Deprecated Properties**
 
