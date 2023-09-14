@@ -142,7 +142,7 @@ class HandlerBase:
 
     def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
         '''
-        Helper to log
+        Helper to log issues related to request authentication.
 
         Args:
             mesg (str): Additional message to log.
