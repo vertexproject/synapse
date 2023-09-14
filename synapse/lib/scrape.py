@@ -461,7 +461,8 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     try:
         async with await s_base.Base.anit() as scope:
 
-            scope.schedCoro(s_coro.semafork(_spawn_genmatches, sock00, text, regx, opts))
+            todo = s_common.todo(_spawn_genmatches, sock00, text, regx, opts)
+            scope.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
 
             while (mesg := await link00.rx()) is not None:
 
@@ -599,7 +600,8 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
     try:
         async with await s_base.Base.anit() as scope:
 
-            scope.schedCoro(s_coro.semafork(_spawn_scrape, sock00, text, form=form, refang=refang, first=first))
+            todo = s_common.todo(_spawn_scrape, sock00, text, form=form, refang=refang, first=first)
+            scope.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
 
             while (mesg := await link00.rx()) is not None:
 
