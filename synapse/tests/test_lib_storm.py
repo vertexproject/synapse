@@ -3606,7 +3606,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Get the value of the primary property of the Node.', msgs)
 
             msgs = await core.stormlist('[test:str=uniq] | help $node.value()')
-            self.stormNotInPrint('get the value of the primary property of the Node.', msgs)
+            self.stormNotInPrint('Get the value of the primary property of the Node.', msgs)
             self.stormIsInPrint('uniq: Filter nodes by their uniq iden values.', msgs)
 
             msgs = await core.stormlist('[ test:str=uniq ] | help $node.props')
