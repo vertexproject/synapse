@@ -1,3 +1,5 @@
+from unittest import mock
+
 import synapse.exc as s_exc
 
 import synapse.lib.scrape as s_scrape
@@ -651,6 +653,16 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ada', 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
+
+    async def test_scrape_async(self):
+
+        with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
+            ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
+            self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+
+            text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
+            infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
+            self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
