@@ -1372,10 +1372,10 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:dev:label', {}, (
-                    ('id', ('str', {}), {
+                    ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the label.',
                     }),
-                    ('title', ('str', {}), {
+                    ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The human friendly name of the label.',
                     }),
                     ('desc', ('str', {}), {
