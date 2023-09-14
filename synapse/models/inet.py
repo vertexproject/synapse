@@ -1463,7 +1463,7 @@ class InetModule(s_module.CoreModule):
                         ('replyto', ('inet:email', {}), {
                             'doc': 'The email address parsed from the "reply-to" header.'}),
 
-                        ('cc', ('array', {'type': 'inet:email'}), {
+                        ('cc', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
                             'doc': 'Email addresses parsed from the "cc" header.'}),
 
                         ('subject', ('str', {}), {

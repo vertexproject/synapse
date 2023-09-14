@@ -2622,7 +2622,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :date=2015
                 :body="there are mad sploitz here!"
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
-                :cc=(foo@bar.com, baz@faz.org)
+                :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
                 :bytes="*"
             ]
 
@@ -2631,6 +2631,8 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+
+            self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
 
             self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
             self.len(1, await core.nodes('inet:email:message:date=2015'))
