@@ -212,7 +212,7 @@ class LibHttp(s_stormtypes.Lib):
             Examples:
                 Urlencode a string::
 
-                    $str=$lib.inet.http.urlencode("http://go ogle.com")
+                    $str=$lib.inet.http.urlencode("http://google.com")
          ''',
          'type': {'type': 'function', '_funcname': 'urlencode',
                   'args': (
