@@ -703,7 +703,6 @@ class LoginV1(Handler):
         if udef.get('locked'):
             self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'User is locked.')
-            return None
 
         if not await authcell.tryUserPasswd(name, passwd):
             self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
