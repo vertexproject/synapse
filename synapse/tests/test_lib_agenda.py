@@ -744,6 +744,40 @@ class AgendaTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
 
+    async def test_agenda_fatal_run(self):
+
+        # Create a scenario where an agenda appointment is "correct"
+        # but encounters a fatal error when attempting to be created.
+        # This error is then logged, and corrected.
+
+        async with self.getTestCore() as core:
+
+            udef = await core.addUser('user')
+            user = udef.get('iden')
+
+            fork = await core.callStorm('$fork = $lib.view.get().fork().iden return ( $fork )')
+
+            q = '$lib.log.info(`I am a cron job run by {$lib.user.name()} in {$lib.view.get().iden}`)'
+            msgs = await core.stormlist('cron.add --minute +1 $q', opts={'vars': {'q': q}, 'view': fork})
+            self.stormHasNoWarnErr(msgs)
+
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $user)) }',
+                                        opts={'vars': {'user': user}})
+            self.eq(cdef['creator'], user)
+
+            # Force the cron to run.
+
+            with self.getAsyncLoggerStream('synapse.lib.agenda', 'Agenda error running appointment ') as stream:
+                core.agenda._addTickOff(55)
+                self.true(await stream.wait(timeout=12))
+
+            await core.addUserRule(user, (True, ('storm',)))
+            await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job') as stream:
+                core.agenda._addTickOff(60)
+                self.true(await stream.wait(timeout=12))
+
     async def test_agenda_mirror_realtime(self):
         with self.getTestDir() as dirn:
 
