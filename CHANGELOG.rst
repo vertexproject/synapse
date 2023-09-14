@@ -11,7 +11,7 @@ v2.149.0 - 2023-09-14
 
 Model Changes
 -------------
-- Update to the ``it``, ``meta``, and ``org`` models.
+- Updates to the ``it``, ``meta``, and ``org`` models.
   (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
 
   **New Properties**
