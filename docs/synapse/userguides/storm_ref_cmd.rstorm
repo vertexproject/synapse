@@ -138,6 +138,8 @@ help
 
 The ``help`` command displays the list of available commands within the current instance of Synapse and
 a brief message describing each command. Help for individual commands is available via ``<command> --help``.
+The ``help`` command can also be used to inspect information about :ref:`stormtypes-libs-header` and
+:ref:`stormtypes-prim-header`.
 
 **Syntax:**
 

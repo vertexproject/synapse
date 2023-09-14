@@ -187,7 +187,7 @@ class StormTypesRegistry:
 
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
-        funcname = rtype.pop('_funcname')
+        funcname = rtype.get('_funcname')
         if funcname == '_storm_query':
             # Sentinel used for future validation of pure storm
             # functions defined in _storm_query data.
@@ -243,12 +243,16 @@ class StormTypesRegistry:
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
         assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
-    def getLibDocs(self):
+    def getLibDocs(self, lib=None):
         # Ensure type docs are loaded/verified.
         _ = self.getTypeDocs()
 
-        libs = self.iterLibs()
-        libs.sort(key=lambda x: x[0])
+        if lib is None:
+            libs = self.iterLibs()
+            libs.sort(key=lambda x: x[0])
+        else:
+            libs = ((lib._storm_lib_path, lib),)
+
         docs = []
         for (sname, slib) in libs:
             sname = slib.__class__.__name__
@@ -289,10 +293,12 @@ class StormTypesRegistry:
 
         return docs
 
-    def getTypeDocs(self):
-
-        types = self.iterTypes()
-        types.sort(key=lambda x: x[1]._storm_typename)
+    def getTypeDocs(self, styp: str =None):
+        if styp is None:
+            types = self.iterTypes()
+            types.sort(key=lambda x: x[1]._storm_typename)
+        else:
+            types = [(k, v) for (k, v) in self.iterTypes() if styp == v._storm_typename]
 
         docs = []
         for (sname, styp) in types:
@@ -505,7 +511,14 @@ class Lib(StormType):
             async for item in self.modrunt.execute():
                 await asyncio.sleep(0)  # pragma: no cover
 
-            self.locls.update(self.modrunt.vars)
+            for k, v in self.modrunt.vars.items():
+                # Annotate the name and lib onto the callable
+                # so that it can be inspected later.
+                if callable(v) and v.__name__ == 'realfunc':
+                    v._storm_runtime_lib = self
+                    v._storm_runtime_lib_func = k
+
+                self.locls[k] = v
 
     async def stormrepr(self):
         if '__module__' in self.locls:
@@ -3498,7 +3511,7 @@ class Proxy(StormType):
     An example of calling a method which is a generator::
 
         $prox = $lib.telepath.open($url)
-        for $item in = $prox.genrStuff($data) {
+        for $item in $prox.genrStuff($data) {
             $doStuff($item)
         }
 
@@ -3529,8 +3542,17 @@ class Proxy(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyMethod(StormType):
+    '''
+    Implements the call methods for the telepath:proxy.
+
+    An example of calling a method which returns data::
+
+        $prox = $lib.telepath.open($url)
+        $result = $prox.doWork($data)
+        $doStuff($result)
+    '''
 
     _storm_typename = 'telepath:proxy:method'
 
@@ -3552,9 +3574,18 @@ class ProxyMethod(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyGenrMethod(StormType):
+    '''
+    Implements the generator methods for the telepath:proxy.
 
+    An example of calling a method which is a generator::
+
+        $prox = $lib.telepath.open($url)
+        for $item in $prox.genrStuff($data) {
+            $doStuff($item)
+        }
+    '''
     _storm_typename = 'telepath:proxy:genrmethod'
 
     def __init__(self, meth, path=None):
