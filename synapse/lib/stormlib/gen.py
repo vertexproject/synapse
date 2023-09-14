@@ -109,6 +109,24 @@ class LibGen(s_stormtypes.Lib):
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
+        function orgIdType(name) {
+            ou:id:type:name=$name
+            return($node)
+
+            [ ou:id:type=(gen, name, $name) :name=$name ]
+            return($node)
+        }
+
+        function orgIdNumber(type, value) {
+            $idtype = $orgIdType($type)
+
+            ou:id:number=($idtype, $value)
+            return($node)
+
+            [ ou:id:number=($idtype, $value) ]
+            return($node)
+        }
+
         function orgByName(name, try=$lib.false) {
             if $try {
                 ($ok, $name) = $lib.trycast(ou:name, $name)
@@ -325,6 +343,23 @@ class LibGen(s_stormtypes.Lib):
 
 stormcmds = (
 
+    {
+        'name': 'gen.ou.id.number',
+        'descr': 'Lift (or create) an ou:id:number node based on the organization ID type and value.',
+        'cmdargs': (
+            ('type', {'help': 'The type of the organization ID.'}),
+            ('value', {'help': 'The value of the organization ID.'}),
+        ),
+        'storm': 'yield $lib.gen.orgIdNumber($cmdopts.type, $cmdopts.value)',
+    },
+    {
+        'name': 'gen.ou.id.type',
+        'descr': 'Lift (or create) an ou:id:type node based on the name of the type.',
+        'cmdargs': (
+            ('name', {'help': 'The friendly name of the organization ID type.'}),
+        ),
+        'storm': 'yield $lib.gen.orgIdType($cmdopts.name)',
+    },
     {
         'name': 'gen.ou.org',
         'descr': 'Lift (or create) an ou:org node based on the organization name.',
