@@ -3545,6 +3545,161 @@ class StormTest(s_t_utils.SynTest):
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
 
+    async def test_storm_help_cmd(self):
+
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('.created | limit 1 | help')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint('List available information about Storm and brief descriptions of different items.',
+                                msgs)
+            self.len(1, [n for n in msgs if n[0] == 'node'])
+
+            msgs = await core.stormlist('help')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint('List available information about Storm and brief descriptions of different items.',
+                                msgs)
+
+            msgs = await core.stormlist('help view')
+            self.stormIsInPrint('Storm api for a View instance', msgs)
+            self.stormIsInPrint('view.merge', msgs)
+            self.stormNotInPrint('uniq', msgs)
+
+            msgs = await core.stormlist('help newp')
+            self.stormIsInPrint('No commands found matching "newp"', msgs)
+            self.stormNotInPrint('uniq', msgs)
+
+            otherpkg = {
+                'name': 'foosball',
+                'version': '0.0.1',
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=2.8.0,<3.0.0',
+                'commands': ({
+                                 'name': 'testcmd',
+                                 'descr': 'test command',
+                                 'storm': '[ inet:ipv4=1.2.3.4 ]',
+                             },),
+                'modules': (
+                    {
+                        'name': 'foosmod',
+                        'storm': '''
+                                function f(a) {return ($a)}
+                                ''',
+                    },
+                ),
+
+            }
+            self.none(await core.addStormPkg(otherpkg))
+
+            msgs = await core.stormlist('help')
+            self.printed(msgs, 'package: foosball')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormIsInPrint(': test command', msgs)
+
+            msgs = await core.stormlist('help testcmd')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormNotInPrint('view.merge', msgs)
+
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value')
+            self.stormIsInPrint('Get the value of the primary property of the Node.', msgs)
+
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value()')
+            self.stormNotInPrint('Get the value of the primary property of the Node.', msgs)
+            self.stormIsInPrint('uniq: Filter nodes by their uniq iden values.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $node.props')
+            self.stormIsInPrint('A Storm Primitive representing the properties on a Node.', msgs)
+            self.stormIsInPrint('set(prop, valu)\nSet a specific property value by name.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $node')
+            self.stormIsInPrint('Implements the Storm api for a node instance.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $path')
+            self.stormIsInPrint('Implements the Storm API for the Path object.', msgs)
+
+            # $lib helps
+            msgs = await core.stormlist('help $lib')
+            self.stormIsInPrint('$lib.auth                     : A Storm Library for interacting with Auth in the '
+                                'Cortex.',
+                                msgs)
+            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\nImport a Storm module.',
+                                msgs)
+            self.stormIsInPrint('$lib.debug\nTrue if the current runtime has debugging enabled.', msgs)
+            self.stormNotInPrint('Examples', msgs)
+
+            msgs = await core.stormlist('help -v $lib')
+
+            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\n'
+                                '======================================================\n'
+                                'Import a Storm module.', msgs)
+
+            msgs = await core.stormlist('help $lib.macro')
+            self.stormIsInPrint('$lib.macro.del(name)\nDelete a Storm Macro by name from the Cortex.', msgs)
+
+            msgs = await core.stormlist('help list')
+            self.stormIsInPrint('***\nlist\n****\nImplements the Storm API for a List instance.', msgs)
+            self.stormIsInPrint('append(valu)\nAppend a value to the list.', msgs)
+            self.stormIsInPrint('auth.user.list : List all users.', msgs)
+
+            # email stor / gettr has a multi value return type
+            msgs = await core.stormlist('help -v auth:user')
+            self.stormIsInPrint('Implements the Storm API for a User.', msgs)
+            self.stormIsInPrint("A user's email. This can also be used to set the user's email.", msgs)
+            self.stormIsInPrint('The return type may be one of the following: str, null.', msgs)
+
+            msgs = await core.stormlist('help $lib.regex')
+            self.stormIsInPrint('The following references are available:\n\n'
+                                '$lib.regex.flags.i\n'
+                                'Regex flag to indicate that case insensitive matches are allowed.\n\n'
+                                '$lib.regex.flags.m\n'
+                                'Regex flag to indicate that multiline matches are allowed.', msgs)
+
+            msgs = await core.stormlist('help $lib.inet.http.get')
+            self.stormIsInPrint('$lib.inet.http.get(url, headers=$lib.null', msgs)
+            self.stormIsInPrint('Get the contents of a given URL.', msgs)
+
+            msgs = await core.stormlist('$str=hehe help $str.split')
+            self.stormIsInPrint('Split the string into multiple parts based on a separator.', msgs)
+
+            msgs = await core.stormlist('help $lib.gen.orgByName')
+            self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.', msgs)
+
+            msgs = await core.stormlist('help --verbose $lib.gen.orgByName')
+            self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.\n'
+                                'Args:\n    name (str): The name of the org.', msgs)
+
+            msgs = await core.stormlist('help $lib.inet')
+            self.stormIsInPrint('The following libraries are available:\n\n'
+                                '$lib.inet.http                : A Storm Library exposing an HTTP client API.\n'
+                                '$lib.inet.http.oauth.v1       : A Storm library to handle OAuth v1 authentication.\n'
+                                '$lib.inet.http.oauth.v2       : A Storm library for managing OAuth V2 clients.\n',
+                                msgs)
+            self.stormNotInPrint('$lib.inet.http.get(', msgs)
+
+            msgs = await core.stormlist('help $lib.regex.flags')
+            err = 'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got dict'
+            self.stormIsInErr(err, msgs)
+
+            url = core.getLocalUrl()
+            msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.getCellInfo',
+                                        opts={'vars': {'url': url}})
+            self.stormIsInPrint('Implements the call methods for the telepath:proxy.', msgs)
+
+            msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.storm',
+                                        opts={'vars': {'url': url}})
+            self.stormIsInPrint('Implements the generator methods for the telepath:proxy.', msgs)
+
+            msgs = await core.stormlist('function f(){} help $f')
+            self.stormIsInErr('help does not currently support runtime defined functions.', msgs)
+
+            msgs = await core.stormlist('$mod=$lib.import(foosmod) help $mod')
+            self.stormIsInErr('Help does not currently support imported Storm modules.', msgs)
+
+            msgs = await core.stormlist('$mod=$lib.import(foosmod) help $mod.f')
+            self.stormIsInErr('help does not currently support runtime defined functions.', msgs)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
