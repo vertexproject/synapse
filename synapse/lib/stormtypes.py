@@ -7346,11 +7346,15 @@ class LibTrigger(Lib):
 
     async def _methTriggerGet(self, iden):
         trigger = None
-        for view in self.runt.snap.core.listViews():
-            try:
-                trigger = await view.getTrigger(iden)
-            except s_exc.NoSuchIden:
-                pass
+        try:
+            # fast path to our current view
+            trigger = await self.runt.snap.view.getTrigger(iden)
+        except s_exc.NoSuchIden:
+            for view in self.runt.snap.core.listViews():
+                try:
+                    trigger = await view.getTrigger(iden)
+                except s_exc.NoSuchIden:
+                    pass
 
         if trigger is None:
             raise s_exc.NoSuchIden('Trigger not found')
@@ -7478,7 +7482,7 @@ class Trigger(Prim):
             s_trigger.reqValidTdef(tdef)
             await self.runt.snap.core.reqValidStorm(tdef['storm'])
         except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
-            raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}.')
+            raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
 
         gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
         todo = s_common.todo('delTrigger', trigiden)

@@ -134,8 +134,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         subparsers = parser.add_subparsers(title='subcommands', required=True, dest='cmd',
                                            parser_class=functools.partial(s_cmd.Parser, outp=self))
 
-        parser_list = subparsers.add_parser('list', help="List triggers you're allowed to manipulate", usage=ListHelp)
-        parser_list.add_argument('--all', action='store_true', help='List every trigger from all readable views')
+        subparsers.add_parser('list', help="List triggers you're allowed to manipulate", usage=ListHelp)
 
         parser_add = subparsers.add_parser('add', help='add a trigger', usage=AddHelp)
         parser_add.add_argument('condition', choices=s_trigger.Conditions, type=str.lower,
@@ -222,33 +221,25 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         self.printf(f'Added trigger {iden}')
 
-    async def _get_list(self, core, view, all=False):
-        opts = {
-            'view': view,
-            'vars': {
-                'all': all
-            }
-        }
+    async def _get_list(self, core, view):
+        opts = {'view': view}
         return await core.callStorm('return($lib.trigger.list($all))', opts=opts)
 
     async def _handle_list(self, core, opts):
-        triglist = await self._get_list(core, opts.view, opts.all)
+        triglist = await self._get_list(core, opts.view)
 
         if not triglist:
             self.printf('No triggers found')
             return
 
-        self.printf(f'{"user":10} {"iden":12} {"view":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
+        self.printf(f'{"user":10} {"iden":12} {"en?":3} {"cond":9} {"object":14} {"":10} {"storm query"}')
 
         for trig in triglist:
             iden = trig['iden']
             idenf = iden[:8] + '..'
             user = trig.get('username', '<None>')
             query = trig.get('storm', '<missing>')
-            cond = trig.get('cond', '<missing>')
-
-            view = trig.get('view', '<missing>')
-            viewf = view[:8] + '..'
+            cond = trig.get('cond', '<missing')
 
             enabled = 'Y' if trig.get('enabled', True) else 'N'
             if cond.startswith('tag:'):
@@ -259,7 +250,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
                 obj = trig.get('prop', trig.get('form', '<missing>'))
                 obj2 = ''
 
-            self.printf(f'{user:10} {idenf:12} {viewf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
+            self.printf(f'{user:10} {idenf:12} {enabled:3} {cond:9} {obj:14} {obj2:10} {query}')
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix

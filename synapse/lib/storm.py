@@ -1092,9 +1092,7 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {view} {enabled} {async} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, view=$view, enabled=$enabled, async=$async,
-                              cond=$cond, obj=$obj, obj2=$obj2, query=$trigger.storm)
+                    $lib.print(`{$user} {$iden} {$view} {$enabled} {$async} {$cond} {$obj} {$obj2} {$trigger.storm}`)
                 }
             } else {
                 $lib.print("No triggers found")
