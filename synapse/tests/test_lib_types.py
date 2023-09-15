@@ -116,7 +116,7 @@ class TypesTest(s_t_utils.SynTest):
         big2 = '-730750818665451459101841.0000000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
-    def test_taxonomy(self):
+    async def test_taxonomy(self):
 
         model = s_datamodel.Model()
         taxo = model.type('taxonomy')
@@ -155,6 +155,18 @@ class TypesTest(s_t_utils.SynTest):
         self.true(taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
         self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
         self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:taxonomy', 'foo.bar.baz.'))
+            self.eq(node.get('title'), 'title words')
+            self.eq(node.get('desc'), 'a test taxonomy')
+            self.eq(node.get('sort'), 1)
+            self.eq(node.get('base'), 'baz')
+            self.eq(node.get('depth'), 2)
+            self.eq(node.get('parent'), 'foo.bar.')
 
     def test_duration(self):
         model = s_datamodel.Model()
