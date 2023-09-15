@@ -223,7 +223,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
     async def _get_list(self, core, view):
         opts = {'view': view}
-        return await core.callStorm('return($lib.trigger.list()', opts=opts)
+        return await core.callStorm('return($lib.trigger.list())', opts=opts)
 
     async def _handle_list(self, core, opts):
         triglist = await self._get_list(core, opts.view)
