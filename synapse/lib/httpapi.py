@@ -140,6 +140,35 @@ class HandlerBase:
             self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
+    def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
+        '''
+        Helper to log issues related to request authentication.
+
+        Args:
+            mesg (str): Additional message to log.
+            user (str): User iden, if available.
+            username (str): Username, if available.
+            level (int): Logging level to log the message at. Defaults to logging.WARNING.
+
+        Returns:
+            None
+        '''
+        uri = self.request.uri
+        remote_ip = self.request.remote_ip
+        enfo = {'uri': uri,
+                'remoteip': remote_ip,
+                }
+        errm = f'Failed to authenticate request to {uri} from {remote_ip} '
+        if mesg:
+            errm = f'{errm}: {mesg}'
+        if user:
+            errm = f'{errm}: user={user}'
+            enfo['user'] = user
+        if username:
+            errm = f'{errm} ({username})'
+            enfo['username'] = username
+        logger.log(level, msg=errm, extra={'synapse': enfo})
+
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
         self.set_status(401)
@@ -282,12 +311,15 @@ class HandlerBase:
 
         udef = await authcell.getUserDefByName(name)
         if udef is None:
+            self.logAuthIssue(mesg='No such user.', username=name)
             return None
 
         if udef.get('locked'):
+            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return None
 
         if not await authcell.tryUserPasswd(name, passwd):
+            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return None
 
         self.web_useriden = udef.get('iden')
@@ -665,9 +697,15 @@ class LoginV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDefByName(name)
         if udef is None:
+            self.logAuthIssue(mesg='No such user.', username=name)
             return self.sendRestErr('AuthDeny', 'No such user.')
 
+        if udef.get('locked'):
+            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
+            return self.sendRestErr('AuthDeny', 'User is locked.')
+
         if not await authcell.tryUserPasswd(name, passwd):
+            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         iden = udef.get('iden')

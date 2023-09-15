@@ -380,16 +380,30 @@ class HttpApiTest(s_tests.SynTest):
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'hehe'}
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                    item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await  stream.wait(timeout=6))
+
+            async with self.getHttpSess() as sess:
+                info = {'user': 'visi', 'passwd': 'secret'}
+                await core.setUserLocked(visiiden, True)
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await  stream.wait(timeout=6))
+                await core.setUserLocked(visiiden, False)
 
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'visi', 'passwd': 'borked'}
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                    item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await stream.wait(timeout=6))
 
             async with self.getHttpSess() as sess:
 
@@ -397,6 +411,7 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('NotAuthenticated', item.get('code'))
 
+                heheauth = aiohttp.BasicAuth('hehe', 'haha')
                 visiauth = aiohttp.BasicAuth('visi', 'secret')
                 newpauth = aiohttp.BasicAuth('visi', 'newp')
 
@@ -404,15 +419,25 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=heheauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(stream.wait(timeout=12))
+
                 await core.setUserLocked(visiiden, True)
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
-                    item = await resp.json()
-                    self.eq('NotAuthenticated', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(stream.wait(timeout=12))
                 await core.setUserLocked(visiiden, False)
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
-                    item = await resp.json()
-                    self.eq('NotAuthenticated', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(stream.wait(timeout=12))
 
                 headers = {'Authorization': 'yermom'}
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
