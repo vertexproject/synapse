@@ -16,7 +16,7 @@ Model Changes
 
   **New Properties**
 
-  ``taxonomoy``
+  ``taxonomy``
     The interface had the following property added to it:
 
     ``description``
