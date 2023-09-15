@@ -66,6 +66,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('stated'), True)
                 self.eq(node.get('window'), (1546300800000, 1577836800000))
 
+                timeline = s_common.guid()
+
                 props = {
                     'org': org0,
                     'goal': goal,
@@ -82,6 +84,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'tag': 'cno.camp.31337',
                     'reporter': '*',
                     'reporter:name': 'vertex',
+                    'timeline': timeline,
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('tag'), 'cno.camp.31337')
@@ -97,6 +100,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('sophistication'), 40)
                 self.eq(node.get('camptype'), 'get.pizza.')
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+                self.eq(node.get('timeline'), timeline)
 
                 self.nn(node.get('reporter'))
                 self.eq(node.get('reporter:name'), 'vertex')
