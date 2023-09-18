@@ -104,7 +104,12 @@ class BaseModule(s_module.CoreModule):
                             'doc': 'A brief title of the definition.'}),
 
                         ('summary', ('str', {}), {
-                            'doc': 'A summary of the definition.',
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use title/desc.',
+                            'disp': {'hint': 'text'}}),
+
+                        ('desc', ('str', {}), {
+                            'doc': 'A definition of the taxonomy entry.',
                             'disp': {'hint': 'text'}}),
 
                         ('sort', ('int', {}), {
@@ -142,10 +147,16 @@ class BaseModule(s_module.CoreModule):
             'forms': (
 
                 ('meta:source', {}, (
+
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
+
+                    # TODO - 3.0 move to taxonomy type
                     ('type', ('str', {'lower': True}), {
                         'doc': 'An optional type field used to group sources.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the meta source.'}),
                 )),
 
                 ('meta:seen', {}, (

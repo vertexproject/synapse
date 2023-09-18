@@ -574,7 +574,11 @@ class Model:
         self.addIface('taxonomy', {
             'props': (
                 ('title', ('str', {}), {'doc': 'A brief title of the definition.'}),
-                ('summary', ('str', {}), {'doc': 'A summary of the definition.', 'disp': {'hint': 'text'}}),
+                ('summary', ('str', {}), {
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use title/desc.',
+                    'disp': {'hint': 'text'}}),
+                ('desc', ('str', {}), {'doc': 'A definition of the taxonomy entry.', 'disp': {'hint': 'text'}}),
                 ('sort', ('int', {}), {'doc': 'A display sort order for siblings.', }),
                 ('base', ('taxon', {}), {'ro': True, 'doc': 'The base taxon.', }),
                 ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
