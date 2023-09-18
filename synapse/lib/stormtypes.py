@@ -16,6 +16,7 @@ import binascii
 import datetime
 import calendar
 import functools
+import contextlib
 import collections
 from typing import Any
 
@@ -185,7 +186,7 @@ class StormTypesRegistry:
 
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
-        funcname = rtype.pop('_funcname')
+        funcname = rtype.get('_funcname')
         if funcname == '_storm_query':
             # Sentinel used for future validation of pure storm
             # functions defined in _storm_query data.
@@ -241,12 +242,16 @@ class StormTypesRegistry:
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
         assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
-    def getLibDocs(self):
+    def getLibDocs(self, lib=None):
         # Ensure type docs are loaded/verified.
         _ = self.getTypeDocs()
 
-        libs = self.iterLibs()
-        libs.sort(key=lambda x: x[0])
+        if lib is None:
+            libs = self.iterLibs()
+            libs.sort(key=lambda x: x[0])
+        else:
+            libs = ((lib._storm_lib_path, lib),)
+
         docs = []
         for (sname, slib) in libs:
             sname = slib.__class__.__name__
@@ -287,10 +292,12 @@ class StormTypesRegistry:
 
         return docs
 
-    def getTypeDocs(self):
-
-        types = self.iterTypes()
-        types.sort(key=lambda x: x[1]._storm_typename)
+    def getTypeDocs(self, styp: str =None):
+        if styp is None:
+            types = self.iterTypes()
+            types.sort(key=lambda x: x[1]._storm_typename)
+        else:
+            types = [(k, v) for (k, v) in self.iterTypes() if styp == v._storm_typename]
 
         docs = []
         for (sname, styp) in types:
@@ -503,7 +510,14 @@ class Lib(StormType):
             async for item in self.modrunt.execute():
                 await asyncio.sleep(0)  # pragma: no cover
 
-            self.locls.update(self.modrunt.vars)
+            for k, v in self.modrunt.vars.items():
+                # Annotate the name and lib onto the callable
+                # so that it can be inspected later.
+                if callable(v) and v.__name__ == 'realfunc':
+                    v._storm_runtime_lib = self
+                    v._storm_runtime_lib_func = k
+
+                self.locls[k] = v
 
     async def stormrepr(self):
         if '__module__' in self.locls:
@@ -2096,11 +2110,7 @@ class LibAxon(Lib):
         code = resp.get('code')
 
         if code != 200:
-            if code is None:
-                mesg = f'$lib.axon.urlfile(): {resp.get("mesg")}'
-            else:
-                mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
-
+            mesg = f'$lib.axon.urlfile(): HTTP code {code}: {resp.get("reason")}'
             await self.runt.warn(mesg, log=False)
             return
 
@@ -3500,7 +3510,7 @@ class Proxy(StormType):
     An example of calling a method which is a generator::
 
         $prox = $lib.telepath.open($url)
-        for $item in = $prox.genrStuff($data) {
+        for $item in $prox.genrStuff($data) {
             $doStuff($item)
         }
 
@@ -3531,8 +3541,17 @@ class Proxy(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyMethod(StormType):
+    '''
+    Implements the call methods for the telepath:proxy.
+
+    An example of calling a method which returns data::
+
+        $prox = $lib.telepath.open($url)
+        $result = $prox.doWork($data)
+        $doStuff($result)
+    '''
 
     _storm_typename = 'telepath:proxy:method'
 
@@ -3554,9 +3573,18 @@ class ProxyMethod(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyGenrMethod(StormType):
+    '''
+    Implements the generator methods for the telepath:proxy.
 
+    An example of calling a method which is a generator::
+
+        $prox = $lib.telepath.open($url)
+        for $item in $prox.genrStuff($data) {
+            $doStuff($item)
+        }
+    '''
     _storm_typename = 'telepath:proxy:genrmethod'
 
     def __init__(self, meth, path=None):
@@ -3963,6 +3991,7 @@ class Str(Prim):
             return str(self) == str(othr)
         return False
 
+    @stormfunc(readonly=True)
     async def _methStrFind(self, valu):
         text = await tostr(valu)
         retn = self.valu.find(text)
@@ -3970,63 +3999,80 @@ class Str(Prim):
             retn = None
         return retn
 
+    @stormfunc(readonly=True)
     async def _methStrFormat(self, **kwargs):
         text = await kwarg_format(self.valu, **kwargs)
         return text
 
+    @stormfunc(readonly=True)
     async def _methStrSize(self):
         return len(self.valu)
 
+    @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
+    @stormfunc(readonly=True)
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
         return self.valu.split(text, maxsplit=maxsplit)
 
+    @stormfunc(readonly=True)
     async def _methStrRsplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
         return self.valu.rsplit(text, maxsplit=maxsplit)
 
+    @stormfunc(readonly=True)
     async def _methStrEndswith(self, text):
         return self.valu.endswith(text)
 
+    @stormfunc(readonly=True)
     async def _methStrStartswith(self, text):
         return self.valu.startswith(text)
 
+    @stormfunc(readonly=True)
     async def _methStrRjust(self, size, fillchar=' '):
         return self.valu.rjust(await toint(size), await tostr(fillchar))
 
+    @stormfunc(readonly=True)
     async def _methStrLjust(self, size, fillchar=' '):
         return self.valu.ljust(await toint(size), await tostr(fillchar))
 
+    @stormfunc(readonly=True)
     async def _methStrReplace(self, oldv, newv, maxv=None):
         if maxv is None:
             return self.valu.replace(oldv, newv)
         else:
             return self.valu.replace(oldv, newv, int(maxv))
 
+    @stormfunc(readonly=True)
     async def _methStrStrip(self, chars=None):
         return self.valu.strip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrLstrip(self, chars=None):
         return self.valu.lstrip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrRstrip(self, chars=None):
         return self.valu.rstrip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrLower(self):
         return self.valu.lower()
 
+    @stormfunc(readonly=True)
     async def _methStrUpper(self):
         return self.valu.upper()
 
+    @stormfunc(readonly=True)
     async def _methStrTitle(self):
         return self.valu.title()
 
+    @stormfunc(readonly=True)
     async def _methStrSlice(self, start, end=None):
         start = await toint(start)
 
@@ -4036,6 +4082,7 @@ class Str(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
+    @stormfunc(readonly=True)
     async def _methStrReverse(self):
         return self.valu[::-1]
 
@@ -5220,7 +5267,7 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async with s_common.aclosing(self._getRuntGenr()) as genr:
+        async with contextlib.aclosing(self._getRuntGenr()) as genr:
             async for node, path in genr:
                 yield node
 
@@ -6119,7 +6166,7 @@ class Layer(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the Layer definition.',
+        {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name to set.', },
@@ -6644,6 +6691,8 @@ class Layer(Prim):
                 valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
             valu = await tobool(valu)
+        elif name == 'readonly':
+            valu = await tobool(valu)
         else:
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
@@ -6698,7 +6747,8 @@ class LibView(Lib):
          'type': {'type': 'function', '_funcname': '_methViewAdd',
                   'args': (
                       {'name': 'layers', 'type': 'list', 'desc': 'A list of layer idens which make up the view.', },
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, }
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, },
+                      {'name': 'worldreadable', 'type': 'boolean', 'desc': 'Grant read access to the `all` role.', 'default': False, },
                   ),
                   'returns': {'type': 'view', 'desc': 'A ``view`` object representing the new View.', }}},
         {'name': 'del', 'desc': 'Delete a View from the Cortex.',
@@ -6731,13 +6781,15 @@ class LibView(Lib):
             'list': self._methViewList,
         }
 
-    async def _methViewAdd(self, layers, name=None):
+    async def _methViewAdd(self, layers, name=None, worldreadable=False):
         name = await tostr(name, noneok=True)
         layers = await toprim(layers)
+        worldreadable = await tobool(worldreadable)
 
         vdef = {
             'creator': self.runt.user.iden,
-            'layers': layers
+            'layers': layers,
+            'worldreadable': worldreadable,
         }
 
         if name is not None:
@@ -7362,7 +7414,6 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
@@ -7480,11 +7531,11 @@ class LibAuth(Lib):
         return text
 
     async def getPermDefs(self):
-        return await self.runt.snap.core.getPermDefs()
+        return self.runt.snap.core.getPermDefs()
 
     async def getPermDef(self, perm):
         perm = await toprim(perm)
-        return await self.runt.snap.core.getPermDef(perm)
+        return self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):
@@ -7778,6 +7829,14 @@ class LibJsonStor(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The cached asof time and path.'}}},
+        {'name': 'cachedel',
+         'desc': 'Remove cached data set with cacheset.',
+         'type': {'type': 'function', '_funcname': 'cachedel',
+                  'args': (
+                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
     )
 
     def addLibFuncs(self):
@@ -7789,6 +7848,7 @@ class LibJsonStor(Lib):
             'iter': self.iter,
             'cacheget': self.cacheget,
             'cacheset': self.cacheset,
+            'cachedel': self.cachedel,
         })
 
     async def has(self, path):
@@ -7940,6 +8000,23 @@ class LibJsonStor(Lib):
             'asof': now,
             'path': cachepath,
         }
+
+    async def cachedel(self, path, key):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.cachedel() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        key = await toprim(key)
+        path = await toprim(path)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+
+        await self.runt.snap.core.delJsonObj(fullpath)
+        return True
 
 @registry.registerType
 class UserProfile(Prim):
@@ -9526,6 +9603,7 @@ async def toint(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
+
     if noneok and valu is None:
         return
 
@@ -9535,13 +9613,11 @@ async def toiter(valu, noneok=False):
         return
 
     try:
-        genr = iter(valu)
+        async for item in s_coro.agen(valu):
+            yield item
     except TypeError as e:
         mesg = f'Value is not iterable: {valu!r}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
-
-    for item in genr:
-        yield item
 
 async def torepr(valu, usestr=False):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):

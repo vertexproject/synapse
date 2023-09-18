@@ -13,7 +13,7 @@ import synapse.lib.config as s_config
 import synapse.tests.utils as s_test
 
 class SchemaCell(s_cell.Cell):
-    confbase = {
+    confdefs = {
         'apikey': {
             'description': 'fancy apikey',
             'type': 'string',
@@ -268,16 +268,16 @@ class ConfTest(s_test.SynTest):
         with self.getTestDir() as dirn:
 
             async with await SchemaCell.anit(dirn, conf=conf) as cell:
-                self.eq(cell.conf.asDict(),
-                        {'apikey': 'deadb33f',
-                         'apihost': 'https://httpbin.org/'})
+                cnfo = cell.conf.asDict()
+                self.eq(cnfo.get('apikey'), 'deadb33f')
+                self.eq(cnfo.get('apihost'), 'https://httpbin.org/')
 
             # We can still make a cell with a dictionary being passed in directly.
             # The dictionary value is converted into the conf value.
             async with await SchemaCell.anit(dirn, conf={'apikey': 'deadb33f'}) as cell:
-                self.eq(cell.conf.asDict(),
-                        {'apikey': 'deadb33f',
-                         'apihost': 'https://httpbin.org/'})
+                cnfo = cell.conf.asDict()
+                self.eq(cnfo.get('apikey'), 'deadb33f')
+                self.eq(cnfo.get('apihost'), 'https://httpbin.org/')
 
             with self.raises(s_exc.NeedConfValu) as cm:
                 # Trying to make a cell with a missing key it wants fails

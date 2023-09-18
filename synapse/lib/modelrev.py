@@ -751,52 +751,52 @@ class ModelRev:
 
     async def revCoreLayers(self):
 
-        version = self.revs[-1][0] if self.revs else maxvers
+        async with self.core.enterMigrationMode():
 
-        # do a first pass to detect layers at the wrong version
-        # that we are not able to rev ourselves and bail...
+            version = self.revs[-1][0] if self.revs else maxvers
 
-        layers = []
-        for layr in self.core.layers.values():
+            # do a first pass to detect layers at the wrong version
+            # that we are not able to rev ourselves and bail...
 
-            if layr.fresh:
-                await layr.setModelVers(version)
-                continue
+            layers = []
+            for layr in self.core.layers.values():
 
-            vers = await layr.getModelVers()
-            if vers == version:
-                continue
+                if layr.fresh:
+                    await layr.setModelVers(version)
+                    continue
 
-            if not layr.canrev and vers != version:
-                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+                vers = await layr.getModelVers()
+                if vers == version:
+                    continue
 
-            if vers > version:
-                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+                if not layr.canrev and vers != version:
+                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
+                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-            # realistically all layers are probably at the same version... but...
-            layers.append(layr)
+                if vers > version:
+                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
+                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-        # got anything to do?
-        if not layers:
-            return
+                # realistically all layers are probably at the same version... but...
+                layers.append(layr)
 
-        await self.core._enableMigrationMode()
-        for revvers, revmeth in self.revs:
+            # got anything to do?
+            if not layers:
+                return
 
-            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
-            if not todo:
-                continue
+            for revvers, revmeth in self.revs:
 
-            logger.warning(f'beginning model migration -> {revvers}')
+                todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
+                if not todo:
+                    continue
 
-            await revmeth(todo)
+                logger.warning(f'beginning model migration -> {revvers}')
 
-            [await lyr.setModelVers(revvers) for lyr in todo]
+                await revmeth(todo)
 
-        await self.core._disableMigrationMode()
-        logger.warning('...model migrations complete!')
+                [await lyr.setModelVers(revvers) for lyr in todo]
+
+            logger.warning('...model migrations complete!')
 
     async def _normPropValu(self, layers, propfull):
 
@@ -857,7 +857,14 @@ class ModelRev:
             stortype = prop.type.stortype
 
             async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
-                curv = sode['props'].get(prop.name)
+
+                props = sode.get('props')
+
+                # this should be impossible, but has been observed in the wild...
+                if props is None: # pragma: no cover
+                    continue
+
+                curv = props.get(prop.name)
                 if curv is None or curv[1] == stortype:
                     continue
 
@@ -926,7 +933,11 @@ class ModelRev:
                             logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
                             continue
 
-                        subcurv = sode['props'].get(subprop.name)
+                        props = sode.get('props')
+                        if props is None: # pragma: no cover
+                            continue
+
+                        subcurv = props.get(subprop.name)
                         if subcurv is not None:
                             if subcurv[1] != subprop.type.stortype: # pragma: no cover
                                 logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')

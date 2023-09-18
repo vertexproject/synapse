@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -1385,3 +1387,238 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('soft'))
             self.len(1, await core.nodes('it:host -> it:prod:softid'))
             self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))
+
+    async def test_infotech_repo(self):
+
+        async with self.getTestCore() as core:
+            diff = s_common.guid()
+            repo = s_common.guid()
+            issue = s_common.guid()
+            commit = s_common.guid()
+            branch = s_common.guid()
+            icom = s_common.guid()
+            dcom = s_common.guid()
+            origin = s_common.guid()
+            file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
+
+            props = {
+                ('it:dev:repo', repo): {
+                    'name': 'synapse',
+                    'desc': 'Synapse Central Intelligence System',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse',
+                    'type': 'svn.',
+                    'submodules': (s_common.guid(),),
+                },
+
+                ('it:dev:repo:remote', s_common.guid()): {
+                    'name': 'origin',
+                    'repo': repo,
+                    'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
+                    'remote': origin,
+                },
+
+                ('it:dev:repo:commit', commit): {
+                    'repo': repo,
+                    'branch': branch,
+                    'parents': (s_common.guid(),),
+                    'mesg': 'fancy new release',
+                    'id': 'r12345',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
+                },
+
+                ('it:dev:repo:diff', diff): {
+                    'commit': commit,
+                    'file': file,
+                    'path': 'synapse/tests/test_model_infotech.py',
+                    'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
+                },
+
+                ('it:dev:repo:issue', issue): {
+                    'repo': repo,
+                    'title': 'a fancy new release',
+                    'desc': 'Gonna be a big release friday',
+                    'created': 1,
+                    'updated': 1,
+                    'id': '1234',
+                    'url': 'https://github.com/vertexproject/synapse/issues/2821',
+                },
+
+                ('it:dev:repo:issue:comment', icom): {
+                    'issue': issue,
+                    'text': 'a comment on an issue',
+                    'replyto': s_common.guid(),
+                    'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
+                    'created': 12,
+                    'updated': 93,
+                },
+
+                ('it:dev:repo:diff:comment', dcom): {
+                    'diff': diff,
+                    'text': 'types types types types types',
+                    'replyto': s_common.guid(),
+                    'line': 100,
+                    'offset': 100,
+                    'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
+                    'created': 1,
+                    'updated': 3,
+                },
+
+                ('it:dev:repo:branch', branch): {
+                    'parent': s_common.guid(),
+                    'start': commit,
+                    'name': 'IT_dev_repo_models',
+                    'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
+                    'created': 0,
+                    'merged': 1,
+                    'deleted': 2
+                }
+            }
+
+            async with await core.snap() as snap:
+                for (form, valu), props in props.items():
+                    node = await snap.addNode(form, valu, props=props)
+                    self.checkNode(node, ((form, valu), props))
+
+            nodes = await core.nodes('it:dev:repo')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo <- *')
+            self.len(4, nodes)
+
+            nodes = await core.nodes('it:dev:repo:commit')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:dev:repo:type:taxonomy')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:issue:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote :repo -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', repo))
+
+            nodes = await core.nodes('it:dev:repo:remote :remote -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', origin))
+
+            nodes = await core.nodes('it:dev:repo:issue:comment=$guid :replyto -> *', {'vars': {'guid': icom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment=$guid :replyto -> *', {'vars': {'guid': dcom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:branch=$guid :parent -> *', {'vars': {'guid': branch}})
+            self.len(1, nodes)
+
+    async def test_infotech_vulnscan(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan=*
+                    :time=202308180819
+                    :desc="Woot Woot"
+                    :ext:id=FOO-10
+                    :ext:url=https://vertex.link/scans/FOO-10
+                    :software:name=nessus
+                    :software={[ it:prod:softver=* :name=nessus ]}
+                    :operator={[ ps:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.eq(1692346740000, nodes[0].get('time'))
+            self.eq('nessus', nodes[0].get('software:name'))
+            self.eq('Woot Woot', nodes[0].get('desc'))
+            self.eq('FOO-10', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10', nodes[0].get('ext:url'))
+
+            self.nn(nodes[0].get('operator'))
+            self.nn(nodes[0].get('software'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('it:sec:vuln:scan -> it:prod:softver +:name=nessus'))
+
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan:result=*
+                    :scan={it:sec:vuln:scan}
+                    :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
+                    :desc="Network service is vulnerable to nucsploit9k"
+                    :ext:id=FOO-10.0
+                    :ext:url=https://vertex.link/scans/FOO-10/0
+                    :time=2023081808190828
+                    :mitigated=2023081808190930
+                    :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
+                    :asset=(inet:server, tcp://1.2.3.4:443)
+                    :priority=high
+                    :severity=highest
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(40, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('severity'))
+            self.eq(1692346748280, nodes[0].get('time'))
+            self.eq(1692346749300, nodes[0].get('mitigated'))
+            self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
+            self.eq('FOO-10.0', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
+
+    async def test_infotech_it_sec_metrics(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:metrics=*
+
+                    :org={ gen.ou.org vertex }
+                    :org:name=vertex
+                    :org:fqdn=vertex.link
+
+                    :period=(202307, 202308)
+
+                    :alerts:count=100
+                    :alerts:falsepos=90
+                    :alerts:meantime:triage=2:00:00
+
+                    :assets:users=13
+                    :assets:hosts=123
+
+                    :assets:vulns:count=4
+                    :assets:vulns:mitigated=2
+                    :assets:vulns:discovered=4
+                    :assets:vulns:preexisting=2
+
+                    :assets:vulns:meantime:mitigate="1D 2:37:00"
+
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.eq('vertex', nodes[0].get('org:name'))
+            self.eq('vertex.link', nodes[0].get('org:fqdn'))
+            self.eq((1688169600000, 1690848000000), nodes[0].get('period'))
+
+            self.eq(100, nodes[0].get('alerts:count'))
+            self.eq(90, nodes[0].get('alerts:falsepos'))
+            self.eq(7200000, nodes[0].get('alerts:meantime:triage'))
+
+            self.eq(13, nodes[0].get('assets:users'))
+            self.eq(123, nodes[0].get('assets:hosts'))
+
+            self.eq(4, nodes[0].get('assets:vulns:count'))
+            self.eq(2, nodes[0].get('assets:vulns:mitigated'))
+            self.eq(4, nodes[0].get('assets:vulns:discovered'))
+            self.eq(2, nodes[0].get('assets:vulns:preexisting'))
+
+            self.len(1, await core.nodes('it:sec:metrics -> ou:org +:name=vertex'))

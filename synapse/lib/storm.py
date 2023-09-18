@@ -21,7 +21,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
-import synapse.lib.scrape as s_scrape
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
@@ -215,6 +215,9 @@ reqValidPkgdef = s_config.getJsValidator({
         'synapse_minversion': {
             'type': ['array', 'null'],
             'items': {'type': 'number'}
+        },
+        'synapse_version': {
+            'type': 'string',
         },
         'modules': {
             'type': ['array', 'null'],
@@ -893,10 +896,11 @@ stormcmds = (
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
             ('--name', {'default': None, 'help': 'The name of the new view.'}),
+            ('--worldreadable', {'type': 'bool', 'default': False, 'help': 'Grant read access to the `all` role.'}),
             ('--layers', {'default': [], 'nargs': '*', 'help': 'Layers for the view.'}),
         ),
         'storm': '''
-            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name)
+            $view = $lib.view.add($cmdopts.layers, name=$cmdopts.name, worldreadable=$cmdopts.worldreadable)
             $lib.print($view.repr())
             $lib.print("View added.")
         ''',
@@ -1480,21 +1484,28 @@ stormcmds = (
         'name': 'note.add',
         'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
         'cmdargs': (
-            ('--type', {'type': 'str', 'help': 'The note type.'}),
             ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
+            ('--type', {'type': 'str', 'help': 'The note type.'}),
+            ('--yield', {'default': False, 'action': 'store_true',
+                'help': 'Yield the newly created meta:note node.'}),
         ),
         'storm': '''
-            function addNoteNode(text, type) {
-                if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
-                if $type {[ :type=$type ]}
-                return($node)
-            }
             init {
-                $type = $lib.null
+                function addNoteNode(text, type) {
+                    if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
+                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                    if $type {[ :type=$type ]}
+                    return($node)
+                }
+
+                $yield = $cmdopts.yield
                 $note = $addNoteNode($cmdopts.text, $cmdopts.type)
             }
+
             [ <(about)+ { yield $note } ]
+
+            if $yield { spin }
+            if $yield { yield $note }
         ''',
     },
     {
@@ -2045,17 +2056,33 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
-    def confirm(self, perms, gateiden=None, default=False):
+    def confirm(self, perms, gateiden=None, default=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
         if self.asroot:
             return
+
+        if default is None:
+            default = False
+
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
         return self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def allowed(self, perms, gateiden=None, default=False):
+    def allowed(self, perms, gateiden=None, default=None):
         if self.asroot:
             return True
+
+        if default is None:
+            default = False
+
+            permdef = self.snap.core.getPermDef(perms)
+            if permdef:
+                default = permdef.get('default', False)
+
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def _loadRuntVars(self, query):
@@ -2976,42 +3003,123 @@ class BatchCmd(Cmd):
 
 class HelpCmd(Cmd):
     '''
-    List available commands and a brief description for each.
+    List available information about Storm and brief descriptions of different items.
+
+    Notes:
+
+        If an item is provided, this can be a string or a function.
 
     Examples:
 
-        // Get all available commands and their brief descriptions.
+        // Get all available commands, libraries, types, and their brief descriptions.
 
         help
 
         // Only get commands which have "model" in the name.
 
         help model
+
+        // Get help about the base Storm library
+
+        help $lib
+
+        // Get detailed help about a specific library or library function
+
+        help --verbose $lib.print
+
+        // Get detailed help about a named Storm type
+
+        help --verbose str
+
+        // Get help about a method from a $node object
+
+        <inbound $node> help $node.tags
+
     '''
     name = 'help'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('command', nargs='?',
-                          help='Only list commands and their brief description whose name contains the argument.')
+        pars.add_argument('-v', '--verbose', default=False, action='store_true',
+                          help='Display detailed help when available.')
+        pars.add_argument('item', nargs='?',
+                          help='List information about a subset of commands or a specific item.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runtsafe:
-            mesg = 'help does not support per-node invocation'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+        node = None
+        async for node, path in genr:
+            await self._runHelp(runt)
+            yield node, path
 
-        async for item in genr:
-            yield item
+        if node is None and self.runtsafe:
+            await self._runHelp(runt)
+
+    async def _runHelp(self, runt: Runtime):
+
+        item = self.opts.item
+
+        if item is not None and \
+                not isinstance(item, (str, s_node.Node, s_node.Path, s_stormtypes.StormType)) and \
+                not callable(item):
+            mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
+                   f' {await s_stormtypes.totype(item, basetypes=True)}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if isinstance(item, s_stormtypes.Lib):
+            await self._handleLibHelp(item, runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_stormtypes.StormType):
+            if item._storm_typename in s_stormtypes.registry.known_types:
+                await self._handleTypeHelp(item._storm_typename, runt, verbose=self.opts.verbose)
+                return
+            raise s_exc.BadArg(mesg=f'Unknown storm type encountered: {s_stormtypes.totype(item, basetypes=True)}')
+
+        if isinstance(item, s_node.Node):
+            await self._handleTypeHelp('node', runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_node.Path):
+            await self._handleTypeHelp('node:path', runt, verbose=self.opts.verbose)
+            return
+
+        # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
+        if callable(item):
+
+            if hasattr(item, '__func__'):
+                # https://docs.python.org/3/reference/datamodel.html#instance-methods
+                await self._handleBoundMethod(item, runt, verbose=self.opts.verbose)
+                return
+
+            if hasattr(item, '_storm_runtime_lib_func'):
+                await self._handleStormLibMethod(item, runt, verbose=self.opts.verbose)
+                return
+
+            styp = await s_stormtypes.totype(item, basetypes=True)
+            if styp in ('telepath:proxy:method', 'telepath:proxy:genrmethod'):
+                raise s_exc.BadArg(mesg='help does not support Telepath proxy methods.')
+
+            raise s_exc.BadArg(mesg='help does not currently support runtime defined functions.')
+
+        foundtype = False
+        if item in s_stormtypes.registry.known_types:
+            foundtype = True
+            await self._handleTypeHelp(item, runt, verbose=self.opts.verbose)
+
+        return await self._handleGenericCommandHelp(item, runt, foundtype=foundtype)
+
+    async def _handleGenericCommandHelp(self, item, runt, foundtype=False):
 
         stormcmds = sorted(runt.snap.core.getStormCmds())
 
-        if self.opts.command:
-            stormcmds = [c for c in stormcmds if self.opts.command in c[0]]
+        if item:
+            stormcmds = [c for c in stormcmds if item in c[0]]
             if not stormcmds:
-                await runt.printf(f'No commands found matching "{self.opts.command}"')
-                return
+                if not foundtype:
+                    await runt.printf(f'No commands found matching "{item}"')
+                    return
 
         stormpkgs = await runt.snap.core.getStormPkgs()
 
@@ -3031,6 +3139,14 @@ class HelpCmd(Cmd):
                 pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
         if stormcmds:
+
+            if foundtype:
+                await runt.printf('')
+                await runt.printf('*' * 80)
+                await runt.printf('')
+
+            await runt.printf('The following Storm commands are available:')
+
             maxlen = max(len(x[0]) for x in stormcmds)
 
             for name, ctor in stormcmds:
@@ -3061,6 +3177,158 @@ class HelpCmd(Cmd):
                 await runt.printf('')
 
             await runt.printf('For detailed help on any command, use <cmd> --help')
+
+    async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime, verbose: bool =False):
+
+        try:
+            preamble = self._getChildLibs(lib)
+        except s_exc.NoSuchName as e:
+            raise s_exc.BadArg(mesg='Help does not currently support imported Storm modules.') from None
+
+        page = s_autodoc.RstHelp()
+
+        if hasattr(lib, '_storm_lib_path'):
+            libsinfo = s_stormtypes.registry.getLibDocs(lib)
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           oneline=not verbose,
+                                           preamble=preamble,
+                                           )
+        else:
+            page.addLines(*preamble)
+
+        for line in page.lines:
+            await runt.printf(line)
+
+    def _getChildLibs(self, lib: s_stormtypes.Lib):
+        corelibs = self.runt.snap.core.getStormLib(lib.name)
+        if corelibs is None:
+            raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
+
+        data = []
+        lines = []
+
+        libbase = ('lib',) + lib.name
+        q = collections.deque()
+        for child, lnfo in corelibs[1].items():
+            q.append(((child,), lnfo))
+        while q:
+            child, lnfo = q.popleft()
+            path = libbase + child
+            _, subs, cnfo = lnfo
+            ctor = cnfo.get('ctor')
+            if ctor:
+                data.append((path, ctor))
+            for sub, lnfo in subs.items():
+                _sub = child + (sub,)
+                q.append((_sub, lnfo))
+        if not data:
+            return lines
+
+        data = sorted(data, key=lambda x: x[0])
+
+        lines.append('The following libraries are available:')
+        lines.append('')
+        for path, ctor in data:
+            name = f'${".".join(path)}'
+            desc = ctor.__doc__.strip().split('\n')[0]
+            lines.append(f'{name.ljust(30)}: {desc}')
+        lines.append('')
+
+        return lines
+
+    async def _handleTypeHelp(self, styp: str, runt: Runtime, verbose: bool =False):
+        typeinfo = s_stormtypes.registry.getTypeDocs(styp)
+        page = s_autodoc.RstHelp()
+
+        s_autodoc.runtimeDocStormTypes(page, typeinfo,
+                                       islib=False,
+                                       oneline=not verbose,
+                                       )
+        for line in page.lines:
+            await runt.printf(line)
+
+    async def _handleBoundMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Bound methods must be bound to a Lib or Prim object.
+        # Determine what they are, get those docs exactly, and then render them.
+
+        cls = func.__self__
+        fname = func.__name__
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    ltyp = locl.get('type')
+                    if not isinstance(ltyp, dict):
+                        continue
+                    if ltyp.get('_funcname', '') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        elif isinstance(cls, s_stormtypes.Prim):
+            typeinfo = s_stormtypes.registry.getTypeDocs(cls._storm_typename)
+            for lifo in typeinfo:
+                lifo['locals'] = [loc for loc in lifo['locals'] if loc.get('type', {}).get('_funcname', '') == fname]
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, typeinfo,
+                                           islib=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
+
+    async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Storm library methods must be derived from a library definition.
+        # Determine the parent lib and get those docs exactly, and then render them.
+
+        cls = getattr(func, '_storm_runtime_lib', None)
+        fname = getattr(func, '_storm_runtime_lib_func', None)
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    if locl.get('name') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown runtime lib method {func} {cls} {fname}')
 
 class DiffCmd(Cmd):
     '''
@@ -3898,13 +4166,13 @@ class MoveNodesCmd(Cmd):
                 for prop, (valu, stortype) in tagdict.items():
                     if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
-                            if not self.opts.apply:
-                                valurepr = repr(valu)
-                                mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                                await self.runt.printf(mesg)
-                            else:
-                                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                                ecnt += 1
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                            await self.runt.printf(mesg)
+                        else:
+                            self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                            ecnt += 1
 
                     movekeys.add((tag, prop))
 
@@ -4257,12 +4525,10 @@ class SudoCmd(Cmd):
     name = 'sudo'
 
     async def execStormCmd(self, runt, genr):
-        s_common.deprecated('storm command: sudo')
 
-        mesg = 'Sudo is deprecated and does nothing in ' \
-               '2.x.x and will be removed in 3.0.0.'
+        s_common.deprdate('storm command: sudo', s_common._splicedepr)
 
-        await runt.snap.warn(mesg)
+        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common._splicedepr}')
         async for node, path in genr:
             yield node, path
 
@@ -4350,6 +4616,10 @@ class MoveTagCmd(Cmd):
             olddoc = node.get('doc')
             if olddoc is not None:
                 await newnode.set('doc', olddoc)
+
+            olddocurl = node.get('doc:url')
+            if olddocurl is not None:
+                await newnode.set('doc:url', olddocurl)
 
             oldtitle = node.get('title')
             if oldtitle is not None:
@@ -5148,9 +5418,9 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprecated('storm command: splice.list')
+        s_common.deprdate('storm command: splice.list', s_common._splicedepr)
 
-        mesg = 'splice.list is deprecated and will be removed!'
+        mesg = f'splice.list is deprecated and will be removed on {s_common._splicedepr}'
         await runt.snap.warn(mesg)
 
         maxtime = None
@@ -5385,9 +5655,9 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprecated('storm command: splice.undo')
+        s_common.deprdate('storm command: splice.undo', s_common._splicedepr)
 
-        mesg = 'splice.undo is deprecated and will be removed!'
+        mesg = f'splice.undo is deprecated and will be removed on {s_common._splicedepr}'
         await runt.snap.warn(mesg)
 
         if self.opts.force:
@@ -5567,58 +5837,35 @@ class EdgesDelCmd(Cmd):
 
 class OnceCmd(Cmd):
     '''
-    The once command ensures that a node makes it through the once command but a single time,
-    even across independent queries. The gating is keyed by a required name parameter to
-    the once command, so a node can be run through different queries, each a single time, so
-    long as the names differ.
+    The once command is used to filter out nodes which have already been processed
+    via the use of a named key. It includes an optional parameter to allow the node
+    to pass the filter again after a given amount of time.
 
     For example, to run an enrichment command on a set of nodes just once:
 
         file:bytes#my.files | once enrich:foo | enrich.foo
 
-    If you insert the once command with the same name on the same nodes, they will be
-    dropped from the pipeline. So in the above example, if we run it again, the enrichment
-    will not run a second time, as all the nodes will be dropped from the pipeline before
-    reaching the enrich.foo portion of the pipeline.
+    The once command filters out any nodes which have previously been through any other
+    use of the "once" command using the same <name> (in this case "enrich:foo").
 
-    Simlarly, running this:
+    You may also specify the --asof option to allow nodes to pass the filter after a given
+    amount of time. For example, the following command will allow any given node through
+    every 2 days:
 
-        file:bytes#my.files | once enrich:foo
+        file:bytes#my.files | once enrich:foo --asof "-2 days" | enrich.foo
 
-    Also yields no nodes. And even though the rest of the pipeline is different, this query:
+    Use of "--asof now" or any future date or positive relative time offset will always
+    allow the node to pass the filter.
 
-        file:bytes#my.files | once enrich:foo | enrich.bar
-
-    would not run the enrich.bar command, as the name "enrich:foo" has already been seen to
-    occur on the file:bytes passing through the once command, so all of the nodes will be
-    dropped from the pipeline.
-
-    However, this query:
-
-        file:bytes#my.files | once look:at:my:nodes
-
-    Would yield all the file:bytes tagged with #my.files, as the name parameter given to
-    the once command differs from the original "enrich:foo".
-
-    The once command utilizes a node's nodedata cache, and you can use the --asof parameter
-    to update the named action's timestamp in order to bypass/update the once timestamp. So
-    this command:
-
-        inet:ipv4#my.addresses | once node:enrich --asof now | my.enrich.command
-
-    Will yield all the enriched nodes the first time around. The second time that command is
-    run, all of those nodes will be re-enriched, as the asof timestamp will be greater the
-    second time around, so no nodes will be dropped.
-
-    As state tracking data for the once command is stored as nodedata, it is stored in your
+    State tracking data for the once command is stored as nodedata which is stored in your
     view's write layer, making it view-specific. So if you have two views, A and B, and they
     do not share any layers between them, and you execute this query in view A:
 
         inet:ipv4=8.8.8.8 | once enrich:address | enrich.baz
 
     And then you run it in view B, the node will still pass through the once command to the
-    enrich.baz portion of the pipeline, as the nodedata for the once command does not yet
-    exist in view B.
+    enrich.baz portion of the query because the tracking data for the once command does not
+    yet exist in view B.
     '''
     name = 'once'
 
@@ -5629,29 +5876,31 @@ class OnceCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
         async for node, path in genr:
+
+            tick = s_common.now()
             name = await s_stormtypes.tostr(self.opts.name)
             key = f'once:{name}'
+
             envl = await node.getData(key)
-            if not envl:
-                if self.opts.asof:
-                    envl = {'asof': self.opts.asof}
-                else:
-                    envl = {'asof': s_common.now()}
-                await node.setData(key, envl)
-                yield node, path
-            else:
-                ts = envl.get('asof')
-                if not ts:
-                    envl['asof'] = s_common.now()
-                    await node.setData(key, envl)
-                    yield node, path
-                else:
-                    norm = self.opts.asof
-                    if norm and norm > ts:
-                        envl['asof'] = norm
-                        await node.setData(key, envl)
-                        yield node, path
+
+            if envl is not None:
+                asof = self.opts.asof
+
+                last = envl.get('tick')
+
+                # edge case to account for old storage format
+                if last is None:
+                    await node.setData(key, {'tick': tick})
+
+                if last is None or asof is None or last > asof:
+                    await asyncio.sleep(0)
+                    continue
+
+            await node.setData(key, {'tick': tick})
+
+            yield node, path
 
 class TagPruneCmd(Cmd):
     '''

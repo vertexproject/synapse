@@ -4,6 +4,7 @@ import copy
 import time
 import fcntl
 import shutil
+import signal
 import socket
 import asyncio
 import logging
@@ -257,17 +258,17 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
         '''
         Return a specific permission definition.
         '''
-        return await self.cell.getPermDef(perm)
+        return self.cell.getPermDef(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         '''
         Return a non-comprehensive list of perm definitions.
         '''
-        return await self.cell.getPermDefs()
+        return self.cell.getPermDefs()
 
     @adminapi()
     def getNexsIndx(self):
@@ -809,6 +810,14 @@ class CellApi(s_base.Base):
             'threshold': gc.get_threshold(),
         }
 
+    @adminapi()
+    async def getReloadableSystems(self):
+        return self.cell.getReloadableSystems()
+
+    @adminapi(log=True)
+    async def reload(self, subsystem=None):
+        return await self.cell.reload(subsystem=subsystem)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -861,7 +870,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'max:users': {
             'default': 0,
-            'description': 'Maximum number of users allowed on system, not including root (0 is no limit).',
+            'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
             'type': 'integer',
             'minimum': 0
         },
@@ -871,8 +880,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
         },
         'nexslog:async': {
-            'default': False,
-            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'default': True,
+            'description': 'Set to false to disable async memory mapping of the nexus change log.',
             'type': 'boolean',
             'hidedocs': True,
             'hidecmdl': True,
@@ -1058,6 +1067,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.sockaddr = None  # Default value...
         self.ahaclient = None
         self._checkspace = s_coro.Event()
+        self._reloadfuncs = {}  # name -> func
 
         self.conf = self._initCellConf(conf)
 
@@ -1216,17 +1226,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
+        perm = tuple(perm)
         if self.permlook is None:
-            self.permlook = {pdef['perm']: pdef for pdef in await self.getPermDefs()}
+            self.permlook = {pdef['perm']: pdef for pdef in self.getPermDefs()}
         return self.permlook.get(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         if self.permdefs is None:
-            self.permdefs = await self._getPermDefs()
+            self.permdefs = self._getPermDefs()
         return self.permdefs
 
-    async def _getPermDefs(self):
+    def _getPermDefs(self):
         return ()
 
     def _clearPermDefs(self):
@@ -1257,10 +1268,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onBootOptimize(self):
 
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        tdev = os.stat(tdir).st_dev
+
         lmdbs = []
         for (root, dirs, files) in os.walk(self.dirn):
             for dirname in dirs:
-                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                filepath = os.path.join(root, dirname, 'data.mdb')
+                if os.path.isfile(filepath):
+                    if os.stat(filepath).st_dev != tdev:
+                        logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
+                        return
+
                     lmdbs.append(os.path.join(root, dirname))
 
         if not lmdbs: # pragma: no cover
@@ -1390,6 +1409,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
+                self.onfini(self.ahaclient)
 
             async def finiaha():
                 await s_telepath.delAhaUrl(ahaurl)
@@ -2492,7 +2512,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if perms:
             p = []
             for perm in perms:
-                permdef = await self.getPermDef(perm)
+                permdef = self.getPermDef(perm)
                 if permdef is not None:
                     p.append(permdef)
             kwargs['perms'] = p
@@ -2602,11 +2622,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield dirn
 
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
+        '''
+        Add a HTTPS listener to the Cell.
+
+        Args:
+            port (int): The listening port to bind.
+            host (str): The listening host.
+            sslctx (ssl.SSLContext): An externally managed SSL Context.
+
+        Note:
+            If the SSL context is not provided, the Cell will assume it
+            manages the SSL context it creates for a given listener and will
+            add a reload handler named https:certs to enabled reloading the
+            SSL certificates from disk.
+        '''
 
         addr = socket.gethostbyname(host)
 
+        managed_ctx = False
         if sslctx is None:
 
+            managed_ctx = True
             pkeypath = os.path.join(self.dirn, 'sslkey.pem')
             certpath = os.path.join(self.dirn, 'sslcert.pem')
 
@@ -2627,7 +2663,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
         serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
-        return list(serv._sockets.values())[0].getsockname()
+
+        lhost, lport = list(serv._sockets.values())[0].getsockname()
+
+        if managed_ctx:
+            # If the Cell is managing the SSLCtx, then we register a reload handler
+            # for it which reloads the pkey / cert.
+            def reload():
+                sslctx.load_cert_chain(certpath, pkeypath)
+                return True
+
+            self.addReloadableSystem('https:certs', reload)
+
+        return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
 
@@ -3874,6 +3922,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         availmem = s_thisplat.getAvailableMemory()
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
+        sysctls = s_thisplat.getSysctls()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -3889,6 +3938,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
+            'sysctls': sysctls                 # Performance related sysctls
         }
 
         return retn
@@ -3897,3 +3947,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getSpooledSet(self):
         async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
             yield sset
+
+    async def addSignalHandlers(self):
+        await s_base.Base.addSignalHandlers(self)
+
+        def sighup():
+            asyncio.create_task(self.reload())
+
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGHUP, sighup)
+
+    def addReloadableSystem(self, name: str, func: callable):
+        '''
+        Add a reloadable system. This may be dynamically called at at time.
+
+        Args:
+            name (str): Name of the system.
+            func: The callable for reloading a given system.
+
+        Note:
+            Reload functions take no arguments when they are executed.
+            Values returned by the reload function must be msgpack friendly.
+
+        Returns:
+            None
+        '''
+        self._reloadfuncs[name] = func
+
+    def getReloadableSystems(self):
+        return tuple(self._reloadfuncs.keys())
+
+    async def reload(self, subsystem=None):
+        ret = {}
+        if subsystem:
+            func = self._reloadfuncs.get(subsystem)
+            if func is None:
+                raise s_exc.NoSuchName(mesg=f'No reload system named {subsystem}',
+                                       name=subsystem)
+            ret[subsystem] = await self._runReloadFunc(subsystem, func)
+        else:
+            # Run all funcs
+            for (rname, func) in self._reloadfuncs.items():
+                ret[rname] = await self._runReloadFunc(rname, func)
+        return ret
+
+    async def _runReloadFunc(self, name, func):
+        try:
+            logger.debug(f'Running cell reload system {name}')
+            ret = await s_coro.ornot(func)
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception(f'Error running reload system {name}')
+            return s_common.retnexc(e)
+        logger.debug(f'Completed cell reload system {name}')
+        return (True, ret)

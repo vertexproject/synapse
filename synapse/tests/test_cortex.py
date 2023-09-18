@@ -6,6 +6,8 @@ import asyncio
 import hashlib
 import logging
 
+import regex
+
 from unittest.mock import patch
 
 import synapse.exc as s_exc
@@ -21,6 +23,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.backup as s_tools_backup
@@ -364,6 +367,8 @@ class CortexTest(s_t_utils.SynTest):
                 await core00.nodes('trigger.add node:del --form inet:fqdn --query {[test:str=foo]}', opts=view00opts)
 
                 await core01.nodes('inet:fqdn=vertex.link | delnode', opts=view01opts)
+
+                await core00.sync()
                 self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
                 self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 
@@ -1449,6 +1454,210 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('test:str~="zip"'))
             self.len(1, await core.nodes('.favcolor~="^r"'))
+
+    async def test_cortex_lift_reverse(self):
+
+        async with self.getTestCore() as core:
+
+            async def nodeVals(query, prop=None, tag=None):
+                nodes = await core.nodes(query)
+                if prop:
+                    return [node.props.get(prop) for node in nodes]
+                if tag:
+                    return [node.tags.get(tag) for node in nodes]
+                return [node.ndef[1] for node in nodes]
+
+            async def buidRevEq(query):
+                set1 = await nodeVals(query)
+                set2 = await nodeVals(f'reverse({query})')
+                set1.reverse()
+                self.len(5, set1)
+                self.len(5, set2)
+                self.eq(set1, set2)
+
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x ]}')
+
+            self.eq([0, 1, 2, 3, 4], await nodeVals('test:int'))
+            self.eq([4, 3, 2, 1, 0], await nodeVals('reverse(test:int)'))
+
+            self.eq([0, 1, 2, 3], await nodeVals('test:int<=3'))
+            self.eq([3, 2, 1, 0], await nodeVals('reverse(test:int<=3)'))
+
+            self.eq([0, 1, 2], await nodeVals('test:int<3'))
+            self.eq([2, 1, 0], await nodeVals('reverse(test:int<3)'))
+
+            self.eq([2, 3, 4], await nodeVals('test:int>=2'))
+            self.eq([4, 3, 2], await nodeVals('reverse(test:int>=2)'))
+
+            self.eq([3, 4], await nodeVals('test:int>2'))
+            self.eq([4, 3], await nodeVals('reverse(test:int>2)'))
+
+            self.eq([1, 2, 3], await nodeVals('test:int*range=(1, 3)'))
+            self.eq([3, 2, 1], await nodeVals('reverse(test:int*range=(1, 3))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ file:bytes=* :size=5 ]}')
+            await buidRevEq('file:bytes:size=5')
+
+            await core.nodes('for $x in $lib.range(3) {[ test:str=`foo{$x}` test:str=`bar{$x}` ]}')
+
+            self.eq(['foo0', 'foo1', 'foo2'], await nodeVals('test:str~=foo'))
+            self.eq(['foo2', 'foo1', 'foo0'], await nodeVals('reverse(test:str~=foo)'))
+
+            await core.nodes('for $x in $lib.range(5) {[ risk:vuln=($x,) :name=eq :desc=`v{$x}` ]}')
+            await buidRevEq('risk:vuln:name=eq')
+
+            self.eq(['v2', 'v3', 'v4'], await nodeVals('risk:vuln:desc*range=(v2, v4)', prop='desc'))
+            self.eq(['v4', 'v3', 'v2'], await nodeVals('reverse(risk:vuln:desc*range=(v2, v4))', prop='desc'))
+
+            self.eq(['v0', 'v1', 'v2', 'v3', 'v4'], await nodeVals('risk:vuln:desc^=v', prop='desc'))
+            self.eq(['v4', 'v3', 'v2', 'v1', 'v0'], await nodeVals('reverse(risk:vuln:desc^=v)', prop='desc'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:ipv4=$x :loc=`foo.bar` ]}')
+            await buidRevEq('inet:ipv4:loc=foo.bar')
+
+            await core.nodes('for $x in $lib.range(3) {[ inet:ipv4=$x :loc=`loc.{$x}` ]}')
+
+            self.eq(['loc.0', 'loc.1', 'loc.2'], await nodeVals('inet:ipv4:loc^=loc', prop='loc'))
+            self.eq(['loc.2', 'loc.1', 'loc.0'], await nodeVals('reverse(inet:ipv4:loc^=loc)', prop='loc'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:fqdn=`f{$x}.lk` ]}')
+
+            self.eq(['f0.lk', 'f1.lk', 'f2.lk', 'f3.lk', 'f4.lk'], await nodeVals('inet:fqdn=*.lk'))
+            self.eq(['f4.lk', 'f3.lk', 'f2.lk', 'f1.lk', 'f0.lk'], await nodeVals('reverse(inet:fqdn=*.lk)'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:ipv6=$x ]}')
+
+            self.eq(['::', '::1', '::2', '::3', '::4'], await nodeVals('inet:ipv6'))
+            self.eq(['::4', '::3', '::2', '::1', '::'], await nodeVals('reverse(inet:ipv6)'))
+
+            self.eq(['::', '::1', '::2', '::3'], await nodeVals('inet:ipv6<=(3)'))
+            self.eq(['::3', '::2', '::1', '::'], await nodeVals('reverse(inet:ipv6<=(3))'))
+
+            self.eq(['::', '::1', '::2'], await nodeVals('inet:ipv6<(3)'))
+            self.eq(['::2', '::1', '::'], await nodeVals('reverse(inet:ipv6<(3))'))
+
+            self.eq(['::2', '::3', '::4'], await nodeVals('inet:ipv6>=(2)'))
+            self.eq(['::4', '::3', '::2'], await nodeVals('reverse(inet:ipv6>=(2))'))
+
+            self.eq(['::3', '::4'], await nodeVals('inet:ipv6>(2)'))
+            self.eq(['::4', '::3'], await nodeVals('reverse(inet:ipv6>(2))'))
+
+            self.eq(['::1', '::2', '::3'], await nodeVals('inet:ipv6*range=((1), (3))'))
+            self.eq(['::3', '::2', '::1'], await nodeVals('reverse(inet:ipv6*range=((1), (3)))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:server=`[::5]:{$x}` ]}')
+            await buidRevEq('inet:server:ipv6="::5"')
+
+            await core.nodes('for $x in $lib.range(5) {[ test:hugenum=$x ]}')
+
+            self.eq(['0', '1', '2', '3', '4'], await nodeVals('test:hugenum'))
+            self.eq(['4', '3', '2', '1', '0'], await nodeVals('reverse(test:hugenum)'))
+
+            self.eq(['0', '1', '2', '3'], await nodeVals('test:hugenum<=3'))
+            self.eq(['3', '2', '1', '0'], await nodeVals('reverse(test:hugenum<=3)'))
+
+            self.eq(['0', '1', '2'], await nodeVals('test:hugenum<3'))
+            self.eq(['2', '1', '0'], await nodeVals('reverse(test:hugenum<3)'))
+
+            self.eq(['2', '3', '4'], await nodeVals('test:hugenum>=2'))
+            self.eq(['4', '3', '2'], await nodeVals('reverse(test:hugenum>=2)'))
+
+            self.eq(['3', '4'], await nodeVals('test:hugenum>2'))
+            self.eq(['4', '3'], await nodeVals('reverse(test:hugenum>2)'))
+
+            self.eq(['1', '2', '3'], await nodeVals('test:hugenum*range=(1, 3)'))
+            self.eq(['3', '2', '1'], await nodeVals('reverse(test:hugenum*range=(1, 3))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ econ:purchase=* :price=5 ]}')
+            await buidRevEq('econ:purchase:price=5')
+
+            await core.nodes('for $x in $lib.range(5) {[ test:float=($x - 2) ]}')
+
+            self.eq([0.0, 1.0, 2.0, -1.0, -2.0], await nodeVals('test:float'))
+            self.eq([-2.0, -1.0, 2.0, 1.0, 0.0], await nodeVals('reverse(test:float)'))
+
+            self.eq([-2.0, -1.0, 0.0, 1.0], await nodeVals('test:float<=1'))
+            self.eq([1.0, 0.0, -1.0, -2.0], await nodeVals('reverse(test:float<=1)'))
+
+            self.eq([-2.0, -1.0, 0.0], await nodeVals('test:float<1'))
+            self.eq([0.0, -1.0, -2.0], await nodeVals('reverse(test:float<1)'))
+
+            self.eq([-1.0, 0.0, 1.0, 2.0], await nodeVals('test:float>=-1'))
+            self.eq([2.0, 1.0, 0.0, -1.0], await nodeVals('reverse(test:float>=-1)'))
+
+            self.eq([0.0, 1.0, 2.0], await nodeVals('test:float>=0'))
+            self.eq([2.0, 1.0, 0.0], await nodeVals('reverse(test:float>=0)'))
+
+            self.eq([0.0, 1.0, 2.0], await nodeVals('test:float>-1'))
+            self.eq([2.0, 1.0, 0.0], await nodeVals('reverse(test:float>-1)'))
+
+            self.eq([-1.0, 0.0, 1.0], await nodeVals('test:float*range=(-1, 1)'))
+            self.eq([1.0, 0.0, -1.0], await nodeVals('reverse(test:float*range=(-1, 1))'))
+
+            self.eq([0.0, 1.0], await nodeVals('test:float*range=(0, 1)'))
+            self.eq([1.0, 0.0], await nodeVals('reverse(test:float*range=(0, 1))'))
+
+            self.eq([-2.0, -1.0], await nodeVals('test:float*range=(-2, -1)'))
+            self.eq([-1.0, -2.0], await nodeVals('reverse(test:float*range=(-2, -1))'))
+
+            await core.nodes('for $x in $lib.range(5) {[ risk:vuln=* :cvss:v3_0:score=1.0 ]}')
+            await buidRevEq('risk:vuln:cvss:v3_0:score=1.0')
+
+            await core.nodes(f'for $x in $lib.range(5) {{[ risk:vuln=* :reporter={"a" * 32} ]}}')
+            await buidRevEq(f'risk:vuln:reporter={"a" * 32}')
+
+            pref = 'a' * 31
+            await core.nodes(f'for $x in $lib.range(3) {{[ test:guid=`{pref}{{$x}}` ]}}')
+
+            self.eq([f'{pref}0', f'{pref}1', f'{pref}2'], await nodeVals(f'test:guid^={pref[:-1]}'))
+            self.eq([f'{pref}2', f'{pref}1', f'{pref}0'], await nodeVals(f'reverse(test:guid^={pref[:-1]})'))
+
+            await core.nodes('for $x in $lib.range(5) {[ ou:org=* :founded=`202{$x}` ]}')
+
+            self.eq((1609459200000, 1640995200000),
+                    await nodeVals('ou:org:founded@=(2021, 2023)', prop='founded'))
+            self.eq((1640995200000, 1609459200000),
+                    await nodeVals('reverse(ou:org:founded@=(2021, 2023))', prop='founded'))
+
+            await core.nodes('for $x in $lib.range(5) {[ test:str=$x .seen=`202{$x}` ]}')
+
+            i2021 = (1609459200000, 1609459200001)
+            i2022 = (1640995200000, 1640995200001)
+            self.eq([i2021, i2022], await nodeVals('test:str.seen@=(2021, 2023)', prop='.seen'))
+            self.eq([i2022, i2021], await nodeVals('reverse(test:str.seen@=(2021, 2023))', prop='.seen'))
+
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x .seen=(2025, 2026) ]}')
+            await buidRevEq('test:int.seen=(2025, 2026)')
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:flow=($x,) :raw=(["foo"]) ]}')
+            await buidRevEq('inet:flow:raw=(["foo"])')
+
+            await core.nodes('for $x in $lib.range(5) {[ inet:flow=* :raw=`bar{$x}` ]}')
+            await buidRevEq('inet:flow:raw~=bar')
+
+            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :latlong=(90, 90) ]}')
+            await buidRevEq('geo:telem:latlong=(90, 90)')
+
+            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :latlong=($x, $x) ]}')
+
+            self.eq([(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)],
+                    await nodeVals('geo:telem:latlong*near=((0, 0), 400km)', prop='latlong'))
+            self.eq([(2.0, 2.0), (1.0, 1.0), (0.0, 0.0)],
+                    await nodeVals('reverse(geo:telem:latlong*near=((0, 0), 400km))', prop='latlong'))
+
+            await core.nodes('[ inet:dns:a=(foo.com, 0.0.0.0) inet:dns:a=(bar.com, 0.0.0.0) ]')
+
+            self.eq([0, ('foo.com', 0), ('bar.com', 0)], await nodeVals('inet:ipv4*type=0.0.0.0'))
+            self.eq([('bar.com', 0), ('foo.com', 0), 0], await nodeVals('reverse(inet:ipv4*type=0.0.0.0)'))
+
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x +#foo=2021 ]}')
+            await buidRevEq('test:int#foo')
+            await buidRevEq('test:int#foo=2021')
+
+            await core.addTagProp('test', ('int', {}), {})
+            await core.nodes('for $x in $lib.range(5) {[ test:int=$x +#foo:test=10 ]}')
+            await buidRevEq('#foo:test')
+            await buidRevEq('test:int#foo:test=10')
 
     async def test_indxchop(self):
 
@@ -2818,10 +3027,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             for node in nodes:
                 if node[0][0] == 'inet:dns:a':
-                    edges = node[1]['path']['edges']
-                    idens = list(sorted(e[0] for e in edges))
-                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                                    'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
+                    self.len(0, node[1]['path']['edges'])
+                elif node[0][0] == 'inet:ipv4':
+                    self.eq(node[1]['path']['edges'], (
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'ipv4', 'reverse': True}),
+                    ))
+                elif node[0] == ('inet:fqdn', 'woot.com'):
+                    self.eq(node[1]['path']['edges'], (
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                    ))
 
             await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
 
@@ -2829,13 +3043,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(3, nodes)
-            self.eq(nodes[0][0][0], 'edge:refs')
-            edges = nodes[0][1]['path']['edges']
-            idens = list(sorted(e[0] for e in edges))
-            self.eq(idens, (
-                '2ff879e667e9cca52f1c78485f7864c4c5a242c67d4b90105210dde8edf3c068',
-                '979b56497b5fd75813676738172c2f435aee3e4bdcf43930843eba5b34bb06fc',
-            ))
+            self.len(0, nodes[0][1]['path']['edges'])
+            self.len(1, nodes[1][1]['path']['edges'])
+            self.len(1, nodes[2][1]['path']['edges'])
 
     async def test_onadd(self):
         arg_hit = {}
@@ -2938,7 +3148,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             otherpkg = {
                 'name': 'foosball',
                 'version': '0.0.1',
-                'synapse_minversion': (2, 8, 0),
+                'synapse_minversion': (2, 144, 0),
+                'synapse_version': '>=2.8.0,<3.0.0',
             }
             self.none(await proxy.addStormPkg(otherpkg))
             pkgs = await proxy.getStormPkgs()
@@ -2970,54 +3181,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(core.storm('.created | limit 1 | help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-            self.len(1, [n for n in msgs if n[0] == 'node'])
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-
-            msgs = await alist(core.storm('help view'))
-            self.stormIsInPrint('view.merge', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            msgs = await alist(core.storm('help newp'))
-            self.stormIsInPrint('No commands found matching "newp"', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            # test that storm package commands that didn't come from
-            # a storm service are displayed
-            otherpkg = {
-                'name': 'foosball',
-                'version': '0.0.1',
-                'synapse_minversion': (2, 8, 0),
-                'commands': ({
-                    'name': 'testcmd',
-                    'descr': 'test command',
-                    'storm': '[ inet:ipv4=1.2.3.4 ]',
-                },)
-            }
-            self.none(await core.addStormPkg(otherpkg))
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: foosball')
-            self.stormIsInPrint('testcmd', msgs)
-            self.stormIsInPrint(': test command', msgs)
-
-            msgs = await alist(core.storm('help testcmd'))
-            self.stormIsInPrint('testcmd', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('view.merge', msgs)
-
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
-            self.stormIsInErr('help does not support per-node invocation', msgs)
-
             await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
             self.eq(2, await core.count('inet:user'))
@@ -3046,6 +3209,28 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadVersion):
                 await core.addStormPkg(oldverpkg)
 
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=1337.0.0,<2000.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
+            oldverpkg = {
+                'name': 'versionfail',
+                'version': (0, 0, 1),
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=0.0.1,<2.0.0',
+                'commands': ()
+            }
+
+            with self.raises(s_exc.BadVersion):
+                await core.addStormPkg(oldverpkg)
+
             noverpkg = {
                 'name': 'nomin',
                 'version': (0, 0, 1),
@@ -3066,6 +3251,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
 
             await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(badcmdpkg))
+            await self.asyncraises(s_exc.BadArg, s_common.aspin(core.storm(None)))
 
     async def test_onsetdel(self):
 
@@ -3875,6 +4061,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('A baz beep!', nodes[0].ndef[1])
+
+            q = 'return ( $lib.test.someargs(hehe, bar=haha, faz=wow) )'
+            valu = await core.callStorm(q)
+            self.eq(valu, 'A hehe beep which haha the wow!')
 
     async def test_storm_type_node(self):
 
@@ -5825,12 +6015,20 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_addview(self):
         async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+
             (await core.addLayer()).get('iden')
             deflayr = (await core.getLayerDef()).get('iden')
 
             vdef = {'layers': (deflayr,)}
             view = (await core.addView(vdef)).get('iden')
             self.nn(core.getView(view))
+            self.false(visi.allowed(('view', 'read'), gateiden=view))
+
+            vdef['worldreadable'] = True
+            view = (await core.addView(vdef)).get('iden')
+            self.nn(core.getView(view))
+            self.true(visi.allowed(('view', 'read'), gateiden=view))
 
             # Missing layers
             vdef = {'name': 'mylayer'}
@@ -5914,6 +6112,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('$lib.dmon.del(newp)')
+
+            await core.stormlist('auth.user.add user')
+            user = await core.auth.getUserByName('user')
+            asuser = {'user': user.iden}
+
+            ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
+            iden = ddef.get('iden')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(f'$lib.dmon.del({iden})', opts=asuser)
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -6506,7 +6714,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                         {  # type: ignore
                             'name': 'foo',
                             'version': (0, 0, 1),
-                            'synapse_minversion': (2, 100, 0),
+                            'synapse_minversion': [2, 144, 0],
+                            'synapse_version': '>=2.100.0,<3.0.0',
                             'modules': [],
                             'commands': []
                         }
@@ -7248,3 +7457,83 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('macro.exec woot')
             self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint('hi there', msgs)
+
+    async def test_cortex_depr_props_warning(self):
+
+        conf = {
+            'modules': [
+                'synapse.tests.test_datamodel.DeprecatedModel',
+            ]
+        }
+
+        with self.getTestDir() as dirn:
+            with self.getLoggerStream('synapse.cortex') as stream:
+
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+
+                    # Create a test:deprprop so it doesn't generate a warning
+                    await core.callStorm('[test:dep:easy=foobar :guid=*]')
+
+                    # Lock test:deprprop:ext and .pdep so they don't generate a warning
+                    await core.callStorm('model.deprecated.lock test:dep:str')
+                    await core.callStorm('model.deprecated.lock ".pdep"')
+
+                # Check that we saw the warnings
+                stream.seek(0)
+                data = stream.read()
+
+                self.eq(1, data.count('deprecated properties unlocked'))
+                self.isin('deprecated properties unlocked and not in use', data)
+
+                match = regex.match(r'Detected (?P<count>\d+) deprecated properties', data)
+                count = int(match.groupdict().get('count'))
+
+                here = stream.tell()
+
+                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                    pass
+
+                # Check that the warnings are gone now
+                stream.seek(here)
+                data = stream.read()
+
+                self.eq(1, data.count('deprecated properties unlocked'))
+                self.isin(f'Detected {count - 4} deprecated properties', data)
+
+    async def test_cortex_dmons_after_modelrev(self):
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
+
+                # Add a dmon so something gets started
+                await core.callStorm('''
+                    $ddef = $lib.dmon.add(${
+                        $lib.print(hi)
+                        $lib.warn(omg)
+                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $lib.log.info($s, ({"iden": $auto.iden}))
+                    })
+                ''')
+
+                # Create this so we can find the model rev version before the
+                # latest
+                mrev = s_modelrev.ModelRev(core)
+
+                # Add a layer and regress the version so it gets migrated on the
+                # next start
+                ldef = await core.addLayer()
+                layr = core.getLayer(ldef['iden'])
+                await layr.setModelVers(mrev.revs[-2][0])
+
+            with self.getLoggerStream('') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
+            stream.seek(0)
+            data = stream.read()
+
+            # Check that the model migration happens before the dmons start
+            mrevstart = data.find('beginning model migration')
+            dmonstart = data.find('Starting Dmon')
+            self.ne(-1, mrevstart)
+            self.ne(-1, dmonstart)
+            self.lt(mrevstart, dmonstart)

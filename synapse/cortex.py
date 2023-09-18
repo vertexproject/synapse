@@ -63,6 +63,7 @@ import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.math as s_stormlib_math  # NOQA
 import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
+import synapse.lib.stormlib.pack as s_stormlib_pack  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
@@ -189,7 +190,7 @@ class CoreApi(s_cell.CellApi):
 
     def stat(self):
         self.user.confirm(('status',))
-        s_common.deprecated('CoreApi.stat')
+        s_common.deprdate('Cortex.stat() telepath API', s_common._splicedepr)
         return self.cell.stat()
 
     async def getModelDict(self):
@@ -288,7 +289,7 @@ class CoreApi(s_cell.CellApi):
         '''
         cdef['creator'] = self.user.iden
 
-        s_common.deprecated('CoreApi.addCronJob')
+        s_common.deprdate('Cortex.addCronJob() telepath API', s_common._splicedepr)
         self.user.confirm(('cron', 'add'), gateiden='cortex')
         return await self.cell.addCronJob(cdef)
 
@@ -301,7 +302,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be deleted
         '''
-        s_common.deprecated('CoreApi.delCronJob')
+        s_common.deprdate('Cortex.delCronJob() telepath API', s_common._splicedepr)
         self.user.confirm(('cron', 'del'), gateiden=iden)
         await self.cell.delCronJob(iden)
 
@@ -314,7 +315,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('CoreApi.updateCronJob')
+        s_common.deprdate('Cortex.updateCronJob() telepath API', s_common._splicedepr)
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.updateCronJob(iden, query)
 
@@ -327,7 +328,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('CoreApi.enableCronJob')
+        s_common.deprdate('Cortex.enableCronJob() telepath API', s_common._splicedepr)
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.enableCronJob(iden)
 
@@ -340,7 +341,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             iden (bytes):  The iden of the cron job to be changed
         '''
-        s_common.deprecated('CoreApi.disableCronJob')
+        s_common.deprdate('Cortex.disableCronJob() telepath API', s_common._splicedepr)
         self.user.confirm(('cron', 'set'), gateiden=iden)
         await self.cell.disableCronJob(iden)
 
@@ -350,7 +351,7 @@ class CoreApi(s_cell.CellApi):
 
         Get information about all the cron jobs accessible to the current user
         '''
-        s_common.deprecated('CoreApi.listCronJobs')
+        s_common.deprdate('Cortex.listCronJobs() telepath API', s_common._splicedepr)
 
         crons = []
         for cron in await self.cell.listCronJobs():
@@ -369,6 +370,8 @@ class CoreApi(s_cell.CellApi):
         iden = str(iden)
         name = str(name)
 
+        s_common.deprdate('Cortex.editCronJob() telepath API', s_common._splicedepr)
+
         if name == 'creator':
             # this permission must be granted cortex wide
             # to prevent abuse...
@@ -383,6 +386,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Set the definition of a pure storm command in the cortex.
         '''
+        s_common.deprdate('Cortex.setStormCmd() telepath API', s_common._splicedepr)
         self.user.confirm(('admin', 'cmds'))
         return await self.cell.setStormCmd(cdef)
 
@@ -390,6 +394,7 @@ class CoreApi(s_cell.CellApi):
         '''
         Remove a pure storm command from the cortex.
         '''
+        s_common.deprdate('Cortex.delStormCmd() telepath API', s_common._splicedepr)
         self.user.confirm(('admin', 'cmds'))
         return await self.cell.delStormCmd(name)
 
@@ -409,27 +414,31 @@ class CoreApi(s_cell.CellApi):
             tag (str):  A tag string.
             valu (tuple):  A time interval tuple or (None, None).
         '''
-        s_common.deprecated('CoreApi.addNodeTag')
+        s_common.deprdate('Cortex.addNodeTag() telepath API', s_common._splicedepr)
         await self._reqDefLayerAllowed(('node', 'tag', 'add', *tag.split('.')))
         return await self.cell.addNodeTag(self.user, iden, tag, valu)
 
     async def delNodeTag(self, iden, tag):
         '''
+        This API is deprecated.
+
         Delete a tag from the node specified by iden. Deprecated in 2.0.0.
 
         Args:
             iden (str): A hex encoded node BUID.
             tag (str):  A tag string.
         '''
-        s_common.deprecated('CoreApi.delNodeTag')
+        s_common.deprdate('Cortex.delNodeTag() telepath API', s_common._splicedepr)
         await self._reqDefLayerAllowed(('node', 'tag', 'del', *tag.split('.')))
         return await self.cell.delNodeTag(self.user, iden, tag)
 
     async def setNodeProp(self, iden, name, valu):
         '''
-        Set a property on a single node. Deprecated in 2.0.0.
+        This API is deprecated.
+
+        Set a property on a single node.
         '''
-        s_common.deprecated('CoreApi.setNodeProp')
+        s_common.deprdate('Cortex.setNodeProp() telepath API', s_common._splicedepr)
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -448,9 +457,11 @@ class CoreApi(s_cell.CellApi):
 
     async def delNodeProp(self, iden, name):
         '''
-        Delete a property from a single node. Deprecated in 2.0.0.
+        This API is deprecated.
+
+        Delete a property from a single node.
         '''
-        s_common.deprecated('CoreApi.delNodeProp')
+        s_common.deprdate('Cortex.delNodeProp() telepath API', s_common._splicedepr)
         buid = s_common.uhex(iden)
 
         async with await self.cell.snap(user=self.user) as snap:
@@ -570,11 +581,11 @@ class CoreApi(s_cell.CellApi):
 
     async def eval(self, text, opts=None):
         '''
-        Evaluate a storm query and yield packed nodes.
+        This API is deprecated.
 
-        NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
+        Evaluate a storm query and yield packed nodes.
         '''
-        s_common.deprecated('CoreApi.eval')
+        s_common.deprdate('Cortex.eval() telepath API', s_common._splicedepr)
         opts = self._reqValidStormOpts(opts)
         view = self.cell._viewFromOpts(opts)
         async for pode in view.iterStormPodes(text, opts=opts):
@@ -621,7 +632,7 @@ class CoreApi(s_cell.CellApi):
             async for mesg in core.watch(wdef):
                 dostuff(mesg)
         '''
-        s_common.deprecated('CoreApi.watch')
+        s_common.deprdate('Cortex.watch() telepath API', s_common._splicedepr)
         iden = wdef.get('view', self.cell.view.iden)
         self.user.confirm(('watch',), gateiden=iden)
 
@@ -652,7 +663,7 @@ class CoreApi(s_cell.CellApi):
 
         Return the list of splices at the given offset.
         '''
-        s_common.deprecated('CoreApi.splices')
+        s_common.deprdate('Cortex.splices() telepath API', s_common._splicedepr)
         layr = self.cell.getLayer(layriden)
         count = 0
         async for mesg in layr.splices(offs=offs, size=size):
@@ -668,7 +679,7 @@ class CoreApi(s_cell.CellApi):
 
         Return the list of splices backwards from the given offset.
         '''
-        s_common.deprecated('CoreApi.splicesBack')
+        s_common.deprdate('Cortex.splicesBack() telepath API', s_common._splicedepr)
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
@@ -684,7 +695,7 @@ class CoreApi(s_cell.CellApi):
 
         Will only return the user's own splices unless they are an admin.
         '''
-        s_common.deprecated('CoreApi.spliceHistory')
+        s_common.deprdate('Cortex.spliceHistory() telepath API', s_common._splicedepr)
         async for splice in self.cell.spliceHistory(self.user):
             yield splice
 
@@ -1143,6 +1154,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
+        self.migration = False
 
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
@@ -1223,7 +1235,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.stormdmons)
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
-        await self._initStormDmons()
         await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
@@ -1241,6 +1252,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.svchive = await svchive.dict()
 
         await self._initDeprLocks()
+        await self._warnDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1534,12 +1546,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
 
-    async def _getPermDefs(self):
+    def _getPermDefs(self):
 
-        permdefs = list(await s_cell.Cell._getPermDefs(self))
+        permdefs = list(s_cell.Cell._getPermDefs(self))
         permdefs.extend(self._cortex_permdefs)
 
-        for spkg in await self.getStormPkgs():
+        for spkg in self._getStormPkgs():
             permdefs.extend(spkg.get('perms', ()))
 
         for (path, ctor) in self.stormlibs:
@@ -1582,6 +1594,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkLayerModels()
 
+        await self._initStormDmons()
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1639,9 +1652,44 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if not prop.deprecated:
                 continue
 
+            # Skip universal properties on other props
+            if not prop.isform and prop.univ is not None:
+                continue
+
             retn[prop.full] = prop.locked
 
         return retn
+
+    async def _warnDeprLocks(self):
+        # Check for deprecated properties which are unused and unlocked
+        deprs = await self.getDeprLocks()
+
+        count = 0
+
+        for propname, locked in deprs.items():
+            if locked:
+                continue
+
+            prop = self.model.props.get(propname)
+
+            for layr in self.layers.values():
+                if not prop.isform and prop.isuniv:
+                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                        break
+
+                else:
+                    if await layr.getPropCount(propname, maxsize=1):
+                        break
+
+                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
+                        break
+            else:
+                count += 1
+
+        if count:
+            mesg = f'Detected {count} deprecated properties unlocked and not in use, '
+            mesg += 'recommend locking (https://v.vtx.lk/deprlock).'
+            logger.warning(mesg)
 
     async def reqValidStormGraph(self, gdef):
         for filt in gdef.get('filters', ()):
@@ -2195,10 +2243,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return (buid, sodelist)
 
-    async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None):
+    async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None, reverse=False):
         lastbuid = None
         sodes = {}
-        async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
+        async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
             if not buid == lastbuid or layr in sodes:
                 if lastbuid is not None:
                     sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
@@ -2213,11 +2261,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if sodelist is not None:
                 yield sodelist
 
-    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None):
+    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None, reverse=False):
         lastbuid = None
         sodes = {}
         async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
-            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey):
+            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
                 if buid in uniqset:
                     continue
 
@@ -2252,24 +2300,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
             yield sodes
 
-    async def _liftByProp(self, form, prop, layers):
+    async def _liftByProp(self, form, prop, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByProp(form, prop):
+            async for _, buid, sode in layers[0].liftByProp(form, prop, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
         genrs = []
         for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop)))
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop, reverse=reverse)))
 
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx, reverse=reverse):
             yield sodes
 
-    async def _liftByPropValu(self, form, prop, cmprvals, layers):
+    async def _liftByPropValu(self, form, prop, cmprvals, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropValu(form, prop, cmprvals):
+            async for _, buid, sode in layers[0].liftByPropValu(form, prop, cmprvals, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
@@ -2282,15 +2330,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cval in cmprvals:
             genrs = []
             for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,))))
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,), reverse=reverse)))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
                 yield sodes
 
-    async def _liftByPropArray(self, form, prop, cmprvals, layers):
+    async def _liftByPropArray(self, form, prop, cmprvals, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropArray(form, prop, cmprvals):
+            async for _, buid, sode in layers[0].liftByPropArray(form, prop, cmprvals, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
@@ -2306,30 +2354,30 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cval in cmprvals:
             genrs = []
             for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,))))
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,), reverse=reverse)))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
                 yield sodes
 
-    async def _liftByFormValu(self, form, cmprvals, layers):
+    async def _liftByFormValu(self, form, cmprvals, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByFormValu(form, cmprvals):
+            async for _, buid, sode in layers[0].liftByFormValu(form, cmprvals, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
         for cval in cmprvals:
             genrs = []
             for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,))))
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,), reverse=reverse)))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, reverse=reverse):
                 yield sodes
 
-    async def _liftByTag(self, tag, form, layers):
+    async def _liftByTag(self, tag, form, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTag(tag, form):
+            async for _, buid, sode in layers[0].liftByTag(tag, form, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
@@ -2344,15 +2392,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         genrs = []
         for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form)))
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form, reverse=reverse)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr, reverse=reverse):
             yield sodes
 
-    async def _liftByTagValu(self, tag, cmpr, valu, form, layers):
+    async def _liftByTagValu(self, tag, cmpr, valu, form, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form):
+            async for _, buid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
@@ -2364,29 +2412,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         genrs = []
         for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form)))
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form, reverse=reverse)))
 
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr):
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr, reverse=reverse):
             yield sodes
 
-    async def _liftByTagProp(self, form, tag, prop, layers):
+    async def _liftByTagProp(self, form, tag, prop, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagProp(form, tag, prop):
+            async for _, buid, sode in layers[0].liftByTagProp(form, tag, prop, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
         genrs = []
         for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop)))
+            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop, reverse=reverse)))
 
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx):
+        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx, reverse=reverse):
             yield sodes
 
-    async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers):
+    async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers, reverse=False):
         if len(layers) == 1:
             layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals):
+            async for _, buid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
                 yield (buid, [(layr, sode)])
             return
 
@@ -2402,9 +2450,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cval in cmprvals:
             genrs = []
             for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,))))
+                genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse)))
 
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr):
+            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
                 yield sodes
 
     async def _setStormCmd(self, cdef):
@@ -2601,6 +2649,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return copy.deepcopy(self.stormpkgs.get(name))
 
     async def getStormPkgs(self):
+        return self._getStormPkgs()
+
+    def _getStormPkgs(self):
         return copy.deepcopy(list(self.pkghive.values()))
 
     async def getStormMods(self):
@@ -2747,6 +2798,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
                    f'Cortex is running {s_version.version}'
             raise s_exc.BadVersion(mesg=mesg)
+
+        # Check synapse version requirement
+        reqversion = pkgdef.get('synapse_version')
+        if reqversion is not None:
+            mesg = f'Storm package {pkgname} requires Synapse {reqversion} but ' \
+                   f'Cortex is running {s_version.version}'
+            s_version.reqVersion(s_version.version, reqversion, mesg=mesg)
 
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
@@ -3167,6 +3225,112 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async with self.watcher(wdef) as wind:
             async for mesg in wind:
                 yield mesg
+
+    async def getExtModel(self):
+        '''
+        Get all extended model properties in the Cortex.
+
+        Returns:
+            dict: A dictionary containing forms, form properties, universal properties and tag properties.
+        '''
+        ret = collections.defaultdict(list)
+        for formname, basetype, typeopts, typeinfo in self.extforms.values():
+            ret['forms'].append((formname, basetype, typeopts, typeinfo))
+
+        for form, prop, tdef, info in self.extprops.values():
+            ret['props'].append((form, prop, tdef, info))
+
+        for prop, tdef, info in self.extunivs.values():
+            ret['univs'].append((prop, tdef, info))
+
+        for prop, tdef, info in self.exttagprops.values():
+            ret['tagprops'].append((prop, tdef, info))
+        ret['version'] = (1, 0)
+        return copy.deepcopy(dict(ret))
+
+    async def addExtModel(self, model):
+        '''
+        Add an extended model definition to a Cortex from the output of getExtModel().
+
+        Args:
+            model (dict): An extended model dictionary.
+
+        Returns:
+            Bool: True when the model was added.
+
+        Raises:
+            s_exc.BadFormDef: If a form exists with a different definition the provided definition.
+            s_exc.BadPropDef: If a propery, tagprop, or universal propert from exists with a different definition
+                              than the provided definition.
+        '''
+
+        # Get our current model definition
+        emodl = await self.getExtModel()
+        amodl = collections.defaultdict(list)
+
+        forms = {info[0]: info for info in model.get('forms', ())}
+        props = {(info[0], info[1]): info for info in model.get('props', ())}
+        tagprops = {info[0]: info for info in model.get('tagprops', ())}
+        univs = {info[0]: info for info in model.get('univs', ())}
+
+        efrms = {info[0]: info for info in emodl.get('forms', ())}
+        eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
+        etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
+        eunivs = {info[0]: info for info in emodl.get('univs', ())}
+
+        for (name, info) in forms.items():
+            enfo = efrms.get(name)
+            if enfo is None:
+                amodl['forms'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended form definition differs from existing definition for {name}.'
+            raise s_exc.BadFormDef(mesg)
+
+        for (name, info) in props.items():
+            enfo = eprops.get(name)
+            if enfo is None:
+                amodl['props'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended prop definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
+
+        for (name, info) in tagprops.items():
+            enfo = etagprops.get(name)
+            if enfo is None:
+                amodl['tagprops'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended tagprop definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
+
+        for (name, info) in univs.items():
+            enfo = eunivs.get(name)
+            if enfo is None:
+                amodl['univs'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended universal poroperty definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg)
+
+        for formname, basetype, typeopts, typeinfo in amodl['forms']:
+            await self.addForm(formname, basetype, typeopts, typeinfo)
+
+        for form, prop, tdef, info in amodl['props']:
+            await self.addFormProp(form, prop, tdef, info)
+
+        for prop, tdef, info in amodl['tagprops']:
+            await self.addTagProp(prop, tdef, info)
+
+        for prop, tdef, info in amodl['univs']:
+            await self.addUnivProp(prop, tdef, info)
+
+        return True
 
     async def addUnivProp(self, name, tdef, info):
         if not isinstance(tdef, tuple):
@@ -5015,7 +5179,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             pass
 
     async def _addSynSplice(self, snap, items):
-        s_common.deprecated('Cortex.addFeedData(syn.splice, ...)')
+        s_common.deprdate('Cortex.addFeedData(syn.splice, ...) API', s_common._splicedepr)
 
         for item in items:
             func = self.splicers.get(item[0])
@@ -5120,7 +5284,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await node.delTagProp(tag, prop)
 
     async def _addSynNodeEdits(self, snap, items):
-        s_common.deprecated('Cortex.addFeedData(syn.nodeedits, ...)')
+        s_common.deprdate('Cortex.addFeedData(syn.nodeedits, ...) API', s_common._splicedepr)
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.saveNodeEdits(item, None)
@@ -5315,11 +5479,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def eval(self, text, opts=None):
         '''
-        Evaluate a storm query and yield packed nodes.
+        This API is deprecated.
 
-        NOTE: This API is deprecated as of 2.0.0 and will be removed in 3.0.0
+        Evaluate a storm query and yield packed nodes.
         '''
-        s_common.deprecated('Cortex.eval')
+        s_common.deprdate('Cortex.eval() API', s_common._splicedepr)
         opts = self._initStormOpts(opts)
         view = self._viewFromOpts(opts)
         async for node in view.eval(text, opts=opts):
@@ -5384,14 +5548,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user, mode, view):
+    def _logStormQuery(self, text, user, info=None):
         '''
         Log a storm query.
         '''
         if self.stormlog:
+            if info is None:
+                info = {}
+            info['text'] = text
+            info['username'] = user.name
+            info['user'] = user.iden
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode,
-                                               'view': view}})
+                            extra={'synapse': info})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
@@ -5879,10 +6047,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mesg = f'editCronJob name {name} is not supported for editing.'
         raise s_exc.BadArg(mesg=mesg)
 
+    @contextlib.asynccontextmanager
+    async def enterMigrationMode(self):
+        await self._enableMigrationMode()
+        yield
+        await self._disableMigrationMode()
+
     async def _enableMigrationMode(self):
         '''
         Prevents cron jobs and triggers from running
         '''
+        self.migration = True
         self.agenda.enabled = False
         self.trigson = False
 
@@ -5890,6 +6065,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         Allows cron jobs and triggers to run
         '''
+        self.migration = False
         if self.conf.get('cron:enable'):
             self.agenda.enabled = True
 
@@ -6019,7 +6195,7 @@ async def getTempCortex(mods=None):
         Proxy to the cortex.
     '''
     with s_common.getTempDir() as dirn:
-
+        logger.debug(f'Creating temporary cortex as {dirn}')
         async with await Cortex.anit(dirn) as core:
             if mods:
                 for mod in mods:

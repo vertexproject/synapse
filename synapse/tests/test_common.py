@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import subprocess
 
@@ -289,6 +290,20 @@ class CommonTest(s_t_utils.SynTest):
                 fd.write(s.encode())
             self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
 
+            # Make sure we're testing the CSafeLoader and not the python native
+            # implementation
+            self.eq(s_common.Loader, yaml.CSafeLoader)
+
+            data = '{"foo":"bar", "unicode": "✊"}'
+            obj = s_common.yamlloads(data)
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads(data.encode('utf8'))
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads('{"foo": "bar", "unicode": "\u270A"}')
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
     def test_switchext(self):
         retn = s_common.switchext('foo.txt', ext='.rdf')
         self.eq(retn, s_common.genpath('foo.rdf'))
@@ -411,3 +426,15 @@ class CommonTest(s_t_utils.SynTest):
                 self.true(stream.wait(10))
             ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
             self.isin(((('commonName', 'test'),),), ca_subjects)
+
+    async def test_wait_for(self):
+
+        async def foo():
+            return 123
+
+        loop = asyncio.get_running_loop()
+        footask = loop.create_task(foo())
+
+        await footask
+
+        self.eq(123, await s_common.wait_for(footask, timeout=-1))

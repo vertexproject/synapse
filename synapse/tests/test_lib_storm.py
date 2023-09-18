@@ -1677,6 +1677,19 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ou:org=(perms,) :desc=foo]', opts=view2))
             await core.nodes('ou:org=(perms,) | movenodes --apply', opts=view3)
 
+    async def test_cortex_keepalive(self):
+        async with self.getTestCore() as core:
+            opts = {'keepalive': 1}
+            q = '[test:str=one] $lib.time.sleep(2.5)'
+            msgs = await core.stormlist(q, opts=opts)
+            pings = [m for m in msgs if m[0] == 'ping']
+            self.len(2, pings)
+
+            opts = {'keepalive': 0}
+            with self.raises(s_exc.BadArg) as cm:
+                msgs = await core.stormlist(q, opts=opts)
+            self.eq('keepalive must be > 0; got 0', cm.exception.get('mesg'))
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:
@@ -2110,6 +2123,7 @@ class StormTest(s_t_utils.SynTest):
                 tagnode = await snap.getNodeByNdef(('syn:tag', 'hehe'))
 
                 await tagnode.set('doc', 'haha doc')
+                await tagnode.set('doc:url', 'http://haha.doc.com')
 
             await core.nodes('movetag hehe woot')
 
@@ -2120,6 +2134,7 @@ class StormTest(s_t_utils.SynTest):
                 newt = await core.getNodeByNdef(('syn:tag', 'woot'))
 
                 self.eq(newt.get('doc'), 'haha doc')
+                self.eq(newt.get('doc:url'), 'http://haha.doc.com')
 
         # Test moving a tag which has tags on it.
         async with self.getTestCore() as core:
@@ -2304,7 +2319,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn('reindex currently does nothing', mesgs)
 
             msgs = await core.stormlist('.created | sudo')
-            self.stormIsInWarn('Sudo is deprecated and does nothing', msgs)
+            self.stormIsInWarn('sudo command is deprecated and will be removed on 2023-10-01', msgs)
 
     async def test_storm_count(self):
 
@@ -2385,24 +2400,16 @@ class StormTest(s_t_utils.SynTest):
 
             # it kinda works like asof in stormtypes, so if as is too far out,
             # we won't update it
-            q = 'test:str=foo | once tagger --asof -30days | [+#another.tag]'
-            self.len(0, await core.nodes(q))
+            self.len(0, await core.nodes('test:str=foo | once tagger --asof -30days | [+#another.tag]'))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
 
             # but if it's super recent, we can override it
-            q = 'test:str | once tagger --asof now | [ +#tag.the.third ]'
-            nodes = await core.nodes(q)
+            nodes = await core.nodes('test:str | once tagger --asof now | [ +#tag.the.third ]')
             self.len(6, nodes)
             for node in nodes:
                 self.isin('tag.the.third', node.tags)
-
-            # for coverage
-            await core.nodes('test:str=foo $node.data.set(once:tagger, $lib.dict(lol=yup))')
-            nodes = await core.nodes('test:str=foo | once tagger | [ +#fourth ]')
-            self.len(1, nodes)
-            self.isin('fourth', nodes[0].tags)
 
             # keys shouldn't interact
             nodes = await core.nodes('test:str | once ninja | [ +#lottastrings ]')
@@ -2415,12 +2422,6 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.isin('boop', node.tags)
 
-            # timestamp is more recent than the last, so the things get to run again
-            nodes = await core.nodes('test:str | once beep --asof -15days | [ +#zomg ]')
-            self.len(6, nodes)
-            for node in nodes:
-                self.isin('zomg', node.tags)
-
             # we update to the more recent timestamp, so providing now should update things
             nodes = await core.nodes('test:str | once beep --asof now | [ +#bbq ]')
             self.len(6, nodes)
@@ -2428,10 +2429,8 @@ class StormTest(s_t_utils.SynTest):
                 self.isin('bbq', node.tags)
 
             # but still, no time means if it's ever been done
-            nodes = await core.nodes('test:str | once beep | [ +#metal]')
-            self.len(0, nodes)
-            for node in nodes:
-                self.notin('meta', node.tags)
+            self.len(0, await core.nodes('test:str | once beep | [ +#metal]'))
+            self.len(0, await core.nodes('test:str $node.data.set(once:beep, ({})) | once beep'))
 
     async def test_storm_iden(self):
         async with self.getTestCore() as core:
@@ -3545,6 +3544,161 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+
+    async def test_storm_help_cmd(self):
+
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('.created | limit 1 | help')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint('List available information about Storm and brief descriptions of different items.',
+                                msgs)
+            self.len(1, [n for n in msgs if n[0] == 'node'])
+
+            msgs = await core.stormlist('help')
+            self.printed(msgs, 'package: synapse')
+            self.stormIsInPrint('help', msgs)
+            self.stormIsInPrint('List available information about Storm and brief descriptions of different items.',
+                                msgs)
+
+            msgs = await core.stormlist('help view')
+            self.stormIsInPrint('Storm api for a View instance', msgs)
+            self.stormIsInPrint('view.merge', msgs)
+            self.stormNotInPrint('uniq', msgs)
+
+            msgs = await core.stormlist('help newp')
+            self.stormIsInPrint('No commands found matching "newp"', msgs)
+            self.stormNotInPrint('uniq', msgs)
+
+            otherpkg = {
+                'name': 'foosball',
+                'version': '0.0.1',
+                'synapse_minversion': [2, 144, 0],
+                'synapse_version': '>=2.8.0,<3.0.0',
+                'commands': ({
+                                 'name': 'testcmd',
+                                 'descr': 'test command',
+                                 'storm': '[ inet:ipv4=1.2.3.4 ]',
+                             },),
+                'modules': (
+                    {
+                        'name': 'foosmod',
+                        'storm': '''
+                                function f(a) {return ($a)}
+                                ''',
+                    },
+                ),
+
+            }
+            self.none(await core.addStormPkg(otherpkg))
+
+            msgs = await core.stormlist('help')
+            self.printed(msgs, 'package: foosball')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormIsInPrint(': test command', msgs)
+
+            msgs = await core.stormlist('help testcmd')
+            self.stormIsInPrint('testcmd', msgs)
+            self.stormNotInPrint('view.merge', msgs)
+
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value')
+            self.stormIsInPrint('Get the value of the primary property of the Node.', msgs)
+
+            msgs = await core.stormlist('[test:str=uniq] | help $node.value()')
+            self.stormNotInPrint('Get the value of the primary property of the Node.', msgs)
+            self.stormIsInPrint('uniq: Filter nodes by their uniq iden values.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $node.props')
+            self.stormIsInPrint('A Storm Primitive representing the properties on a Node.', msgs)
+            self.stormIsInPrint('set(prop, valu)\nSet a specific property value by name.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $node')
+            self.stormIsInPrint('Implements the Storm api for a node instance.', msgs)
+
+            msgs = await core.stormlist('[ test:str=uniq ] | help $path')
+            self.stormIsInPrint('Implements the Storm API for the Path object.', msgs)
+
+            # $lib helps
+            msgs = await core.stormlist('help $lib')
+            self.stormIsInPrint('$lib.auth                     : A Storm Library for interacting with Auth in the '
+                                'Cortex.',
+                                msgs)
+            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\nImport a Storm module.',
+                                msgs)
+            self.stormIsInPrint('$lib.debug\nTrue if the current runtime has debugging enabled.', msgs)
+            self.stormNotInPrint('Examples', msgs)
+
+            msgs = await core.stormlist('help -v $lib')
+
+            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\n'
+                                '======================================================\n'
+                                'Import a Storm module.', msgs)
+
+            msgs = await core.stormlist('help $lib.macro')
+            self.stormIsInPrint('$lib.macro.del(name)\nDelete a Storm Macro by name from the Cortex.', msgs)
+
+            msgs = await core.stormlist('help list')
+            self.stormIsInPrint('***\nlist\n****\nImplements the Storm API for a List instance.', msgs)
+            self.stormIsInPrint('append(valu)\nAppend a value to the list.', msgs)
+            self.stormIsInPrint('auth.user.list : List all users.', msgs)
+
+            # email stor / gettr has a multi value return type
+            msgs = await core.stormlist('help -v auth:user')
+            self.stormIsInPrint('Implements the Storm API for a User.', msgs)
+            self.stormIsInPrint("A user's email. This can also be used to set the user's email.", msgs)
+            self.stormIsInPrint('The return type may be one of the following: str, null.', msgs)
+
+            msgs = await core.stormlist('help $lib.regex')
+            self.stormIsInPrint('The following references are available:\n\n'
+                                '$lib.regex.flags.i\n'
+                                'Regex flag to indicate that case insensitive matches are allowed.\n\n'
+                                '$lib.regex.flags.m\n'
+                                'Regex flag to indicate that multiline matches are allowed.', msgs)
+
+            msgs = await core.stormlist('help $lib.inet.http.get')
+            self.stormIsInPrint('$lib.inet.http.get(url, headers=$lib.null', msgs)
+            self.stormIsInPrint('Get the contents of a given URL.', msgs)
+
+            msgs = await core.stormlist('$str=hehe help $str.split')
+            self.stormIsInPrint('Split the string into multiple parts based on a separator.', msgs)
+
+            msgs = await core.stormlist('help $lib.gen.orgByName')
+            self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.', msgs)
+
+            msgs = await core.stormlist('help --verbose $lib.gen.orgByName')
+            self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.\n'
+                                'Args:\n    name (str): The name of the org.', msgs)
+
+            msgs = await core.stormlist('help $lib.inet')
+            self.stormIsInPrint('The following libraries are available:\n\n'
+                                '$lib.inet.http                : A Storm Library exposing an HTTP client API.\n'
+                                '$lib.inet.http.oauth.v1       : A Storm library to handle OAuth v1 authentication.\n'
+                                '$lib.inet.http.oauth.v2       : A Storm library for managing OAuth V2 clients.\n',
+                                msgs)
+            self.stormNotInPrint('$lib.inet.http.get(', msgs)
+
+            msgs = await core.stormlist('help $lib.regex.flags')
+            err = 'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got dict'
+            self.stormIsInErr(err, msgs)
+
+            url = core.getLocalUrl()
+            msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.getCellInfo',
+                                        opts={'vars': {'url': url}})
+            self.stormIsInPrint('Implements the call methods for the telepath:proxy.', msgs)
+
+            msgs = await core.stormlist('$prox=$lib.telepath.open($url) help $prox.storm',
+                                        opts={'vars': {'url': url}})
+            self.stormIsInPrint('Implements the generator methods for the telepath:proxy.', msgs)
+
+            msgs = await core.stormlist('function f(){} help $f')
+            self.stormIsInErr('help does not currently support runtime defined functions.', msgs)
+
+            msgs = await core.stormlist('$mod=$lib.import(foosmod) help $mod')
+            self.stormIsInErr('Help does not currently support imported Storm modules.', msgs)
+
+            msgs = await core.stormlist('$mod=$lib.import(foosmod) help $mod.f')
+            self.stormIsInErr('help does not currently support runtime defined functions.', msgs)
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:

@@ -267,6 +267,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'key': ('baz', True), 'data': {'bam': 2}}, items[0][1])
             self.eq({'key': 'baz', 'data': {'bam': 3}}, items[1][1])
 
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel(newp/newp, nah))'))
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel(foo/bar, baz))'))
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel((foo, bar), (baz, $lib.true)))'))
+            await self.agenlen(0, core.jsonstor.getPathObjs(path))
+
             with self.raises(s_exc.NoSuchType):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, $lib.queue, (1)))')
 
@@ -274,6 +279,8 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.jsonstor.cacheget(foo, bar))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo, bar, baz))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.cachedel(foo, bar))', opts=asvisi)
 
     async def test_stormtypes_userjson(self):
 
@@ -598,7 +605,8 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': [
                 {
                     'name': 'test',
@@ -3935,6 +3943,46 @@ class StormTypesTest(s_test.SynTest):
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(0, edits)
 
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            # Add a layer
+            ldef = await core.addLayer()
+            layer = core.getLayer(ldef.get('iden'))
+
+            # Add a view via stormlib, worldreadable=False (default)
+            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},)).iden)')
+            self.nn(iden)
+            self.false(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via stormlib, worldreadable=True (default)
+            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},), worldreadable=$lib.true).iden)')
+            self.nn(newiden)
+            self.true(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via storm cmd, worldreadable=False (default)
+            msgs = await core.stormlist(f'view.add --name view1 --layers {layer.iden}')
+            self.stormIsInPrint('View added.', msgs)
+
+            views = core.listViews()
+            views = {view.info.get('name'): view.iden for view in views}
+
+            iden = views.get('view1')
+            self.nn(iden)
+            self.false(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via storm cmd, worldreadable=True
+            msgs = await core.stormlist(f'view.add --name view1 --worldreadable $lib.true --layers {layer.iden}')
+            self.stormIsInPrint('View added.', msgs)
+
+            views = core.listViews()
+            views = {view.info.get('name'): view.iden for view in views}
+
+            iden = views.get('view1')
+            self.nn(iden)
+            self.true(visi.allowed(('view', 'read'), gateiden=iden))
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
@@ -4151,6 +4199,10 @@ class StormTypesTest(s_test.SynTest):
             q = '''$t = $lib.trigger.get($trig) $t.set("doc", "awesome trigger") return ( $t.pack() )'''
             tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
             self.eq(tdef.get('doc'), 'awesome trigger')
+
+            with self.raises(s_exc.BadArg):
+                q = '$t = $lib.trigger.get($trig) $t.set("foo", "bar")'
+                await core.callStorm(q, opts={'vars': {'trig': trig}})
 
             nodes = await core.nodes('[ test:str=test1 ]')
             self.nn(nodes[0].tags.get('tagged'))
@@ -4568,7 +4620,7 @@ class StormTypesTest(s_test.SynTest):
                 async with getCronJob("cron.add --year +2 {$lib.queue.get(foo).put(year1)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('year1', await getNextFoo())
 
@@ -4576,7 +4628,7 @@ class StormTypesTest(s_test.SynTest):
                 async with getCronJob("cron.add --month February --day=-2 {$lib.queue.get(foo).put(year2)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('year2', await getNextFoo())
 
@@ -4982,6 +5034,14 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
             self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
             self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
+
+            async with core.getLocalProxy() as proxy:
+                for permdef in stormpkg.get('perms'):
+                    pdef = await proxy.getPermDef(permdef.get('perm'))
+                    self.eq(permdef.get('perm'), pdef.get('perm'))
+                    self.eq(permdef.get('desc'), pdef.get('desc'))
+                    self.eq(permdef.get('gate'), pdef.get('gate'))
+                    self.eq(permdef.get('default'), pdef.get('default'))
 
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}

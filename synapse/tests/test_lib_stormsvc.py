@@ -15,7 +15,8 @@ import synapse.tools.backup as s_tools_backup
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'old.baz', 'storm': 'function baz(x, y) { return ($($x + $y)) }'},
@@ -39,7 +40,8 @@ old_pkg = {
 new_old_pkg = {
     'name': 'old',
     'version': (0, 1, 0),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'new.baz', 'storm': 'function baz(x) { return ($($x + 20)) }'},
@@ -63,7 +65,8 @@ new_old_pkg = {
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
                                         $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
@@ -121,7 +124,8 @@ class RealService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {'name': 'foo.bar',
                  'storm': '''
@@ -184,7 +188,8 @@ class NodeCreateService(s_stormsvc.StormSvc):
         {
             'name': 'ncreate',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'baz',
@@ -202,7 +207,8 @@ class BoomService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {'name': 'blah', 'storm': '+}'},
             ),
@@ -260,7 +266,8 @@ class LifterService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'lifter',
@@ -285,7 +292,8 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'magic',
@@ -348,7 +356,8 @@ class ShareService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'sharer',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {
                     'name': 'sharer',
@@ -471,7 +480,8 @@ class StormSvcTest(s_test.SynTest):
         pkg = {
             'name': 'foobar',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
@@ -908,15 +918,18 @@ class StormSvcTest(s_test.SynTest):
 
                         await core01.sync()
 
-                        waitindx = await core01.getNexsIndx() + 1  # svc:add, queue:add
-
                         # Add a storm service
                         await core01.nodes(f'service.add real {lurl}')
                         await core01.nodes('$lib.service.wait(real)')
 
-                        self.true(await core01.nexsroot.nexslog.waitForOffset(waitindx, timeout=5))
+                        # Waiting for the svc to be ready on the leader means that any
+                        # svc add event has been serviced.
+                        await core00.nodes('$lib.service.wait(real)')
 
-                        # Make sure it shows up on leader
+                        # Sync the follower to ensure we're caught up.
+                        await core01.sync()
+
+                        # Make sure the package loaded on the leader and the svc add events fired
                         msgs = await core00.stormlist('help')
                         self.stormIsInPrint('service: real', msgs)
                         self.stormIsInPrint('package: foo', msgs)

@@ -363,14 +363,20 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None):
+    async def eval(self, text, opts=None, log_info=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
+        if log_info is None:
+            log_info = {}
+
+        log_info['mode'] = opts.get('mode', 'storm')
+        log_info['view'] = self.iden
+
+        self.core._logStormQuery(text, user, info=log_info)
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
@@ -421,6 +427,10 @@ class View(s_nexus.Pusher):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
+        if not isinstance(text, str):
+            mesg = 'Storm query text must be a string'
+            raise s_exc.BadArg(mesg=mesg)
+
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
@@ -429,6 +439,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
+        keepalive = opts.get('keepalive')
+        if keepalive is not None and keepalive <= 0:
+            raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
         synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
@@ -437,6 +450,9 @@ class View(s_nexus.Pusher):  # type: ignore
         editformat = opts.get('editformat', 'nodeedits')
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
+
+        if editformat == 'splices':
+            s_common.deprdate('storm option editformat=splices', s_common._splicedepr)
 
         texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
@@ -458,6 +474,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 async with await self.snap(user=user) as snap:
 
+                    if keepalive:
+                        snap.schedCoro(snap.keepalive(keepalive))
+
                     if not show:
                         snap.link(chan.put)
 
@@ -470,7 +489,8 @@ class View(s_nexus.Pusher):  # type: ignore
                             count += 1
 
                     else:
-                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'), view=self.iden)
+                        self.core._logStormQuery(text, user,
+                                                 info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
 

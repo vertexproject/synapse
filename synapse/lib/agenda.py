@@ -778,7 +778,7 @@ class Agenda(s_base.Base):
         '''
         Task loop to issue query tasks at the right times.
         '''
-        while True:
+        while not self.isfini:
 
             timeout = None
             if self.apptheap:
@@ -809,7 +809,20 @@ class Agenda(s_base.Base):
                     logger.warning(mesg,
                                    extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
                 else:
-                    await self._execute(appt)
+                    try:
+                        await self._execute(appt)
+                    except Exception as e:
+                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
+                        user = self.core.auth.user(appt.creator)
+                        if user is not None:
+                            extra['username'] = user.name
+                        if isinstance(e, s_exc.SynErr):
+                            mesg = e.get('mesg', str(e))
+                        else:  # pragma: no cover
+                            mesg = str(e)
+                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
+                                         extra={'synapse': extra})
+                        await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
         '''
@@ -879,7 +892,7 @@ class Agenda(s_base.Base):
                 # and be relatively okay. The only catch is that the nexus offset will correspond to the
                 # last nexus transaction, and not the start/stop
                 await self.core.feedBeholder('cron:start', {'iden': appt.iden})
-                async for node in view.eval(appt.query, opts=opts):
+                async for node in view.eval(appt.query, opts=opts, log_info={'cron': appt.iden}):
                     count += 1
             except asyncio.CancelledError:
                 result = 'cancelled'
@@ -906,5 +919,6 @@ class Agenda(s_base.Base):
                 appt.isrunning = False
                 appt.lastresult = result
                 if not self.isfini:
-                    await self._storeAppt(appt, nexs=True)
+                    # fire beholder event before invoking nexus change (in case readonly)
                     await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+                    await self._storeAppt(appt, nexs=True)

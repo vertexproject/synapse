@@ -198,7 +198,7 @@ class Query(AstNode):
 
         async with contextlib.AsyncExitStack() as stack:
             for oper in self.kids:
-                genr = await stack.enter_async_context(s_common.aclosing(oper.run(runt, genr)))
+                genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
 
             async for node, path in genr:
                 runt.tick()
@@ -372,10 +372,12 @@ class SubGraph:
         self.rules.setdefault('forms', {})
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
+        self.rules.setdefault('existing', ())
 
         self.rules.setdefault('refs', False)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
+        self.rules.setdefault('maxsize', 100000)
 
         self.rules.setdefault('filterinput', True)
         self.rules.setdefault('yieldfiltered', False)
@@ -411,33 +413,44 @@ class SubGraph:
 
         if self.rules.get('refs'):
 
-            for _, ndef in node.getNodeRefs():
+            for propname, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
                 if pivonode is None:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
-                yield (pivonode, path.fork(pivonode))
+                yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
 
         for pivq in self.rules.get('pivots'):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield node, path, {'type': 'rules', 'scope': 'global', 'index': indx}
+                indx += 1
 
-        rules = self.rules['forms'].get(node.form.name)
+        scope = node.form.name
+
+        rules = self.rules['forms'].get(scope)
         if rules is None:
-            rules = self.rules['forms'].get('*')
+            scope = '*'
+            rules = self.rules['forms'].get(scope)
 
         if rules is None:
             return
 
         for pivq in rules.get('pivots', ()):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
+                indx += 1
 
     async def run(self, runt, genr):
 
+        # NOTE: this function must agressively yield the ioloop
+
         doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
+        maxsize = self.rules.get('maxsize')
+        existing = self.rules.get('existing')
         filterinput = self.rules.get('filterinput')
         yieldfiltered = self.rules.get('yieldfiltered')
 
@@ -450,6 +463,11 @@ class SubGraph:
 
             done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+
+            # load the existing graph as already done
+            [await results.add(s_common.uhex(b)) for b in existing]
 
             async def todogenr():
 
@@ -460,12 +478,19 @@ class SubGraph:
                 while todo:
                     yield todo.popleft()
 
+            count = 0
             async for node, path, dist in todogenr():
 
                 await asyncio.sleep(0)
 
                 if node.buid in done:
                     continue
+
+                count += 1
+
+                if count > maxsize:
+                    await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
+                    break
 
                 await done.add(node.buid)
                 intodo.discard(node.buid)
@@ -480,12 +505,17 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                pivoedges = set()
-                async for pivn, pivp in self.pivots(runt, node, path):
+                edges = list(revpivs.get(node.buid, defv=()))
+                async for pivn, pivp, pinfo in self.pivots(runt, node, path):
 
                     await asyncio.sleep(0)
 
-                    pivoedges.add(pivn.iden())
+                    if results.has(pivn.buid):
+                        edges.append((pivn.iden(), pinfo))
+                    else:
+                        pinfo['reverse'] = True
+                        pivedges = revpivs.get(pivn.buid, defv=())
+                        await revpivs.set(pivn.buid, pivedges + ((node.iden(), pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:
@@ -504,14 +534,25 @@ class SubGraph:
                         todo.append((pivn, pivp, dist + 1))
                         await intodo.add(pivn.buid)
 
-                edges = [(iden, {}) for iden in pivoedges]
-
                 if doedges:
-                    async for verb, n2iden in node.iterEdgesN1():
-                        edges.append((n2iden, {'verb': verb}))
+
+                    async for buid01 in results:
+
                         await asyncio.sleep(0)
 
-                path.meta('edges', edges)
+                        iden01 = s_common.ehex(buid01)
+                        async for verb in node.iterEdgeVerbs(buid01):
+                            await asyncio.sleep(0)
+                            edges.append((iden01, {'type': 'edge', 'verb': verb}))
+
+                        # for existing nodes, we need to add n2 -> n1 edges in reverse
+                        async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                            await asyncio.sleep(0)
+                            edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+                    await results.add(node.buid)
+
+                path.metadata['edges'] = edges
                 yield node, path
 
 class Oper(AstNode):
@@ -776,55 +817,56 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async for item in s_coro.agen(valu):
+            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+                async for item in agen:
 
-                if isinstance(name, (list, tuple)):
+                    if isinstance(name, (list, tuple)):
+
+                        try:
+                            numitems = len(item)
+                        except TypeError:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if len(name) != numitems:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if isinstance(item, s_stormtypes.Prim):
+                            item = await item.value()
+
+                        for x, y in itertools.zip_longest(name, item):
+                            await path.setVar(x, y)
+                            await runt.setVar(x, y)
+
+                    else:
+                        # set both so inner subqueries have it in their runtime
+                        await path.setVar(name, item)
+                        await runt.setVar(name, item)
 
                     try:
-                        numitems = len(item)
-                    except TypeError:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name)
-                        raise self.kids[1].addExcInfo(exc)
 
-                    if len(name) != numitems:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
-                        raise self.kids[1].addExcInfo(exc)
+                        # since it's possible to "multiply" the (node, path)
+                        # we must make a clone of the path to prevent yield-then-use.
+                        newg = s_common.agen((node, path.clone()))
+                        async for item in subq.inline(runt, newg):
+                            yield item
 
-                    if isinstance(item, s_stormtypes.Prim):
-                        item = await item.value()
+                    except s_stormctrl.StormBreak as e:
+                        if e.item is not None:
+                            yield e.item
+                        break
 
-                    for x, y in itertools.zip_longest(name, item):
-                        await path.setVar(x, y)
-                        await runt.setVar(x, y)
+                    except s_stormctrl.StormContinue as e:
+                        if e.item is not None:
+                            yield e.item
+                        continue
 
-                else:
-                    # set both so inner subqueries have it in their runtime
-                    await path.setVar(name, item)
-                    await runt.setVar(name, item)
-
-                try:
-
-                    # since it's possible to "multiply" the (node, path)
-                    # we must make a clone of the path to prevent yield-then-use.
-                    newg = s_common.agen((node, path.clone()))
-                    async for item in subq.inline(runt, newg):
-                        yield item
-
-                except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
-                    break
-
-                except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
-                    continue
-
-                finally:
-                    # for loops must yield per item they iterate over
-                    await asyncio.sleep(0)
+                    finally:
+                        # for loops must yield per item they iterate over
+                        await asyncio.sleep(0)
 
         # no nodes and a runt safe value should execute once
         if node is None and self.kids[1].isRuntSafe(runt):
@@ -841,48 +883,49 @@ class ForLoop(Oper):
             if valu is None:
                 valu = ()
 
-            async for item in s_coro.agen(valu):
+            async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+                async for item in agen:
 
-                if isinstance(name, (list, tuple)):
+                    if isinstance(name, (list, tuple)):
+
+                        try:
+                            numitems = len(item)
+                        except TypeError:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if len(name) != numitems:
+                            mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
+                            exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
+                            raise self.kids[1].addExcInfo(exc)
+
+                        if isinstance(item, s_stormtypes.Prim):
+                            item = await item.value()
+
+                        for x, y in itertools.zip_longest(name, item):
+                            await runt.setVar(x, y)
+
+                    else:
+                        await runt.setVar(name, item)
 
                     try:
-                        numitems = len(item)
-                    except TypeError:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name)
-                        raise self.kids[1].addExcInfo(exc)
+                        async for jtem in subq.inline(runt, s_common.agen()):
+                            yield jtem
 
-                    if len(name) != numitems:
-                        mesg = f'Number of items to unpack does not match the number of variables: {repr(item)[:256]}'
-                        exc = s_exc.StormVarListError(mesg=mesg, names=name, numitems=numitems)
-                        raise self.kids[1].addExcInfo(exc)
+                    except s_stormctrl.StormBreak as e:
+                        if e.item is not None:
+                            yield e.item
+                        break
 
-                    if isinstance(item, s_stormtypes.Prim):
-                        item = await item.value()
+                    except s_stormctrl.StormContinue as e:
+                        if e.item is not None:
+                            yield e.item
+                        continue
 
-                    for x, y in itertools.zip_longest(name, item):
-                        await runt.setVar(x, y)
-
-                else:
-                    await runt.setVar(name, item)
-
-                try:
-                    async for jtem in subq.inline(runt, s_common.agen()):
-                        yield jtem
-
-                except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
-                    break
-
-                except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
-                    continue
-
-                finally:
-                    # for loops must yield per item they iterate over
-                    await asyncio.sleep(0)
+                    finally:
+                        # for loops must yield per item they iterate over
+                        await asyncio.sleep(0)
 
 class WhileLoop(Oper):
 
@@ -995,8 +1038,10 @@ class CmdOper(Oper):
                         raise s_stormctrl.StormExit()
 
                 if runtsafe or not empty:
-                    async for item in scmd.execStormCmd(runt, genr):
-                        yield item
+                    async with contextlib.aclosing(scmd.execStormCmd(runt, genr)) as agen:
+                        async for item in agen:
+                            yield item
+
             finally:
                 await genr.aclose()
 
@@ -1200,6 +1245,14 @@ class CaseEntry(AstNode):
 
 class LiftOper(Oper):
 
+    def __init__(self, astinfo, kids=()):
+        Oper.__init__(self, astinfo, kids=kids)
+        self.reverse = False
+
+    def reverseLift(self, astinfo):
+        self.astinfo = astinfo
+        self.reverse = True
+
     async def run(self, runt, genr):
 
         if self.isRuntSafe(runt):
@@ -1231,14 +1284,14 @@ class YieldValu(Oper):
 
         async for node, path in genr:
             valu = await self.kids[0].compute(runt, path)
-            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
             yield node, path
 
         if node is None and self.kids[0].isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
 
@@ -1320,7 +1373,7 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Prim):
-            async with s_common.aclosing(valu.nodes()) as genr:
+            async with contextlib.aclosing(valu.nodes()) as genr:
                 async for node in genr:
                     if node.snap.view.iden != viewiden:
                         mesg = f'Node is not from the current view. Node {node.iden()} is from {node.snap.view.iden} expected {viewiden}'
@@ -1339,12 +1392,12 @@ class LiftTag(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await toprim(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu):
+            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTag(tag):
+        async for node in runt.snap.nodesByTag(tag, reverse=self.reverse):
             yield node
 
 class LiftByArray(LiftOper):
@@ -1357,7 +1410,7 @@ class LiftByArray(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        async for node in runt.snap.nodesByPropArray(name, cmpr, valu):
+        async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
             yield node
 
 class LiftTagProp(LiftOper):
@@ -1373,12 +1426,12 @@ class LiftTagProp(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu):
+            async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTagProp(None, tag, prop):
+        async for node in runt.snap.nodesByTagProp(None, tag, prop, reverse=self.reverse):
             yield node
 
 class LiftFormTagProp(LiftOper):
@@ -1398,12 +1451,12 @@ class LiftFormTagProp(LiftOper):
             cmpr = await self.kids[1].compute(runt, path)
             valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu):
+            async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTagProp(form, tag, prop):
+        async for node in runt.snap.nodesByTagProp(form, tag, prop, reverse=self.reverse):
             yield node
 
 class LiftTagTag(LiftOper):
@@ -1423,11 +1476,11 @@ class LiftTagTag(LiftOper):
         if len(self.kids) == 3:
             cmpr = await self.kids[1].compute(runt, path)
             valu = await toprim(await self.kids[2].compute(runt, path))
-            genr = runt.snap.nodesByTagValu(tagname, cmpr, valu)
+            genr = runt.snap.nodesByTagValu(tagname, cmpr, valu, reverse=self.reverse)
 
         else:
 
-            genr = runt.snap.nodesByTag(tagname)
+            genr = runt.snap.nodesByTag(tagname, reverse=self.reverse)
 
         done = set([tagname])
         todo = collections.deque([genr])
@@ -1443,7 +1496,7 @@ class LiftTagTag(LiftOper):
                     tagname = node.ndef[1]
                     if tagname not in done:
                         done.add(tagname)
-                        todo.append(runt.snap.nodesByTag(tagname))
+                        todo.append(runt.snap.nodesByTag(tagname, reverse=self.reverse))
 
                     continue
 
@@ -1465,12 +1518,12 @@ class LiftFormTag(LiftOper):
             cmpr = await self.kids[2].compute(runt, path)
             valu = await toprim(await self.kids[3].compute(runt, path))
 
-            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form):
+            async for node in runt.snap.nodesByTagValu(tag, cmpr, valu, form=form, reverse=self.reverse):
                 yield node
 
             return
 
-        async for node in runt.snap.nodesByTag(tag, form=form):
+        async for node in runt.snap.nodesByTag(tag, form=form, reverse=self.reverse):
             yield node
 
 class LiftProp(LiftOper):
@@ -1491,7 +1544,7 @@ class LiftProp(LiftOper):
             async for hint in self.getRightHints(runt, path):
                 if hint[0] == 'tag':
                     tagname = hint[1].get('name')
-                    async for node in runt.snap.nodesByTag(tagname, form=name):
+                    async for node in runt.snap.nodesByTag(tagname, form=name, reverse=self.reverse):
                         yield node
                     return
 
@@ -1514,7 +1567,7 @@ class LiftProp(LiftOper):
                     if cmpr is not None and valu is not None:
                         try:
                             # try lifting by valu but no guarantee a cmpr is available
-                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
+                            async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu, reverse=self.reverse):
                                 yield node
                             return
                         except asyncio.CancelledError:  # pragma: no cover
@@ -1522,11 +1575,11 @@ class LiftProp(LiftOper):
                         except:
                             pass
 
-                    async for node in runt.snap.nodesByProp(fullname):
+                    async for node in runt.snap.nodesByProp(fullname, reverse=self.reverse):
                         yield node
                     return
 
-        async for node in runt.snap.nodesByProp(name):
+        async for node in runt.snap.nodesByProp(name, reverse=self.reverse):
             yield node
 
     async def getRightHints(self, runt, path):
@@ -1559,7 +1612,7 @@ class LiftPropBy(LiftOper):
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
 
         try:
-            async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
+            async for node in runt.snap.nodesByPropValu(name, cmpr, valu, reverse=self.reverse):
                 yield node
 
         except s_exc.BadTypeValu as e:
@@ -2965,6 +3018,12 @@ class FuncCall(Value):
     async def compute(self, runt, path):
 
         func = await self.kids[0].compute(runt, path)
+        if not callable(func):
+            text = self.getAstText()
+            styp = await s_stormtypes.totype(func, basetypes=True)
+            mesg = f"'{styp}' object is not callable: {text}"
+            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+
         if runt.readonly and not getattr(func, '_storm_readonly', False):
             mesg = f'Function ({func.__name__}) is not marked readonly safe.'
             raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
@@ -4294,12 +4353,7 @@ class Function(AstNode):
 
         opts = {'vars': mergargs}
 
-        if self.hasemit:
-            runt = await runt.initSubRuntime(self.kids[2], opts=opts)
-            runt.funcscope = True
-            return await runt.emitter()
-
-        if self.hasretn:
+        if (self.hasretn and not self.hasemit):
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
                 # inform the sub runtime to use function scope rules
@@ -4319,8 +4373,12 @@ class Function(AstNode):
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
                 try:
-                    async for node, path in subr.execute():
-                        yield node, path
+                    if self.hasemit:
+                        async for item in await subr.emitter():
+                            yield item
+                    else:
+                        async for node, path in subr.execute():
+                            yield node, path
                 except s_stormctrl.StormStop:
                     return
 
