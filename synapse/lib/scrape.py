@@ -680,7 +680,6 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
 
     finally:
         sock00.close()
-        await link00.fini()
 
 async def scrapeAsync(text, ptype=None, refang=True, first=False):
     '''
