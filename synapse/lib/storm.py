@@ -21,6 +21,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
+import synapse.lib.autodoc as s_autodoc
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
@@ -3002,42 +3003,123 @@ class BatchCmd(Cmd):
 
 class HelpCmd(Cmd):
     '''
-    List available commands and a brief description for each.
+    List available information about Storm and brief descriptions of different items.
+
+    Notes:
+
+        If an item is provided, this can be a string or a function.
 
     Examples:
 
-        // Get all available commands and their brief descriptions.
+        // Get all available commands, libraries, types, and their brief descriptions.
 
         help
 
         // Only get commands which have "model" in the name.
 
         help model
+
+        // Get help about the base Storm library
+
+        help $lib
+
+        // Get detailed help about a specific library or library function
+
+        help --verbose $lib.print
+
+        // Get detailed help about a named Storm type
+
+        help --verbose str
+
+        // Get help about a method from a $node object
+
+        <inbound $node> help $node.tags
+
     '''
     name = 'help'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('command', nargs='?',
-                          help='Only list commands and their brief description whose name contains the argument.')
+        pars.add_argument('-v', '--verbose', default=False, action='store_true',
+                          help='Display detailed help when available.')
+        pars.add_argument('item', nargs='?',
+                          help='List information about a subset of commands or a specific item.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runtsafe:
-            mesg = 'help does not support per-node invocation'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+        node = None
+        async for node, path in genr:
+            await self._runHelp(runt)
+            yield node, path
 
-        async for item in genr:
-            yield item
+        if node is None and self.runtsafe:
+            await self._runHelp(runt)
+
+    async def _runHelp(self, runt: Runtime):
+
+        item = self.opts.item
+
+        if item is not None and \
+                not isinstance(item, (str, s_node.Node, s_node.Path, s_stormtypes.StormType)) and \
+                not callable(item):
+            mesg = f'Item must be a Storm type name, a Storm library, or a Storm command name to search for. Got' \
+                   f' {await s_stormtypes.totype(item, basetypes=True)}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if isinstance(item, s_stormtypes.Lib):
+            await self._handleLibHelp(item, runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_stormtypes.StormType):
+            if item._storm_typename in s_stormtypes.registry.known_types:
+                await self._handleTypeHelp(item._storm_typename, runt, verbose=self.opts.verbose)
+                return
+            raise s_exc.BadArg(mesg=f'Unknown storm type encountered: {s_stormtypes.totype(item, basetypes=True)}')
+
+        if isinstance(item, s_node.Node):
+            await self._handleTypeHelp('node', runt, verbose=self.opts.verbose)
+            return
+
+        if isinstance(item, s_node.Path):
+            await self._handleTypeHelp('node:path', runt, verbose=self.opts.verbose)
+            return
+
+        # Handle $lib.inet.http.get / $str.split / $lib.gen.orgByName
+        if callable(item):
+
+            if hasattr(item, '__func__'):
+                # https://docs.python.org/3/reference/datamodel.html#instance-methods
+                await self._handleBoundMethod(item, runt, verbose=self.opts.verbose)
+                return
+
+            if hasattr(item, '_storm_runtime_lib_func'):
+                await self._handleStormLibMethod(item, runt, verbose=self.opts.verbose)
+                return
+
+            styp = await s_stormtypes.totype(item, basetypes=True)
+            if styp in ('telepath:proxy:method', 'telepath:proxy:genrmethod'):
+                raise s_exc.BadArg(mesg='help does not support Telepath proxy methods.')
+
+            raise s_exc.BadArg(mesg='help does not currently support runtime defined functions.')
+
+        foundtype = False
+        if item in s_stormtypes.registry.known_types:
+            foundtype = True
+            await self._handleTypeHelp(item, runt, verbose=self.opts.verbose)
+
+        return await self._handleGenericCommandHelp(item, runt, foundtype=foundtype)
+
+    async def _handleGenericCommandHelp(self, item, runt, foundtype=False):
 
         stormcmds = sorted(runt.snap.core.getStormCmds())
 
-        if self.opts.command:
-            stormcmds = [c for c in stormcmds if self.opts.command in c[0]]
+        if item:
+            stormcmds = [c for c in stormcmds if item in c[0]]
             if not stormcmds:
-                await runt.printf(f'No commands found matching "{self.opts.command}"')
-                return
+                if not foundtype:
+                    await runt.printf(f'No commands found matching "{item}"')
+                    return
 
         stormpkgs = await runt.snap.core.getStormPkgs()
 
@@ -3057,6 +3139,14 @@ class HelpCmd(Cmd):
                 pkgsvcs[pkgname] = f'{ssvc.name} ({svciden})'
 
         if stormcmds:
+
+            if foundtype:
+                await runt.printf('')
+                await runt.printf('*' * 80)
+                await runt.printf('')
+
+            await runt.printf('The following Storm commands are available:')
+
             maxlen = max(len(x[0]) for x in stormcmds)
 
             for name, ctor in stormcmds:
@@ -3087,6 +3177,158 @@ class HelpCmd(Cmd):
                 await runt.printf('')
 
             await runt.printf('For detailed help on any command, use <cmd> --help')
+
+    async def _handleLibHelp(self, lib: s_stormtypes.Lib, runt: Runtime, verbose: bool =False):
+
+        try:
+            preamble = self._getChildLibs(lib)
+        except s_exc.NoSuchName as e:
+            raise s_exc.BadArg(mesg='Help does not currently support imported Storm modules.') from None
+
+        page = s_autodoc.RstHelp()
+
+        if hasattr(lib, '_storm_lib_path'):
+            libsinfo = s_stormtypes.registry.getLibDocs(lib)
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           oneline=not verbose,
+                                           preamble=preamble,
+                                           )
+        else:
+            page.addLines(*preamble)
+
+        for line in page.lines:
+            await runt.printf(line)
+
+    def _getChildLibs(self, lib: s_stormtypes.Lib):
+        corelibs = self.runt.snap.core.getStormLib(lib.name)
+        if corelibs is None:
+            raise s_exc.NoSuchName(mesg=f'Cannot find lib name [{lib.name}]')
+
+        data = []
+        lines = []
+
+        libbase = ('lib',) + lib.name
+        q = collections.deque()
+        for child, lnfo in corelibs[1].items():
+            q.append(((child,), lnfo))
+        while q:
+            child, lnfo = q.popleft()
+            path = libbase + child
+            _, subs, cnfo = lnfo
+            ctor = cnfo.get('ctor')
+            if ctor:
+                data.append((path, ctor))
+            for sub, lnfo in subs.items():
+                _sub = child + (sub,)
+                q.append((_sub, lnfo))
+        if not data:
+            return lines
+
+        data = sorted(data, key=lambda x: x[0])
+
+        lines.append('The following libraries are available:')
+        lines.append('')
+        for path, ctor in data:
+            name = f'${".".join(path)}'
+            desc = ctor.__doc__.strip().split('\n')[0]
+            lines.append(f'{name.ljust(30)}: {desc}')
+        lines.append('')
+
+        return lines
+
+    async def _handleTypeHelp(self, styp: str, runt: Runtime, verbose: bool =False):
+        typeinfo = s_stormtypes.registry.getTypeDocs(styp)
+        page = s_autodoc.RstHelp()
+
+        s_autodoc.runtimeDocStormTypes(page, typeinfo,
+                                       islib=False,
+                                       oneline=not verbose,
+                                       )
+        for line in page.lines:
+            await runt.printf(line)
+
+    async def _handleBoundMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Bound methods must be bound to a Lib or Prim object.
+        # Determine what they are, get those docs exactly, and then render them.
+
+        cls = func.__self__
+        fname = func.__name__
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    ltyp = locl.get('type')
+                    if not isinstance(ltyp, dict):
+                        continue
+                    if ltyp.get('_funcname', '') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        elif isinstance(cls, s_stormtypes.Prim):
+            typeinfo = s_stormtypes.registry.getTypeDocs(cls._storm_typename)
+            for lifo in typeinfo:
+                lifo['locals'] = [loc for loc in lifo['locals'] if loc.get('type', {}).get('_funcname', '') == fname]
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, typeinfo,
+                                           islib=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
+
+    async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
+        # Storm library methods must be derived from a library definition.
+        # Determine the parent lib and get those docs exactly, and then render them.
+
+        cls = getattr(func, '_storm_runtime_lib', None)
+        fname = getattr(func, '_storm_runtime_lib_func', None)
+
+        if isinstance(cls, s_stormtypes.Lib):
+            libsinfo = s_stormtypes.registry.getLibDocs(cls)
+            for lifo in libsinfo:
+                nlocs = []
+                for locl in lifo['locals']:
+                    if locl.get('name') == fname:
+                        nlocs.append(locl)
+                lifo['locals'] = nlocs
+                if len(lifo['locals']) == 0:
+                    await runt.warn(f'Unable to find doc for {func}')
+
+            page = s_autodoc.RstHelp()
+
+            s_autodoc.runtimeDocStormTypes(page, libsinfo,
+                                           islib=True,
+                                           addheader=False,
+                                           oneline=not verbose,
+                                           )
+            for line in page.lines:
+                await runt.printf(line)
+
+        else:  # pragma: no cover
+            raise s_exc.StormRuntimeError(mesgf=f'Unknown runtime lib method {func} {cls} {fname}')
 
 class DiffCmd(Cmd):
     '''
@@ -3924,13 +4166,13 @@ class MoveNodesCmd(Cmd):
                 for prop, (valu, stortype) in tagdict.items():
                     if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME, s_layer.STOR_TYPE_MAXTIME)
                         or (tag, prop) not in movekeys) and not layr == self.destlayr:
-                            if not self.opts.apply:
-                                valurepr = repr(valu)
-                                mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
-                                await self.runt.printf(mesg)
-                            else:
-                                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                                ecnt += 1
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                            await self.runt.printf(mesg)
+                        else:
+                            self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                            ecnt += 1
 
                     movekeys.add((tag, prop))
 
