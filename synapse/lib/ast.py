@@ -1480,6 +1480,8 @@ class LiftFormTagProp(LiftOper):
                     mesg = f'No forms match pattern {formname}.'
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name=formname, mesg=mesg))
 
+                forms.sort()
+
             if not forms:
                 raise self.kids[0].kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
         else:
@@ -1565,6 +1567,8 @@ class LiftFormTag(LiftOper):
                     mesg = f'No forms match pattern {formname}.'
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name=formname, mesg=mesg))
 
+                forms.sort()
+
             if not forms:
                 raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
         else:
@@ -1615,6 +1619,8 @@ class LiftProp(LiftOper):
             if not proplist:
                 mesg = f'No properties match pattern {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+
+            proplist.sort()
 
         if proplist is None:
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
@@ -2205,6 +2211,8 @@ class FormPivot(PivotOper):
                     mesg = f'No forms match pattern {name}.'
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
 
+                proplist.sort()
+
             if proplist is None:
                 mesg = f'No property named {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
@@ -2250,7 +2258,7 @@ class FormPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
-                await runt.snap.fire('warn', mesg=mesg, **items)
+                await snap.warn(mesg, **items)
 
 class PropPivotOut(PivotOper):
     '''
@@ -2411,7 +2419,7 @@ class PropPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                await runt.snap.fire('warn', mesg=mesg, **items)
+                await snap.warn(mesg, **items)
 
 class Value(AstNode):
     '''
@@ -4129,7 +4137,6 @@ class N1Walk(Oper):
                 async for walknode in self.walkNodeEdges(runt, node, verb=verb):
 
                     if destfilt and not await destfilt(walknode, path, cmprvalu):
-                        await asyncio.sleep(0)
                         continue
 
                     yield walknode, path.fork(walknode)
