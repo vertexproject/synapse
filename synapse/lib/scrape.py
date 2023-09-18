@@ -11,7 +11,6 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
-import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
@@ -459,10 +458,10 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     link00, sock00 = await s_link.linksock()
 
     try:
-        async with await s_base.Base.anit() as scope:
+        async with link00:
 
             todo = s_common.todo(_spawn_genmatches, sock00, text, regx, opts)
-            scope.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
+            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
 
             while (mesg := await link00.rx()) is not None:
 
@@ -474,7 +473,6 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
 
     finally:
         sock00.close()
-        await link00.fini()
 
 def _contextScrape(text, form=None, refang=True, first=False):
     scrape_text = text
@@ -598,10 +596,10 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
     link00, sock00 = await s_link.linksock()
 
     try:
-        async with await s_base.Base.anit() as scope:
+        async with link00:
 
             todo = s_common.todo(_spawn_scrape, sock00, text, form=form, refang=refang, first=first)
-            scope.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
+            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
 
             while (mesg := await link00.rx()) is not None:
 
