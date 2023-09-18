@@ -801,7 +801,7 @@ class Url(s_types.Str):
         isUNC = False
 
         if valu.startswith('\\\\'):
-            orig = s_chop.uncpath(valu)
+            orig = s_chop.uncnorm(valu)
             # Fall through to original norm logic
 
         # Protocol

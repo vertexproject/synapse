@@ -248,7 +248,15 @@ def cvss_validate(vect, vers):
 
     return vdict
 
-def uncpath(valu):
+def uncnorm(valu):
+    '''
+    Validate and normalize the UNC path passed in `valu` into a URI.
+
+    This function will accept `@SSL` and `@<port>` as part of the host name to
+    indicate SSL (https) or a specific port number. It can also accept IPv6
+    addresses in the host name even though those are non-standard according to
+    the spec.
+    '''
     proto = 'smb'
     port = 0
     paths = ()
