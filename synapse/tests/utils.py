@@ -235,7 +235,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
-        ('test:taxonomy', ('meta:taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
         ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
