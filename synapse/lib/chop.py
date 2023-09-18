@@ -308,9 +308,7 @@ def uncnorm(valu):
 
     if '@' in host:
         # Could be '@<port>'
-        indx = host.index('@')
-        port = host[indx + 1:]
-        host = host[:indx]
+        host, port = host.split('@', 1)
 
         try:
             port = int(port)
