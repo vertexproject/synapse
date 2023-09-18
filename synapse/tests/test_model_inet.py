@@ -1370,6 +1370,32 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(valu, expected)
 
+            url = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
+            valu = t.norm(url)
+            expected = (url, {'subs': {
+                'proto': 'smb',
+                'path': '/share/path/to/filename.txt',
+                'ipv6': 1,
+            }})
+
+            url = '\\\\0--1.ipv6-literal.net@1234\\share\\filename.txt'
+            valu = t.norm(url)
+            expected = (url, {'subs': {
+                'proto': 'smb',
+                'path': '/share/path/to/filename.txt',
+                'port': 1234,
+                'ipv6': 1,
+            }})
+
+            url = '\\\\server@SSL@1234\\share\\path\\to\\filename.txt'
+            valu = t.norm(url)
+            expected = (url, {'subs': {
+                'proto': 'https',
+                'fqdn': 'server',
+                'port': 1234,
+                'path': '/share/path/to/filename.txt',
+            }})
+
             # Form Tests ======================================================
             async with await core.snap() as snap:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'

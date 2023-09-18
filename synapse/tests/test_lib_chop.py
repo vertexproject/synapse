@@ -111,3 +111,80 @@ class ChopTest(s_t_utils.SynTest):
 
         vdict = s_chop.cvss_validate(vect, s_cvss.cvss3_1)
         self.eq('AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H', s_chop.cvss_normalize(vdict, s_cvss.cvss3_1))
+
+    def test_chop_uncpath(self):
+        unc = s_chop.uncpath('\\\\server\\share\\path\\filename.txt')
+        self.eq(unc, {
+            'host': 'server',
+            'proto': 'smb',
+            'port': 0,
+            'share': 'share',
+            'paths': ('path',),
+            'filename': 'filename.txt',
+            'isIpv6': False
+        })
+
+        unc = s_chop.uncpath('\\\\server@SSL\\share\\path\\filename.txt')
+        self.eq(unc, {
+            'host': 'server',
+            'proto': 'https',
+            'port': 0,
+            'share': 'share',
+            'paths': ('path',),
+            'filename': 'filename.txt',
+            'isIpv6': False
+        })
+
+        unc = s_chop.uncpath('\\\\server@SSL@1234\\share\\path\\filename.txt')
+        self.eq(unc, {
+            'host': 'server',
+            'proto': 'https',
+            'port': 1234,
+            'share': 'share',
+            'paths': ('path',),
+            'filename': 'filename.txt',
+            'isIpv6': False
+        })
+
+        unc = s_chop.uncpath('\\\\1-2-3-4-5-6-7-8.ipv6-literal.net@SSL@1234\\share\\path\\filename.txt')
+        self.eq(unc, {
+            'host': '1:2:3:4:5:6:7:8',
+            'proto': 'https',
+            'port': 1234,
+            'share': 'share',
+            'paths': ('path',),
+            'filename': 'filename.txt',
+            'isIpv6': True
+        })
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('foo')
+        self.eq('Invalid UNC path: Does not start with \\\\.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\server')
+        self.eq('Invalid UNC path: Host name and share name are required.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\1:2:3:4:5:6:7:8\\share')
+        self.eq('Invalid UNC path: IPv6 addresses must be encoded.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\server\\')
+        self.eq('Invalid UNC path: Share name must be 1-80 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\server\\' + ('A' * 81))
+        self.eq('Invalid UNC path: Share name must be 1-80 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\server\\share\\' + ('A' * 256) + '\\filename.txt')
+        self.eq('Invalid UNC path: Path component longer than 255 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\server\\share\\' + ('A' * 256))
+        self.eq('Invalid UNC path: Filename longer than 255 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncpath('\\\\server@asdf\\share\\')
+        self.eq('Invalid UNC path: Invalid port.', exc.exception.get('mesg'))

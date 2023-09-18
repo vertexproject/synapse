@@ -800,6 +800,37 @@ class Url(s_types.Str):
         local = False
         isUNC = False
 
+        if valu.startswith('\\\\'):
+            unc = s_chop.uncpath(valu)
+
+            proto = unc.get('proto')
+            host = unc.get('host')
+            port = unc.get('port')
+            share = unc.get('share')
+            paths = unc.get('paths')
+            filename = unc.get('filename')
+            isIpv6 = unc.get('isIpv6')
+
+            if isIpv6 and port:
+                host = f'[{host}]'
+
+            if port:
+                port = f':{port}'
+            else:
+                port = ''
+
+            if paths:
+                paths = '/'.join(paths)
+                paths = f'/{paths}'
+            else:
+                paths = ''
+
+            if filename:
+                filename = f'/{filename}'
+
+            orig = f'{proto}://{host}{port}/{share}{paths}{filename}'
+            # Fall through to original norm logic
+
         # Protocol
         for splitter in ('://///', ':////'):
             try:
