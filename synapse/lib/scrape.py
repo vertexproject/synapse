@@ -220,7 +220,7 @@ def unc_path_check(match: regex.Match):
     valu = mnfo.get('valu')
 
     try:
-        s_chop.uncpath(valu)
+        valu = s_chop.uncpath(valu)
     except s_exc.BadTypeValu:
         return None, {}
 

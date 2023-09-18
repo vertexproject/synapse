@@ -253,7 +253,6 @@ def uncpath(valu):
     port = 0
     paths = ()
     filename = ''
-    isIpv6 = False
 
     if not valu.startswith('\\\\'):
         raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Does not start with \\\\.')
@@ -313,16 +312,8 @@ def uncpath(valu):
                 valu=port
             )
 
-    # ipv6 addresses are not valid as hostnames
-    try:
-        ipaddress.IPv6Address(host.strip('[]'))
-        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: IPv6 addresses must be encoded.')
-    except ipaddress.AddressValueError:
-        pass
-
     # Convert ...ipv6-literal.net back to an actual ipv6 address
     if host.lower().endswith('.ipv6-literal.net'):
-        isIpv6 = True
         host = host.lower().strip('.ipv6-literal.net')
         host = host.replace('-', ':')
 
@@ -330,12 +321,25 @@ def uncpath(valu):
         if 's' in host:
             host = host[:host.index('s')]
 
-    return {
-        'host': host,
-        'proto': proto,
-        'port': port,
-        'share': share,
-        'paths': paths,
-        'filename': filename,
-        'isIpv6': isIpv6,
-    }
+    if host.count(':') >= 2:
+        if port:
+            # Host is an ipv6 address
+            host = f'[{host}]'
+        else:
+            host = host.strip('[]')
+
+    if port:
+        port = f':{port}'
+    else:
+        port = ''
+
+    if paths:
+        paths = '/'.join(paths)
+        paths = f'/{paths}'
+    else:
+        paths = ''
+
+    if filename:
+        filename = f'/{filename}'
+
+    return f'{proto}://{host}{port}/{share}{paths}{filename}'
