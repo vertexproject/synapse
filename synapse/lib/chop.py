@@ -268,13 +268,6 @@ def uncpath(valu):
     host = parts[2]
     share = parts[3]
 
-    # ipv6 addresses are not valid as hostnames
-    try:
-        ipaddress.IPv6Address(host.strip('[]'))
-        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: IPv6 addresses must be encoded.')
-    except ipaddress.AddressValueError:
-        pass
-
     # Share name length should be 1-80 characters
     sharelen = len(share)
     if sharelen == 0 or sharelen > 80:
@@ -319,6 +312,13 @@ def uncpath(valu):
                 mesg=f'Invalid UNC path: Invalid port.',
                 valu=port
             )
+
+    # ipv6 addresses are not valid as hostnames
+    try:
+        ipaddress.IPv6Address(host.strip('[]'))
+        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: IPv6 addresses must be encoded.')
+    except ipaddress.AddressValueError:
+        pass
 
     # Convert ...ipv6-literal.net back to an actual ipv6 address
     if host.lower().endswith('.ipv6-literal.net'):
