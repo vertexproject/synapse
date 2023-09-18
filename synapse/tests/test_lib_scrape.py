@@ -483,9 +483,6 @@ good_uncs = [
     '\\\\server@SSL@1234\\share\\foo.txt',
     '\\\\0--1.ipv6-literal.net@SSL@1234\\share\\foo.txt',
     ('\\\\server\\share\\' + ('A' * 250) + '.txt:sname:stype\n'),
-]
-
-good_uncs2 = [
     'The UNC path is: \\\\server.domain.com\\share\\path\\to\\filename1.txt',
     'The UNC path is:\\\\server.domain.com\\share\\path\\to\\filename2.txt',
     'The UNC path is: "\\\\badserver\\share\\malicious file with spaces.txt" and the fqdn is badserver.domain.com.',
@@ -506,7 +503,7 @@ bad_uncs = [
     ('\\\\server\\share\\' + ('A' * 256) + '.txt\n'),
 ]
 
-unc_paths = '\n'.join(good_uncs + good_uncs2 + bad_uncs)
+unc_paths = '\n'.join(good_uncs + bad_uncs)
 
 class ScrapeTest(s_t_utils.SynTest):
 
