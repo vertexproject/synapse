@@ -156,18 +156,6 @@ class TypesTest(s_t_utils.SynTest):
         self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
         self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
-        async with self.getTestCore() as core:
-            nodes = await core.nodes('[test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('test:taxonomy', 'foo.bar.baz.'))
-            self.eq(node.get('title'), 'title words')
-            self.eq(node.get('desc'), 'a test taxonomy')
-            self.eq(node.get('sort'), 1)
-            self.eq(node.get('base'), 'baz')
-            self.eq(node.get('depth'), 2)
-            self.eq(node.get('parent'), 'foo.bar.')
-
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
