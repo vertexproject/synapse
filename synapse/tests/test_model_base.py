@@ -209,12 +209,14 @@ class BaseTest(s_t_utils.SynTest):
                 props = {
                     'name': 'FOO BAR',
                     'type': 'osint',
+                    'url': 'https://foo.bar/index.html'
                 }
 
                 sorc = await snap.addNode('meta:source', '*', props=props)
 
                 self.eq(sorc.get('type'), 'osint')
                 self.eq(sorc.get('name'), 'foo bar')
+                self.eq(sorc.get('url'), 'https://foo.bar/index.html')
 
                 valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
 
