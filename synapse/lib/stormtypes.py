@@ -7190,11 +7190,14 @@ class LibTrigger(Lib):
          'desc': 'Controls listing/retrieving triggers.'},
         {'perm': ('trigger', 'set'), 'gate': 'view',
          'desc': 'Controls modifying triggers.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of triggers.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of triggers.'},
         {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
          'desc': 'Controls modifying the user property of triggers.'},
-        {'perm': ('trigger', 'set', '<name>'), 'gate': 'view',
-         'desc': 'Controls modifying specific trigger properties.',
-         'ex': 'trigger.set.enabled'},
+        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
+         'desc': 'Controls modifying specific trigger properties.'},
     )
 
     def getObjLocals(self):
