@@ -107,9 +107,11 @@ class LibScrape(s_stormtypes.Lib):
         refang = await s_stormtypes.tobool(refang)
         unique = await s_stormtypes.tobool(unique)
         # Remove this in 3.0.0 since it is deprecated.
-        s_common.deprecated('$lib.scrape()')
+        s_common.deprecated('Directly calling $lib.scrape()')
         await self.runt.warnonce('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().')
-        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
+
+        core = self.runt.snap.core
+        async with await s_spooled.Set.anit(dirn=core.dirn, cell=core) as items:  # type: s_spooled.Set
             for item in s_scrape.scrape(text, ptype=form, refang=refang, first=False):
                 if unique:
                     if item in items:

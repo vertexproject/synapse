@@ -106,6 +106,9 @@ class Prop:
             self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
 
+        self.setperm = ('node', 'prop', 'set', self.full)
+        self.delperm = ('node', 'prop', 'del', self.full)
+
         self.form = form
         self.type = None
         self.typedef = typedef
@@ -195,6 +198,8 @@ class Prop:
 
     def pack(self):
         info = {
+            'name': self.name,
+            'full': self.full,
             'type': self.typedef,
             'stortype': self.type.stortype,
         }
@@ -246,6 +251,9 @@ class Form:
 
         self.onadds = []
         self.ondels = []
+
+        self.addperm = ('node', 'add', self.name)
+        self.delperm = ('node', 'del', self.name)
 
         self.type = modl.types.get(name)
         if self.type is None:
@@ -402,6 +410,7 @@ class Form:
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
         info = {
+            'name': self.name,
             'props': props,
             'stortype': self.type.stortype,
         }
@@ -557,7 +566,7 @@ class Model:
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
         })
-        self.addUnivProp('created', ('time', {}), {
+        self.addUnivProp('created', ('time', {'ismin': True}), {
             'ro': True,
             'doc': 'The time the node was created in the cortex.',
         })
@@ -565,7 +574,11 @@ class Model:
         self.addIface('taxonomy', {
             'props': (
                 ('title', ('str', {}), {'doc': 'A brief title of the definition.'}),
-                ('summary', ('str', {}), {'doc': 'A summary of the definition.', 'disp': {'hint': 'text'}}),
+                ('summary', ('str', {}), {
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use title/desc.',
+                    'disp': {'hint': 'text'}}),
+                ('desc', ('str', {}), {'doc': 'A definition of the taxonomy entry.', 'disp': {'hint': 'text'}}),
                 ('sort', ('int', {}), {'doc': 'A display sort order for siblings.', }),
                 ('base', ('taxon', {}), {'ro': True, 'doc': 'The base taxon.', }),
                 ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
@@ -576,6 +589,10 @@ class Model:
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
+        return props
+
+    def getArrayPropsByType(self, name):
+        props = self.arraysbytype.get(name, ())
         return props
 
     def getProps(self):
@@ -745,8 +762,7 @@ class Model:
     def _reqFormName(self, name):
         form = self.forms.get(name)
         if form is None:
-            mesg = f'No form named {name}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm.init(name)
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
@@ -758,7 +774,7 @@ class Model:
 
         if newtype.deprecated and typeinfo.get('custom'):
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'which which will be removed in 3.0.0.'
+                   f'will be removed in 3.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype
@@ -805,6 +821,12 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             return
+
+        formprops = [p for p in form.props.values() if p.univ is None]
+        if formprops:
+            propnames = ', '.join(prop.name for prop in formprops)
+            mesg = f'Form has extended properties: {propnames}'
+            raise s_exc.CantDelForm(mesg=mesg)
 
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].remove(form)
@@ -859,7 +881,7 @@ class Model:
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
         return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
@@ -917,7 +939,7 @@ class Model:
 
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         prop = form.delProp(propname)
         if prop is None:

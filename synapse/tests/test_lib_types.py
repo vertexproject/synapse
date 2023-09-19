@@ -17,7 +17,7 @@ class TypesTest(s_t_utils.SynTest):
         # Base type tests, mainly sad paths
         model = s_datamodel.Model()
         t = model.type('bool')
-        self.eq(t.info.get('bases'), ())
+        self.eq(t.info.get('bases'), ('base',))
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
@@ -116,7 +116,7 @@ class TypesTest(s_t_utils.SynTest):
         big2 = '-730750818665451459101841.0000000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
-    def test_taxonomy(self):
+    async def test_taxonomy(self):
 
         model = s_datamodel.Model()
         taxo = model.type('taxonomy')
@@ -127,6 +127,8 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.b-a-r.baz.')[0])
         self.eq('foo.b_a_r.baz.', taxo.norm('foo.  b   a   r  .baz.')[0])
 
+        self.eq('foo.bar.baz', taxo.repr('foo.bar.baz.'))
+
         with self.raises(s_exc.BadTypeValu):
             taxo.norm('foo.---.baz')
 
@@ -134,6 +136,37 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(2, info['subs']['depth'])
         self.eq('baz', info['subs']['base'])
         self.eq('foo.bar.', info['subs']['parent'])
+
+        self.true(taxo.cmpr('foo', '~=', 'foo'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.bar'))
+        self.false(taxo.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(taxo.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(taxo.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(taxo.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(taxo.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(taxo.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(taxo.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(taxo.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(taxo.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:taxonomy=foo.bar.baz :title="title words" :desc="a test taxonomy" :sort=1 ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef, ('test:taxonomy', 'foo.bar.baz.'))
+            self.eq(node.get('title'), 'title words')
+            self.eq(node.get('desc'), 'a test taxonomy')
+            self.eq(node.get('sort'), 1)
+            self.eq(node.get('base'), 'baz')
+            self.eq(node.get('depth'), 2)
+            self.eq(node.get('parent'), 'foo.bar.')
 
     def test_duration(self):
         model = s_datamodel.Model()
@@ -183,8 +216,8 @@ class TypesTest(s_t_utils.SynTest):
 
         self.raises(s_exc.BadTypeValu, t.norm, 'a')
 
-        self.eq(t.repr(1), 'True')
-        self.eq(t.repr(0), 'False')
+        self.eq(t.repr(1), 'true')
+        self.eq(t.repr(0), 'false')
 
     async def test_comp(self):
         async with self.getTestCore() as core:
@@ -201,7 +234,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('bar'), 'haha')
 
             typ = core.model.type(t)
-            self.eq(typ.info.get('bases'), ('comp',))
+            self.eq(typ.info.get('bases'), ('base', 'comp'))
             self.raises(s_exc.BadTypeValu, typ.norm,
                         (123, 'haha', 'newp'))
             self.eq(0, typ.getCompOffs('foo'))
@@ -235,6 +268,15 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadConfValu):
                 core.model.type('hex').clone({'size': -1})
+
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'zeropad': 1})
+
+            with self.raises(s_exc.BadConfValu):
+                core.model.type('hex').clone({'zeropad': -1})
+
+            t = core.model.type('hex').clone({'zeropad': False})
+            self.eq('1010', t.norm(b'\x10\x10')[0])
 
             t = core.model.type('test:hexa')
             # Test norming to index values
@@ -276,9 +318,56 @@ class TypesTest(s_t_utils.SynTest):
                 else:
                     self.raises(b, t.norm, v)
 
+            # size = 8, zeropad = True
+            testvectors = [
+                ('0x12', '00000012'),
+                ('0x1234', '00001234'),
+                ('0x123456', '00123456'),
+                ('0x12345678', '12345678'),
+                ('0x123456789a', s_exc.BadTypeValu),
+                (b'\x12', '00000012'),
+                (b'\x12\x34', '00001234'),
+                (b'\x12\x34\x56', '00123456'),
+                (b'\x12\x34\x56\x78', '12345678'),
+                (b'\x12\x34\x56\x78\x9a', s_exc.BadTypeValu),
+            ]
+            t = core.model.type('test:hexpad')
+            for v, b in testvectors:
+                if isinstance(b, (str, bytes)):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(r, b)
+                else:
+                    self.raises(b, t.norm, v)
+
+            # zeropad = 20
+            testvectors = [
+                ('0x12', '00000000000000000012'),
+                ('0x1234', '00000000000000001234'),
+                ('0x123456', '00000000000000123456'),
+                ('0x12345678', '00000000000012345678'),
+                ('0x123456789abcdef123456789abcdef', '123456789abcdef123456789abcdef'),
+                (b'\x12', '00000000000000000012'),
+                (b'\x12\x34', '00000000000000001234'),
+                (b'\x12\x34\x56', '00000000000000123456'),
+                (b'\x12\x34\x56\x78', '00000000000012345678'),
+                (b'\x12\x34\x56\x78', '00000000000012345678'),
+                (b'\x12\x34\x56\x78\x9a\xbc\xde\xf1\x23\x45\x67\x89\xab\xcd\xef', '123456789abcdef123456789abcdef'),
+            ]
+            t = core.model.type('test:zeropad')
+            for v, b in testvectors:
+                if isinstance(b, (str, bytes)):
+                    r, subs = t.norm(v)
+                    self.isinstance(r, str)
+                    self.eq(subs, {})
+                    self.eq(r, b)
+                else:
+                    self.raises(b, t.norm, v)
+
             # Do some node creation and lifting
             async with await core.snap() as snap:
-                node = await snap.addNode('test:hexa', '010001')
+                node = await snap.addNode('test:hexa', '01:00 01')
                 self.eq(node.ndef[1], '010001')
 
             async with await core.snap() as snap:
@@ -342,6 +431,17 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
             self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
+
+            # Check creating and lifting zeropadded hex types
+            self.len(2, await core.nodes('[test:zeropad=11 test:zeropad=0x22]'))
+            self.len(1, await core.nodes('test:zeropad=0x11'))
+            self.len(1, await core.nodes('test:zeropad=000000000011'))
+            self.len(1, await core.nodes('test:zeropad=00000000000000000011'))  # len=20
+            self.len(0, await core.nodes('test:zeropad=0000000000000000000011'))  # len=22
+            self.len(1, await core.nodes('test:zeropad=22'))
+            self.len(1, await core.nodes('test:zeropad=000000000022'))
+            self.len(1, await core.nodes('test:zeropad=00000000000000000022'))  # len=20
+            self.len(0, await core.nodes('test:zeropad=0000000000000000000022'))  # len=22
 
     def test_int(self):
 
@@ -567,137 +667,138 @@ class TypesTest(s_t_utils.SynTest):
                 node = (await snap.nodes('syn:tag=biz'))[0]
                 await node.addTag('vertex.project', valu=('now-5days', 'now'))
 
-            await self.agenraises(s_exc.BadSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str :tick=(20150102, "-4 day")')
 
-            await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=2015'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(2015, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(20150102+1day, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(20150102, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("now-1day", "?")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("now+2days", "-3 day")'))
-            await self.agenlen(0, core.eval('test:str +:tick@=("now", "now+3days")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("now-2days","now")'))
-            await self.agenlen(0, core.eval('test:str +:tick@=("2011", "2014")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("2014", "20140601")'))
+            self.eq(1, await core.count('test:str +:tick@=(now, "-1 day")'))
+            self.eq(1, await core.count('test:str +:tick@=2015'))
+            self.eq(1, await core.count('test:str +:tick@=(2015, "+1 day")'))
+            self.eq(1, await core.count('test:str +:tick@=(20150102+1day, "-4 day")'))
+            self.eq(1, await core.count('test:str +:tick@=(20150102, "-4 day")'))
+            self.eq(1, await core.count('test:str +:tick@=(now, "-1 day")'))
+            self.eq(1, await core.count('test:str +:tick@=("now-1day", "?")'))
+            self.eq(1, await core.count('test:str +:tick@=("now+2days", "-3 day")'))
+            self.eq(0, await core.count('test:str +:tick@=("now", "now+3days")'))
+            self.eq(1, await core.count('test:str +:tick@=("now-2days","now")'))
+            self.eq(0, await core.count('test:str +:tick@=("2011", "2014")'))
+            self.eq(1, await core.count('test:str +:tick@=("2014", "20140601")'))
 
-            await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=2015'))
-            await self.agenlen(1, core.eval('test:str:tick@=(2015, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(20150102+1day, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(20150102, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("now-1day", "?")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("now+2days", "-3 day")'))
-            await self.agenlen(0, core.eval('test:str:tick@=("now", "now+3days")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("now-2days","now")'))
-            await self.agenlen(0, core.eval('test:str:tick@=("2011", "2014")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("2014", "20140601")'))
+            self.eq(1, await core.count('test:str:tick@=(now, "-1 day")'))
+            self.eq(1, await core.count('test:str:tick@=2015'))
+            self.eq(1, await core.count('test:str:tick@=(2015, "+1 day")'))
+            self.eq(1, await core.count('test:str:tick@=(20150102+1day, "-4 day")'))
+            self.eq(1, await core.count('test:str:tick@=(20150102, "-4 day")'))
+            self.eq(1, await core.count('test:str:tick@=(now, "-1 day")'))
+            self.eq(1, await core.count('test:str:tick@=("now-1day", "?")'))
+            self.eq(1, await core.count('test:str:tick@=("now+2days", "-3 day")'))
+            self.eq(0, await core.count('test:str:tick@=("now", "now+3days")'))
+            self.eq(1, await core.count('test:str:tick@=("now-2days","now")'))
+            self.eq(0, await core.count('test:str:tick@=("2011", "2014")'))
+            self.eq(1, await core.count('test:str:tick@=("2014", "20140601")'))
 
-            await self.agenlen(0, core.eval('.seen@=("2004", "2005")'))
-            await self.agenlen(1, core.eval('.seen@=("9000", "9001")'))
+            self.eq(0, await core.count('.seen@=("2004", "2005")'))
+            self.eq(1, await core.count('.seen@=("9000", "9001")'))
 
-            await self.agenlen(2, core.eval('.seen@=("now+6days", "?")'))
-            await self.agenlen(2, core.eval('.seen@=(now, "-4 days")'))
-            await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
-            await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
-            await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
+            self.eq(2, await core.count('.seen@=("now+6days", "?")'))
+            self.eq(2, await core.count('.seen@=(now, "-4 days")'))
+            self.eq(2, await core.count('.seen@=(8900, 9500)'))
+            self.eq(1, await core.count('.seen@=("2004", "20050201")'))
+            self.eq(2, await core.count('.seen@=("now", "-3 days")'))
 
-            await self.agenlen(1, core.eval('test:ival@=1970'))
-            await self.agenlen(5, core.eval('test:ival@=(1970, "now+100days")'))
-            await self.agenlen(1, core.eval('test:ival@="now"'))
-            await self.agenlen(1, core.eval('test:ival@=("now+1day", "now+6days")'))
-            await self.agenlen(1, core.eval('test:ival@=("now-9days", "now-1day")'))
-            await self.agenlen(1, core.eval('test:ival@=("now-3days", "now+3days")'))
-            await self.agenlen(0, core.eval('test:ival@=("1993", "1995")'))
-            await self.agenlen(0, core.eval('test:ival@=("1997", "1998")'))
-            await self.agenlen(1, core.eval('test:ival=("1995", "1997")'))
+            self.eq(1, await core.count('test:ival@=1970'))
+            self.eq(5, await core.count('test:ival@=(1970, "now+100days")'))
+            self.eq(1, await core.count('test:ival@="now"'))
+            self.eq(1, await core.count('test:ival@=("now+1day", "now+6days")'))
+            self.eq(1, await core.count('test:ival@=("now-9days", "now-1day")'))
+            self.eq(1, await core.count('test:ival@=("now-3days", "now+3days")'))
+            self.eq(0, await core.count('test:ival@=("1993", "1995")'))
+            self.eq(0, await core.count('test:ival@=("1997", "1998")'))
+            self.eq(1, await core.count('test:ival=("1995", "1997")'))
 
-            await self.agenlen(1, core.eval('test:ival:interval@="now+2days"'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("now-4days","now-3days")'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("now+4days","now+6days")'))
-            await self.agenlen(1, core.eval('test:ival:interval@=("now-3days","now-1days")'))
-            await self.agenlen(1, core.eval('test:ival:interval@=("now+3days","now+6days")'))
-            await self.agenlen(2, core.eval('test:ival:interval@="now+1day"'))
-            await self.agenlen(2, core.eval('test:ival:interval@=("20100602","20100603")'))
-            await self.agenlen(2, core.eval('test:ival:interval@=("now-10days","now+10days")'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("1999", "2000")'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("2001", "2002")'))
+            self.eq(1, await core.count('test:ival:interval@="now+2days"'))
+            self.eq(0, await core.count('test:ival:interval@=("now-4days","now-3days")'))
+            self.eq(0, await core.count('test:ival:interval@=("now+4days","now+6days")'))
+            self.eq(1, await core.count('test:ival:interval@=("now-3days","now-1days")'))
+            self.eq(1, await core.count('test:ival:interval@=("now+3days","now+6days")'))
+            self.eq(2, await core.count('test:ival:interval@="now+1day"'))
+            self.eq(2, await core.count('test:ival:interval@=("20100602","20100603")'))
+            self.eq(2, await core.count('test:ival:interval@=("now-10days","now+10days")'))
+            self.eq(0, await core.count('test:ival:interval@=("1999", "2000")'))
+            self.eq(0, await core.count('test:ival:interval@=("2001", "2002")'))
 
-            await self.agenlen(1, core.eval('test:ival +:interval@="now+2days"'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("now-4days","now-3days")'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("now+4days","now+6days")'))
-            await self.agenlen(1, core.eval('test:ival +:interval@=("now-3days","now-1days")'))
-            await self.agenlen(1, core.eval('test:ival +:interval@=("now+3days","now+6days")'))
-            await self.agenlen(2, core.eval('test:ival +:interval@="now+1day"'))
-            await self.agenlen(2, core.eval('test:ival +:interval@=("20100602","20100603")'))
-            await self.agenlen(2, core.eval('test:ival +:interval@=("now-10days","now+10days")'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("1999", "2000")'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("2001", "2002")'))
+            self.eq(1, await core.count('test:ival +:interval@="now+2days"'))
+            self.eq(0, await core.count('test:ival +:interval@=("now-4days","now-3days")'))
+            self.eq(0, await core.count('test:ival +:interval@=("now+4days","now+6days")'))
+            self.eq(1, await core.count('test:ival +:interval@=("now-3days","now-1days")'))
+            self.eq(1, await core.count('test:ival +:interval@=("now+3days","now+6days")'))
+            self.eq(2, await core.count('test:ival +:interval@="now+1day"'))
+            self.eq(2, await core.count('test:ival +:interval@=("20100602","20100603")'))
+            self.eq(2, await core.count('test:ival +:interval@=("now-10days","now+10days")'))
+            self.eq(0, await core.count('test:ival +:interval@=("1999", "2000")'))
+            self.eq(0, await core.count('test:ival +:interval@=("2001", "2002")'))
 
-            await self.agenlen(0, core.eval('#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('#foo@="2015"'))
-            await self.agenlen(1, core.eval('#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('#bar@="2000"'))
-            await self.agenlen(1, core.eval('#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('#biz@="now"'))
+            self.eq(0, await core.count('#foo@=("2013", "2015")'))
+            self.eq(0, await core.count('#foo@=("2018", "2019")'))
+            self.eq(1, await core.count('#foo@=("1999", "2002")'))
+            self.eq(1, await core.count('#foo@="2015"'))
+            self.eq(1, await core.count('#foo@=("2010", "20150601")'))
+            self.eq(2, await core.count('#foo@=("2000", "2017")'))
+            self.eq(1, await core.count('#bar@=("1985", "1995")'))
+            self.eq(0, await core.count('#bar@="2000"'))
+            self.eq(1, await core.count('#baz@=("now","-1 day")'))
+            self.eq(1, await core.count('#baz@=("now-1day", "+1day")'))
+            self.eq(1, await core.count('#biz@="now"'))
 
-            await self.agenlen(0, core.eval('#foo +#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('#foo +#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('#foo +#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('#foo +#foo@="2015"'))
-            await self.agenlen(1, core.eval('#foo +#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('#foo +#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('#bar +#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('#bar +#bar@="2000"'))
-            await self.agenlen(1, core.eval('#baz +#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('#baz +#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('#biz +#biz@="now"'))
+            self.eq(0, await core.count('#foo +#foo@=("2013", "2015")'))
+            self.eq(0, await core.count('#foo +#foo@=("2018", "2019")'))
+            self.eq(1, await core.count('#foo +#foo@=("1999", "2002")'))
+            self.eq(1, await core.count('#foo +#foo@="2015"'))
+            self.eq(1, await core.count('#foo +#foo@=("2010", "20150601")'))
+            self.eq(2, await core.count('#foo +#foo@=("2000", "2017")'))
+            self.eq(1, await core.count('#bar +#bar@=("1985", "1995")'))
+            self.eq(0, await core.count('#bar +#bar@="2000"'))
+            self.eq(1, await core.count('#baz +#baz@=("now","-1 day")'))
+            self.eq(1, await core.count('#baz +#baz@=("now-1day", "+1day")'))
+            self.eq(1, await core.count('#biz +#biz@="now"'))
 
-            await self.agenlen(1, core.eval('#foo=("2015", "2018")'))
+            self.eq(1, await core.count('#foo=("2015", "2018")'))
 
-            await self.agenlen(0, core.eval('test:str#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('test:str#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('test:str#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('test:str#foo@="2015"'))
-            await self.agenlen(1, core.eval('test:str#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('test:str#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('test:str#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('test:str#bar@="2000"'))
-            await self.agenlen(1, core.eval('test:str#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('test:str#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('test:str#biz@="now"'))
+            self.eq(0, await core.count('test:str#foo@=("2013", "2015")'))
+            self.eq(0, await core.count('test:str#foo@=("2018", "2019")'))
+            self.eq(1, await core.count('test:str#foo@=("1999", "2002")'))
+            self.eq(1, await core.count('test:str#foo@="2015"'))
+            self.eq(1, await core.count('test:str#foo@=("2010", "20150601")'))
+            self.eq(2, await core.count('test:str#foo@=("2000", "2017")'))
+            self.eq(1, await core.count('test:str#bar@=("1985", "1995")'))
+            self.eq(0, await core.count('test:str#bar@="2000"'))
+            self.eq(1, await core.count('test:str#baz@=("now","-1 day")'))
+            self.eq(1, await core.count('test:str#baz@=("now-1day", "+1day")'))
+            self.eq(1, await core.count('test:str#biz@="now"'))
 
-            await self.agenlen(0, core.eval('test:str +#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('test:str +#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('test:str +#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('test:str +#foo@="2015"'))
-            await self.agenlen(1, core.eval('test:str +#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('test:str +#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('test:str +#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('test:str +#bar@="2000"'))
-            await self.agenlen(1, core.eval('test:str +#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('test:str +#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('test:str +#biz@="now"'))
+            self.eq(0, await core.count('test:str +#foo@=("2013", "2015")'))
+            self.eq(0, await core.count('test:str +#foo@=("2018", "2019")'))
+            self.eq(1, await core.count('test:str +#foo@=("1999", "2002")'))
+            self.eq(1, await core.count('test:str +#foo@="2015"'))
+            self.eq(1, await core.count('test:str +#foo@=("2010", "20150601")'))
+            self.eq(2, await core.count('test:str +#foo@=("2000", "2017")'))
+            self.eq(1, await core.count('test:str +#bar@=("1985", "1995")'))
+            self.eq(0, await core.count('test:str +#bar@="2000"'))
+            self.eq(1, await core.count('test:str +#baz@=("now","-1 day")'))
+            self.eq(1, await core.count('test:str +#baz@=("now-1day", "+1day")'))
+            self.eq(1, await core.count('test:str +#biz@="now"'))
 
-            await self.agenlen(0, core.eval('##v.p@=("2003", "2005")'))
-            await self.agenlen(0, core.eval('##v.p@=("2006", "2008")'))
-            await self.agenlen(1, core.eval('##vert.proj@="2016"'))
-            await self.agenlen(1, core.eval('##vert.proj@=("2010", "2012")'))
-            await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
-            await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
-            await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
+            self.eq(0, await core.count('##v.p@=("2003", "2005")'))
+            self.eq(0, await core.count('##v.p@=("2006", "2008")'))
+            self.eq(1, await core.count('##vert.proj@="2016"'))
+            self.eq(1, await core.count('##vert.proj@=("2010", "2012")'))
+            self.eq(1, await core.count('##vert.proj@=("2016", "now+6days")'))
+            self.eq(1, await core.count('##vert.proj@=("1995", "now+6 days")'))
+            self.eq(1, await core.count('##vertex.project@=("now-9days", "now-3days")'))
 
-            await self.agenlen(0, core.eval('test:str +:tick@=(2020, 2000)'))
+            self.eq(0, await core.count('test:str +:tick@=(2020, 2000)'))
 
             now = s_common.now()
-            nodes = await alist(core.eval('[test:guid="*" .seen=("-1 day","?")]'))
+            nodes = await core.nodes('[test:guid="*" .seen=("-1 day","?")]')
             node = nodes[0]
             valu = node.get('.seen')
             self.eq(valu[1], ival.futsize)
@@ -705,20 +806,27 @@ class TypesTest(s_t_utils.SynTest):
 
             # Sad Paths
             q = '[test:str=newp .seen=(2018/03/31,2018/03/30)]'
-            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
             q = '[test:str=newp .seen=("+-1 day","+-1 day")]'
-            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
             q = '[test:str=newp  .seen=("?","?")]'
-            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
             q = '[test:str=newp .seen=(2008, 2019, 2000)]'
-            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
             q = '[test:str=newp .seen=("?","-1 day")]'
-            await self.agenraises(s_exc.BadTypeValu, core.eval(q))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
             # *range= not supported for ival
             q = 'test:str +.seen*range=((20090601, 20090701), (20110905, 20110906,))'
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes(q)
             q = 'test:str.seen*range=((20090601, 20090701), (20110905, 20110906,))'
-            await self.agenraises(s_exc.NoSuchCmpr, core.eval(q))
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes(q)
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -729,64 +837,64 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('us.va.ओं.reston', loctype.norm('US.    VA.ओं.reston')[0])
 
         async with self.getTestCore() as core:
-            await self.agenlen(1, core.eval('[test:int=1 :loc=us.va.syria]'))
-            await self.agenlen(1, core.eval('[test:int=2 :loc=us.va.sydney]'))
-            await self.agenlen(1, core.eval('[test:int=3 :loc=""]'))
-            await self.agenlen(1, core.eval('[test:int=4 :loc=us.va.fairfax]'))
-            await self.agenlen(1, core.eval('[test:int=5 :loc=us.va.fairfax.reston]'))
-            await self.agenlen(1, core.eval('[test:int=6 :loc=us.va.fairfax.restonheights]'))
-            await self.agenlen(1, core.eval('[test:int=7 :loc=us.va.fairfax.herndon]'))
-            await self.agenlen(1, core.eval('[test:int=8 :loc=us.ca.sandiego]'))
-            await self.agenlen(1, core.eval('[test:int=9 :loc=us.ओं]'))
-            await self.agenlen(1, core.eval('[test:int=10 :loc=us.va]'))
-            await self.agenlen(1, core.eval('[test:int=11 :loc=us]'))
-            await self.agenlen(1, core.eval('[test:int=12 :loc=us]'))
+            self.eq(1, await core.count('[test:int=1 :loc=us.va.syria]'))
+            self.eq(1, await core.count('[test:int=2 :loc=us.va.sydney]'))
+            self.eq(1, await core.count('[test:int=3 :loc=""]'))
+            self.eq(1, await core.count('[test:int=4 :loc=us.va.fairfax]'))
+            self.eq(1, await core.count('[test:int=5 :loc=us.va.fairfax.reston]'))
+            self.eq(1, await core.count('[test:int=6 :loc=us.va.fairfax.restonheights]'))
+            self.eq(1, await core.count('[test:int=7 :loc=us.va.fairfax.herndon]'))
+            self.eq(1, await core.count('[test:int=8 :loc=us.ca.sandiego]'))
+            self.eq(1, await core.count('[test:int=9 :loc=us.ओं]'))
+            self.eq(1, await core.count('[test:int=10 :loc=us.va]'))
+            self.eq(1, await core.count('[test:int=11 :loc=us]'))
+            self.eq(1, await core.count('[test:int=12 :loc=us]'))
 
-            await self.agenlen(1, core.eval('test:int:loc=us.va.syria'))
-            await self.agenlen(1, core.eval('test:int:loc=us.va.sydney'))
-            await self.agenlen(0, core.eval('test:int:loc=us.va.sy'))
-            await self.agenlen(1, core.eval('test:int:loc=us.va'))
-            await self.agenlen(0, core.eval('test:int:loc=us.v'))
-            await self.agenlen(2, core.eval('test:int:loc=us'))
-            await self.agenlen(0, core.eval('test:int:loc=u'))
-            await self.agenlen(1, core.eval('test:int:loc=""'))
+            self.eq(1, await core.count('test:int:loc=us.va.syria'))
+            self.eq(1, await core.count('test:int:loc=us.va.sydney'))
+            self.eq(0, await core.count('test:int:loc=us.va.sy'))
+            self.eq(1, await core.count('test:int:loc=us.va'))
+            self.eq(0, await core.count('test:int:loc=us.v'))
+            self.eq(2, await core.count('test:int:loc=us'))
+            self.eq(0, await core.count('test:int:loc=u'))
+            self.eq(1, await core.count('test:int:loc=""'))
 
-            await self.agenlen(1, core.eval('test:int +:loc="us.va. syria"'))
-            await self.agenlen(1, core.eval('test:int +:loc=us.va.sydney'))
-            await self.agenlen(0, core.eval('test:int +:loc=us.va.sy'))
-            await self.agenlen(1, core.eval('test:int +:loc=us.va'))
-            await self.agenlen(0, core.eval('test:int +:loc=us.v'))
-            await self.agenlen(2, core.eval('test:int +:loc=us'))
-            await self.agenlen(0, core.eval('test:int +:loc=u'))
-            await self.agenlen(1, core.eval('test:int +:loc=""'))
+            self.eq(1, await core.count('test:int +:loc="us.va. syria"'))
+            self.eq(1, await core.count('test:int +:loc=us.va.sydney'))
+            self.eq(0, await core.count('test:int +:loc=us.va.sy'))
+            self.eq(1, await core.count('test:int +:loc=us.va'))
+            self.eq(0, await core.count('test:int +:loc=us.v'))
+            self.eq(2, await core.count('test:int +:loc=us'))
+            self.eq(0, await core.count('test:int +:loc=u'))
+            self.eq(1, await core.count('test:int +:loc=""'))
 
-            await self.agenlen(0, core.eval('test:int +:loc^=u'))
-            await self.agenlen(11, core.eval('test:int +:loc^=us'))
-            await self.agenlen(0, core.eval('test:int +:loc^=us.'))
-            await self.agenlen(0, core.eval('test:int +:loc^=us.v'))
-            await self.agenlen(7, core.eval('test:int +:loc^=us.va'))
-            await self.agenlen(0, core.eval('test:int +:loc^=us.va.'))
-            await self.agenlen(0, core.eval('test:int +:loc^=us.va.fair'))
-            await self.agenlen(4, core.eval('test:int +:loc^=us.va.fairfax'))
-            await self.agenlen(0, core.eval('test:int +:loc^=us.va.fairfax.'))
-            await self.agenlen(1, core.eval('test:int +:loc^=us.va.fairfax.reston'))
-            await self.agenlen(0, core.eval('test:int +:loc^=us.va.fairfax.chantilly'))
-            await self.agenlen(1, core.eval('test:int +:loc^=""'))
-            await self.agenlen(0, core.eval('test:int +:loc^=23'))
+            self.eq(0, await core.count('test:int +:loc^=u'))
+            self.eq(11, await core.count('test:int +:loc^=us'))
+            self.eq(0, await core.count('test:int +:loc^=us.'))
+            self.eq(0, await core.count('test:int +:loc^=us.v'))
+            self.eq(7, await core.count('test:int +:loc^=us.va'))
+            self.eq(0, await core.count('test:int +:loc^=us.va.'))
+            self.eq(0, await core.count('test:int +:loc^=us.va.fair'))
+            self.eq(4, await core.count('test:int +:loc^=us.va.fairfax'))
+            self.eq(0, await core.count('test:int +:loc^=us.va.fairfax.'))
+            self.eq(1, await core.count('test:int +:loc^=us.va.fairfax.reston'))
+            self.eq(0, await core.count('test:int +:loc^=us.va.fairfax.chantilly'))
+            self.eq(1, await core.count('test:int +:loc^=""'))
+            self.eq(0, await core.count('test:int +:loc^=23'))
 
-            await self.agenlen(0, core.eval('test:int:loc^=u'))
-            await self.agenlen(11, core.eval('test:int:loc^=us'))
-            await self.agenlen(0, core.eval('test:int:loc^=us.'))
-            await self.agenlen(0, core.eval('test:int:loc^=us.v'))
-            await self.agenlen(7, core.eval('test:int:loc^=us.va'))
-            await self.agenlen(0, core.eval('test:int:loc^=us.va.'))
-            await self.agenlen(0, core.eval('test:int:loc^=us.va.fair'))
-            await self.agenlen(4, core.eval('test:int:loc^=us.va.fairfax'))
-            await self.agenlen(0, core.eval('test:int:loc^=us.va.fairfax.'))
-            await self.agenlen(1, core.eval('test:int:loc^=us.va.fairfax.reston'))
-            await self.agenlen(0, core.eval('test:int:loc^=us.va.fairfax.chantilly'))
-            await self.agenlen(1, core.eval('test:int:loc^=""'))
-            await self.agenlen(0, core.eval('test:int:loc^=23'))
+            self.eq(0, await core.count('test:int:loc^=u'))
+            self.eq(11, await core.count('test:int:loc^=us'))
+            self.eq(0, await core.count('test:int:loc^=us.'))
+            self.eq(0, await core.count('test:int:loc^=us.v'))
+            self.eq(7, await core.count('test:int:loc^=us.va'))
+            self.eq(0, await core.count('test:int:loc^=us.va.'))
+            self.eq(0, await core.count('test:int:loc^=us.va.fair'))
+            self.eq(4, await core.count('test:int:loc^=us.va.fairfax'))
+            self.eq(0, await core.count('test:int:loc^=us.va.fairfax.'))
+            self.eq(1, await core.count('test:int:loc^=us.va.fairfax.reston'))
+            self.eq(0, await core.count('test:int:loc^=us.va.fairfax.chantilly'))
+            self.eq(1, await core.count('test:int:loc^=""'))
+            self.eq(0, await core.count('test:int:loc^=23'))
 
     def test_ndef(self):
         model = s_datamodel.Model()
@@ -854,35 +962,32 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:str', 'm', {'bar': ('test:str', 'm'), 'tick': '20200101'})
                 node = await snap.addNode('test:guid', 'C' * 32)
                 node = await snap.addNode('test:guid', 'F' * 32)
-                node = await alist(core.eval('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]'))
-                node = await alist(core.eval('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]'))
-                node = await alist(core.eval('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]'))
+                await core.nodes('[edge:refs=((test:comp, (2048, horton)), (test:comp, (4096, whoville)))]')
+                await core.nodes('[edge:refs=((test:comp, (9001, "A mean one")), (test:comp, (40000, greeneggs)))]')
+                await core.nodes('[edge:refs=((test:int, 16), (test:comp, (9999, greenham)))]')
 
-            nodes = await alist(core.eval('test:str=a +:tick*range=(20000101, 20101201)'))
-            self.eq(0, len(nodes))
-            nodes = await alist(core.eval('test:str +:tick*range=(19701125, 20151212)'))
+            self.len(0, await core.nodes('test:str=a +:tick*range=(20000101, 20101201)'))
+            nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b'})
-            nodes = await alist(core.eval('test:comp +:haha*range=(grinch, meanone)'))
+            nodes = await core.nodes('test:comp +:haha*range=(grinch, meanone)')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await alist(core.eval('test:str +:bar*range=((test:str, c), (test:str, q))'))
+            nodes = await core.nodes('test:str +:bar*range=((test:str, c), (test:str, q))')
             self.eq({node.ndef[1] for node in nodes}, {'m'})
-            nodes = await alist(core.eval('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))'))
+            nodes = await core.nodes('test:comp +test:comp*range=((1024, grinch), (4096, zemeanone))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton'), (4096, 'whoville')})
             guid0 = 'B' * 32
             guid1 = 'D' * 32
-            nodes = await alist(core.eval(f'test:guid +test:guid*range=({guid0}, {guid1})'))
+            nodes = await core.nodes(f'test:guid +test:guid*range=({guid0}, {guid1})')
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
-            nodes = await alist(core.eval('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))'))
+            nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await alist(core.eval('edge:refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))'))
+            nodes = await core.nodes('edge:refs +:n1*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
             self.eq({node.ndef[1] for node in nodes},
                     {(('test:comp', (2048, 'horton')), ('test:comp', (4096, 'whoville')))})
 
             # The following tests show range working against a string
-            nodes = await alist(core.eval('test:str*range=(b, m)'))
-            self.len(2, nodes)
-            nodes = await alist(core.eval('test:str +test:str*range=(b, m)'))
-            self.len(2, nodes)
+            self.len(2, await core.nodes('test:str*range=(b, m)'))
+            self.len(2, await core.nodes('test:str +test:str*range=(b, m)'))
 
             # Range against a integer
             async with await core.snap() as snap:
@@ -890,21 +995,21 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:int', 0)
                 node = await snap.addNode('test:int', 1)
                 node = await snap.addNode('test:int', 2)
-            nodes = await alist(core.eval('test:int*range=(0, 2)'))
-            self.len(3, nodes)
-            nodes = await alist(core.eval('test:int +test:int*range=(0, 2)'))
-            self.len(3, nodes)
+            self.len(3, await core.nodes('test:int*range=(0, 2)'))
+            self.len(3, await core.nodes('test:int +test:int*range=(0, 2)'))
 
-            nodes = await alist(core.eval('test:int*range=(-1, -1)'))
-            self.len(1, nodes)
-            nodes = await alist(core.eval('test:int +test:int*range=(-1, -1)'))
-            self.len(1, nodes)
+            self.len(1, await core.nodes('test:int*range=(-1, -1)'))
+            self.len(1, await core.nodes('test:int +test:int*range=(-1, -1)'))
 
             # sad path
-            await self.agenraises(s_exc.BadCmprValu, core.eval('test:comp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)'))
-            await self.agenraises(s_exc.BadCmprValu, core.eval('test:comp +:haha*range=(somestring,) '))
-            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:bar*range=Foobar'))
-            await self.agenraises(s_exc.BadCmprValu, core.eval('test:int +test:int*range=3456'))
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:comp +:hehe*range=(0.0.0.0, 1.1.1.1, 6.6.6.6)')
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:comp +:haha*range=(somestring,)')
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:str +:bar*range=Foobar')
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:int +test:int*range=3456')
 
     def test_str(self):
 
@@ -950,6 +1055,26 @@ class TypesTest(s_t_utils.SynTest):
         norm, info = strsubs.norm('aabbzxxxxxz')
         self.eq(info.get('subs'), {'first': 'aabb', 'last': 'zxxxxxz'})
 
+        flt = model.type('str').clone({})
+        self.eq('0.0', flt.norm(0.0)[0])
+        self.eq('-0.0', flt.norm(-0.0)[0])
+        self.eq('2.65', flt.norm(2.65)[0])
+        self.eq('2.65', flt.norm(2.65000000)[0])
+        self.eq('0.65', flt.norm(00.65)[0])
+        self.eq('42.0', flt.norm(42.0)[0])
+        self.eq('42.0', flt.norm(42.)[0])
+        self.eq('42.0', flt.norm(00042.00000)[0])
+        self.eq('0.000000000000000000000000001', flt.norm(0.000000000000000000000000001)[0])
+        self.eq('0.0000000000000000000000000000000000001', flt.norm(0.0000000000000000000000000000000000001)[0])
+        self.eq('0.00000000000000000000000000000000000000000000001',
+                flt.norm(0.00000000000000000000000000000000000000000000001)[0])
+        self.eq('0.3333333333333333', flt.norm(0.333333333333333333333333333)[0])
+        self.eq('0.4444444444444444', flt.norm(0.444444444444444444444444444)[0])
+        self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789)[0])
+        self.eq('1234567891.1234567', flt.norm(1234567890.123456790123456790123456789 + 1)[0])
+        self.eq('1234567890.1234567', flt.norm(1234567890.123456790123456790123456789 + 0.0000000001)[0])
+        self.eq('2.718281828459045', flt.norm(2.718281828459045)[0])
+
     def test_syntag(self):
 
         model = s_datamodel.Model()
@@ -982,6 +1107,25 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
         # homoglyphs are also possible
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
+
+        self.true(tagtype.cmpr('foo', '~=', 'foo'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo', '~=', 'foo.bar.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.'))
+        self.true(tagtype.cmpr('foo.bar', '~=', 'foo.bar'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.'))
+        self.false(tagtype.cmpr('foo.bar', '~=', 'foo.bar.x'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', 'bar'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', '[a-z].bar.[a-z]'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'^foo\.[a-z]+\.baz$'))
+        self.true(tagtype.cmpr('foo.bar.baz', '~=', r'\.baz$'))
+        self.true(tagtype.cmpr('bar.foo.baz', '~=', 'foo.'))
+        self.false(tagtype.cmpr('bar.foo.baz', '~=', r'^foo\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.bar\.'))
+        self.true(tagtype.cmpr('foo.bar.xbazx', '~=', '.baz.'))
+        self.false(tagtype.cmpr('foo.bar.xbazx', '~=', r'\.baz\.'))
 
     async def test_time(self):
 
@@ -1072,28 +1216,28 @@ class TypesTest(s_t_utils.SynTest):
             self.true(t.cmpr('20150202', '<', '2016'))
             self.false(t.cmpr('2015', '<', '2015'))
 
-            await self.agenlen(1, core.eval('test:str +:tick=2015'))
+            self.eq(1, await core.count('test:str +:tick=2015'))
 
-            await self.agenlen(1, core.eval('test:str +:tick*range=($test, "+- 2day")',
+            self.eq(1, await core.count('test:str +:tick*range=($test, "+- 2day")',
                                             opts={'vars': {'test': '2015'}}))
 
-            await self.agenlen(1, core.eval('test:str +:tick*range=(now, "-+ 1day")'))
+            self.eq(1, await core.count('test:str +:tick*range=(now, "-+ 1day")'))
 
-            await self.agenlen(1, core.eval('test:str +:tick*range=(2015, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "-3 day")'))
-            await self.agenlen(0, core.eval('test:str +:tick*range=(20150201, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick*range=(20150102, "+- 2day")'))
-            await self.agenlen(2, core.eval('test:str +:tick*range=(2015, 2016)'))
-            await self.agenlen(0, core.eval('test:str +:tick*range=(2016, 2015)'))
+            self.eq(1, await core.count('test:str +:tick*range=(2015, "+1 day")'))
+            self.eq(1, await core.count('test:str +:tick*range=(20150102, "-3 day")'))
+            self.eq(0, await core.count('test:str +:tick*range=(20150201, "+1 day")'))
+            self.eq(1, await core.count('test:str +:tick*range=(20150102, "+- 2day")'))
+            self.eq(2, await core.count('test:str +:tick*range=(2015, 2016)'))
+            self.eq(0, await core.count('test:str +:tick*range=(2016, 2015)'))
 
-            await self.agenlen(2, core.eval('test:str:tick*range=(2015, 2016)'))
-            await self.agenlen(0, core.eval('test:str:tick*range=(2016, 2015)'))
+            self.eq(2, await core.count('test:str:tick*range=(2015, 2016)'))
+            self.eq(0, await core.count('test:str:tick*range=(2016, 2015)'))
 
-            await self.agenlen(1, core.eval('test:str:tick*range=(2015, "+1 day")'))
-            await self.agenlen(4, core.eval('test:str:tick*range=(2014, "now")'))
-            await self.agenlen(0, core.eval('test:str:tick*range=(20150201, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick*range=(now, "+-1 day")'))
-            await self.agenlen(0, core.eval('test:str:tick*range=(now, "+1 day")'))
+            self.eq(1, await core.count('test:str:tick*range=(2015, "+1 day")'))
+            self.eq(4, await core.count('test:str:tick*range=(2014, "now")'))
+            self.eq(0, await core.count('test:str:tick*range=(20150201, "+1 day")'))
+            self.eq(1, await core.count('test:str:tick*range=(now, "+-1 day")'))
+            self.eq(0, await core.count('test:str:tick*range=(now, "+1 day")'))
 
             # Sad path for *range=
             with self.raises(s_exc.BadTypeValu):
@@ -1111,26 +1255,32 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:str:tick*range=$tick', opts={'vars': {'tick': tick}})
 
-            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:tick*range=(2015)'))
-            await self.agenraises(s_exc.BadCmprValu, core.eval('test:str +:tick*range=(2015, 2016, 2017)'))
-            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +:tick*range=("?", "+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str +:tick*range=(2000, "?+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str:tick*range=("?", "+1 day")'))
-            await self.agenraises(s_exc.BadTypeValu, core.eval('test:str:tick*range=(2000, "?+1 day")'))
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:str +:tick*range=(2015)')
+            with self.raises(s_exc.BadCmprValu):
+                await core.nodes('test:str +:tick*range=(2015, 2016, 2017)')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str +:tick*range=("?", "+1 day")')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str +:tick*range=(2000, "?+1 day")')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:tick*range=("?", "+1 day")')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str:tick*range=(2000, "?+1 day")')
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 't1', {'tick': '2018/12/02 23:59:59.000'})
                 node = await snap.addNode('test:str', 't2', {'tick': '2018/12/03'})
                 node = await snap.addNode('test:str', 't3', {'tick': '2018/12/03 00:00:01.000'})
 
-            await self.agenlen(0, core.eval('test:str:tick*range=(2018/12/01, "+24 hours")'))
-            await self.agenlen(2, core.eval('test:str:tick*range=(2018/12/01, "+48 hours")'))
+            self.eq(0, await core.count('test:str:tick*range=(2018/12/01, "+24 hours")'))
+            self.eq(2, await core.count('test:str:tick*range=(2018/12/01, "+48 hours")'))
 
-            await self.agenlen(0, core.eval('test:str:tick*range=(2018/12/02, "+23 hours")'))
-            await self.agenlen(1, core.eval('test:str:tick*range=(2018/12/02, "+86399 seconds")'))
-            await self.agenlen(2, core.eval('test:str:tick*range=(2018/12/02, "+24 hours")'))
-            await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+86401 seconds")'))
-            await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+25 hours")'))
+            self.eq(0, await core.count('test:str:tick*range=(2018/12/02, "+23 hours")'))
+            self.eq(1, await core.count('test:str:tick*range=(2018/12/02, "+86399 seconds")'))
+            self.eq(2, await core.count('test:str:tick*range=(2018/12/02, "+24 hours")'))
+            self.eq(3, await core.count('test:str:tick*range=(2018/12/02, "+86401 seconds")'))
+            self.eq(3, await core.count('test:str:tick*range=(2018/12/02, "+25 hours")'))
 
             self.len(0, await core.nodes('test:guid | delnode --force'))
             await core.nodes('[ test:guid=* :tick=20211031020202 ]')
@@ -1241,7 +1391,7 @@ class TypesTest(s_t_utils.SynTest):
                 node = await snap.addNode('test:int', node.get('tick') + 1)
 
             q = 'test:int $end=$node.value() test:str:tick*range=(2015, $end) -test:int'
-            nodes = await alist(core.eval(q))
+            nodes = await core.nodes(q)
             self.len(6, nodes)
             self.eq({node.ndef[1] for node in nodes}, {'b', 'c', 'd'})
 

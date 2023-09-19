@@ -1,4 +1,5 @@
 import json
+import math
 import asyncio
 import contextlib
 import collections
@@ -19,7 +20,8 @@ foo_stormpkg = {
     'name': 'foo',
     'desc': 'The Foo Module',
     'version': (0, 0, 1),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': [
         {
             'name': 'hehe.haha',
@@ -170,8 +172,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
-        conf = {'provenance:en': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
             await core.loadStormPkg({
                 'name': 'testsearch',
                 'modules': [
@@ -669,6 +670,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:str=b -> test:arrayprop:strsnosplit')
             self.len(1, nodes)
 
+            nodes = await core.nodes('[ test:guid=* :size=2 ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:guid:size=2 :size -> test:arrayprop:ints')
+            self.len(1, nodes)
+
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
@@ -951,13 +958,15 @@ class AstTest(s_test.SynTest):
         otherpkg = {
             'name': 'foosball',
             'version': '0.0.1',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
         }
 
         stormpkg = {
             'name': 'stormpkg',
             'version': '1.2.3',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.old',
@@ -969,7 +978,8 @@ class AstTest(s_test.SynTest):
         stormpkgnew = {
             'name': 'stormpkg',
             'version': '1.2.4',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                  'name': 'pkgcmd.new',
@@ -981,7 +991,8 @@ class AstTest(s_test.SynTest):
         jsonpkg = {
             'name': 'jsonpkg',
             'version': '1.2.3',
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'docs': (
                 {
                  'title': 'User Guide',
@@ -1538,6 +1549,21 @@ class AstTest(s_test.SynTest):
 
             self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
 
+            msgs = await core.stormlist('$lib.null()')
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.stormIsInErr("'null' object is not callable: lib.null()", msgs)
+
+            msgs = await core.stormlist('$foo=bar $foo()')
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.stormIsInErr("'str' object is not callable: foo()", msgs)
+
+            msgs = await core.stormlist('$lib()')
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.stormIsInErr("'lib' object is not callable: lib()", msgs)
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:
@@ -1874,12 +1900,25 @@ class AstTest(s_test.SynTest):
 
             self.eq(8, await core.callStorm('return((2 ** 3))'))
             self.eq(4.84, await core.callStorm('return((2.2 ** 2))'))
-            self.eq(5.76, await core.callStorm('return((2 ** 2.4))'))
+            self.eq(2 ** 2.4, await core.callStorm('return((2 ** 2.4))'))
+
+            self.eq(1, await core.callStorm('return((3 % 2))'))
+            self.eq(1.0, await core.callStorm('return((3.0 % 2))'))
+            self.eq(1.0, await core.callStorm('return((3 % 2.0))'))
+            self.eq(0.75, await core.callStorm('return((3.0 % 2.25))'))
+            self.eq(0.9, await core.callStorm('return((3.0 % 2.1))'))
+
+            self.eq(-5.2, await core.callStorm('$foo=5.2 return((-$foo))'))
+            self.eq(5.2, await core.callStorm('$foo=5.2 return((--$foo))'))
+            self.eq(6.2, await core.callStorm('$foo=5.2 return((1--$foo))'))
+            self.eq(-4.2, await core.callStorm('$foo=5.2 return((1---$foo))'))
+            self.eq(-7, await core.callStorm('$foo=5.2 return((-(3+4)))'))
 
             self.eq(2.43, await core.callStorm('return((1.23 + $lib.cast(float, 1.2)))'))
             self.eq(0.03, await core.callStorm('return((1.23 - $lib.cast(float, 1.2)))'))
             self.eq(1.476, await core.callStorm('return((1.23 * $lib.cast(float, 1.2)))'))
             self.eq(1.025, await core.callStorm('return((1.23 / $lib.cast(float, 1.2)))'))
+            self.eq(0.03, await core.callStorm('return((1.23 % $lib.cast(float, 1.2)))'))
 
             self.false(await core.callStorm('return((1.23 = 1))'))
             self.false(await core.callStorm('return((1 = 1.23))'))
@@ -1929,19 +1968,27 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return((1.23 <= $lib.cast(float, 2.34)))'))
             self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
 
+            self.eq(await core.callStorm('return(($lib.cast(str, (5.3 / 2))))'), '2.65')
+            self.eq(await core.callStorm('return(($lib.cast(str, (1.25 + 2.75))))'), '4.0')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.00000000000000001))))'), '0.00000000000000001')
+            self.eq(await core.callStorm('return(($lib.cast(str, (0.33333333333333333333))))'), '0.3333333333333333')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.nan}}), 'NaN')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': math.inf}}), 'Infinity')
+            self.eq(await core.callStorm('return(($lib.cast(str, ($valu))))', opts={'vars': {'valu': -math.inf}}), '-Infinity')
+
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')
 
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')
-            msgs = await core.stormlist('media:news', opts={'graph': True})
+            msgs = await core.stormlist('media:news test:int', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
-            self.len(1, nodes)
-            self.len(1, nodes[0][1]['path']['edges'])
-            self.eq('refs', nodes[0][1]['path']['edges'][0][1]['verb'])
+            self.len(2, nodes)
+            self.len(1, nodes[1][1]['path']['edges'])
+            self.eq('refs', nodes[1][1]['path']['edges'][0][1]['verb'])
 
-            msgs = await core.stormlist('media:news | graph --no-edges')
+            msgs = await core.stormlist('media:news test:int | graph --no-edges')
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, nodes[0][1]['path']['edges'])
 
@@ -2077,12 +2124,12 @@ class AstTest(s_test.SynTest):
         origprop = s_snap.Snap.nodesByProp
         origvalu = s_snap.Snap.nodesByPropValu
 
-        async def checkProp(self, name):
+        async def checkProp(self, name, reverse=False):
             calls.append(('prop', name))
             async for node in origprop(self, name):
                 yield node
 
-        async def checkValu(self, name, cmpr, valu):
+        async def checkValu(self, name, cmpr, valu, reverse=False):
             calls.append(('valu', name, cmpr, valu))
             async for node in origvalu(self, name, cmpr, valu):
                 yield node
@@ -2266,6 +2313,10 @@ class AstTest(s_test.SynTest):
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
+                await core.nodes("inet:fqdn parallel { } | limit 1")
+
+                async for node in core.storm("function foo() { emit foo } for $x in $foo() { $lib.raise(foo, bar) }"):
+                    pass
 
     async def test_ast_vars_missing(self):
 
@@ -2291,7 +2342,7 @@ class AstTest(s_test.SynTest):
 
             q = '$view = $lib.view.get() $lib.print($view)'
             mesgs = await core.stormlist(q)
-            self.stormIsInPrint('storm:view', mesgs)
+            self.stormIsInPrint('view', mesgs)
 
             q = '''
                 $pipe = $lib.pipe.gen(${
@@ -2299,6 +2350,7 @@ class AstTest(s_test.SynTest):
                     $pipe.put(burrito)
                 })
 
+                $lib.time.sleep(1)
                 for $items in $pipe.slices(size=2) {
                     for $thingy in $items {
                         $lib.print($thingy)
@@ -2348,3 +2400,152 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVar) as err:
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
+
+    async def test_ast_maxdepth(self):
+
+        async with self.getTestCore() as core:
+
+            q = '['
+            for x in range(1000):
+                q += f'inet:ipv4={x} '
+            q += ']'
+
+            with self.raises(s_exc.RecursionLimitHit) as err:
+                msgs = await core.nodes(q)
+
+    async def test_ast_highlight(self):
+
+        async with self.getTestCore() as core:
+            text = '[ ps:contact=* :name=$visi ]'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('visi', text[off:end])
+
+            text = '[ ps:contact=* :foo:bar=haha ]'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq(':foo:bar', text[off:end])
+
+            text = 'init { $foo = :bar }'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq(':bar', text[off:end])
+
+            text = 'inet:ipv5'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('inet:ipv5', text[off:end])
+
+            text = 'inet:ipv5=127.0.0.1'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('inet:ipv5', text[off:end])
+
+            text = '[ inet:ipv4=1.2.3.4 ] $x=:haha'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq(':haha', text[off:end])
+
+            text = '$p=haha inet:ipv4 $x=:$p'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('p', text[off:end])
+
+            text = 'inet:ipv4=haha'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('haha', text[off:end])
+
+    async def test_ast_bulkedges(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('for $x in $lib.range(1010) {[ it:dev:str=$x ]}')
+
+            strtoffs = await core.getView().layers[0].getEditIndx()
+
+            q = '''
+            [ inet:ipv4=1.2.3.4
+                +(refs)> { for $x in $lib.range(1005) {[ it:dev:str=$x ]} }
+            ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(1005, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+
+            # node creation + 2 batches of edits
+            nextoffs = await core.getView().layers[0].getEditIndx()
+            self.eq(strtoffs + 3, nextoffs)
+
+            q = '''
+            inet:ipv4=1.2.3.4
+            [ -(refs)> { for $x in $lib.range(1010) {[ it:dev:str=$x ]} } ]
+            '''
+            self.len(1, await core.nodes(q))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+
+            # 2 batches of edits
+            self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
+
+            nodes = await core.nodes('syn:prop limit 1')
+            await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
+
+            q = 'inet:ipv4=1.2.3.4 [ <(newp)+ { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'syn:prop [ -(newp)> { inet:ipv4=1.2.3.4 } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 [ <(newp)- { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+            q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
+            await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
+
+    async def test_ast_subgraph_2pass(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ media:news=40ebf9be8fb56bd60fff542299c1b5c2 +(refs)> {[ inet:ipv4=1.2.3.4 ]} ] inet:ipv4
+            ''')
+            news = nodes[0]
+            ipv4 = nodes[1]
+
+            msgs = await core.stormlist('media:news inet:ipv4', opts={'graph': True})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(2, nodes)
+            self.eq(nodes[1][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
+                        {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+
+            opts = {'graph': {'existing': (news.iden(),)}}
+            msgs = await core.stormlist('inet:ipv4', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
+                        {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+
+            opts = {'graph': {'existing': (ipv4.iden(),)}}
+            msgs = await core.stormlist('media:news', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(nodes[0][1]['path']['edges'], (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                        {'type': 'edge', 'verb': 'refs'}),))
+
+            msgs = await core.stormlist('media:news inet:ipv4', opts={'graph': {'maxsize': 1}})
+            self.len(1, [m[1] for m in msgs if m[0] == 'node'])
+            self.stormIsInWarn('Graph projection hit max size 1. Truncating results.', msgs)
+
+            msgs = await core.stormlist('media:news', opts={'graph': {'pivots': ('--> *',)}})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            # none yet...
+            self.len(0, nodes[0][1]['path']['edges'])
+            # one for the refs edge (via doedges) and one for the rule..
+            self.len(2, nodes[1][1]['path']['edges'])

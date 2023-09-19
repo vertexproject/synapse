@@ -1,6 +1,8 @@
 import json
 import hashlib
 
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -11,6 +13,9 @@ import synapse.tools.feed as s_feed
 import synapse.tests.utils as s_t_utils
 
 class FeedTest(s_t_utils.SynTest):
+
+    def _getOldSynVers(self):
+        return (0, 0, 0)
 
     async def test_synsplice_remote(self):
 
@@ -37,6 +42,10 @@ class FeedTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
+
+            with mock.patch('synapse.telepath.Proxy._getSynVers', self._getOldSynVers):
+                await s_feed.main(argv, outp=outp)
+                outp.expect(f'Cortex version 0.0.0 is outside of the feed tool supported range')
 
     async def test_synnodes_remote(self):
 
@@ -145,7 +154,7 @@ class FeedTest(s_t_utils.SynTest):
 
                 # sad path
                 outp = self.getTestOutp()
-                badview = hashlib.md5(newview.encode()).hexdigest()
+                badview = hashlib.md5(newview.encode(), usedforsecurity=False).hexdigest()
                 argv = base + ['--view', badview, mpkfp]
                 with self.raises(s_exc.NoSuchView):
                     await s_feed.main(argv, outp=outp)

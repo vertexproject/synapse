@@ -32,6 +32,23 @@ MAX_DOUBLE_SIZE = 100 * s_const.gibibyte
 int64min = s_common.int64en(0)
 int64max = s_common.int64en(0xffffffffffffffff)
 
+class LmdbBackup(s_base.Base):
+
+    async def __anit__(self, path):
+        await s_base.Base.__anit__(self)
+        self.path = s_common.genpath(path)
+        self.datafile = os.path.join(self.path, 'data.mdb')
+
+        stat = os.stat(self.datafile)
+
+        self.lenv = await self.enter_context(
+            lmdb.open(self.path, map_size=stat.st_size, max_dbs=16384, create=False, readonly=True)
+        )
+        self.ltxn = await self.enter_context(self.lenv.begin())
+
+    async def saveto(self, dstdir):
+        self.lenv.copy(dstdir, compact=True, txn=self.ltxn)
+
 class Hist:
     '''
     A class for storing items in a slab by time.
@@ -544,6 +561,27 @@ class GuidStor:
         bidn = s_common.uhex(iden)
         return SlabDict(self.slab, db=self.db, pref=bidn)
 
+    async def del_(self, iden):
+        bidn = s_common.uhex(iden)
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            self.slab.pop(lkey, db=self.db)
+            await asyncio.sleep(0)
+
+    def set(self, iden, name, valu):
+        bidn = s_common.uhex(iden)
+        byts = s_msgpack.en(valu)
+        self.slab.put(bidn + name.encode(), byts, db=self.db)
+
+    async def dict(self, iden):
+        bidn = s_common.uhex(iden)
+
+        retn = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            await asyncio.sleep(0)
+            name = lkey[len(bidn):].decode()
+            retn[name] = s_msgpack.un(lval)
+        return retn
+
 def _florpo2(i):
     '''
     Return largest power of 2 equal to or less than i
@@ -739,6 +777,7 @@ class Slab(s_base.Base):
         else:
             self._initCoXact()
 
+        self.resizecallbacks = []
         self.resizeevent = threading.Event()  # triggered when a resize event occurred
         self.lockdoneevent = asyncio.Event()  # triggered when a memory locking finished
 
@@ -896,6 +935,9 @@ class Slab(s_base.Base):
         del self.xact
         self.xact = None
 
+    def addResizeCallback(self, callback):
+        self.resizecallbacks.append(callback)
+
     def _growMapSize(self, size=None):
         mapsize = self.mapsize
 
@@ -914,12 +956,17 @@ class Slab(s_base.Base):
                 raise s_exc.DbOutOfSpace(
                     mesg=f'DB at {self.path} is at specified max capacity of {self.maxsize} and is out of space')
 
-        logger.warning('lmdbslab %s growing map size to: %d MiB', self.path, mapsize // s_const.mebibyte)
+        logger.info('lmdbslab %s growing map size to: %d MiB', self.path, mapsize // s_const.mebibyte)
 
         self.lenv.set_mapsize(mapsize)
         self.mapsize = mapsize
 
         self.resizeevent.set()
+        for callback in self.resizecallbacks:
+            try:
+                callback()
+            except Exception as e:
+                logger.exception(f'Error during slab resize callback - {str(e)}')
 
         return self.mapsize
 

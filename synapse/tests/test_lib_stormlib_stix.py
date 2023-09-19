@@ -73,7 +73,6 @@ class StormLibStixTest(s_test.SynTest):
                 'prodsoft': 'a120b6d58329662bc5cabec03ef72ffa',
 
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
-                'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
             self.len(22, await core.nodes('''[
@@ -167,6 +166,13 @@ class StormLibStixTest(s_test.SynTest):
 
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
+            self.eq(2, await core.callStorm('''
+                $bund = $lib.stix.export.bundle()
+                [ inet:asn=42 inet:asn=31337 ]
+                $bund.add($node)
+                fini{ return($bund.size()) }
+            '''))
+
             resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bund}})
             self.true(resp.get('ok'))
             result = resp.get('result')
@@ -180,8 +186,37 @@ class StormLibStixTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.isin('Error validating bundle', resp.get('mesg'))
 
+            self.len(14, bund.get('objects'))
+            self.isin(s_stix.SYN_STIX_EXTENSION_ID, json.dumps(bund))
             nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund}})
             self.len(10, nodes)
+
+            # Bundle made without the synapse extension cannot be lifted
+            bund_noext = await core.callStorm('''
+            init {
+                $config = $lib.stix.export.config()
+                $config.synapse_extension=$lib.false  // Disable synapse extension
+                $config.forms."syn:tag".stix.malware.rels.append(
+                    (communicates-with, url, ${-> file:bytes -> it:exec:url:exe -> inet:url})
+                )
+                $config.forms."syn:tag".stix.malware.props.name = ${return(redtree)}
+                $bundle = $lib.stix.export.bundle(config=$config)
+            }
+
+            [ syn:tag=cno.mal.redtree ]
+
+            {[( file:bytes=$file +#cno.mal.redtree )]}
+            {[( it:exec:url=$execurl :exe=$file :url=http://vertex.link/ )]}
+
+            $bundle.add($node, stixtype=malware)
+
+            fini { return($bundle) }
+            ''', opts=opts)
+            self.len(13, bund_noext.get('objects'))
+            self.reqValidStix(bund_noext)
+            nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund_noext}})
+            self.len(0, nodes)
+            self.notin(s_stix.SYN_STIX_EXTENSION_ID, json.dumps(bund_noext))
 
             # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
@@ -376,12 +411,12 @@ class StormLibStixTest(s_test.SynTest):
                     // register a custom object type so we pass validation
                     // (dictionary contents are reserved for future use )
 
-                    $config.custom.objects.mitigation = ({})
+                    $config.custom.objects."vtx-mitigation" = ({})
 
                     $config.forms."risk:mitigation" = ({
-                        "default": "mitigation",
+                        "default": "vtx-mitigation",
                         "stix": {
-                            "mitigation": {
+                            "vtx-mitigation": {
                                 "props": {
                                     "name": "{+:name return(:name)} return($node.repr())",
                                     "created": "return($lib.stix.export.timestamp(.created))",
@@ -401,7 +436,7 @@ class StormLibStixTest(s_test.SynTest):
                 fini { return($bundle) }
             ''')
 
-            self.eq('mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
+            self.eq('vtx-mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
             self.eq('patch stuff and do things', bund['objects'][1]['name'])
             self.nn(bund['objects'][1]['created'])
             self.nn(bund['objects'][1]['modified'])
@@ -415,3 +450,69 @@ class StormLibStixTest(s_test.SynTest):
                     }
                     fini { return($bundle) }
                 ''')
+
+    async def test_stix_export_pivots(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+
+            with self.raises(s_exc.BadConfValu):
+                await core.callStorm('''
+                    $config = $lib.stix.export.config()
+                    $config.forms."inet:fqdn".stix."domain-name".pivots = ([
+                        {"storm": 10}
+                    ])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                ''')
+
+            with self.raises(s_exc.BadConfValu):
+                await core.callStorm('''
+                    $config = $lib.stix.export.config()
+                    $config.forms."inet:fqdn".stix."domain-name".pivots = ([
+                        {"storm": "woot", "stixtype": "newp"}
+                    ])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                ''')
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+                    $config.forms."inet:fqdn".stix."domain-name".pivots = ([
+                        {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                    ])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                inet:fqdn=vertex.link
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+            stixids = [obj['id'] for obj in bund['objects']]
+            self.isin('ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db', stixids)
+
+    async def test_stix_revs(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[risk:mitigation=* :name=bar +(addresses)> {[ ou:technique=* :name=foo ]} ]')
+
+            with self.raises(s_exc.BadConfValu):
+                bund = await core.callStorm('''
+                    $config = $lib.stix.export.config()
+                    $config.forms."ou:technique".stix."attack-pattern".revs = (["a"])
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                    ou:technique
+                    $bundle.add($node, "attack-pattern")
+                    fini { return($bundle.pack()) }
+                ''')
+
+            bund = await core.callStorm('''
+                $bundle = $lib.stix.export.bundle()
+                ou:technique
+                $bundle.add($node, "attack-pattern")
+                fini { return($bundle.pack()) }
+            ''')
+            rels = [sobj for sobj in bund['objects'] if sobj.get('relationship_type') == 'mitigates']
+            self.len(1, rels)
+            self.true(rels[0]['target_ref'].startswith('attack-pattern--'))
+            self.true(rels[0]['source_ref'].startswith('course-of-action--'))

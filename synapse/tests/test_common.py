@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import subprocess
 
@@ -35,6 +36,11 @@ class CommonTest(s_t_utils.SynTest):
         tv = ('foo', ['bar', 'bat'])
         ev = ('foo', ('bar', 'bat'))
         self.eq(ev, s_common.tuplify(tv))
+
+    def test_common_flatten(self):
+        item = {'foo': 'bar', 'baz': 10, 'gronk': True, 'hehe': ['ha', 'ha'], 'tupl': (1, 'two'), 'newp': None}
+        self.ne('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(item))
+        self.eq('15c8a3727942fa01e04d6a7a525666a2', s_common.guid(s_common.flatten(item)))
 
     def test_common_vertup(self):
         self.eq(s_common.vertup('1.3.30'), (1, 3, 30))
@@ -184,14 +190,6 @@ class CommonTest(s_t_utils.SynTest):
         with self.assertRaises(TypeError) as cm:
             parts = [chunk for chunk in s_common.chunks({}, 10000)]
 
-    def test_common_lockfile(self):
-
-        with self.getTestDir() as fdir:
-            fp = os.path.join(fdir, 'hehe.lock')
-            # Ensure that our yield is None
-            with s_common.lockfile(fp) as cm:
-                self.none(cm)
-
     def test_common_ehex_uhex(self):
         byts = b'deadb33f00010203'
         s = s_common.ehex(byts)
@@ -292,6 +290,20 @@ class CommonTest(s_t_utils.SynTest):
                 fd.write(s.encode())
             self.raises(yaml.YAMLError, s_common.yamlload, dirn, 'explode.yaml')
 
+            # Make sure we're testing the CSafeLoader and not the python native
+            # implementation
+            self.eq(s_common.Loader, yaml.CSafeLoader)
+
+            data = '{"foo":"bar", "unicode": "✊"}'
+            obj = s_common.yamlloads(data)
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads(data.encode('utf8'))
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
+            obj = s_common.yamlloads('{"foo": "bar", "unicode": "\u270A"}')
+            self.eq(obj, {'foo': 'bar', 'unicode': '✊'})
+
     def test_switchext(self):
         retn = s_common.switchext('foo.txt', ext='.rdf')
         self.eq(retn, s_common.genpath('foo.rdf'))
@@ -385,3 +397,44 @@ class CommonTest(s_t_utils.SynTest):
 
         retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], reverse=True)
         self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+    def test_jsonsafe(self):
+        items = (
+            (None, None),
+            (1234, None),
+            ('1234', None),
+            ({'asdf': 'haha'}, None),
+            ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
+            (b'1234', s_exc.BadArg),
+            ({'a': 'a', 2: 2}, s_exc.BadArg),
+            ({'a', 'b', 'c'}, s_exc.BadArg),
+            (s_common.novalu, s_exc.BadArg),
+        )
+        for (item, eret) in items:
+            if eret is None:
+                self.none(s_common.reqJsonSafeStrict(item))
+            else:
+                with self.raises(eret):
+                    s_common.reqJsonSafeStrict(item)
+
+    def test_sslctx(self):
+        with self.getTestDir(mirror='certdir') as dirn:
+            cadir = s_common.genpath(dirn, 'cas')
+            os.makedirs(s_common.genpath(cadir, 'newp'))
+            with self.getLoggerStream('synapse.common', f'Error loading {cadir}/ca.key') as stream:
+                ctx = s_common.getSslCtx(cadir)
+                self.true(stream.wait(10))
+            ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
+            self.isin(((('commonName', 'test'),),), ca_subjects)
+
+    async def test_wait_for(self):
+
+        async def foo():
+            return 123
+
+        loop = asyncio.get_running_loop()
+        footask = loop.create_task(foo())
+
+        await footask
+
+        self.eq(123, await s_common.wait_for(footask, timeout=-1))

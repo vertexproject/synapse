@@ -1,4 +1,5 @@
 import os
+import subprocess
 import synapse.tests.utils as s_test
 
 import synapse.common as s_common
@@ -17,6 +18,7 @@ class StormCliTest(s_test.SynTest):
             pars = s_t_storm.getArgParser()
             opts = pars.parse_args(('woot',))
             self.eq('woot', opts.cortex)
+            self.none(opts.view)
 
             q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, $lib.dict()), $lib.dict())'
             await core.callStorm(q)
@@ -169,3 +171,27 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
+
+    async def test_tools_storm_view(self):
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            pars = s_t_storm.getArgParser()
+            opts = pars.parse_args(('woot', '--view', '246e7d5dab883eb28d345a33abcdb577'))
+            self.eq(opts.view, '246e7d5dab883eb28d345a33abcdb577')
+
+            view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
+
+            outp = s_output.OutPutStr()
+            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a"*64}]'), outp=outp)
+            self.len(0, await core.nodes('file:bytes'))
+            self.len(1, await core.nodes('file:bytes', opts={'view': view}))
+
+            with self.getTestDir() as dirn:
+                path = os.path.join(dirn, 'export.nodes')
+                q = f'!export {path} {{ file:bytes }}'
+                await s_t_storm.main(('--view', view, url, q), outp=outp)
+                text = str(outp)
+                self.isin(f'saved 1 nodes to: {path}', text)

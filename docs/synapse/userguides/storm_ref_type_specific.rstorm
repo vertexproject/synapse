@@ -14,15 +14,20 @@ Some data types (:ref:`data-type`) within Synapse have additional optimizations.
 - insertion (how the type can be used to create or modify nodes);
 - operations (how the type can be lifted, filtered, or otherwise compared).
 
-Types that have been optimized in various ways are documented below along with any specialized operations that may be available for those types.
+Types that have been optimized in various ways are documented below along with any specialized operations that
+may be available for those types.
 
-This section is **not** a complete reference of all available types. In addition, this section does **not** address the full range of type enforcement constraints that may restrict the values that can be specified for a given type (such as via a constructor (``ctor``)). For details on available types and type constraints or enforcement, see the online documentation_ or the Synapse source code_.
+This section is **not** a complete reference of all available types. In addition, this section does **not**
+address the full range of type enforcement constraints that may restrict the values that can be specified for
+a given type (such as via a constructor (``ctor``)). For details on available types and type constraints or
+enforcement, see the online documentation_ or the Synapse source code_.
 
 - `array`_ (array)
 - `file:bytes`_ (file)
 - `guid`_ (globally unique identifier)
 - `inet:fqdn`_ (FQDN)
 - `inet:ipv4`_ (IPv4)
+- `int`_ (integer)
 - `ival`_ (time interval)
 - `loc`_ (location)
 - `str`_ (string)
@@ -34,14 +39,18 @@ This section is **not** a complete reference of all available types. In addition
 array
 -----
 
-An ``array`` is a specialized type that consists of either a list or a set of typed values. That is, an array is a type that consists of one or more values that are themselves all of a single, defined type.
+An ``array`` is a specialized type that consists of either a list or a set of typed values. That is, an array
+is a type that consists of one or more values that are themselves all of a single, defined type.
 
 .. TIP::
   
   An array that is a **list** can have duplicate entries in the list.
   An array that is a **set** consists of a unique group of entries.
 
-``Array`` types can be used for properties where that property is likely to have multiple values, but it is undesirable to represent those values using multiple :ref:`form-relationship` nodes. Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm query:
+``Array`` types can be used for properties where that property is likely to have multiple values, but it is
+undesirable to represent those values using multiple :ref:`node-relationship` nodes. Examples of array
+secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``.
+You can view all secondary properties that are ``array`` types using the following Storm query:
 
 ::
   
@@ -55,12 +64,17 @@ N/A
 Parsing
 +++++++
 
-Because an ``array`` is a list or set of typed values, ``array`` elements can be input in any format supported by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ipv4`` values, the values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
+Because an ``array`` is a list or set of typed values, ``array`` elements can be input in any format supported
+by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ipv4`` values, the
+values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
 
 Insertion
 +++++++++
 
-Because it may contain multiple values, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the array contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
+Because it may contain multiple values, an ``array`` property must be set using comma-separated values enclosed
+in parentheses (this is true even if the array contains only a single element; you must still use parentheses,
+and the single element must still be followed by a trailing comma). Single or double quotes are required in
+accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 
 **Example:**
 
@@ -71,13 +85,16 @@ Set the ``:names`` property of an organization (``ou:org``) node to a single val
 
 **Example:**
 
-Set the ``:names`` property of an organization (``ou:org``) node to contain multiple variations of the organization name:
+Set the ``:names`` property of an organization (``ou:org``) node to contain multiple variations of the
+organization name:
 
 .. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project', 'The Vertex Project, LLC', Vertex) ]
 
 .. WARNING::
   
-  Using the equals ( ``=`` ) operator to set an array property value will set or update (overwrite) the **entire** property value. To add or remove individual elements from an array, use the ``+=`` or ``-=`` operators.
+  Using the equals ( ``=`` ) operator to set an array property value will set or update (overwrite) the
+  **entire** property value. To add or remove individual elements from an array, use the ``+=`` or ``-=``
+  operators.
 
 **Example:**
 
@@ -96,11 +113,17 @@ Remove a name from the array of names associated with an organization:
 
 .. TIP::
   
-  The standard "edit try" operator ( ``?=`` ) (see :ref:`edit-try` in the :ref:`storm-ref-data-mod`) can be used to attempt to set a **full** array property value where you are unsure whether the value will succeed. The specialized ``?+=`` or ``?-=`` operators can be used to attempt to add or remove a **single** array value in a similar manner.
+  The standard "edit try" operator ( ``?=`` ) (see :ref:`edit-try` in the :ref:`storm-ref-data-mod`) can
+  be used to attempt to set a **full** array property value where you are unsure whether the value will
+  succeed. The specialized ``?+=`` or ``?-=`` operators can be used to attempt to add or remove a **single**
+  array value in a similar manner.
 
 **Example:**
 
-Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show the "fail silenetly" behavior for the "edit try" operator. The ``:authors`` property is an array of ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
+Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
+of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
+the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
+``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
 .. storm-pre:: [ media:news="*" :org=kaspersky :title='New report on really bad threat' ]
@@ -109,9 +132,20 @@ Use the specialized "edit try" operator to attempt to add a single value to the 
 
 **Usage Notes:**
 
-- When using the standard "edit try" operator ( ``?=`` ) to attempt to set the **full** value of an array property (vs. adding or removing an element from an array), the **entire** attempt will fail if **any** value in the list of values fails. For example, if you try to set ``[ :identities:emails?=(alice@vertex.link, bob) ]`` on an X509 certificate (``crypto:x509:cert``), Synapse will fail to set the property altogether because ``bob`` is not a valid email address type (even though ``alice@vertex.link`` is).
+- When using the standard "edit try" operator ( ``?=`` ) to attempt to set the **full** value of an array
+  property (vs. adding or removing an element from an array), the **entire** attempt will fail if **any** value
+  in the list of values fails. For example, if you try to set ``[ :identities:emails?=(alice@vertex.link, bob) ]``
+  on an X509 certificate (``crypto:x509:cert``), Synapse will fail to set the property altogether because ``bob``
+  is not a valid email address type (even though ``alice@vertex.link`` is).
 
-- The "edit try" operator for **removing** individual elements from an array ( ``?-=`` ) is unique to arrays as they are the only type that allows removal of a single element from a property. (Properties with a single value are either set, modified (updated), or the property is deleted altogether.) As with other uses of "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation attempts to remove a value from an array that does not match the array's defined type. For example, attempting to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version ( ``?-=``) is used.
+- The "edit try" operator for **removing** individual elements from an array ( ``?-=`` ) is unique to arrays
+  as they are the only type that allows removal of a single element from a property. (Properties with a single
+  value are either set, modified (updated), or the property is deleted altogether.) As with other uses of 
+  "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation
+  attempts to remove a value from an array that does not match the array's defined type. For example, attempting
+  to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard 
+  remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version
+  ( ``?-=``) is used.
 
 Operations
 ++++++++++
@@ -119,14 +153,21 @@ Operations
 Lifting and Filtering
 ~~~~~~~~~~~~~~~~~~~~~
 
-Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the full array property value. This makes sense for forms with simple values like ``inet:ipv4=1.2.3.4``, but is often infeasible for arrays because lifting by the **full** array value requires you to know the **exact** values of each of the array elements as well as their **exact** order:
+Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the
+full array property value. This makes sense for forms with simple values like ``inet:ipv4=1.2.3.4``, but is
+often infeasible for arrays because lifting by the **full** array value requires you to know the **exact**
+values of each of the array elements as well as their **exact** order:
 
 .. storm-cli:: ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
 
-For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match one or more elements in the array similarly to how they would match individual property values.
+For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax
+consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets
+contain a comparison operator and a value that can match one or more elements in the array. This allows users
+to match one or more elements in the array similarly to how they would match individual property values.
 
 .. NOTE::
-  The square brackets used to lift or filter based on values in an array should not be confused with square brackets used to add or modify nodes or properties in :ref:`edit-mode`.
+  The square brackets used to lift or filter based on values in an array should not be confused with square
+  brackets used to add or modify nodes or properties in :ref:`edit-mode`.
 
 **Examples:**
 
@@ -154,17 +195,21 @@ See :ref:`lift-by-arrays` and :ref:`filter-by-arrays` for additional details.
 Pivoting
 ~~~~~~~~
 
-Synapse and Storm are type-aware and will facilitate pivoting between properties of the same type. This includes pivoting between individual typed properties and array properties consisting of those same types. Type awareness for arrays includes both standard form and property pivots as well as wildcard pivots.
+Synapse and Storm are type-aware and will facilitate pivoting between properties of the same type. This
+includes pivoting between individual typed properties and array properties consisting of those same types.
+Type awareness for arrays includes both standard form and property pivots as well as wildcard pivots.
 
 **Examples:**
 
-Pivot from a set of x509 certificate nodes to the set of domains referenced by the certificates (such as in the ``:identities:fqdns`` array property):
+Pivot from a set of x509 certificate nodes to the set of domains referenced by the certificates (such as in
+the ``:identities:fqdns`` array property):
 
 
 .. storm-cli:: crypto:x509:cert -> inet:fqdn
 
 
-Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org`` nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
+Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org``
+nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
 
 
 .. storm-cli:: ou:name^=acme <- *
@@ -175,9 +220,18 @@ Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (t
 file\:bytes
 -----------
 
-``file:bytes`` is a special type used to represent any file (i.e., any arbitrary set of bytes). Note that a file can be represented as a node within a Cortex regardless of whether the file itself (the specific set of bytes) is available (i.e., stored in an Axon). This is essential as many other data model elements allow (or depend on) the concept of a file (as opposed to a hash).
+``file:bytes`` is a special type used to represent any file (i.e., any arbitrary set of bytes). Note that a
+file can be represented as a node within a Cortex regardless of whether the file itself (the specific set of
+bytes) is available (i.e., stored in an Axon). This is essential as many other data model elements allow
+(or depend on) the concept of a file (as opposed to a hash).
 
-The ``file:bytes`` type is a specialized :ref:`type-guid` type. A file can be uniquely represented by the specific contents of the file itself. As it is impractical to use "all the bytes" as a primary property value, it makes sense to use a shortened representation of those bytes - that is, a hash. MD5 collisions can now be generated with ease, and SHA1 collisions were demonstrated in 2017. For this reason, Synapse uses the SHA256 hash of a file (considered sufficiently immune from collision attacks for the time being) as "unique enough" to act as the primary property of a ``file:bytes`` node if available. Otherwise, a ``guid`` is generated and used.
+The ``file:bytes`` type is a specialized :ref:`type-guid` type. A file can be uniquely represented by the
+specific contents of the file itself. As it is impractical to use "all the bytes" as a primary property value,
+it makes sense to use a shortened representation of those bytes - that is, a hash. MD5 collisions can now be
+generated with ease, and SHA1 collisions were demonstrated in 2017. For this reason, Synapse uses the SHA256
+hash of a file (considered sufficiently immune from collision attacks for the time being) as "unique enough"
+to act as the primary property of a ``file:bytes`` node if available. Otherwise, a ``guid`` is generated and
+used.
 
 Indexing
 ++++++++
@@ -187,21 +241,27 @@ N/A
 Parsing
 +++++++
 
-``file:bytes`` must be input using their complete primary property. It is impractical to manually type a SHA256 hash or 128-bit ``guid`` value. For this reason ``file:bytes`` forms are most often specified by referencing the node via a more human-friendly secondary property or by pivoting to the node. Alternately, the ``file:bytes`` value can be copied and pasted for use in a query.
+``file:bytes`` must be input using their complete primary property. It is impractical to manually type a
+SHA256 hash or 128-bit ``guid`` value. For this reason ``file:bytes`` forms are most often specified by
+referencing the node via a more human-friendly secondary property or by pivoting to the node. Alternately,
+the ``file:bytes`` value can be copied and pasted for use in a query.
 
 The primary property of a ``file:bytes`` node indicates how the node was created (i.e., via the SHA256 hash or via a guid):
 
-- A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended to the SHA256 hash:
+- A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended
+  to the SHA256 hash:
 
   ``file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``
 
-- A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the ``guid`` value:
+- A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the
+  ``guid`` value:
   
   ``file:bytes=guid:22d4ed1b75c9eb5ff8070e0df1e8ed6b``
 
 .. NOTE::
   
-  When specifying a SHA256-based ``file:bytes`` node, entering the ``sha256:`` prefix is optional. The following are equivalent representations of the same file:
+  When specifying a SHA256-based ``file:bytes`` node, entering the ``sha256:`` prefix is optional. The following
+  are equivalent representations of the same file:
   
   ::
     
@@ -219,11 +279,16 @@ A ``file:bytes`` node can be created in one of three ways:
 SHA256 Hash
 ~~~~~~~~~~~
 
-A SHA256 hash can be specified as the node’s primary property. The ``sha256:`` prefix can optionally be specified, but is not required (it will be added automatically on node creation). Storm will recognize the primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary properties must be set manually.
+A SHA256 hash can be specified as the node’s primary property. The ``sha256:`` prefix can optionally be
+specified, but is not required (it will be added automatically on node creation). Storm will recognize the
+primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary
+properties must be set manually.
 
 .. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
 
-Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file is obtained, the node can be updated with the additional properties based on deconfliction with the SHA256 hash.
+Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If
+additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file
+is obtained, the node can be updated with the additional properties based on deconfliction with the SHA256 hash.
 
 GUID Value
 ~~~~~~~~~~
@@ -232,38 +297,64 @@ The asterisk can be used to generate a ``file:bytes`` node with an arbitrary gui
 
 .. storm-cli:: [ file:bytes = * ]
 
-Alternately, a potentially deconflictable ``guid`` can be generated by specifying a list of one or more values to the ``guid`` generator (for example, an MD5 and / or SHA1 hash). This will generate a predictable ``guid``:
+Alternately, a potentially deconflictable ``guid`` can be generated by specifying a list of one or more values
+to the ``guid`` generator (for example, an MD5 and / or SHA1 hash). This will generate a predictable ``guid``:
 
 
 .. storm-cli:: [ file:bytes = (63fcc49b2ac6cbd686f4d9704446c673,) :md5=63fcc49b2ac6cbd686f4d9704446c673 ]
 
-Synapse does not recognize any strings passed to the ``guid`` generator as specific types or properties and will not use values used to generate the ``guid`` to set any secondary property values; those properties must be explicitly set (e.g., the ``:md5`` property in the example above).
+Synapse does not recognize any strings passed to the ``guid`` generator as specific types or properties and will
+not use values used to generate the ``guid`` to set any secondary property values; those properties must be
+explicitly set (e.g., the ``:md5`` property in the example above).
 
-See the section on type-specific behavior for :ref:`type-guid` types for additional discussion of arbitrary (non-deconflictable) vs. deconflictable ``guids``.
+See the section on type-specific behavior for :ref:`type-guid` types for additional discussion of arbitrary
+(non-deconflictable) vs. deconflictable ``guids``.
 
 .. NOTE::
-  "Deconflicting" ``file:bytes`` nodes based on an MD5 or SHA1 hash alone is potentially risky because both of those hashes are subject to collision attacks. In other words, two files that have the same MD5 hash or the same SHA1 hash are not guaranteed to be the same file based on that single hash alone.
   
-  In short, creating ``file:bytes`` nodes using the MD5 and / or SHA1 hash can allow the creation of "potentially" deconflictable nodes when no other data is available. However, this deconfliction is subject to some limitations, as noted above. In addition, if the actual file (full bytes) or corresponding SHA256 hash is obtained later, it is not possible to "convert" a ``guid``-based ``file:bytes`` node to one whose primary property is based on the SHA256 hash.
+  "Deconflicting" ``file:bytes`` nodes based on an MD5 or SHA1 hash alone is potentially risky because both of
+  those hashes are subject to collision attacks. In other words, two files that have the same MD5 hash or the
+  same SHA1 hash are not guaranteed to be the same file based on that single hash alone.
+  
+  In short, creating ``file:bytes`` nodes using the MD5 and / or SHA1 hash can allow the creation of "potentially"
+  deconflictable nodes when no other data is available. However, this deconfliction is subject to some limitations,
+  as noted above. In addition, if the actual file (full bytes) or corresponding SHA256 hash is obtained later,
+  it is not possible to "convert" a ``guid``-based ``file:bytes`` node to one whose primary property is based
+  on the SHA256 hash.
 
 Actual Bytes
 ~~~~~~~~~~~~
 
-The optimal method to create ``file:bytes`` nodes is via the actual file (set of bytes) itself. This is typically done programmatically via an automated ingest of files (such as via a Synapse :ref:`gloss-power-up`) that can calculate (or set, based on values provided by a data source) all of the relevant hashes (potentially along with other secondary properties, such as ``:size`` or ``:mime:pe:compiled``) and use the SHA256 as the primary property value.
+You can also create a ``file:bytes`` node by adding the actual file (set of bytes) to Synapse (specifically,
+to Synapse's Axon storage). Adding the file will create the ``file:bytes`` node in the Cortex based on the
+file's SHA256 value. Synapse will also calculate and set additional properties for the ``file:bytes`` node's
+size and other hashes (e.g., MD5, SHA1, etc.).
 
-There are limited means to leverage this method in a one-off manner from the CLI. One option is to use the ``pushfile`` tool (see :ref:`syn-tools-pushfile`) to manually upload a file to a Cortex / storage Axon. Upon ingest, Synapse will create a SHA256-based ``file:bytes`` node from the uploaded bytes and set the appropriate secondary properties (i.e., other hashes, ``:size``).
+Creating ``file:bytes`` nodes in this manner is often done programmatically (such as via a Synapse
+:ref:`gloss-power-up`) that can download or ingest files. Other options include:
+
+- the built-in Synapse :ref:`storm-wget` command;
+- the  **Upload File** menu option available from the Synapse UI (`Optic`_), which allows you to either
+  upload a file from local disk, or download a file from a specified URL; or
+- the ``pushfile`` tool, available from the CLI in the community version of Synapse (see :ref:`syn-tools-pushfile`).
 
 .. TIP::
   
-  Like other external (to Storm) commands, the pushfile tool is accessible from the Storm CLI (see :ref:`syn-tools-storm`) as ``!pushfile``.
+  Like other external (to Storm) commands, the pushfile tool is accessible from the Storm CLI (see :ref:`syn-tools-storm`)
+  as ``!pushfile``.
 
-Similarly, Storm’s HTTP library (``$lib.inet.http``) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator. A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header` technical documentation for additional detail.
+Similarly, Storm’s HTTP library (:ref:`stormlibs-lib-inet-http`) could be leveraged to retrieve a web-based file and use the
+returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator.
+A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header`
+technical documentation for additional detail.
 
 
 Operations
 ++++++++++
 
-For some lift and filter operations, you may optionally specify ``file:bytes`` nodes using a "sufficiently unique" partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
+For some lift and filter operations, you may optionally specify ``file:bytes`` nodes using a "sufficiently unique"
+partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify
+a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
 
 .. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
 .. storm-cli:: file:bytes^=sha256:021b4ce5
@@ -271,23 +362,33 @@ For some lift and filter operations, you may optionally specify ``file:bytes`` n
 **Usage Notes:**
 
 - When using the prefix operator, the ``sha256:`` or ``guid:`` prefix string must be included.
-- The length of the value that is "sufficiently unique" to select a single ``file:bytes`` will vary depending on the data in your instance of Synapse. If your selection criteria matches more than one ``file:bytes`` node, Synapse will return all matches.
-- Alternatively, the regular expression operator ( ``~=`` ) may be used to specify a partial string match anywhere in the ``file:bytes`` node's primary property value (though this is an inefficient way to specify a ``file:bytes`` node).
+- The length of the value that is "sufficiently unique" to select a single ``file:bytes`` will vary depending
+  on the data in your instance of Synapse. If your selection criteria matches more than one ``file:bytes`` node,
+  Synapse will return all matches.
+- Alternatively, the regular expression operator ( ``~=`` ) may be used to specify a partial string match anywhere
+  in the ``file:bytes`` node's primary property value (though this is an inefficient way to specify a ``file:bytes``
+  node).
+
 
 .. _type-guid:
 
 guid
 ----
 
-Within Synapse, a Globally Unique Identifier (``guid``) as a :ref:`data-type` explicitly refers to a 128-bit value used as a form’s primary property.
+Within Synapse, a Globally Unique Identifier (``guid``) as a :ref:`data-type` explicitly refers to a 128-bit value
+used as a form’s primary property.
 
-The term should not be confused with the definition of GUID used by Microsoft_, or with other types of identifiers (node ID, task ID) used within Synapse.
+The term should not be confused with the definition of GUID used by Microsoft_, or with other types of identifiers
+(node ID, task ID) used within Synapse.
 
-The ``guid`` type is used as the primary property for forms that cannot be uniquely defined by any set of specific properties. See the background documents on the Synapse data model for additional details on the :ref:`form-guid`.
+The ``guid`` type is used as the primary property for forms that cannot be uniquely defined by any set of specific
+properties. See the background documents on the Synapse data model for additional details on the :ref:`form-guid`.
 
-A ``guid`` value may be generated arbitrarily or in a predictable (i.e., deconflictable) manner based on one or more secondary properties of the ``guid`` form.
+A guid value may be generated arbitrarily or in a predictable (i.e., repeatable) manner based on a defined set of
+inputs.
 
-See the section on :ref:`type-file` types for discussion of ``file:bytes`` as a specialized instance of a ``guid`` type.
+See the section on :ref:`type-file` types for discussion of ``file:bytes`` as a specialized instance of a ``guid``
+type.
 
 Indexing
 ++++++++
@@ -297,54 +398,227 @@ N/A
 Parsing
 +++++++
 
-``guids`` must be input using their complete 128-bit value. It is generally impractical to manually type a ``guid`` at the CLI in order to reference a ``guid``-type form. For this reason ``guid`` forms are most often specified at the command line by referencing the node via a more human-friendly secondary property. Alternately, the ``guid`` value can be copied and pasted at the CLI.
+Guids must be input using their complete 128-bit value. It is generally impractical to manually type
+a guid. Guid forms are most often specified by referencing the node via a more human-friendly secondary
+property. Alternately, the guid value can be copied and pasted.
 
 Insertion
 +++++++++
 
-``guids`` can be generated arbitrarily or as predictable / deconflictable values.
+Guids can be generated **arbitrarily** or as **predictable** values. When choosing a method, you
+should consider how you will **deconflict** guid-based nodes. See :ref:`guid-best-practices` below
+for additional discussion.
 
 Arbitrary Values
 ~~~~~~~~~~~~~~~~
 
-When creating a new ``guid`` node, the asterisk ( ``*`` ) can be specified as the primary property value of the new node. This will instruct Synapse to generate a unique, arbitrary ``guid`` for the node. For example:
+When creating a new guid node, you can specify the asterisk ( ``*`` ) as the primary property value
+of the new node. This tells Synapse to generate a unique, **arbitrary** guid for the node. For example:
+
+.. storm-cli:: [ ou:org=* :alias=vertex :name="The Vertex Project" :url=https://vertex.link/ ]
+
+The above query creates a new organization node with a unique arbitrary guid for its primary property,
+and sets the specified secondary properties.
+
+.. WARNING::
+  
+  Because the guid generated by the asterisk is **arbitrary,** running the above query a second
+  time will create a second ``ou:org`` node with a **new** unique guid (potentially resulting in two
+  nodes representing the same organization within the same Cortex).
+
+The advantage of arbitrary values is that they are simple to generate. This is particularly useful
+for analysts who need to manually create guid nodes (organizations, contacts, threats) on a regular
+basis as part of their workflow.
+
+The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict
+the nodes.
+
+- Users may inadvertently create duplicate nodes. That is, two users can independently create nodes
+  with different guids to represent the same object. The only way to prevent this is by convention -
+  for example, establishing internal processes where users "check first" before creating certain
+  nodes. Note that while this may limit duplication, it is unlikely to eliminate it entirely.
+  
+- Bulk data that is ingested using arbitraty guids cannot be reingested, at least not in the same way.
+  Reingesting the same data will create a second set of nodes for the same data but with different
+  arbitrary guids.
+
+Predictable Values
+~~~~~~~~~~~~~~~~~~
+
+You can generate a guid value in a predictable manner based on a defined set of inputs. The inputs are
+specified as a comma-separated list within a set of parentheses. The guid generator uses these values
+as "seed" data to create a **predictable** guid value; the same set of seed data always generates the
+same guid.
+
+For example:
+
+.. storm-cli:: [ ou:org=('the vertex project',https://vertex.link) :name='the vertex project' :url=https://vertex.link ]
+
+The query above creates a new organization node whose guid is generated using the company name and
+web site as a set of (presumably) unique inputs that will result in a unique (but predictable /
+deterministic) guid.
+
+The advantage of predictable guids is that they are re-encounterable and therefore deconflictable: if you
+ingest data using a predictable guid, the same data can be reingested without creating duplicate nodes.
+This is helpful in cases where a preliminary data set is loaded into Synapse for analysis, and subsequent
+changes (improvements to the ingest logic, additions to the Synapse data model) allow you to capture
+additional detail from the original data set.
+
+The disadvantage is that this method is more complicated for users who need to manually create guid
+nodes. Expecting a group of users to all remember to specify the same set of inputs in the same
+order (and without typos) each time they create a guid node is unrealistic.
+
+In addition, predictable guids may not fully address challenges associated with ingesting similar data
+from different sources. Multiple vendors may provide similar information on the same entity. If you
+obtain data for the same object (an organization, a person, a certificate) from different sources,
+you may end up with two different nodes if the "predictable" guids are generated with different seed
+data from each source.
 
 
-.. storm-cli:: [ ou:org=* :alias=yoyodyne :name="Yoyodyne Propulsion Systems" :url=https://www.yoyodyne.com/ ]
+.. _guid-best-practices:
 
-That syntax will create a new org node with a unique ``guid`` for its primary property and the specified secondary properties. Note that because the ``guid`` is arbitrary, re-running the same query will create a second org node with a new unique ``guid`` (potentially resulting in two nodes representing the same organization within the same Cortex).
+Guid Best Practices
+~~~~~~~~~~~~~~~~~~~
 
-Arbitrarily generated ``guids`` provide a small performance boost (because Synapse does not need to perform deconfliction by checking whether a node already exists). This can be useful in cases where you are ingesting large numbers of instance data / events that are effectively guaranteed *a priori* to be unique.
+When selecting a method to create guids, a key consideration is how you will **deconflict**
+data represented by guid forms. Guid forms are unique in that their primary property has no
+direct or obvious relationship to the object it represents. The primary property
+``ou:org=44db774d29f27684add0d892931c6e86`` tells me this is an organization node, but
+provides no clue as to whether the organization is The Vertex Project, the World Bank, or
+the University of Michigan marching band.
 
-Deconflictable Values
-~~~~~~~~~~~~~~~~~~~~~
+The important information about "what" a guid form represents is stored in the form's
+secondary properties. So from a deconfliction standpoint, the best way to see if a guid
+node already exists is to use **secondary property deconfliction:**
 
-Alternately, a ``guid`` value can be generated in a predictable manner based on a defined set of inputs. The specified data is fed to the ``guid`` generator within a set of parentheses as "seed" data that is used to generate a predictable ``guid``. This allows guid forms to be deconflictable such that:
+- Query for an existing node based on one or more meaningful secondary properties.
+- The query will lift (return) the selected node(s), if found; otherwise
+- Create a new guid node using an arbitrary guid ( ``*`` ).
 
-- Duplicate nodes are not created (i.e., if the same set of data is fed to the ``guid`` generator in the same way a second time, the generator will calculate the same ``guid`` and recognize that the node already exists).
-- If additional data related to a ``guid`` form is obtained at a later date, the data can be added to the form (i.e., by populating additional secondary properties).
+**Example**
 
-When generating a predictable ``guid``, you should select a property (or properties) that are:
+  SSL/TLS certificate data is available from various data sources / APIs; different sites or
+  vendors may provide similar information about the same certificate. Certificate metadata
+  (i.e., information such as fingerprints, validity dates, etc.) is represented as a
+  ``crypto:x509:cert`` node, which is a guid form. If you obtain data about the same
+  certificate from different data sources, you risk the creation of duplicate nodes.
+  
+  Instead, when ingesting data about a specific certificate, a user (or process) can first check
+  for a ``crypto:x509:cert`` node based on a unique property, such as a certificate fingerprint
+  (e.g., ``crypto:x509:cert:sha1``, or ideally ``crypto:x509:cert:sha256`` to avoid hash collisions).
+  If an existing node is found, that node can be selected and updated (or otherwise operated on);
+  otherwise a new node for that certificate can be created using an arbitrary guid ( ``*`` ) with
+  the appropriate secondary properties set.
 
-- present in the subset of data available to create the form, and
-- reasonably unique to that form.
+Using secondary property deconfliction for guid nodes has the advantage of deconflicting on
+meaningful properties (those likely to uniquely identify an object), without relying on knowledge
+of any specific method used to create predictable guids. (Note that "predictable guids" are often
+generated using these same secondary properties; so deconflicting on the properties directly is
+both more straightforward and more transparent.)
 
-For example, when creating an organization (``ou:org``) node, you may decide that most organizations have a public web site, and the URL of the company’s home page is generally available when creating the org node. The URL can be used to generate the ``guid``:
+.. TIP::
+
+  When choosing a secondary property (or properties) to deconflict on, you should select
+  ones that can sufficiently deconflict the form **and** are likely to be present in the
+  data source(s) you may use to obtain information about the form.
+
+Secondary property deconfliction is not guaranteed to eliminate all duplications, but is highly
+effective in many cases. This method can be used both programmatically (i.e., in any ingest scripts
+or Power-Ups (:ref:`gloss-power-up`)) and by users who can "spot check" for the existence of a node
+before manually creating one.
+
+.. TIP::
+
+  Synapse implements several Storm commands known as generator ("gen") commands. These
+  commands simplify secondary property deconfliction and node creation for several common
+  guid nodes.
+  
+  For example, the :ref:`storm-gen-org` command takes an organization name as input (e.g,
+  "vertex"), checks for any ``ou:org`` nodes with that name (i.e., in the ``:name`` or
+  ``:names`` properties) and either lifts the existing node, or creates a new one.
+  
+  See the :ref:`storm-gen` section in the :ref:`storm-ref-cmd` for available generator commands
+  (or run ``help`` from your Synapse CLI).
 
 
-.. storm-cli:: [ ou:org=(https://www.yoyodyne.com/,) :alias=yoyodyne :name='Yoyodyne Propulsion Systems' :url=https://www.yoyodyne.com/ ]
+Arbitrary Guids
+^^^^^^^^^^^^^^^
 
-The ``guid`` for the org node will be generated based on the URL string specified. Re-running the same command will not generate a duplicate node, but will lift the (newly-created) node with the same generated ``guid``.
+For some use cases, the use of arbitrary guids (without secondary property deconfliction)
+may be reasonable. This approach may be suitable when:
+
+- The data you are ingesting is truly unique (i.e., the same or similar data is not available
+  from another source). For example, log or alert data that is specific to a unique sensor
+  or host.
+- You need to perform a one-time ingest of the data (i.e., you do not plan to reingest the
+  same data in the future).
+  
+If the data is unique, but you may need to reingest it at some point, secondary property
+deconfliction or predictable guids are more appropriate.
+
+Predictable Guids
+^^^^^^^^^^^^^^^^^
+
+For some use cases, the use of predictable guids (without secondary property deconfliction)
+may be reasonable. This approach may be suitable when:
+
+- You have a unique set of data (not available from another data source) to ingest and want
+  the option to reingest it in the future without creating duplicate nodes.
+- The data is sufficiently unique that nodes representing the data will not already exist
+  in Synapse.
+- You cannot use secondary property deconfliction given the nature of the data. In this case,
+  deconfliction based on predictable guids may be the "next best" option.
+
+When using predictable guids, the "seed" data to generate the guid should be unique to both
+the node being created and the specific data source. For example, your inputs could include:
+
+- A string representing the **data source.**
+- The **timestamp** associated with the data, if one exists.
+- The values of one or more **secondary properties** for the node you are creating. Be sure to choose
+  properties where:
+  
+  - the property / properties will **always** be present for the given data source; and
+  - the set of properties is sufficient to create a unique node.
+
+For example, a ``media:news`` node might be created using:
+
+- A data source string (e.g., ``my_data_source``).
+- The publication date of the article (e.g., ``2022/09/12``)
+- The URL where the article was published (e.g., ``https://www.example.com/my_article.html``)
+
+Predictable guid values can be generated directly (as part of Storm :ref:`edit-mode` syntax):
+
+.. storm-cli:: [ media:news=(my_data_source,2022/09/12,https://www.example.com/my_article.html) ]
+
+Alternately, guid values can be generated and assigned to a variable using the Storm ``$lib.guid()``
+library (see :ref:`stormlibs-lib-guid`). The values provided as arguments to ``$lib.guid()`` can be either
+specific values or variables:
+
+.. storm-cli:: $guid=$lib.guid(my_data_source,2022/09/12,https://www.example.com/my_article.html) [ media:news=$guid ]
+
+.. storm-cli:: $source=my_data_source $published=2022/09/12 $url=https://www.example.com/my_article.html $guid=$lib.guid($source,$published,$url) [ media:news=$guid ]
+
+**Note** that the same guid value is generated in each of the three examples above.
 
 .. NOTE::
-  The input to the ``guid`` generator is interpreted as a **structured list;** specifically, a list of string values (i.e., ``(str_0, str_1, str_2...str_n)``. Deconfliction depends on the exact same list being submitted to the generator in the future. In the org node example above, failure to include the trailing forward slash in the URL, or using ``http`` instead of ``https`` will result in the generation of a different ``guid``. Similarly, if you choose to generate the ``guid`` based on multiple secondary properties, they must be submitted the same way each time.
   
-  In addition, the ``guid`` generator is not "model aware" and will not recognize items in the list as having any specific data type or property value. As such, Synapse will not automatically set any secondary properties using data provided to the ``guid`` generator. In other words, just because you decide to use the ``:url`` property value to generate a ``guid`` for an org node does not result in Synapse setting the ``:url`` secondary property value.
+  The input to the ``guid`` generator is interpreted as a **structured list,** specifically, a list
+  of string values (i.e., ``(str_0, str_1, str_2...str_n)``). Deconfliction depends on the same list
+  being submitted to the generator in the same order each time.
+  
+  The ``guid`` generator is **not** "model aware" and will not recognize items in the list as having
+  a particular data type or representing a particular property value. That is, Synapse will not set
+  any secondary property values based on data provided to the ``guid`` generator. Any property values
+  must be set as part of the node creation process.
+
+A full discussion of writing ingest code (particulary for Storm packages, services, or Power-Ups) is beyond
+the scope of this User Guide. For more information, see the :ref:`devguide`.
 
 Operations
 ++++++++++
 
-Because ``guid`` values are unwieldy to use on the command line (outside of copy and paste operations), ``guid`` nodes may be more easily lifted by a unique secondary property.
+Because guid values are unwieldy to use on the command line (outside of copy and paste operations), guid
+nodes may be more easily lifted by a unique secondary property.
 
 **Examples:**
 
@@ -359,7 +633,7 @@ Lift a DNS request node by the name used in the DNS query:
 .. storm-pre:: [ inet:dns:request=* :time="2020/04/30 09:30:33.000" :query:name=pop.seznam.cz :query:name:fqdn=pop.seznam.cz ]
 .. storm-cli:: inet:dns:request:query:name=pop.seznam.cz
 
-It is also possible to lift and filter ``guid`` nodes using a "sufficiently unique" prefix match of the ``guid`` value.
+It is also possible to lift and filter guid nodes using a "sufficiently unique" prefix match of the guid value.
 
 **Example:**
 
@@ -368,24 +642,52 @@ Lift a ``ps:contact`` node by a partial prefix match:
 .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
 .. storm-cli:: ps:contact^=13c9663e
 
-The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse. If your selection criteria matches more than one node, Synapse will return all matches.
+The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
+If your selection criteria matches more than one node, Synapse will return all matches.
+
+When **setting** or **updating** a secondary property that is a guid value, you may use a "human friendly"
+Storm query (specifically a subquery) to reference the node whose primary property (guid value) you wish to
+set for the secondary property.
+
+**Example:**
+
+Set the ``:org`` property for a ``ps:contact`` node to the guid value of the associated ``ou:org`` node using
+a Storm query:
+
+.. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
+
+.. storm-cli:: ps:contact:name='ron the cat' [ :org={ ou:org:name=vertex } ]
+
+.. NOTE::
+  
+  The Storm query used to specify the guid node must return exactly one node. If the query returns more
+  than one node, or does not return any nodes, Synapse will generate an error.
+
+See :ref:`prop-add-mod-subquery` for additional details.
+
 
 .. _type-inet-fqdn:
 
 inet:\fqdn
 ----------
 
-**Fully qualified domain names** (FQDNs) are structured as a set of string elements separated by the dot ( ``.`` ) character. The Domain Name System acts as a "reverse hierarchy" (operating from right to left instead of from left to right) separated along the dot boundaries - i.e., ``com`` is the hierarchical root for domains such as ``google.com`` or ``microsoft.com``.
+**Fully qualified domain names** (FQDNs) are structured as a set of string elements separated by the dot
+( ``.`` ) character. The Domain Name System acts as a "reverse hierarchy" (operating from right to left
+instead of from left to right) separated along the dot boundaries - i.e., ``com`` is the hierarchical root
+for domains such as ``google.com`` or ``microsoft.com``.
 
 Because of this logical structure, Synapse includes certain optimizations for working with ``inet:fqdn`` types:
 
 - Reverse string indexing on ``inet:fqdn`` types.
-- Default values for the secondary properties ``:issuffix`` and ``:iszone`` of a given ``inet:fqdn`` node based on the values of those properties for the node’s parent domain.
+- Default values for the secondary properties ``:issuffix`` and ``:iszone`` of a given ``inet:fqdn`` node based
+  on the values of those properties for the node’s parent domain.
 
 Indexing
 ++++++++
 
-Synapse performs **reverse string indexing** on ``inet:fqdn`` types. Domains are indexed in full reverse order - that is, the domain ``this.is.my.domain.com`` is indexed as ``moc.niamod.ym.si.siht`` to account for the "reverse hierarchy" implicit in the DNS structure.
+Synapse performs **reverse string indexing** on ``inet:fqdn`` types. Domains are indexed in full reverse order -
+that is, the domain ``this.is.my.domain.com`` is indexed as ``moc.niamod.ym.si.siht`` to account for the
+"reverse hierarchy" implicit in the DNS structure.
 
 Parsing
 +++++++
@@ -395,68 +697,100 @@ N/A
 Insertion
 +++++++++
 
-When ``inet:fqdn`` nodes are created (or modifications to certain properties are made), Synapse uses some built-in logic to set certain secondary properties related to zones of control (specifically, ``:issuffix``, ``:iszone``, and ``:zone``).
+When ``inet:fqdn`` nodes are created (or modifications to certain properties are made), Synapse uses some
+built-in logic to set certain secondary properties related to zones of control (specifically, ``:issuffix``,
+``:iszone``, and ``:zone``).
 
-The reverse hierarchy implicit in dotted FQDNs represents elements such as *<host>.<domain>.<suffix>*, but can also represent implicit or explicit **zones of control.** The term "zone of control" is loosely defined, and is not meant to represent control or authority by any specific organization or entity. Instead, "zone of control" can be thought of as a boundary within an individual FQDN hierarchy where control of a portion of the domain namespace shifts from one entity or owner to another.
+The reverse hierarchy implicit in dotted FQDNs represents elements such as *<host>.<domain>.<suffix>*, but
+can also represent implicit or explicit **zones of control.** The term "zone of control" is loosely defined,
+and is not meant to represent control or authority by any specific organization or entity. Instead, "zone of
+control" can be thought of as a boundary within an individual FQDN hierarchy where control of a portion of
+the domain namespace shifts from one entity or owner to another.
 
-A simple example is the ``com`` top-level domain (managed by Verisign) vs. the domain ``microsoft.com`` (controlled by Microsoft Corporation). ``Com`` represents one zone of control where ``microsoft.com`` represents another.
+A simple example is the ``com`` top-level domain (managed by Verisign) vs. the domain ``microsoft.com``
+(controlled by Microsoft Corporation). ``Com`` represents one zone of control where ``microsoft.com`` 
+represents another.
 
-The ``inet:fqdn`` form in the Synapse data model uses several secondary properties that relate to zones of control:
+The ``inet:fqdn`` form in the Synapse data model uses several secondary properties that relate to zones of
+control:
 
 - ``:issuffix`` = primary zone of control
 - ``:iszone`` = secondary zone of control
 - ``:zone`` = authoritative zone for a given domain or subdomain
 
-(**Note:** contrast ``:zone`` with ``:domain`` which simply represents the next level "up" in the hierarchy from the current domain).
+(**Note:** contrast ``:zone`` with ``:domain`` which simply represents the next level "up" in the hierarchy
+from the current domain).
 
 Synapse uses the following logic for suffixes and zones upon ``inet:fqdn`` creation:
 
-1. All domains consisting of a single element (such as ``com``, ``museum``, ``us``, ``br``, etc.) are considered **suffixes** and receive the following default values:
+1. All domains consisting of a single element (such as ``com``, ``museum``, ``us``, ``br``, etc.) are
+   considered **suffixes** and receive the following default values:
+   
+   - ``:issuffix = 1``
+   - ``:iszone = 0``
+   - ``:zone = <none / property not created>``
+   - ``:domain = <none / property not created>``
 
-- ``:issuffix = 1``
-- ``:iszone = 0``
-- ``:zone = <none / property not created>``
-- ``:domain = <none / property not created>``
+2. Any domain whose **parent domain is a suffix** is considered a **zone** and receives the following default
+   values:
+   
+   - ``:issuffix = 0``
+   - ``:iszone = 1``
+   - ``:zone = <set to self>``
+   - ``:domain = <set to parent domain>``
 
-2. Any domain whose **parent domain is a suffix** is considered a **zone** and receives the following default values:
-
-- ``:issuffix = 0``
-- ``:iszone = 1``
-- ``:zone = <set to self>``
-- ``:domain = <set to parent domain>``
-
-3. Any domain whose **parent domain is a zone** is considered a "normal" subdomain and receives the following default values:
-
-- ``:issuffix = 0``
-- ``:iszone = 0``
-- ``:zone = <set to parent domain>``
-- ``:domain = <set to parent domain>``
+3. Any domain whose **parent domain is a zone** is considered a "normal" subdomain and receives the following
+   default values:
+   
+   - ``:issuffix = 0``
+   - ``:iszone = 0``
+   - ``:zone = <set to parent domain>``
+   - ``:domain = <set to parent domain>``
 
 4. Any domain whose parent domain is a "normal" subdomain receives the following default values:
+   
+   - ``:issuffix = 0``
+   - ``:iszone = 0``
+   - ``:zone = <set to first fqdn “up” the domain hierarchy with :iszone = 1>``
+   - ``:domain = <set to parent domain>``
 
-- ``:issuffix = 0``
-- ``:iszone = 0``
-- ``:zone = <set to first fqdn “up” the domain hierarchy with :iszone = 1>``
-- ``:domain = <set to parent domain>``
+.. NOTE::
+  
+  The above logic is **recursive** over all nodes in a Cortex. Changing an ``:issuffix`` or ``:iszone``
+  property on an existing ``inet:fqdn`` node will not only modify that node, but also propagate any changes
+  associated with those properties to any existing subdomains.
 
-.. Note::
-  The above logic is **recursive** over all nodes in a Cortex. Changing an ``:issuffix`` or ``:iszone`` property on an existing ``inet:fqdn`` node will not only modify that node, but also propagate any changes associated with those properties to any existing subdomains.
 
 Potential Limitations
 ~~~~~~~~~~~~~~~~~~~~~
 
-This logic works well for single-element top-level domains (TLDs) (such as ``com`` vs ``microsoft.com``). However, it  does not address cases that may be relevant for certain types of analysis, such as:
+This logic works well for single-element top-level domains (TLDs) (such as ``com`` vs ``microsoft.com``).
+However, it  does not address cases that may be relevant for certain types of analysis, such as:
 
-- **Top-level country code domains and their subdomains.** Under Synapse’s default logic ``uk`` is a suffix and ``co.uk`` is a zone. However, ``co.uk`` could **also** be considered a suffix in its own right, because subdomains such as ``somecompany.co.uk`` are under the control of the organization that registers them. In this case, ``uk`` would be a suffix, ``com.uk`` could be considered both a suffix **and** a zone, and ``somecompany.co.uk`` could be considered a zone.
+- **Top-level country code domains and their subdomains.** Under Synapse’s default logic ``uk`` is a suffix
+  and ``co.uk`` is a zone. However, ``co.uk`` could **also** be considered a suffix in its own right, because
+  subdomains such as ``somecompany.co.uk`` are under the control of the organization that registers them. In
+  this case, ``uk`` would be a suffix, ``com.uk`` could be considered both a suffix **and** a zone, and
+  ``somecompany.co.uk`` could be considered a zone.
 
-- **Special-case zones of control.** Some domains (such as those used to host web-based services) can be considered specialized zones of control. In these cases, the service provider typically owns the "main" domain (such as ``wordpress.com``) but individual customers can register personal subdomains for their hosted services (such as ``joesblog.wordpress.com``). The division between ``wordpress.com`` and individual customer subdomains could represent different zones of control. In this case, ``com`` would be a suffix, ``wordpress.com`` could be considered both a suffix **and** a zone, and ``joesblog.wordpress.com`` could be considered a zone.
+- **Special-case zones of control.** Some domains (such as those used to host web-based services) can be
+  considered specialized zones of control. In these cases, the service provider typically owns the "main"
+  domain (such as ``wordpress.com``) but individual customers can register personal subdomains for their
+  hosted services (such as ``joesblog.wordpress.com``). The division between ``wordpress.com`` and individual
+  customer subdomains could represent different zones of control. In this case, ``com`` would be a suffix, 
+  ``wordpress.com`` could be considered both a suffix **and** a zone, and ``joesblog.wordpress.com`` could be
+  considered a zone.
 
-Examples such as these are **not accounted for** by Synapse’s suffix / zone logic. The definition of additional domains as suffixes and / or zones is an implementation decision (though once the relevant properties are set, the changes are propagated recursively as noted above).
+Examples such as these are **not accounted for** by Synapse’s suffix / zone logic. The definition of additional
+domains as suffixes and / or zones is an implementation decision (though once the relevant properties are set,
+the changes are propagated recursively as noted above).
 
 Operations
 ++++++++++
 
-Because of Synapse’s reverse string indexing for ``inet:fqdn`` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( ``*`` ) is the extended operator used to perform this operation. The asterisk does **not** have to be used along dot boundaries but can match anywhere in any FQDN element.
+Because of Synapse’s reverse string indexing for ``inet:fqdn`` types, domains can be lifted or filtered based
+on matching any partial domain suffix string. The asterisk ( ``*`` ) is the extended operator used to perform
+this operation. The asterisk does **not** have to be used along dot boundaries but can match anywhere in any FQDN element.
 
 **Examples**
 
@@ -479,11 +813,16 @@ Downselect a set of DNS A records to those with domains ending with ``.museum``:
 
 **Usage Notes**
 
-- Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or double quotes (see :ref:`storm-whitespace-literals`).
-- Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to **lift** FQDNs by prefix. For example, ``inet:fqdn^=yahoo`` is invalid.
+- Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or
+  double quotes (see :ref:`storm-whitespace-literals`).
+- Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching
+  can only occur based on the end (suffix) of a domain. It is not possible to **lift** FQDNs by prefix. For example,
+  ``inet:fqdn^=yahoo`` is invalid.
 - Domains can be **filtered** by prefix (``^=``). For example, ``inet:fqdn="*.biz" +inet:fqdn^=smtp`` is valid.
-- Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
-- Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
+- Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined
+  "lift and filter" operation).
+- Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example
+  ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
 
 .. _type-inet-ipv4:
 
@@ -495,12 +834,14 @@ IPv4 addresses are stored as integers and represented (displayed) to users as do
 Indexing
 ++++++++
 
-IPv4 addresses are indexed as integers. This optimizes various comparison operations, including greater than / less than, range, etc.
+IPv4 addresses are indexed as integers. This optimizes various comparison operations, including greater than /
+less than, range, etc.
 
 Parsing
 +++++++
 
-While IPv4 addresses are stored and indexed as integers, they can be input into Storm (and used within Storm operations) as any of the following.
+While IPv4 addresses are stored and indexed as integers, they can be input into Storm (and used within Storm
+operations) as any of the following.
 
 - integer: ``inet:ipv4 = 3232235521``
 - hex: ``inet:ipv4 = 0xC0A80001``
@@ -511,7 +852,8 @@ While IPv4 addresses are stored and indexed as integers, they can be input into 
 Insertion
 +++++++++
 
-The ability to specify IPv4 values using either range or CIDR format allows you to "bulk create" sets of ``inet:ipv4`` nodes without the need to specify each address individually.
+The ability to specify IPv4 values using either range or CIDR format allows you to "bulk create" sets of
+``inet:ipv4`` nodes without the need to specify each address individually.
 
 **Examples**
 
@@ -538,7 +880,9 @@ Create the 256 addresses in the range 192.168.0.0/24:
 Operations
 ++++++++++
 
-Similar to node insertion, lifting or filtering IPV4 addresses by range or by CIDR notation will operate on every ``inet:ipv4`` node that exists within the Cortex and falls within the specified range or CIDR block. This allows operating on multiple contiguous IP addresses without the need to specify them individually.
+Similar to node insertion, lifting or filtering IPV4 addresses by range or by CIDR notation will operate on
+every ``inet:ipv4`` node that exists within the Cortex and falls within the specified range or CIDR block. 
+This allows operating on multiple contiguous IP addresses without the need to specify them individually.
 
 **Examples**
 
@@ -554,13 +898,76 @@ Filter a set of DNS A records to only include those whose IPv4 value is within t
 .. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
 .. storm-cli:: inet:dns:a:fqdn=woot.com +:ipv4=172.16.0.0/12
 
+.. _type-int:
+
+int
+---
+
+An ``int`` is an integer value. Synapse stores, indexes, and displays integer values as decimal integers, but will also accept as hex or octal values as input.
+
+Indexing
+++++++++
+
+N/A
+
+Parsing
++++++++
+
+When adding or modifying integer values, Synapse will accept integer, hex (preceded by 0x), and octal (preceded by 0o) values and represent them as decimal integer values.
+
+**Examples**
+
+Set the ``:count`` of the ``biz:bundle`` to 42:
+
+.. storm-pre:: [ biz:bundle=(350,) ]
+.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+
+Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
+
+.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 :dst:proto=tcp :dst:ipv4=142.118.95.50 ]
+.. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
+
+Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
+
+.. storm-pre:: [ file:archive:entry=(sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b,20230811 11:33:00, ozzie) :user=ozzie :added="20230811 11:33:00" :file=sha256:0c72088f529dc53e813de8e7df47922b1a9137924e072468559f7865eb7ad18b ]
+.. storm-cli:: file:archive:entry=3a24e1008b43bc2f1e35b3e872f201fc [ :posix:perms=0o426 ]
+
+Insertion
++++++++++
+
+Same as for parsing.
+
+Operations
+++++++++++
+
+Use integer, hex, or octal values to lift and filter integer types using standard comparison operators.
+
+**Examples**
+
+Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
+
+.. storm-pre:: [ risk:alert=(outbound traffic to SOC-reported IP, 20230801 09:00:00, 9) :desc="outbound traffic to SOC-reported IP" :name="suspicious outbound traffic" :detected="20230801 09:00:00" :priority=8]
+.. storm-cli:: risk:alert:priority<10
+
+Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
+
+.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :dst:proto=tcp :dst:ipv4=62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-cli:: inet:flow#mytag +:ip:proto=0x06
+
+Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
+
+.. storm-pre:: [ it:group=(research, a6f4147c23421ef47a1fabea899b3aeb, threat researchers group) :desc="threat researchers group" :name="research" :host=a6f4147c23421ef47a1fabea899b3aeb :posix:gid=278 ] 
+.. storm-cli:: it:group:posix:gid=0o426
+
 
 .. _type-ival:
 
 ival
 ----
 
-``ival`` is a specialized type consisting of two ``time`` types in a paired ``(<min>, <max>)`` relationship. As such, the individual values in an ``ival`` are subject to the same specialized handling as individual :ref:`type-time` values.
+``ival`` is a specialized type consisting of two ``time`` types in a paired ``(<min>, <max>)`` relationship.
+As such, the individual values in an ``ival`` are subject to the same specialized handling as individual 
+:ref:`type-time` values.
 
 ``ival`` types have their own optimizations in addition to those related to ``time`` types.
 
@@ -572,21 +979,30 @@ N/A
 Parsing
 +++++++
 
-An ``ival`` type is typically specified as two comma-separated time values enclosed in parentheses. Alternately, an ``ival`` can be specified as a single time value with no parentheses (see **Insertion** below for ``ival`` behavior when specifying a single time value).
+An ``ival`` type is typically specified as two comma-separated time values enclosed in parentheses. Alternately,
+an ``ival`` can be specified as a single time value with no parentheses (see **Insertion** below for ``ival``
+behavior when specifying a single time value).
 
-Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`. For example:
+Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
+For example:
 
 - ``.seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
 - ``+#sometag=(2018/09/15, "+24 hours")``
 - ``.seen=2019/03/24``
 
-As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
+As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in
+parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
 
-An ``ival`` can also be specified as a single time value, in which case the value must be specified **without** parentheses: ``<time>``. See **Insertion** below for ``ival`` behavior when adding vs. modifying using a single time value vs. a ``(<min>, <max>)`` pair.
+An ``ival`` can also be specified as a single time value, in which case the value must be specified **without**
+parentheses: ``<time>``. See **Insertion** below for ``ival`` behavior when adding vs. modifying using a single
+time value vs. a ``(<min>, <max>)`` pair.
 
-When entering an ``ival`` type, each time value can be input using most of the acceptable formats for :ref:`type-time` types, including explicit times (including lower resolution times and wildcard times), relative times, and the special values ``now`` and ``?``.
+When entering an ``ival`` type, each time value can be input using most of the acceptable formats for :ref:`type-time`
+types, including explicit times (including lower resolution times and wildcard times), relative times, and the
+special values ``now`` and ``?``.
 
-``ival`` types also support relative times using ``+-`` format to represent both a positive and negative offset from a given point (i.e., ``"+-1 hour"``).
+``ival`` types also support relative times using ``+-`` format to represent both a positive and negative offset
+from a given point (i.e., ``"+-1 hour"``).
 
 When entering relative times in an ``ival`` type:
 
@@ -601,43 +1017,61 @@ For example:
 - ``.seen=(now, "+-5 minutes")`` means from 5 minutes ago to 5 minutes from now.
 - ``.seen=("-30 minutes", "+1 hour")`` means from 30 minutes ago to 30 minutes from now.
 
-When specifying minimum and maximum times for an ``ival`` type (or when specifying minimum and maximum ``time`` values to the ``*range=`` comparator), the following restrictions should be kept in mind:
+When specifying minimum and maximum times for an ``ival`` type (or when specifying minimum and maximum ``time``
+values to the ``*range=`` comparator), the following restrictions should be kept in mind:
 
-- Minimums and maximums that use explicit times and / or special terms (``now``, ``?``) should be specified in ``<min>, <max>`` order.
+- Minimums and maximums that use explicit times and / or special terms (``now``, ``?``) should be specified in
+  ``<min>, <max>`` order.
 
-  - Specifying a ``<max>, <min>`` order will **not** result in an error message, but because it results in an exclusionary time window, it will not return any nodes (i.e., no time / interval can be both greater than a max value and less than a min value).
-  - Similarly, combinations of relative times that result in an effective ``<max>, <min>`` after relative offsets are calculated are allowed (will not generate an error), but will result in an exclusionary time window that does not return any nodes.
+  - Specifying a ``<max>, <min>`` order will **not** result in an error message, but because it results in an
+    exclusionary time window, it will not return any nodes (i.e., no time / interval can be both greater than
+    a max value and less than a min value).
+
+  - Similarly, combinations of relative times that result in an effective ``<max>, <min>`` after relative offsets
+    are calculated are allowed (will not generate an error), but will result in an exclusionary time window that
+    does not return any nodes.
 
 - Values that result in a nonsensical ``<min>, <max>`` are not allowed and will generate an error. For example:
 
   - The special value ``?`` cannot be used as a minimum value in a ``(<min>, <max>)`` pair.
   - A ``+-`` relative time cannot be used as a minimum value in a ``(<min>, <max>)`` pair.
-  - When specifying a ``+-`` relative time as the maximum value in a ``(<min>, <max>)`` pair, an explicit ``<min>`` value is also required (i.e., either an explicit time or ``now``).
+  - When specifying a ``+-`` relative time as the maximum value in a ``(<min>, <max>)`` pair, an explicit
+    ``<min>`` value is also required (i.e., either an explicit time or ``now``).
 
 Insertion
 +++++++++
 
 - When **adding** an ``ival`` as a ``(<min>, <max>)`` pair, the ``ival`` can be specified as described above.
 
-  - If the values for ``<min>`` and ``<max>`` are identical, then ``<min>`` will be set to the specified value and ``<max>`` will be set to ``<min>`` plus 1 ms.
+  - If the values for ``<min>`` and ``<max>`` are identical, then ``<min>`` will be set to the specified value
+    and ``<max>`` will be set to ``<min>`` plus 1 ms.
 
-- When **adding** an ``ival`` as a single time value, it must be specified without parentheses.
+- When **adding** an ``ival`` as a single time value, it must be specified **without** parentheses.
 
-  - When a single time value is used, the ``<min>`` value will be set to the specified time and the ``<max>`` will be set to the ``<min>`` time plus 1 ms.
+  - When a single time value is used, the ``<min>`` value will be set to the specified time and the ``<max>``
+    will be set to the ``<min>`` time plus 1 ms.
 
-- When **modifying** an existing ``ival`` property (including tag timestamps) with either a ``(<min>, <max>)`` pair or a single time value, the existing ``ival`` is **not** simply overwritten (as is the norm for modifying properties - see :ref:`storm-ref-data-mod`). Instead, the ``<min>`` and / or ``<max>`` are **only** updated if the new value(s) are:
+- When **modifying** an existing ``ival`` property (including tag timestamps) with either a ``(<min>, <max>)``
+  pair or a single time value, the existing ``ival`` is **not** simply overwritten (as is the norm for modifying
+  properties - see :ref:`storm-ref-data-mod`). Instead, the ``<min>`` and / or ``<max>`` are **only** updated
+  if the new value(s) are:
 
   - Less than the current ``<min>``, and / or
   - Greater than the current ``<max>``.
   
-  This means that once set, ``<min>`` and ``<max>`` can only be "pushed out" to a lower minimum and / or a higher maximum. Specifying a time or times that fall **within** the current minimum and maximum will have no effect (i.e., the current values will be retained).
+  This means that once set, ``<min>`` and ``<max>`` can only be "pushed out" to a lower minimum and / or a higher
+  maximum. Specifying a time or times that fall **within** the current minimum and maximum will have no effect
+  (i.e., the current values will be retained).
   
-  This means that it is not possible to "shrink" an ``ival`` directly; to specify a higher minimum or a lower maximum (or to remove the timestamps altogether), you must delete the ``ival`` property (or remove the timestamped tag) and re-add it with the updated values.
+  This means that it is not possible to "shrink" an ``ival`` directly; to specify a higher minimum or a lower
+  maximum (or to remove the timestamps altogether), you must delete the ``ival`` property (or remove the timestamped
+  tag) and re-add it with the updated values.
 
 Operations
 ++++++++++
 
-``ival`` types can be lifted and filtered (see :ref:`storm-ref-lift` and :ref:`storm-ref-filter`) with the standard equivalent ( ``=`` ) operator, which will match the **exact** ``<min>`` and ``<max>`` values specified.
+``ival`` types can be lifted and filtered (see :ref:`storm-ref-lift` and :ref:`storm-ref-filter`) with the standard
+equivalent ( ``=`` ) operator, which will match the **exact** ``<min>`` and ``<max>`` values specified.
 
 **Example:**
 
@@ -649,7 +1083,9 @@ Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:
 
 ``ival`` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
 
-``ival`` types are most often lifted or filtered using the custom interval comparator (``@=``) (see :ref:`lift-interval` and :ref:`filter-interval`). ``@=`` is intended for time-based comparisons (including comparing ``ival`` types with ``time`` types).
+``ival`` types are most often lifted or filtered using the custom interval comparator (``@=``) (see :ref:`lift-interval`
+and :ref:`filter-interval`). ``@=`` is intended for time-based comparisons (including comparing ``ival`` types with
+``time`` types).
 
 **Example:**
 
@@ -660,21 +1096,27 @@ Lift all the DNS A nodes whose observation window overlaps with the interval of 
 .. storm-cli:: inet:dns:a.seen@=(2019/03/01, 2019/04/01)
 
 
-``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a range of individual values (such as ``time`` or ``int``).
+``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a
+range of individual values (such as ``time`` or ``int``).
 
 .. _type-loc:
 
 loc
 ---
 
-``Loc`` is a specialized type used to represent geopolitical locations (i.e., locations within geopolitical boundaries) as a series of user-defined dot-separated hierarchical strings - for example, *<country>.<state / province>.<city>*. This allows specifying locations such as ``us.fl.miami``, ``gb.london``, and ``ca.on.toronto``.
+``Loc`` is a specialized type used to represent geopolitical locations (i.e., locations within geopolitical
+boundaries) as a series of user-defined dot-separated hierarchical strings - for example, 
+*<country>.<state / province>.<city>*. This allows specifying locations such as ``us.fl.miami``, ``gb.london``,
+and ``ca.on.toronto``.
 
-``Loc`` is an extension of the :ref:`type-str` type. However, because ``loc`` types use strings that comprise a dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for certain operations.
+``Loc`` is an extension of the :ref:`type-str` type. However, because ``loc`` types use strings that comprise a
+dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for certain operations.
 
 Indexing
 ++++++++
 
-The ``loc`` type is an extension of the :ref:`type-str` type and so is **prefix-indexed** like other strings. However, the use of dot-separated boundaries impacts operations using ``loc`` values.
+The ``loc`` type is an extension of the :ref:`type-str` type and so is **prefix-indexed** like other strings.
+However, the use of dot-separated boundaries impacts operations using ``loc`` values.
 
 ``loc`` values are normalized to lowercase.
 
@@ -683,7 +1125,11 @@ Parsing
 
 ``loc`` values can be input using any case (uppercase, lowercase, mixed case) but will normalized to lowercase. 
 
-Components of a ``loc`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved character for the ``loc`` type and is used to separate string elements along hierarchical boundaries. The use of the dot as a reserved boundary marker impacts operations using the ``loc`` type. Note that this means the dot cannot be used as part of a location string. For example, the following location value would be interpreted as a hierarchical location with four elements (``us``, ``fl``, ``st``, and ``petersburg``):
+Components of a ``loc`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved character
+for the ``loc`` type and is used to separate string elements along hierarchical boundaries. The use of the dot
+as a reserved boundary marker impacts operations using the ``loc`` type. Note that this means the dot cannot be
+used as part of a location string. For example, the following location value would be interpreted as a hierarchical
+location with four elements (``us``, ``fl``, ``st``, and ``petersburg``):
 
 - ``:loc = us.fl.st.petersburg``
 
@@ -693,25 +1139,35 @@ To appropriately represent the "city" element of the above location, an alternat
 - ``:loc = "us.fl.saint petersburg"``
 - ...etc.
 
-As an extension of the ``str`` type, ``loc`` types are subject to Synapse’s restrictions regarding using :ref:`storm-whitespace-literals`.
+As an extension of the ``str`` type, ``loc`` types are subject to Synapse’s restrictions regarding using
+:ref:`storm-whitespace-literals`.
 
 Insertion
 +++++++++
 
 Same as for parsing.
 
-As ``loc`` values are simply dot-separated strings, the use or enforcement of any specific convention for geolocation values and hierarchies is an implementation decision.
+As ``loc`` values are simply dot-separated strings, the use or enforcement of any specific convention for
+geolocation values and hierarchies is an implementation decision.
 
 Operations
 ++++++++++
 
-The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix (``^=``) and equivalent (``=``) operations using the ``loc`` type.
+The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix (``^=``) and equivalent
+(``=``) operations using the ``loc`` type.
 
-String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with a given substring using the prefix (``^=``) extended comparator. For standard strings, the prefix comparator can be used with strings of arbitrary length. However, for string-derived types (including ``loc``) that use dotted hierarchical notation, **the prefix comparator operates along dot boundaries.**
+String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start
+with a given substring using the prefix (``^=``) extended comparator. For standard strings, the prefix
+comparator can be used with strings of arbitrary length. However, for string-derived types (including ``loc``)
+that use dotted hierarchical notation, **the prefix comparator operates along dot boundaries.**
 
-This is because the analytical significance of a location string is likely to fall on these hierarchical boundaries as opposed to an arbitrary substring prefix match. That is, it is more likely to be analytically meaningful to lift all locations within the US (``^=us``) or within Florida (``^=us.fl``) than it is to lift all locations in the US within states that start with “V” (``^=us.v``).
+This is because the analytical significance of a location string is likely to fall on these hierarchical
+boundaries as opposed to an arbitrary substring prefix match. That is, it is more likely to be analytically
+meaningful to lift all locations within the US (``^=us``) or within Florida (``^=us.fl``) than it is to lift
+all locations in the US within states that start with “V” (``^=us.v``).
 
-Prefix comparison for ``loc`` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within the dotted hierarchy:
+Prefix comparison for ``loc`` types is useful because it easily allows lifting or filtering at any appropriate
+level of resolution within the dotted hierarchy:
 
 **Examples:**
 
@@ -730,7 +1186,8 @@ Lift all IP addresses geolocated in the the province of Ontario, Canada:
 
 .. NOTE::
   
-  Specifying a more granular prefix value will **not** match values that are less granular. That is ``:loc^=ca.on`` will fail to match ``:loc=ca``.
+  Specifying a more granular prefix value will **not** match values that are less granular. That is ``:loc^=ca.on``
+  will fail to match ``:loc=ca``.
 
 Lift all places in the city of Seattle:
 
@@ -740,8 +1197,12 @@ Lift all places in the city of Seattle:
 
 **Usage Notes**
 
-- Use of the equals comparator (``=``) with ``loc`` types will match the **exact value only.** So ``:loc = us`` will match **only** ``:loc = us`` but not ``:loc = us.ca`` or ``:loc = us.il.chicago``.
-- Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match that does **not** fall on a dot boundary will not return any nodes. For example, the filter syntax ``+:loc^=us.v`` will fail to return any nodes even if nodes with ``:loc = us.vt`` or ``:loc = us.va`` exist. (However, it would return nodes with ``:loc = us.v`` or ``:loc = us.v.foo`` if such nodes exist.)
+- Use of the equals comparator (``=``) with ``loc`` types will match the **exact value only.** So ``:loc = us``
+  will match **only** ``:loc = us`` but not ``:loc = us.ca`` or ``:loc = us.il.chicago``.
+- Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match
+  that does **not** fall on a dot boundary will not return any nodes. For example, the filter syntax 
+  ``+:loc^=us.v`` will fail to return any nodes even if nodes with ``:loc = us.vt`` or ``:loc = us.va`` exist.
+  (However, it would return nodes with ``:loc = us.v`` or ``:loc = us.v.foo`` if such nodes exist.)
 
 .. _type-str:
 
@@ -751,12 +1212,15 @@ str
 Indexing
 ++++++++
 
-String (and string-derived) types are indexed by **prefix** (character-by-character from the beginning of the string). This allows matching on any initial substring.
+String (and string-derived) types are indexed by **prefix** (character-by-character from the beginning of the
+string). This allows matching on any initial substring.
 
 Parsing
 +++++++
 
-Some string types and string-derived types are normalized to all lowercase to facilitate pivoting across like values without case-sensitivity. For types that are normalized in this fashion, the string can be entered in mixed-case and will be automatically converted to lowercase.
+Some string types and string-derived types are normalized to all lowercase to facilitate pivoting across like
+values without case-sensitivity. For types that are normalized in this fashion, the string can be entered in
+mixed-case and will be automatically converted to lowercase.
 
 Strings are subject to Synapse’s restrictions regarding using :ref:`storm-whitespace-literals`.
 
@@ -768,9 +1232,14 @@ Same as for parsing.
 Operations
 ++++++++++
 
-Because of Synapse’s use of **prefix indexing,** string and string-derived types can be lifted or filtered based on matching an initial substring of any string using the prefix extended comparator (``^=``) (see :ref:`lift-prefix` and :ref:`filter-prefix`).
+Because of Synapse’s use of **prefix indexing,** string and string-derived types can be lifted or filtered
+based on matching an initial substring of any string using the prefix extended comparator (``^=``)
+(see :ref:`lift-prefix` and :ref:`filter-prefix`).
 
-Prefix matching is case-sensitive based on the specific type being matched. If the target property’s type is case-sensitive, the string to match must be entered in case-sensitive form. If the target property is case-insensitive (i.e., normalized to lowercase) the string to match can be entered in any case (upper, lower, or mixed) and will be automatically normalized by Synapse.
+Prefix matching is case-sensitive based on the specific type being matched. If the target property’s type is
+case-sensitive, the string to match must be entered in case-sensitive form. If the target property is 
+case-insensitive (i.e., normalized to lowercase) the string to match can be entered in any case (upper, lower,
+or mixed) and will be automatically normalized by Synapse.
 
 **Examples**
 
@@ -785,34 +1254,52 @@ Filter a set of Internet accounts to those with usernames starting with 'matrix'
 .. storm-cli:: inet:web:acct:site=twitter.com +:user^=matrix
 
 
-Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator ( ``~=``) (see :ref:`lift-regex` and :ref:`filter-regex`).
+Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator
+( ``~=``) (see :ref:`lift-regex` and :ref:`filter-regex`).
 
 .. _type-syn-tag:
 
 syn:\tag
 --------
 
-``syn:tag`` is a specialized type used for :ref:`data-tag` nodes within Synapse. Tags represent domain-specific, analytically relevant observations or assessments. They support a hierarchical namespace based on user-defined dot-separated strings. This hierarchy allows recording classes or categories of analytical observations that can be defined with increasing specificity. (See :ref:`analytical-model-tags` for more information.)
+``syn:tag`` is a specialized type used for :ref:`data-tag` nodes within Synapse. Tags represent domain-specific,
+analytically relevant observations or assessments. They support a hierarchical namespace based on user-defined
+dot-separated strings. This hierarchy allows recording classes or categories of analytical observations that can
+be defined with increasing specificity. (See :ref:`analytical-model` for more information.)
 
-``syn:tag`` is an extension of the :ref:`type-str` type. However, because ``syn:tag`` types use strings that comprise a dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for certain operations.
+``syn:tag`` is an extension of the :ref:`type-str` type. However, because ``syn:tag`` types use strings that
+comprise a dot-separated hierarchy, they exhibit slightly modified behavior from standard string types for
+certain operations.
 
 Indexing
 ++++++++
 
-The ``syn:tag`` type is an extension of the :ref:`type-str` type and so is **prefix-indexed** like other strings. However, the use of dot-separated boundaries impacts some operations using ``syn:tag`` values.
+The ``syn:tag`` type is an extension of the :ref:`type-str` type and so is **prefix-indexed** like other strings.
+However, the use of dot-separated boundaries impacts some operations using ``syn:tag`` values.
 
 ``syn:tag`` values are normalized to lowercase.
 
 Parsing
 +++++++
 
-``syn:tag`` values can contain lowercase characters and numerals. Spaces and ASCII symbols are not allowed.  (**Note:** Synapse includes support for Unicode words in tag strings; this includes most characters that can be part of a word in any language, as well as numbers and the underscore.)
+``syn:tag`` values can contain lowercase characters, numerals, and underscores. Spaces and ASCII symbols (other
+than the underscore) are not allowed. If you attempt to create a tag name that includes a dash character
+( ``-`` ) it will automatically be converted to an underscore ( ``_``).
 
-Components of a ``syn:tag`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved character for the ``syn:tag`` type and is used to separate string elements along hierarchical boundaries. The use of the dot as a reserved boundary marker impacts some operations using the ``syn:tag`` type.
+.. NOTE::
+  
+  Synapse includes support for Unicode words in tag strings; this includes most characters that can be part of a
+  word in any language.
 
-``syn:tag`` values can be input using any case (uppercase, lowercase, mixed case) but will be normalized to lowercase.
+Components of a ``syn:tag`` value must be separated by the dot ( ``.`` ) character. The dot is a reserved
+character for the ``syn:tag`` type and is used to separate string elements along hierarchical boundaries. The
+use of the dot as a reserved boundary marker impacts some operations using the ``syn:tag`` type.
 
-As ``syn:tag`` values cannot contain whitespace (spaces) or escaped characters, the Synapse restrictions regarding using :ref:`storm-whitespace-literals` do **not** apply.
+``syn:tag`` values can be input using any case (uppercase, lowercase, mixed case) but will be normalized to
+lowercase. As noted above, dashes are automatically converted to underscores.
+
+As ``syn:tag`` values cannot contain whitespace (spaces) or escaped characters, the Synapse restrictions
+regarding using :ref:`storm-whitespace-literals` do **not** apply.
 
 **Examples**
 
@@ -830,25 +1317,38 @@ The following ``syn:tag`` values are not allowed and will generate ``BadTypeValu
 Insertion
 +++++++++
 
-A ``syn:tag`` node does not have to be created before the equivalent tag can be applied to another node. That is, applying a tag to a node will result in the automatic creation of the corresponding ``syn:tag`` node or nodes (assuming the appropriate user permissions). For example:
+A ``syn:tag`` node does not have to be created before the equivalent tag can be applied to another node. That
+is, applying a tag to a node will result in the automatic creation of the corresponding ``syn:tag`` node or
+nodes (assuming the appropriate user permissions). For example:
 
 
 .. storm-cli:: [inet:fqdn=woot.com +#some.new.tag ]
 
-The above Storm syntax will both apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and automatically create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some`` and ``syn:tag = some.new``). This behavior (based on creating the FQDN ``woot.com`` and applying the tag ``#some.new.tag`` in the previous example) is shown below by lifting tags that begin with 'some':
+The above Storm syntax will both apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and
+automatically create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some``
+and ``syn:tag = some.new``). This behavior (based on creating the FQDN ``woot.com`` and applying the tag
+``#some.new.tag`` in the previous example) is shown below by lifting tags that begin with 'some':
 
 .. storm-cli:: syn:tag^=some
 
 Operations
 +++++++++++
 
-The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix (``^=``) and equivalent (``=``) operations using the ``syn:tag`` type.
+The use of the dot character ( ``.`` ) as a reserved boundary marker impacts prefix (``^=``) and equivalent
+(``=``) operations using the ``syn:tag`` type.
 
-String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with a given substring using the prefix (``^=``) extended comparator. For standard strings, the prefix comparator can be used with strings of arbitrary length. However, for string-derived types (including ``syn:tag``) that use dotted hierarchical notation, **the prefix comparator operates along dot boundaries.**
+String and string-derived types are **prefix-indexed** to optimize lifting or filtering strings that start with
+a given substring using the prefix (``^=``) extended comparator. For standard strings, the prefix comparator can
+be used with strings of arbitrary length. However, for string-derived types (including ``syn:tag``) that use
+dotted hierarchical notation, **the prefix comparator operates along dot boundaries.**
 
-This is because the analytical significance of a tag is likely to fall on these hierarchical boundaries as opposed to an arbitrary substring prefix match. That is, it is more likely to be analytically meaningful to lift all nodes with that are related to sinkhole infrastructure (``syn:tag^=cno.infra.anon.sink``) than it is to lift all nodes with infrastructure tags that begin with "s" (``syn:tag^=cno.infra.anon.s``).
+This is because the analytical significance of a tag is likely to fall on these hierarchical boundaries as
+opposed to an arbitrary substring prefix match. That is, it is more likely to be analytically meaningful to lift
+all nodes with that are related to sinkhole infrastructure (``syn:tag^=cno.infra.anon.sink``) than it is to lift
+all nodes with infrastructure tags that begin with "s" (``syn:tag^=cno.infra.anon.s``).
 
-Prefix comparison for ``syn:tag`` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within a tag hierarchy:
+Prefix comparison for ``syn:tag`` types is useful because it easily allows lifting or filtering at any appropriate
+level of resolution within a tag hierarchy:
 
 Lift all tags in the computer network operations (``cno``)tree:
 
@@ -869,11 +1369,16 @@ Lift all tags representing anonymous VPN infrastructure:
 .. storm-cli:: syn:tag^=cno.infra.anon.vpn
 
 
-Note that specifying a more granular prefix value will **not** match values that are less granular. That is, ``syn:tag^=cno.infra`` will fail to match ``syn:tag = cno``.
+Note that specifying a more granular prefix value will **not** match values that are less granular. That is,
+``syn:tag^=cno.infra`` will fail to match ``syn:tag = cno``.
 
-Similarly, use of the equals comparator (``=``) with ``syn:tag`` types will match the **exact value only.** So ``syn:tag = aka`` will match **only** that tag but not ``syn:tag = aka.symantec`` or ``syn:tag = aka.trend.thr.pawnstorm``.
+Similarly, use of the equals comparator (``=``) with ``syn:tag`` types will match the **exact value only.** So
+``syn:tag = aka`` will match **only** that tag but not ``syn:tag = aka.symantec`` or ``syn:tag = aka.trend.thr.pawnstorm``.
 
-Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match that does **not** fall on a dot boundary will not return any nodes. For example, the syntax ``syn:tag^=aka.t`` will fail to return any nodes even if nodes ``syn:tag = aka.talos`` or ``syn:tag = aka.trend`` exist. (However, it would return nodes ``syn:tag = aka.t`` or ``syn:tag = aka.t.foo`` if such nodes exist.)
+Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match
+that does **not** fall on a dot boundary will not return any nodes. For example, the syntax ``syn:tag^=aka.t`` 
+will fail to return any nodes even if nodes ``syn:tag = aka.talos`` or ``syn:tag = aka.trend`` exist. (However, 
+it would return nodes ``syn:tag = aka.t`` or ``syn:tag = aka.t.foo`` if such nodes exist.)
 
 
 .. _type-time:
@@ -881,9 +1386,12 @@ Because the prefix match operates on the dot boundary, attempting to lift or fil
 time
 ----
 
-Synapse stores ``time`` types in Epoch milliseconds (millis) - that is, the number of milliseconds since January 1, 1970. The ``time`` type is technically a date/time because it encompasses both a date and a time. A time value alone, such as 12:37 PM (12:37:00.000), is invalid.
+Synapse stores ``time`` types in Epoch milliseconds (millis) - that is, the number of milliseconds since 
+January 1, 1970. The ``time`` type is technically a date/time because it encompasses both a date and a time.
+A time value alone, such as 12:37 PM (12:37:00.000), is invalid.
 
-See also the section on :ref:`type-ival` (interval) types for details on how ``time`` types are used as minimum / maximum pairs.
+See also the section on :ref:`type-ival` (interval) types for details on how ``time`` types are used as 
+minimum / maximum pairs.
 
 Indexing
 ++++++++
@@ -905,13 +1413,17 @@ Parsing
   
     ``2018/12/16T09:37:52.324Z``
     
-  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmm+/-hh:mm). No spaces are allowed between the time value and the time zone offset:
+  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmm+/-hh:mm). No spaces are allowed between the time value
+    and the time zone offset:
   
     ``2018-12-16 09:37:52.324-04:00``
     
     .. NOTE::
       
-      Synapse does not support the **storage** of an explicit time zone with a time value (i.e., +0800). Synapse stores time values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
+      Synapse does not support the **storage** of an explicit time zone with a time value (i.e., +0800). Synapse
+      stores time values in UTC for consistency. If a time zone is specified using an acceptable time zone offset
+      format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified,
+      Synapse will assume the value is in UTC.
 
   - No formatting (YYYYMMDDhhmmssmmm):
     
@@ -923,7 +1435,10 @@ Parsing
     
     .. NOTE::
       
-      Synapse expects time values to be entered as parseable time **strings** (such as 2018/12/16 09:37:52.324, which Synapse internally converts to a millis integer for storage). To enter a time in raw epoch millis format, you must enclose it in parentheses so that Synapse interprets the value as a raw integer. (Otherwise, Synapse will attempt to interpret the value as a "no formatting" string, and throw an error.)
+      Synapse expects time values to be entered as parseable time **strings** (such as 2018/12/16 09:37:52.324,
+      which Synapse internally converts to a millis integer for storage). To enter a time in raw epoch millis
+      format, you must enclose it in parentheses so that Synapse interprets the value as a raw integer.
+      (Otherwise, Synapse will attempt to interpret the value as a "no formatting" string, and throw an error.)
 
 - **Relative** (offset) time values in the format:
   
@@ -944,23 +1459,34 @@ Parsing
 - **"Special"** time values:
   
   - the keyword ``now`` is used to represent the current date/time.
-  - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future (technically equivalent to 9223372036854775807 millis, i.e., "some really high value that is probably the heat death of the universe". Note that technically the largest valid millis value is 9999999999999 (thirteen 9’s), which represents 2286/11/20 09:46:39.999).
+  - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future
+    (technically equivalent to 9223372036854775807 millis, i.e., "some really high value that is probably the
+    heat death of the universe". Note that technically the largest valid millis value is 9999999999999 
+    (thirteen 9’s), which represents 2286/11/20 09:46:39.999).
     
-    The question mark can be used as the maximum value of an interval (:ref:`type-ival`) type to specify that the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over time in order to remain current.)
+    The question mark can be used as the maximum value of an interval (:ref:`type-ival`) type to specify that 
+    the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that
+    with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over
+    time in order to remain current.)
 
-Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``"2018/12/16 09:37:52.324"`` needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times starting with ``+`` or ``-`` and the special time value ``?`` need to be placed in single or double quotes.
+Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``"2018/12/16 09:37:52.324"``
+needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times starting
+with ``+`` or ``-`` and the special time value ``?`` need to be placed in single or double quotes.
 
 Lower Resolution Time Values and Wildcard Time Values
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``time`` values (including tag timestamps) must be entered at a minimum resolution of year (``YYYY``) and can be entered up to a maximum resolution of milliseconds (``YYYY/MM/DD hh:mm:ss.mmm``).
+``time`` values (including tag timestamps) must be entered at a minimum resolution of year (``YYYY``) and can
+be entered up to a maximum resolution of milliseconds (``YYYY/MM/DD hh:mm:ss.mmm``).
 
-Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
+Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time
+value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
 
 - A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000``).
 - A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
 - A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000``).
-- A value of ``"2018/10/27 14:00-04:00"`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000``).
+- A value of ``"2018/10/27 14:00-04:00"`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour
+  offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000``).
 
 Synapse also supports the use of the wildcard ( ``*`` ) character to specify a partial time value match:
 
@@ -970,7 +1496,9 @@ Synapse also supports the use of the wildcard ( ``*`` ) character to specify a p
 
 .. NOTE::
   
-  When using wildcard syntax, the wildcard must be used on a sensible time value boundary, such as ``YYYYMM*``. You cannot us a wildcard to "split" values (i.e., ``YYMMD*`` is invaild syntax).
+  When using wildcard syntax, the wildcard must be used on a sensible time value boundary, such as ``YYYYMM*``.
+  You cannot us a wildcard to "split" values (i.e., ``YYMMD*`` is invaild syntax).
+
 
 **Examples:**
 
@@ -979,22 +1507,27 @@ Set the time of a DNS request to the current time:
 .. storm-cli:: [ inet:dns:request="*" :query:name=woot.com :time=now ]
 
 
-Set the observed time window (technically an ``ival`` type) for when an IP address was a known sinkhole (via the ``#cno.infra.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
+Set the observed time window (technically an ``ival`` type) for when an IP address was a known sinkhole (via
+the ``#cno.infra.dns.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole
+is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
 
-.. storm-cli:: [ inet:ipv4=1.2.3.4 +#cno.infra.sink.hole=(2017/06/13, "?") ]
+.. storm-cli:: [ inet:ipv4=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, "?") ]
 
 
 - Set the observed time window using a time zone offset:
 
-.. storm-cli:: [ inet:ipv4=5.6.7.8 +#cno.infra.sink.hole=(2017/06/13 09:46+04:00, "?") ]
+.. storm-cli:: [ inet:ipv4=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, "?") ]
 
 
 Insertion
 +++++++++
 
-When adding or modifying ``time`` types, any of the above formats (explicit / relative / special terms) can be specified.
+When adding or modifying ``time`` types, any of the above formats (explicit / relative / special terms) can
+be specified.
 
-In addition, when adding or modifying ``time`` types, a lower resolution time and a wildcard time behave identically. In other words, the following are equivalent Storm queries (both will set the ``:time`` value of the newly created DNS request node to ``2021/01/23 00:00:00.000``):
+In addition, when adding or modifying ``time`` types, a lower resolution time and a wildcard time behave
+identically. In other words, the following are equivalent Storm queries (both will set the ``:time`` value
+of the newly created DNS request node to ``2021/01/23 00:00:00.000``):
 
 .. storm-pre:: [ inet:dns:request="*" :time=2021/01/23 ]
 .. storm-pre:: [ inet:dns:request="*" :time=2021/01/23* ]
@@ -1006,13 +1539,14 @@ In addition, when adding or modifying ``time`` types, a lower resolution time an
   [ inet:dns:request="*" :time=2021/01/23* ]
 
 
-When specifying a relative time for a ``time`` value, **the offset will be calculated from the current time** (``now``):
-
+When specifying a relative time for a ``time`` value, **the offset will be calculated from the current time**
+(``now``):
 
 .. storm-cli:: [ inet:dns:request="*" :query:name=woot.com :time="-5 minutes" ]
 
-
-Plus / minus ( ``+-`` ) relative times cannot be specified for ``time`` types, as the type requires a single value.  See the section on :ref:`type-ival` (interval) types for details on using ``+-`` times with ``ival`` types.
+Plus / minus ( ``+-`` ) relative times cannot be specified for ``time`` types, as the type requires a single
+value.  See the section on :ref:`type-ival` (interval) types for details on using ``+-`` times with ``ival``
+types.
 
 Operations
 ++++++++++
@@ -1027,7 +1561,9 @@ Operations
 Standard Operators
 ~~~~~~~~~~~~~~~~~~
 
-``time`` types can be lifted and filtered with the standard logical and mathematical comparators (see :ref:`storm-ref-lift` and :ref:`storm-ref-filter`). This includes the use of lower resolution time values and wildcard time values.
+``time`` types can be lifted and filtered with the standard logical and mathematical comparators (see 
+:ref:`storm-ref-lift` and :ref:`storm-ref-filter`). This includes the use of lower resolution time values and
+wildcard time values.
 
 **Example:**
 
@@ -1039,30 +1575,43 @@ Downselect a set of DNS request nodes to those that occurred prior to June 1, 20
 
 .. NOTE::
   
-  It is important to understand the differences in behavior when lifting and filtering ``time`` types using lower resolution time values (which Synpase zero-fills) or wildcard time values (which Synpase wildcard-matches). These behaviors vary based on the specific operator used.
+  It is important to understand the differences in behavior when lifting and filtering ``time`` types using
+  lower resolution time values (which Synpase zero-fills) or wildcard time values (which Synpase wildcard-matches).
+  These behaviors vary based on the specific operator used.
 
 - When lifting or filtering using the equivalent ( ``=`` ) operator, behavior is **different:**
   
   - ``:time=2021/05/13`` means equal to **the exact date/time value** ``2021/05/13 00:00:00.000``.
-  - ``:time=2021/05/13*`` means equal to **any** time on that date (``2021/05/13 00:00:00.000`` through ``2021/05/13 23:59:59.999``).
+  - ``:time=2021/05/13*`` means equal to **any** time on that date (``2021/05/13 00:00:00.000`` through
+    ``2021/05/13 23:59:59.999``).
 
-- When lifting or filtering using the greater than ( ``>``) / greater than or equal to ( ``>=``) operators, behavior is **equivalent:**
+- When lifting or filtering using the greater than ( ``>``) / greater than or equal to ( ``>=``) operators,
+  behavior is **equivalent:**
   
   - ``:time>2021/05/13`` and ``:time>2021/05/13*`` **both** mean any date / time greater than ``2021/05/13 00:00:00.000``.
-  - ``:time>=2021/05/13`` and ``:time>=2021/05/13*`` **both** mean any date / time greater than or equal to ``2021/05/13 00:00:00.000``.
+  - ``:time>=2021/05/13`` and ``:time>=2021/05/13*`` **both** mean any date / time greater than or equal to
+    ``2021/05/13 00:00:00.000``.
   
-  Both are equivalent because in this case Synapse interprets the wildcard syntax as "greater than or equal to the **lowest** possible wildcard match", which in this case is ``2021/05/13 00:00:00.000``.
+  Both are equivalent because in this case Synapse interprets the wildcard syntax as "greater than or equal to
+  the **lowest** possible wildcard match", which in this case is ``2021/05/13 00:00:00.000``.
 
-- When lifting or filtering using the less than ( ``<`` ) / less than or equal to ( ``<=`` ) operators, behavior is **different:**
+- When lifting or filtering using the less than ( ``<`` ) / less than or equal to ( ``<=`` ) operators, behavior
+  is **different:**
   
-  - ``:time<2021/05/13`` / ``:time<=2021/05/13`` mean any date / time less than (or less than or equal to) ``2021/05/13 00:00:00.000``.
-  - ``:time<2021/05/13*`` / ``:time<=2021/05/13*`` both mean any date / time less than (or less than or equal to) ``2021/05/13 23:59:59.999``.
+  - ``:time<2021/05/13`` / ``:time<=2021/05/13`` mean any date / time less than (or less than or equal to)
+    ``2021/05/13 00:00:00.000``.
+  - ``:time<2021/05/13*`` / ``:time<=2021/05/13*`` both mean any date / time less than (or less than or equal
+    to) ``2021/05/13 23:59:59.999``.
   
-  The behavior differs because in this case Synapse interprets the wildcard syntax as "less than or equal to the **highest** possible wildcard match", which in this case is ``2021/05/13 23:59:59.999``.
+  The behavior differs because in this case Synapse interprets the wildcard syntax as "less than or equal to the
+  **highest** possible wildcard match", which in this case is ``2021/05/13 23:59:59.999``.
 
 .. TIP::
   
-  The wildcard syntax is useful because it can provide a simplified, more intuitive means to specify certain time ranges / time intervals without needing to use the range ( ``*range=`` ) or interval ( ``@=`` ) operators. For example, the following three Storm queries are equivalent and will return all files compiled at any time within the year 2019:
+  The wildcard syntax is useful because it can provide a simplified, more intuitive means to specify certain time
+  ranges / time intervals without needing to use the range ( ``*range=`` ) or interval ( ``@=`` ) operators. For
+  example, the following three Storm queries are equivalent and will return all files compiled at any time within
+  the year 2019:
   
   ::
     
@@ -1072,14 +1621,15 @@ Downselect a set of DNS request nodes to those that occurred prior to June 1, 20
     
     file:bytes:mime:pe:compiled@=('2019/01/01', '2020/01/01')
   
-  (A **range** maximum value represents "less than or equal to" that value, while an **interval** maximum value represents "less than" that value.)
-  
+  (A **range** maximum value represents "less than or equal to" that value, while an **interval** maximum value
+  represents "less than" that value.)
 
 
 Range Custom Operator
 ~~~~~~~~~~~~~~~~~~~~~
 
-``time`` types can lifted and filtered using the ``*range=`` custom comparator (see :ref:`lift-range` and :ref:`filter-range`).
+``time`` types can lifted and filtered using the ``*range=`` custom comparator (see :ref:`lift-range` and 
+:ref:`filter-range`).
 
 **Example:**
 
@@ -1091,7 +1641,10 @@ Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 
 
 .. NOTE::
   
-  Both lower resolution times and wildcard times can be used for values specified within the ``*range=`` operator. Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
+  Both lower resolution times and wildcard times can be used for values specified within the ``*range=`` operator.
+  Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or
+  equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with
+  greater than / less than operators.
   
 See the Storm documents referenced above for additional examples using the range (``*range=``) comparator.
 
@@ -1099,7 +1652,10 @@ See the Storm documents referenced above for additional examples using the range
 Interval Custom Operator
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-``time`` types can be lifted and filtered using the interval ( ``@=`` ) custom comparator (see :ref:`lift-interval` and :ref:`filter-interval`). The comparator is specifically designed to compare ``time`` types and ``ival`` types, which can be useful (for example) for filtering to a set of nodes whose ``time`` properties fall within a specified interval.
+``time`` types can be lifted and filtered using the interval ( ``@=`` ) custom comparator (see :ref:`lift-interval`
+and :ref:`filter-interval`). The comparator is specifically designed to compare ``time`` types and ``ival`` types,
+which can be useful (for example) for filtering to a set of nodes whose ``time`` properties fall within a specified
+interval.
 
 **Example:**
 
@@ -1111,13 +1667,14 @@ Lift a set of DNS A records whose window of observation includes March 16, 2019 
 
 .. NOTE::
   
-  Both lower resolution times and wildcard time can be used for valuess specified within the ``@=`` operator. Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
+  Both lower resolution times and wildcard time can be used for values specified within the ``@=`` operator.
+  Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than
+  `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater
+  than / less than operators.
 
 See the Storm documents referenced above for additional examples using the interval (``@=``) comparator.
 
 .. _documentation: ../autodocs/datamodel_types.html
 .. _code: https://github.com/vertexproject/synapse
-.. _Microsoft: https://docs.microsoft.com/en-us/previous-versions/aa373931(v=vs.80)
-
-
-
+.. _Optic: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
+.. _Microsoft: https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid

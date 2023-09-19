@@ -50,6 +50,18 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.notin('..created\n', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
 
+            async with self.getTestCore() as core:
+                lurl = core.getLocalUrl()
+                argv = ['--doc-model', '--savedir', path, '--cortex', lurl]
+                outp = self.getTestOutp()
+                self.eq(await s_autodoc.main(argv, outp=outp), 0)
+
+                with s_common.genfile(path, 'datamodel_types.rst') as fd:
+                    buf = fd.read()
+
+                s = buf.decode()
+                self.isin('Base types are defined via Python classes.', s)
+
     async def test_tools_autodoc_confdefs(self):
 
         with self.getTestDir() as path:
@@ -163,5 +175,5 @@ class TestAutoDoc(s_t_utils.SynTest):
             with s_common.genfile(path, 'stormtypes_prims.rst') as fd:
                 primbuf = fd.read()
             primstext = primbuf.decode()
-            self.isin('.. _stormprims-storm-auth-user-f527:\n\n*****************\nstorm\\:auth\\:user\n*****************', primstext)
+            self.isin('.. _stormprims-auth-user-f527:\n\n**********\nauth\\:user\n**********', primstext)
             self.isin('iden\n====\n\nThe User iden.', primstext)

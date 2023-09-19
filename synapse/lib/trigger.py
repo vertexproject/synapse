@@ -315,10 +315,14 @@ class Trigger:
         '''
         Set one of the dynamic elements of the trigger definition.
         '''
-        assert name in ('enabled', 'storm', 'doc', 'name', 'async')
+        if name not in ('enabled', 'user', 'storm', 'doc', 'name', 'async'):
+            raise s_exc.BadArg(mesg=f'Invalid key name provided: {name}')
 
         if valu == self.tdef.get(name):
             return
+
+        if name == 'user':
+            self.user = await self.view.core.auth.reqUser(valu)
 
         if name == 'storm':
             await self.view.core.getStormQuery(valu)

@@ -85,11 +85,13 @@ class NexsRoot(s_base.Base):
         self.client = None
         self.started = False
         self.celliden = self.cell.iden
+        self.readonly = False
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
 
+        self.miruplink = asyncio.Event()
         self._mirready = asyncio.Event()  # for testing
 
         self._mirrors: List[ChangeDist] = []
@@ -105,6 +107,8 @@ class NexsRoot(s_base.Base):
 
         self.map_async = self.cell.conf.get('nexslog:async')
         self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=self.map_async)
+        self.nexsslab.addResizeCallback(cell.checkFreeSpace)
+
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
         if fresh:
@@ -118,7 +122,7 @@ class NexsRoot(s_base.Base):
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
         slabopts = {'map_async': self.map_async}
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts)
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts, cell=cell)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
@@ -187,6 +191,8 @@ class NexsRoot(s_base.Base):
         # Open a fresh slab where the old one used to be
         logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
         self.nexsslab = await s_lmdbslab.Slab.anit(nexspath, map_async=self.map_async)
+        self.nexsslab.addResizeCallback(self.cell.checkFreeSpace)
+
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
         logger.warning('Copying nexs:indx data from migrated slab to the fresh nexslog')
@@ -264,6 +270,9 @@ class NexsRoot(s_base.Base):
         '''
         assert self.started, 'Attempt to issue before nexsroot is started'
 
+        if self.readonly:
+            raise s_exc.IsReadOnly(mesg='Unable to issue Nexus events when readonly is set')
+
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
@@ -285,7 +294,7 @@ class NexsRoot(s_base.Base):
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta)
-            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):
         '''
@@ -413,7 +422,11 @@ class NexsRoot(s_base.Base):
 
         self.started = True
 
+    async def isNexsReady(self):
+        return self.ready.is_set()
+
     async def setNexsReady(self, status):
+
         if status:
             self.ready.set()
         else:
@@ -433,7 +446,9 @@ class NexsRoot(s_base.Base):
         await self.startup()
 
     async def _onTeleLink(self, proxy):
-        self.client.schedCoro(self.runMirrorLoop(proxy))
+        self.miruplink.set()
+        proxy.onfini(self.miruplink.clear)
+        proxy.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
 
@@ -463,18 +478,24 @@ class NexsRoot(s_base.Base):
                 genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
 
+                    if self.readonly:
+                        logger.error('Unable to consume Nexus events when readonly is set')
+                        await self.client.fini()
+                        return
+
                     if proxy.isfini:  # pragma: no cover
                         break
 
                     # with tellready we move to ready=true when we get a None
                     if item is None:
+                        logger.info(f'Entering realtime change window for syncing data at offset={offs}')
                         await self.setNexsReady(True)
                         self._mirready.set()
                         continue
 
                     offs, args = item
-                    if offs != self.nexslog.index():  # pragma: no cover
-                        logger.error('mirror desync')
+                    if offs != self.nexslog.index():
+                        logger.error('Local Nexus offset is out of sync from remote cell! Aborting mirror sync')
                         await self.fini()
                         return
 
@@ -505,6 +526,12 @@ class NexsRoot(s_base.Base):
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
 
+        # If we've left the mirror loop for some reason, we no longer know if we
+        # will be in the realtime window or not. So we should try to set the ready
+        # value to false and clear our internal flag.
+        if not self.isfini:
+            await self.setNexsReady(not self.cell.conf.get('mirror'))
+
     async def _tellAhaReady(self, status):
 
         if self.cell.ahaclient is None:
@@ -515,7 +542,7 @@ class NexsRoot(s_base.Base):
             ahainfo = await self.cell.ahaclient.getCellInfo()
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
-                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': True})
+                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise

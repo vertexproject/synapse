@@ -42,6 +42,41 @@ distrepr = (
     (10.0, 'cm'),
 )
 
+arearepr = (
+    (1000000.0, 'sq.km'),
+    (1000.0, 'sq.m'),
+    (10.0, 'sq.cm'),
+)
+
+areaunits = {
+    'mm²': 1,
+    'sq.mm': 1,
+
+    'cm²': 10,
+    'sq.cm': 10,
+
+    # international foot
+    'foot²': 304.8,
+    'feet²': 304.8,
+    'sq.feet': 304.8,
+
+    'm²': 1000,
+    'sq.m': 1000,
+    'sq.meters': 1000,
+
+    # international mile
+    'mile²': 1609344,
+    'miles²': 1609344,
+    'sq.miles': 1609344,
+
+    'km²': 1000000,
+    'sq.km': 1000000,
+
+    # international yard
+    'yard²': 914.4,
+    'sq.yards': 914.4,
+}
+
 geojsonschema = {
 
     'definitions': {
@@ -197,20 +232,19 @@ class Dist(s_types.Int):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
-            raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg='Dist requires a valid float and dist '
-                                         'unit, no valid float found') from None
+            mesg = f'Distance requires a valid number and unit. No valid number found: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
         unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
 
         mult = units.get(unit.lower())
         if mult is None:
-            raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg='invalid/unknown dist unit: %s' % (unit,))
+            mesg = f'Unknown unit of distance: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         norm = int(valu * mult) + self.baseoff
         if norm < 0:
-            mesg = 'A geo:dist may not be negative.'
+            mesg = f'A geo:dist may not be negative: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         return norm, {}
@@ -233,6 +267,52 @@ class Dist(s_types.Int):
 
         if valu < 0:
             text = f'-{text}'
+
+        return text
+
+areachars = {'.'}.union(s_grammar.alphaset)
+class Area(s_types.Int):
+
+    def postTypeInit(self):
+        s_types.Int.postTypeInit(self)
+        self.setNormFunc(int, self._normPyInt)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyInt(self, valu):
+        return valu, {}
+
+    def _normPyStr(self, text):
+        try:
+            valu, off = s_grammar.parse_float(text, 0)
+        except Exception:
+            mesg = f'Area requires a valid number and unit, no valid number found: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
+
+        unit, off = s_grammar.nom(text, off, areachars)
+
+        mult = areaunits.get(unit.lower())
+        if mult is None:
+            mesg = f'Unknown unit of area: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        norm = int(valu * mult)
+        if norm < 0:
+            mesg = f'A geo:area may not be negative: {text}'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        return norm, {}
+
+    def repr(self, norm):
+
+        text = None
+        for base, unit in arearepr:
+            if norm >= base:
+                size = norm / base
+                text = f'{size} {unit}'
+                break
+
+        if text is None:
+            text = f'{norm} sq.mm'
 
         return text
 
@@ -301,6 +381,9 @@ class GeoModule(s_module.CoreModule):
                     ('geo:dist', 'synapse.models.geospace.Dist', {}, {
                         'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
                     }),
+                    ('geo:area', 'synapse.models.geospace.Area', {}, {
+                        'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq.km'
+                    }),
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
                         'doc': 'A Lat/Long string specifying a point on Earth.',
                         'ex': '-12.45,56.78'
@@ -318,17 +401,20 @@ class GeoModule(s_module.CoreModule):
                     }),
 
                     ('geo:json', ('data', {'schema': geojsonschema}), {
-                        'doc': 'GeoJSON structured JSON data.',
-                    }),
+                        'doc': 'GeoJSON structured JSON data.'}),
+
                     ('geo:name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'An unstructured place name or address.',
-                    }),
+                        'doc': 'An unstructured place name or address.'}),
+
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
+                    ('geo:place:taxonomy', ('taxonomy', {}), {
+                        'doc': 'A taxonomy of place types.'}),
+
                     ('geo:address', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A street/mailing address string.',
-                    }),
+                        'doc': 'A street/mailing address string.'}),
+
                     ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
                                        'minisvalid': False, 'maxisvalid': True}), {
                         'ex': '31.337',
@@ -355,6 +441,8 @@ class GeoModule(s_module.CoreModule):
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
                         'doc': 'The source node was seen at the geo:telem node place and time.'}),
+                    (('geo:place', 'contains', 'geo:place'), {
+                        'doc': 'The source place completely contains the target place.'}),
                 ),
 
                 'forms': (
@@ -390,22 +478,29 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'A description of the telemetry sample.'}),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The latitude/longitude reading at the time.'}),
+                        ('accuracy', ('geo:dist', {}), {
+                            'doc': 'The reported accuracy of the latlong telemetry reading.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'The place which includes the latlong value.'}),
                         ('place:name', ('geo:name', {}), {
                             'doc': 'The purported place name. Used for entity resolution.'}),
                     )),
 
+                    ('geo:place:taxonomy', {}, ()),
                     ('geo:place', {}, (
 
                         ('name', ('geo:name', {}), {
                             'doc': 'The name of the place.'}),
 
+                        ('type', ('geo:place:taxonomy', {}), {
+                            'doc': 'The type of place.'}),
+
                         ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternative place names.'}),
 
                         ('parent', ('geo:place', {}), {
-                            'doc': 'A parent place, possibly from reverse geocoding.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use a -(contains)> edge.'}),
 
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),
@@ -423,7 +518,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The lat/long position for the place.'}),
 
                         ('bbox', ('geo:bbox', {}), {
-                            'doc': 'A bounding box which encompases the place.'}),
+                            'doc': 'A bounding box which encompasses the place.'}),
 
                         ('radius', ('geo:dist', {}), {
                             'doc': 'An approximate radius to use for bounding box calculation.'}),

@@ -1,4 +1,0 @@
-include synapse/data/*.mpk
-include synapse/lib/storm.lark
-include synapse/vendor/*/LICENSE
-graft synapse/tests/files

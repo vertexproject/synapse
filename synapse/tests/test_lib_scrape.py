@@ -32,9 +32,112 @@ and BOB@WOOT.COM is another
 
     aa:bb:cc:dd:ee:ff
 
+    # GOOD IPV4 ADDRESSES
     1.2.3.4
 
     5.6.7.8:16
+
+    The IP address is: 201.202.203.204.
+
+    Typo no space after sentence.211.212.213.214 is the address..
+
+    The IP address is:2.3.4.5.
+
+    # GOOD IPV6 ADDRESSES
+
+    fff0::1
+    ::1
+    ::1010
+    ff::
+    0::1
+    0:0::1
+    ff:fe:fd::1
+    ffff:ffe:fd:c::1
+    111::333:222
+    111:222::333
+
+    1:2:3:4:5:6:7:8
+
+    1:2:3:4:5:6::7
+    1:2:3:4:5::6
+    1:2:3:4::5
+    1:2:3::4
+    1:2::3
+
+    1::2
+    1::2:3:4:5:6:7
+    1::2:3:4:5:6
+    1::2:3:4:5
+    1::2:3:4
+    1::2:3
+
+    a:2::3:4:5:6:7
+    a:2::3:4:5:6
+    a:2::3:4:5
+    a:2::3:4
+    a:2::3
+
+    2001:db8:3333:4444:5555:6666:4.3.2.1
+
+    ::3.4.5.6
+    ::ffff:4.3.2.2
+    ::FFFF:4.3.2.3
+    ::ffff:0000:4.3.2.4
+    ::1:2:3:4:4.3.2.5
+    ::1:2:3:4.3.2.6
+    ::1:2:3:4:5:4.3.2.7
+    ::ffff:255.255.255.255
+    ::ffff:111.222.33.44
+    1:2::3:4.3.2.8
+
+    1:2:3:4:5:6:7:9%eth0
+    1:2:3:4:5:6:7:a%s10
+    1:2:3:4:5:6:7:b%lo
+    1::a%eth0
+    1::a:3%lo
+    1:a::3%eth1
+
+    The IP address is:a:b:c:d:e::6.
+
+    # BAD IPV6 ADDRESSES
+    ::
+    0::0::1
+    1:2:3:4
+    1:2:3:4:5
+    1:2:3:4:5:6
+    1:2:3:4:5:6:7
+    ::ffff:4.3.2.a.5
+    ::1.3.3.4.5:4.3.2.b
+    ::1:2:3:4:5:6:4.3.2.c
+    ::1:2:3:4:5:6:7:4.3.2.d
+
+    # Bad IPV4 addresses:
+    6.7.8.900
+    6.7.8.9750
+    1236.7.8.9
+    0126.7.8.9
+    6.7.8.9.6.7.8.9
+    6.7.8.9.6
+
+    # GOOD INET:SERVER
+    1.2.3.4:123
+    1.2.3.4:65535
+    1.2.3.4:12346.
+    1.2.3.4:12347:
+    [::1]:123
+    [1:2:3:4:5:6:7:8]:123
+
+    # BAD INET:SERVER
+    1.2.3.4:0
+    1.2.3.4:65536
+    1.2.3.4:1.2.3.5
+    1.2.3.4:123456
+    1.2.3.4:
+    0.1.2.3.4:12345
+    1.2.3:123
+    [::1].123
+    [::1]:123.1234
+    [1:2:3:4]:123
 
     faß.de
 
@@ -63,6 +166,14 @@ and BOB@WOOT.COM is another
     baz.com．
 
     bar.com．
+
+    fxp.com
+
+    CWE # no match
+    CWE-1
+    CWE-12345678
+    CWE-123456789 # no match
+
 '''
 
 data1 = '''
@@ -71,6 +182,8 @@ data1 = '''
     tcp://foo.bar.org:4665/.,.
     tcp://foo.bar.org:4665/,.,
     tcp://foo.bar.org:4665/,,..a
+    tcp://[1:2:3:4:5:6:7:8]:1234/
+    tcp://[1:2:3::4:5:6]:2345/
 '''
 
 data2 = '''
@@ -110,6 +223,8 @@ eip-55 address test vectors
 0x52908400098527886E0F7030069857D2E4169EE7
 0x8617E340B3D01FA5F11F306F4090FD50E238070D
 
+# schema defanged and modified with host defanged as well
+hxxp[s]://legitcorp[.]com/blah/giggle.html
 '''
 
 btc_addresses = '''
@@ -280,6 +395,8 @@ DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du
 # shelly era
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w
 addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4
+addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k
+addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve
 
 # Newp
 Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAX
@@ -288,6 +405,67 @@ Ae2tdPWUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi
 DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTX
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80X
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
+DdzFFzCqrht9wkicvUx4Hc4W9gjCbx1sjsWAie5zLHo2K2R42y2zvA7W9S9dM9bCHE7xtpNriy1EpE5xwv7
+'''
+
+linux_paths = '''
+# GOOD PATHS
+/bin/ls
+/bin/foo/bar
+/bin/foo\x00
+/bin/foo//
+/bin/foo//bar
+/home/foo/bar/baz.txt
+/tmp/foo/bar
+/var/run/foo/
+/var/run/foo/bar
+//var/run/bar
+The observed path is:/root/.aaa/bbb
+The observed paths are:
+ - /root/.aaa/ccc
+ - /root/.aaa/ddd
+ -/root/.aaa/eee
+
+# BAD PATHS
+/
+/foo/bar
+/foo/bin/ls
+foo/bin/ls
+bin/ls
+bin/foo/bar
+bin/foo\x00
+bin/foo//
+bin/foo//bar
+home/foo/bar/baz.txt
+tmp/foo/bar
+var/run/foo/
+var/run/foo/bar
+'''
+
+windows_paths = '''
+# GOOD PATHS
+c:\\temp
+c:\\temp.txt
+c:\\windows\\
+c:\\windows\\calc.exe
+c:\\windows\\system32\\
+c:\\windows\\system32\\drivers\\usb.sys
+d:\\foo\\bar.txt
+d:\\foo\\
+d:\\foo
+d:\\foo.txt
+c:\\\\foo\\bar
+The observed path is:c:\\aaa\\bbb
+The observed paths are:
+ - c:\\aaa\\ccc
+ - c:\\aaa\\ddd
+ -c:\\aaa\\eee
+
+# BAD PATHS
+c:\\windows\\system32\\foo.
+c:\\windows\\LPT1
+c:\\foo.
+dc:\\foo\\bar
 '''
 
 class ScrapeTest(s_t_utils.SynTest):
@@ -309,10 +487,13 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(26, nodes)
+        self.len(83, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
+        nodes.remove(('inet:ipv4', '2.3.4.5'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
+        nodes.remove(('inet:ipv4', '201.202.203.204'))
+        nodes.remove(('inet:ipv4', '211.212.213.214'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
         nodes.remove(('inet:fqdn', 'foobar.com'))
@@ -333,9 +514,63 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', 'sign3.com'))
         nodes.remove(('inet:fqdn', 'sign4.com'))
         nodes.remove(('inet:fqdn', 'tilde.com'))
+        nodes.remove(('inet:fqdn', 'fxp.com'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
+        nodes.remove(('inet:server', '1.2.3.4:123'))
+        nodes.remove(('inet:server', '1.2.3.4:65535'))
+        nodes.remove(('inet:server', '1.2.3.4:12346'))
+        nodes.remove(('inet:server', '1.2.3.4:12347'))
+        nodes.remove(('inet:server', '[::1]:123'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:123'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
+        nodes.remove(('it:sec:cwe', 'CWE-1'))
+        nodes.remove(('it:sec:cwe', 'CWE-12345678'))
+        nodes.remove(('inet:ipv6', 'fff0::1'))
+        nodes.remove(('inet:ipv6', '::1'))
+        nodes.remove(('inet:ipv6', '::1010'))
+        nodes.remove(('inet:ipv6', 'ff::'))
+        nodes.remove(('inet:ipv6', '0::1'))
+        nodes.remove(('inet:ipv6', '0:0::1'))
+        nodes.remove(('inet:ipv6', 'ff:fe:fd::1'))
+        nodes.remove(('inet:ipv6', 'ffff:ffe:fd:c::1'))
+        nodes.remove(('inet:ipv6', '111::333:222'))
+        nodes.remove(('inet:ipv6', '111:222::333'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6::7'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5::6'))
+        nodes.remove(('inet:ipv6', '1:2:3:4::5'))
+        nodes.remove(('inet:ipv6', '1:2:3::4'))
+        nodes.remove(('inet:ipv6', '1:2::3'))
+        nodes.remove(('inet:ipv6', '1::2'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5:6'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5'))
+        nodes.remove(('inet:ipv6', '1::2:3:4'))
+        nodes.remove(('inet:ipv6', '1::2:3'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4'))
+        nodes.remove(('inet:ipv6', 'a:2::3'))
+        nodes.remove(('inet:ipv6', '2001:db8:3333:4444:5555:6666:4.3.2.1'))
+        nodes.remove(('inet:ipv6', '::3.4.5.6'))
+        nodes.remove(('inet:ipv6', '::ffff:4.3.2.2'))
+        nodes.remove(('inet:ipv6', '::FFFF:4.3.2.3'))
+        nodes.remove(('inet:ipv6', '::ffff:0000:4.3.2.4'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4:4.3.2.5'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4.3.2.6'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4:5:4.3.2.7'))
+        nodes.remove(('inet:ipv6', '::ffff:255.255.255.255'))
+        nodes.remove(('inet:ipv6', '::ffff:111.222.33.44'))
+        nodes.remove(('inet:ipv6', '1:2::3:4.3.2.8'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:9'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:a'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:b'))
+        nodes.remove(('inet:ipv6', '1::a'))
+        nodes.remove(('inet:ipv6', '1::a:3'))
+        nodes.remove(('inet:ipv6', '1:a::3'))
+        nodes.remove(('inet:ipv6', 'a:b:c:d:e::6'))
         self.len(0, nodes)
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))
@@ -345,7 +580,7 @@ class ScrapeTest(s_t_utils.SynTest):
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(data1))
-        self.len(10, nodes)
+        self.len(16, nodes)
         for _ in range(5):
             nodes.remove(('inet:fqdn', 'foo.bar.org'))
 
@@ -355,6 +590,13 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+
+        nodes.remove(('inet:url', 'tcp://[1:2:3:4:5:6:7:8]:1234/'))
+        nodes.remove(('inet:url', 'tcp://[1:2:3::4:5:6]:2345/'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:1234'))
+        nodes.remove(('inet:server', '[1:2:3::4:5:6]:2345'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3::4:5:6'))
 
         nodes = list(s_scrape.scrape(data2))
         nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
@@ -448,7 +690,7 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
 
         nodes = list(s_scrape.scrape(cardano_addresses))
-        self.len(7, nodes)
+        self.len(9, nodes)
         nodes.remove(('crypto:currency:address',
                       ('ada', 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
         nodes.remove(('crypto:currency:address',
@@ -465,6 +707,46 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ada', 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
+        nodes.remove(('crypto:currency:address',
+                      ('ada', 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
+        nodes.remove(('crypto:currency:address',
+                      ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
+
+        nodes = list(s_scrape.scrape(linux_paths))
+
+        self.len(13, nodes)
+        nodes.remove(('file:path', '/bin/ls'))
+        nodes.remove(('file:path', '/bin/foo/bar'))
+        nodes.remove(('file:path', '/bin/foo'))
+        nodes.remove(('file:path', '/bin/foo//'))
+        nodes.remove(('file:path', '/bin/foo//bar'))
+        nodes.remove(('file:path', '/home/foo/bar/baz.txt'))
+        nodes.remove(('file:path', '/tmp/foo/bar'))
+        nodes.remove(('file:path', '/var/run/foo/'))
+        nodes.remove(('file:path', '/var/run/foo/bar'))
+        nodes.remove(('file:path', '/root/.aaa/bbb'))
+        nodes.remove(('file:path', '/root/.aaa/ccc'))
+        nodes.remove(('file:path', '/root/.aaa/ddd'))
+        nodes.remove(('file:path', '/root/.aaa/eee'))
+
+        nodes = list(s_scrape.scrape(windows_paths))
+
+        self.len(15, nodes)
+        nodes.remove(('file:path', 'c:\\temp'))
+        nodes.remove(('file:path', 'c:\\temp.txt'))
+        nodes.remove(('file:path', 'c:\\windows\\'))
+        nodes.remove(('file:path', 'c:\\windows\\calc.exe'))
+        nodes.remove(('file:path', 'c:\\windows\\system32\\'))
+        nodes.remove(('file:path', 'c:\\windows\\system32\\drivers\\usb.sys'))
+        nodes.remove(('file:path', 'd:\\foo\\bar.txt'))
+        nodes.remove(('file:path', 'd:\\foo\\'))
+        nodes.remove(('file:path', 'd:\\foo'))
+        nodes.remove(('file:path', 'd:\\foo.txt'))
+        nodes.remove(('file:path', 'c:\\\\foo\\bar'))
+        nodes.remove(('file:path', 'c:\\aaa\\bbb'))
+        nodes.remove(('file:path', 'c:\\aaa\\ccc'))
+        nodes.remove(('file:path', 'c:\\aaa\\ddd'))
+        nodes.remove(('file:path', 'c:\\aaa\\eee'))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
@@ -528,8 +810,15 @@ class ScrapeTest(s_t_utils.SynTest):
         txt = f'hehe woot.onion woot.bit haha'
         self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
 
+        txt = f'hehe trickbot.bazar haha'
+        self.isin('trickbot.bazar', [n[1] for n in s_scrape.scrape(txt)])
+
     def test_refang(self):
         defanged = '10[.]0[.]0[.]1'
+        refanged = '10.0.0.1'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = '10.]0[.0[.]1'
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
 
@@ -543,6 +832,22 @@ class ScrapeTest(s_t_utils.SynTest):
 
         defanged = 'http[:]//foo.faz.com[:]12312/bam'
         refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'http[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'https[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxp[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxps[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
         self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
         defanged = 'hxxp://foo.faz.edu/'
@@ -568,6 +873,10 @@ class ScrapeTest(s_t_utils.SynTest):
         defanged = 'foo[@]bar.com'
         refanged = 'foo@bar.com'
         self.eq({refanged, 'bar.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'https://foo[dot]com/'
+        refanged = 'https://foo.com/'
+        self.eq({refanged, 'foo.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
         defanged = 'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]yowza(.)baz[.]edu/foofaz'
         exp = {
@@ -647,6 +956,13 @@ class ScrapeTest(s_t_utils.SynTest):
                     'match': '0x52908400098527886E0F7030069857D2E4169EE7',
                     'valu': ('eth', '0x52908400098527886E0F7030069857D2E4169EE7')}
                 )
+
+        r = [r for r in results if r.get('valu') == 'https://legitcorp.com/blah/giggle.html'][0]
+        self.eq(r, {'form': 'inet:url',
+                    'match': 'hxxp[s]://legitcorp[.]com/blah/giggle.html',
+                    'offset': 575,
+                    'valu': 'https://legitcorp.com/blah/giggle.html'})
+
         # Assert match value matches...
         for r in results:
             erv = r.get('match')

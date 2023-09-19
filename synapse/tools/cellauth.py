@@ -92,7 +92,7 @@ async def handleModify(opts):
 
     if opts.object and not opts.addrule:
         outp.printf('--object option only valid with --addrule')
-        return -1
+        return 1
 
     try:
         async with await s_telepath.openurl(opts.cellurl) as cell:
@@ -274,18 +274,13 @@ async def main(argv, outprint=None):
     global outp
     outp = outprint
 
-    async with contextlib.AsyncExitStack() as cm:
-
-        teleyaml = s_common.getSynPath('telepath.yaml')
-        if os.path.isfile(teleyaml):
-            fini = await s_telepath.loadTeleEnv(teleyaml)
-            cm.push_async_callback(fini)
+    async with s_telepath.withTeleEnv():
 
         pars = makeargparser()
         try:
             opts = pars.parse_args(argv)
         except s_exc.ParserExit:
-            return -1
+            return 1
 
         retn = await opts.func(opts)
 

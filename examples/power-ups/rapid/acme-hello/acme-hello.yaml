@@ -1,0 +1,76 @@
+name: acme-hello
+version: 0.0.1
+
+synapse_minversion: [2, 144, 0]
+synapse_version: '>=2.144.0,<3.0.0'
+genopts:
+    dotstorm: true # Specify that storm command/module files end with ".storm"
+
+author:
+  url: https://acme.newp
+  name: ACME Explosives and Anvils
+
+desc: Acme-Hello is a minimal example of a Rapid Power-Up.
+
+perms:
+  - perm: [ acme, hello, user ]
+    gate: cortex
+    desc: Allows a user to call privileged APIs from Acme-Hello.
+
+docs:
+    - title: User Guide
+      path: docs/userguide.md
+    - title: Admin Guide
+      path: docs/adminguide.md
+    - title: Changelog
+      path: docs/changelog.md
+
+modules:
+  - name: acme.hello
+  - name: acme.hello.privsep
+    asroot:perms:
+        - [ acme, hello, user ]
+
+commands:
+
+  - name: acme.hello.sayhi
+    descr: Print the hello message.
+
+  - name: acme.hello.omgopts
+    descr: |
+        This is a multi-line description containing usage examples.
+  
+        // Run the command with some nodes
+        inet:fqdn=acme.newp | acme.hello.omgopts vertex.link
+  
+        // Run the command with some command line switches
+        acme.hello.omgopts --debug --hehe haha vertex.link
+  
+    cmdargs:
+  
+      - - --hehe
+        - type: str
+          help: The value of the hehe optional input.
+  
+      - - --debug
+        - type: bool
+          default: false
+          action: store_true
+          help: Enable debug output.
+  
+      - - fqdn
+        - type: str
+          help: A mandatory / positional command line argument.
+
+  - name: acme.hello.mayyield
+    descr: |
+         Take in an FQDN and make DNS A records to demo --yield
+
+         inet:fqdn=vertex.link | acme.hello.mayyield
+
+    cmdargs:
+
+      - - --yield
+        - default: false
+          action: store_true
+          help: Yield the newly created inet:dns:a records rather than the input inet:fqdn nodes.

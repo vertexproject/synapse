@@ -1,3 +1,4 @@
+import ssl
 import socket
 import asyncio
 
@@ -167,3 +168,40 @@ class LinkTest(s_test.SynTest):
 
         await link0.fini()
         await link1.fini()
+
+    async def test_tls_ciphers(self):
+        self.thisHostMustNot(platform='darwin')
+        self.skipIfNoPath(path='certdir')
+
+        with self.getTestDir(mirror='certdir') as dirn:
+            with self.getTestCertDir(dirn) as certdir:
+
+                hostname = socket.gethostname()
+                certdir.genHostCert(hostname, signas='ca')
+
+                lport = 0
+
+                async def func(*args, **kwargs):
+                    pass
+
+                srv_sslctx = certdir.getServerSSLContext(hostname)  # type: ssl.SSLContext
+                # The server context has a default minimum version.
+                self.eq(srv_sslctx.minimum_version, ssl.TLSVersion.TLSv1_2)
+
+                # Change the maximum server version to tls 1.1 so that our
+                # link ssl context will not work with it.
+                srv_sslctx.maximum_version = ssl.TLSVersion.TLSv1_1
+
+                server = await s_link.listen(hostname, lport, onlink=func, ssl=srv_sslctx)
+                _, port = server.sockets[0].getsockname()
+
+                sslctx = certdir.getClientSSLContext()  # type: ssl.SSLContext
+                # The client context has a default minimum version.
+                self.eq(sslctx.minimum_version, ssl.TLSVersion.TLSv1_2)
+
+                try:
+                    # Our default does not talk to a TLS server that is lower than TLS 1.2 though.
+                    with self.raises(ConnectionResetError):
+                        await s_link.connect(hostname, port=port, ssl=sslctx)
+                finally:
+                    server.close()

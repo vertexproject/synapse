@@ -94,6 +94,7 @@ class MacroExecCmd(s_storm.Cmd):
     '''
 
     name = 'macro.exec'
+    readonly = True
 
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
@@ -107,12 +108,8 @@ class MacroExecCmd(s_storm.Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         name = await s_stormtypes.tostr(self.opts.name)
-        hivepath = ('cortex', 'storm', 'macros', name)
 
-        mdef = await runt.snap.core.getHiveKey(hivepath)
-        if mdef is None:
-            mesg = f'Macro name not found: {name}'
-            raise s_exc.NoSuchName(mesg=mesg)
+        mdef = runt.snap.core.reqStormMacro(name, user=runt.user)
 
         query = await runt.getStormQuery(mdef['storm'])
 
@@ -148,6 +145,23 @@ class LibMacro(s_stormtypes.Lib):
         {'name': 'list', 'desc': 'Get a list of Storm Macros in the Cortex.',
          'type': {'type': 'function', '_funcname': '_funcMacroList',
                   'returns': {'type': 'list', 'desc': 'A list of ``dict`` objects containing Macro definitions.', }}},
+        {'name': 'mod', 'desc': 'Modify user editable properties of a Storm Macro.',
+         'type': {'type': 'function', '_funcname': '_funcMacroMod',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Macro to modify.', },
+                      {'name': 'info', 'type': 'dict', 'desc': 'A dictionary of the properties to edit.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+
+        {'name': 'grant', 'desc': 'Modify permissions granted to users/roles on a Storm Macro.',
+         'type': {'type': 'function', '_funcname': '_funcMacroGrant',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the Storm Macro to modify.', },
+                      {'name': 'scope', 'type': 'str', 'desc': 'The scope, either "users" or "roles".', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The user/role iden depending on scope.', },
+                      {'name': 'level', 'type': 'int', 'desc': 'The permission level number.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('macro',)
 
@@ -156,60 +170,75 @@ class LibMacro(s_stormtypes.Lib):
             'set': self._funcMacroSet,
             'get': self._funcMacroGet,
             'del': self._funcMacroDel,
+            'mod': self._funcMacroMod,
             'list': self._funcMacroList,
+            'grant': self._funcMacroGrant,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _funcMacroList(self):
-        path = ('cortex', 'storm', 'macros')
-        return await self.runt.snap.core.getHiveKeys(path)
+        macros = await self.runt.snap.core.getStormMacros(user=self.runt.user)
+        # backward compatible (name, mdef) tuples...
+        return [(m['name'], m) for m in macros]
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _funcMacroGet(self, name):
         name = await s_stormtypes.tostr(name)
 
-        path = ('cortex', 'storm', 'macros', name)
-        return await self.runt.snap.core.getHiveKey(path)
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
+
+        return self.runt.snap.core.getStormMacro(name, user=self.runt.user)
 
     async def _funcMacroDel(self, name):
+
         name = await s_stormtypes.tostr(name)
-        path = ('cortex', 'storm', 'macros', name)
 
-        mdef = await self.runt.snap.core.getHiveKey(path)
-        if mdef is None:
-            mesg = f'Macro name not found: {name}'
-            raise s_exc.NoSuchName(mesg)
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
-        user = self.runt.user
-        if mdef['user'] != user.iden and not user.isAdmin():
-            mesg = 'Macro belongs to a different user'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        await self.runt.snap.core.popHiveKey(path)
+        return await self.runt.snap.core.delStormMacro(name, user=self.runt.user)
 
     async def _funcMacroSet(self, name, storm):
         name = await s_stormtypes.tostr(name)
         storm = await s_stormtypes.tostr(storm)
 
-        if len(name) >= 492:
-            raise s_exc.BadArg(mesg='Macro name cannot exceed 491 characters.',
-                               valu=name)
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
-        # validation
         await self.runt.getStormQuery(storm)
 
-        path = ('cortex', 'storm', 'macros', name)
+        if self.runt.snap.core.getStormMacro(name) is None:
+            mdef = {'name': name, 'storm': storm}
+            await self.runt.snap.core.addStormMacro(mdef, user=self.runt.user)
+        else:
+            updates = {'storm': storm, 'updated': s_common.now()}
+            await self.runt.snap.core.modStormMacro(name, updates, user=self.runt.user)
 
-        user = self.runt.user
+    async def _funcMacroMod(self, name, info):
 
-        mdef = await self.runt.snap.core.getHiveKey(path)
-        if mdef is not None:
-            if mdef['user'] != user.iden and not user.isAdmin():
-                mesg = 'Macro belongs to a different user'
-                raise s_exc.AuthDeny(mesg=mesg)
+        name = await s_stormtypes.tostr(name)
+        info = await s_stormtypes.toprim(info)
 
-        mdef = {
-            'user': user.iden,
-            'storm': storm,
-            'edited': s_common.now(),
-        }
+        if len(name) > 491:
+            raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
 
-        await self.runt.snap.core.setHiveKey(path, mdef)
+        if not isinstance(info, dict):
+            raise s_exc.BadArg(mesg='Macro info must be a dictionary object.')
+
+        for prop, valu in info.items():
+            if prop not in ('name', 'desc', 'storm'):
+                raise s_exc.BadArg(mesg=f'User may not edit the field: {prop}.')
+            if prop == 'storm':
+                await self.runt.getStormQuery(valu)
+
+        info['updated'] = s_common.now()
+        await self.runt.snap.core.modStormMacro(name, info, user=self.runt.user)
+
+    async def _funcMacroGrant(self, name, scope, iden, level):
+        name = await s_stormtypes.tostr(name)
+        scope = await s_stormtypes.tostr(scope)
+        iden = await s_stormtypes.tostr(iden)
+        level = await s_stormtypes.toint(level, noneok=True)
+
+        await self.runt.snap.core.setStormMacroPerm(name, scope, iden, level, user=self.runt.user)

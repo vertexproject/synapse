@@ -90,8 +90,7 @@ class LibXml(s_stormtypes.Lib):
     async def parse(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:
-            todo = (xml_et.fromstring, (valu,), {})
-            root = await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+            root = await s_coro.semafork(xml_et.fromstring, valu)
             return XmlElement(self.runt, root)
         except xml_et.ParseError as e:
             raise s_exc.BadArg(mesg=f'Invalid XML text: {str(e)}')

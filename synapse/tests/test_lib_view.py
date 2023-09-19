@@ -45,10 +45,13 @@ class ViewTest(s_t_utils.SynTest):
             layr02 = await core.addLayer()
             vdef02 = {'layers': [layr02['iden']]}
             view02 = core.getView((await core.addView(vdef=vdef02))['iden'])
+            view03 = await core.callStorm('$view=$lib.view.get($view02).fork() return ( $view.iden )',
+                                          opts={'vars': {'view02': view02.iden}})
 
             # test the storm APIs for setting view parent
             opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
-            await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
 
             # test that merging selected nodes works correctly
             self.len(0, await view02.nodes('inet:fqdn=vertex.link'))
@@ -61,8 +64,13 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await view00.nodes('#bar'))
             self.len(1, await view01.nodes('#bar'))
 
-            # test that the API prevents you from setting view parent that's already set
+            # setting the parent value the the existing value is okay
             opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            # test that the API prevents you from setting view parent that's already set
+            opts = {'vars': {'base': view03, 'fork': view00.iden}}
             msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
             self.stormIsInErr('You may not set parent on a view which already has one', msgs)
 
@@ -95,8 +103,8 @@ class ViewTest(s_t_utils.SynTest):
             await core.auth.addUser('visi')
             await core.addTagProp('score', ('int', {}), {})
 
-            self.len(1, await alist(core.eval('test:int=8 +#faz')))
-            self.len(2, await alist(core.eval('test:int=9 test:int=10')))
+            self.eq(1, await core.count('test:int=8 +#faz'))
+            self.eq(2, await core.count('test:int=9 test:int=10'))
             self.eq(3, (await core.getFormCounts()).get('test:int'))
 
             # Fork the main view
@@ -200,7 +208,7 @@ class ViewTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='visi') as prox:
                 with self.raises(s_exc.AuthDeny):
-                    await prox.eval('test:int=12', opts={'view': view2.iden}).list()
+                    await prox.count('test:int=12', opts={'view': view2.iden})
 
             # The parent count is correct
             self.eq(4, (await core.view.getFormCounts()).get('test:int'))
@@ -328,7 +336,7 @@ class ViewTest(s_t_utils.SynTest):
                 'storm': '[ test:str=mainhit ]'
             })
 
-            nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
+            nodes = await core.nodes('[ test:int=11 ]', opts={'view': view2.iden})
             self.len(1, nodes)
 
             self.len(0, await core.view.nodes('test:str=mainhit'))

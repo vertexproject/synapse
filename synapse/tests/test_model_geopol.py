@@ -3,24 +3,48 @@ import synapse.tests.utils as s_t_utils
 
 class GeoPolModelTest(s_t_utils.SynTest):
 
-    async def test_forms_country(self):
+    async def test_geopol_country(self):
         async with self.getTestCore() as core:
-            formname = 'pol:country'
-            guid = 32 * '0'
-            flag_valu = 'sha256:' + 64 * 'f'
+            nodes = await core.nodes('''
+                [ pol:country=*
+                    :founded=2022
+                    :dissolved=2023
+                    :name=visiland
+                    :names=(visitopia,)
+                    :iso2=vi
+                    :iso3=vis
+                    :isonum=31337
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('visiland', nodes[0].get('name'))
+            self.eq(('visitopia',), nodes[0].get('names'))
+            self.eq(1640995200000, nodes[0].get('founded'))
+            self.eq(1672531200000, nodes[0].get('dissolved'))
+            self.eq('vi', nodes[0].get('iso2'))
+            self.eq('vis', nodes[0].get('iso3'))
+            self.eq(31337, nodes[0].get('isonum'))
+            self.len(2, await core.nodes('pol:country -> geo:name'))
 
-            input_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'VI', 'iso3': 'VIS', 'isonum': 31337,
-                           'name': 'Republic of Visi', 'tld': 'visi', 'pop': 123}
-            expected_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'vi', 'iso3': 'vis', 'isonum': 31337,
-                              'name': 'republic of visi', 'tld': 'visi', 'pop': 123}
-            expected_ndef = (formname, guid)
-
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, guid, props=input_props)
-
-            self.eq(node.ndef, expected_ndef)
-            for prop, valu in expected_props.items():
-                self.eq(node.get(prop), valu)
+            nodes = await core.nodes('''
+                    [ pol:vitals=*
+                        :country={pol:country:name=visiland}
+                        :area=1sq.km
+                        :population=1
+                        :currency=usd
+                        :econ:currency=usd
+                        :econ:gdp = 100
+                    ]
+                    { -> pol:country [ :vitals={pol:vitals} ] }
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('country'))
+            self.eq(1, nodes[0].get('population'))
+            self.eq(1000000, nodes[0].get('area'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq('100', nodes[0].get('econ:gdp'))
+            self.eq('usd', nodes[0].get('econ:currency'))
+            self.len(1, await core.nodes('pol:country:vitals :vitals -> pol:vitals'))
 
     async def test_types_iso2(self):
         async with self.getTestCore() as core:
@@ -129,3 +153,25 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
             self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))
+
+    async def test_model_geopol_immigration(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ pol:immigration:status=*
+                    :country = {[ pol:country=* :name=woot ]}
+                    :contact = {[ ps:contact=* :name=visi ]}
+                    :type = citizen.naturalized
+                    :state = requested
+                    :began = 20230328
+                    :ended = 2024
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('country'))
+            self.nn(nodes[0].get('contact'))
+            self.eq('requested', nodes[0].get('state'))
+            self.eq('citizen.naturalized.', nodes[0].get('type'))
+            self.eq(1679961600000, nodes[0].get('began'))
+            self.eq(1704067200000, nodes[0].get('ended'))

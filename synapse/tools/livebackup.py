@@ -21,7 +21,7 @@ Examples:
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='livebackup', description=descr)
-    pars.add_argument('--url', default='cell://vertex/storage', help='The telepath URL of the Synapse service.')
+    pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--name', default=None, help='Specify a name for the backup.  Defaults to an automatically generated timestamp.')
 
     opts = pars.parse_args(argv)

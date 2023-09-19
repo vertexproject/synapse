@@ -26,7 +26,7 @@ def uuid4(valu=None):
     guid = s_common.guid(valu=valu)
     return str(uuid.UUID(guid, version=4))
 
-stixname_re = regex.compile('^[a-z0-9_]{3,250}$')
+stixtype_re = regex.compile('^[a-z0-9-]{3,250}$')
 
 SYN_STIX_EXTENSION_ID = f'extension-definition--{uuid4("bf1c0a4d90ee557ac05055385971f17c")}'
 
@@ -401,6 +401,33 @@ _DefaultConfig = {
             }
         },
 
+        'ou:technique': {
+            'default': 'attack-pattern',
+            'stix': {
+                'attack-pattern': {
+                    'props': {
+                        'name': '{ +:name return(:name) } return($node.repr())',
+                        'description': '+:desc return(:desc)',
+                    },
+                    'revs': (
+                        ('mitigates', 'course-of-action', '<(addresses)- risk:mitigation'),
+                    ),
+                },
+            },
+        },
+
+        'risk:mitigation': {
+            'default': 'course-of-action',
+            'stix': {
+                'course-of-action': {
+                    'props': {
+                        'name': '{ +:name return(:name) } return($node.repr())',
+                        'description': '+:desc return(:desc)',
+                    },
+                },
+            },
+        },
+
         'media:news': {
             'default': 'report',
             'stix': {
@@ -469,8 +496,8 @@ def _validateConfig(core, config):
         objdefs = custom.get('objects')
         if objdefs is not None:
             for name, info in objdefs.items():
-                if not stixname_re.match(name):
-                    mesg = 'Invalid custom object name. Must match regex: ^[a-z0-9_]{3,250}$'
+                if not stixtype_re.match(name):
+                    mesg = 'Invalid custom STIX type name. Must match regex: ^[a-z0-9-]{3,250}$'
                     raise s_exc.BadConfValu(mesg=mesg)
                 alltypes.add(name)
 
@@ -491,7 +518,7 @@ def _validateConfig(core, config):
         form = core.model.form(formname)
         if form is None:
             mesg = f'STIX Bundle config contains invalid form name {formname}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm.init(formname, mesg=mesg)
 
         stixdef = formconf.get('default')
         if stixdef is None:
@@ -531,6 +558,26 @@ def _validateConfig(core, config):
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
                         raise s_exc.BadConfValu(mesg=mesg)
 
+            stixrevs = stixinfo.get('revs')
+            if stixrevs is not None:
+                for stixrev in stixrevs:
+                    if len(stixrev) != 3:
+                        mesg = f'STIX Bundle config has invalid rev entry {formname} {stixtype} {stixrev}.'
+                        raise s_exc.BadConfValu(mesg=mesg)
+
+            stixpivs = stixinfo.get('pivots')
+            if stixpivs is not None:
+                for stixpiv in stixpivs:
+
+                    if not isinstance(stixpiv.get('storm'), str):
+                        raise s_exc.BadConfValu(mesg=f'Pivot for {formname} (as {stixtype}) has invalid/missing storm field.')
+
+                    pivtype = stixpiv.get('stixtype')
+                    if isinstance(pivtype, str):
+                        if pivtype not in alltypes:
+                            mesg = f'STIX Bundle config has unknown pivot STIX type {pivtype} for form {formname}.'
+                            raise s_exc.BadConfValu(mesg=mesg)
+
 def validateStix(bundle, version='2.1'):
     ret = {
         'ok': False,
@@ -538,7 +585,7 @@ def validateStix(bundle, version='2.1'):
         'result': {},
     }
     bundle = json.loads(json.dumps(bundle))
-    opts = stix2validator.ValidationOptions(strict=True, version=version)
+    opts = stix2validator.ValidationOptions(strict=True, version=version, no_cache=True)
     try:
         results = stix2validator.validate_parsed_json(bundle, options=opts)
     except stix2validator.ValidationError as e:
@@ -594,7 +641,7 @@ class LibStix(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to lift nodes from.'},
                 ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes'}
             }
         },
     )
@@ -608,8 +655,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        todo = (validateStix, (bundle,), {})
-        return await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
+        return await s_coro.semafork(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
@@ -804,7 +850,7 @@ class LibStixImport(s_stormtypes.Lib):
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
                 ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'node', 'desc': 'Yields nodes'}
             },
         },
     )
@@ -987,6 +1033,10 @@ class LibStixExport(s_stormtypes.Lib):
                                         "rels": (
                                             ( <relname>, <target_stixtype>, <storm> ),
                                             ...
+                                        ),
+                                        "revs": (
+                                            ( <revname>, <source_stixtype>, <storm> ),
+                                            ...
                                         )
                                     },
                                     <stixtype1>: ...
@@ -1019,6 +1069,21 @@ class LibStixExport(s_stormtypes.Lib):
                             },
                     }},
 
+                You may also specify pivots on a per form+stixtype basis to automate pivoting to additional nodes
+                to include in the bundle::
+
+                    {"forms": {
+                        "inet:fqdn":
+                            ...
+                            "domain-name": {
+                                ...
+                                "pivots": [
+                                    {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                                ]
+                            {
+                        }
+                    }
+
                 Note:
                     The default config is an evolving set of mappings.  If you need to guarantee stable output please
                     specify a config.
@@ -1028,7 +1093,7 @@ class LibStixExport(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'The STIX bundle export config to use.'},
                 ),
-                'returns': {'type': 'storm:stix:bundle', 'desc': 'A new ``storm:stix:bundle`` instance.'},
+                'returns': {'type': 'stix:bundle', 'desc': 'A new ``stix:bundle`` instance.'},
             },
         },
 
@@ -1138,7 +1203,7 @@ class StixBundle(s_stormtypes.Prim):
     Implements the Storm API for creating and packing a STIX bundle for v2.1
     '''
 
-    _storm_typename = 'storm:stix:bundle'
+    _storm_typename = 'stix:bundle'
     _storm_locals = (
 
         {'name': 'add', 'desc': '''
@@ -1166,6 +1231,11 @@ class StixBundle(s_stormtypes.Prim):
                   'args': (),
                   'returns': {'type': 'dict', }}},
 
+        {'name': 'size', 'desc': 'Return the number of STIX objects currently in the bundle.',
+         'type': {'type': 'function', '_funcname': 'size',
+                  'args': (),
+                  'returns': {'type': 'int', }}},
+
     )
 
     def __init__(self, libstix, runt, config, path=None):
@@ -1177,6 +1247,7 @@ class StixBundle(s_stormtypes.Prim):
         self.config = config
         self.locls.update(self.getObjLocals())
         self.objs = {}  # id -> STIX obj(dict)
+        self.synextension = config.get('synapse_extension', True)
         self.maxsize = config.get('maxsize', 10000)
 
     async def value(self):
@@ -1186,6 +1257,7 @@ class StixBundle(s_stormtypes.Prim):
         return {
             'add': self.add,
             'pack': self.pack,
+            'size': self.size,
         }
 
     # TODO config modification helpers
@@ -1243,6 +1315,16 @@ class StixBundle(s_stormtypes.Prim):
                 n2id = await self.add(relnode, stixtype=reltype)
                 await self._addRel(stixid, relname, n2id)
 
+        for (revname, revtype, revstorm) in stixconf.get('revs', ()):
+            async for revnode, revpath in node.storm(self.runt, revstorm):
+                n1id = await self.add(revnode, stixtype=revtype)
+                await self._addRel(n1id, revname, stixid)
+
+        for pivdef in stixconf.get('pivots', ()):
+            pivtype = pivdef.get('stixtype')
+            async for pivnode, pivpath in node.storm(self.runt, pivdef.get('storm')):
+                await self.add(pivnode, stixtype=pivtype)
+
         return stixid
 
     def _initStixItem(self, stixid, stixtype, node):
@@ -1251,14 +1333,14 @@ class StixBundle(s_stormtypes.Prim):
             'id': stixid,
             'type': stixtype,
             'spec_version': '2.1',
-            'extensions': {
+        }
+        if self.synextension:
+            retn['extensions'] = {
                 SYN_STIX_EXTENSION_ID: {
                     "extension_type": "property-extension",
                     'synapse_ndef': ndef
                 }
             }
-
-        }
         return retn
 
     async def _addRel(self, srcid, reltype, targid):
@@ -1299,13 +1381,17 @@ class StixBundle(s_stormtypes.Prim):
 
     def pack(self):
         objects = list(self.objs.values())
-        objects.insert(0, self._getSynapseExtensionDefinition())
+        if self.synextension:
+            objects.insert(0, self._getSynapseExtensionDefinition())
         bundle = {
             'type': 'bundle',
             'id': f'bundle--{uuid4()}',
             'objects': objects
         }
         return bundle
+
+    def size(self):
+        return len(self.objs)
 
     async def _callStorm(self, text, node):
 

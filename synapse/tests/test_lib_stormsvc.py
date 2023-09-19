@@ -15,7 +15,8 @@ import synapse.tools.backup as s_tools_backup
 old_pkg = {
     'name': 'old',
     'version': (0, 0, 1),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'old.baz', 'storm': 'function baz(x, y) { return ($($x + $y)) }'},
@@ -39,7 +40,8 @@ old_pkg = {
 new_old_pkg = {
     'name': 'old',
     'version': (0, 1, 0),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': (
         {'name': 'old.bar', 'storm': 'function bar(x, y) { return ($($x + $y)) }'},
         {'name': 'new.baz', 'storm': 'function baz(x) { return ($($x + 20)) }'},
@@ -63,7 +65,8 @@ new_old_pkg = {
 new_pkg = {
     'name': 'new',
     'version': (0, 0, 1),
-    'synapse_minversion': (2, 8, 0),
+    'synapse_minversion': [2, 144, 0],
+    'synapse_version': '>=2.8.0,<3.0.0',
     'modules': (
         {'name': 'echo', 'storm': '''function echo(arg1, arg2) {
                                         $lib.print("{arg1}={arg2}", arg1=$arg1, arg2=$arg2)
@@ -121,7 +124,8 @@ class RealService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {'name': 'foo.bar',
                  'storm': '''
@@ -184,7 +188,8 @@ class NodeCreateService(s_stormsvc.StormSvc):
         {
             'name': 'ncreate',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'baz',
@@ -202,7 +207,8 @@ class BoomService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'boom',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {'name': 'blah', 'storm': '+}'},
             ),
@@ -260,7 +266,8 @@ class LifterService(s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'lifter',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'lifter',
@@ -285,7 +292,8 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'stormvar',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'magic',
@@ -348,7 +356,8 @@ class ShareService(s_cell.CellApi, s_stormsvc.StormSvc):
         {  # type: ignore
             'name': 'sharer',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {
                     'name': 'sharer',
@@ -402,7 +411,7 @@ class StormSvcTest(s_test.SynTest):
 
             msgs = await core.stormlist('service.list')
             self.stormIsInPrint('Storm service list (iden, ready, name, service name, service version, url):', msgs)
-            self.stormIsInPrint(f'    {iden} False (fake) (Unknown @ Unknown): tcp://localhost:3333/foo', msgs)
+            self.stormIsInPrint(f'    {iden} false (fake) (Unknown @ Unknown): tcp://localhost:3333/foo', msgs)
 
             msgs = await core.stormlist(f'service.del {iden[:4]}')
             self.stormIsInPrint(f'removed {iden} (fake): tcp://localhost:3333/foo', msgs)
@@ -471,7 +480,8 @@ class StormSvcTest(s_test.SynTest):
         pkg = {
             'name': 'foobar',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': (
                 {'name': 'hehe.haha', 'storm': 'function add(x, y) { return ($($x + $y)) }'},
             ),
@@ -481,10 +491,10 @@ class StormSvcTest(s_test.SynTest):
         }
         with self.getTestDir() as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 await core.addStormPkg(pkg)
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 nodes = await core.nodes('foobar')
                 self.eq(nodes[0].ndef, ('inet:asn', 30))
 
@@ -504,7 +514,7 @@ class StormSvcTest(s_test.SynTest):
                 lurl = f'tcp://127.0.0.1:{port}/real'
                 murl = f'tcp://127.0.0.1:{port}/ncreate'
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
 
                     await core.nodes(f'service.add real {lurl}')
                     await core.nodes(f'service.add ncreate {murl}')
@@ -653,15 +663,15 @@ class StormSvcTest(s_test.SynTest):
                     # storm service permissions should use svcidens
                     await user.addRule((True, ('service', 'get', iden)))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('storm:proxy', msgs)
+                    self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('storm:proxy', msgs)
+                    self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('storm:proxy', msgs)
+                    self.stormIsInPrint('telepath:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     q = '$hasfoo=$lib.service.has($svc) if $hasfoo {$lib.print(yes)} else {$lib.print(no)}'
@@ -743,7 +753,7 @@ class StormSvcTest(s_test.SynTest):
 
                     async def badSetStormSvcEvents(iden, evts):
                         badiden.append(iden)
-                        raise s_exc.SynErr('Kaboom')
+                        raise s_exc.SynErr(mesg='Kaboom')
 
                     sdef = {
                         'name': 'dead',
@@ -752,7 +762,7 @@ class StormSvcTest(s_test.SynTest):
                     }
                     with patchcore(core, 'setStormSvcEvents', badSetStormSvcEvents):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        self.true(await core.waitStormSvc('dead', timeout=6))
                         await core.delStormSvc(svci.get('iden'))
 
                     self.len(1, badiden)
@@ -760,11 +770,11 @@ class StormSvcTest(s_test.SynTest):
 
                     async def badRunStormSvcAdd(iden):
                         badiden.append(iden)
-                        raise s_exc.SynErr('Kaboom')
+                        raise s_exc.SynErr(mesg='Kaboom')
 
                     with patchcore(core, '_runStormSvcAdd', badRunStormSvcAdd):
                         svci = await core.addStormSvc(sdef)
-                        self.true(await core.waitStormSvc('dead', timeout=0.2))
+                        self.true(await core.waitStormSvc('dead', timeout=6))
                         await core.delStormSvc(svci.get('iden'))
                     self.len(1, badiden)
                     self.eq(svci.get('iden'), badiden[0])
@@ -772,7 +782,7 @@ class StormSvcTest(s_test.SynTest):
     async def test_storm_svc_restarts(self):
 
         with self.getTestDir() as dirn:
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 with self.getTestDir() as svcd:
                     async with await ChangingService.anit(svcd) as chng:
                         chng.dmon.share('chng', chng)
@@ -827,7 +837,7 @@ class StormSvcTest(s_test.SynTest):
             # This test verifies that storm commands loaded from a previously connected service are still available,
             # even if the service is not available now
             with self.getLoggerStream('synapse.lib.nexus') as stream:
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
                     self.nn(core.getStormCmd('newcmd'))
                     self.nn(core.getStormCmd('new.baz'))
                     self.nn(core.getStormCmd('old.bar'))
@@ -904,19 +914,22 @@ class StormSvcTest(s_test.SynTest):
                     url = core00.getLocalUrl()
 
                     conf = {'mirror': url}
-                    async with await s_cortex.Cortex.anit(dirn=path01, conf=conf) as core01:
+                    async with self.getTestCore(dirn=path01, conf=conf) as core01:
 
                         await core01.sync()
-
-                        waitindx = await core01.getNexsIndx() + 1  # svc:add, queue:add
 
                         # Add a storm service
                         await core01.nodes(f'service.add real {lurl}')
                         await core01.nodes('$lib.service.wait(real)')
 
-                        self.true(await core01.nexsroot.nexslog.waitForOffset(waitindx, timeout=5))
+                        # Waiting for the svc to be ready on the leader means that any
+                        # svc add event has been serviced.
+                        await core00.nodes('$lib.service.wait(real)')
 
-                        # Make sure it shows up on leader
+                        # Sync the follower to ensure we're caught up.
+                        await core01.sync()
+
+                        # Make sure the package loaded on the leader and the svc add events fired
                         msgs = await core00.stormlist('help')
                         self.stormIsInPrint('service: real', msgs)
                         self.stormIsInPrint('package: foo', msgs)

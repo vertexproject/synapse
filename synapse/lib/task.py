@@ -48,7 +48,7 @@ class Task(s_base.Base):
 
         if self.boss.tasks.get(self.iden) is not None:
             mesg = 'Specified task iden already exists!'
-            raise s_exc.BadArg(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg, iden=iden)
 
         self.boss.tasks[self.iden] = self
         if root is not None:

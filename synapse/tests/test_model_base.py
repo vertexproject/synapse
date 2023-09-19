@@ -27,7 +27,7 @@ class BaseTest(s_t_utils.SynTest):
     async def test_model_base_note(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add --type hehe.haha "foo bar baz"')
             self.len(2, nodes)
             self.len(1, await core.nodes('meta:note'))
             self.len(1, await core.nodes('meta:note:created<=now'))
@@ -36,12 +36,25 @@ class BaseTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
             self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
+            self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
+            await core.nodes('meta:note | [ :updated=now ]')
+            self.len(1, await core.nodes('meta:note:updated<=now'))
 
             # Notes are always unique when made by note.add
             nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
             self.len(2, await core.nodes('meta:note'))
             self.ne(nodes[0].ndef, nodes[1].ndef)
             self.eq(nodes[0].get('text'), nodes[1].get('text'))
+
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add --yield "yieldnote"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'yieldnote')
+
+            nodes = await core.nodes('note.add --yield "nonodes"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'nonodes')
+
+            self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
 
     async def test_model_base_node(self):
 
@@ -154,20 +167,20 @@ class BaseTest(s_t_utils.SynTest):
 
             opts = {'vars': {'pers': pers}}
 
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> *', opts=opts))
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> geo:place', opts=opts))
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:has -> *', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:has -> geo:place', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
 
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
             q = 'ps:person=$pers -> edge:wentto +:time@=(2014,2017) -> geo:place'
-            await self.agenlen(1, core.eval(q, opts=opts))
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
+            self.eq(1, await core.count(q, opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
 
             opts = {'vars': {'place': plac}}
 
-            await self.agenlen(1, core.eval('geo:place=$place <- edge:has <- *', opts=opts))
-            await self.agenlen(1, core.eval('geo:place=$place <- edge:has <- ps:person', opts=opts))
-            await self.agenlen(0, core.eval('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
+            self.eq(1, await core.count('geo:place=$place <- edge:has <- *', opts=opts))
+            self.eq(1, await core.count('geo:place=$place <- edge:has <- ps:person', opts=opts))
+            self.eq(0, await core.count('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
 
             # Make a restricted edge and validate that you can only form certain relationships
             copts = {'n1:forms': ('ps:person',), 'n2:forms': ('geo:place',)}
@@ -181,11 +194,11 @@ class BaseTest(s_t_utils.SynTest):
             node = await core.getNodeByNdef(n2def)
             await node.delete()
             opts = {'vars': {'pers': pers}}
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
 
             # Make sure we don't return None nodes on a PropPivotOut
             opts = {'vars': {'pers': pers}}
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
 
     async def test_model_base_source(self):
 
@@ -196,12 +209,14 @@ class BaseTest(s_t_utils.SynTest):
                 props = {
                     'name': 'FOO BAR',
                     'type': 'osint',
+                    'url': 'https://foo.bar/index.html'
                 }
 
                 sorc = await snap.addNode('meta:source', '*', props=props)
 
                 self.eq(sorc.get('type'), 'osint')
                 self.eq(sorc.get('name'), 'foo bar')
+                self.eq(sorc.get('url'), 'https://foo.bar/index.html')
 
                 valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
 
@@ -251,6 +266,7 @@ class BaseTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401 :author=*
                     :name=" My  Rule" :desc="My cool rule"
                     :text="while TRUE { BAD }"
+                    :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
                     +(matches)> { [inet:ipv4=123.123.123] }
                 ]
@@ -263,6 +279,8 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'my rule')
             self.eq(nodes[0].get('desc'), 'My cool rule')
             self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
+            self.eq(nodes[0].get('url'), 'https://vertex.link/rules/WOOT-20')
+            self.eq(nodes[0].get('ext:id'), 'WOOT-20')
 
             self.len(1, await core.nodes('meta:rule -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -> ps:contact'))

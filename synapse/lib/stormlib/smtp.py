@@ -17,8 +17,8 @@ class SmtpLib(s_stormtypes.Lib):
     _storm_locals = (
         {'name': 'message', 'desc': 'Construct a new email message.',
          'type': {'type': 'function', '_funcname': 'message',
-                          'returns': {'type': 'storm:smtp:message',
-                                      'desc': 'The newly constructed storm:smtp:message.'}}},
+                          'returns': {'type': 'inet:smtp:message',
+                                      'desc': 'The newly constructed inet:smtp:message.'}}},
     )
     _storm_lib_path = ('inet', 'smtp',)
 
@@ -35,7 +35,7 @@ class SmtpMessage(s_stormtypes.StormType):
     '''
     An SMTP message to compose and send.
     '''
-    _storm_typename = 'storm:smtp:message'
+    _storm_typename = 'inet:smtp:message'
 
     _storm_locals = (
 
@@ -116,13 +116,13 @@ class SmtpMessage(s_stormtypes.StormType):
 
         self.gtors.update({
             'text': self._getEmailText,
-            'html': self._getEmailText,
+            'html': self._getEmailHtml,
             'sender': self._getSenderEmail,
         })
 
         self.stors.update({
             'text': self._setEmailText,
-            'html': self._setEmailText,
+            'html': self._setEmailHtml,
             'sender': self._setSenderEmail,
         })
 
@@ -154,13 +154,16 @@ class SmtpMessage(s_stormtypes.StormType):
 
         try:
             if self.bodytext is None and self.bodyhtml is None:
-                mesg = 'The storm:smtp:message has no HTML or text body.'
+                mesg = 'The inet:smtp:message has no HTML or text body.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
 
             host = await s_stormtypes.tostr(host)
             port = await s_stormtypes.toint(port)
             usetls = await s_stormtypes.tobool(usetls)
             starttls = await s_stormtypes.tobool(starttls)
+
+            if usetls and starttls:
+                raise s_exc.BadArg(mesg='usetls and starttls are mutually exclusive arguments.')
 
             timeout = await s_stormtypes.toint(timeout)
 
@@ -181,16 +184,16 @@ class SmtpMessage(s_stormtypes.StormType):
             recipients = [await s_stormtypes.tostr(e) for e in self.recipients]
 
             futu = aiosmtplib.send(message,
-                    port=port,
-                    hostname=host,
-                    sender=self.sender,
-                    recipients=recipients,
-                    use_tls=usetls,
-                    start_tls=starttls,
-                    username=user,
-                    password=passwd)
+                                   port=port,
+                                   hostname=host,
+                                   sender=self.sender,
+                                   recipients=recipients,
+                                   use_tls=usetls,
+                                   start_tls=starttls,
+                                   username=user,
+                                   password=passwd)
 
-            await asyncio.wait_for(futu, timeout=timeout)
+            await s_common.wait_for(futu, timeout=timeout)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise

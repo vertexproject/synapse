@@ -160,7 +160,7 @@ class CellLib(s_stormtypes.Lib):
     async def _hotFixesApply(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.stormFixesApply() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
         for vers, info in hotfixes:
@@ -195,7 +195,7 @@ class CellLib(s_stormtypes.Lib):
     async def _hotFixesCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
 
@@ -213,32 +213,32 @@ class CellLib(s_stormtypes.Lib):
     async def _getCellInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getCellInfo() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getCellInfo()
 
     async def _getSystemInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getSystemInfo() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getSystemInfo()
 
     async def _getBackupInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getBackupInfo() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getBackupInfo()
 
     async def _getHealthCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getHealthCheck()
 
     async def _getMirrorUrls(self, name=None):
 
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getMirrorUrls() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         name = await s_stormtypes.tostr(name, noneok=True)
 
@@ -256,7 +256,7 @@ class CellLib(s_stormtypes.Lib):
     async def _trimNexsLog(self, consumers=None, timeout=30):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.trimNexsLog() requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 

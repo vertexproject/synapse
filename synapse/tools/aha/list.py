@@ -28,10 +28,18 @@ async def _main(argv, outp):
         except IndexError:
             network = None
 
-        mesg = f"{'Service':<20s} {'network':<30s} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
+        mesg = f"{'Service':<20s} {'network':<30s} {'leader':<6} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
         outp.printf(mesg)
-        async for svc in prox.getAhaSvcs(network):
 
+        svcs = []
+        ldrs = set()
+        async for svc in prox.getAhaSvcs(network):
+            svcinfo = svc.get('svcinfo')
+            if svcinfo and svc.get('svcname') == svcinfo.get('leader'):
+                ldrs.add(svcinfo.get('run'))
+            svcs.append(svc)
+
+        for svc in svcs:
             svcname = svc.pop('svcname')
             svcnetw = svc.pop('svcnetw')
 
@@ -42,7 +50,14 @@ async def _main(argv, outp):
             port = str(urlinfo.pop('port'))
             scheme = urlinfo.pop('scheme')
 
-            mesg = f'{svcname:<20s} {svcnetw:<30s} {online:<6} {scheme:<6} {host:<20} {port:<5}'
+            leader = 'None'
+            if svcinfo.get('leader') is not None:
+                if svcinfo.get('run') in ldrs:
+                    leader = 'True'
+                else:
+                    leader = 'False'
+
+            mesg = f'{svcname:<20s} {svcnetw:<30s} {leader:<6} {online:<6} {scheme:<6} {host:<20} {port:<5}'
             if svc:
                 mesg = f'{mesg}  {svc}'
 
@@ -60,13 +75,7 @@ async def main(argv, outp=None):  # pragma: no cover
 
     s_common.setlogging(logger, 'WARNING')
 
-    path = s_common.getSynPath('telepath.yaml')
-    async with contextlib.AsyncExitStack() as ctx:
-
-        telefini = await s_telepath.loadTeleEnv(path)
-        if telefini is not None:
-            ctx.push_async_callback(telefini)
-
+    async with s_telepath.withTeleEnv():
         await _main(argv, outp)
 
     return 0

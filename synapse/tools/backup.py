@@ -95,8 +95,8 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
     skipdirs.append('**/tmp')
     skipdirs.append('**/backups')
 
-    logger.info(f'Starting backup of [{srcdir}]')
-    logger.info(f'Destination dir: [{dstdir}]')
+    logger.debug(f'Starting backup of [{srcdir}]')
+    logger.debug(f'Destination dir: [{dstdir}]')
 
     for root, dnames, fnames in os.walk(srcdir, topdown=True):
 
@@ -109,7 +109,7 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
             relname = os.path.join(relpath, name)
 
             if any([fnmatch.fnmatch(relname, pattern) for pattern in skipdirs]):
-                logger.info(f'skipping dir:{srcpath}')
+                logger.debug(f'skipping dir:{srcpath}')
                 dnames.remove(name)
                 continue
 
@@ -118,7 +118,7 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
             info = lmdbinfo.get(os.path.abspath(srcpath))
 
             if info is not None:
-                logger.info('backing up lmdb file: %s', srcpath)
+                logger.debug('backing up lmdb file: %s', srcpath)
                 dnames.remove(name)
                 env, txn = info
                 backup_lmdb(env, dstpath, txn=txn)
@@ -129,7 +129,7 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
                 dnames.remove(name)
                 continue
 
-            logger.info(f'making dir:{dstpath}')
+            logger.debug(f'making dir:{dstpath}')
             s_common.gendir(dstpath)
 
         for name in fnames:
@@ -140,12 +140,12 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
                 continue
 
             dstpath = s_common.genpath(dstdir, relpath, name)
-            logger.info(f'copying: {srcpath} -> {dstpath}')
+            logger.debug(f'copying: {srcpath} -> {dstpath}')
             shutil.copy(srcpath, dstpath)
 
     tock = s_common.now()
 
-    logger.info(f'Backup complete. Took [{tock-tick:.2f}] for [{srcdir}]')
+    logger.debug(f'Backup complete. Took [{tock-tick:.2f}] for [{srcdir}]')
     return
 
 def backup_lmdb(env, dstdir, txn=None):

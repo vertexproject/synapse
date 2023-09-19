@@ -92,6 +92,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'name': 'Tony  Stark',
                     'title': 'CEO',
                     'place': place,
+                    'place:name': 'The Shire',
                     'orgname': 'Stark Industries, INC',
                     # 'img': '',  # fixme file:bytes
                     'user': 'ironman',
@@ -128,6 +129,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('asof'), 1208131200000)
                 self.eq(node.get('person'), person0)
                 self.eq(node.get('place'), place)
+                self.eq(node.get('place:name'), 'the shire')
                 self.eq(node.get('name'), 'tony stark')
                 self.eq(node.get('title'), 'ceo')
                 self.eq(node.get('orgname'), 'stark industries, inc')
@@ -313,3 +315,18 @@ class PsModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('ps:person :vitals -> ps:vitals'))
             self.len(1, await core.nodes('ps:contact :vitals -> ps:vitals'))
+
+    async def test_ps_skillz(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ps:proficiency=*
+                    :contact = {[ ps:contact=* :name=visi ]}
+                    :skill = {[ ps:skill=* :type=hungry :name="Wanting Pizza" ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('skill'))
+            self.nn(nodes[0].get('contact'))
+            self.len(1, await core.nodes('ps:proficiency -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('ps:proficiency -> ps:skill +:name="wanting pizza"'))
+            self.len(1, await core.nodes('ps:proficiency -> ps:skill -> ps:skill:type:taxonomy'))

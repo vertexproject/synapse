@@ -27,6 +27,17 @@ class UrlTest(s_t_utils.SynTest):
                 info
                 )
 
+        url = 'tcp://pennywise%40derry.com:candy%40200@vertex.link/'
+        info = s_urlhelp.chopurl(url)
+        self.eq({'scheme': 'tcp',
+                 'user': 'pennywise@derry.com',
+                 'host': 'vertex.link',
+                 'path': '/',
+                 'passwd': 'candy@200',
+                 },
+                info
+                )
+
         url = 'tcp://pennywise@vertex.link'
         info = s_urlhelp.chopurl(url)
         self.eq({'scheme': 'tcp',

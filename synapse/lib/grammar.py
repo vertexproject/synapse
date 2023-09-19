@@ -3,7 +3,7 @@ import regex
 import synapse.exc as s_exc
 
 # TODO:  commonize with storm.lark
-re_scmd = '[a-z][a-z0-9.]+'
+re_scmd = '^[a-z][a-z0-9.]+$'
 scmdre = regex.compile(re_scmd)
 univrestr = r'\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*'
 univre = regex.compile(univrestr)

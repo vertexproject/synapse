@@ -48,17 +48,30 @@ class ProjectModule(s_module.CoreModule):
             ('proj', {
 
                 'types': (
-                    ('proj:epic', ('guid', {}), {}),
-                    ('proj:ticket', ('guid', {}), {}),
-                    ('proj:sprint', ('guid', {}), {}),
-                    ('proj:comment', ('guid', {}), {}),
-                    ('proj:project', ('guid', {}), {}),
-                    ('proj:attachment', ('guid', {}), {}),
+                    ('proj:epic', ('guid', {}), {
+                        'doc': 'A collection of tickets related to a topic.',
+                    }),
+                    ('proj:ticket', ('guid', {}), {
+                        'doc': 'A ticket in a ticketing system.',
+                    }),
+                    ('proj:sprint', ('guid', {}), {
+                        'doc': 'A timeboxed period to complete a set amount of work.',
+                    }),
+                    ('proj:comment', ('guid', {}), {
+                        'doc': 'A user comment on a ticket.',
+                    }),
+                    ('proj:project', ('guid', {}), {
+                        'doc': 'A project in a ticketing system.',
+                    }),
+                    ('proj:attachment', ('guid', {}), {
+                        'doc': 'A file attachment added to a ticket or comment.',
+                    }),
                 ),
 
                 'forms': (
 
                     ('proj:project', {}, (
+
                         ('name', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The project name.'}),
 
@@ -74,6 +87,7 @@ class ProjectModule(s_module.CoreModule):
                     )),
 
                     ('proj:sprint', {}, (
+
                         ('name', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The name of the sprint.'}),
 
@@ -100,34 +114,67 @@ class ProjectModule(s_module.CoreModule):
                     # ('proj:backlog', {}, (
 
                     ('proj:comment', {}, (
-                        ('creator', ('syn:user', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('updated', ('time', {}), {}),
-                        ('ticket', ('proj:ticket', {}), {}),
-                        ('text', ('str', {}), {}),
+
+                        ('creator', ('syn:user', {}), {
+                            'doc': 'The synapse user who added the comment.'}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The time the comment was added.'}),
+
+                        ('updated', ('time', {'ismax': True}), {
+                            'doc': 'The last time the comment was updated.'}),
+
+                        ('ticket', ('proj:ticket', {}), {
+                            'doc': 'The ticket the comment was added to.'}),
+
+                        ('text', ('str', {}), {
+                            'doc': 'The text of the comment'}),
                         # -(refs)> thing comment is about
                     )),
 
                     ('proj:epic', {}, (
-                        ('name', ('str', {'onespace': True}), {}),
-                        ('project', ('proj:project', {}), {}),
-                        ('creator', ('syn:user', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('updated', ('time', {'max': True}), {}),
+
+                        ('name', ('str', {'onespace': True}), {
+                            'doc': 'The name of the epic.'}),
+
+                        ('project', ('proj:project', {}), {
+                            'doc': 'The project containing the epic.'}),
+
+                        ('creator', ('syn:user', {}), {
+                            'doc': 'The synapse user who created the epic.'}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The time the epic was created.'}),
+
+                        ('updated', ('time', {'ismax': True}), {
+                            'doc': 'The last time the epic was updated.'}),
                     )),
 
                     ('proj:attachment', {}, (
-                        ('name', ('file:base', {}), {}),
-                        ('file', ('file:bytes', {}), {}),
-                        ('creator', ('syn:user', {}), {}),
-                        ('created', ('time', {}), {}),
-                        ('ticket', ('proj:ticket', {}), {}),
-                        ('comment', ('proj:comment', {}), {}),
+
+                        ('name', ('file:base', {}), {
+                            'doc': 'The name of the file that was attached.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was attached.'}),
+
+                        ('creator', ('syn:user', {}), {
+                            'doc': 'The synapse user who added the attachment.'}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The time the attachment was added.'}),
+
+                        ('ticket', ('proj:ticket', {}), {
+                            'doc': 'The ticket the attachment was added to.'}),
+
+                        ('comment', ('proj:comment', {}), {
+                            'doc': 'The comment the attachment was added to.'}),
                     )),
 
                     ('proj:ticket', {}, (
 
-                        ('project', ('proj:project', {}), {}),
+                        ('project', ('proj:project', {}), {
+                            'doc': 'The project containing the ticket.'}),
 
                         ('ext:id', ('str', {'strip': True}), {
                             'doc': 'A ticket ID from an external system.'}),
@@ -144,7 +191,7 @@ class ProjectModule(s_module.CoreModule):
                         ('created', ('time', {}), {
                             'doc': 'The time the ticket was created.'}),
 
-                        ('updated', ('time', {'max': True}), {
+                        ('updated', ('time', {'ismax': True}), {
                             'doc': 'The last time the ticket was updated.'}),
 
                         ('name', ('str', {'onespace': True}), {

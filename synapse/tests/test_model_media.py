@@ -23,11 +23,13 @@ class MediaModelTest(s_t_utils.SynTest):
                     'title': 'Synapse is awesome! ',
                     'summary': 'I forget ',
                     'published': 0,
+                    'updated': 0,
                     'org': 'verteX',
                     'authors': cont,
                     'publisher': publisher,
                     'publisher:name': 'The Vertex Project, LLC.',
                     'rss:feed': 'http://vertex.link/rss',
+                    'topics': ('woot', 'Foo   Bar'),
                 }
                 expected_props = {
                     'url': 'https://vertex.link/synapse',
@@ -36,11 +38,21 @@ class MediaModelTest(s_t_utils.SynTest):
                     'title': 'synapse is awesome! ',
                     'summary': 'I forget ',
                     'published': 0,
+                    'updated': 0,
                     'publisher': publisher,
                     'publisher:name': 'the vertex project, llc.',
                     'org': 'vertex',
                     'rss:feed': 'http://vertex.link/rss',
                     'authors': (cont,),
+                    'topics': ('foo bar', 'woot'),
                 }
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            self.len(2, await core.nodes('media:news -> media:topic'))
+
+            nodes = await core.nodes('media:news [ :updated="2023-01-01" ]')
+            self.eq(nodes[0].props.get('updated'), 1672531200000)
+
+            nodes = await core.nodes('media:news [ :updated="2022-01-01" ]')
+            self.eq(nodes[0].props.get('updated'), 1672531200000)

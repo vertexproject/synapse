@@ -3,6 +3,7 @@ import hashlib
 import logging
 import ipaddress
 import email.utils
+import urllib.parse
 
 import idna
 import regex
@@ -137,9 +138,14 @@ class Cidr4(s_types.Str):
         self.setNormFunc(str, self._normPyStr)
 
     def _normPyStr(self, valu):
-        ip_str, mask_str = valu.split('/', 1)
 
-        mask_int = int(mask_str)
+        try:
+            ip_str, mask_str = valu.split('/', 1)
+            mask_int = int(mask_str)
+        except ValueError:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='Invalid/Missing CIDR Mask')
+
         if mask_int > 32 or mask_int < 0:
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid CIDR Mask')
@@ -193,7 +199,11 @@ class Email(s_types.Str):
 
         try:
             user, fqdn = valu.split('@', 1)
+        except ValueError:
+            mesg = f'Email address expected in <user>@<fqdn> format, got "{valu}"'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
+        try:
             fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
             usernorm, userinfo = self.modl.type('inet:user').norm(user)
         except Exception as e:
@@ -220,7 +230,7 @@ class Fqdn(s_types.Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu == '':
                 mesg = 'Cannot generate fqdn index bytes for a empty string.'
@@ -321,6 +331,44 @@ class Fqdn(s_types.Type):
             except UnicodeError:
                 return valu
 
+class HttpCookie(s_types.Str):
+
+    def _normPyStr(self, text):
+
+        text = text.strip()
+        parts = text.split('=', 1)
+
+        name = parts[0].split(';', 1)[0].strip()
+        if len(parts) == 1:
+            return text, {'subs': {'name': name}}
+
+        valu = parts[1].split(';', 1)[0].strip()
+        return text, {'subs': {'name': name, 'value': valu}}
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+            cookies = valu.split(';')
+            for cookie in [c.strip() for c in cookies]:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        if isinstance(valu, (list, tuple)):
+
+            for cookie in valu:
+                if not cookie:
+                    continue
+
+                yield cookie
+
+            return
+
+        yield valu
+
 class IPv4(s_types.Type):
     '''
     The base type for an IPv4 address.
@@ -346,7 +394,7 @@ class IPv4(s_types.Type):
 
     def _ctorCmprEq(self, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -436,7 +484,7 @@ class IPv4(s_types.Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -489,15 +537,24 @@ class IPv6(s_types.Type):
         self.setNormFunc(int, self._normPyStr)
         self.setNormFunc(str, self._normPyStr)
 
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
         self.storlifts.update({
             '=': self._storLiftEq,
+            '>': self._storLiftNorm,
+            '<': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            '<=': self._storLiftNorm,
         })
 
     def _normPyStr(self, valu):
 
         try:
 
-            if type(valu) == str:
+            if isinstance(valu, str):
                 valu = s_chop.printables(valu)
                 if valu.find(':') == -1:
                     valu = '::ffff:' + valu
@@ -562,7 +619,7 @@ class IPv6(s_types.Type):
 
     def _ctorCmprEq(self, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -584,7 +641,7 @@ class IPv6(s_types.Type):
 
     def _storLiftEq(self, cmpr, valu):
 
-        if type(valu) == str:
+        if isinstance(valu, str):
 
             if valu.find('/') != -1:
                 minv, maxv = self.getCidrRange(valu)
@@ -599,6 +656,30 @@ class IPv6(s_types.Type):
                 )
 
         return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprGe(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed >= addr.packed
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed <= addr.packed
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed > addr.packed
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        addr = ipaddress.IPv6Address(text)
+        def cmpr(valu):
+            return ipaddress.IPv6Address(valu).packed < addr.packed
+        return cmpr
 
 class IPv4Range(s_types.Range):
 
@@ -632,8 +713,8 @@ class IPv6Range(s_types.Range):
 
     def _normPyTuple(self, valu):
         if len(valu) != 2:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}')
+            raise s_exc.BadTypeValu(numitems=len(valu), name=self.name,
+                                    mesg=f'Must be a 2-tuple of type {self.subtype.name}: {repr(valu)[:256]}')
 
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
@@ -791,9 +872,9 @@ class Url(s_types.Str):
         if len(parts) == 2:
             authparts, valu = parts
             userpass = authparts.split(':', 1)
-            subs['user'] = userpass[0]
+            subs['user'] = urllib.parse.unquote(userpass[0])
             if len(userpass) == 2:
-                subs['passwd'] = userpass[1]
+                subs['passwd'] = urllib.parse.unquote(userpass[1])
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
@@ -902,8 +983,8 @@ class InetModule(s_module.CoreModule):
     async def _onAddPasswd(self, node):
 
         byts = node.ndef[1].encode('utf8')
-        await node.set('md5', hashlib.md5(byts).hexdigest())
-        await node.set('sha1', hashlib.sha1(byts).hexdigest())
+        await node.set('md5', hashlib.md5(byts, usedforsecurity=False).hexdigest())
+        await node.set('sha1', hashlib.sha1(byts, usedforsecurity=False).hexdigest())
         await node.set('sha256', hashlib.sha256(byts).hexdigest())
 
     async def _onAddFqdn(self, node):
@@ -1043,13 +1124,27 @@ class InetModule(s_module.CoreModule):
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
 
+                    ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
+                        'doc': 'An individual HTTP cookie string.',
+                        'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
+                    }),
+
+                ),
+
+                'edges': (
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv4'), {
+                        'doc': 'The source IP whois record describes the target IPv4 address.'}),
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv6'), {
+                        'doc': 'The source IP whois record describes the target IPv6 address.'}),
                 ),
 
                 'types': (
 
                     ('inet:asn', ('int', {}), {
-                        'doc': 'An Autonomous System Number (ASN).'
-                    }),
+                        'doc': 'An Autonomous System Number (ASN).'}),
+
+                    ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
+                        'doc': 'A network protocol name.'}),
 
                     ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
                         'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
@@ -1070,15 +1165,21 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:flow', ('guid', {}), {
-                        'doc': 'An individual network connection between a given source and destination.'
-                    }),
+                        'doc': 'An individual network connection between a given source and destination.'}),
+
+                    ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy',),
+                        'doc': 'A taxonomy of network tunnel types.'}),
+
+                    ('inet:tunnel', ('guid', {}), {
+                        'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
+
+                    ('inet:egress', ('guid', {}), {
+                        'doc': 'A host using a specific network egress client address.'}),
 
                     ('inet:group', ('str', {}), {
                         'doc': 'A group name string.'
                     }),
-
-                    ('inet:http:cookie', ('str', {}), {
-                        'doc': 'An HTTP cookie string.'}),
 
                     ('inet:http:header:name', ('str', {'lower': True}), {}),
 
@@ -1189,6 +1290,9 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A file posted by a web account.'
                     }),
 
+                    ('inet:web:attachment', ('guid', {}), {
+                        'doc': 'An instance of a file being sent to a web service by an account.'}),
+
                     ('inet:web:follows', ('comp', {'fields': (('follower', 'inet:web:acct'), ('followee', 'inet:web:acct'))}), {
                         'doc': 'A web account follows or is connected to another web account.'
                     }),
@@ -1201,11 +1305,13 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:logon', ('guid', {}), {
                         'doc': 'An instance of an account authenticating to an Internet-based site or service.'
                     }),
-
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
-                        'doc': 'A web account that is a member of a web group.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:web:member.'
                     }),
-
+                    ('inet:web:member', ('guid', {}), {
+                        'doc': 'Represents a web account membership in a channel or group.',
+                    }),
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
                         'doc': 'A message sent from one web account to another web account or channel.',
                         'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
@@ -1213,6 +1319,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
+                    }),
+
+                    ('inet:web:post:link', ('guid', {}), {
+                        'doc': 'A link contained within post text.'
                     }),
 
                     ('inet:web:instance', ('guid', {}), {
@@ -1280,28 +1390,27 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:email:message', ('guid', {}), {
-                        'doc': 'A unique email message.',
-                    }),
+                        'doc': 'An individual email message delivered to an inbox.'}),
 
                     ('inet:email:header:name', ('str', {'lower': True}), {
-                        'doc': 'An email header name.',
                         'ex': 'subject',
-                    }),
+                        'doc': 'An email header name.'}),
+
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
-                        'doc': 'A unique email message header.',
-                    }),
+                        'doc': 'A unique email message header.'}),
+
                     ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
-                        'doc': 'A file which was attached to an email message.',
-                    }),
+                        'doc': 'A file which was attached to an email message.'}),
+
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
-                        'doc': 'A url/link embedded in an email message.',
-                    }),
+                        'doc': 'A url/link embedded in an email message.'}),
+
                     ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
-                        'doc': 'A TLS JARM fingerprint hash.',
-                    }),
+                        'doc': 'A TLS JARM fingerprint hash.'}),
+
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
-                        'doc': 'A JARM hash sample taken from a server.',
-                    }),
+                        'doc': 'A JARM hash sample taken from a server.'}),
+
                 ),
 
                 'interfaces': (
@@ -1338,33 +1447,41 @@ class InetModule(s_module.CoreModule):
 
                 'forms': (
 
+                    ('inet:proto', {}, (
+                        ('port', ('inet:port', {}), {
+                            'doc': 'The default port this protocol typically uses if applicable.'}),
+                    )),
+
                     ('inet:email:message', {}, (
 
                         ('to', ('inet:email', {}), {
-                            'doc': 'The email address of the recipient.'
-                        }),
+                            'doc': 'The email address of the recipient.'}),
+
                         ('from', ('inet:email', {}), {
-                            'doc': 'The email address of the sender.'
-                        }),
+                            'doc': 'The email address of the sender.'}),
+
                         ('replyto', ('inet:email', {}), {
-                            'doc': 'The email address from the reply-to header.'
-                        }),
+                            'doc': 'The email address parsed from the "reply-to" header.'}),
+
+                        ('cc', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Email addresses parsed from the "cc" header.'}),
+
                         ('subject', ('str', {}), {
-                            'doc': 'The email message subject line.'
-                        }),
+                            'doc': 'The email message subject parsed from the "subject" header.'}),
+
                         ('body', ('str', {}), {
-                            'doc': 'The body of the email message.',
                             'disp': {'hint': 'text'},
-                        }),
+                            'doc': 'The body of the email message.'}),
+
                         ('date', ('time', {}), {
-                            'doc': 'The time the email message was received.'
-                        }),
+                            'doc': 'The time the email message was delivered.'}),
+
                         ('bytes', ('file:bytes', {}), {
-                            'doc': 'The file bytes which contain the email message.'
-                        }),
+                            'doc': 'The file bytes which contain the email message.'}),
+
                         ('headers', ('array', {'type': 'inet:email:header'}), {
-                            'doc': 'An array of email headers from the message.'
-                        }),
+                            'doc': 'An array of email headers from the message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
@@ -1394,6 +1511,8 @@ class InetModule(s_module.CoreModule):
                         ('url', ('inet:url', {}), {
                             'ro': True,
                             'doc': 'The url contained within the email message.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
                     )),
 
                     ('inet:asn', {}, (
@@ -1640,13 +1759,13 @@ class InetModule(s_module.CoreModule):
                         ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the destination host.',
                         }),
-                        ('dst:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the destination host.',
                         }),
                         ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the source host.',
                         }),
-                        ('src:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the source host.',
                         }),
                         ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
@@ -1658,6 +1777,56 @@ class InetModule(s_module.CoreModule):
                         ('sandbox:file', ('file:bytes', {}), {
                             'doc': 'The initial sample given to a sandbox environment to analyze.'
                         }),
+
+                        ('src:ssl:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the client as part of an SSL/TLS negotiation.'}),
+
+                        ('dst:ssl:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The x509 certificate sent by the server as part of an SSL/TLS negotiation.'}),
+
+                        ('src:rdp:hostname', ('it:hostname', {}), {
+                            'doc': 'The hostname sent by the client as part of an RDP session setup.'}),
+
+                        ('src:rdp:keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The keyboard layout sent by the client as part of an RDP session setup.'}),
+
+                        ('src:ssh:key', ('crypto:key', {}), {
+                            'doc': 'The key sent by the client as part of an SSH session setup.'}),
+
+                        ('dst:ssh:key', ('crypto:key', {}), {
+                            'doc': 'The key sent by the server as part of an SSH session setup.'}),
+
+                        ('raw', ('data', {}), {
+                            'doc': 'A raw record used to create the flow which may contain additional protocol details.'}),
+                    )),
+
+                    ('inet:tunnel:type:taxonomy', {}, ()),
+                    ('inet:tunnel', {}, (
+                        ('anon', ('bool', {}), {
+                            'doc': 'Indicates that this tunnel provides anonymization.'}),
+                        ('type', ('inet:tunnel:type:taxonomy', {}), {
+                            'doc': 'The type of tunnel such as vpn or proxy.'}),
+                        ('ingress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic enters the tunnel.'}),
+                        ('egress', ('inet:server', {}), {
+                            'doc': 'The server where client traffic leaves the tunnel.'}),
+                        ('operator', ('ps:contact', {}), {
+                            'doc': 'The contact information for the tunnel operator.'}),
+                    )),
+
+                    ('inet:egress', {}, (
+
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host that used the network egress.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address the host used as a network egress.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The client IPv4 address the host used as a network egress.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The client IPv6 address the host used as a network egress.'}),
                     )),
 
                     ('inet:fqdn', {}, (
@@ -1712,7 +1881,12 @@ class InetModule(s_module.CoreModule):
 
                     )),
 
-                    ('inet:http:cookie', {}, ()),
+                    ('inet:http:cookie', {}, (
+                        ('name', ('str', {}), {
+                            'doc': 'The name of the cookie preceding the equal sign.'}),
+                        ('value', ('str', {}), {
+                            'doc': 'The value of the cookie after the equal sign if present.'}),
+                    )),
 
                     ('inet:http:request', {}, (
 
@@ -1735,6 +1909,12 @@ class InetModule(s_module.CoreModule):
                         ('body', ('file:bytes', {}), {
                             'doc': 'The body of the HTTP request.'}),
 
+                        ('referer', ('inet:url', {}), {
+                            'doc': 'The referer URL parsed from the "Referer:" header in the request.'}),
+
+                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of HTTP cookie values parsed from the "Cookies:" header in the request.'}),
+
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
@@ -1748,6 +1928,8 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:session', {}, (
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The ps:contact which owns the session.'}),
+                        ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of cookies used to identify this specific session.'}),
                     )),
 
                     ('inet:iface', {}, (
@@ -2064,6 +2246,8 @@ class InetModule(s_module.CoreModule):
                             'ex': 'google',
                             'doc': 'A simple name for the search engine used.',
                         }),
+                        ('request', ('inet:http:request', {}), {
+                            'doc': 'The HTTP request used to issue the query.'}),
                     )),
 
                     ('inet:search:result', {}, (
@@ -2088,6 +2272,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:acct', {}, (
                         ('avatar', ('file:bytes', {}), {
                             'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
+                        }),
+                        ('banner', ('file:bytes', {}), {
+                            'doc': 'The file representing the banner for the account.'
                         }),
                         ('dob', ('time', {}), {
                             'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
@@ -2257,17 +2444,66 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the file owned by or associated with the account.'
                         }),
                         ('posted', ('time', {}), {
-                            'doc': 'The date and time the file was posted / submitted.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client', ('inet:client', {}), {
-                            'doc': 'The source client address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+
                         ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address used to post or submit the file.'
-                        }),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
+                    )),
+
+                    ('inet:web:attachment', {}, (
+
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that uploaded the file.'}),
+
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The optional web post that the file was attached to.'}),
+
+                        ('mesg', ('inet:web:mesg', {}), {
+                            'doc': 'The optional web message that the file was attached to.'}),
+
+                        ('proto', ('inet:proto', {}), {
+                            'ex': 'https',
+                            'doc': 'The protocol used to transmit the file to the web service.'}),
+
+                        ('interactive', ('bool', {}), {
+                            'doc': 'Set to true if the upload was interactive. False if automated.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file that was sent.'}),
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the file at the time it was sent.'}),
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the file was sent.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The client address which initiated the upload.'}),
+
+                        ('client:ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The IPv4 address of the client that initiated the upload.'}),
+
+                        ('client:ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The IPv6 address of the client that initiated the upload.'}),
+
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place the file was sent from.'}),
+
+                        ('place:loc', ('loc', {}), {
+                            'doc': 'The geopolitical location that the file was sent from.'}),
+
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The reported name of the place that the file was sent from.'}),
                     )),
 
                     ('inet:web:follows', {}, (
@@ -2339,19 +2575,15 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:web:logon', {}, (
                         ('acct', ('inet:web:acct', {}), {
-                            'ro': True,
                             'doc': 'The web account associated with the logon event.'
                         }),
                         ('acct:site', ('inet:fqdn', {}), {
-                            'ro': True,
                             'doc': 'The site or service associated with the account.'
                         }),
                         ('acct:user', ('inet:user', {}), {
-                            'ro': True,
                             'doc': 'The unique identifier for the account.'
                         }),
                         ('time', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged into the service.'
                         }),
                         ('client', ('inet:client', {}), {
@@ -2364,7 +2596,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {
-                            'ro': True,
                             'doc': 'The date and time the account logged out of the service.'
                         }),
                         ('loc', ('loc', {}), {
@@ -2394,7 +2625,23 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date / time the account joined the group.'
                         }),
                     )),
-
+                    ('inet:web:member', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that is a member of the group or channel.'
+                        }),
+                        ('group', ('inet:web:group', {}), {
+                            'doc': 'The group that the account is a member of.'
+                        }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel that the account is a member of.'
+                        }),
+                        ('added', ('time', {}), {
+                            'doc': 'The date / time the account was added to the group or channel.'
+                        }),
+                        ('removed', ('time', {}), {
+                            'doc': 'The date / time the account was removed from the group or channel.'
+                        }),
+                    )),
                     ('inet:web:mesg', {}, (
                         ('from', ('inet:web:acct', {}), {
                             'ro': True,
@@ -2423,6 +2670,9 @@ class InetModule(s_module.CoreModule):
                         ('text', ('str', {}), {
                             'doc': 'The text of the message.',
                             'disp': {'hint': 'text'},
+                        }),
+                        ('deleted', ('bool', {}), {
+                            'doc': 'The message was deleted.',
                         }),
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
@@ -2504,6 +2754,15 @@ class InetModule(s_module.CoreModule):
                         ('channel', ('inet:web:channel', {}), {
                             'doc': 'The channel where the post was made.',
                         }),
+                    )),
+
+                    ('inet:web:post:link', {}, (
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The post containing the embedded link.'}),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The url that the link forwards to.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
                     )),
 
                     ('inet:web:instance', {}, (
@@ -2768,7 +3027,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
                         }),
                         ('registrant', ('inet:whois:ipcontact', {}), {
-                            'doc': 'The registrant contact from the record.'
+                            'deprecated': True,
+                            'doc': 'Deprecated. Add the registrant inet:whois:ipcontact to the :contacts array.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',

@@ -120,8 +120,6 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('Modified cron job'))
                     await cmdr.runCmdLine(f"cron edit xxx {{[graph:node='*' :type=m2]}}")
                     self.true(outp.expect('does not match'))
-                    await cmdr.runCmdLine(f"cron mod xxx yyy")
-                    self.true(outp.expect('expected second argument to start with {'))
 
                     # Make sure the old one didn't run and the new query ran
                     unixtime += 60
@@ -257,7 +255,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('Created cron job'))
 
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
                     self.eq('year1', await getNextFoo())
 
                     outp.clear()
@@ -274,7 +272,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     self.true(outp.expect('Created cron job'))
 
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('year2', await getNextFoo())
 
@@ -288,20 +286,17 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine('at --not-a-real-flag')
                     self.true(outp.expect('the following arguments'))
 
-                    await cmdr.runCmdLine('at {#foo} {#bar}')
-                    self.true(outp.expect('only a single query'))
-
                     await cmdr.runCmdLine('at {#foo}')
                     self.true(outp.expect('at least'))
 
-                    await cmdr.runCmdLine('at +1')
+                    await cmdr.runCmdLine('at +1 {foo:bar}')
                     self.true(outp.expect('missing unit'))
 
-                    await cmdr.runCmdLine('at +1parsec')
+                    await cmdr.runCmdLine('at +1parsec {#woot}')
                     self.true(outp.expect('Trouble parsing'))
 
                     await cmdr.runCmdLine('at +1day')
-                    self.true(outp.expect('Missing query'))
+                    self.true(outp.expect('one requirement must'))
 
                     await cmdr.runCmdLine("at +5 minutes {$lib.queue.get(foo).put(at1)}")
 
@@ -323,7 +318,7 @@ class CmdCronTest(s_t_utils.SynTest):
                     await cmdr.runCmdLine("at 202104170415 {$lib.queue.get(foo).put(at3)}")
 
                     unixtime = datetime.datetime(year=2021, month=4, day=17, hour=4, minute=15,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('at3', await getNextFoo())
                     outp.clear()

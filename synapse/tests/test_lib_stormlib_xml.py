@@ -1,3 +1,5 @@
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
@@ -26,6 +28,9 @@ xml0 = '''
     </country>
 </data>
 '''.strip()
+
+def mockexc(text):
+    raise Exception('newp')
 
 class XmlTest(s_test.SynTest):
 
@@ -101,3 +106,7 @@ class XmlTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 opts = {'vars': {'bytes': b'asdf'}}
                 await core.callStorm('$lib.xml.parse($bytes)', opts=opts)
+
+            with mock.patch('xml.etree.ElementTree.fromstring', mockexc):
+                with self.raises(Exception):
+                    await core.callStorm('$lib.xml.parse("")', opts=opts)

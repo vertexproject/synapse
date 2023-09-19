@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 11)
+maxvers = (0, 2, 21)
 
 class ModelRev:
 
@@ -25,6 +25,16 @@ class ModelRev:
             ((0, 2, 9), self.revModel20220509),
             ((0, 2, 10), self.revModel20220706),
             ((0, 2, 11), self.revModel20220803),
+            ((0, 2, 12), self.revModel20220901),
+            ((0, 2, 13), self.revModel20221025),
+            ((0, 2, 14), self.revModel20221123),
+            ((0, 2, 15), self.revModel20221212),
+            ((0, 2, 16), self.revModel20221220),
+            ((0, 2, 17), self.revModel20230209),
+            ((0, 2, 18), self.revModel_0_2_18),
+            ((0, 2, 19), self.revModel_0_2_19),
+            ((0, 2, 20), self.revModel_0_2_20),
+            ((0, 2, 21), self.revModel_0_2_21),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -566,6 +576,155 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+    async def revModel20220901(self, layers):
+
+        await self._normPropValu(layers, 'pol:country:name')
+        await self._propToForm(layers, 'pol:country:name', 'geo:name')
+
+        await self._normPropValu(layers, 'risk:alert:type')
+        await self._propToForm(layers, 'risk:alert:type', 'risk:alert:taxonomy')
+
+    async def revModel20221025(self, layers):
+        await self._propToForm(layers, 'risk:tool:software:type', 'risk:tool:software:taxonomy')
+
+    async def revModel20221123(self, layers):
+        await self._normPropValu(layers, 'inet:flow:dst:softnames')
+        await self._normPropValu(layers, 'inet:flow:src:softnames')
+
+        await self._propArrayToForm(layers, 'inet:flow:dst:softnames', 'it:prod:softname')
+        await self._propArrayToForm(layers, 'inet:flow:src:softnames', 'it:prod:softname')
+
+    async def revModel20221212(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        props = [
+            'ou:contract:award:price',
+            'ou:contract:budget:price'
+        ]
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for propname in props:
+                prop = self.core.model.prop(propname)
+
+                async def movetodata(buid, valu):
+                    (retn, data) = await layr.getNodeData(buid, 'migration:0_2_15')
+                    if retn:
+                        data[prop.name] = valu
+                    else:
+                        data = {prop.name: valu}
+
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, valu, s_layer.STOR_TYPE_UTF8), ()),
+                            (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_15', data, None), ()),
+                        )),
+                    )
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
+                    try:
+                        norm, info = prop.type.norm(propvalu)
+                    except s_exc.BadTypeValu as e:
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                        await movetodata(buid, propvalu)
+                        continue
+
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, s_layer.STOR_TYPE_UTF8), ()),
+                            (s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+                if nodeedits:
+                    await save()
+
+    async def revModel20221220(self, layers):
+        todoprops = (
+            'risk:tool:software:soft:names',
+            'risk:tool:software:techniques'
+        )
+        await self._uniqSortArray(todoprops, layers)
+
+    async def revModel20230209(self, layers):
+
+        await self._normFormSubs(layers, 'inet:http:cookie')
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop('risk:vuln:cvss:av')
+            propname = prop.name
+            formname = prop.form.name
+            stortype = prop.type.stortype
+
+            oldvalu = 'V'
+            newvalu = 'P'
+
+            async for buid, propvalu in layr.iterPropRows(formname, propname, stortype=stortype, startvalu=oldvalu):
+
+                if propvalu != oldvalu:  # pragma: no cover
+                    break
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
+                        (s_layer.EDIT_PROP_SET, (propname, newvalu, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def revModel_0_2_18(self, layers):
+        await self._propToForm(layers, 'file:bytes:mime:pe:imphash', 'hash:md5')
+        await self._normPropValu(layers, 'ou:goal:type')
+        await self._propToForm(layers, 'ou:goal:type', 'ou:goal:type:taxonomy')
+
+        await self._normPropValu(layers, 'ou:goal:name')
+        await self._propToForm(layers, 'ou:goal:name', 'ou:goalname')
+
+    async def revModel_0_2_19(self, layers):
+        await self._normPropValu(layers, 'ou:campaign:name')
+        await self._propToForm(layers, 'ou:campaign:name', 'ou:campname')
+        await self._normPropValu(layers, 'risk:vuln:type')
+        await self._propToForm(layers, 'risk:vuln:type', 'risk:vuln:type:taxonomy')
+
+    async def revModel_0_2_20(self, layers):
+        await self._normFormSubs(layers, 'inet:url', liftprop='user')
+        await self._propToForm(layers, 'inet:url:user', 'inet:user')
+        await self._propToForm(layers, 'inet:url:passwd', 'inet:passwd')
+
+        await self._updatePropStortype(layers, 'file:bytes:mime:pe:imphash')
+
+    async def revModel_0_2_21(self, layers):
+        await self._normPropValu(layers, 'risk:vuln:cvss:v2')
+        await self._normPropValu(layers, 'risk:vuln:cvss:v3')
+
+        await self._normPropValu(layers, 'risk:vuln:name')
+        await self._propToForm(layers, 'risk:vuln:name', 'risk:vulnname')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -592,52 +751,52 @@ class ModelRev:
 
     async def revCoreLayers(self):
 
-        version = self.revs[-1][0] if self.revs else maxvers
+        async with self.core.enterMigrationMode():
 
-        # do a first pass to detect layers at the wrong version
-        # that we are not able to rev ourselves and bail...
+            version = self.revs[-1][0] if self.revs else maxvers
 
-        layers = []
-        for layr in self.core.layers.values():
+            # do a first pass to detect layers at the wrong version
+            # that we are not able to rev ourselves and bail...
 
-            if layr.fresh:
-                await layr.setModelVers(version)
-                continue
+            layers = []
+            for layr in self.core.layers.values():
 
-            vers = await layr.getModelVers()
-            if vers == version:
-                continue
+                if layr.fresh:
+                    await layr.setModelVers(version)
+                    continue
 
-            if not layr.canrev and vers != version:
-                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+                vers = await layr.getModelVers()
+                if vers == version:
+                    continue
 
-            if vers > version:
-                mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
-                raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
+                if not layr.canrev and vers != version:
+                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) can not be updated.'
+                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-            # realistically all layers are probably at the same version... but...
-            layers.append(layr)
+                if vers > version:
+                    mesg = f'layer {layr.__class__.__name__} {layr.iden} ({layr.dirn}) is from the future!'
+                    raise s_exc.CantRevLayer(layer=layr.iden, mesg=mesg, curv=version, layv=vers)
 
-        # got anything to do?
-        if not layers:
-            return
+                # realistically all layers are probably at the same version... but...
+                layers.append(layr)
 
-        await self.core._enableMigrationMode()
-        for revvers, revmeth in self.revs:
+            # got anything to do?
+            if not layers:
+                return
 
-            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
-            if not todo:
-                continue
+            for revvers, revmeth in self.revs:
 
-            logger.warning(f'beginning model migration -> {revvers}')
+                todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
+                if not todo:
+                    continue
 
-            await revmeth(todo)
+                logger.warning(f'beginning model migration -> {revvers}')
 
-            [await lyr.setModelVers(revvers) for lyr in todo]
+                await revmeth(todo)
 
-        await self.core._disableMigrationMode()
-        logger.warning('...model migrations complete!')
+                [await lyr.setModelVers(revvers) for lyr in todo]
+
+            logger.warning('...model migrations complete!')
 
     async def _normPropValu(self, layers, propfull):
 
@@ -655,9 +814,17 @@ class ModelRev:
             async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
-                except s_exc.BadTypeValu as e: # pragma: no cover
+                except s_exc.BadTypeValu as e:
+                    nodeedits.append(
+                        (buid, prop.form.name, (
+                            (s_layer.EDIT_NODEDATA_SET, (f'_migrated:{prop.full}', propvalu, None), ()),
+                            (s_layer.EDIT_PROP_DEL, (prop.name, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                    iden = s_common.ehex(buid)
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} (layer: {layr.iden}, node: {iden}): {oldm}',
+                                   extra={'synapse': {'node': iden, 'layer': layr.iden}})
                     continue
 
                 if norm == propvalu:
@@ -675,9 +842,125 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    async def _propToForm(self, layers, propfull, formname):
+    async def _updatePropStortype(self, layers, propfull):
 
-        propname = self.core.model.prop(propfull).name
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop(propfull)
+            stortype = prop.type.stortype
+
+            async for lkey, buid, sode in layr.liftByProp(prop.form.name, prop.name):
+
+                props = sode.get('props')
+
+                # this should be impossible, but has been observed in the wild...
+                if props is None: # pragma: no cover
+                    continue
+
+                curv = props.get(prop.name)
+                if curv is None or curv[1] == stortype:
+                    continue
+
+                nodeedits.append(
+                    (buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, curv[0], curv[0], stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normFormSubs(self, layers, formname, liftprop=None):
+
+        # NOTE: this API may be used to re-normalize subs but *not* to change their storage types
+        # and will *not* auto-populate linked forms from subs which are form types.
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        subprops = {}
+
+        form = self.core.model.form(formname)
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for lkey, buid, sode in layr.liftByProp(form.name, liftprop):
+
+                sodevalu = sode.get('valu')
+                if sodevalu is None: # pragma: no cover
+                    continue
+
+                formvalu = sodevalu[0]
+
+                try:
+                    norm, info = form.type.norm(formvalu)
+                except s_exc.BadTypeValu as e: # pragma: no cover
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Skipping {formname}={formvalu} : {oldm}')
+                    continue
+
+                edits = []
+                subs = info.get('subs')
+                if subs is not None:
+
+                    for subname, subvalu in subs.items():
+
+                        subprop = subprops.get(subname, s_common.novalu)
+                        if subprop is s_common.novalu:
+                            subprop = subprops[subname] = self.core.model.prop(f'{formname}:{subname}')
+
+                        if subprop is None: # pragma: no cover
+                            continue
+
+                        try:
+                            subnorm, subinfo = subprop.type.norm(subvalu)
+                        except s_exc.BadTypeValu as e: # pragma: no cover
+                            oldm = e.errinfo.get('mesg')
+                            logger.warning(f'error norming subvalue {subprop.full}={subvalu}: {oldm}')
+                            continue
+
+                        props = sode.get('props')
+                        if props is None: # pragma: no cover
+                            continue
+
+                        subcurv = props.get(subprop.name)
+                        if subcurv is not None:
+                            if subcurv[1] != subprop.type.stortype: # pragma: no cover
+                                logger.warning(f'normFormSubs() may not be used to change storage types for {subprop.full}')
+                                continue
+                            subcurv = subcurv[0]
+
+                        if subcurv == subnorm:
+                            continue
+
+                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, subcurv, subprop.type.stortype), ()))
+
+                    if not edits: # pragma: no cover
+                        continue
+
+                    nodeedits.append((buid, formname, edits))
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+            if nodeedits:
+                await save()
+
+    async def _propToForm(self, layers, propfull, formname):
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
@@ -703,8 +986,6 @@ class ModelRev:
         await self.runStorm(storm, opts=opts)
 
     async def _propArrayToForm(self, layers, propfull, formname):
-
-        propname = self.core.model.prop(propfull).name
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],

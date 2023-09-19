@@ -1,5 +1,6 @@
 import shutil
 import asyncio
+import hashlib
 import logging
 import itertools
 import collections
@@ -32,7 +33,9 @@ reqValidVdef = s_config.getJsValidator({
         'nomerge': {'type': 'boolean'},
         'layers': {
             'type': 'array',
-            'items': {'type': 'string', 'pattern': s_config.re_iden}
+            'items': {'type': 'string', 'pattern': s_config.re_iden},
+            'minItems': 1,
+            'uniqueItems': True
         },
     },
     'additionalProperties': True,
@@ -108,6 +111,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
         self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab.addResizeCallback(core.checkFreeSpace)
+
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
         trignode = await node.open(('triggers',))
@@ -315,7 +320,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
 
             for layr in self.layers:
 
@@ -331,7 +336,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdges(self, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as eset:
 
             for layr in self.layers:
 
@@ -358,17 +363,23 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None):
+    async def eval(self, text, opts=None, log_info=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+        if log_info is None:
+            log_info = {}
+
+        log_info['mode'] = opts.get('mode', 'storm')
+        log_info['view'] = self.iden
+
+        self.core._logStormQuery(text, user, info=log_info)
 
         taskiden = opts.get('task')
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await self.snap(user=user) as snap:
@@ -416,14 +427,21 @@ class View(s_nexus.Pusher):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
+        if not isinstance(text, str):
+            mesg = 'Storm query text must be a string'
+            raise s_exc.BadArg(mesg=mesg)
+
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
+        keepalive = opts.get('keepalive')
+        if keepalive is not None and keepalive <= 0:
+            raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
         synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
@@ -433,6 +451,11 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
+        if editformat == 'splices':
+            s_common.deprdate('storm option editformat=splices', s_common._splicedepr)
+
+        texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+
         async def runStorm():
             cancelled = False
             tick = s_common.now()
@@ -440,7 +463,8 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
 
                 # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
+                await chan.put(('init', {'tick': tick, 'text': text,
+                                         'hash': texthash, 'task': synt.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
@@ -449,6 +473,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 shownode = (not show or 'node' in show)
 
                 async with await self.snap(user=user) as snap:
+
+                    if keepalive:
+                        snap.schedCoro(snap.keepalive(keepalive))
 
                     if not show:
                         snap.link(chan.put)
@@ -462,7 +489,8 @@ class View(s_nexus.Pusher):  # type: ignore
                             count += 1
 
                     else:
-                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+                        self.core._logStormQuery(text, user,
+                                                 info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
 
@@ -539,7 +567,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -588,6 +616,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise s_exc.BadArg(mesg=mesg)
 
             if self.parent is not None:
+                if self.parent.iden == parent.iden:
+                    return valu
                 mesg = 'You may not set parent on a view which already has one.'
                 raise s_exc.BadArg(mesg=mesg)
 
@@ -604,11 +634,16 @@ class View(s_nexus.Pusher):  # type: ignore
                 if view.isForkOf(self.iden):
                     await view._calcForkLayers()
 
-            await self.core._calcViewsByLayer()
+            self.core._calcViewsByLayer()
 
         else:
-            await self.info.set(name, valu)
+            if valu is None:
+                await self.info.pop(name)
+            else:
+                await self.info.set(name, valu)
 
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
+                                     gates=[self.iden, self.layers[0].iden])
         return valu
 
     async def addLayer(self, layriden, indx=None):
@@ -640,6 +675,7 @@ class View(s_nexus.Pusher):  # type: ignore
             self.layers.insert(indx, layr)
 
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
+        await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -669,6 +705,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = layrs
 
         await self.info.set('layers', layers)
+        await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
 
     async def fork(self, ldef=None, vdef=None):
         '''
@@ -710,7 +747,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.mergeAllowed(user, force=force)
 
-        await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+        taskinfo = {'merging': self.iden, 'view': self.iden}
+        await self.core.boss.promote('storm', user=user, info=taskinfo)
 
         async with await self.parent.snap(user=user) as snap:
 
@@ -743,8 +781,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+        mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
 
     async def mergeAllowed(self, user=None, force=False):
         '''
@@ -895,6 +933,8 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
         await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
+        await self.core.feedBeholder('trigger:add', trig.pack(), gates=[trig.iden])
+
         return trig.pack()
 
     async def getTrigger(self, iden):
@@ -920,6 +960,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             return
 
+        await self.core.feedBeholder('trigger:del', {'iden': trig.iden, 'view': trig.view.iden}, gates=[trig.iden])
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
@@ -929,6 +970,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
+
+        await self.core.feedBeholder('trigger:set', {'iden': trig.iden, 'view': trig.view.iden, 'name': name, 'valu': valu}, gates=[trig.iden])
 
     async def listTriggers(self):
         '''
@@ -947,6 +990,10 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.node.pop()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
+    async def addNode(self, form, valu, props=None, user=None):
+        async with await self.snap(user=user) as snap:
+            return await snap.addNode(form, valu, props=props)
+
     async def addNodeEdits(self, edits, meta):
         '''
         A telepath compatible way to apply node edits to a view.
@@ -962,10 +1009,10 @@ class View(s_nexus.Pusher):  # type: ignore
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
 
-    async def scrapeIface(self, text, unique=False):
-        async with await s_spooled.Set.anit() as matches:  # type: s_spooled.Set
+    async def scrapeIface(self, text, unique=False, refang=True):
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, refang=True, first=False):
+            for item in s_scrape.contextScrape(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:
@@ -978,7 +1025,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     tobj = self.core.model.type(form)
                     valu, _ = tobj.norm(valu)
-                except s_exc.BadTypeValu:  # pragma: no cover
+                except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
 

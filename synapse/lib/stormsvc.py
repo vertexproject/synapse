@@ -37,7 +37,7 @@ stormcmds = (
                 }
             }
 
-            $count = $svcs.length()
+            $count = $svcs.size()
 
             if $( $count = 1 ) {
                 $sdef = $svcs.index(0)
@@ -119,7 +119,7 @@ class StormSvcClient(s_base.Base):
         self.iden = sdef.get('iden')
         self.name = sdef.get('name')  # Local name for the cortex
         self.svcname = ''  # remote name from the service
-        self.svcvers = ''  # remove version from the service
+        self.svcvers = ''  # remote version from the service
 
         # service info from the server...
         self.info = None
@@ -137,6 +137,8 @@ class StormSvcClient(s_base.Base):
         self.svcname = self.info['name']
         self.svcvers = self.info['vers']
         self.core.svcsbysvcname[self.svcname] = self
+
+        await self.core.feedBeholder('svc:set', {'name': self.name, 'iden': self.iden, 'svcname': self.svcname, 'version': self.svcvers})
 
         try:
             await self.core._delStormSvcPkgs(self.iden)

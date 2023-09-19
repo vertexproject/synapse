@@ -28,8 +28,12 @@ class EconModule(s_module.CoreModule):
                 ('econ:purchase', ('guid', {}), {
                     'doc': 'A purchase event.'}),
 
+                ('econ:receipt:item', ('guid', {}), {
+                    'doc': 'A line item included as part of a purchase.'}),
+
                 ('econ:acquired', ('comp', {'fields': (('purchase', 'econ:purchase'), ('item', 'ndef'))}), {
-                    'doc': 'A relationship between a purchase event and a purchased item.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use econ:purchase -(acquired)> *.'}),
 
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment or crypto currency transaction.'}),
@@ -57,13 +61,15 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:tick', ('guid', {}), {
                     'doc': 'A sample of the price of a security at a single moment in time'}),
 
-                # TODO currency / monetary units / crypto currency
                 # econ:acct:bill
-                # econ:goods econ:services
-
                 # econ:bank:us:aba:rtn ( ABA Routing Number )
                 # econ:bank:us:account = (econ:bank:us:aba:rtn, acct)
                 # econ:bank:swift:...
+            ),
+
+            'edges': (
+                (('econ:purchase', 'acquired', None), {
+                    'doc': 'The purchase was used to acquire the target node.'}),
             ),
 
             'forms': (
@@ -134,6 +140,20 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The econ:price of the purchase'}),
                 )),
 
+                ('econ:receipt:item', {}, (
+
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'The purchase that contains this line item.'}),
+
+                    ('count', ('int', {'min': 1}), {
+                        'doc': 'The number of items included in this line item.'}),
+
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The total cost of this receipt line item.'}),
+
+                    ('product', ('biz:product', {}), {
+                        'doc': 'The product being being purchased in this line item.'}),
+                )),
                 ('econ:acquired', {}, (
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'The purchase event which acquired an item.', 'ro': True, }),
@@ -161,7 +181,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The crypto currency address making the payment.'}),
 
                     ('from:contact', ('ps:contact', {}), {
-                        'doc': 'Contact information for the person/org being paid.'}),
+                        'doc': 'Contact information for the entity making the payment.'}),
 
                     ('to:coinaddr', ('crypto:currency:address', {}), {
                         'doc': 'The crypto currency address receiving the payment.'}),

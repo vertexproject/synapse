@@ -4,6 +4,9 @@ import json
 import aiohttp
 import aiohttp.client_exceptions as a_exc
 
+import synapse.common as s_common
+import synapse.tools.backup as s_backup
+
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
@@ -257,17 +260,30 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('nobody@nowhere.com', item['result']['email'])
                     noobiden = item['result']['iden']
 
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{noobiden}') as resp:
+                    item = await resp.json()
+                    self.eq(noobiden, item['result']['iden'])
+
                 info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/adduser', json=info) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
                     self.eq('DupUser', item.get('code'))
 
-                info = {'name': 'analysts'}
+                info = {'name': 'analysts',
+                        'rules': [
+                            [True, ('foo', 'bar')],
+                            [False, ('baz',)]
+                        ]}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
                     item = await resp.json()
                     self.nn(item.get('result').get('iden'))
+                    self.eq(item.get('result').get('rules'), ((True, ('foo', 'bar')), (False, ('baz',))))
                     analystiden = item['result']['iden']
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{analystiden}') as resp:
+                    item = await resp.json()
+                    self.nn(item.get('result').get('iden'), analystiden)
 
                 info = {'name': 'analysts'}
                 async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/addrole', json=info) as resp:
@@ -328,21 +344,66 @@ class HttpApiTest(s_tests.SynTest):
                     roles = item['result']['roles']
                     self.len(1, roles)
 
+                # Sad path coverage
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/roles') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/user/{noobiden}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/auth/role/{analystiden}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/user/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchUser', item.get('code'))
+
+                async with sess.get(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
+
+                async with sess.post(f'https://visi:secret@localhost:{port}/api/v1/auth/role/{s_common.guid()}') as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NoSuchRole', item.get('code'))
+
             # lets try out session based login
 
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'hehe'}
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                    item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await  stream.wait(timeout=6))
+
+            async with self.getHttpSess() as sess:
+                info = {'user': 'visi', 'passwd': 'secret'}
+                await core.setUserLocked(visiiden, True)
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await  stream.wait(timeout=6))
+                await core.setUserLocked(visiiden, False)
 
             async with self.getHttpSess() as sess:
 
                 info = {'user': 'visi', 'passwd': 'borked'}
-                async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                    item = await resp.json()
-                    self.eq('AuthDeny', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                    async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
+                        item = await resp.json()
+                        self.eq('AuthDeny', item.get('code'))
+                        self.true(await stream.wait(timeout=6))
 
             async with self.getHttpSess() as sess:
 
@@ -350,6 +411,7 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('NotAuthenticated', item.get('code'))
 
+                heheauth = aiohttp.BasicAuth('hehe', 'haha')
                 visiauth = aiohttp.BasicAuth('visi', 'secret')
                 newpauth = aiohttp.BasicAuth('visi', 'newp')
 
@@ -357,9 +419,25 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
-                async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
-                    item = await resp.json()
-                    self.eq('NotAuthenticated', item.get('code'))
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=heheauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(stream.wait(timeout=12))
+
+                await core.setUserLocked(visiiden, True)
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=visiauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(stream.wait(timeout=12))
+                await core.setUserLocked(visiiden, False)
+
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
+                    async with sess.get(f'https://localhost:{port}/api/v1/auth/users', auth=newpauth) as resp:
+                        item = await resp.json()
+                        self.eq('NotAuthenticated', item.get('code'))
+                        self.true(stream.wait(timeout=12))
 
                 headers = {'Authorization': 'yermom'}
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users', headers=headers) as resp:
@@ -733,6 +811,479 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('tag:add', mesg['type'])
                     self.eq('test.visi', mesg['data']['tag'])
 
+    async def test_http_beholder(self):
+        self.skipIfNexusReplay()
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('AuthDeny', mesg['data']['code'])
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('AuthDeny', mesg['data']['code'])
+
+                await visi.setAdmin(True)
+                userrole = await core.auth.addRole('fancy.role')
+                await core.addUserRole(visi.iden, userrole.iden)
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'bleep blorp'})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('BadMesgFormat', mesg['data']['code'])
+
+                ssvc = {'iden': s_common.guid(), 'name': 'dups', 'url': 'tcp://127.0.0.1:1/'}
+                spkg = {
+                    'name': 'testy',
+                    'version': (0, 0, 1),
+                    'synapse_minversion': [2, 144, 0],
+                    'synapse_version': '>=2.50.0,<3.0.0',
+                    'modules': (
+                        {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
+                    ),
+                    'commands': (
+                        {
+                            'name': 'testy.dostuff',
+                            'storm': '$ingest = $lib.import("test.ingest") $punch.punch(40, 20)'
+                        },
+                    ),
+                    'perms': (
+                        {
+                            'perm': ('test', 'testy', 'permission'),
+                            'gate': 'cortex',
+                            'desc': 'a test gate',
+                        },
+                    ),
+                }
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    root = await core.auth.getUserByName('root')
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'init')
+
+                    base = 0
+                    layr, view = await core.callStorm('''
+                        $view = $lib.view.get().fork()
+                        return(($view.layers.0.iden, $view.iden))
+                    ''')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.len(1, data['gates'])
+                    self.eq(data['event'], 'layer:add')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    info = data['info']
+                    self.eq(info['creator'], root.iden)
+                    self.eq(info['iden'], layr)
+
+                    gate = data['gates'][0]
+                    self.eq(gate['iden'], layr)
+                    self.eq(gate['type'], 'layer')
+                    self.len(1, gate['users'])
+
+                    user = gate['users'][0]
+                    self.eq(user['iden'], root.iden)
+                    self.true(user['admin'])
+
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    info = data['info']
+                    self.eq(data['event'], 'view:add')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    self.eq(info['creator'], root.iden)
+                    self.eq(info['iden'], view)
+
+                    cdef = await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    layr = await core.callStorm('return($lib.layer.add().iden)')
+
+                    opts = {'vars': {'view': view, 'cron': cdef['iden'], 'layr': layr}}
+                    await core.callStorm('$lib.view.get($view).set(name, "a really okay view")', opts=opts)
+                    await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
+                    await core.callStorm('cron.move $cron $view', opts=opts)
+                    await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
+                    await core.callStorm('cron.disable $cron', opts=opts)
+                    await core.callStorm('cron.enable $cron', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("doc", "some docs")', opts=opts)
+                    await core.callStorm('cron.del $cron', opts=opts)
+
+                    await core.addStormPkg(spkg)
+                    await core.addStormSvc(ssvc)
+
+                    await core.delStormSvc(ssvc['iden'])
+                    await core.delStormPkg(spkg['name'])
+
+                    newlayr = await core.callStorm('return($lib.layer.add().iden)')
+                    topts = {'vars': {'layr': newlayr}}
+                    newview = await core.callStorm('return($lib.view.add(($layr,)).iden)', opts=topts)
+                    topts['vars']['view'] = newview
+                    await core.callStorm('$lib.view.get($view).set(layers, ($layr,))', opts=topts)
+
+                    tview = core.getView(newview)
+                    await tview.addLayer(layr)
+                    await core.delView(tview.iden)
+
+                    events = [
+                        'cron:add',
+                        'layer:add',
+                        'view:set',
+                        'layer:set',
+                        'cron:move',
+                        'cron:edit:query',
+                        'cron:disable',
+                        'cron:enable',
+                        'cron:edit:name',
+                        'cron:edit:doc',
+                        'cron:del',
+                        'pkg:add',
+                        'svc:add',
+                        'svc:del',
+                        'pkg:del',
+                        'layer:add',
+                        'view:add',
+                        'view:setlayers',
+                        'view:addlayer',
+                        'view:del'
+                    ]
+
+                    mesgs = []
+                    for event in events:
+                        m = await sock.receive_json()
+                        self.eq(m['type'], 'iter')
+                        data = m.get('data')
+                        self.nn(data)
+                        self.nn(data['info'])
+                        self.ge(len(data['info']), 1)
+                        self.eq(event, data['event'])
+
+                        if not event.startswith('svc'):
+                            self.nn(data['gates'])
+                            self.ge(len(data['gates']), 1)
+
+                        if event.startswith('pkg'):
+                            self.nn(data['perms'])
+
+                        # offset always goes up
+                        self.gt(data['offset'], base)
+                        base = data['offset']
+                        mesgs.append(data)
+
+                    role = await core.callStorm('return($lib.auth.roles.add("beholder.role").iden)')
+                    await core.callStorm('$lib.auth.users.byname("visi").grant($role)', opts={'vars': {'role': role}})
+                    # role add
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:add')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    self.eq(data['info']['iden'], role)
+                    self.eq(data['info']['name'], 'beholder.role')
+                    self.eq(data['info']['rules'], [])
+                    self.eq(data['info']['authgates'], {})
+
+                    # role grant
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    self.eq(data['info']['name'], 'role:grant')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['role']['iden'], role)
+                    self.eq(data['info']['role']['type'], 'role')
+                    self.eq(data['info']['role']['name'], 'beholder.role')
+                    self.eq(data['info']['role']['rules'], [])
+                    self.eq(data['info']['role']['authgates'], {})
+
+                    # give a user view read perms
+                    gate = await core.callStorm('''
+                        $usr = $lib.auth.users.byname("visi")
+                        $rule = $lib.auth.ruleFromText(view.read)
+                        $usr.addRule($rule, $view)
+                        return($lib.auth.gates.get($view))
+                    ''', opts={'vars': {'view': view}})
+                    mesg = await sock.receive_json()
+                    self.eq(m['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [True, ['view', 'read']])
+
+                    # delete view
+                    await core.callStorm('view.del $view', opts=opts)
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'view:del')
+                    self.gt(data['offset'], base)
+                    self.len(1, data['gates'])
+                    self.eq(data['info']['iden'], view)
+                    base = data['offset']
+
+                    # delete layer
+                    await core.callStorm('$lib.layer.del($layr)', opts=opts)
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'layer:del')
+                    self.gt(data['offset'], base)
+                    self.len(1, data['gates'])
+                    self.eq(data['info']['iden'], layr)
+
+                    # set admin
+                    await visi.setAdmin(False)
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'admin')
+                    self.eq(data['info']['valu'], False)
+
+                    # lock a user
+                    await core.callStorm('$lib.auth.users.byname("visi").setLocked($lib.true)')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'locked')
+                    self.eq(data['info']['valu'], True)
+
+                    # rule grant to a role
+                    await core.callStorm('auth.role.addrule all power-ups.foo.bar')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    rall = await core.auth.getRoleByName('all')
+                    self.eq(data['info']['iden'], rall.iden)
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [True, ['power-ups', 'foo', 'bar']])
+
+                    # rule deny to a role
+                    await core.callStorm('auth.role.addrule all "!power-ups.foo.bar"')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:info')
+                    self.eq(data['info']['iden'], rall.iden)
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # rule del from a role
+                    await core.callStorm('''
+                        $rule = $lib.auth.ruleFromText("power-ups.foo.bar")
+                        $lib.auth.roles.byname(all).delRule($rule)
+                    ''')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:info')
+                    self.eq(data['info']['iden'], rall.iden)
+                    self.eq(data['info']['name'], 'rule:del')
+                    self.eq(data['info']['valu'], [True, ['power-ups', 'foo', 'bar']])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # rule add to a user
+                    await core.callStorm('auth.user.addrule visi "!power-ups.foo.bar" --gate cortex')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
+                    self.len(1, data['gates'])
+                    self.eq(data['gates'][0]['iden'], 'cortex')
+
+                    # rule del from a user
+                    mesgs = await core.callStorm('''
+                        $rule = $lib.auth.ruleFromText("!power-ups.foo.bar")
+                        $lib.auth.users.byname(visi).delRule($rule, gateiden=cortex)
+                    ''')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'rule:del')
+                    self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
+                    self.len(1, data['gates'])
+                    self.eq(data['gates'][0]['iden'], 'cortex')
+
+                    # user add. couple of messages fall out from it
+                    await core.callStorm('auth.user.add beep --email beep@vertex.link')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:add')
+                    self.eq(data['info']['name'], 'beep')
+                    self.eq(data['info']['email'], None)
+                    self.eq(data['info']['type'], 'user')
+                    self.gt(data['offset'], base)
+                    beepiden = data['info']['iden']
+                    base = data['offset']
+
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'email')
+                    self.eq(data['info']['valu'], 'beep@vertex.link')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    deflayr, defview = await core.callStorm('''
+                        $view = $lib.view.get()
+                        return(($view.layers.0.iden, $view.iden))
+                    ''')
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'role:grant')
+                    self.eq(data['info']['iden'], beepiden)
+                    self.eq(data['info']['role']['iden'], rall.iden)
+                    self.eq(data['info']['role']['name'], 'all')
+                    self.eq(data['info']['role']['type'], 'role')
+                    self.eq(data['info']['role']['authgates'][deflayr], {'rules': [[True, ['layer', 'read']]]})
+                    self.eq(data['info']['role']['authgates'][defview], {'rules': [[True, ['view', 'read']]]})
+                    self.eq(data['info']['role']['rules'], [[False, ['power-ups', 'foo', 'bar']]])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # set password
+                    await core.callStorm('$lib.auth.users.byname("beep").setPasswd("plzdontdothis")')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], beepiden)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.notin('valu', data)
+                    self.notin('valu', data['info'])
+
+                    # set user name
+                    await visi.setName('invisig0th')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:name')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['valu'], 'invisig0th')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # set role name
+                    rolename = 'some fancy new role name'
+                    await userrole.setName(rolename)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:name')
+                    self.eq(data['info']['iden'], userrole.iden)
+                    self.eq(data['info']['valu'], rolename)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # role del
+                    await core.delRole(role)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:del')
+                    self.eq(data['info']['iden'], role)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # revoke
+                    allroles = [x.iden for x in visi.getRoles()]
+                    self.len(2, allroles)
+                    await visi.revoke(userrole.iden)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'role:revoke')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['role']['iden'], userrole.iden)
+                    self.eq(data['info']['role']['name'], 'some fancy new role name')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # set roles
+                    await visi.setRoles([rall.iden, userrole.iden])
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'role:set')
+                    self.eq(data['info']['iden'], visi.iden)
+                    roles = [x['iden'] for x in data['info']['roles']]
+                    self.isin(rall.iden, roles)
+                    self.isin(userrole.iden, roles)
+
+                    # archive
+                    await visi.setArchived(True)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'archived')
+                    self.eq(data['info']['valu'], True)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # archive also sets locked
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'locked')
+                    self.eq(data['info']['valu'], True)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # user del
+                    await core.delUser(beepiden)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:del')
+                    self.eq(data['info']['iden'], beepiden)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
     async def test_http_storm(self):
 
         async with self.getTestCore() as core:
@@ -886,6 +1437,7 @@ class HttpApiTest(s_tests.SynTest):
                         mesg = json.loads(byts)
                         if mesg[0] == 'node':
                             task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
+                            self.eq(core.view.iden, task.info.get('view'))
                             break
 
                 self.nn(task)
@@ -953,6 +1505,11 @@ class HttpApiTest(s_tests.SynTest):
 
             with self.raises(ssl.SSLError):
                 sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+                sslctx.set_ciphers('AES256-GCM-SHA384')
+                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
+
+            with self.raises(ssl.SSLError):
+                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
                 sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
                 link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
 
@@ -981,7 +1538,6 @@ class HttpApiTest(s_tests.SynTest):
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
                     self.true(result['result']['active'])
-                    self.eq('1; mode=block', resp.headers.get('x-xss-protection'))
                     self.eq('nosniff', resp.headers.get('x-content-type-options'))
 
             await root.setPasswd('secret')
@@ -1122,3 +1678,179 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('AuthDeny', (await resp.json())['code'])
                 self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+    async def test_http_sess_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            core00dirn = s_common.gendir(dirn, 'core00')
+            core01dirn = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
+                pass
+
+            s_backup.backup(core00dirn, core01dirn)
+
+            async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
+
+                conf = {'mirror': core00.getLocalUrl()}
+                async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
+
+                    iden = s_common.guid()
+                    sess00 = await core00.genHttpSess(iden)
+                    await sess00.set('foo', 'bar')
+                    self.eq('bar', sess00.info.get('foo'))
+
+                    await core01.sync()
+
+                    sess01 = await core01.genHttpSess(iden)
+                    self.eq('bar', sess01.info.get('foo'))
+
+                    self.nn(core00.sessions.get(iden))
+                    self.nn(core01.sessions.get(iden))
+
+                    await core00.delHttpSess(iden)
+
+                    await core01.sync()
+
+                    self.none(await core00.getHttpSessDict(iden))
+                    self.none(await core01.getHttpSessDict(iden))
+
+                    self.none(core00.sessions.get(iden))
+                    self.none(core01.sessions.get(iden))
+
+                    self.eq(sess00.info, {})
+                    self.eq(sess01.info, {})
+                    self.true(sess00.isfini)
+                    self.true(sess01.isfini)
+
+    async def test_request_logging(self):
+
+        def get_mesg(stream):
+            data = stream.getvalue()
+            raw_mesgs = [m for m in data.split('\n') if m]
+            msgs = [json.loads(m) for m in raw_mesgs]
+            self.len(1, msgs)
+            return msgs[0]
+
+        async with self.getTestCore() as core:
+
+            # structlog tests
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            async with self.getHttpSess() as sess:
+
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                logname = 'tornado.access'
+
+                # Basic-auth
+
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
+                                         json=info, headers={'X-Forwarded-For': '1.2.3.4'}) as resp:
+                        item = await resp.json()
+                        self.nn(item.get('result').get('iden'))
+                        visiiden = item['result']['iden']
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg.get('username'), 'root')
+                self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.isin('remoteip', mesg)
+                self.isin('(root)', mesg.get('message'))
+                self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+                self.notin('1.2.3.4', mesg.get('message'))
+
+                # No auth provided
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/active') as stream:
+                    async with sess.get(f'https://root:root@localhost:{port}/api/v1/active') as resp:
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/active')
+                self.notin('username', mesg)
+                self.notin('user', mesg)
+                self.isin('remoteip', mesg)
+                self.isin('200 GET /api/v1/active', mesg.get('message'))
+
+                # Sessions populate the data too
+                async with self.getHttpSess() as sess:
+
+                    # api/v1/login populates the data
+                    with self.getStructuredAsyncLoggerStream(logname, 'api/v1/login') as stream:
+                        async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                            self.eq(resp.status, 200)
+                            self.true(await stream.wait(6))
+
+                    mesg = get_mesg(stream)
+                    self.eq(mesg.get('uri'), '/api/v1/login')
+                    self.eq(mesg.get('username'), 'visi')
+                    self.eq(mesg.get('user'), visiiden)
+
+                    # session cookie loging populates the data upon reuse
+                    with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/users') as stream:
+                        async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
+                            self.eq(resp.status, 200)
+                            self.true(await stream.wait(6))
+
+                    mesg = get_mesg(stream)
+                    self.eq(mesg.get('uri'), '/api/v1/auth/users')
+                    self.eq(mesg.get('username'), 'visi')
+                    self.eq(mesg.get('user'), visiiden)
+
+        async with self.getTestCore(conf={'https:parse:proxy:remoteip': True}) as core:
+
+            # structlog tests
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            async with self.getHttpSess() as sess:
+
+                info = {'name': 'visi', 'passwd': 'secret', 'admin': True}
+                logname = 'tornado.access'
+
+                # Basic-auth
+
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
+                                         json=info, headers={'X-Forwarded-For': '1.2.3.4'}) as resp:
+                        item = await resp.json()
+                        self.nn(item.get('result').get('iden'))
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg.get('username'), 'root')
+                self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.eq(mesg.get('remoteip'), '1.2.3.4')
+                self.isin('(root)', mesg.get('message'))
+                self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+
+                info = {'name': 'charles', 'passwd': 'secret', 'admin': True}
+                with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
+
+                    async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
+                                         json=info, headers={'X-Real-Ip': '8.8.8.8'}) as resp:
+                        item = await resp.json()
+                        self.nn(item.get('result').get('iden'))
+                        self.eq(resp.status, 200)
+                        self.true(await stream.wait(6))
+
+                mesg = get_mesg(stream)
+                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg.get('username'), 'root')
+                self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.eq(mesg.get('remoteip'), '8.8.8.8')
+                self.isin('(root)', mesg.get('message'))
+                self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))

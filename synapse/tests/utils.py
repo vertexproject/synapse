@@ -37,6 +37,7 @@ import collections
 import unittest.mock as mock
 
 import vcr
+import regex
 import aiohttp
 
 from prompt_toolkit.formatted_text import FormattedText
@@ -51,6 +52,7 @@ import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
@@ -90,6 +92,13 @@ def norm(z):
         return {norm(k): norm(v) for (k, v) in z.items()}
     return z
 
+def deguidify(x):
+    return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+class PickleableMagicMock(mock.MagicMock):
+    def __reduce__(self):
+        return mock.MagicMock, ()
+
 class LibTst(s_stormtypes.Lib):
     '''
     LibTst for testing!
@@ -106,12 +115,22 @@ class LibTst(s_stormtypes.Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
+        {'name': 'someargs',
+         'desc': '''Example storm func with args.''',
+         'type': {'type': 'function', '_funcname': 'someargs',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                      {'name': 'bar', 'type': 'bool', 'desc': 'The value to beep.', 'default': True, },
+                      {'name': 'faz', 'type': 'str', 'desc': 'The value to beep.', 'default': None, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
 
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
+            'someargs': self.someargs,
         })
 
     async def beep(self, valu):
@@ -119,6 +138,13 @@ class LibTst(s_stormtypes.Lib):
         Example storm func
         '''
         ret = f'A {valu} beep!'
+        return ret
+
+    async def someargs(self, valu, bar=True, faz=None):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
 
 class TestType(s_types.Type):
@@ -193,6 +219,7 @@ testmodel = {
 
         ('test:ival', ('ival', {}), {}),
 
+        ('test:ro', ('str', {}), {}),
         ('test:int', ('int', {}), {}),
         ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
@@ -201,6 +228,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('taxonomy',)}),
         ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
@@ -220,6 +248,8 @@ testmodel = {
         )}), {'doc': 'A complex comp type.'}),
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
+        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
@@ -247,6 +277,7 @@ testmodel = {
         )),
         ('test:arrayform', {}, (
         )),
+        ('test:taxonomy', {}, ()),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {}),
@@ -332,6 +363,7 @@ testmodel = {
         ('test:auto', {}, ()),
         ('test:hexa', {}, ()),
         ('test:hex4', {}, ()),
+        ('test:zeropad', {}, ()),
         ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
         )),
@@ -361,6 +393,11 @@ testmodel = {
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
         )),
+
+        ('test:ro', {}, (
+            ('writeable', ('str', {}), {'doc': 'writeable property'}),
+            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+        ))
 
     ),
 }
@@ -702,6 +739,12 @@ class HttpReflector(s_httpapi.Handler):
             sleep = int(sleep[0])
             await asyncio.sleep(sleep)
 
+        redirect = params.get('redirect')
+        if redirect:
+            self.add_header('Redirected', '1')
+            self.redirect(redirect[0])
+            return
+
         self.sendRestRetn(resp)
 
     async def post(self):
@@ -807,6 +850,31 @@ test_schema = {
         'type': 'object',
     }
 
+class ReloadCell(s_cell.Cell):
+    async def postAnit(self):
+        self._reloaded = False
+        self._reloadevt = None
+
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['cell']['reloaded'] = self._reloaded
+        return info
+
+    async def addTestReload(self):
+        async def func():
+            self._reloaded = True
+            if self._reloadevt:
+                self._reloadevt.set()
+            return True
+
+        self.addReloadableSystem('testreload', func)
+
+    async def addTestBadReload(self):
+        async def func():
+            return 1 / 0
+
+        self.addReloadableSystem('badreload', func)
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
@@ -870,15 +938,17 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers, conf=None):
-        with self.getRegrDir('cortexes', vers) as dirn:
-            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                yield core
+        with self.withNexusReplay():
+            with self.getRegrDir('cortexes', vers) as dirn:
+                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    yield core
 
     @contextlib.asynccontextmanager
     async def getRegrAxon(self, vers, conf=None):
-        with self.getRegrDir('axons', vers) as dirn:
-            async with await s_axon.Axon.anit(dirn, conf=conf) as axon:
-                yield axon
+        with self.withNexusReplay():
+            with self.getRegrDir('axons', vers) as dirn:
+                async with await s_axon.Axon.anit(dirn, conf=conf) as axon:
+                    yield axon
 
     def skipIfNoInternet(self):  # pragma: no cover
         '''
@@ -899,6 +969,34 @@ class SynTest(unittest.TestCase):
         '''
         if bool(int(os.getenv('SYN_TEST_SKIP_LONG', 0))):
             raise unittest.SkipTest('SYN_TEST_SKIP_LONG envar set')
+
+    def skipIfNexusReplay(self):
+        '''
+        Allow skipping a test if SYNDEV_NEXUS_REPLAY envar is set.
+
+        Raises:
+            unittest.SkipTest if SYNDEV_NEXUS_REPLAY envar is set to true value.
+        '''
+        if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+            raise unittest.SkipTest('SYNDEV_NEXUS_REPLAY envar set')
+
+    def skipIfNoPath(self, path, mesg=None):
+        '''
+        Allows skipping a test if the test/files path does not exist.
+
+        Args:
+            path (str): Path to check.
+            mesg (str): Optional additional message.
+
+        Raises:
+            unittest.SkipTest if the path does not exist.
+        '''
+        path = self.getTestFilePath(path)
+        if not os.path.exists(path):
+            m = f'Path does not exist: {path}'
+            if mesg:
+                m = f'{m} mesg={mesg}'
+            raise unittest.SkipTest(m)
 
     def getTestOutp(self):
         '''
@@ -946,15 +1044,21 @@ class SynTest(unittest.TestCase):
         Returns:
             s_axon.Axon: A Axon object.
         '''
-        if dirn is not None:
-            async with await s_axon.Axon.anit(dirn, conf) as axon:
-                yield axon
 
-            return
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
 
-        with self.getTestDir() as dirn:
-            async with await s_axon.Axon.anit(dirn, conf) as axon:
-                yield axon
+        with self.withNexusReplay():
+            if dirn is not None:
+                async with await s_axon.Axon.anit(dirn, conf) as axon:
+                    yield axon
+
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_axon.Axon.anit(dirn, conf) as axon:
+                    yield axon
 
     @contextlib.contextmanager
     def withTestCmdr(self, cmdg):
@@ -1006,14 +1110,10 @@ class SynTest(unittest.TestCase):
         Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
 
         Returns:
-            mock.MagicMock: Yields a mock.MagikMock object.
+            mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        # Since the setlogging routine is used in the forkserver initializer,
-        # we need to make sure we've initialized our worker prior to mocking
-        self.eq(1, await s_coro.forked(int, '1'))
-
         with mock.patch('synapse.common.setlogging',
-                        mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
+                        PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
     def getMagicPromptLines(self, patch):
@@ -1098,14 +1198,18 @@ class SynTest(unittest.TestCase):
         '''
         Patch so that the Nexus apply log is applied twice. Useful to verify idempotency.
 
+        Args:
+            replay (bool): Set the default value of resolving the existence of SYNDEV_NEXUS_REPLAY variable.
+                           This can be used to force the apply patch without using the environment variable.
+
         Notes:
             This is applied if the environment variable SYNDEV_NEXUS_REPLAY is set
-            or the replay argument is set to True.
+            to a non zero value or the replay argument is set to True.
 
         Returns:
             contextlib.ExitStack: An exitstack object.
         '''
-        replay = os.environ.get('SYNDEV_NEXUS_REPLAY', default=replay)
+        replay = s_common.envbool('SYNDEV_NEXUS_REPLAY', defval=str(replay))
 
         with contextlib.ExitStack() as stack:
             if replay:
@@ -1122,7 +1226,6 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True,
                     'nexslog:en': True,
                     'layers:logedits': True,
                     }
@@ -1165,10 +1268,22 @@ class SynTest(unittest.TestCase):
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestJsonStor(self):
-        with self.getTestDir() as dirn:
-            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
-                yield jsonstor
+    async def getTestJsonStor(self, dirn=None, conf=None):
+
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
+
+        with self.withNexusReplay():
+            if dirn is not None:
+                async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
+                    yield jsonstor
+
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
+                    yield jsonstor
 
     @contextlib.asynccontextmanager
     async def getTestCryo(self, dirn=None, conf=None):
@@ -1178,15 +1293,20 @@ class SynTest(unittest.TestCase):
         Returns:
             s_cryotank.CryoCell: Test cryocell.
         '''
-        if dirn is not None:
-            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                yield cryo
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
 
-            return
+        with self.withNexusReplay():
+            if dirn is not None:
+                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
+                    yield cryo
 
-        with self.getTestDir() as dirn:
-            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                yield cryo
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
+                    yield cryo
 
     @contextlib.asynccontextmanager
     async def getTestCryoAndProxy(self, dirn=None):
@@ -1202,6 +1322,7 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
+        self.skipIfNoPath(path='certdir', mesg='Missing files for test dmon!')
         with self.getTestDir(mirror='certdir') as certpath:
             certdir = s_certdir.CertDir(path=certpath)
             s_certdir.addCertPath(certpath)
@@ -1221,16 +1342,17 @@ class SynTest(unittest.TestCase):
 
         conf = copy.deepcopy(conf)
 
-        if dirn is not None:
+        with self.withNexusReplay():
+            if dirn is not None:
 
-            async with await ctor.anit(dirn, conf=conf) as cell:
-                yield cell
+                async with await ctor.anit(dirn, conf=conf) as cell:
+                    yield cell
 
-            return
+                return
 
-        with self.getTestDir() as dirn:
-            async with await ctor.anit(dirn, conf=conf) as cell:
-                yield cell
+            with self.getTestDir() as dirn:
+                async with await ctor.anit(dirn, conf=conf) as cell:
+                    yield cell
 
     @contextlib.asynccontextmanager
     async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
@@ -1253,13 +1375,107 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestAha(self, conf=None, dirn=None):
-        if dirn:
-            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                yield aha
-        else:
-            with self.getTestDir() as dirn:
+
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
+
+        with self.withNexusReplay():
+            if dirn:
                 async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
                     yield aha
+            else:
+                with self.getTestDir() as dirn:
+                    async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                        yield aha
+
+    @contextlib.asynccontextmanager
+    async def getTestAhaProv(self, conf=None, dirn=None):
+        '''
+        Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
+
+        Args:
+            conf: Optional configuraiton information for the Aha cell.
+            dirn: Optional path to create the Aha cell in.
+
+        Returns:
+            s_aha.AhaCell: The provisioned Aha cell.
+        '''
+        bconf = {
+            'aha:name': 'aha',
+            'aha:network': 'loop.vertex.link',
+            'provision:listen': 'ssl://aha.loop.vertex.link:0'
+        }
+
+        if conf is None:
+            conf = bconf
+        else:
+            for k, v in bconf.items():
+                conf.setdefault(k, v)
+
+        name = conf.get('aha:name')
+        netw = conf.get('aha:network')
+        dnsname = f'{name}.{netw}'
+
+        async with self.getTestAha(conf=conf, dirn=dirn) as aha:
+            addr, port = aha.provdmon.addr
+            # update the config to reflect the dynamically bound port
+            aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+            # do this config ex-post-facto due to port binding...
+            host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+            aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+            yield aha
+
+    @contextlib.asynccontextmanager
+    async def addSvcToAha(self, aha, svcname, ctor,
+                          conf=None, dirn=None, provinfo=None):
+        '''
+        Creates as service and provision it in a Aha network via the provisioning API.
+
+        This assumes the Aha cell has a provision:listen and aha:urls set.
+
+        Args:
+            aha (s_aha.AhaCell): Aha cell.
+            svcname (str): Service name.
+            ctor: Service class to add.
+            conf (dict): Optional service conf.
+            dirn (str): Optional directory.
+            provinfo (dict)): Optional provisioning info.
+
+        Notes:
+            The config data for the cell is pushed into dirn/cell.yaml.
+            The cells are created with the ``ctor.anit()`` function.
+        '''
+        onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
+
+        if conf is None:
+            conf = {}
+
+        conf['aha:provision'] = onetime
+
+        logger.info(f'Adding {svcname}')
+
+        n = 1  # a simple svcname like "foo"
+        if len(svcname.split('.')) > 1:
+            n = 2  # A replica name like 00.foo
+        if provinfo and 'mirror' in provinfo:
+            n = 1  # A mirror like 01.foo with mirror: foo
+
+        waiter = aha.waiter(n, 'aha:svcadd')
+
+        if dirn:
+            s_common.yamlsave(conf, dirn, 'cell.yaml')
+            async with await ctor.anit(dirn) as svc:
+                self.ge(len(await waiter.wait(timeout=12)), n)
+                yield svc
+        else:
+            with self.getTestDir() as dirn:
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+                async with await ctor.anit(dirn) as svc:
+                    self.ge(len(await waiter.wait(timeout=12)), n)
+                    yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
         '''
@@ -1300,8 +1516,11 @@ class SynTest(unittest.TestCase):
         This destroys the directory afterwards.
 
         Args:
-            mirror (str): A directory to mirror into the test directory.
-            startdir (str): The directory under which to place the temporary kdirectory
+            mirror (str): A Synapse test directory to mirror into the test directory.
+            copyfrom (str): An arbitrary directory to copy into the test directory.
+            chdir (boolean): If true, chdir the current process to that directory. This is undone when the context
+                             manager exits.
+            startdir (str): The directory under which to place the temporary directory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -1853,7 +2072,7 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
-    def stormIsInPrint(self, mesg, mesgs):
+    def stormIsInPrint(self, mesg, mesgs, deguid=False):
         '''
         Check if a string is present in all of the print messages from a stream of storm messages.
 
@@ -1861,7 +2080,14 @@ class SynTest(unittest.TestCase):
             mesg (str): A string to check.
             mesgs (list): A list of storm messages.
         '''
+        if deguid:
+            mesg = deguidify(mesg)
+
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+
+        if deguid:
+            print_str = deguidify(print_str)
+
         self.isin(mesg, print_str)
 
     def stormNotInPrint(self, mesg, mesgs):
@@ -1885,6 +2111,17 @@ class SynTest(unittest.TestCase):
         '''
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
         self.isin(mesg, print_str)
+
+    def stormNotInWarn(self, mesg, mesgs):
+        '''
+        Assert a string is not present in all of the warn messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.notin(mesg, print_str)
 
     def stormIsInErr(self, mesg, mesgs):
         '''
@@ -2039,7 +2276,7 @@ class SynTest(unittest.TestCase):
             return retn
 
         byts = s_msgpack.en(valu)
-        return hashlib.md5(byts).hexdigest()
+        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
     @contextlib.contextmanager
     def withStableUids(self):
@@ -2070,7 +2307,7 @@ class StormPkgTest(SynTest):
         async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
 
             for pkgproto in self.pkgprotos:
-                self.eq(0, await s_genpkg.main((pkgproto, '--push', core.getLocalUrl())))
+                self.eq(0, await s_genpkg.main((pkgproto, '--no-docs', '--push', core.getLocalUrl())))
 
             if self.assetdir is not None:
 

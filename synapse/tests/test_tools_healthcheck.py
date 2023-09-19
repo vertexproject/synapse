@@ -2,6 +2,8 @@ import json
 import asyncio
 import logging
 
+import unittest.mock as mock
+
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.healthcheck as s_t_healthcheck
@@ -10,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 class HealthcheckTest(s_t_utils.SynTest):
 
+    # Patch out the default password handler iterations to a value that runs quickly.
+    @mock.patch('synapse.lib.crypto.passwd.PBKDF2_ITERATIONS', 10_000)
     async def test_healthcheck(self):
 
         # Show a passing / failing healthcheck on a cell
@@ -82,5 +86,5 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(retn, 1)
             resp = json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
-            m = 'Unable to connect to cell.'
-            self.eq(resp.get('components')[0].get('mesg'), m)
+            m = 'Unable to connect to cell'
+            self.isin(m, resp.get('components')[0].get('mesg'))

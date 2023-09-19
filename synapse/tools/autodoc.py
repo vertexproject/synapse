@@ -834,7 +834,7 @@ async def docStormpkg(pkgpath):
     rst.addHead(f'Storm Package\\: {hname}')
     lines = ['The following Commands are available from this package.',
              f'This documentation is generated for version '
-             f'{s_version.fmtVersion(*pkgdef.get("version"))} of the package.',
+             f'{s_version.fmtVersion(pkgdef.get("version"))} of the package.',
              ]
     rst.addLines(*lines)
 
@@ -897,8 +897,9 @@ async def main(argv, outp=None):
     if opts.doc_model:
 
         if opts.cortex:
-            async with await s_telepath.openurl(opts.cortex) as core:
-                rsttypes, rstforms = await docModel(outp, core)
+            async with s_telepath.withTeleEnv():
+                async with await s_telepath.openurl(opts.cortex) as core:
+                    rsttypes, rstforms = await docModel(outp, core)
 
         else:
             async with s_cortex.getTempCortex() as core:

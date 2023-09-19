@@ -1,3 +1,5 @@
+import urllib.parse
+
 import regex
 import synapse.exc as s_exc
 
@@ -41,9 +43,8 @@ def chopurl(url):
         user, remain = remain.rsplit('@', 1)
         if user.find(':') != -1:
             user, passwd = user.split(':', 1)
-            ret['passwd'] = passwd
-
-        ret['user'] = user
+            ret['passwd'] = urllib.parse.unquote(passwd)
+        ret['user'] = urllib.parse.unquote(user)
 
     # remain should be down to host[:port]
 

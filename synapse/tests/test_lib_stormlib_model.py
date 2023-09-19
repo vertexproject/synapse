@@ -17,7 +17,7 @@ class StormlibModelTest(s_test.SynTest):
             q = '$val = $lib.model.type(bool).repr(1) [test:str=$val]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'True'))
+            self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
             self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
@@ -35,6 +35,39 @@ class StormlibModelTest(s_test.SynTest):
             self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
+
+            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name))')
+            self.stormIsInPrint("model:form: {'name': 'ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name))')
+            self.stormIsInPrint("{'name': 'ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name).type)')
+            self.stormIsInPrint("model:type: ('ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name).type)')
+            self.stormIsInPrint("('ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.prop(ps:contact:orgname))')
+            self.stormIsInPrint("model:property: {'name': 'orgname'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(ps:contact:orgname))')
+            self.stormIsInPrint("'type': ('ou:name'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
+            self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.tagprop(score))')
+            self.stormIsInPrint("'name': 'score'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.model.type(int))')
+            self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
+
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.pprint($item.type)")
+            self.stormIsInPrint("('int',\n ('base',", mesgs)
+
+            mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
+            self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
     async def test_stormlib_model_edge(self):
 
@@ -216,9 +249,9 @@ class StormlibModelTest(s_test.SynTest):
                 # End coverage test
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('ou:org:sic: True', mesgs)
-                self.stormIsInPrint('ou:hasalias: True', mesgs)
-                self.stormIsInPrint('it:reveng:funcstr: False', mesgs)
+                self.stormIsInPrint('ou:org:sic: true', mesgs)
+                self.stormIsInPrint('ou:hasalias: true', mesgs)
+                self.stormIsInPrint('it:reveng:funcstr: false', mesgs)
 
                 await core.nodes('model.deprecated.lock --unlock ou:org:sic')
                 await core.nodes('ou:org [ :sic=5678 ]')
@@ -238,10 +271,25 @@ class StormlibModelTest(s_test.SynTest):
                 await core.nodes('model.deprecated.lock *')
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('it:reveng:funcstr: True', mesgs)
+                self.stormIsInPrint('it:reveng:funcstr: true', mesgs)
 
                 await core.nodes('ou:org [ -:sic ]')
                 await core.nodes('ou:hasalias | delnode')
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 self.stormIsInPrint('Congrats!', mesgs)
+
+    async def test_stormlib_model_depr_check(self):
+
+        conf = {
+            'modules': [
+                'synapse.tests.test_datamodel.DeprecatedModel',
+            ]
+        }
+
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                mesgs = await core.stormlist('model.deprecated.check')
+
+                self.stormIsInWarn('.pdep is not yet locked', mesgs)
+                self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)

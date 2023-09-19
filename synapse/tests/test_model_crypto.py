@@ -27,8 +27,8 @@ HEXSTR_PRIVATE_PRIME_Q = 'c53b9c8dfb3dda04d16c7f779a02b3b8c7b44bf876dc88ad562778
                          '1bef7207fa489e398041787cfbd155f1034a207d517f06bc76a044262484f82f0c6a887f776b1dce837408999d8' \
                          '8dd33a96c7f80e23719e77a11075d337bf9cc47d7dbf98e341b81c23f165dd15ccfd2973ab'
 
-TEST_MD5 = hashlib.md5(b'test').hexdigest()
-TEST_SHA1 = hashlib.sha1(b'test').hexdigest()
+TEST_MD5 = hashlib.md5(b'test', usedforsecurity=False).hexdigest()
+TEST_SHA1 = hashlib.sha1(b'test', usedforsecurity=False).hexdigest()
 TEST_SHA256 = hashlib.sha256(b'test').hexdigest()
 TEST_SHA384 = hashlib.sha384(b'test').hexdigest()
 TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
@@ -47,6 +47,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                 [ :seed={
                     [ crypto:key=*
                         :algorithm=aes256
+                        :mode=CBC
+                        :iv=41414141
                         :private=00000000
                         :private:md5=$md5
                         :private:sha1=$sha1
@@ -61,7 +63,15 @@ class CryptoModelTest(s_t_utils.SynTest):
             ''', opts={'vars': {'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 
             self.len(1, await core.nodes('crypto:algorithm=aes256'))
-            self.len(1, await core.nodes('crypto:key:algorithm=aes256 +:private=00000000 +:public=ffffffff +:seed:algorithm=pbkdf2 +:seed:passwd=s3cret'))
+            self.len(1, await core.nodes('''
+                    crypto:key:algorithm=aes256
+                        +:private=00000000
+                        +:public=ffffffff
+                        +:seed:algorithm=pbkdf2
+                        +:seed:passwd=s3cret
+                        +:mode=cbc
+                        +:iv=41414141
+            '''))
             self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
 
             self.len(2, await core.nodes('crypto:key -> hash:md5'))

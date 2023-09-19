@@ -1,9 +1,12 @@
+import string
 import logging
+import pathlib
 import functools
 import collections
 
 import idna
 import regex
+import ipaddress
 import unicodedata
 
 import synapse.exc as s_exc
@@ -19,6 +22,7 @@ logger = logging.getLogger(__name__)
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
     'bit',
+    'bazar',
     'onion',
 ])
 
@@ -73,6 +77,35 @@ def fqdn_check(match: regex.Match):
             return None, {}
     return valu, {}
 
+def inet_server_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+    port = mnfo.get('port')
+    ipv6 = mnfo.get('v6addr')
+
+    port = int(port)
+    if port < 1 or port > 2**16 - 1:
+        return None, {}
+
+    if ipv6 is not None:
+        try:
+            addr = ipaddress.IPv6Address(ipv6)
+        except ipaddress.AddressValueError:
+            return None, {}
+
+    return valu, {}
+
+def ipv6_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    try:
+        addr = ipaddress.IPv6Address(valu)
+    except ipaddress.AddressValueError:
+        return None, {}
+
+    return valu, {}
+
 def cve_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')  # type: str
@@ -81,18 +114,123 @@ def cve_check(match: regex.Match):
     valu = s_chop.replaceUnicodeDashes(valu)
     return valu, cbfo
 
+linux_path_regex = r'''
+(?<![\w\d]+)
+(?P<valu>
+    (?:/[^\x00\n]+)+
+)
+'''
+
+linux_path_rootdirs = (
+    'bin', 'boot', 'cdrom', 'dev', 'etc', 'home',
+    'lib', 'lib64', 'lib32', 'libx32', 'media', 'mnt',
+    'opt', 'proc', 'root', 'run', 'sbin', 'srv',
+    'sys', 'tmp', 'usr', 'var'
+)
+
+def linux_path_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    path = pathlib.PurePosixPath(valu)
+    parts = path.parts
+    if parts[0] != '/':
+        return None, {}
+
+    if parts[1] not in linux_path_rootdirs:
+        return None, {}
+
+    return valu, {}
+
+windows_path_regex = r'''
+(?P<valu>
+    [a-zA-Z]+:\\
+    (?:[^<>:"/|\?\*\n\x00]+)+
+)
+'''
+
+windows_path_reserved = (
+    'CON', 'PRN', 'AUX', 'NUL',
+    'COM0', 'COM1', 'COM2', 'COM3', 'COM4',
+    'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+    'LPT0', 'LPT1', 'LPT2', 'LPT3', 'LPT4',
+    'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+)
+
+windows_drive_paths = [f'{letter}:\\' for letter in string.ascii_lowercase]
+
+# https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+def windows_path_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    path = pathlib.PureWindowsPath(valu)
+    parts = path.parts
+
+    if parts[0].lower() not in windows_drive_paths:
+        return None, {}
+
+    for part in parts:
+        if part in windows_path_reserved:
+            return None, {}
+
+        if part.endswith('.'):
+            return None, {}
+
+    return valu, {}
+
+ipv4_match = r'(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)'
+ipv4_regex = fr'''
+(?P<valu>
+    (?<!\d|\d\.|[0-9a-f:]:)
+    ({ipv4_match})
+    (?!\d|\.\d)
+)
+'''
+
+# Simplified IPv6 regex based on RFC3986, will have false positives and
+# requires validating matches.
+H16 = r'[0-9a-f]{1,4}'
+ipv6_match = fr'''
+(?: (?:{H16}:){{1,7}}
+    (?:(?:
+            :?
+            (?:{H16}:){{0,5}}
+            (?:{ipv4_match}|{H16})
+        ) |
+        :
+    )
+) |
+(?: ::
+    ({H16}:){{0,6}}
+    (?:{ipv4_match}|{H16})
+)
+'''
+ipv6_regex = fr'''
+(?P<valu>
+    (?<![0-9a-f]:|:[0-9a-f]|::|\d\.)
+    ({ipv6_match})
+    (?![0-9a-f:]|\.\d)
+)
+'''
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
+    ('file:path', linux_path_regex, {'callback': linux_path_check, 'flags': regex.VERBOSE}),
+    ('file:path', windows_path_regex, {'callback': windows_path_check, 'flags': regex.VERBOSE}),
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
      {'callback': fqdn_prefix_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
-    ('inet:server', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
-    ('inet:ipv4', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))', {}),
+    ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|[0-9a-f:]:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
+     {'callback': inet_server_check, 'flags': regex.VERBOSE}),
+    ('inet:ipv4', ipv4_regex, {'flags': regex.VERBOSE}),
+    ('inet:ipv6', ipv6_regex, {'callback': ipv6_check, 'flags': regex.VERBOSE}),
     ('inet:fqdn', r'(?=(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|^|[' + idna_disallowed + '])(?P<valu>(?:((?![' + idna_disallowed + r'])[\p{L}\p{M}\p{N}\p{S}_-]){1,63}[\u3002\uff0e\uff61\.]){1,10}(?:' + tldcat + r'))(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|[\u3002\uff0e\uff61.]([\p{Z}\p{Cc}]|$)|$|[' + idna_disallowed + r']))', {'callback': fqdn_check}),
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
     ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
+    ('it:sec:cwe', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>CWE-[0-9]{1,8})(?:[^A-Za-z0-9]|$))', {}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
@@ -109,13 +247,13 @@ scrape_types = [  # type: ignore
      {'callback': s_coin.substrate_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(DdzFF|Ae2td)[a-zA-HJ-NP-Z0-9]{54,99})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.cardano_byron_check}),
-    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>addr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{53})(?:[^A-Za-z0-9]|$))',
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>addr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{53,})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.cardano_shelly_check}),
 ]
 
 _regexes = collections.defaultdict(list)
 for (name, rule, opts) in scrape_types:
-    blob = (regex.compile(rule, regex.IGNORECASE), opts)
+    blob = (regex.compile(rule, regex.IGNORECASE | opts.get('flags', 0)), opts)
     _regexes[name].append(blob)
 
 def getForms():
@@ -128,21 +266,24 @@ def getForms():
     return sorted(_regexes.keys())
 
 FANGS = {
+    'fxp:': 'ftp:',
+    'fxps:': 'ftps:',
     'hxxp:': 'http:',
     'hxxps:': 'https:',
-    'http[:]': 'http:',
-    'hxxp[:]': 'http:',
-    'https[:]': 'https:',
-    'hxxps[:]': 'https:',
-    'http[://]': 'http://',
-    'hxxp[://]': 'http://',
-    'https[://]': 'https://',
-    'hxxps[://]': 'https://',
-    'http(:)': 'http:',
-    'hxxp(:)': 'http:',
-    'https(:)': 'https:',
-    'hxxps(:)': 'https:',
+    'fxp[s]:': 'ftps:',
+    'hxxp[s]:': 'https:'
+}
+
+for fang in ('[:]', '[://]', '[:', '(:)'):
+    for scheme in ('ftp', 'fxp', 'ftps', 'fxps', 'http', 'hxxp', 'https', 'hxxps'):
+        fanged = f'{scheme}{fang}'
+        defanged = regex.sub(r'[\[\]\(\)]', '', fanged.replace('x', 't'))
+        FANGS[fanged] = defanged
+
+FANGS.update({
     '[.]': '.',
+    '.]': '.',
+    '[.': '.',
     '[．]': '．',
     '[。]': '。',
     '[｡]': '｡',
@@ -150,13 +291,12 @@ FANGS = {
     '(．)': '．',
     '(。)': '。',
     '(｡)': '｡',
+    '[dot]': '.',
     '[:]': ':',
-    'fxp': 'ftp',
-    'fxps': 'ftps',
     '[at]': '@',
     '[@]': '@',
     '\\.': '.',
-}
+})
 
 def genFangRegex(fangs, flags=regex.IGNORECASE):
     # Fangs must be matches of equal or smaller length in order for the

@@ -1,5 +1,6 @@
 import sys
 import logging
+import asyncio
 import argparse
 
 import synapse.telepath as s_telepath
@@ -8,7 +9,7 @@ import synapse.lib.output as s_output
 
 logger = logging.getLogger(__name__)
 
-def main(argv, outp=s_output.stdout):
+async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='cryo.list', description='List tanks within a cryo cell.')
     pars.add_argument('cryocell', nargs='+', help='Telepath URLs to cryo cells.')
@@ -19,14 +20,15 @@ def main(argv, outp=s_output.stdout):
 
         outp.printf(url)
 
-        with s_telepath.openurl(url) as cryo:
+        async with s_telepath.withTeleEnv():
 
-            for name, info in cryo.list():
+            async with await s_telepath.openurl(url) as cryo:
 
-                outp.printf(f'    {name}: {info}')
+                for name, info in await cryo.list():
+                    outp.printf(f'    {name}: {info}')
 
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
     logging.basicConfig()
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(asyncio.run(main(sys.argv[1:])))

@@ -373,6 +373,10 @@ class CryptoModule(s_module.CoreModule):
                     ('algorithm', ('crypto:algorithm', {}), {
                         'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
+                    ('mode', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The algorithm specific mode in use.'}),
+                    ('iv', ('hex', {}), {
+                        'doc': 'The hex encoded initialization vector.'}),
                     ('public', ('hex', {}), {
                         'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
                     ('public:md5', ('hash:md5', {}), {
@@ -400,7 +404,7 @@ class CryptoModule(s_module.CoreModule):
                     ('inetaddr', ('inet:client', {}), {
                         'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
                     ('coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address observed in use the the Internet client.', 'ro': True, }),
+                        'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
                 )),
 
                 ('hash:md5', {}, ()),
@@ -463,7 +467,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The certificate used by the issuer to sign this certificate.',
                     }),
 
-                    ('serial', ('hex', {'size': 40}), {
+                    ('serial', ('hex', {'zeropad': 40}), {
                         'doc': 'The certificate serial number as a big endian hex value.',
                     }),
 
@@ -504,7 +508,7 @@ class CryptoModule(s_module.CoreModule):
                     }),
 
                     ('ext:sans', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The Subject Alternate Names (SANs) listed in the certficate.',
+                        'doc': 'The Subject Alternate Names (SANs) listed in the certificate.',
                     }),
 
                     ('ext:crls', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {

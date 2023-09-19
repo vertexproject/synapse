@@ -80,6 +80,43 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn({'url': url})
 
+_getAhaSvcSchema = {
+    'type': 'object',
+    'properties': {
+        'network': {
+            'type': 'string',
+            'minLength': 1,
+            'default': None,
+        },
+    },
+    'additionalProperties': False,
+}
+getAhaScvSchema = s_config.getJsValidator(_getAhaSvcSchema)
+
+class AhaServicesV1(s_httpapi.Handler):
+    async def get(self):
+        if not await self.reqAuthAdmin():
+            return
+
+        network = None
+        if self.request.body:
+            body = self.getJsonBody(validator=getAhaScvSchema)
+            if body is None:
+                return
+            network = body.get('network')
+
+        ret = []
+
+        try:
+            async for info in self.cell.getAhaSvcs(network=network):
+                ret.append(info)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:  # pragma: no cover
+            logger.exception(f'Error getting Aha services.')
+            return self.sendRestErr(e.__class__.__name__, str(e))
+        return self.sendRestRetn(ret)
+
 class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self):
@@ -262,16 +299,20 @@ class ProvDmon(s_daemon.Daemon):
             anam = conf.get('aha:name')
             anet = conf.get('aha:network')
             mesg = f'Retrieved service provisioning info for {anam}.{anet} iden {name}'
-            logger.debug(mesg, extra=await self.aha.getLogExtra(iden=name, name=anam, netw=anet))
+            logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, name=anam, netw=anet))
             return ProvApi(self.aha, provinfo)
 
         userinfo = await self.aha.getAhaUserEnroll(name)
         if userinfo is not None:
             unam = userinfo.get('name')
             mesg = f'Retrieved user provisioning info for {unam} iden {name}'
-            logger.debug(mesg, extra=await self.aha.getLogExtra(iden=name, name=unam))
+            logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, name=unam))
             await self.aha.delAhaUserEnroll(name)
             return EnrollApi(self.aha, userinfo)
+
+        mesg = f'Invalid provisioning identifier name={name}. This could be' \
+               f' caused by the re-use of a provisioning URL.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
 
 class EnrollApi:
 
@@ -377,6 +418,8 @@ class AhaCell(s_cell.Cell):
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
+        slab.addResizeCallback(self.checkFreeSpace)
+
         self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():
@@ -390,6 +433,7 @@ class AhaCell(s_cell.Cell):
 
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
+        self.addHttpApi('/api/v1/aha/services', AhaServicesV1, {'cell': self})
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
     async def initServiceRuntime(self):
@@ -401,17 +445,20 @@ class AhaCell(s_cell.Cell):
             if netw is not None:
 
                 if self.certdir.getCaCertPath(netw) is None:
+                    logger.info(f'Adding CA certificate for {netw}')
                     await self.genCaCert(netw)
 
                 name = self.conf.get('aha:name')
 
                 host = f'{name}.{netw}'
                 if self.certdir.getHostCertPath(host) is None:
+                    logger.info(f'Adding server certificate for {host}')
                     await self._genHostCert(host, signas=netw)
 
                 user = self._getAhaAdmin()
                 if user is not None:
                     if self.certdir.getUserCertPath(user) is None:
+                        logger.info(f'Adding user certificate for {user}@{netw}')
                         await self._genUserCert(user, signas=netw)
 
     async def initServiceNetwork(self):
@@ -723,6 +770,8 @@ class AhaCell(s_cell.Cell):
     def _getAhaUrls(self):
         urls = self.conf.get('aha:urls')
         if urls is not None:
+            if isinstance(urls, str):
+                return (urls,)
             return urls
 
         ahaname = self.conf.get('aha:name')
@@ -733,8 +782,11 @@ class AhaCell(s_cell.Cell):
         if ahanetw is None:
             return None
 
+        if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
+            return None
+
         # TODO this could eventually enumerate others via itself
-        return f'ssl://{ahaname}.{ahanetw}'
+        return (f'ssl://{ahaname}.{ahanetw}:{self.sockaddr[1]}',)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -770,6 +822,10 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server has no configured aha:network.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if netw != mynetw:
+            mesg = f'Provisioning aha:network must be equal to the Aha servers network. Expected {mynetw}, got {netw}'
+            raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
+
         hostname = f'{name}.{netw}'
 
         conf.setdefault('aha:name', name)
@@ -788,9 +844,6 @@ class AhaCell(s_cell.Cell):
         if peer:
             conf.setdefault('aha:leader', leader)
 
-        if isinstance(ahaurls, str):
-            ahaurls = (ahaurls,)
-
         # allow user to win over leader
         ahauser = conf.get('aha:user')
         ahaurls = s_telepath.modurl(ahaurls, user=ahauser)
@@ -801,19 +854,24 @@ class AhaCell(s_cell.Cell):
         if mirname is not None:
             conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
 
-        username = f'{ahauser}@{netw}'
-        user = await self.auth.getUserByName(username)
+        user = await self.auth.getUserByName(ahauser)
         if user is None:
-            user = await self.auth.addUser(username)
+            user = await self.auth.addUser(ahauser)
 
-        await user.allow(('aha', 'service', 'get', netw))
-        await user.allow(('aha', 'service', 'add', netw, name))
+        perms = [
+            ('aha', 'service', 'get', netw),
+            ('aha', 'service', 'add', netw, name),
+        ]
         if peer:
-            await user.allow(('aha', 'service', 'add', netw, leader))
+            perms.append(('aha', 'service', 'add', netw, leader))
+        for perm in perms:
+            if user.allowed(perm):
+                continue
+            await user.allow(perm)
 
         iden = await self._push('aha:svc:prov:add', provinfo)
 
-        logger.debug(f'Created service provisioning for {name}.{netw} with iden {iden}',
+        logger.info(f'Created service provisioning for {name}.{netw} with iden {iden}',
                      extra=await self.getLogExtra(iden=iden, name=name, netw=netw))
 
         return self._getProvClientUrl(iden)
@@ -892,7 +950,7 @@ class AhaCell(s_cell.Cell):
 
         iden = await self._push('aha:enroll:add', userinfo)
 
-        logger.debug(f'Created user provisioning for {name} with iden {iden}',
+        logger.info(f'Created user provisioning for {name} with iden {iden}',
                      extra=await self.getLogExtra(iden=iden, name=name))
 
         return self._getProvClientUrl(iden)

@@ -16,6 +16,7 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 
 import synapse.lib.coro as s_coro
+import synapse.lib.scope as s_scope
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,8 @@ class Base:
         self._syn_links = []
         self._fini_funcs = []
         self._fini_atexit = False
-        self._active_tasks = set()  # the free running tasks associated with me
+        self._active_tasks = None       # the set of free running tasks associated with me
+        self._context_managers = None   # the set of context managers i must fini
 
     async def postAnit(self):
         '''
@@ -156,19 +158,20 @@ class Base:
         Returns:
             The result of item’s own __aenter__ or __enter__() method.
         '''
+        if self.isfini: # pragma: no cover
+            mesg = 'Cannot enter_context on a fini()d object.'
+            raise s_exc.IsFini(mesg=mesg)
+
+        if self._context_managers is None:
+            self._context_managers = []
+
+        self._context_managers.append(item)
         entr = getattr(item, '__aenter__', None)
         if entr is not None:
-            async def fini():
-                await item.__aexit__(None, None, None)
-            self.onfini(fini)
             return await entr()
 
         entr = getattr(item, '__enter__', None)
         assert entr is not None
-
-        async def fini():
-            item.__exit__(None, None, None)
-        self.onfini(fini)
         return entr()
 
     def onfini(self, func):
@@ -382,6 +385,25 @@ class Base:
 
         await self._kill_active_tasks()
 
+        if self._context_managers is not None:
+            for item in reversed(self._context_managers):
+
+                exit = getattr(item, '__aexit__', None)
+                if exit is not None:
+                    try:
+                        await exit(None, None, None)
+                    except Exception:
+                        logger.exception(f'{self} {item} - context aexit failed!')
+                    continue
+
+                exit = getattr(item, '__exit__', None)
+                if exit is not None:
+                    try:
+                        exit(None, None, None)
+                    except Exception:
+                        logger.exception(f'{self} {item} - context exit failed!')
+                    continue
+
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
@@ -444,8 +466,12 @@ class Base:
         Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
         It does not pend on coroutine completion.
 
-        Precondition:
-            This function is *not* threadsafe and must be run on the Base's event loop
+        Args:
+            coro: The coroutine to schedule.
+
+        Notes:
+            This function is *not* threadsafe and must be run on the Base's event loop.
+            Tasks created by this function do inherit the synapse.lib.scope Scope from the current task.
 
         Returns:
             asyncio.Task: An asyncio.Task object.
@@ -458,7 +484,12 @@ class Base:
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
+        if self._active_tasks is None:
+            self._active_tasks = set()
+
         task = self.loop.create_task(coro)
+
+        s_scope.clone(task)
 
         # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
         if asyncio.current_task():
@@ -492,6 +523,7 @@ class Base:
 
         Notes:
             This method may be called from outside of the event loop on a different thread.
+            This function will break any task scoping done with synapse.lib.scope.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual function execution.
@@ -508,6 +540,7 @@ class Base:
 
         Notes:
             This method may be run outside the event loop on a different thread.
+            This function will break any task scoping done with synapse.lib.scope.
 
         Returns:
             concurrent.futures.Future: A Future representing the eventual coroutine execution.
@@ -550,7 +583,8 @@ class Base:
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
 
-        NOTE: This API may only be used when the ioloop is *also* the main thread.
+        Note:
+            This API may only be used when the ioloop is *also* the main thread.
         '''
         await self.addSignalHandlers()
         return await self.waitfini()
@@ -565,7 +599,7 @@ class Base:
 
             waiter = base.waiter(10,'foo:bar')
 
-            # .. fire thread that will cause foo:bar events
+            # .. fire task that will cause foo:bar events
 
             events = await waiter.wait(timeout=3)
 
@@ -575,11 +609,12 @@ class Base:
             for event in events:
                 # parse the events if you need...
 
-        NOTE: use with caution... it's easy to accidentally construct
-              race conditions with this mechanism ;)
+        Note:
+            Use this with caution. It's easy to accidentally construct
+            race conditions with this mechanism ;)
 
         '''
-        return Waiter(self, count, self.loop, *names)
+        return Waiter(self, count, *names)
 
 class Waiter:
     '''

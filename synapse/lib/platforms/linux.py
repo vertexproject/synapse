@@ -17,7 +17,8 @@ def initHostInfo():
     return {
         'format': 'elf',
         'platform': 'linux',
-        'hasmemlocking': True  # has mlock, and all the below related functions
+        'hasmemlocking': True,  # has mlock, and all the below related functions
+        'hassysctls': True,
     }
 
 def getFileMappedRegion(filename):
@@ -66,7 +67,16 @@ def getTotalMemory():
     fp = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     if os.path.isfile(fp):
         with open(fp) as f:
-            return int(f.read())
+            valu = int(f.read())
+            # Skip a known value on cgroupsv1 where there has not been
+            # a limit set, so we will resort to using /proc/meminfo instead.
+            # We assume a 64 bit long in our platform. Mimic the linux kernel
+            # behavior of using a rounded integer division of
+            # LONG_MAX / PAGE_SIZE; which is later multiplied by PAGE_SIZE
+            # For more see https://unix.stackexchange.com/q/420906
+            _ps = os.sysconf('SC_PAGESIZE')
+            if valu != ((2 ** 63 - 1) // _ps) * _ps:
+                return valu
     # A host (or container) using cgroupv2 with a max memory enabled will have
     # a memory.max file available.
     # Reference
@@ -94,6 +104,30 @@ def getTotalMemory():
 
     logger.warning('Unable to find max memory limit')  # pragma: no cover
     return 0  # pragma: no cover
+
+
+def getSysctls():
+    _sysctls = (
+        ('vm.swappiness', '/proc/sys/vm/swappiness', int),
+        ('vm.dirty_expire_centisecs', '/proc/sys/vm/dirty_expire_centisecs', int),
+        ('vm.dirty_writeback_centisecs', '/proc/sys/vm/dirty_writeback_centisecs', int),
+        ('vm.dirty_background_ratio', '/proc/sys/vm/dirty_background_ratio', int),
+        ('vm.dirty_ratio', '/proc/sys/vm/dirty_ratio', int),
+    )
+    ret = {}
+    for key, fp, func in _sysctls:
+        if os.path.isfile(fp):
+            with open(fp) as f:
+                valu = f.read().strip()
+                try:
+                    ret[key] = func(valu)
+                except Exception:  # pragma: no cover
+                    logger.exception(f'Error normalizing sysctl:  {key} @ {fp}, valu={valu}')
+                    ret[key] = None
+        else:  # pragma: no cover
+            logger.warning(f'Missing sysctl: {key} @ {fp}')
+            ret[key] = None
+    return ret
 
 def getAvailableMemory():
     '''

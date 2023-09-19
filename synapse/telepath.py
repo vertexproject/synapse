@@ -12,8 +12,6 @@ import logging
 import contextlib
 import collections
 
-import aiohttp
-
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -160,15 +158,15 @@ async def getAhaProxy(urlinfo):
         try:
             proxy = await client.proxy(timeout=5)
 
-            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
+            cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
 
             if cellinfo['synapse']['version'] >= (2, 95, 0):
                 filters = {
-                    'mirror': bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
+                    'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false')))
                 }
-                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
-            else:
-                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
+                ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
+            else:  # pragma: no cover
+                ahasvc = await s_common.wait_for(proxy.getAhaSvc(host), timeout=5)
 
             if ahasvc is None:
                 continue
@@ -263,7 +261,8 @@ async def loadTeleCell(dirn):
     ahaurl = None
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
-        ahaurl = conf.get('aha:registry')
+        if conf is not None:
+            ahaurl = conf.get('aha:registry')
 
     if usecerts:
         s_certdir.addCertPath(certpath)
@@ -1118,7 +1117,7 @@ class Client(s_base.Base):
         raise s_exc.IsFini(mesg='Telepath Client isfini')
 
     async def waitready(self, timeout=10):
-        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
+        await s_common.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
         if self._t_methinfo is None:
@@ -1176,80 +1175,6 @@ class Client(s_base.Base):
             tuple: A tuple of strings containing the class paths for the remote object.
         '''
         return self._t_proxy._getClasses()
-
-async def disc_consul(info):
-    '''
-    Support for updating a URL info dictionary which came from a protocol+consul:// URL.
-
-    Notes:
-        This updates the info-dictionary in place, placing the ``host`` value into
-        an ``original_host`` key, and updating ``host`` and ``port``.
-
-        By default we pull the ``host`` value from the catalog ``Address`` value,
-        and the ``port`` from the ``ServicePort`` value.
-
-        The following HTTP parameters are supported:
-
-        - consul: This is the consul host (schema, fqdn and port) to connect to.
-        - consul_tag: If set, iterate through the catalog results until a result
-          is found which matches the tag value. This is a case sensitive match.
-        - consul_tag_address: If set, prefer the ``TaggedAddresses`` from the catalog.
-        - consul_service_tag_address: If set, prefer the associated value from the
-          ``ServiceTaggedAddresses`` field.
-        - consul_nosslverify: If set, disables SSL verification.
-
-    '''
-    info.setdefault('original_host', info.get('host'))
-    service = info.get('original_host')
-    host = info.get('consul')
-    tag = info.get('consul_tag')  # iterate through entries until a match for tag is present.
-    ctag_addr = info.get('consul_tag_address')  # Prefer a taggedAddress if set
-    csvc_tag_addr = info.get('consul_service_tag_address')  # Prefer a serviceTaggedAddress if set
-    gkwargs = {'raise_for_status': True}
-    if info.get('consul_nosslverify'):
-        gkwargs['ssl'] = False
-
-    if ctag_addr and csvc_tag_addr:
-        mesg = 'Cannot resolve consul values with both consul_tag_address and consul_service_tag_address'
-        raise s_exc.BadUrl(mesg=mesg, consul_tag_address=ctag_addr,
-                           consul_service_tag_address=csvc_tag_addr)
-
-    url = f'{host}/v1/catalog/service/{service}'
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, **gkwargs) as resp:
-                if resp.status == 200:
-                    found = await resp.json()
-                    for entry in found:
-
-                        # If the consul_tag parameter is passed, we will iterate over
-                        # the Consul results until we find the service which matches
-                        # our requested tag. Otherwise, we will grab data from the
-                        # first record from the service catalog.
-                        if tag and tag not in entry.get('ServiceTags'):
-                            continue
-
-                        if csvc_tag_addr:
-                            # Use the ServiceTaggedAddresses
-                            info['host'] = entry['ServiceTaggedAddresses'][csvc_tag_addr]['address']
-                            info['port'] = entry['ServiceTaggedAddresses'][csvc_tag_addr]['port']
-                        elif ctag_addr:
-                            # Use the TaggedAddresses values.
-                            info['host'] = entry['TaggedAddresses'][ctag_addr]
-                            info['port'] = entry['ServicePort']
-                        else:
-                            # Use the generic service address/port
-                            info['host'] = entry['Address']
-                            info['port'] = entry['ServicePort']
-                        return
-
-    except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-        raise
-    except Exception as e:
-        raise s_exc.BadUrl(mesg=f'Unknown error while resolving service name [{service}] via consul [{str(e)}].',
-                           name=service, consul=host) from e
-    raise s_exc.BadUrl(mesg=f'Unable to resolve service information from consul for [{service}].',
-                       name=service, consul=host, tag=tag)
 
 def alias(name):
     '''
@@ -1366,10 +1291,8 @@ async def openinfo(info):
 
     if '+' in scheme:
         scheme, disc = scheme.split('+', 1)
-        # Discovery protocols modify info dict inband?
-        if disc == 'consul':
-            await disc_consul(info)
-
+        if disc == 'consul':  # pragma: no cover
+            raise s_exc.FeatureNotSupported(mesg='Consul is no longer supported.')
         else:
             raise s_exc.BadUrl(mesg=f'Unknown discovery protocol [{disc}].',
                                disc=disc)
