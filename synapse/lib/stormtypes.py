@@ -7222,7 +7222,7 @@ class LibTrigger(Lib):
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
         {'perm': ('trigger', 'set'), 'gate': 'view',
-         'desc': 'Controls modifying triggers.'},
+         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
         {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
          'desc': 'Controls modifying the doc property of triggers.'},
         {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
