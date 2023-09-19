@@ -1,4 +1,5 @@
 import binascii
+import ipaddress
 
 import regex
 
@@ -246,3 +247,105 @@ def cvss_validate(vect, vers):
         raise s_exc.BadDataValu(mesg=f'Provided vector {vect} contains invalid metric value(s): {badvals}')
 
     return vdict
+
+def uncnorm(valu):
+    '''
+    Validate and normalize the UNC path passed in `valu` into a URI.
+
+    This function will accept `@SSL` and `@<port>` as part of the host name to
+    indicate SSL (https) or a specific port number. It can also accept IPv6
+    addresses in the host name even though those are non-standard according to
+    the spec.
+    '''
+    proto = 'smb'
+    port = 0
+    paths = ()
+    filename = ''
+
+    if not valu.startswith('\\\\'):
+        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Does not start with \\\\.')
+
+    parts = valu.split('\\')
+    # e.g.: \\\\server\\share\\path\\file -> ['', '', 'server', 'share', 'path', 'file']
+
+    # host name and share name are mandatory
+    if len(parts) < 4:
+        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Host name and share name are required.')
+
+    host = parts[2]
+    share = parts[3]
+
+    # Share name length should be 1-80 characters
+    sharelen = len(share)
+    if sharelen == 0 or sharelen > 80:
+        raise s_exc.BadTypeValu(mesg=f'Invalid UNC path: Share name must be 1-80 characters.')
+
+    if len(parts) > 4:
+        parts = parts[4:]
+        # Check directory names
+        paths = parts[:-1]
+        for path in paths:
+            if len(path) > 255:
+                raise s_exc.BadTypeValu(
+                    mesg=f'Invalid UNC path: Path component longer than 255 characters.',
+                    valu=path
+                )
+
+        # Check filename
+        filename = parts[-1]
+        if len(filename) > 255:
+            fparts = filename.split(':')
+            if len(fparts[0]) > 255:
+                raise s_exc.BadTypeValu(
+                    mesg=f'Invalid UNC path: Filename longer than 255 characters.',
+                    valu=fparts[0]
+                )
+
+    # Done with validation, now get to the choppa
+    if '@SSL' in host:
+        proto = 'https'
+        host = host.replace('@SSL', '')
+
+    if '@' in host:
+        # Could be '@<port>'
+        host, port = host.split('@', 1)
+
+        try:
+            port = int(port)
+        except ValueError:
+            raise s_exc.BadTypeValu(
+                mesg=f'Invalid UNC path: Invalid port.',
+                valu=port
+            )
+
+    # Convert ...ipv6-literal.net back to an actual ipv6 address
+    if host.lower().endswith('.ipv6-literal.net'):
+        host = host.lower().strip('.ipv6-literal.net')
+        host = host.replace('-', ':')
+
+        # Strip off the zone index
+        if 's' in host:
+            host = host[:host.index('s')]
+
+    if host.count(':') >= 2:
+        if port:
+            # Host is an ipv6 address
+            host = f'[{host}]'
+        else:
+            host = host.strip('[]')
+
+    if port:
+        port = f':{port}'
+    else:
+        port = ''
+
+    if paths:
+        paths = '/'.join(paths)
+        paths = f'/{paths}'
+    else:
+        paths = ''
+
+    if filename:
+        filename = f'/{filename}'
+
+    return f'{proto}://{host}{port}/{share}{paths}{filename}'
