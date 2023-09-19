@@ -468,6 +468,43 @@ c:\\foo.
 dc:\\foo\\bar
 '''
 
+good_uncs = [
+    '\\\\foo\\bar\\baz',
+    '\\\\server\\share',
+    '\\\\server.domain.com\\share\\path\\to\\filename.txt',
+    '\\\\1.2.3.4\\share',
+    '\\\\1.2.3.4\\share\\dirn',
+    '\\\\1234-2345--3456.ipv6-literal.net\\share',
+    '\\\\1234-2345--3456.ipv6-literal.net\\share\\dirn',
+    '\\\\1-2-3-4-5-6-7-8.ipv6-literal.net\\share\\filename.txt',
+    '\\\\1-2-3-4-5-6-7-8seth0.ipv6-literal.net\\share\\filename.txt',
+    '\\\\server@SSL\\share\\foo.txt',
+    '\\\\server@1234\\share\\foo.txt',
+    '\\\\server@SSL@1234\\share\\foo.txt',
+    '\\\\0--1.ipv6-literal.net@SSL@1234\\share\\foo.txt',
+    ('\\\\server\\share\\' + ('A' * 250) + '.txt:sname:stype\n'),
+    'The UNC path is: \\\\server.domain.com\\share\\path\\to\\filename1.txt',
+    'The UNC path is:\\\\server.domain.com\\share\\path\\to\\filename2.txt',
+    'The UNC path is: "\\\\badserver\\share\\malicious file with spaces.txt" and the fqdn is badserver.domain.com.',
+    "The UNC path is: '\\\\badserver\\share\\malicious file with spaces.txt' and the fqdn is badserver.domain.com.",
+    'The UNC path is: \\\\badserver\\share\\filename and the fqdn is badserver.domain.com.',
+    '\\\\server@asdf\\share\\filename.txt',
+    '\\\\1:2:3:4:5:6:7:8\\share',
+    '\\\\[1:2:3:4:5:6:7:8]\\share',
+]
+
+bad_uncs = [
+    '\\\\server',
+    '\\\\server\\',
+    '\\\\hostname@SSL',
+    '\\\\server\\\\foobar.txt',
+    '\\\\server\\AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\\filename.txt',
+    ('\\\\server\\share\\' + ('A' * 256) + '\\filename.txt\n'),
+    ('\\\\server\\share\\' + ('A' * 256) + '.txt\n'),
+]
+
+unc_paths = '\n'.join(good_uncs + bad_uncs)
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape_basic(self):
@@ -713,6 +750,7 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
 
         nodes = list(s_scrape.scrape(linux_paths))
+        nodes = [k for k in nodes if k[0] == 'file:path']
 
         self.len(13, nodes)
         nodes.remove(('file:path', '/bin/ls'))
@@ -730,6 +768,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('file:path', '/root/.aaa/eee'))
 
         nodes = list(s_scrape.scrape(windows_paths))
+        nodes = [k for k in nodes if k[0] == 'file:path']
 
         self.len(15, nodes)
         nodes.remove(('file:path', 'c:\\temp'))
@@ -747,6 +786,33 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('file:path', 'c:\\aaa\\ccc'))
         nodes.remove(('file:path', 'c:\\aaa\\ddd'))
         nodes.remove(('file:path', 'c:\\aaa\\eee'))
+
+        nodes = list(s_scrape.scrape(unc_paths))
+        nodes = [k for k in nodes if k[0] == 'inet:url']
+
+        self.len(21, nodes)
+
+        nodes.remove(('inet:url', 'smb://foo/bar/baz'))
+        nodes.remove(('inet:url', 'smb://server/share'))
+        nodes.remove(('inet:url', 'smb://server.domain.com/share/path/to/filename.txt'))
+        nodes.remove(('inet:url', 'smb://1.2.3.4/share'))
+        nodes.remove(('inet:url', 'smb://1.2.3.4/share/dirn'))
+        nodes.remove(('inet:url', 'smb://1234:2345::345/share'))
+        nodes.remove(('inet:url', 'smb://1234:2345::345/share/dirn'))
+        nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share/filename.txt'))
+        nodes.remove(('inet:url', 'smb://server.domain.com/share/path/to/filename1.txt'))
+        nodes.remove(('inet:url', 'smb://server.domain.com/share/path/to/filename2.txt'))
+        nodes.remove(('inet:url', 'smb://badserver/share/malicious file with spaces.txt'))
+        nodes.remove(('inet:url', 'smb://badserver/share/malicious file with spaces.txt'))
+        nodes.remove(('inet:url', 'smb://badserver/share/filename'))
+        nodes.remove(('inet:url', 'https://server/share/foo.txt'))
+        nodes.remove(('inet:url', 'smb://server:1234/share/foo.txt'))
+        nodes.remove(('inet:url', 'https://server:1234/share/foo.txt'))
+        nodes.remove(('inet:url', 'https://[0::1]:1234/share/foo.txt'))
+        AAA = 'A' * 250
+        nodes.remove(('inet:url', f'smb://server/share/{AAA}.txt:sname:stype'))
+        nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
+        nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
