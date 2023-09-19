@@ -117,12 +117,10 @@ def cve_check(match: regex.Match):
 # Reference NIST 7695
 # Common Platform Enumeration: Naming Specification Version 2.3
 # Figure 6-3. ABNF for Formatted String Binding
-_cpe23_regex = r'''
-# Capture the valu group
-(?P<valu>cpe:2\.3:[aho\*-]
-(?::([a-z0-9-_.*?]|\\[\\?*!"#$%&\'()*+,/;:<=>@\[\]^`{|}~])+){5}
+_cpe23_regex = r'''(?P<valu>cpe:2\.3:[aho\*-]
+(?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){5}
 :([*-]|(([a-z]{2,3}){1}(-([0-9]{3}|[a-z]{2}))?))
-(?::([a-z0-9-_.*?]|\\[\\?*!"#$%&\'()*+,/;:<=>@\[\]^`{|}~])+){4})
+(?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){4})
 '''
 
 linux_path_regex = r'''

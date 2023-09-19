@@ -983,7 +983,6 @@ class ScrapeTest(s_t_utils.SynTest):
         cpe:2.3:*:-:na:*:*:*:*:*:*:*:*
         cpe:2.3:*:.:dot:*:*:*:*:*:*:*:*
         cpe:2.3:*:_:underscore:*:*:*:*:*:*:*:*
-        cpe:2.3:*:?:spec1:*:*:*:*:*:*:*:*
 
         A few quoted characters
         cpe:2.3:*:\!:quoted:*:*:*:*:*:*:*:*
@@ -1026,6 +1025,7 @@ class ScrapeTest(s_t_utils.SynTest):
         wordscpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz:
 
         BAD values
+        cpe:2.3:*:?:spec1:*:*:*:*:*:*:*:*
         cpe:2.3:a:vertex:synapse:*:*:*:NEWP:*:*:*:*
         cpe:2.3:a::::::::::
         cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:ॐ:other
@@ -1044,7 +1044,6 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*:*:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:-:na:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:.:dot:*:*:*:*:*:*:*:*'))
-        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:?:spec1:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\!:quoted:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\*:quoted:*:*:*:*:*:*:*:*'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\?:quoted:*:*:*:*:*:*:*:*'))
