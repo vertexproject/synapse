@@ -378,7 +378,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 rst.addLines(f'  Source Edges:',)
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
-                             '      :widths: 10 10 10 70',
+                             '      :widths: 10 15 10 65',
                              '      :class: tight-table',
                              '',
                              '      * - source',
@@ -418,7 +418,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 rst.addLines(f'  Target Edges:', )
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
-                             '      :widths: 10 10 10 70',
+                             '      :widths: 10 15 10 65',
                              '      :class: tight-table',
                              '',
                              '      * - source',
