@@ -35,7 +35,7 @@ Edges = List[Edge]
 poptsToWords = {
     'ex': 'Example',
     'ro': 'Read Only',
-    'deprected': 'Deprecated',
+    'deprecated': 'Deprecated',
     'disp': 'Display',
 }
 
@@ -336,11 +336,14 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
 
                 rst.addLines(f'      * - ``:{pname}``',)
                 if ptopts:
-                    print(name, pname, ptopts)
 
                     rst.addLines(f'        - | :ref:`{hptlink}`', )
                     for k, v in ptopts.items():
-                        rst.addLines(f'          | {k}: ``{v}``', )
+                        if ptname == 'array' and k == 'type':
+                            tlink = f'dm-type-{v.replace(":", "-")}'
+                            rst.addLines(f'          | {k}: :ref:`{tlink}`', )
+                        else:
+                            rst.addLines(f'          | {k}: ``{v}``', )
 
                 else:
                     rst.addLines(f'        - :ref:`{hptlink}`',)
@@ -348,8 +351,6 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 rst.addLines(f'        - {doc}',)
 
                 if popts:
-                    if 'exchange' in name:
-                        print(popts)
                     if len(popts) == 1:
                         for k, v in popts.items():
                             k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
@@ -365,11 +366,6 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     rst.addLines(f'        - ')
 
         if formedges:
-
-            rst.addLines('',
-                         'Light Edges:',
-                         '',
-                         )
 
             source_edges = formedges.pop('source', None)
             dst_edges = formedges.pop('target', None)
@@ -391,6 +387,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                              '        - doc',
                              )
 
+                _edges = []
                 for (edef, enfo) in source_edges:
                     src, enam, dst = edef
                     doc = enfo.pop('doc', None)
@@ -400,18 +397,23 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+                    _edges.append((src, enam, dst, doc))
+                _edges.sort(key=lambda x: x[:2])
+
+                for src, enam, dst, doc in _edges:
                     rst.addLines(f'      * - ``{src}``',
                                  f'        - ``-({enam})>``',
                                  f'        - ``{dst}``',
                                  f'        - {doc}',
                                  )
 
-                    if enfo:
-                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
-
             if dst_edges:
                 if generic_edges:
                     dst_edges.extend(generic_edges)
+
+                # dst_edges.sort(key=lambda x: x[0])
 
                 rst.addLines(f'  Target Edges:', )
                 rst.addLines('   .. list-table::',
@@ -424,23 +426,29 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                              '        - target',
                              '        - doc',
                              )
+
+                _edges = []
                 for (edef, enfo) in dst_edges:
                     src, enam, dst = edef
                     doc = enfo.pop('doc', None)
-
                     if src is None:
                         src = '*'
                     if dst is None:
                         dst = '*'
 
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+
+                    _edges.append((src, enam, dst, doc))
+                _edges.sort(key=lambda x: x[:2])
+
+                for src, enam, dst, doc in _edges:
                     rst.addLines(f'      * - ``{src}``',
                                  f'        - ``-({enam})>``',
                                  f'        - ``{dst}``',
                                  f'        - {doc}',
                                  )
 
-                    if enfo:
-                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
                 rst.addLines('', '')
 
             if formedges:
