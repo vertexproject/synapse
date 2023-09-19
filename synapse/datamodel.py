@@ -571,23 +571,6 @@ class Model:
             'doc': 'The time the node was created in the cortex.',
         })
 
-        self.addIface('taxonomy', {
-            'props': (
-                ('title', ('str', {}), {'doc': 'A brief title of the definition.'}),
-                ('summary', ('str', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use title/desc.',
-                    'disp': {'hint': 'text'}}),
-                ('desc', ('str', {}), {'doc': 'A definition of the taxonomy entry.', 'disp': {'hint': 'text'}}),
-                ('sort', ('int', {}), {'doc': 'A display sort order for siblings.', }),
-                ('base', ('taxon', {}), {'ro': True, 'doc': 'The base taxon.', }),
-                ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
-                ('parent', ('$self', {}), {'ro': True, 'doc': 'The taxonomy parent.', }),
-            ),
-            'doc': 'Deprecated. Please use meta:taxonomy.',
-            'deprecated': True
-        })
-
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
@@ -772,6 +755,17 @@ class Model:
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
+        ifaces = typeinfo.get('interfaces')
+        if ifaces and 'taxonomy' in ifaces:
+            mesg = f'The type {typename} uses the deprecated taxonomy interface, ' \
+                    'meta:taxonomy will be used instead.'
+            logger.warning(mesg)
+
+            ifaces = set(ifaces)
+            ifaces.remove('taxonomy')
+            ifaces.add('meta:taxonomy')
+            typeinfo['interfaces'] = tuple(ifaces)
+
         newtype = base.extend(typename, typeopts, typeinfo)
 
         if newtype.deprecated and typeinfo.get('custom'):
@@ -906,7 +900,7 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         if iface.get('deprecated'):
-            mesg = f'Interface {name} is deprecated and will be removed in 3.0.0'
+            mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
             logger.warning(mesg)
 
         for propname, typedef, propinfo in iface.get('props', ()):
