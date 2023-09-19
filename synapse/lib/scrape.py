@@ -223,7 +223,6 @@ ipv6_regex = fr'''
 )
 
 '''
-
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('file:path', linux_path_regex, {'callback': linux_path_check, 'flags': regex.VERBOSE}),
