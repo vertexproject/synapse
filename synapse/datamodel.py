@@ -755,17 +755,6 @@ class Model:
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        ifaces = typeinfo.get('interfaces')
-        if ifaces and 'taxonomy' in ifaces:
-            mesg = f'The type {typename} uses the deprecated taxonomy interface, ' \
-                    'meta:taxonomy will be used instead.'
-            logger.warning(mesg)
-
-            ifaces = set(ifaces)
-            ifaces.remove('taxonomy')
-            ifaces.add('meta:taxonomy')
-            typeinfo['interfaces'] = tuple(ifaces)
-
         newtype = base.extend(typename, typeopts, typeinfo)
 
         if newtype.deprecated and typeinfo.get('custom'):

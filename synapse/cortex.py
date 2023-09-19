@@ -1214,6 +1214,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model = s_datamodel.Model()
 
+        await self._bumpCellVers('cortex:extmodel', (
+            (1, self._migrateTaxonomyIface),
+        ), nexs=False)
+
         # Perform module loading
         await self._loadCoreMods()
         await self._loadExtModel()
@@ -3197,6 +3201,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
+
+    async def _migrateTaxonomyIface(self):
+
+        extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
+
+        for formname, basetype, typeopts, typeinfo in extforms.values():
+            try:
+                ifaces = typeinfo.get('interfaces')
+
+                if ifaces and 'taxonomy' in ifaces:
+                    ifaces = set(ifaces)
+                    ifaces.remove('taxonomy')
+                    ifaces.add('meta:taxonomy')
+                    typeinfo['interfaces'] = tuple(ifaces)
+
+                    await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
+
+            except Exception as e:
+                logger.exception(f'Taxonomy migration error for form: {formname} (skipped).')
 
     async def _loadExtModel(self):
 

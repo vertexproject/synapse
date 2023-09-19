@@ -7537,3 +7537,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, mrevstart)
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
+
+    async def test_cortex_taxonomy_migr(self):
+
+        async with self.getRegrCore('2.149.0-taxonomy-rename') as core:
+
+            self.true(core.cellvers.get('cortex:extmodel') >= 1)
+
+            self.len(4, await core.nodes('meta:taxonomy'))
+
+            nodes = await core.nodes('meta:taxonomy:desc')
+            self.len(2, nodes)
+            self.eq(nodes[0].props.get('desc'), 'another old interface')
+            self.eq(nodes[1].props.get('desc'), 'old interface')
+
+            self.none(core.model.ifaces.get('taxonomy'))
+            self.none(core.model.formsbyiface.get('taxonomy'))
