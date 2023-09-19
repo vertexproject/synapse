@@ -7219,6 +7219,24 @@ class LibTrigger(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
     _storm_lib_path = ('trigger',)
+    _storm_lib_perms = (
+        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding triggers.'},
+        {'perm': ('trigger', 'del'), 'gate': 'view',
+         'desc': 'Controls deleting triggers.'},
+        {'perm': ('trigger', 'get'), 'gate': 'trigger',
+         'desc': 'Controls listing/retrieving triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'view',
+         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of triggers.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Controls modifying the user property of triggers.'},
+        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
+         'desc': 'Controls modifying specific trigger properties.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7611,6 +7629,47 @@ class LibUsers(Lib):
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
+        {'perm': ('auth', 'role', 'set', 'name'), 'gate': 'cortex',
+         'desc': 'Permits a user to change the name of a role.'},
+        {'perm': ('auth', 'role', 'set', 'rules'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify rules of a role.'},
+
+         {'perm': ('auth', 'self', 'set', 'email'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own email address.',
+         'default': True},
+        {'perm': ('auth', 'self', 'set', 'name'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own username.',
+         'default': True},
+        {'perm': ('auth', 'self', 'set', 'passwd'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own password.',
+         'default': True},
+
+        {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
+         'desc': 'Controls granting roles to a user.'},
+        {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',
+         'desc': 'Controls revoking roles from a user.'},
+
+        {'perm': ('auth', 'user', 'set', 'admin'), 'gate': 'cortex',
+         'desc': 'Controls setting/removing a user\'s admin status.'},
+        {'perm': ('auth', 'user', 'set', 'email'), 'gate': 'cortex',
+         'desc': 'Controls changing a user\'s email address.'},
+        {'perm': ('auth', 'user', 'set', 'locked'), 'gate': 'cortex',
+         'desc': 'Controls locking/unlocking a user account.'},
+        {'perm': ('auth', 'user', 'set', 'passwd'), 'gate': 'cortex',
+         'desc': 'Controls changing a user password.'},
+        {'perm': ('auth', 'user', 'set', 'rules'), 'gate': 'cortex',
+         'desc': 'Controls adding rules to a user.'},
+
+        {'perm': ('auth', 'user', 'get', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to retrieve their profile information.',
+         'ex': 'auth.user.get.profile.fullname'},
+        {'perm': ('auth', 'user', 'pop', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to remove profile information.',
+         'ex': 'auth.user.pop.profile.fullname'},
+        {'perm': ('auth', 'user', 'set', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to set profile information.',
+         'ex': 'auth.user.set.profile.fullname'},
+
         {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
         {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
@@ -8904,6 +8963,18 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
     _storm_lib_path = ('cron',)
+    _storm_lib_perms = (
+        {'perm': ('cron', 'add'), 'gate': 'view',
+         'desc': 'Permits a user to create a cron job.'},
+        {'perm': ('cron', 'del'), 'gate': 'cronjob',
+         'desc': 'Permits a user to remove a cron job.'},
+        {'perm': ('cron', 'get'), 'gate': 'cronjob',
+         'desc': 'Permits a user to list cron jobs.'},
+        {'perm': ('cron', 'set'), 'gate': 'cronjob',
+         'desc': 'Permits a user to modify/move a cron job.'},
+        {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the creator property of a cron job.'},
+    )
 
     def getObjLocals(self):
         return {

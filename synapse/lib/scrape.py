@@ -214,12 +214,25 @@ ipv6_regex = fr'''
 )
 '''
 
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/62e862f4-2a51-452e-8eeb-dc4ff5ee33cc
+def unc_path_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    try:
+        valu = s_chop.uncnorm(valu)
+    except s_exc.BadTypeValu:
+        return None, {}
+
+    return valu, {}
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('file:path', linux_path_regex, {'callback': linux_path_check, 'flags': regex.VERBOSE}),
     ('file:path', windows_path_regex, {'callback': windows_path_check, 'flags': regex.VERBOSE}),
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
      {'callback': fqdn_prefix_check}),
+    ('inet:url', r'(["\'])?(?P<valu>\\[^\n]+?)(?(1)\1|\s)', {'callback': unc_path_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|[0-9a-f:]:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
      {'callback': inet_server_check, 'flags': regex.VERBOSE}),
