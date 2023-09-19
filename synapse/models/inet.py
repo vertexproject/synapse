@@ -800,6 +800,10 @@ class Url(s_types.Str):
         local = False
         isUNC = False
 
+        if valu.startswith('\\\\'):
+            orig = s_chop.uncnorm(valu)
+            # Fall through to original norm logic
+
         # Protocol
         for splitter in ('://///', ':////'):
             try:
