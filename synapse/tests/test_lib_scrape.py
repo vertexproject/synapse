@@ -1019,6 +1019,8 @@ class ScrapeTest(s_t_utils.SynTest):
         Some CPE are boring! Like this cpe:2.3:a:*:*:*:*:*:*:*:*:*:noslash\
         Unicode endings are omitted cpe:2.3:a:*:*:*:*:*:*:*:*:*:unicodeend0ॐ
         Unicode quotes “cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes”
+        cpe:2.3:*:?why??:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:*why*:*:*:*:*:*:*:*:*:*
 
         EMBEDDED TEXT
         wordscpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx:newp
@@ -1085,5 +1087,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:noslash'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:unicodeend0'))
         nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:?why??:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*why*:*:*:*:*:*:*:*:*:*'))
 
         self.len(0, nodes)
