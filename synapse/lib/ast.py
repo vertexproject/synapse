@@ -2258,7 +2258,7 @@ class FormPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(node.ndef[1])}] during pivot', mesg))
-                await snap.warn(mesg, **items)
+                await runt.snap.warn(mesg, **items)
 
 class PropPivotOut(PivotOper):
     '''
@@ -2419,7 +2419,7 @@ class PropPivot(PivotOper):
                 items = e.items()
                 mesg = items.pop('mesg', '')
                 mesg = ': '.join((f'{e.__class__.__qualname__} [{repr(valu)}] during pivot', mesg))
-                await snap.warn(mesg, **items)
+                await runt.snap.warn(mesg, **items)
 
 class Value(AstNode):
     '''
