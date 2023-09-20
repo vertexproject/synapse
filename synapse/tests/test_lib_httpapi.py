@@ -12,6 +12,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_tests
+import synapse.tests.test_axon as s_t_axon
 
 class HttpApiTest(s_tests.SynTest):
 
@@ -1854,3 +1855,97 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(mesg.get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+
+    async def test_http_cortex_axon(self):
+
+        timeout = aiohttp.ClientTimeout(total=1)
+
+        # local axon
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            baseurl = f'https://localhost:{port}'
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.post(f'{baseurl}/api/v1/login',
+                                     json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                self.eq(core.axon.iden, core.axoninfo['cell']['iden'])
+
+                ret = await core.axon.put(s_t_axon.abuf)
+                self.eq(s_t_axon.asdfretn, ret)
+
+                sha256 = s_common.ehex(ret[1])
+
+                async with sess.get(f'{baseurl}/api/v1/axon/files/has/sha256/{sha256}') as resp:
+                    self.eq(403, resp.status)
+                    self.eq('User (visi) must have permission axon.has', (await resp.json())['mesg'])
+
+                await core.addUserRule(visi.iden, (True, ('axon', 'has')))
+
+                async with sess.get(f'{baseurl}/api/v1/axon/files/has/sha256/{sha256}') as resp:
+                    self.eq({'status': 'ok', 'result': True}, await resp.json())
+
+                await core.axon.fini()
+
+                with self.raises(TimeoutError):
+                    async with sess.get(f'{baseurl}/api/v1/axon/files/has/sha256/{sha256}', timeout=timeout) as resp:
+                        self.eq({'status': 'ok', 'result': True}, await resp.json())
+
+        # remote axon
+
+        async with self.getTestAxon() as axon:
+
+            conf = {
+                'axon': axon.getLocalUrl(),
+            }
+
+            async with self.getTestCore(conf=conf) as core:
+
+                visi = await core.auth.addUser('visi')
+
+                await visi.setPasswd('secret')
+
+                host, port = await core.addHttpsPort(0, host='127.0.0.1')
+                baseurl = f'https://localhost:{port}'
+
+                async with self.getHttpSess() as sess:
+
+                    async with sess.post(f'{baseurl}/api/v1/login',
+                                         json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                        retn = await resp.json()
+                        self.eq('ok', retn.get('status'))
+                        self.eq('visi', retn['result']['name'])
+
+                    await core.axready.wait()
+
+                    self.eq(axon.iden, core.axoninfo['cell']['iden'])
+
+                    ret = await core.axon.put(s_t_axon.abuf)
+                    self.eq(s_t_axon.asdfretn, ret)
+
+                    sha256 = s_common.ehex(ret[1])
+
+                    async with sess.get(f'{baseurl}/api/v1/axon/files/has/sha256/{sha256}') as resp:
+                        self.eq(403, resp.status)
+                        self.eq('User (visi) must have permission axon.has', (await resp.json())['mesg'])
+
+                    await core.addUserRule(visi.iden, (True, ('axon', 'has')))
+
+                    async with sess.get(f'{baseurl}/api/v1/axon/files/has/sha256/{sha256}') as resp:
+                        self.eq({'status': 'ok', 'result': True}, await resp.json())
+
+                    await axon.fini()
+
+                    with self.raises(TimeoutError):
+                        async with sess.get(f'{baseurl}/api/v1/axon/files/has/sha256/{sha256}', timeout=timeout) as resp:
+                            self.eq({'status': 'ok', 'result': True}, await resp.json())

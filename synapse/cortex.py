@@ -162,6 +162,22 @@ async def wrap_liftgenr(iden, genr):
     async for indx, buid, sode in genr:
         yield iden, (indx, buid), sode
 
+class CortexAxonMixin:
+
+    async def prepare(self):
+        # todo: only way to waitready since getAxon() is sync?
+        await self.cell.axready.wait()
+        await s_coro.ornot(super().prepare)
+
+    def getAxon(self):
+        return self.cell.axon
+
+    async def getAxonInfo(self):
+        return self.cell.axoninfo
+
+class CortexAxonHttpHasV1(CortexAxonMixin, s_axon.AxonHttpHasV1):
+    pass
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed when connecting to a Cortex over Telepath.
@@ -4153,6 +4169,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
+
+        # add doc note that these are exposed
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 
