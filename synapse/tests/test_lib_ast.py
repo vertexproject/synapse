@@ -836,7 +836,7 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('.created +inet:dns:*'))
             self.len(2, await core.nodes('.created +inet:dns:a*'))
 
-            with self.raises(s_exc.NoSuchProp):
+            with self.raises(s_exc.NoSuchForm):
                 await core.nodes('newp:*')
 
             with self.raises(s_exc.NoSuchForm):
