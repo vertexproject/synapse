@@ -191,7 +191,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
-                    'doc': 'A title for a position within an org.',
+                    'doc': 'A taxonomy of job types.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('ou:employment', ('taxonomy', {}), {
@@ -451,6 +451,10 @@ class OuModule(s_module.CoreModule):
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
+
+                    ('timeline', ('meta:timeline', {}), {
+                        'doc': 'A timeline of significant events related to the campaign.'}),
+
                     ('camptype', ('ou:camptype', {}), {
                         'disp': {'hint': 'taxonomy'},
                         'doc': 'The campaign type taxonomy.'}),

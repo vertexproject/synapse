@@ -979,12 +979,10 @@ class Path:
         self.metadata[name] = valu
 
     async def pack(self, path=False):
-        ret = dict(self.metadata)
-        if ret:
-            ret = await s_stormtypes.toprim(ret)
+        info = await s_stormtypes.toprim(dict(self.metadata))
         if path:
-            ret['nodes'] = [node.iden() for node in self.nodes]
-        return ret
+            info['nodes'] = [node.iden() for node in self.nodes]
+        return info
 
     def fork(self, node):
 
@@ -1100,6 +1098,7 @@ def _tagscommon(pode, leafonly):
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):
         look = tag + '.'
+        val = tuple(val)
         if (leafonly or val == (None, None)) and any([r.startswith(look) for r in retn]):
             continue
         retn.append(tag)
@@ -1229,6 +1228,7 @@ def reprTag(pode, tag):
     valu = pode[1]['tags'].get(tag)
     if valu is None:
         return None
+    valu = tuple(valu)
     if valu == (None, None):
         return ''
     mint = s_time.repr(valu[0])

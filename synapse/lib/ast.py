@@ -375,10 +375,12 @@ class SubGraph:
         self.rules.setdefault('forms', {})
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
+        self.rules.setdefault('existing', ())
 
         self.rules.setdefault('refs', True)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
+        self.rules.setdefault('maxsize', 100000)
 
         self.rules.setdefault('filterinput', True)
         self.rules.setdefault('yieldfiltered', False)
@@ -412,183 +414,141 @@ class SubGraph:
 
     async def pivots(self, runt, node, path):
 
-        for pivq in self.rules.get('pivots'):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+        if self.rules.get('refs'):
 
-        rules = self.rules['forms'].get(node.form.name)
+            for propname, ndef in node.getNodeRefs():
+                pivonode = await node.snap.getNodeByNdef(ndef)
+                if pivonode is None:  # pragma: no cover
+                    await asyncio.sleep(0)
+                    continue
+
+                yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
+
+        for pivq in self.rules.get('pivots'):
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield node, path, {'type': 'rules', 'scope': 'global', 'index': indx}
+                indx += 1
+
+        scope = node.form.name
+
+        rules = self.rules['forms'].get(scope)
         if rules is None:
-            rules = self.rules['forms'].get('*')
+            scope = '*'
+            rules = self.rules['forms'].get(scope)
 
         if rules is None:
             return
 
         for pivq in rules.get('pivots', ()):
-            async for pivo in node.storm(runt, pivq):
-                yield pivo
+            indx = 0
+            async for node, path in node.storm(runt, pivq):
+                yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
+                indx += 1
 
     async def run(self, runt, genr):
 
-        dorefs = self.rules.get('refs')
-        doedges = self.rules.get('edges')
+        # NOTE: this function must agressively yield the ioloop
 
+        doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
+        maxsize = self.rules.get('maxsize')
+        existing = self.rules.get('existing')
         filterinput = self.rules.get('filterinput')
         yieldfiltered = self.rules.get('yieldfiltered')
 
         self.user = runt.user
-
-        count = 0
-
         todo = collections.deque()
-        intodo = set()
+        async with contextlib.AsyncExitStack() as stack:
+            core = runt.snap.core
 
-        nodepaths = {}
+            done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
-        async def todogenr():
+            # load the existing graph as already done
+            [await results.add(s_common.uhex(b)) for b in existing]
 
-            async for node, path in genr:
-                path.meta('graph:seed', True)
-                yield node, path, 0
+            async def todogenr():
 
-            while todo:
+                async for node, path in genr:
+                    path.meta('graph:seed', True)
+                    yield node, path, 0
+                while todo:
+                    yield todo.popleft()
 
-                item = todo.popleft()
-
-                if item[0].buid in self.graphnodes:
-                    await asyncio.sleep(0)
-                    continue
-
-                yield item
-
-        def addtodo(node, path, dist):
-
-            # no need to pivot to nodes we already did
-            if nodepaths.get(node.buid) is not None:
-                return
-
-            # no need to queue up todos that are already in todo
-            if node.buid in intodo:
-                return
-
-            # do we have room to go another degree out?
-            if degrees is None or dist < degrees:
-                todo.append((node, path, dist + 1))
-                intodo.add(node.buid)
-
-            if len(nodepaths) + len(todo) >= self.maxsize:
-                raise OMG
-
-        async for node, path, dist in todogenr():
-
-            await asyncio.sleep(0)
-
-            if nodepaths.get(node.buid) is not None:
-                continue
-
-            omitted = False
-            if dist > 0 or filterinput:
-                omitted = await self.omit(runt, node)
-
-            if omitted and not yieldfiltered:
-                continue
-
-            count += 1
-            if count >= self.maxsize:
-                mesg = 'The graph projection has hit the specified max size: {self.maxsize}.'
-                raise s_exc.GraphTooLarge(mesg=mesg)
-
-            nodepaths[node.buid] = (node, path)
-
-            # we must traverse the pivots for the node *regardless* of degrees
-            # due to needing to tie any leaf nodes to nodes that were already yielded
-
-            if dorefs and not omitted:
-
-                for name, ndef in node.getNodeRefs():
-
-                    n2buid = s_common.buid(ndef)
-                    n2iden = s_common.ehex(n2buid)
-
-                    if omitted:
-                        continue
-
-                    n2node = await runt.snap.getNodeByBuid(n2buid)
-                    if n2node is None:
-                        continue
-
-                    addtodo(n2node, path.fork(n2node), dist)
-
-            if doedges and not omitted and (degrees is None or dist < degrees):
-
-                async for verb, n2nid in node.iterEdgesN1():
-
-                    await asyncio.sleep(0)
-                    n2node = await runt.snap.getNodeByNid(n2nid)
-                    if n2node is None:
-                        continue
-
-                    addtodo(n2node, path.fork(n2node), dist)
-
-                async for verb, n1nid in node.iterEdgesN2():
-
-                    await asyncio.sleep(0)
-                    n1node = await runt.snap.getNodeByNid(n1nid)
-                    if n1node is None:
-                        continue
-
-                    addtodo(n1node, path.fork(n1node), dist)
-
-            async for pivn, pivp in self.pivots(runt, node, path):
+            count = 0
+            async for node, path, dist in todogenr():
 
                 await asyncio.sleep(0)
 
-                # we dont pivot from omitted nodes
-                if omitted:
+                if node.buid in done:
                     continue
 
-                addtodo(pivn, pivp, dist)
+                count += 1
 
-        # make a second pass to generate various types of edges...
-        for node, path in nodepaths.values():
+                if count > maxsize:
+                    await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
+                    break
 
-            await asyncio.sleep(0)
+                await done.add(node.buid)
+                intodo.discard(node.buid)
 
-            edges = []
-            path.meta('edges', edges)
+                omitted = False
+                if dist > 0 or filterinput:
+                    omitted = await self.omit(runt, node)
+                if omitted and not yieldfiltered:
+                    continue
+                # we must traverse the pivots for the node *regardless* of degrees
+                # due to needing to tie any leaf nodes to nodes that were already yielded
 
-            if dorefs:
+                edges = list(revpivs.get(node.buid, defv=()))
+                async for pivn, pivp, pinfo in self.pivots(runt, node, path):
 
-                for name, ndef in node.getNodeRefs():
-                    n2buid = s_common.buid(ndef)
-                    if n2buid in self.graphnodes or nodepaths.get(n2buid) is not None:
-                        edges.append((s_common.ehex(n2buid), {'type': 'prop', 'name': name}))
-
-            if doedges:
-
-                for n2node, n2path in nodepaths.values():
-                    await asyncio.sleep(0)
-                    async for verb in runt.snap.iterNodeEdgesN1N2(node.nid, n2node.nid):
-                        n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
-                        edges.append((n2iden, {'type': 'edge', 'verb': verb}))
-
-                for buid in self.graphnodes:
                     await asyncio.sleep(0)
 
-                    nid = runt.snap.core.getNidByBuid(buid)
+                    if results.has(pivn.buid):
+                        edges.append((pivn.iden(), pinfo))
+                    else:
+                        pinfo['reverse'] = True
+                        pivedges = revpivs.get(pivn.buid, defv=())
+                        await revpivs.set(pivn.buid, pivedges + ((node.iden(), pinfo),))
 
-                    if nid is not None:
+                    # we dont pivot from omitted nodes
+                    if omitted:
+                        continue
+                    # no need to pivot to nodes we already did
+                    if pivn.buid in done:
+                        continue
+                    # no need to queue up todos that are already in todo
+                    if pivn.buid in intodo:
+                        continue
+                    # do we have room to go another degree out?
+                    if degrees is None or dist < degrees:
+                        todo.append((pivn, pivp, dist + 1))
+                        await intodo.add(pivn.buid)
 
-                        async for n1nid, verb, n2nid in runt.snap.iterNodeEdgesN1N2(node.nid, nid):
-                            n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
-                            edges.append((n2iden, {'type': 'edge', 'verb': verb}))
+                if doedges:
 
-                        async for n1nid, verb, n2nid in runt.snap.iterNodeEdgesN1N2(nid, node.nid):
-                            n1iden = s_common.ehex(runt.snap.core.getBuidByNid(n1nid))
-                            edges.append((n1iden, {'type': 'edge', 'verb': verb, 'rev': True}))
+                    async for buid01 in results:
 
-        for node, path in nodepaths.values():
-            yield node, path
+                        await asyncio.sleep(0)
+
+                        iden01 = s_common.ehex(buid01)
+                        async for verb in node.iterEdgeVerbs(buid01):
+                            await asyncio.sleep(0)
+                            edges.append((iden01, {'type': 'edge', 'verb': verb}))
+
+                        # for existing nodes, we need to add n2 -> n1 edges in reverse
+                        async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                            await asyncio.sleep(0)
+                            edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+                    await results.add(node.buid)
+
+                path.metadata['edges'] = edges
+                yield node, path
 
 class Oper(AstNode):
     pass

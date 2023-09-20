@@ -3019,10 +3019,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             for node in nodes:
                 if node[0][0] == 'inet:dns:a':
-                    edges = node[1]['path']['edges']
-                    idens = list(sorted(e[0] for e in edges))
-                    self.eq(idens, ('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                                    'd7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849'))
+                    self.len(0, node[1]['path']['edges'])
+                elif node[0][0] == 'inet:ipv4':
+                    self.eq(node[1]['path']['edges'], (
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'ipv4', 'reverse': True}),
+                    ))
+                elif node[0] == ('inet:fqdn', 'woot.com'):
+                    self.eq(node[1]['path']['edges'], (
+                        ('4284a59c00dc93f3bbba5af4f983236c8f40332d5a28f1245e38fa850dbfbfa4', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                    ))
 
             await prox.addNode('edge:refs', (('test:int', 10), ('test:int', 20)))
 
@@ -3030,13 +3035,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = [m[1] for m in msgs if m[0] == 'node']
 
             self.len(3, nodes)
-            self.eq(nodes[0][0][0], 'edge:refs')
-            edges = nodes[0][1]['path']['edges']
-            idens = list(sorted(e[0] for e in edges))
-            self.eq(idens, (
-                '2ff879e667e9cca52f1c78485f7864c4c5a242c67d4b90105210dde8edf3c068',
-                '979b56497b5fd75813676738172c2f435aee3e4bdcf43930843eba5b34bb06fc',
-            ))
+            self.len(0, nodes[0][1]['path']['edges'])
+            self.len(1, nodes[1][1]['path']['edges'])
+            self.len(1, nodes[2][1]['path']['edges'])
 
     async def test_onadd(self):
         arg_hit = {}
@@ -3169,55 +3170,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_stormcmd(self):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
-
-            msgs = await alist(core.storm('.created | limit 1 | help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-            self.len(1, [n for n in msgs if n[0] == 'node'])
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-
-            msgs = await alist(core.storm('help view'))
-            self.stormIsInPrint('view.merge', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            msgs = await alist(core.storm('help newp'))
-            self.stormIsInPrint('No commands found matching "newp"', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            # test that storm package commands that didn't come from
-            # a storm service are displayed
-            otherpkg = {
-                'name': 'foosball',
-                'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
-                'synapse_version': '>=2.8.0,<3.0.0',
-                'commands': ({
-                    'name': 'testcmd',
-                    'descr': 'test command',
-                    'storm': '[ inet:ipv4=1.2.3.4 ]',
-                },)
-            }
-            self.none(await core.addStormPkg(otherpkg))
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: foosball')
-            self.stormIsInPrint('testcmd', msgs)
-            self.stormIsInPrint(': test command', msgs)
-
-            msgs = await alist(core.storm('help testcmd'))
-            self.stormIsInPrint('testcmd', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('view.merge', msgs)
-
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
-            self.stormIsInErr('help does not support per-node invocation', msgs)
 
             await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
@@ -5892,12 +5844,20 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_addview(self):
         async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+
             (await core.addLayer()).get('iden')
             deflayr = (await core.getLayerDef()).get('iden')
 
             vdef = {'layers': (deflayr,)}
             view = (await core.addView(vdef)).get('iden')
             self.nn(core.getView(view))
+            self.false(visi.allowed(('view', 'read'), gateiden=view))
+
+            vdef['worldreadable'] = True
+            view = (await core.addView(vdef)).get('iden')
+            self.nn(core.getView(view))
+            self.true(visi.allowed(('view', 'read'), gateiden=view))
 
             # Missing layers
             vdef = {'name': 'mylayer'}

@@ -14,6 +14,8 @@ gdefSchema = {
         'scope': {'type': 'string', 'enum': ['user', 'power-up']},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'power-up': {'type': 'string', 'minLength': 1},
+        'maxsize': {'type': 'number', 'minimum': 0},
+        'existing': {'type': 'array', 'items': {'type': 'string'}},
         'created': {'type': 'number'},
         'updated': {'type': 'number'},
         'refs': {'type': 'boolean', 'default': False},

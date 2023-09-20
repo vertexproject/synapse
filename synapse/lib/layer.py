@@ -2794,7 +2794,8 @@ class Layer(s_nexus.Pusher):
         return realsize
 
     async def setLayerInfo(self, name, valu):
-        self._reqNotReadOnly()
+        if name != 'readonly':
+            self._reqNotReadOnly()
         return await self._push('layer:set', name, valu)
 
     @s_nexus.Pusher.onPush('layer:set')
@@ -2802,13 +2803,16 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits'):
+        if name not in ('name', 'desc', 'logedits', 'readonly'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
         if name == 'logedits':
             valu = bool(valu)
             self.logedits = valu
+        elif name == 'readonly':
+            valu = bool(valu)
+            self.readonly = valu
 
         # TODO when we can set more props, we may need to parse values.
         if valu is None:

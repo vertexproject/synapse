@@ -1370,6 +1370,44 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(valu, expected)
 
+            unc = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
+            url = 'smb://::1/share/path/to/filename.txt'
+            valu = t.norm(unc)
+            expected = (url, {'subs': {
+                'base': url,
+                'proto': 'smb',
+                'params': '',
+                'path': '/share/path/to/filename.txt',
+                'ipv6': '::1',
+            }})
+            self.eq(valu, expected)
+
+            unc = '\\\\0--1.ipv6-literal.net@1234\\share\\filename.txt'
+            url = 'smb://[::1]:1234/share/filename.txt'
+            valu = t.norm(unc)
+            expected = (url, {'subs': {
+                'base': url,
+                'proto': 'smb',
+                'path': '/share/filename.txt',
+                'params': '',
+                'port': 1234,
+                'ipv6': '::1',
+            }})
+            self.eq(valu, expected)
+
+            unc = '\\\\server@SSL@1234\\share\\path\\to\\filename.txt'
+            url = 'https://server:1234/share/path/to/filename.txt'
+            valu = t.norm(unc)
+            expected = (url, {'subs': {
+                'base': url,
+                'proto': 'https',
+                'fqdn': 'server',
+                'params': '',
+                'port': 1234,
+                'path': '/share/path/to/filename.txt',
+            }})
+            self.eq(valu, expected)
+
             # Form Tests ======================================================
             async with await core.snap() as snap:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
@@ -2622,6 +2660,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :date=2015
                 :body="there are mad sploitz here!"
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
+                :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
                 :bytes="*"
             ]
 
@@ -2630,6 +2669,8 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+
+            self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
 
             self.len(1, await core.nodes('inet:email:message:to=woot@woot.com'))
             self.len(1, await core.nodes('inet:email:message:date=2015'))
@@ -2641,6 +2682,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
+            self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
+            self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:

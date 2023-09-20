@@ -880,8 +880,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'boolean',
         },
         'nexslog:async': {
-            'default': False,
-            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'default': True,
+            'description': 'Set to false to disable async memory mapping of the nexus change log.',
             'type': 'boolean',
             'hidedocs': True,
             'hidecmdl': True,
@@ -1268,10 +1268,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _onBootOptimize(self):
 
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        tdev = os.stat(tdir).st_dev
+
         lmdbs = []
         for (root, dirs, files) in os.walk(self.dirn):
             for dirname in dirs:
-                if os.path.isfile(os.path.join(root, dirname, 'data.mdb')):
+                filepath = os.path.join(root, dirname, 'data.mdb')
+                if os.path.isfile(filepath):
+                    if os.stat(filepath).st_dev != tdev:
+                        logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
+                        return
+
                     lmdbs.append(os.path.join(root, dirname))
 
         if not lmdbs: # pragma: no cover
@@ -1401,6 +1409,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
+                self.onfini(self.ahaclient)
 
             async def finiaha():
                 await s_telepath.delAhaUrl(ahaurl)

@@ -6,6 +6,160 @@
 Synapse Changelog
 *****************
 
+v2.149.0 - 2023-09-14
+=====================
+
+Model Changes
+-------------
+- Updates to the ``it``, ``meta``, and ``org`` models.
+  (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
+
+  **New Properties**
+
+  ``taxonomy``
+    The interface had the following property added to it:
+
+    ``description``
+      'A definition of the taxonomy entry.
+
+  ``inet:email:message``
+    The form had the following property added to it:
+
+    ``cc``
+      Email addresses parsed from the "cc" header.
+
+  ``meta:source``
+    The form had the following property added to it:
+
+    ``url``
+      A URL which documents the meta source.
+
+  ``ou:campaign``
+    The form had the following property added to it:
+
+    ``timeline``
+      A timeline of significant events related to the campaign.
+
+  **Deprecated Properties**
+
+  ``taxonomy``
+    The ``taxonomy`` interface had the following property marked as deprecated:
+
+    * ``summary``
+
+Features and Enhancements
+-------------------------
+- Add best-effort support to scrape APIs to identify Windows and Linux file
+  paths.
+  (`#3343 <https://github.com/vertexproject/synapse/pull/3343>`_)
+- Update the Storm ``view.add`` command to add a ``--worldreadable`` flag to
+  create a view which is readable by the ``all`` role. The ``$lib.view.add()``
+  Storm API now also accepts an optional ``worldreadable`` argument as well.
+  (`#3333 <https://github.com/vertexproject/synapse/pull/3333>`_)
+- Update the Storm ``node.add`` command to add a ``--yield`` flag which yields
+  the newly created node.
+  (`#3337 <https://github.com/vertexproject/synapse/pull/3337>`_)
+- Add Storm commands ``gen.ou.id.number`` and ``gen.ou.id.type`` to help
+  generate ``ou:id:number`` and ``ou:id:type`` nodes.
+  (`#3339 <https://github.com/vertexproject/synapse/pull/3339>`_)
+- Support dynamically setting a Layer to ``readonly`` using the Storm
+  ``$layer.set()`` API.
+  (`#3332 <https://github.com/vertexproject/synapse/pull/3332>`_)
+- Update the Storm command ``help`` to display information about Storm types,
+  Storm Libraries and functions.
+  (`#3335 <https://github.com/vertexproject/synapse/pull/3335>`_)
+
+Bugfixes
+--------
+- Ensure that the Cell ``tmp`` directory is on the same volume as the Cell
+  storage directory prior to attempting to run the onboot optimization
+  process. If the volumes are different this now issues a warning message and
+  skips the optimization process.
+  (`#3336 <https://github.com/vertexproject/synapse/pull/3336>`_)
+- Protect the Cortex Cron scheduling loop from errors that could happen when
+  starting an agenda item.
+  (`#3340 <https://github.com/vertexproject/synapse/pull/3340>`_)
+
+v2.148.0 - 2023-09-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a ``$lib.jsonstor.cachedel()`` API to allow for the removal of data
+  created by ``$lib.jsonstor.cacheget()``.
+  (`#3322 <https://github.com/vertexproject/synapse/pull/3322>`_)
+
+Bugfixes
+--------
+- Ensure the base Cell ``fini()``'s the Aha client that it creates. This fixes
+  a unit test performance issue.
+  (`#3324 <https://github.com/vertexproject/synapse/pull/3324>`_)
+
+Deprecations
+------------
+- Mark the following Cryotank related API arguments and functions as
+  deprecated. These APIs are related to server-side offset tracking for
+  callers. Code which relies on these should be updated to do local offset
+  tracking. These APIs and arguments will be removed in v2.150.0.
+  (`#3326 <https://github.com/vertexproject/synapse/pull/3326>`_)
+
+    - ``CryoApi.puts(seqn=...)`` argument.
+    - ``CryoApi.rows(seqn=...)`` argument.
+    - ``CryoApi.slice(iden=...)`` argument.
+    - ``CryoApi.offset()`` function.
+    - ``CryoTank.getOffset()`` function.
+    - ``CryoTank.setOffset()`` function.
+    - ``CryoTank.puts(seqn=...)`` argument.
+    - ``CryoTank.rows(seqn=...)`` argument.
+    - ``CryoTank.slice(iden=...)`` argument.
+    - ``TankAPI.offset()`` function.
+    - ``TankApi.puts(seqn=...)`` argument.
+    - ``TankAPI.slice(iden=...)`` argument.
+
+v2.147.0 - 2023-08-31
+=====================
+
+Features and Enhancements
+-------------------------
+- Add ``wait`` and ``timeout`` arguments to Cryotank ``slice()`` APIs.
+  (`#3320 <https://github.com/vertexproject/synapse/pull/3320>`_)
+- Add a ``charset`` parameter to the Storm ``inet:imap:server.search()`` API.
+  This can be used to specify the ``CHARSET`` value when crafting a search
+  query.
+  (`#3318 <https://github.com/vertexproject/synapse/pull/3318>`_)
+
+Bugfixes
+--------
+- Vendor the ``asyncio.timeouts.Timeout`` class from Python 3.11.3 to ensure
+  correct task cancellation behavior is available for
+  ``synapse.common.wait_for()``.
+  (`#3321 <https://github.com/vertexproject/synapse/pull/3321>`_)
+
+v2.146.0 - 2023-08-29
+=====================
+
+Features and Enhancements
+-------------------------
+- Update Storm ``graph`` projection to only include edges between nodes in the
+  result set and include a `"reverse": true` in the edge info when embedding
+  an edge on its target node once it is yielded.
+  (`#3305 <https://github.com/vertexproject/synapse/pull/3305>`_)
+- Map the Nexus LMDB slab with ``map_async=True`` by default.
+  (`#3314 <https://github.com/vertexproject/synapse/pull/3314>`_)
+- Mark the Storm ``macro.exec`` as a ``readonly`` safe command. Mark the
+  Storm APIs ``$lib.macro.list()`` and ``$lib.macro.get()`` as ``readonly``
+  safe. Mark the ``str`` APIs as ``readonly`` safe.
+  (`#3316 <https://github.com/vertexproject/synapse/pull/3316>`_)
+
+Bugfixes
+--------
+- Fix an issue where Layer data migrations failed when a layer was marked
+  as ``readonly``.
+  (`#3313 <https://github.com/vertexproject/synapse/pull/3313>`_)
+- Fix an issue where utility functions for packed nodes in
+  ``synapse.lib.node`` did not handle nodes from HTTP API endpoints.
+  (`#3315 <https://github.com/vertexproject/synapse/pull/3315>`_)
+
 v2.145.0 - 2023-08-25
 =====================
 

@@ -430,8 +430,8 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'help'))
-                self.eq(nodes[0].get('doc'), 'List available commands and '
-                                             'a brief description for each.')
+                self.eq(nodes[0].get('doc'), 'List available information about Storm and'
+                                             ' brief descriptions of different items.')
 
                 self.none(nodes[0].get('input'))
                 self.none(nodes[0].get('output'))

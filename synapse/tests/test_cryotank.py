@@ -1,3 +1,5 @@
+import asyncio
+
 import synapse.common as s_common
 import synapse.cryotank as s_cryotank
 
@@ -53,11 +55,37 @@ class CryoTest(s_t_utils.SynTest):
                 iden = s_common.guid()
                 self.eq(0, await prox.offset('foo', iden))
 
-                items = await alist(prox.slice('foo', 0, 1000, iden=iden))
+                items = await alist(prox.slice('foo', 0, size=1000, iden=iden))
                 self.eq(0, await prox.offset('foo', iden))
+                self.len(4, items)
 
-                items = await alist(prox.slice('foo', 4, 1000, iden=iden))
+                items = await alist(prox.slice('foo', 4, size=1000, iden=iden))
                 self.eq(4, await prox.offset('foo', iden))
+                self.len(0, items)
+
+                # waiters
+
+                self.true(await prox.init('dowait'))
+
+                self.true(await prox.puts('dowait', cryodata))
+                await self.agenlen(2, prox.slice('dowait', 0, size=1000))
+
+                genr = prox.slice('dowait', 1, size=1000, wait=True, iden=iden).__aiter__()
+
+                res = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(1, res[0])
+
+                await prox.puts('dowait', cryodata[:1])
+                res = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(2, res[0])
+
+                await self.asyncraises(TimeoutError, asyncio.wait_for(genr.__anext__(), timeout=1))
+
+                genr = prox.slice('dowait', 4, size=1000, wait=True, timeout=1, iden=iden)
+                res = await asyncio.wait_for(alist(genr), timeout=2)
+                self.eq([], res)
+
+                self.true(await prox.delete('dowait'))
 
                 # test the direct tank share....
                 async with cryo.getLocalProxy(share='cryotank/foo') as lprox:
