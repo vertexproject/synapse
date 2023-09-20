@@ -708,7 +708,7 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
         (dict): Yield info dicts of results.
     '''
     if len(text) < SCRAPE_SPAWN_LENGTH:
-        for info in _contextScrapeAsync(text, form=form, refang=refang, first=first):
+        async for info in _contextScrapeAsync(text, form=form, refang=refang, first=first):
             yield info
         return
 
