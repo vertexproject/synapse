@@ -7553,3 +7553,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.none(core.model.ifaces.get('taxonomy'))
             self.none(core.model.formsbyiface.get('taxonomy'))
+
+            q = '''
+            $typeinfo = ({'interfaces': ['taxonomy']})
+            $lib.model.ext.addForm(_auto:taxonomy, taxonomy, ({}), $typeinfo)
+            [ _auto:taxonomy=auto.foo :desc='automatically updated']
+            '''
+            await core.nodes(q)
+
+            self.len(1, await core.nodes('meta:taxonomy:desc="automatically updated"'))
+
+            self.none(core.model.ifaces.get('taxonomy'))
+            self.none(core.model.formsbyiface.get('taxonomy'))
+            self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
