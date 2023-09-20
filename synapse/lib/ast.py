@@ -1602,7 +1602,7 @@ class LiftProp(LiftOper):
             proplist = runt.model.getFormsByPrefix(name[:-1])
             if not proplist:
                 mesg = f'No forms match pattern {name}.'
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
+                raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
 
         if proplist is None:
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
