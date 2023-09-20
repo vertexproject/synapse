@@ -3211,6 +3211,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 ifaces = typeinfo.get('interfaces')
 
                 if ifaces and 'taxonomy' in ifaces:
+                    logger.warning(f'Migrating taxonomy interface on form {formname} to meta:taxonomy.')
+
                     ifaces = set(ifaces)
                     ifaces.remove('taxonomy')
                     ifaces.add('meta:taxonomy')
