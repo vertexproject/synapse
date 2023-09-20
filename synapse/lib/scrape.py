@@ -543,17 +543,10 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     finally:
         sock00.close()
 
-def _contextScrape(text, form=None, refang=True, first=False):
-    scrape_text = text
-    offsets = {}
-    if refang:
-        scrape_text, offsets = refang_text2(text)
 
-    for ruletype, blobs in _regexes.items():
-        if form and form != ruletype:
-            continue
+def _contextMatches(scrape_text, text, ruletype, refang, offsets):
 
-        for (regx, opts) in blobs:
+        for (regx, opts) in _regexes[ruletype]:
 
             for info in genMatches(scrape_text, regx, opts):
 
@@ -564,8 +557,42 @@ def _contextScrape(text, form=None, refang=True, first=False):
 
                 yield info
 
-                if first:
-                    return
+def _contextScrape(text, form=None, refang=True, first=False):
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+        if form and form != ruletype:
+            continue
+
+        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+            yield info
+
+            if first:
+                return
+
+async def _contextScrapeAsync(text, form=None, refang=True, first=False):
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+
+        await asyncio.sleep(0)
+
+        if form and form != ruletype:
+            continue
+
+        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+            yield info
+
+            if first:
+                return
 
 def contextScrape(text, form=None, refang=True, first=False):
     '''
@@ -658,7 +685,7 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
         (dict): Yield info dicts of results.
     '''
     if len(text) < SCRAPE_SPAWN_LENGTH:
-        for info in _contextScrape(text, form=form, refang=refang, first=first):
+        for info in _contextScrapeAsync(text, form=form, refang=refang, first=first):
             yield info
         return
 
