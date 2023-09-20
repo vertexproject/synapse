@@ -8,6 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.storm as s_storm
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
@@ -218,6 +219,9 @@ class CryoCell(s_cell.Cell):
 
         await s_cell.Cell.__anit__(self, dirn, conf)
 
+        self._cryo_permdefs = []
+        self._initCryoPerms()
+
         self.dmon.share('cryotank', self)
 
         self.names = await self.hive.open(('cryo', 'names'))
@@ -286,6 +290,25 @@ class CryoCell(s_cell.Cell):
     @classmethod
     def getEnvPrefix(cls):
         return ('SYN_CRYOTANK', )
+
+    def _initCryoPerms(self):
+        self._cryo_permdefs.extend((
+            {'perm': ('cryo', 'tank', 'add'), 'gate': 'cryo',
+             'desc': 'Controls access to creating a new tank.'},
+            {'perm': ('cryo', 'tank', 'put'), 'gate': 'tank',
+             'desc': 'Controls access to adding data to a specific tank.'},
+            {'perm': ('cryo', 'tank', 'read'), 'gate': 'tank',
+             'desc': 'Controls access to reading data from a specific tank.'},
+        ))
+
+        for pdef in self._cryo_permdefs:
+            s_storm.reqValidPermDef(pdef)
+
+    def _getPermDefs(self):
+        permdefs = list(s_cell.Cell._getPermDefs(self))
+        permdefs.extend(self._cryo_permdefs)
+        permdefs.sort(key=lambda x: x['perm'])
+        return tuple(permdefs)
 
     async def getCellApi(self, link, user, path):
 

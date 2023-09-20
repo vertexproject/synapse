@@ -145,6 +145,18 @@ class CryoTest(s_t_utils.SynTest):
 
             async with cryo.getLocalProxy(user='tank0') as prox:
 
+                # check perm defs
+
+                perms = await prox.getPermDefs()
+                self.eq([
+                    ('cryo', 'tank', 'add'),
+                    ('cryo', 'tank', 'put'),
+                    ('cryo', 'tank', 'read'),
+                ], [p['perm'] for p in perms])
+
+                perm = await prox.getPermDef(('cryo', 'tank', 'add'))
+                self.eq(('cryo', 'tank', 'add'), perm['perm'])
+
                 # creator is admin
 
                 tankiden0 = await prox.init('tank0')
