@@ -3220,7 +3220,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.exception(f'Taxonomy migration error for form: {formname} (skipped).')
 
     async def _loadExtModel(self):
