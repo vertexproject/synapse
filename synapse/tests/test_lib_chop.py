@@ -111,3 +111,44 @@ class ChopTest(s_t_utils.SynTest):
 
         vdict = s_chop.cvss_validate(vect, s_cvss.cvss3_1)
         self.eq('AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H', s_chop.cvss_normalize(vdict, s_cvss.cvss3_1))
+
+    def test_chop_uncnorm(self):
+        unc = s_chop.uncnorm('\\\\server\\share\\path\\filename.txt')
+        self.eq(unc, 'smb://server/share/path/filename.txt')
+
+        unc = s_chop.uncnorm('\\\\server@SSL\\share\\path\\filename.txt')
+        self.eq(unc, 'https://server/share/path/filename.txt')
+
+        unc = s_chop.uncnorm('\\\\server@SSL@1234\\share\\path\\filename.txt')
+        self.eq(unc, 'https://server:1234/share/path/filename.txt')
+
+        unc = s_chop.uncnorm('\\\\1-2-3-4-5-6-7-8.ipv6-literal.net@SSL@1234\\share\\path\\filename.txt')
+        self.eq(unc, 'https://[1:2:3:4:5:6:7:8]:1234/share/path/filename.txt')
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('foo')
+        self.eq('Invalid UNC path: Does not start with \\\\.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('\\\\server')
+        self.eq('Invalid UNC path: Host name and share name are required.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('\\\\server\\')
+        self.eq('Invalid UNC path: Share name must be 1-80 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('\\\\server\\' + ('A' * 81))
+        self.eq('Invalid UNC path: Share name must be 1-80 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('\\\\server\\share\\' + ('A' * 256) + '\\filename.txt')
+        self.eq('Invalid UNC path: Path component longer than 255 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('\\\\server\\share\\' + ('A' * 256))
+        self.eq('Invalid UNC path: Filename longer than 255 characters.', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as exc:
+            s_chop.uncnorm('\\\\server@asdf\\share\\')
+        self.eq('Invalid UNC path: Invalid port.', exc.exception.get('mesg'))
