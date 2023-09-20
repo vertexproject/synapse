@@ -458,7 +458,9 @@ class SubGraph:
         yieldfiltered = self.rules.get('yieldfiltered')
 
         self.user = runt.user
+
         todo = collections.deque()
+
         async with contextlib.AsyncExitStack() as stack:
             core = runt.snap.core
 
@@ -475,6 +477,7 @@ class SubGraph:
                 async for node, path in genr:
                     path.meta('graph:seed', True)
                     yield node, path, 0
+
                 while todo:
                     yield todo.popleft()
 
@@ -498,8 +501,10 @@ class SubGraph:
                 omitted = False
                 if dist > 0 or filterinput:
                     omitted = await self.omit(runt, node)
+
                 if omitted and not yieldfiltered:
                     continue
+
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
@@ -518,12 +523,15 @@ class SubGraph:
                     # we dont pivot from omitted nodes
                     if omitted:
                         continue
+
                     # no need to pivot to nodes we already did
                     if pivn.buid in done:
                         continue
+
                     # no need to queue up todos that are already in todo
                     if pivn.buid in intodo:
                         continue
+
                     # do we have room to go another degree out?
                     if degrees is None or dist < degrees:
                         todo.append((pivn, pivp, dist + 1))
