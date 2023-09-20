@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
@@ -18,6 +19,8 @@ import synapse.lib.grammar as s_grammar
 logger = logging.getLogger(__name__)
 
 hexre = regex.compile('^[0-9a-z]+$')
+
+PREFIX_CACHE_SIZE = 1000
 
 class TagProp:
 
@@ -455,6 +458,8 @@ class Model:
         self.edgesbyn1 = collections.defaultdict(list)
         self.edgesbyn2 = collections.defaultdict(list)
 
+        self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
+
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
             'ctors': [],
@@ -583,6 +588,20 @@ class Model:
     def getProps(self):
         return [pobj for pname, pobj in self.props.items()
                 if not (isinstance(pname, tuple))]
+
+    def getFormsByPrefix(self, prefix):
+        forms = self.formprefixcache.get(prefix)
+        if forms is not None:
+            return forms
+
+        forms = []
+        for form in self.forms:
+            if form.startswith(prefix):
+                forms.append(form)
+
+        forms.sort()
+        self.formprefixcache[prefix] = forms
+        return forms
 
     def getTypeClone(self, typedef):
 

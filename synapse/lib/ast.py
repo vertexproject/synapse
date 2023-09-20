@@ -1470,17 +1470,11 @@ class LiftFormTagProp(LiftOper):
             forms = runt.model.formsbyiface.get(formname)
 
             if forms is None and formname.endswith('*'):
-                pref = formname[:-1]
-                forms = []
-                for form in runt.model.forms:
-                    if form.startswith(pref):
-                        forms.append(form)
 
+                forms = runt.model.getFormsByPrefix(formname[:-1])
                 if not forms:
                     mesg = f'No forms match pattern {formname}.'
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name=formname, mesg=mesg))
-
-                forms.sort()
 
             if not forms:
                 raise self.kids[0].kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
@@ -1557,17 +1551,11 @@ class LiftFormTag(LiftOper):
             forms = runt.model.formsbyiface.get(formname)
 
             if forms is None and formname.endswith('*'):
-                pref = formname[:-1]
-                forms = []
-                for form in runt.model.forms:
-                    if form.startswith(pref):
-                        forms.append(form)
 
+                forms = runt.model.getFormsByPrefix(formname[:-1])
                 if not forms:
                     mesg = f'No forms match pattern {formname}.'
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm(name=formname, mesg=mesg))
-
-                forms.sort()
 
             if not forms:
                 raise self.kids[0].addExcInfo(s_exc.NoSuchForm.init(formname))
@@ -1610,17 +1598,11 @@ class LiftProp(LiftOper):
             proplist = runt.model.ifaceprops.get(name)
 
         if proplist is None and name.endswith('*'):
-            pref = name[:-1]
-            proplist = []
-            for form in runt.model.forms:
-                if form.startswith(pref):
-                    proplist.append(form)
 
+            proplist = runt.model.getFormsByPrefix(name[:-1])
             if not proplist:
-                mesg = f'No properties match pattern {name}.'
+                mesg = f'No forms match pattern {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchProp(mesg=mesg, name=name))
-
-            proplist.sort()
 
         if proplist is None:
             raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
@@ -2201,17 +2183,11 @@ class FormPivot(PivotOper):
                 proplist = runt.model.ifaceprops.get(name)
 
             if proplist is None and name.endswith('*'):
-                pref = name[:-1]
-                proplist = []
-                for form in runt.model.forms:
-                    if form.startswith(pref):
-                        proplist.append(form)
 
+                proplist = runt.model.getFormsByPrefix(name[:-1])
                 if not proplist:
                     mesg = f'No forms match pattern {name}.'
                     raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
-
-                proplist.sort()
 
             if proplist is None:
                 mesg = f'No property named {name}.'
@@ -2821,12 +2797,7 @@ class HasAbsPropCond(Cond):
             return cond
 
         if name.endswith('*'):
-            pref = name[:-1]
-            formlist = []
-            for form in runt.model.forms:
-                if form.startswith(pref):
-                    formlist.append(form)
-
+            formlist = runt.model.getFormsByPrefix(name[:-1])
             if not formlist:
                 mesg = f'No forms match pattern {name}.'
                 raise self.kids[0].addExcInfo(s_exc.NoSuchForm(mesg=mesg, name=name))
@@ -4050,14 +4021,9 @@ class N1Walk(Oper):
                 continue
 
             if destform.endswith('*'):
-                pref = destform[:-1]
-                found = False
-                for form in runt.model.forms:
-                    if form.startswith(pref):
-                        forms.add(form)
-                        found = True
-
-                if found:
+                formlist = runt.model.getFormsByPrefix(destform[:-1])
+                if formlist:
+                    forms.update(formlist)
                     continue
 
                 mesg = f'No forms match pattern {destform}.'
