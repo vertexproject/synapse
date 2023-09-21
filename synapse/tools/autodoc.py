@@ -318,10 +318,6 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
 
         props = [blob for blob in props if blob[0] not in univ_names]
 
-        if name in ('biz:listing', 'biz:prodtype'):
-            from pprint import pprint
-            pprint(props, width=120)
-
         if props:
 
             has_popts = has_popts_data(props)
