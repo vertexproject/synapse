@@ -597,7 +597,7 @@ def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
     for edge in edges:
         src, name, dst = edge[0]
 
-        # src and dst may be None, =name, or !=name.
+        # src and dst may be None, form==name, or form!=name.
         # This gives us 9 possible states to consider.
         # src  |  dst | -> ret
         # ===================================
