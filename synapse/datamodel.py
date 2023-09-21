@@ -818,6 +818,8 @@ class Model:
         for ifname in form.type.info.get('interfaces', ()):
             self._addFormIface(form, ifname)
 
+        self.formprefixcache.clear()
+
         return form
 
     def delForm(self, formname):
@@ -840,6 +842,8 @@ class Model:
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
+
+        self.formprefixcache.clear()
 
     def addIface(self, name, info):
         # TODO should we add some meta-props here for queries?
