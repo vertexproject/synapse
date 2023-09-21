@@ -6480,7 +6480,7 @@ words\tword\twrd'''
                                                      'newname': 'oops'
                                                  }})
 
-            self.stormIsInErr('Cannot assign values in a readonly runtime.', msgs)
+            self.stormIsInErr('Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.', msgs)
 
             q = '$user=$lib.auth.users.get($iden) return ( $user.name )'
             name = await core.callStorm(q, opts={'vars': {

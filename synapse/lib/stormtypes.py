@@ -439,10 +439,6 @@ class StormType:
 
     async def setitem(self, name, valu):
 
-        if hasattr(self, 'runt') and self.runt.readonly:
-            mesg = 'Cannot assign values in a readonly runtime.'
-            raise s_exc.IsReadOnly(mesg=mesg, type=self._storm_typename, name=name, valu=valu)
-
         if not self.stors:
             mesg = f'{self.__class__.__name__} does not support assignment.'
             raise s_exc.StormRuntimeError(mesg=mesg)

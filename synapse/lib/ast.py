@@ -1097,6 +1097,10 @@ class SetItemOper(Oper):
     '''
     async def run(self, runt, genr):
 
+        if runt.readonly:
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+
         count = 0
         async for node, path in genr:
 
