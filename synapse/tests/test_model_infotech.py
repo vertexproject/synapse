@@ -805,7 +805,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('it:screenshot', nodes[0].ndef[0])
-            self.eq('WootWoot', nodes[0].props['desc'])
+            self.eq('WootWoot', nodes[0].get('desc'))
 
             self.len(1, await core.nodes('it:screenshot :host -> it:host'))
             self.len(1, await core.nodes('it:screenshot :image -> file:bytes'))
@@ -824,12 +824,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :cpe=cpe:2.3:h:dell:xps13::::::::
                     :parts = (*, *)
             ]''')
-            self.eq('WootWoot', nodes[0].props['desc'])
-            self.eq('dell', nodes[0].props['make'])
-            self.eq('xps13', nodes[0].props['model'])
-            self.eq('alpha', nodes[0].props['version'])
-            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].props['cpe'])
-            self.eq(1643760000000, nodes[0].props['released'])
+            self.eq('WootWoot', nodes[0].get('desc'))
+            self.eq('dell', nodes[0].get('make'))
+            self.eq('xps13', nodes[0].get('model'))
+            self.eq('alpha', nodes[0].get('version'))
+            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].get('cpe'))
+            self.eq(1643760000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
             self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
@@ -840,8 +840,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :serial=asdf1234
                     :host=*
             ]''')
-            self.nn(nodes[0].props['host'])
-            self.eq('asdf1234', nodes[0].props['serial'])
+            self.nn(nodes[0].get('host'))
+            self.eq('asdf1234', nodes[0].get('serial'))
             self.len(1, await core.nodes('it:prod:component -> it:host'))
             self.len(1, await core.nodes('it:prod:component -> it:prod:hardware +:make=dell'))
 
@@ -1304,7 +1304,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(norm, 'cpe:/a:vertex:synapse')
 
             nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:* ]')
-            self.eq('cpe:/a:vertex:synapse', nodes[0].props['v2_2'])
+            self.eq('cpe:/a:vertex:synapse', nodes[0].get('v2_2'))
 
             # test lift by either via upsample and downsample
             self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse +:v2_2=cpe:/a:vertex:synapse'))

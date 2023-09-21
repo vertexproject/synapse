@@ -861,7 +861,7 @@ class SynTest(unittest.TestCase):
         self.eq(node.ndef, ex_ndef)
         [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
-        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 

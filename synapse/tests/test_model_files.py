@@ -33,7 +33,7 @@ class FileTest(s_t_utils.SynTest):
                     :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
                 ]
             ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].props.get('sha256')[:4]
+            pref = nodes[0].get('sha256')[:4]
 
             self.nn(nodes[0].get('exe:packer'))
             self.nn(nodes[0].get('exe:compiler'))

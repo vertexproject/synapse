@@ -543,13 +543,17 @@ class SubGraph:
 
                         await asyncio.sleep(0)
 
+                        nid01 = runt.snap.core.getNidByBuid(buid01)
+                        if nid01 is None:
+                            continue
+
                         iden01 = s_common.ehex(buid01)
-                        async for verb in node.iterEdgeVerbs(buid01):
+                        async for verb in node.iterEdgeVerbs(nid01):
                             await asyncio.sleep(0)
                             edges.append((iden01, {'type': 'edge', 'verb': verb}))
 
                         # for existing nodes, we need to add n2 -> n1 edges in reverse
-                        async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                        async for verb in runt.snap.iterEdgeVerbs(nid01, node.nid):
                             await asyncio.sleep(0)
                             edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
 

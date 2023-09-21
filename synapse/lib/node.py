@@ -169,8 +169,8 @@ class Node(NodeBase):
         async for edge in self.snap.iterNodeEdgesN2(self.nid, verb=verb):
             yield edge
 
-    async def iterEdgeVerbs(self, n2buid):
-        async for verb in self.snap.iterEdgeVerbs(self.buid, n2buid):
+    async def iterEdgeVerbs(self, n2nid):
+        async for verb in self.snap.iterEdgeVerbs(self.nid, n2nid):
             yield verb
 
     async def storm(self, runt, text, opts=None, path=None):

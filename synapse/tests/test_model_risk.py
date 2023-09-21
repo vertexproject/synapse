@@ -404,8 +404,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :hardware=*
                     :software=*
             ]''')
-            self.eq('FooBar', nodes[0].props['name'])
-            self.eq('BazFaz', nodes[0].props['desc'])
+            self.eq('FooBar', nodes[0].get('name'))
+            self.eq('BazFaz', nodes[0].get('desc'))
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
