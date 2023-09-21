@@ -6467,3 +6467,23 @@ words\tword\twrd'''
 
             nodes = await core.nodes(f'test:str:_hugearray*[=({valu})]')
             self.len(1, nodes)
+
+    async def test_storm_stor_readonly(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('user')
+            user = udef.get('iden')
+
+            q = '$user=$lib.auth.users.get($iden) $user.name = $newname'
+            msgs = await core.stormlist(q, opts={'readonly': True,
+                                                 'vars': {
+                                                     'iden': user,
+                                                     'newname': 'oops'
+                                                 }})
+
+            self.stormIsInErr('Cannot assign values in a readonly runtime.', msgs)
+
+            q = '$user=$lib.auth.users.get($iden) return ( $user.name )'
+            name = await core.callStorm(q, opts={'vars': {
+                                                     'iden': user,
+                                                 }})
+            self.eq(name, udef.get('name'))
