@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # src / name / target
 EdgeDef = Tuple[Union[str, None], str, Union[str, None]]
-EdgeDict = Dict[str, Union[str, ]]
+EdgeDict = Dict[str, str]
 Edge = Tuple[EdgeDef, EdgeDict]
 Edges = List[Edge]
 
