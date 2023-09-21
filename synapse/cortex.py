@@ -165,7 +165,6 @@ async def wrap_liftgenr(iden, genr):
 class CortexAxonMixin:
 
     async def prepare(self):
-        # todo: only way to waitready since getAxon() is sync?
         await self.cell.axready.wait()
         await s_coro.ornot(super().prepare)
 
@@ -176,6 +175,18 @@ class CortexAxonMixin:
         return self.cell.axoninfo
 
 class CortexAxonHttpHasV1(CortexAxonMixin, s_axon.AxonHttpHasV1):
+    pass
+
+class CortexAxonHttpDelV1(CortexAxonMixin, s_axon.AxonHttpDelV1):
+    pass
+
+class CortexAxonHttpUploadV1(CortexAxonMixin, s_axon.AxonHttpUploadV1):
+    pass
+
+class CortexAxonHttpBySha256V1(CortexAxonMixin, s_axon.AxonHttpBySha256V1):
+    pass
+
+class CortexAxonHttpBySha256InvalidV1(CortexAxonMixin, s_axon.AxonHttpBySha256InvalidV1):
     pass
 
 class CoreApi(s_cell.CellApi):
@@ -4170,8 +4181,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
 
-        # add doc note that these are exposed
+        self.addHttpApi('/api/v1/axon/files/del', CortexAxonHttpDelV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/put', CortexAxonHttpUploadV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpBySha256V1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', CortexAxonHttpBySha256InvalidV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 
