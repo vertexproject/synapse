@@ -450,6 +450,10 @@ class StormType:
             mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
+        if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
+            mesg = f'Function ({stor.__name__}) is not marked readonly safe.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
+
         await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
@@ -1337,6 +1341,7 @@ class LibBase(Lib):
     async def _getRuntDebug(self):
         return self.runt.debug
 
+    @stormfunc(readonly=True)
     async def _setRuntDebug(self, debug):
         self.runt.debug = await tobool(debug)
 
@@ -8129,6 +8134,10 @@ class UserProfile(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
 
+        if s_scope.get('runt').readonly:
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
+
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8299,6 +8308,10 @@ class UserVars(Prim):
 
     async def setitem(self, name, valu):
         name = await tostr(name)
+
+        if s_scope.get('runt').readonly:
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)
