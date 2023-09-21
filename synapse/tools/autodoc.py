@@ -267,6 +267,19 @@ def processTypes(rst, dochelp, types):
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
+def has_popts_data(props):
+    # Props contain "doc" which we pop out
+    # Check if a list of props has any keys
+    # which are not 'doc'
+    for _, _, popts in props:
+        keys = set(popts.keys())
+        if 'doc' in keys:
+            keys.remove('doc')
+        if keys:
+            return True
+
+    return False
+
 def processFormsProps(rst, dochelp, forms, univ_names, alledges):
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
@@ -304,25 +317,28 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                          )
 
         props = [blob for blob in props if blob[0] not in univ_names]
+
+        if name in ('biz:listing', 'biz:prodtype'):
+            from pprint import pprint
+            pprint(props, width=120)
+
         if props:
 
-            has_opts = any((popts for _, _, popts in props))
-
-            widths = '10 10 60 20'
-            if has_opts:
-                widths = '10 18 52 20'
+            has_popts = has_popts_data(props)
 
             rst.addLines('', '', f'  Properties:', )
             rst.addLines('   .. list-table::',
                          '      :header-rows: 1',
-                         f'      :widths: {widths}',
+                         '      :widths: auto',
                          '      :class: tight-table',
-                         '',
-                         '      * - name',
-                         '        - type',
-                         '        - doc',
-                         '        - opts',
-                         )
+                         '')
+            header = ('      * - name',
+                      '        - type',
+                      '        - doc',
+                      )
+            if has_popts:
+                header = header + ('        - opts',)
+            rst.addLines(*header)
 
             for pname, (ptname, ptopts), popts in props:
 
@@ -350,20 +366,21 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
 
                 rst.addLines(f'        - {doc}',)
 
-                if popts:
-                    if len(popts) == 1:
-                        for k, v in popts.items():
-                            k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
-                            rst.addLines(f'        - {k}: ``{v}``')
+                if has_popts:
+                    if popts:
+                        if len(popts) == 1:
+                            for k, v in popts.items():
+                                k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                                rst.addLines(f'        - {k}: ``{v}``')
+                        else:
+                            for i, (k, v) in enumerate(popts.items()):
+                                k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                                if i == 0:
+                                    rst.addLines(f'        - | {k}: ``{v}``')
+                                else:
+                                    rst.addLines(f'          | {k}: ``{v}``')
                     else:
-                        for i, (k, v) in enumerate(popts.items()):
-                            k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
-                            if i == 0:
-                                rst.addLines(f'        - | {k}: ``{v}``')
-                            else:
-                                rst.addLines(f'          | {k}: ``{v}``')
-                else:
-                    rst.addLines(f'        - ')
+                        rst.addLines(f'        - ')
 
         if formedges:
 
