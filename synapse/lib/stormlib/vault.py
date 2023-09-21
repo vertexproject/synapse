@@ -1,5 +1,6 @@
-import synapse.common as s_common
+import synapse.exc as s_exc
 
+import synapse.lib.cell as s_cell
 import synapse.lib.stormtypes as s_stormtypes
 
 stormcmds = (
@@ -60,7 +61,7 @@ stormcmds = (
                 'default': False, 'help': 'Print vault data if permissible.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getByName($cmdopts.name)
+            $vault = $lib.vault.byname($cmdopts.name)
             $lib.vault.print($vault, $cmdopts.showdata)
             $lib.print('')
         ''',
@@ -81,7 +82,7 @@ stormcmds = (
                 'default': False, 'help': 'Print vault data.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getByIden($cmdopts.viden)
+            $vault = $lib.vault.byiden($cmdopts.viden)
             $lib.vault.print($vault, $cmdopts.showdata)
             $lib.print('')
         ''',
@@ -111,7 +112,7 @@ stormcmds = (
                 'default': False, 'help': 'Print vault data.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getByType($cmdopts.type, $cmdopts.scope)
+            $vault = $lib.vault.bytype($cmdopts.type, $cmdopts.scope)
             $lib.vault.print($vault, $cmdopts.showdata)
             $lib.print('')
         ''',
@@ -135,13 +136,9 @@ stormcmds = (
             ('value', {'help': 'The data value to store in the vault.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getVaultByIdenOrName($cmdopts.name)
-            if (not $vault) {
-                $lib.warn(`Vault with name or iden not found: {$cmdopts.name}.`)
-                return($lib.null)
-            }
+            $vault = $lib.vault.get($cmdopts.name)
 
-            $ok = $lib.vault.set($vault.iden, $cmdopts.key, $cmdopts.value)
+            $ok = $vault.set($cmdopts.key, $cmdopts.value)
             if $ok {
                 $lib.print(`Successfully set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
             } else {
@@ -166,13 +163,8 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getVaultByIdenOrName($cmdopts.name)
-            if (not $vault) {
-                $lib.warn(`Vault with name or iden not found: {$cmdopts.name}.`)
-                return($lib.null)
-            }
-
-            $ok = $lib.vault.del($vault.iden)
+            $vault = $lib.vault.get($cmdopts.name)
+            $ok = $vault.del()
             if $ok {
                 $lib.print(`Successfully deleted vault {$cmdopts.name}.`)
             } else {
@@ -225,13 +217,9 @@ stormcmds = (
             ('level', {'type': 'str', 'help': 'The permission level to grant, $lib.null to revoke an existing permission.'}),
         ),
         'storm': '''
-            $vault = $lib.vault.getVaultByIdenOrName($cmdopts.name)
-            if (not $vault) {
-                $lib.warn(`Vault with name or iden not found: {$cmdopts.name}.`)
-                return($lib.null)
-            }
+            $vault = $lib.vault.get($cmdopts.name)
 
-            $ok = $lib.vault.setPerm($vault.iden, $cmdopts.iden, $cmdopts.level)
+            $ok = $vault.setPerm($cmdopts.iden, $cmdopts.level)
             if $ok {
                 $lib.print(`Successfully set permissions on vault {$cmdopts.name}.`)
             } else {
@@ -291,7 +279,13 @@ class LibVault(s_stormtypes.Lib):
                        'desc': 'The initial data to store in this vault.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Iden of the newly created vault.'}}},
-        {'name': 'getByName', 'desc': 'Get a vault by name.',
+        {'name': 'get', 'desc': 'Get a vault by iden or name.',
+         'type': {'type': 'function', '_funcname': '_getVault',
+                  'args': (
+                      {'name': 'vault', 'type': 'str', 'desc': 'The vault name or iden to retrieve.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
+        {'name': 'byname', 'desc': 'Get a vault by name.',
          'type': {'type': 'function', '_funcname': '_getByName',
                   'args': (
                       {'name': 'name', 'type': 'str',
@@ -303,7 +297,7 @@ class LibVault(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
-        {'name': 'getByIden', 'desc': 'Get a vault by iden.',
+        {'name': 'byiden', 'desc': 'Get a vault by iden.',
          'type': {'type': 'function', '_funcname': '_getByIden',
                   'args': (
                       {'name': 'viden', 'type': 'str',
@@ -315,7 +309,7 @@ class LibVault(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
-        {'name': 'getByType', 'desc': 'Get a vault for a specified vault type.',
+        {'name': 'bytype', 'desc': 'Get a vault for a specified vault type.',
          'type': {'type': 'function', '_funcname': '_getByType',
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to retrieved.'},
@@ -323,21 +317,6 @@ class LibVault(s_stormtypes.Lib):
                        'desc': 'The scope for the specified type. If $lib.null, then getByType will search.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be retrieved.'}}},
-        {'name': 'set', 'desc': 'Set data into a vault. Requires PERM_EDIT or higher on the vault.',
-         'type': {'type': 'function', '_funcname': '_setVault',
-                  'args': (
-                      {'name': 'viden', 'type': 'str', 'desc': 'The vault iden to operate on.'},
-                      {'name': 'key', 'type': 'str', 'desc': 'The data key to set into the vault.'},
-                      {'name': 'valu', 'type': 'str', 'desc': 'The data value to set into the vault.'},
-                  ),
-                  'returns': {'type': 'boolean',
-                              'desc': '`$lib.true` if the data was successfully set, `$lib.false` otherwise.', }}},
-        {'name': 'del', 'desc': 'Delete a vault.',
-         'type': {'type': 'function', '_funcname': '_delVault',
-                  'args': (
-                      {'name': 'viden', 'type': 'str', 'desc': 'The vault iden to delete.'},
-                  ),
-                  'returns': {'type': 'null'}}},
         {'name': 'list', 'desc': 'List vaults accessible to the current user.',
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
@@ -348,20 +327,6 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'vault', 'type': 'dict', 'desc': 'The vault to print.'},
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'getByIdenOrName', 'desc': 'Get a vault by iden or name.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'vault', 'type': 'dict', 'desc': 'The vault name or iden to retrieve.'},
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
-        {'name': 'setPerm', 'desc': 'Set permissions on a vault. Current user must have PERM_EDIT permissions or higher.',
-         'type': {'type': 'function', '_funcname': '_setPerm',
-                  'args': (
-                      {'name': 'viden', 'type': 'str', 'desc': 'The vault iden to modify.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The user/role iden to add to the vault permissions.'},
-                      {'name': 'level', 'type': 'int', 'desc': 'The easy perms level to add to the vault.'},
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the permission was set on the vault, false otherwise.'}}},
         {'name': 'setDefault', 'desc': "Set default scope of a given vault type. Current user must have ('vaults', 'defaults') permission.",
          'type': {'type': 'function', '_funcname': '_setDefault',
                   'args': (
@@ -372,20 +337,6 @@ class LibVault(s_stormtypes.Lib):
     )
     _storm_lib_path = ('vault',)
     _storm_query = '''
-        function getVaultByIdenOrName(name) {
-            $vault = $lib.null
-
-            try {
-                $vault = $lib.vault.getByIden($name)
-            } catch BadArg as err {}
-
-            if $vault {
-                return($vault)
-            }
-
-            return($lib.vault.getByName($name))
-        }
-
         function print(vault, showdata=$lib.false) {
             $lvlnames = ({})
             for ($name, $level) in $lib.auth.easyperm.level {
@@ -437,15 +388,20 @@ class LibVault(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'add': self._addVault,
-            'getByName': self._getByName,
-            'getByIden': self._getByIden,
-            'getByType': self._getByType,
-            'set': self._setVault,
-            'del': self._delVault,
+            'get': self._getVault,
+            'byname': self._getByName,
+            'byiden': self._getByIden,
+            'bytype': self._getByType,
             'list': self._listVaults,
-            'setPerm': self._setPerm,
             'setDefault': self._setDefault,
         }
+
+    def _reqEasyPerm(self, vault, perm):
+        check = self.runt.core._hasEasyPerm(vault, self.runt.user, perm)
+
+        if not check and not self.runt.asroot:
+            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
 
     async def _addVault(self, name, vtype, scope, iden, data):
         name = await s_stormtypes.tostr(name)
@@ -453,47 +409,224 @@ class LibVault(s_stormtypes.Lib):
         scope = await s_stormtypes.tostr(scope, noneok=True)
         iden = await s_stormtypes.tostr(iden, noneok=True)
         data = await s_stormtypes.toprim(data)
-        return await self.runt.snap.core.addVault(name, vtype, scope, iden, data, user=self.runt.user)
+
+        user = None
+        if not self.runt.asroot:
+            user = self.runt.user
+
+        return await self.runt.snap.core.addVault(name, vtype, scope, iden, data, user=user)
+
+    async def _getVault(self, name):
+        vault = self.runt.core.getVaultByIden(name)
+        if not vault:
+            vault = self.runt.core.reqVaultByName(name)
+
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
+
+        iden = vault.get('iden')
+        return Vault(self.runt, iden)
 
     async def _getByName(self, name):
         name = await s_stormtypes.tostr(name)
-        return self.runt.snap.core.getVaultByName(name, user=self.runt.user)
+
+        vault = self.runt.snap.core.reqVaultByName(name, user=self.runt.user)
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
+
+        iden = vault.get('iden')
+        return Vault(self.runt, iden)
 
     async def _getByIden(self, viden):
         viden = await s_stormtypes.tostr(viden)
-        return self.runt.snap.core.getVaultByIden(viden, user=self.runt.user)
+
+        vault = self.runt.snap.core.reqVaultByIden(viden, user=self.runt.user)
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
+
+        return Vault(self.runt, viden)
 
     async def _getByType(self, vtype, scope=None):
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
-        return self.runt.snap.core.getVaultByType(vtype, scope, user=self.runt.user)
 
-    async def _setVault(self, viden, key, valu):
-        viden = await s_stormtypes.tostr(viden)
-        key = await s_stormtypes.tostr(key)
+        vault = self.runt.snap.core.getVaultByType(vtype, self.runt.user.iden, scope)
+        self._reqEasyPerm(vault, s_cell.PERM_READ)
 
-        if valu is s_stormtypes.undef:
-            valu = s_common.novalu
-        else:
-            valu = await s_stormtypes.toprim(valu)
-
-        return await self.runt.snap.core.setVaultData(viden, key, valu, user=self.runt.user)
-
-    async def _delVault(self, viden):
-        viden = await s_stormtypes.tostr(viden)
-        return await self.runt.snap.core.delVault(viden, user=self.runt.user)
+        iden = vault.get('iden')
+        return Vault(self.runt, iden)
 
     async def _listVaults(self):
         for vault in self.runt.snap.core.listVaults(user=self.runt.user):
             yield vault
 
-    async def _setPerm(self, viden, iden, level):
-        viden = await s_stormtypes.tostr(viden)
-        iden = await s_stormtypes.tostr(iden)
-        level = await s_stormtypes.toint(level, noneok=True)
-        return await self.runt.snap.core.setVaultPerm(viden, iden, level, user=self.runt.user)
-
     async def _setDefault(self, vtype, scope):
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
-        return await self.runt.snap.core.setVaultDefault(vtype, scope, user=self.runt.user)
+
+        user = None
+        if not self.runt.asroot:
+            user = self.runt.user
+
+        return await self.runt.snap.core.setVaultDefault(vtype, scope, user=user)
+
+@s_stormtypes.registry.registerType
+class Vault(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for a Vault.
+
+    Callers (instantiation) of this class must have already checked that the user has at least
+    PERM_READ to the vault.
+    '''
+    _storm_locals = (
+        {'name': 'iden', 'desc': 'The Vault iden.', 'type': 'str', },
+        {'name': 'type', 'desc': 'The Vault type.', 'type': 'str', },
+        {'name': 'scope', 'desc': 'The Vault scope.', 'type': 'str', },
+        {'name': 'ident', 'desc': 'The Vault ident (user or role iden).', 'type': 'str', },
+
+        {'name': 'name',
+         'desc': 'The Vault name.',
+         'type': {
+             'type': ['gtor', 'stor'],
+             '_storfunc': '_storName',
+             '_gtorfunc': '_gtorName',
+             'returns': {'type': 'str'}}},
+
+        {'name': 'get', 'desc': 'Get an arbitrary property from the Vault data.',
+         'type': {'type': 'function', '_funcname': '_methGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+
+        {'name': 'set', 'desc': 'Get an arbitrary property from the Vault data.',
+         'type': {'type': 'function', '_funcname': '_methGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value of the property to set. $lib.undef to remove an existing value.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': '$lib.true if the assignment was successful, $lib.false otherwise.', }}},
+
+        {'name': 'pack', 'desc': 'Get the packed version of the Vault.',
+         'type': {'type': 'function', '_funcname': '_methPack', 'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The packed Vault definition.', }}},
+
+        {'name': 'setPerm', 'desc': 'Set easy permissions on the Vault.',
+         'type': {'type': 'function', '_funcname': '_methSetPerm',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The user or role to modify.'},
+                      {'name': 'level', 'type': 'str', 'desc': 'The easyperm level for the iden. $lib.undef to remove an existing permission.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': '$lib.true if the permission was set, $lib.false otherwise.', }}},
+
+        {'name': 'delete', 'desc': 'Delete the Vault.',
+         'type': {'type': 'function', '_funcname': '_methDelete',
+                  'args': (),
+                  'returns': {'type': 'boolean', 'desc': '$lib.true if the vault was deleted, $lib.false otherwise.', }}},
+    )
+    _storm_typename = 'vault'
+    _ismutable = False
+
+    def __init__(self, runt, valu, path=None):
+
+        s_stormtypes.Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+        self.locls.update(self.getObjLocals())
+        self.locls['iden'] = self.valu
+
+        self.stors.update({
+            'name': self._storName,
+        })
+
+        self.gtors.update({
+            'name': self._gtorName,
+            'type': self._gtorType,
+            'scope': self._gtorScope,
+            'ident': self._gtorIdent,
+        })
+
+    def getObjLocals(self):
+        return {
+            'get': self._methGet,
+            'set': self._methSet,
+            'pack': self._methPack,
+            'setPerm': self._methSetPerm,
+            'delete': self._methDelete,
+        }
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def _reqEasyPerm(self, vault, perm):
+        check = self.runt.core._hasEasyPerm(vault, self.runt.user, perm)
+
+        if not check and not self.runt.asroot:
+            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
+
+    async def _storName(self, name):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+
+        name = await s_stormtypes.tostr(name)
+        iden = vault.get('iden')
+        await self.runt.core.renameVault(iden, name)
+        return name
+
+    async def _gtorName(self):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        return vault.get('name')
+
+    async def _gtorType(self):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        return vault.get('type')
+
+    async def _gtorScope(self):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        return vault.get('scope')
+
+    async def _gtorIdent(self):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        return vault.get('ident')
+
+    async def _methGet(self, name):
+        name = await s_stormtypes.tostr(name)
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+        return vault.get(name)
+
+    async def _methSet(self, name, valu):
+        name = await s_stormtypes.tostr(name)
+        valu = await s_stormtypes.toprim(valu)
+
+        user = None
+        if not self.runt.asroot:
+            user = self.runt.user
+
+        return self.runt.core.setVaultData(self.valu, name, valu, user=user)
+
+    async def _methPack(self):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+
+        edit = self.runt.core._hasEasyPerm(self.valu, self.runt.user, s_cell.PERM_EDIT)
+        if edit or self.runt.asroot:
+            return vault
+
+        vault.pop('data')
+        return vault
+
+    async def _methSetPerm(self, iden, level):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
+
+        iden = s_stormtypes.tostr(iden)
+        level = s_stormtypes.toint(level)
+
+        return self.runt.core.setVaultPerm(self.valu, iden, level)
+
+    async def _methDelete(self):
+        vault = self.runt.core.reqVaultByIden(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
+
+        return self.runt.core.delVault(self.valu)
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.valu}'
