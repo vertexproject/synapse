@@ -114,6 +114,15 @@ def cve_check(match: regex.Match):
     valu = s_chop.replaceUnicodeDashes(valu)
     return valu, cbfo
 
+# Reference NIST 7695
+# Common Platform Enumeration: Naming Specification Version 2.3
+# Figure 6-3. ABNF for Formatted String Binding
+_cpe23_regex = r'''(?P<valu>cpe:2\.3:[aho\*-]
+(?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){5}
+:([*-]|(([a-z]{2,3}){1}(-([0-9]{3}|[a-z]{2}))?))
+(?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){4})
+'''
+
 linux_path_regex = r'''
 (?<![\w\d]+)
 (?P<valu>
@@ -244,6 +253,7 @@ scrape_types = [  # type: ignore
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
     ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
     ('it:sec:cwe', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>CWE-[0-9]{1,8})(?:[^A-Za-z0-9]|$))', {}),
+    ('it:sec:cpe', _cpe23_regex, {'flags': regex.VERBOSE}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
