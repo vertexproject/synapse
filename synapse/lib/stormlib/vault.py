@@ -397,7 +397,7 @@ class LibVault(s_stormtypes.Lib):
         }
 
     def _reqEasyPerm(self, vault, perm):
-        check = self.runt.core._hasEasyPerm(vault, self.runt.user, perm)
+        check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
 
         if not check and not self.runt.asroot:
             mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
@@ -417,9 +417,9 @@ class LibVault(s_stormtypes.Lib):
         return await self.runt.snap.core.addVault(name, vtype, scope, iden, data, user=user)
 
     async def _getVault(self, name):
-        vault = self.runt.core.getVaultByIden(name)
+        vault = self.runt.snap.core.getVaultByIden(name)
         if not vault:
-            vault = self.runt.core.reqVaultByName(name)
+            vault = self.runt.snap.core.reqVaultByName(name)
 
         self._reqEasyPerm(vault, s_cell.PERM_READ)
 
@@ -429,7 +429,7 @@ class LibVault(s_stormtypes.Lib):
     async def _getByName(self, name):
         name = await s_stormtypes.tostr(name)
 
-        vault = self.runt.snap.core.reqVaultByName(name, user=self.runt.user)
+        vault = self.runt.snap.core.reqVaultByName(name)
         self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         iden = vault.get('iden')
@@ -438,7 +438,7 @@ class LibVault(s_stormtypes.Lib):
     async def _getByIden(self, viden):
         viden = await s_stormtypes.tostr(viden)
 
-        vault = self.runt.snap.core.reqVaultByIden(viden, user=self.runt.user)
+        vault = self.runt.snap.core.reqVaultByIden(viden)
         self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, viden)
@@ -480,6 +480,8 @@ class Vault(s_stormtypes.Prim):
         {'name': 'type', 'desc': 'The Vault type.', 'type': 'str', },
         {'name': 'scope', 'desc': 'The Vault scope.', 'type': 'str', },
         {'name': 'ident', 'desc': 'The Vault ident (user or role iden).', 'type': 'str', },
+        {'name': 'permissions', 'desc': 'The Vault permissions.', 'type': 'dict', },
+        {'name': 'data', 'desc': 'The Vault data.', 'type': 'dict', },
 
         {'name': 'name',
          'desc': 'The Vault name.',
@@ -541,6 +543,8 @@ class Vault(s_stormtypes.Prim):
             'type': self._gtorType,
             'scope': self._gtorScope,
             'ident': self._gtorIdent,
+            'data': self._gtorData,
+            'permissions': self._gtorPermissions,
         })
 
     def getObjLocals(self):
@@ -556,40 +560,44 @@ class Vault(s_stormtypes.Prim):
         return hash((self._storm_typename, self.valu))
 
     def _reqEasyPerm(self, vault, perm):
-        check = self.runt.core._hasEasyPerm(vault, self.runt.user, perm)
+        check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
 
         if not check and not self.runt.asroot:
             mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
 
     async def _storName(self, name):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_EDIT)
 
         name = await s_stormtypes.tostr(name)
         iden = vault.get('iden')
-        await self.runt.core.renameVault(iden, name)
+        await self.runt.snap.core.renameVault(iden, name)
         return name
 
     async def _gtorName(self):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         return vault.get('name')
 
     async def _gtorType(self):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         return vault.get('type')
 
     async def _gtorScope(self):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         return vault.get('scope')
 
     async def _gtorIdent(self):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         return vault.get('ident')
+
+    async def _gtorPermissions(self):
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        return vault.get('permissions')
 
     async def _methGet(self, name):
         name = await s_stormtypes.tostr(name)
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_EDIT)
         return vault.get(name)
 
@@ -601,12 +609,12 @@ class Vault(s_stormtypes.Prim):
         if not self.runt.asroot:
             user = self.runt.user
 
-        return self.runt.core.setVaultData(self.valu, name, valu, user=user)
+        return self.runt.snap.core.setVaultData(self.valu, name, valu, user=user)
 
     async def _methPack(self):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
 
-        edit = self.runt.core._hasEasyPerm(self.valu, self.runt.user, s_cell.PERM_EDIT)
+        edit = self.runt.snap.core._hasEasyPerm(self.valu, self.runt.user, s_cell.PERM_EDIT)
         if edit or self.runt.asroot:
             return vault
 
@@ -614,19 +622,19 @@ class Vault(s_stormtypes.Prim):
         return vault
 
     async def _methSetPerm(self, iden, level):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
         iden = s_stormtypes.tostr(iden)
         level = s_stormtypes.toint(level)
 
-        return self.runt.core.setVaultPerm(self.valu, iden, level)
+        return self.runt.snap.core.setVaultPerm(self.valu, iden, level)
 
     async def _methDelete(self):
-        vault = self.runt.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
-        return self.runt.core.delVault(self.valu)
+        return self.runt.snap.core.delVault(self.valu)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu}'

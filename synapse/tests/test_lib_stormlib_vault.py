@@ -151,7 +151,7 @@ class StormlibVaultTest(s_test.SynTest):
 
             uvault_data = '  Data:\n    apikey: uvault'.split('\n')
 
-            # vault.get
+            # vault.byname
             msgs = await core.stormlist('vault.byname uvault --showdata')
             for line in uvault_out:
                 self.stormIsInPrint(line, msgs)
@@ -159,7 +159,7 @@ class StormlibVaultTest(s_test.SynTest):
             for line in uvault_data:
                 self.stormIsInPrint(line, msgs)
 
-            # vault.get.byiden
+            # vault.byiden
             opts = {'vars': {'iden': uiden}}
             msgs = await core.stormlist('vault.byiden $iden --showdata', opts=opts)
             for line in uvault_out:
