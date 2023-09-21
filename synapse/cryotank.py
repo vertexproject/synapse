@@ -219,6 +219,8 @@ class CryoCell(s_cell.Cell):
 
         await s_cell.Cell.__anit__(self, dirn, conf)
 
+        await self.auth.addAuthGate('cryo', 'cryo')
+
         self._cryo_permdefs = []
         self._initCryoPerms()
 
@@ -337,7 +339,7 @@ class CryoCell(s_cell.Cell):
             return tank
 
         if user is not None:
-            user.confirm(('cryo', 'tank', 'add'))
+            user.confirm(('cryo', 'tank', 'add'), gateiden='cryo')
 
         iden = s_common.guid()
 

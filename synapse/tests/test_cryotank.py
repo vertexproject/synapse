@@ -139,7 +139,7 @@ class CryoTest(s_t_utils.SynTest):
             ulower = (await cryo.addUser('lower'))['iden']
 
             utank0 = (await cryo.addUser('tank0'))['iden']
-            await cryo.addUserRule(utank0, (True, ('cryo', 'tank', 'add')))
+            await cryo.addUserRule(utank0, (True, ('cryo', 'tank', 'add')), gateiden='cryo')
 
             await cryo.init('tank1')
 
