@@ -395,7 +395,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 rst.addLines(f'  Source Edges:',)
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
-                             '      :widths: 10 15 10 65',
+                             '      :widths: auto',
                              '      :class: tight-table',
                              '',
                              '      * - source',
@@ -430,12 +430,10 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 if generic_edges:
                     dst_edges.extend(generic_edges)
 
-                # dst_edges.sort(key=lambda x: x[0])
-
                 rst.addLines(f'  Target Edges:', )
                 rst.addLines('   .. list-table::',
                              '      :header-rows: 1',
-                             '      :widths: 10 15 10 65',
+                             '      :widths: auto',
                              '      :class: tight-table',
                              '',
                              '      * - source',
