@@ -6482,16 +6482,21 @@ words\tword\twrd'''
 
             self.stormIsInErr('Function (_storUserName) is not marked readonly safe.', msgs)
 
-            q = '$user=$lib.auth.users.get($iden) return ( $user.name )'
-            name = await core.callStorm(q, opts={'vars': {
-                                                     'iden': user,
-                                                 }})
-            self.eq(name, udef.get('name'))
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+
+            q = '$user=$lib.auth.users.get($iden) $user.profile.foo = bar'
+            msgs = await core.stormlist(q, opts={'readonly': True,
+                                                 'vars': {'iden': user}})
+
+            self.stormIsInErr(mesg, msgs)
+
+            q = '$user=$lib.auth.users.get($iden) $user.vars.foo = bar'
+            msgs = await core.stormlist(q, opts={'readonly': True,
+                                                 'vars': {'iden': user}})
+
+            self.stormIsInErr(mesg, msgs)
 
             q = '$lib.debug=$lib.true return($lib.debug)'
             debug = await core.callStorm(q, opts={'readonly': True,
-                                                  'vars': {
-                                                      'iden': user,
-                                                      'newname': 'oops'
-                                                 }})
+                                                  'vars': {'iden': user}})
             self.true(debug)
