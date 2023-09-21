@@ -1,5 +1,5 @@
-import copy
 import sys
+import copy
 import json
 import asyncio
 import logging
@@ -680,7 +680,7 @@ async def docModel(outp,
     rst2 = s_autodoc.RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsProps(rst2, dochelp, forms, univ_names, alledges=edges)
+    processFormsProps(rst2, dochelp, forms, univ_names, edges)
     processUnivs(rst2, dochelp, univs)
 
     return rst, rst2
