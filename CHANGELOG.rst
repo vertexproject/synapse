@@ -17,7 +17,7 @@ Model Changes
   **Updated Types**
 
   ``inet:url``
-    The ``inet:url`` type now recognizes ``UNC`` network paths and converts
+    The ``inet:url`` type now recognizes UNC network paths and converts
     them into ``smb://`` URLs.
 
 Features and Enhancements
@@ -33,7 +33,7 @@ Features and Enhancements
     CPE 2.3 strings are now identified.
 
   ``inet:url``
-    ``UNC//`` based paths are now identified.
+    UNC based paths are now identified.
 
 - Update the ``synapse.lib.scrape`` and associated APIS to use subprocesses
   when scraping large volumes of text.
