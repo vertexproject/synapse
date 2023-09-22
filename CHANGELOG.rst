@@ -11,7 +11,7 @@ v2.150.0 - 2023-09-22
 
 Model Changes
 -------------
-- Updates to the ``inet`` models.
+- Updates to the ``inet`` model.
   (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
 
   **Updated Types**
