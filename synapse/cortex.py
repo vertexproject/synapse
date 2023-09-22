@@ -6232,7 +6232,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         elif scope in ('user', 'role'):
             tsi = f'{vtype}:{scope}:{iden}'
         else:
-            raise s_exc.BadArg(mesg=f'Invalid scope: {scope}')
+            raise s_exc.BadArg(mesg=f'Invalid scope: {scope}.')
 
         idenb = self.slab.get(tsi.encode(), db=self.vaultsbyTSIdb)
         if idenb is None:
@@ -6334,7 +6334,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns: vault or None if matching vault could not be found.
         '''
         if scope not in (None, 'user', 'role', 'global'):
-            raise s_exc.BadArg(mesg=f'Invalid scope value: {scope})')
+            raise s_exc.BadArg(mesg=f'Invalid scope: {scope}.')
 
         def _getVault(_scope):
             vault = None
@@ -6436,7 +6436,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         vault = self.getVaultByType(vtype, iden, scope)
         if vault is None:
-            raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}')
+            raise s_exc.NoSuchName(mesg=f'Vault not found for type: {vtype}.')
 
         return vault
 
@@ -6698,15 +6698,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         oldname = vault.get('name')
 
         if name == oldname:
-            return
+            return False
 
-        return await self._push(('cortex:vault:rename'), viden, oldname, name)
+        vault['name'] = name
+
+        return await self._push(('cortex:vault:rename'), viden, oldname, vault)
 
     @s_nexus.Pusher.onPush('cortex:vault:rename')
-    async def _renameVault(self, viden, oldname, newname):
-        idenb = s_common.uhex(viden)
+    async def _renameVault(self, viden, oldname, vault):
         self.slab.delete(oldname.encode(), db=self.vaultsbynamedb)
-        return self.slab.put(newname.encode(), idenb, db=self.vaultsbynamedb)
+        return self._setVault(viden, vault)
 
     async def delVault(self, viden, user=None):
         '''

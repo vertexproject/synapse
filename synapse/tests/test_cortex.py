@@ -7635,6 +7635,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.true(await core.setVaultData(giden, 'apikey', 'foobar'))
             self.true(await core.setVaultDefault(vtype1, 'global'))
+            self.true(await core.setVaultDefault(vtype1, None))
 
             vaults = list(core.listVaults())
             self.len(4, vaults)
@@ -7644,6 +7645,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(await core.renameVault(giden, 'global2'))
             vault = core.reqVaultByName('global2')
             self.eq(vault.get('iden'), giden)
+            self.eq(vault.get('name'), 'global2')
+            self.false(await core.renameVault(giden, 'global2'))
 
             self.true(await core.delVault(giden))
 
@@ -7663,6 +7666,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await visi1.grant(contributor.iden)
 
             giden = await core.addVault('global1', vtype1, 'global', None, {})
+            riden = await core.addVault('role1', vtype1, 'role', contributor.iden, {})
 
             with self.raises(s_exc.NoSuchName) as exc:
                 # Non-existent vault name
@@ -7736,7 +7740,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchRole) as exc:
                 # role with iden does not exist
-                await core.addVault('role1', vtype1, 'role', '1234', {})
+                await core.addVault('role2', vtype1, 'role', '1234', {})
             self.eq('Role with iden 1234 not found.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
@@ -7793,3 +7797,29 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # user does not have ADMIN access to vault
                 await core.delVault(giden, user=visi1)
             self.eq(f'User (visi1) has insufficient permissions (requires: admin).', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # Invalid scope
+                core._getVaultByTSI('vtype', 'newp', 'iden')
+            self.eq('Invalid scope: newp.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # Invalid scope
+                core.getVaultByType(vtype1, 'iden', 'newp')
+            self.eq('Invalid scope: newp.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchUser) as exc:
+                # Invalid user iden
+                core.getVaultByType(vtype1, contributor.iden, 'role')
+            self.eq(f'No user with iden {contributor.iden}.', exc.exception.get('mesg'))
+
+            # User not in role
+            self.none(core.getVaultByType(vtype1, visi2.iden, 'role'))
+
+            # Requested type/scope doesn't exist
+            self.none(core.getVaultByType(vtype1, visi1.iden, 'user'))
+
+            with self.raises(s_exc.NoSuchName) as exc:
+                # Requested type/scope doesn't exist
+                core.reqVaultByType(vtype1, visi1.iden, 'user')
+            self.eq(f'Vault not found for type: {vtype1}.', exc.exception.get('mesg'))

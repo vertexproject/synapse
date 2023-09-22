@@ -512,7 +512,7 @@ class VaultData(s_stormtypes.Prim):
 
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
-    async def iter(self):  # pragma: no cover
+    async def iter(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_EDIT)
 
