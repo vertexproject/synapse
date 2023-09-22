@@ -21,6 +21,10 @@ class SmtpLib(s_stormtypes.Lib):
                                       'desc': 'The newly constructed inet:smtp:message.'}}},
     )
     _storm_lib_path = ('inet', 'smtp',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'inet', 'smtp', 'send'), 'gate': 'cortex',
+         'desc': 'Controls sending SMTP messages to external servers.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -126,6 +130,7 @@ class SmtpMessage(s_stormtypes.StormType):
             'sender': self._setSenderEmail,
         })
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setSenderEmail(self, valu):
         # TODO handle inet:email and ps:contact Nodes
         self.sender = await s_stormtypes.tostr(valu)
@@ -133,9 +138,11 @@ class SmtpMessage(s_stormtypes.StormType):
     async def _getSenderEmail(self):
         return self.sender
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setEmailText(self, text):
         self.bodytext = await s_stormtypes.tostr(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setEmailHtml(self, html):
         self.bodyhtml = await s_stormtypes.tostr(html)
 
