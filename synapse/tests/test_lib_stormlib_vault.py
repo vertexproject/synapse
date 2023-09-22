@@ -182,6 +182,8 @@ class StormlibVaultTest(s_test.SynTest):
             # vault.set
             for key, val in (('foo', 'bar'), ('foo', '$lib.null'), ('foo', '$lib.undef'), ('apikey', 'uvault1')):
                 msgs = await core.stormlist(f'vault.set uvault {key} {val}')
+                if val == '$lib.null':
+                    val = None
                 self.stormIsInPrint(f'Set {key}={val} into vault uvault.', msgs)
 
             vault = core.getVaultByIden(uiden)

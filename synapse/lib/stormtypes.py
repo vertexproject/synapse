@@ -9590,9 +9590,6 @@ async def toiter(valu, noneok=False):
         raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 async def torepr(valu, usestr=False):
-    if valu is None:
-        return '$lib.null'
-
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
         return await valu.stormrepr()
 

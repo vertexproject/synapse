@@ -279,7 +279,7 @@ class LibVault(s_stormtypes.Lib):
         {'name': 'get', 'desc': 'Get a vault by iden or name.',
          'type': {'type': 'function', '_funcname': '_getVault',
                   'args': (
-                      {'name': 'vault', 'type': 'str', 'desc': 'The vault name or iden to retrieve.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The vault name or iden to retrieve.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The requested vault.'}}},
         {'name': 'byname', 'desc': 'Get a vault by name.',
