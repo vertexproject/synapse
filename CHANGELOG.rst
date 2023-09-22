@@ -35,7 +35,7 @@ Features and Enhancements
   ``inet:url``
     UNC based paths are now identified.
 
-- Update the ``synapse.lib.scrape`` and associated APIsg to use subprocesses
+- Update the ``synapse.lib.scrape`` and associated APIs to use subprocesses
   when scraping large volumes of text.
   (`#3344 <https://github.com/vertexproject/synapse/pull/3344>`_)
 - Add additional logging for HTTP API endpoints when a request has invalid
