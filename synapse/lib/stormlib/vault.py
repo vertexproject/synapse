@@ -585,7 +585,7 @@ class Vault(s_stormtypes.Prim):
             'delete': self._methDelete,
         }
 
-    def __hash__(self):
+    def __hash__(self):  # pragma: no cover
         return hash((self._storm_typename, self.valu))
 
     def _reqEasyPerm(self, vault, perm):
