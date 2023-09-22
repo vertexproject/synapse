@@ -6,6 +6,60 @@
 Synapse Changelog
 *****************
 
+v2.150.0 - 2023-09-22
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet`` models.
+  (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
+
+  **Updated Types**
+
+  ``inet:url``
+    The ``inet:url`` type now recognizes ``UNC`` network paths and converts
+    them into ``smb://`` URLs.
+
+Features and Enhancements
+-------------------------
+- Allow Storm trigger APIs to reference triggers from other views.
+  (`#3342 <https://github.com/vertexproject/synapse/pull/3342>`_)
+- Update the the ``synapse.lib.scrape`` and associated APIS to capture
+  additional data:
+  (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
+  (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
+
+  ``it:sec:cpe``
+    CPE 2.3 strings are now identified.
+
+  ``inet:url``
+    ``UNC//`` based paths are now identified.
+
+- Update the ``synapse.lib.scrape`` and associated APIS to use subprocesses
+  when scraping large volumes of text.
+  (`#3344 <https://github.com/vertexproject/synapse/pull/3344>`_)
+- Add additional logging for HTTP API endpoints when a request has invalid
+  login information.
+  (`#3345 <https://github.com/vertexproject/synapse/pull/3345>`_)
+- The CryoTank service has had permissions added to it.
+  (`#3328 <https://github.com/vertexproject/synapse/pull/3328>`_)
+
+Bugfixes
+--------
+- Stormtypes ``stor`` functions were not previously checked during
+  ``readonly`` runtime execution. These are now validated and ``stor``
+  functions which would result in changing data in the Cortex will now
+  raise an exception when used with a ``readonly`` Storm runtime.
+  (`#3349 <https://github.com/vertexproject/synapse/pull/3349>`_)
+
+Improved Documentation
+----------------------
+- Update the list of Cortex permissions in the Admin Guide.
+  (`#3331 <https://github.com/vertexproject/synapse/pull/3331>`_)
+- The Form documentation has been updated to project the secondary properties
+  and associated light edges as tables.
+  (`#3348 <https://github.com/vertexproject/synapse/pull/3348>`_)
+
 v2.149.0 - 2023-09-14
 =====================
 
