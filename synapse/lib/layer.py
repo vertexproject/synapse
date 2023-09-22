@@ -186,7 +186,7 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         return self.layr.iden
 
-BUID_CACHE_SIZE = 10000
+NID_CACHE_SIZE = 10000
 
 STOR_TYPE_UTF8 = 1
 
@@ -1540,7 +1540,7 @@ class Layer(s_nexus.Pusher):
         self.windows = []
         self.upstreamwaits = collections.defaultdict(lambda: collections.defaultdict(list))
 
-        self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
+        self.nidcache = s_cache.LruDict(NID_CACHE_SIZE)
         self.weakcache = weakref.WeakValueDictionary()
 
         self.onfini(self._onLayrFini)
@@ -2085,7 +2085,7 @@ class Layer(s_nexus.Pusher):
         s_common.deprdate('Layer.truncate() API', s_common._splicedepr)
 
         self.dirty.clear()
-        self.buidcache.clear()
+        self.nidcache.clear()
 
         await self.layrslab.trash()
         await self.nodeeditslab.trash()
@@ -2167,525 +2167,6 @@ class Layer(s_nexus.Pusher):
         '''
         await self.layrslab.lockdoneevent.wait()
 
-    async def _layrV2toV3(self):
-
-        bybuid = self.layrslab.initdb('bybuid')
-        sode = collections.defaultdict(dict)
-
-        tostor = []
-        lastbuid = None
-
-        count = 0
-        forms = await self.getFormCounts()
-        minforms = sum(forms.values())
-
-        logger.warning(f'Converting layer from v2 to v3 storage (>={minforms} nodes): {self.dirn}')
-
-        for lkey, lval in self.layrslab.scanByFull(db=bybuid):
-
-            flag = lkey[32]
-            buid = lkey[:32]
-
-            if lastbuid != buid:
-
-                if lastbuid is not None:
-
-                    count += 1
-                    tostor.append((lastbuid, s_msgpack.en(sode)))
-
-                    sode.clear()
-
-                    if len(tostor) >= 10000:
-                        logger.warning(f'...syncing 10k nodes @{count}')
-                        self.layrslab.putmulti(tostor, db=self.bybuidv3)
-                        tostor.clear()
-
-                lastbuid = buid
-
-            if flag == 0:
-                form, valu, stortype = s_msgpack.un(lval)
-                sode['form'] = form
-                sode['valu'] = (valu, stortype)
-                continue
-
-            if flag == 1:
-                name = lkey[33:].decode()
-                sode['props'][name] = s_msgpack.un(lval)
-                continue
-
-            if flag == 2:
-                name = lkey[33:].decode()
-                sode['tags'][name] = s_msgpack.un(lval)
-                continue
-
-            if flag == 3:
-                tag, prop = lkey[33:].decode().split(':')
-                if tag not in sode['tagprops']:
-                    sode['tagprops'][tag] = {}
-                sode['tagprops'][tag][prop] = s_msgpack.un(lval)
-                continue
-
-            if flag == 9:
-                sode['form'] = lval.decode()
-                continue
-
-            logger.warning('Invalid flag %d found for buid %s during migration', flag, buid)  # pragma: no cover
-
-        count += 1
-
-        # Mop up the leftovers
-        if lastbuid is not None:
-            count += 1
-            tostor.append((lastbuid, s_msgpack.en(sode)))
-        if tostor:
-            self.layrslab.putmulti(tostor, db=self.bybuidv3)
-
-        logger.warning('...removing old bybuid index')
-        self.layrslab.dropdb('bybuid')
-
-        self.meta.set('version', 3)
-        self.layrvers = 3
-
-        logger.warning(f'...complete! ({count} nodes)')
-
-    async def _layrV3toV5(self):
-
-        sode = collections.defaultdict(dict)
-
-        logger.warning(f'Cleaning layer byarray index: {self.dirn}')
-
-        for lkey, lval in self.layrslab.scanByFull(db=self.byarray):
-
-            abrv = lkey[:8]
-            (form, prop) = self.getAbrvProp(abrv)
-
-            if form is None or prop is None:
-                continue
-
-            byts = self.layrslab.get(lval, db=self.bybuidv3)
-            if byts is not None:
-                sode.update(s_msgpack.un(byts))
-
-            pval = sode['props'].get(prop)
-            if pval is None:
-                self.layrslab.delete(lkey, lval, db=self.byarray)
-                sode.clear()
-                continue
-
-            indxbyts = lkey[8:]
-            valu, stortype = pval
-            realtype = stortype & 0x7fff
-            realstor = self.stortypes[realtype]
-
-            for aval in valu:
-                if indxbyts in realstor.indx(aval):
-                    break
-            else:
-                self.layrslab.delete(lkey, lval, db=self.byarray)
-
-            sode.clear()
-
-        self.meta.set('version', 5)
-        self.layrvers = 5
-
-        logger.warning(f'...complete!')
-
-    async def _layrV4toV5(self):
-
-        sode = collections.defaultdict(dict)
-
-        logger.warning(f'Rebuilding layer byarray index: {self.dirn}')
-
-        for byts, abrv in self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv):
-
-            form, prop = s_msgpack.un(byts)
-            if form is None or prop is None:
-                continue
-
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
-                byts = self.layrslab.get(buid, db=self.bybuidv3)
-                if byts is not None:
-                    sode.clear()
-                    sode.update(s_msgpack.un(byts))
-
-                pval = sode['props'].get(prop)
-                if pval is None:
-                    continue
-
-                valu, stortype = pval
-                if not stortype & STOR_FLAG_ARRAY:
-                    break
-
-                for indx in self.getStorIndx(stortype, valu):
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
-
-        self.meta.set('version', 5)
-        self.layrvers = 5
-
-        logger.warning(f'...complete!')
-
-    async def _v5ToV7Buid(self, buid):
-
-        byts = self.layrslab.get(buid, db=self.bybuidv3)
-        if byts is None:
-            return
-
-        sode = s_msgpack.un(byts)
-        tagprops = sode.get('tagprops')
-        if tagprops is None:
-            return
-        edited_sode = False
-        # do this in a partially-covered / replay safe way
-        for tpkey, tpval in list(tagprops.items()):
-            if isinstance(tpkey, tuple):
-                tagprops.pop(tpkey)
-                edited_sode = True
-                tag, prop = tpkey
-
-                if tagprops.get(tag) is None:
-                    tagprops[tag] = {}
-                if prop in tagprops[tag]:
-                    continue
-                tagprops[tag][prop] = tpval
-
-        if edited_sode:
-            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
-
-    async def _layrV5toV7(self):
-
-        logger.warning(f'Updating tagprop keys in bytagprop index: {self.dirn}')
-
-        for lkey, buid in self.layrslab.scanByFull(db=self.bytagprop):
-            await self._v5ToV7Buid(buid)
-
-        self.meta.set('version', 7)
-        self.layrvers = 7
-
-        logger.warning('...complete!')
-
-    async def _v7toV8Prop(self, prop):
-
-        propname = prop.name
-        form = prop.form
-        if form:
-            form = form.name
-
-        try:
-            abrv = self.getPropAbrv(form, propname)
-
-        except s_exc.NoSuchAbrv:
-            return
-
-        isarray = False
-        if prop.type.stortype & STOR_FLAG_ARRAY:
-            isarray = True
-            araystor = self.stortypes[STOR_TYPE_MSGP]
-
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
-                self.layrslab.delete(lkey, buid, db=self.byarray)
-
-        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
-        sode = collections.defaultdict(dict)
-
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
-
-            if isarray is False and len(lkey) == 28:
-                continue
-
-            byts = self.layrslab.get(buid, db=self.bybuidv3)
-            if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-                continue
-
-            sode.update(s_msgpack.un(byts))
-            pval = sode['props'].get(propname)
-            if pval is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-                sode.clear()
-                continue
-
-            valu, _ = pval
-            if isarray:
-                try:
-                    newval = prop.type.norm(valu)[0]
-                except s_exc.BadTypeValu:
-                    logger.warning(f'Invalid value {valu} for prop {propname} for buid {buid}')
-                    continue
-
-                if valu != newval:
-
-                    nkey = abrv + araystor.indx(newval)[0]
-                    if nkey != lkey:
-                        self.layrslab.put(nkey, buid, db=self.byprop)
-                        self.layrslab.delete(lkey, buid, db=self.byprop)
-
-                for aval in valu:
-                    indx = hugestor.indx(aval)[0]
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
-            else:
-                try:
-                    indx = hugestor.indx(valu)[0]
-                except Exception:
-                    logger.warning(f'Invalid value {valu} for prop {propname} for buid {buid}')
-                    continue
-
-                self.layrslab.put(abrv + indx, buid, db=self.byprop)
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-
-            sode.clear()
-
-    async def _v7toV8TagProp(self, form, tag, prop):
-
-        try:
-            ftpabrv = self.getTagPropAbrv(form, tag, prop)
-            tpabrv = self.getTagPropAbrv(None, tag, prop)
-
-        except s_exc.NoSuchAbrv:
-            return
-
-        abrvlen = len(ftpabrv)
-
-        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
-        sode = collections.defaultdict(dict)
-
-        for lkey, buid in self.layrslab.scanByPref(ftpabrv, db=self.bytagprop):
-
-            if len(lkey) == 28:
-                continue
-
-            byts = self.layrslab.get(buid, db=self.bybuidv3)
-            if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                continue
-
-            sode.update(s_msgpack.un(byts))
-
-            props = sode['tagprops'].get(tag)
-            if not props:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                sode.clear()
-                continue
-
-            pval = props.get(prop)
-            if pval is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                sode.clear()
-                continue
-
-            valu, _ = pval
-            try:
-                indx = hugestor.indx(valu)[0]
-            except Exception:
-                logger.warning(f'Invalid value {valu} for tagprop {tag}:{prop} for buid {buid}')
-                continue
-            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
-            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
-
-            oldindx = lkey[abrvlen:]
-            self.layrslab.delete(lkey, buid, db=self.bytagprop)
-            self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
-
-            sode.clear()
-
-    async def _layrV7toV8(self):
-
-        logger.warning(f'Updating hugenum index values: {self.dirn}')
-
-        for name, prop in self.core.model.props.items():
-            stortype = prop.type.stortype
-            if stortype & STOR_FLAG_ARRAY:
-                stortype = stortype & 0x7fff
-
-            if stortype == STOR_TYPE_HUGENUM:
-                await self._v7toV8Prop(prop)
-
-        tagprops = set()
-        for name, prop in self.core.model.tagprops.items():
-            if prop.type.stortype == STOR_TYPE_HUGENUM:
-                tagprops.add(prop.name)
-
-        for form, tag, prop in self.getTagProps():
-            if form is None or prop not in tagprops:
-                continue
-
-            await self._v7toV8TagProp(form, tag, prop)
-
-        self.meta.set('version', 8)
-        self.layrvers = 8
-
-        logger.warning('...complete!')
-
-    async def _v8toV9Prop(self, prop):
-
-        propname = prop.name
-        form = prop.form
-        if form:
-            form = form.name
-
-        try:
-            if prop.isform:
-                abrv = self.getPropAbrv(form, None)
-            else:
-                abrv = self.getPropAbrv(form, propname)
-        except s_exc.NoSuchAbrv:
-            return
-
-        isarray = False
-        if prop.type.stortype & STOR_FLAG_ARRAY:
-            isarray = True
-            araystor = self.stortypes[STOR_TYPE_MSGP]
-
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
-                self.layrslab.delete(lkey, buid, db=self.byarray)
-
-        abrvlen = len(abrv)
-        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
-        sode = collections.defaultdict(dict)
-
-        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
-
-            byts = self.layrslab.get(buid, db=self.bybuidv3)
-            if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-                continue
-
-            sode.clear()
-            sode.update(s_msgpack.un(byts))
-            if prop.isform:
-                valu = sode['valu']
-            else:
-                valu = sode['props'].get(propname)
-
-            if valu is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-                continue
-
-            valu = valu[0]
-            if isarray:
-                for aval in valu:
-                    try:
-                        indx = hugestor.indx(aval)[0]
-                    except Exception:
-                        logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid)}')
-                        continue
-
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
-            else:
-                try:
-                    indx = hugestor.indx(valu)[0]
-                except Exception:
-                    logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid)}')
-                    continue
-
-                if indx == lkey[abrvlen:]:
-                    continue
-                self.layrslab.put(abrv + indx, buid, db=self.byprop)
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-
-    async def _v8toV9TagProp(self, form, tag, prop):
-
-        try:
-            ftpabrv = self.getTagPropAbrv(form, tag, prop)
-            tpabrv = self.getTagPropAbrv(None, tag, prop)
-        except s_exc.NoSuchAbrv:
-            return
-
-        abrvlen = len(ftpabrv)
-
-        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
-        sode = collections.defaultdict(dict)
-
-        for lkey, buid in self.layrslab.scanByPref(ftpabrv, db=self.bytagprop):
-
-            byts = self.layrslab.get(buid, db=self.bybuidv3)
-            if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                continue
-
-            sode.clear()
-            sode.update(s_msgpack.un(byts))
-
-            props = sode['tagprops'].get(tag)
-            if not props:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                continue
-
-            pval = props.get(prop)
-            if pval is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                continue
-
-            valu, _ = pval
-            try:
-                indx = hugestor.indx(valu)[0]
-            except Exception:
-                logger.warning(f'Invalid value {valu} for tagprop {tag}:{prop} for buid {s_common.ehex(buid)}')
-                continue
-
-            if indx == lkey[abrvlen:]:
-                continue
-
-            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
-            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
-
-            oldindx = lkey[abrvlen:]
-            self.layrslab.delete(lkey, buid, db=self.bytagprop)
-            self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
-
-    async def _layrV8toV9(self):
-
-        logger.warning(f'Checking hugenum index values: {self.dirn}')
-
-        for name, prop in self.core.model.props.items():
-            stortype = prop.type.stortype
-            if stortype & STOR_FLAG_ARRAY:
-                stortype = stortype & 0x7fff
-
-            if stortype == STOR_TYPE_HUGENUM:
-                await self._v8toV9Prop(prop)
-
-        tagprops = set()
-        for name, prop in self.core.model.tagprops.items():
-            if prop.type.stortype == STOR_TYPE_HUGENUM:
-                tagprops.add(prop.name)
-
-        for form, tag, prop in self.getTagProps():
-            if form is None or prop not in tagprops:
-                continue
-
-            await self._v8toV9TagProp(form, tag, prop)
-
-        self.meta.set('version', 9)
-        self.layrvers = 9
-
-        logger.warning('...complete!')
-
-    async def _layrV9toV10(self):
-
-        logger.warning(f'Adding n1+n2 index to edges in layer {self.iden}')
-
-        def commit():
-            self.layrslab.putmulti(putkeys, db=self.edgesn1n2)
-            putkeys.clear()
-
-        putkeys = []
-        for lkey, n2buid in self.layrslab.scanByFull(db=self.edgesn1):
-
-            n1buid = lkey[:32]
-            venc = lkey[32:]
-
-            putkeys.append((n1buid + n2buid, venc))
-            if len(putkeys) > 1000:
-                commit()
-
-        if len(putkeys):
-            commit()
-
-        self.meta.set('version', 10)
-        self.layrvers = 10
-
-        logger.warning(f'...complete!')
-
     async def _initSlabs(self, slabopts):
 
         otherslabopts = {
@@ -2714,7 +2195,7 @@ class Layer(s_nexus.Pusher):
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
 
-        self.bybuidv3 = self.layrslab.initdb('bybuidv3')
+        self.bynid = self.layrslab.initdb('bynid')
 
         self.byverb = self.layrslab.initdb('byverb', dupsort=True)
         self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
@@ -2883,10 +2364,10 @@ class Layer(s_nexus.Pusher):
         kvlist = []
 
         for nid, sode in self.dirty.items():
-            self.buidcache[nid] = sode
+            self.nidcache[nid] = sode
             kvlist.append((nid, s_msgpack.en(sode)))
 
-        self.layrslab.putmulti(kvlist, db=self.bybuidv3)
+        self.layrslab.putmulti(kvlist, db=self.bynid)
         self.dirty.clear()
 
     def _getStorNode(self, nid):
@@ -2898,7 +2379,7 @@ class Layer(s_nexus.Pusher):
         if sode is not None:
             return sode
 
-        sode = self.buidcache.get(nid)
+        sode = self.nidcache.get(nid)
         if sode is not None:
             return sode
 
@@ -2906,14 +2387,14 @@ class Layer(s_nexus.Pusher):
         if envl is not None:
             return envl.sode
 
-        byts = self.layrslab.get(nid, db=self.bybuidv3)
+        byts = self.layrslab.get(nid, db=self.bynid)
         if byts is None:
             return None
 
         sode = collections.defaultdict(dict)
         sode.update(s_msgpack.un(byts))
 
-        self.buidcache[nid] = sode
+        self.nidcache[nid] = sode
 
         return sode
 
@@ -2937,7 +2418,7 @@ class Layer(s_nexus.Pusher):
             return sode
 
         sode = collections.defaultdict(dict)
-        self.buidcache[nid] = sode
+        self.nidcache[nid] = sode
 
         return sode
 
@@ -3172,8 +2653,8 @@ class Layer(s_nexus.Pusher):
         if refs <= 0:
             self.dirty.pop(nid, None)
             self.weakcache.pop(nid, None)
-            self.buidcache.pop(nid, None)
-            self.layrslab.delete(nid, db=self.bybuidv3)
+            self.nidcache.pop(nid, None)
+            self.layrslab.delete(nid, db=self.bynid)
             self.core.incBuidNid(nid, inc=-1)
             return 0
 
@@ -3998,7 +3479,7 @@ class Layer(s_nexus.Pusher):
         '''
         await self._saveDirtySodes()
 
-        for nid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
+        for nid, byts in self.layrslab.scanByFull(db=self.bynid):
 
             sode = s_msgpack.un(byts)
             buid = self.core.getBuidByNid(nid)
@@ -4154,7 +3635,7 @@ class Layer(s_nexus.Pusher):
         # flush any dirty sodes so we can yield them from the index in nid order
         await self._saveDirtySodes()
 
-        for nid, byts in self.layrslab.scanByFull(db=self.bybuidv3):
+        for nid, byts in self.layrslab.scanByFull(db=self.bynid):
             await asyncio.sleep(0)
             yield nid, s_msgpack.un(byts)
 
