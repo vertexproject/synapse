@@ -24,7 +24,7 @@ Features and Enhancements
 -------------------------
 - Allow Storm trigger APIs to reference triggers from other views.
   (`#3342 <https://github.com/vertexproject/synapse/pull/3342>`_)
-- Update the the ``synapse.lib.scrape`` and associated APIS to capture
+- Update the ``synapse.lib.scrape`` and associated APIs to capture
   additional data:
   (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
   (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
@@ -35,7 +35,7 @@ Features and Enhancements
   ``inet:url``
     UNC based paths are now identified.
 
-- Update the ``synapse.lib.scrape`` and associated APIS to use subprocesses
+- Update the ``synapse.lib.scrape`` and associated APIsg to use subprocesses
   when scraping large volumes of text.
   (`#3344 <https://github.com/vertexproject/synapse/pull/3344>`_)
 - Add additional logging for HTTP API endpoints when a request has invalid
