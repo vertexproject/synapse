@@ -141,9 +141,18 @@ class StormlibVaultTest(s_test.SynTest):
             q = 'return($lib.vault.byiden($giden).data)'
             self.none(await core.callStorm(q, opts=opts))
 
+            # Set name without EDIT perms
+            opts = {'vars': {'giden': giden}, 'user': visi1.iden}
+            with self.raises(s_exc.AuthDeny):
+                q = '$lib.vault.byiden($giden).name = foo'
+                await core.callStorm(q, opts=opts)
+
             # repr check
             msgs = await core.stormlist('$lib.print($lib.vault.byiden($giden))', opts=opts)
             self.stormIsInPrint(f'vault: {giden}', msgs)
+
+            msgs = await core.stormlist('$foo = ({"foo": $lib.vault.byiden($giden)}) $lib.print($foo)', opts=opts)
+            self.stormIsInPrint(r"{'foo': vault: " + f'{giden}}}', msgs)
 
             # Set permissions on global vault
             opts = {'vars': {'iden': visi1.iden, 'giden': giden}}

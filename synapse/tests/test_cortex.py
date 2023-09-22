@@ -7813,11 +7813,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                 core.getVaultByType(vtype1, contributor.iden, 'role')
             self.eq(f'No user with iden {contributor.iden}.', exc.exception.get('mesg'))
 
-            # User not in role
+            # User in role but no perm to vault
+            await core.setVaultPerm(riden, visi2.iden, s_cell.PERM_DENY)
+            await visi2.grant(contributor.iden)
             self.none(core.getVaultByType(vtype1, visi2.iden, 'role'))
 
             # Requested type/scope doesn't exist
             self.none(core.getVaultByType(vtype1, visi1.iden, 'user'))
+
+            # Requested type doesn't exist
+            self.none(core.getVaultByType(vtype2, visi1.iden))
 
             with self.raises(s_exc.NoSuchName) as exc:
                 # Requested type/scope doesn't exist
