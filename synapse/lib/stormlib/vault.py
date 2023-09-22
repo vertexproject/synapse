@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.stormtypes as s_stormtypes
@@ -137,13 +138,9 @@ stormcmds = (
         ),
         'storm': '''
             $vault = $lib.vault.get($cmdopts.name)
-
-            $ok = $vault.set($cmdopts.key, $cmdopts.value)
-            if $ok {
-                $lib.print(`Successfully set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
-            } else {
-                $lib.warn(`Error setting {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
-            }
+            $key = $cmdopts.key
+            $vault.data.$key = $cmdopts.value
+            $lib.print(`Set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
         ''',
     },
     {
@@ -164,7 +161,7 @@ stormcmds = (
         ),
         'storm': '''
             $vault = $lib.vault.get($cmdopts.name)
-            $ok = $vault.del()
+            $ok = $vault.delete()
             if $ok {
                 $lib.print(`Successfully deleted vault {$cmdopts.name}.`)
             } else {
@@ -468,6 +465,63 @@ class LibVault(s_stormtypes.Lib):
         return await self.runt.snap.core.setVaultDefault(vtype, scope, user=user)
 
 @s_stormtypes.registry.registerType
+class VaultData(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for Vault data.
+    '''
+    _storm_typename = 'vault:data'
+    _ismutable = False
+
+    def __init__(self, runt, valu, path=None):
+        s_stormtypes.Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    def _reqEasyPerm(self, vault, perm):
+        check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
+
+        if not check and not self.runt.asroot:
+            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
+
+    async def setitem(self, name, valu):
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+
+        name = await s_stormtypes.tostr(name)
+
+        if valu is s_stormtypes.undef:
+            valu = s_common.novalu
+        else:
+            valu = await s_stormtypes.toprim(valu)
+
+        return await self.runt.snap.core.setVaultData(self.valu, name, valu)
+
+    async def deref(self, name):
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+
+        name = await s_stormtypes.tostr(name)
+
+        data = vault.get('data')
+        valu = data.get(name, s_common.novalu)
+
+        if valu is not s_common.novalu:
+            return valu
+
+        raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
+
+    async def iter(self):  # pragma: no cover
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
+
+        data = vault.get('data')
+
+        for item in data.items():
+            yield item
+
+@s_stormtypes.registry.registerType
 class Vault(s_stormtypes.Prim):
     '''
     Implements the Storm API for a Vault.
@@ -480,8 +534,8 @@ class Vault(s_stormtypes.Prim):
         {'name': 'type', 'desc': 'The Vault type.', 'type': 'str', },
         {'name': 'scope', 'desc': 'The Vault scope.', 'type': 'str', },
         {'name': 'ident', 'desc': 'The Vault ident (user or role iden).', 'type': 'str', },
+        {'name': 'data', 'desc': 'The Vault data.', 'type': 'vault:data'},
         {'name': 'permissions', 'desc': 'The Vault permissions.', 'type': 'dict', },
-        {'name': 'data', 'desc': 'The Vault data.', 'type': 'dict', },
 
         {'name': 'name',
          'desc': 'The Vault name.',
@@ -490,21 +544,6 @@ class Vault(s_stormtypes.Prim):
              '_storfunc': '_storName',
              '_gtorfunc': '_gtorName',
              'returns': {'type': 'str'}}},
-
-        {'name': 'get', 'desc': 'Get an arbitrary property from the Vault data.',
-         'type': {'type': 'function', '_funcname': '_methGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-
-        {'name': 'set', 'desc': 'Get an arbitrary property from the Vault data.',
-         'type': {'type': 'function', '_funcname': '_methGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value of the property to set. $lib.undef to remove an existing value.', },
-                  ),
-                  'returns': {'type': 'boolean', 'desc': '$lib.true if the assignment was successful, $lib.false otherwise.', }}},
 
         {'name': 'pack', 'desc': 'Get the packed version of the Vault.',
          'type': {'type': 'function', '_funcname': '_methPack', 'args': (),
@@ -531,8 +570,12 @@ class Vault(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu
+        self.locls['type'] = vault.get('type')
+        self.locls['scope'] = vault.get('scope')
 
         self.stors.update({
             'name': self._storName,
@@ -540,17 +583,12 @@ class Vault(s_stormtypes.Prim):
 
         self.gtors.update({
             'name': self._gtorName,
-            'type': self._gtorType,
-            'scope': self._gtorScope,
-            'ident': self._gtorIdent,
             'data': self._gtorData,
             'permissions': self._gtorPermissions,
         })
 
     def getObjLocals(self):
         return {
-            'get': self._methGet,
-            'set': self._methSet,
             'pack': self._methPack,
             'setPerm': self._methSetPerm,
             'delete': self._methDelete,
@@ -571,50 +609,30 @@ class Vault(s_stormtypes.Prim):
         self._reqEasyPerm(vault, s_cell.PERM_EDIT)
 
         name = await s_stormtypes.tostr(name)
-        iden = vault.get('iden')
-        await self.runt.snap.core.renameVault(iden, name)
+
+        await self.runt.snap.core.renameVault(self.valu, name)
         return name
 
     async def _gtorName(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
         return vault.get('name')
 
-    async def _gtorType(self):
+    async def _gtorData(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
-        return vault.get('type')
+        edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
+        if not edit and not self.runt.asroot:
+            return s_common.novalu
 
-    async def _gtorScope(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
-        return vault.get('scope')
-
-    async def _gtorIdent(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
-        return vault.get('ident')
+        return VaultData(self.runt, self.valu)
 
     async def _gtorPermissions(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
         return vault.get('permissions')
 
-    async def _methGet(self, name):
-        name = await s_stormtypes.tostr(name)
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
-        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
-        return vault.get(name)
-
-    async def _methSet(self, name, valu):
-        name = await s_stormtypes.tostr(name)
-        valu = await s_stormtypes.toprim(valu)
-
-        user = None
-        if not self.runt.asroot:
-            user = self.runt.user
-
-        return self.runt.snap.core.setVaultData(self.valu, name, valu, user=user)
-
     async def _methPack(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
 
-        edit = self.runt.snap.core._hasEasyPerm(self.valu, self.runt.user, s_cell.PERM_EDIT)
+        edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
         if edit or self.runt.asroot:
             return vault
 
@@ -625,16 +643,16 @@ class Vault(s_stormtypes.Prim):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
-        iden = s_stormtypes.tostr(iden)
-        level = s_stormtypes.toint(level)
+        iden = await s_stormtypes.tostr(iden)
+        level = await s_stormtypes.toint(level)
 
-        return self.runt.snap.core.setVaultPerm(self.valu, iden, level)
+        return await self.runt.snap.core.setVaultPerm(self.valu, iden, level)
 
     async def _methDelete(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
-        return self.runt.snap.core.delVault(self.valu)
+        return await self.runt.snap.core.delVault(self.valu)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.valu}'

@@ -38,7 +38,7 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
-    def __str__(self):
+    async def stormrepr(self):
         return '$lib.undef'
 
 undef = Undef()
@@ -9590,6 +9590,9 @@ async def toiter(valu, noneok=False):
         raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 async def torepr(valu, usestr=False):
+    if valu is None:
+        return '$lib.null'
+
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
         return await valu.stormrepr()
 

@@ -3,9 +3,11 @@ import textwrap
 import regex
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.config as s_config
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -32,8 +34,8 @@ class StormlibVaultTest(s_test.SynTest):
             vault = core.getVaultByIden(uiden)
             self.nn(vault)
 
-            ret = await core.callStorm('return($lib.vault.getByName(uvault))')
-            self.eq(ret, vault)
+            ret = await core.callStorm('return($lib.vault.byname(uvault))')
+            self.eq(ret, uiden)
 
             # Create role vault
             opts = {'vars': {'vtype': vtype, 'iden': contributor.iden}}
@@ -53,23 +55,30 @@ class StormlibVaultTest(s_test.SynTest):
 
             # Set some data
             opts = {'vars': {'iden': uiden}}
-            self.true(await core.callStorm('return($lib.vault.set($iden, foo, bar))', opts=opts))
+            await core.stormlist('$vault = $lib.vault.get($iden) $vault.data.foo = bar', opts=opts)
+            vault = core.getVaultByIden(uiden)
+            self.eq(vault.get('data').get('foo'), 'bar')
 
             # Set and delete data
             opts = {'vars': {'iden': uiden}}
-            self.true(await core.callStorm('return($lib.vault.set($iden, foo2, bar2))', opts=opts))
-            self.true(await core.callStorm('return($lib.vault.set($iden, foo2, $lib.undef))', opts=opts))
+            await core.callStorm('$vault = $lib.vault.get($iden) $vault.data.foo2 = bar2', opts=opts)
+            vault = core.getVaultByIden(uiden)
+            self.eq(vault.get('data').get('foo2'), 'bar2')
+
+            await core.callStorm('$vault = $lib.vault.get($iden) $vault.data.foo2 = $lib.undef', opts=opts)
+            vault = core.getVaultByIden(uiden)
+            self.eq(vault.get('data').get('foo2', s_common.novalu), s_common.novalu)
 
             # Get some data
             opts = {'vars': {'iden': uiden}}
-            ret = await core.callStorm('return($lib.vault.getByIden($iden))', opts=opts)
+            ret = await core.callStorm('return($lib.vault.byiden($iden).pack())', opts=opts)
             self.eq(ret.get('name'), 'uvault')
             self.eq(ret.get('iden'), uiden)
             self.eq(ret.get('data'), {'name': 'uvault', 'foo': 'bar'})
 
             # Open some vaults
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            vault = await core.callStorm('return($lib.vault.getByType($vtype))', opts=opts)
+            vault = await core.callStorm('return($lib.vault.bytype($vtype).pack())', opts=opts)
             self.nn(vault)
             self.eq(vault.get('name'), 'uvault')
             self.eq(vault.get('data'), {'name': 'uvault', 'foo': 'bar'})
@@ -79,7 +88,7 @@ class StormlibVaultTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.vault.setDefault($vtype, global))', opts=opts))
 
             opts = {'vars': {'vtype': vtype}, 'user': visi1.iden}
-            vault = await core.callStorm('return($lib.vault.getByType($vtype))', opts=opts)
+            vault = await core.callStorm('return($lib.vault.bytype($vtype).pack())', opts=opts)
             self.nn(vault)
             self.eq(vault.get('name'), 'gvault')
             self.none(vault.get('data'))
@@ -92,10 +101,12 @@ class StormlibVaultTest(s_test.SynTest):
 
             # Delete some vaults
             opts = {'vars': {'uiden': uiden}}
-            self.true(await core.callStorm('return($lib.vault.del($uiden))', opts=opts))
+            self.true(await core.callStorm('$vault = $lib.vault.byiden($uiden) return($vault.delete())', opts=opts))
+            self.none(core.getVaultByIden(uiden))
 
             opts = {'vars': {'riden': riden}}
-            self.true(await core.callStorm('return($lib.vault.del($riden))', opts=opts))
+            self.true(await core.callStorm('$vault = $lib.vault.get($riden) return($vault.delete())', opts=opts))
+            self.none(core.getVaultByIden(riden))
 
             # List vaults again
             opts = {'user': visi1.iden}
@@ -105,7 +116,7 @@ class StormlibVaultTest(s_test.SynTest):
 
             # Set permissions on global vault
             opts = {'vars': {'iden': visi1.iden, 'giden': giden}}
-            q = 'return($lib.vault.setPerm($giden, $iden, $lib.auth.easyperm.level.deny))'
+            q = '$vault = $lib.vault.byiden($giden) return($vault.setPerm($iden, $lib.auth.easyperm.level.deny))'
             self.true(await core.callStorm(q, opts=opts))
 
             # List vaults again
@@ -169,9 +180,9 @@ class StormlibVaultTest(s_test.SynTest):
                 self.stormIsInPrint(line, msgs)
 
             # vault.set
-            for key, val in (('foo', 'bar'), ('foo', '$lib.undef'), ('apikey', 'uvault1')):
+            for key, val in (('foo', 'bar'), ('foo', '$lib.null'), ('foo', '$lib.undef'), ('apikey', 'uvault1')):
                 msgs = await core.stormlist(f'vault.set uvault {key} {val}')
-                self.stormIsInPrint(f'Successfully set {key}={val} into vault uvault.', msgs)
+                self.stormIsInPrint(f'Set {key}={val} into vault uvault.', msgs)
 
             vault = core.getVaultByIden(uiden)
             self.eq(vault.get('data'), {'apikey': 'uvault1'})

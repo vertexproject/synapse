@@ -6272,36 +6272,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(vault.get('name').encode(), db=self.vaultsbynamedb)
         return self.slab.delete(videnb, db=self.vaultsdb)
 
-    # def openVaultByIden(self, viden, user):
-    #     vault = self.reqVaultByIden(viden)
-    #     self._reqEasyPerm(vault, user, s_cell.PERM_READ)
-
-    #     if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
-    #         return vault
-
-    #     vault.pop('data')
-    #     return vault
-
-    # def openVaultByName(self, name, user):
-    #     vault = self.reqVaultByName(name)
-    #     self._reqEasyPerm(vault, user, s_cell.PERM_READ)
-
-    #     if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
-    #         return vault
-
-    #     vault.pop('data')
-    #     return vault
-
-    # def openVaultByType(self, vtype, iden, user, scope=None):
-    #     vault = self.reqVaultByType(vtype, iden, scope=scope)
-    #     self._reqEasyPerm(vault, user, s_cell.PERM_READ)
-
-    #     if self._hasEasyPerm(vault, user, s_cell.PERM_EDIT):
-    #         return vault
-
-    #     vault.pop('data')
-    #     return vault
-
     def getVaultByIden(self, viden):
         '''
         Get a vault by iden.
@@ -6311,6 +6281,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Returns: vault or None
         '''
+        if not s_common.isguid(viden):
+            return None
+
         videnb = s_common.uhex(viden)
         return self._getVaultByIdenb(videnb)
 
