@@ -267,7 +267,7 @@ class Lookup(Query):
                 return
 
             for tokn in tokns:
-                for form, valu in s_scrape.scrape(tokn, first=True):
+                async for form, valu in s_scrape.scrapeAsync(tokn, first=True):
                     node = await getnode(form, valu)
                     if node is not None:
                         yield node, runt.initPath(node)
