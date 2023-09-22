@@ -397,7 +397,8 @@ class LibVault(s_stormtypes.Lib):
         check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
 
         if not check and not self.runt.asroot:
-            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
+            iden = vault.get('iden')
+            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {iden}.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
 
     async def _addVault(self, name, vtype, scope, iden, data):
@@ -468,6 +469,9 @@ class LibVault(s_stormtypes.Lib):
 class VaultData(s_stormtypes.Prim):
     '''
     Implements the Storm API for Vault data.
+
+    Callers (instantiation) of this class must have already checked that the user has at least
+    PERM_EDIT to the vault.
     '''
     _storm_typename = 'vault:data'
     _ismutable = False
@@ -476,17 +480,8 @@ class VaultData(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-    def _reqEasyPerm(self, vault, perm):
-        check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
-
-        if not check and not self.runt.asroot:
-            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
-
     async def setitem(self, name, valu):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
-
-        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
 
         name = await s_stormtypes.tostr(name)
 
@@ -500,8 +495,6 @@ class VaultData(s_stormtypes.Prim):
     async def deref(self, name):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
 
-        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
-
         name = await s_stormtypes.tostr(name)
 
         data = vault.get('data')
@@ -514,8 +507,6 @@ class VaultData(s_stormtypes.Prim):
 
     async def iter(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
-        self._reqEasyPerm(vault, s_cell.PERM_EDIT)
-
         data = vault.get('data')
 
         for item in data.items():
@@ -611,7 +602,6 @@ class Vault(s_stormtypes.Prim):
         name = await s_stormtypes.tostr(name)
 
         await self.runt.snap.core.renameVault(self.valu, name)
-        return name
 
     async def _gtorName(self):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
@@ -621,7 +611,7 @@ class Vault(s_stormtypes.Prim):
         vault = self.runt.snap.core.reqVaultByIden(self.valu)
         edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
         if not edit and not self.runt.asroot:
-            return s_common.novalu
+            return None
 
         return VaultData(self.runt, self.valu)
 
