@@ -377,7 +377,7 @@ class SubGraph:
         self.rules.setdefault('filters', ())
         self.rules.setdefault('existing', ())
 
-        self.rules.setdefault('refs', True)
+        self.rules.setdefault('refs', False)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
         self.rules.setdefault('maxsize', 100000)

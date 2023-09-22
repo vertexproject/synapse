@@ -49,10 +49,10 @@ class NodeTest(s_t_utils.SynTest):
                 # This situation can be encountered in a multi-layer situation
                 # where one Cortex can have model knowledge and set props
                 # that another Cortex (sitting on top of the first one) lifts
-                # a node which has props the second cortex doens't know about.
-                node.props['.newp'] = 1
-                node.props['newp'] = (2, 3)
-                node.tagprops['foo']['valu'] = 10
+                # a node which has props the second cortex doesn't know about.
+                node.sodes[0]['props']['.newp'] = (1, 0)
+                node.sodes[0]['props']['newp'] = ((2, 3), 0)
+                node.sodes[0]['tagprops']['foo']['valu'] = (10, 0)
                 iden, info = node.pack(dorepr=True)
                 props, reprs = info.get('props'), info.get('reprs')
                 tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
@@ -312,20 +312,20 @@ class NodeTest(s_t_utils.SynTest):
                     self.eq(nodepaths[0][0].ndef, ('test:int', 42))
 
                     nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
-                    self.eq(nodepaths[0][0].props.get('loc'), 'us')
+                    self.eq(nodepaths[0][0].get('loc'), 'us')
 
                     path = nodepaths[0][1].fork(node)  # type: s_node.Path
                     path.vars['zed'] = 'ca'
 
                     # Path present, opts not present
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
+                    self.eq(nodes[0][0].get('loc'), 'ca')
                     # path is not updated due to frame scope
                     self.none(path.vars.get('bar'), 'us')
 
                     # Path present, opts present but no opts['vars']
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
+                    self.eq(nodes[0][0].get('loc'), 'ca')
                     # path is not updated due to frame scope
                     self.none(path.vars.get('bar'))
 
@@ -333,7 +333,7 @@ class NodeTest(s_t_utils.SynTest):
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
                                                    opts={'vars': {'baz': 'ru'}},
                                                    path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
+                    self.eq(nodes[0][0].get('loc'), 'ca')
                     # path is not updated due to frame scope
                     self.none(path.vars.get('bar'))
 
@@ -469,20 +469,18 @@ class NodeTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:int=10 ]')
             node = nodes[0]
 
-            self.eq(node.tagprops, {})
+            self.eq(node._getTagPropsDict(), {})
             await node.setTagProp('foo.test', 'score', 20)
             await node.setTagProp('foo.test', 'limit', 1000)
-            self.eq(node.tagprops, {'foo.test': {'score': 20, 'limit': 1000}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'score': 20, 'limit': 1000}})
 
             await node.delTagProp('foo.test', 'score')
-            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
 
-            await node.setTagProp('foo.test', 'score', 50)
-            node.tagprops['foo.test'].pop('score')
             await node.delTagProp('foo.test', 'score')
-            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
-            node.tagprops['foo.test'].pop('limit')
-            self.eq(node.tagprops, {'foo.test': {}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
+            await node.delTagProp('foo.test', 'limit')
+            self.eq(node._getTagPropsDict(), {})
 
     async def test_node_edges(self):
 

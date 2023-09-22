@@ -20,20 +20,20 @@ class TrigTest(s_t_utils.SynTest):
 
                 await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
-                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
-                self.none(nodes[0].tags.get('foo'))
+                node = await core.callStorm('[ inet:ipv4=1.2.3.4 ] return($node.pack())')
+                self.none(node[1]['tags'].get('foo'))
 
                 msgs = await core.stormlist('trigger.list')
                 self.stormIsInPrint('true   true   node:add  inet:ipv4', msgs)
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                 nodes = await core.nodes('inet:ipv4=1.2.3.4')
-                self.nn(nodes[0].tags.get('foo'))
+                self.nn(nodes[0].get('#foo'))
 
                 # test dynamically updating the trigger async to off
                 await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
                 nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ]')
-                self.nn(nodes[0].tags.get('foo'))
+                self.nn(nodes[0].get('#foo'))
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
 
                 # reset the trigger to async...
@@ -50,14 +50,14 @@ class TrigTest(s_t_utils.SynTest):
                 await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': s_common.guid()})
 
                 nodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
-                self.none(nodes[0].tags.get('foo'))
+                self.none(nodes[0].get('#foo'))
                 self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
 
             async with self.getTestCore(dirn=dirn) as core:
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                 nodes = await core.nodes('inet:ipv4=9.9.9.9')
-                self.nn(nodes[0].tags.get('foo'))
+                self.nn(nodes[0].get('#foo'))
                 self.none(core.view.trigqueue.last())
 
                 # lets fork a view and hamstring it's trigger queue and make sure we can't merge
@@ -468,7 +468,7 @@ class TrigTest(s_t_utils.SynTest):
                 trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
 
                 nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
-                self.nn(nodes[0].tags.get('foo'))
+                self.nn(nodes[0].get('#foo'))
 
                 await proxy.storm('$lib.trigger.del($iden)', opts={'vars': {'iden': iden1}}).list()
 

@@ -906,6 +906,7 @@ class CoreApi(s_cell.CellApi):
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
+            form (Optional[str]): if present, only yields buids of nodes that match the form.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
@@ -2225,10 +2226,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         nid = self.nextnid.to_bytes(8)
         self.nextnid += 1
 
-        refsbyts = s_common.int64en(inc)
-
         self.v3stor.put(nid, buid, db=self.nid2buid)
-        self.v3stor.put(nid, refsbyts, db=self.nidrefs)
+        self.v3stor.put(nid, inc.to_bytes(8), db=self.nidrefs)
 
         self.v3stor.put(buid, nid, db=self.buid2nid)
 
@@ -2553,8 +2552,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getRuntPode(form):
-            ndef = (form.name, cdef.get('name'))
+        def getRuntPode():
+            ndef = ('syn:cmd', cdef.get('name'))
             buid = s_common.buid(ndef)
 
             props = {
@@ -2580,7 +2579,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
-            return (buid, {
+            return (ndef, {
                 'iden': s_common.ehex(s_common.buid(ndef)),
                 'props': props,
             })
@@ -6053,7 +6052,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            buid (Optional[buid]): if present, begin iterating from the given buid ( used to resume )
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]

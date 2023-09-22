@@ -339,8 +339,8 @@ class _Appt:
         self.lastresult = None
         self.enabled = True
 
-    def getRuntPode(self, form):
-        ndef = (form.name, self.iden)
+    def getRuntPode(self):
+        ndef = ('syn:cron', self.iden)
         return (ndef, {
             'props': {
                 'doc': self.doc,

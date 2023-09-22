@@ -199,7 +199,7 @@ class Prop:
 
     def getRuntPode(self):
 
-        ndef = ('syn:form', self.full)
+        ndef = ('syn:prop', self.full)
 
         pode = (ndef, {
             'props': {

@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -374,14 +375,11 @@ class Node(NodeBase):
         Returns:
             (obj): The secondary property value or None.
         '''
-        sodekey = 'props'
         if name.startswith('#'):
-            name = name[1:]
-            sodekey = 'tags'
+            return self.getTag(name[1:])
 
         for sode in self.sodes:
-
-            item = sode.get(sodekey)
+            item = sode.get('props')
             if item is None:
                 continue
 
@@ -430,7 +428,7 @@ class Node(NodeBase):
         return True
 
     def hasTag(self, name):
-
+        name = s_chop.tag(name)
         for sode in self.sodes:
             tags = sode.get('tags')
             if tags is None:
@@ -460,7 +458,7 @@ class Node(NodeBase):
                 continue
 
             names.update(tags.keys())
-        return list(names)
+        return list(sorted(names))
 
     def getTags(self, leaf=False):
 
@@ -811,7 +809,7 @@ class Node(NodeBase):
 
             async for edge in self.iterEdgesN2():
 
-                if self.iden() == edge[1]:
+                if self.nid == edge[1]:
                     continue
 
                 mesg = 'Other nodes still have light edges to this node.'
@@ -879,6 +877,9 @@ class RuntNode(NodeBase):
 
     def get(self, name, defv=None):
         return self.pode[1]['props'].get(name, defv)
+
+    def has(self, name):
+        return self.pode[1]['props'].get(name) is not None
 
     def iden(self):
         return s_common.ehex(s_common.buid(self.ndef))

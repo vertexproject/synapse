@@ -2716,8 +2716,8 @@ class Cmd:
             yield item
 
     @classmethod
-    def getRuntPode(cls, form):
-        ndef = (form.name, cls.name)
+    def getRuntPode(cls):
+        ndef = ('syn:cmd', cls.name)
         buid = s_common.buid(ndef)
 
         props = {
