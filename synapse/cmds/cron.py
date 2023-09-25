@@ -454,8 +454,7 @@ A subcommand is required.  Use 'cron -h' for more detailed help.  '''
 
     @staticmethod
     def _format_timestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone, but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     async def _handle_list(self, core, opts):
         cronlist = await core.listCronJobs()
