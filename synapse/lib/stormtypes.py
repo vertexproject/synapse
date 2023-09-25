@@ -7575,9 +7575,11 @@ class LibAuth(Lib):
         }
 
     @staticmethod
+    @stormfunc(readonly=True)
     def ruleFromText(text):
         return ruleFromText(text)
 
+    @stormfunc(readonly=True)
     async def textFromRule(self, rule):
         rule = await toprim(rule)
         text = '.'.join(rule[1])
@@ -7585,9 +7587,11 @@ class LibAuth(Lib):
             text = '!' + text
         return text
 
+    @stormfunc(readonly=True)
     async def getPermDefs(self):
         return self.runt.snap.core.getPermDefs()
 
+    @stormfunc(readonly=True)
     async def getPermDef(self, perm):
         perm = await toprim(perm)
         return self.runt.snap.core.getPermDef(perm)
