@@ -1150,6 +1150,14 @@ class Snap(s_base.Base):
                     node.nodedata.pop(name, None)
                     continue
 
+                if etype == s_layer.EDIT_EDGE_ADD:
+                    print("EDGE ADD PARM")
+                    print(parms)
+
+                if etype == s_layer.EDIT_EDGE_DEL:
+                    print("EDGE DEL PARM")
+                    print(parms)
+
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:

@@ -21,6 +21,8 @@ Conditions = set((
     'node:add',
     'node:del',
     'prop:set',
+    'edge:add',
+    'edge:del'
 ))
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
@@ -181,6 +183,12 @@ class Triggers:
             if globs is not None:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars, view=view)
+
+    async def runEdgeAdd(self):
+        pass
+
+    async def runEdgeDel(self):
+        pass
 
     async def load(self, tdef):
 
