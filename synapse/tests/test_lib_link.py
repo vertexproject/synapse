@@ -1,6 +1,7 @@
 import ssl
 import socket
 import asyncio
+import multiprocessing
 
 import synapse.common as s_common
 
@@ -8,6 +9,15 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 
 import synapse.tests.utils as s_test
+
+
+async def _spawnTarget(n, info):
+    link = await s_link.fromspawn(info)
+    async with link:
+        await link.send(b'V' * n)
+
+def spawnTarget(n, info):
+    asyncio.run(_spawnTarget(n, info))
 
 class LinkTest(s_test.SynTest):
 
@@ -159,15 +169,22 @@ class LinkTest(s_test.SynTest):
         link0, sock0 = await s_link.linksock()
 
         info = await link0.getSpawnInfo()
-        link1 = await s_link.fromspawn(info)
+        ctx = multiprocessing.get_context('spawn')
 
-        await link1.send(b'V')
-        self.eq(sock0.recv(1), b'V')
+        n = 100000
+        def getproc():
+            proc = ctx.Process(target=spawnTarget, args=(n, info))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)
+
+        self.eq(sock0.recv(n), b'V' * n)
+
+        await s_coro.executor(proc.join)
 
         sock0.close()
-
         await link0.fini()
-        await link1.fini()
 
     async def test_tls_ciphers(self):
         self.thisHostMustNot(platform='darwin')
