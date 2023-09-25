@@ -1,4 +1,5 @@
 import string
+import asyncio
 import logging
 import pathlib
 import functools
@@ -11,13 +12,19 @@ import unicodedata
 
 import synapse.exc as s_exc
 import synapse.data as s_data
+import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
+import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.coin as s_coin
 
 
 logger = logging.getLogger(__name__)
+
+SCRAPE_SPAWN_LENGTH = 5000
 
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
@@ -434,6 +441,33 @@ def _rewriteRawValu(text: str, offsets: dict, info: dict):
     info['match'] = match
     info['offset'] = baseoff + offset
 
+def _genMatches(text: str, regx: regex.Regex, opts: dict):
+
+    cb = opts.get('callback')
+
+    for valu in regx.finditer(text):  # type: regex.Match
+        raw_span = valu.span('valu')
+        raw_valu = valu.group('valu')
+
+        info = {
+            'match': raw_valu,
+            'offset': raw_span[0]
+        }
+
+        if cb:
+            # CB is expected to return a tufo of <new valu, info>
+            valu, cbfo = cb(valu)
+            if valu is None:
+                continue
+            # Smash cbfo into our info dict
+            info.update(**cbfo)
+        else:
+            valu = raw_valu
+
+        info['valu'] = valu
+
+        yield info
+
 def genMatches(text: str, regx: regex.Regex, opts: dict):
     '''
     Generate regular expression matches for a blob of text.
@@ -463,30 +497,126 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
     Yields:
         dict: A dictionary of match results.
     '''
-    cb = opts.get('callback')
+    for match in _genMatches(text, regx, opts):
+        yield match
 
-    for valu in regx.finditer(text):  # type: regex.Match
-        raw_span = valu.span('valu')
-        raw_valu = valu.group('valu')
+def _spawn_genmatches(sock, text, regx, opts): # pragma: no cover
+    '''
+    Multiprocessing target for generating matches.
+    '''
+    try:
+        for info in _genMatches(text, regx, opts):
+            sock.sendall(s_msgpack.en((True, info)))
 
-        info = {
-            'match': raw_valu,
-            'offset': raw_span[0]
-        }
+        sock.sendall(s_msgpack.en((True, None)))
 
-        if cb:
-            # CB is expected to return a tufo of <new valu, info>
-            valu, cbfo = cb(valu)
-            if valu is None:
-                continue
-            # Smash cbfo into our info dict
-            info.update(**cbfo)
-        else:
-            valu = raw_valu
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
 
-        info['valu'] = valu
+async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
+    '''
+    Generate regular expression matches for a blob of text, potentially in a spawned process.
 
-        yield info
+    Args:
+        text (str): The text to generate matches for.
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for ``valu``.
+        opts (dict): An options dictionary.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            raw_valu
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value - this may be altered by callbacks.
+
+        The options dictionary can contain a ``callback`` key. This function is expected to take a single argument,
+        a regex.Match object, and return a tuple of the new valu and info dictionary. The new valu is used as the
+        ``valu`` key in the returned dictionary, and any other information in the info dictionary is pushed into
+        the return dictionary as well.
+
+    Yields:
+        dict: A dictionary of match results.
+    '''
+    if len(text) < SCRAPE_SPAWN_LENGTH:
+        for match in _genMatches(text, regx, opts):
+            yield match
+        return
+
+    link00, sock00 = await s_link.linksock()
+
+    try:
+        async with link00:
+
+            todo = s_common.todo(_spawn_genmatches, sock00, text, regx, opts)
+            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
+
+            while (mesg := await link00.rx()) is not None:
+
+                info = s_common.result(mesg)
+                if info is None:
+                    return
+
+                yield info
+
+    finally:
+        sock00.close()
+
+
+def _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+        for (regx, opts) in _regexes[ruletype]:
+
+            for info in genMatches(scrape_text, regx, opts):
+
+                info['form'] = ruletype
+
+                if refang and offsets:
+                    _rewriteRawValu(text, offsets, info)
+
+                yield info
+
+def _contextScrape(text, form=None, refang=True, first=False):
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+        if form and form != ruletype:
+            continue
+
+        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+            yield info
+
+            if first:
+                return
+
+async def _contextScrapeAsync(text, form=None, refang=True, first=False):
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+
+        await asyncio.sleep(0)
+
+        if form and form != ruletype:
+            continue
+
+        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
+
+            yield info
+
+            if first:
+                return
 
 def contextScrape(text, form=None, refang=True, first=False):
     '''
@@ -516,28 +646,8 @@ def contextScrape(text, form=None, refang=True, first=False):
     Returns:
         (dict): Yield info dicts of results.
     '''
-    scrape_text = text
-    offsets = {}
-    if refang:
-        scrape_text, offsets = refang_text2(text)
-
-    for ruletype, blobs in _regexes.items():
-        if form and form != ruletype:
-            continue
-
-        for (regx, opts) in blobs:
-
-            for info in genMatches(scrape_text, regx, opts):
-
-                info['form'] = ruletype
-
-                if refang and offsets:
-                    _rewriteRawValu(text, offsets, info)
-
-                yield info
-
-                if first:
-                    return
+    for info in _contextScrape(text, form=form, refang=refang, first=first):
+        yield info
 
 def scrape(text, ptype=None, refang=True, first=False):
     '''
@@ -554,4 +664,87 @@ def scrape(text, ptype=None, refang=True, first=False):
     '''
 
     for info in contextScrape(text, form=ptype, refang=refang, first=first):
+        yield info.get('form'), info.get('valu')
+
+def _spawn_scrape(sock, text, form=None, refang=True, first=False): # pragma: no cover
+    '''
+    Multiprocessing target for scraping text.
+    '''
+    try:
+        for info in _contextScrape(text, form=form, refang=refang, first=first):
+            sock.sendall(s_msgpack.en((True, info)))
+
+        sock.sendall(s_msgpack.en((True, None)))
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
+
+async def contextScrapeAsync(text, form=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and yield info dictionaries, potentially in a spawned process.
+
+    Args:
+        text (str): Text to scrape.
+        form (str): Optional form to scrape. If present, only scrape items which match the provided form.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            match
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value.
+
+            form
+                The corresponding form for the valu.
+
+    Returns:
+        (dict): Yield info dicts of results.
+    '''
+    if len(text) < SCRAPE_SPAWN_LENGTH:
+        async for info in _contextScrapeAsync(text, form=form, refang=refang, first=first):
+            yield info
+        return
+
+    link00, sock00 = await s_link.linksock()
+
+    try:
+        async with link00:
+
+            todo = s_common.todo(_spawn_scrape, sock00, text, form=form, refang=refang, first=first)
+            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
+
+            while (mesg := await link00.rx()) is not None:
+
+                info = s_common.result(mesg)
+                if info is None:
+                    return
+
+                yield info
+
+    finally:
+        sock00.close()
+
+async def scrapeAsync(text, ptype=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and return node tuples, potentially in a spawned process.
+
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Returns:
+        (str, object): Yield tuples of node ndef values.
+    '''
+
+    async for info in contextScrapeAsync(text, form=ptype, refang=refang, first=first):
         yield info.get('form'), info.get('valu')
