@@ -4282,6 +4282,7 @@ class Function(AstNode):
         async def once():
             argdefs = await argskid.compute(runt, None)
 
+            @s_stormtypes.stormfunc(readonly=True)
             async def realfunc(*args, **kwargs):
                 return await self.callfunc(runt, argdefs, args, kwargs)
 
