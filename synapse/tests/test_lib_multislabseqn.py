@@ -169,6 +169,12 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 # Give a chance for the non-iterated async generators to get cleaned up
                 await asyncio.sleep(0)
                 await asyncio.sleep(0)
+                # FIXME This test is timing dependent and failed on 3.12.0rc3 with
+                # only two sleeps.
+                await asyncio.sleep(0)
+                await asyncio.sleep(0)
+                await asyncio.sleep(0)
+                await asyncio.sleep(0)
 
                 # Make sure we're not holding onto more than 2 slabs
 
