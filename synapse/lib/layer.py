@@ -2086,6 +2086,7 @@ class Layer(s_nexus.Pusher):
 
         self.dirty.clear()
         self.nidcache.clear()
+        self.weakcache.clear()
 
         await self.layrslab.trash()
         await self.nodeeditslab.trash()
@@ -2240,29 +2241,7 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.on('commit', self._onLayrSlabCommit)
 
-        self.layrvers = self.meta.get('version', 2)
-
-        if self.layrvers < 3:
-            await self._layrV2toV3()
-
-        if self.layrvers < 4:
-            await self._layrV3toV5()
-
-        if self.layrvers < 5:
-            await self._layrV4toV5()
-
-        if self.layrvers < 7:
-            await self._layrV5toV7()
-
-        if self.layrvers < 8:
-            await self._layrV7toV8()
-
-        if self.layrvers < 9:
-            await self._layrV8toV9()
-
-        if self.layrvers < 10:
-            await self._layrV9toV10()
-
+        self.layrvers = self.meta.get('version', 10)
         if self.layrvers != 10:
             mesg = f'Got layer version {self.layrvers}.  Expected 10.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
@@ -2687,8 +2666,7 @@ class Layer(s_nexus.Pusher):
             sode = None
             if nid is not None:
                 sode = self._genStorNode(nid)
-
-            if sode is None:
+            else:
                 sode = collections.defaultdict(dict)
 
             changes = []
@@ -3643,6 +3621,7 @@ class Layer(s_nexus.Pusher):
         '''
         Return a *COPY* of the storage node (or an empty default dict).
         '''
+        sode = self._getStorNode(nid)
         if sode is not None:
             return deepcopy(sode)
         return collections.defaultdict(dict)

@@ -229,6 +229,7 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        self.isext = name.startswith('_')
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
@@ -265,6 +266,17 @@ class Form:
                 'doc': self.info.get('doc', self.type.info.get('doc', '')),
                 'runt': self.isrunt,
                 'type': self.type.name,
+            },
+        })
+
+    def getRuntPropPode(self):
+
+        return (('syn:prop', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'type': self.type.name,
+                'extmodel': self.isext,
+                'form': self.name,
             },
         })
 

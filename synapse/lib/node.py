@@ -873,6 +873,7 @@ class RuntNode(NodeBase):
         self.snap = snap
         self.ndef = pode[0]
         self.pode = pode
+        self.buid = s_common.buid(self.ndef)
         self.form = snap.core.model.form(self.ndef[0])
 
     def get(self, name, defv=None):

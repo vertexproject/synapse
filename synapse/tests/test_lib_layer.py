@@ -1023,7 +1023,7 @@ class LayerTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(url) as layrprox:
 
                     for nodeedits in editlist:
-                        self.nn(await layrprox.saveNodeEdits(nodeedits))
+                        self.nn(await layrprox.saveNodeEdits(nodeedits, {}))
 
                     nodelist1 = []
                     nodelist1.extend(await core1.nodes('test:str'))
@@ -1040,9 +1040,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(url) as layrprox:
 
-                    print('WOOT')
                     for nodeedits in editlist:
-                        print(repr(nodeedits))
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits))
 
                     nodelist1 = []
@@ -1050,8 +1048,7 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1.extend(await core1.nodes('inet:ipv4'))
 
                     nodelist1 = [node.pack() for node in nodelist1]
-                    print(len(editlist))
-                    [print(f'PODE: {n}') for n in nodelist1]
+
                     self.eq(nodelist0, nodelist1)
 
                     meta = {'user': s_common.guid(),
