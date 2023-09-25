@@ -289,12 +289,16 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-        layers = [self.layers[0]]
+        layers = []
 
-        view = self.parent
-        while view is not None:
+        # Add one layer from each of the views that aren't the bottom view
+        view = self
+        while view.parent is not None:
             layers.append(view.layers[0])
             view = view.parent
+
+        # Add all of the bottom view's layers
+        layers.extend(view.layers)
 
         self.layers = layers
         await self.info.set('layers', [layr.iden for layr in layers])

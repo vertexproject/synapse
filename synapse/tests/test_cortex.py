@@ -6058,6 +6058,36 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ test:str=newlayr ]', opts=opts))
             self.len(0, await core.nodes('test:str=newlayr'))
 
+    async def test_view_set_parent(self):
+        async with self.getTestCore() as core:
+
+            layer1 = (await core.addLayer()).get('iden')
+            layer2 = (await core.addLayer()).get('iden')
+            layer3 = (await core.addLayer()).get('iden')
+
+            videna = (await core.addView(
+                {'layers': (layer1,)}
+            )).get('iden')
+
+            videnb = (await core.addView(
+                {'layers': (layer2, layer3)}
+            )).get('iden')
+
+            viewa = core.getView(videna)
+            viewb = core.getView(videnb)
+
+            self.len(1, viewa.layers)
+            self.len(2, viewb.layers)
+
+            await viewa.setViewInfo('parent', videnb)
+
+            self.len(3, viewa.layers)
+            self.eq(layer1, viewa.layers[0].iden)
+            self.eq(layer2, viewa.layers[1].iden)
+            self.eq(layer3, viewa.layers[2].iden)
+
+            self.len(2, viewb.layers)
+
     async def test_cortex_lockmemory(self):
         '''
         Verify that dedicated configuration setting impacts the layer
