@@ -1115,3 +1115,29 @@ class AhaTest(s_test.SynTest):
                     online = svcinfo.get('online')
                     self.nn(online)
                     self.true(ready)
+
+    async def test_aha_service_pools(self):
+
+        async with self.getTestAhaProv() as aha:
+
+            ahaurl = aha.getLocalUrl()
+
+            import synapse.cortex as s_cortex
+
+            with self.getTestDir() as dirn:
+
+                cdr0 = s_common.genpath(dirn, 'core00')
+                cdr1 = s_common.genpath(dirn, 'core01')
+
+                async with self.addSvcToAha(aha, '00', s_cell.Cell, dirn=cdr0) as cell00:
+                    async with self.addSvcToAha(aha, '01', s_cell.Cell, dirn=cdr1) as cell01:
+
+                        poolinfo = await aha.addAhaPool('pool00...')
+                        poolinfo = await aha.addAhaPoolSvc('pool00...', '00...')
+                        poolinfo = await aha.addAhaPoolSvc('pool00...', '01...')
+
+                        # async for mesg in aha.iterPoolTopo('pool00...'):
+                            # print(repr(mesg))
+
+                        async with s_telepath.Pool('aha://pool00...') as pool:
+                            print(repr(await pool.getCellInfo()))

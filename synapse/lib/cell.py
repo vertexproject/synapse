@@ -1708,6 +1708,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.modCellConf({'mirror': turl})
                 await self.nexsroot.startup()
 
+    async def getAhaProxy(self, timeout=None):
+        if self.ahaclient is None:
+            return None
+        return await self.ahaclient.proxy(timeout=timeout)
+
+    async def reqAhaProxy(self, timeout=None):
+        if self.ahaclient is None:
+            mesg = 'AHA is not configured on this service.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+        return await self.ahaclient.proxy(timeout=timeout)
+
     async def _setAhaActive(self):
 
         if self.ahaclient is None:

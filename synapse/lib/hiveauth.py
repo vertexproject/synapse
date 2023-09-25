@@ -1114,6 +1114,14 @@ class HiveUser(HiveRuler):
 
         return gateinfo.get('admin', False)
 
+    def reqAdmin(self):
+
+        if self.isAdmin(gateiden=gateiden):
+            return
+
+        mesg = 'This action requires global admin permissions.'
+        raise s_exc.AuthDeny(mesg=mesg, user=self.iden, username=self.name)
+
     def isArchived(self):
         return self.info.get('archived')
 

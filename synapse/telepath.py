@@ -134,6 +134,8 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
+async def getAhaClient(urlinfo):
+
 async def getAhaProxy(urlinfo):
     '''
     Return a telepath proxy by looking up a host from an aha registry.
@@ -170,6 +172,9 @@ async def getAhaProxy(urlinfo):
 
             if ahasvc is None:
                 continue
+
+            if ahasvc.get('ispool'):
+                return Pool.anit(client, urlinfo, ahasvc)
 
             svcinfo = ahasvc.get('svcinfo', {})
             if not svcinfo.get('online'):
@@ -952,6 +957,115 @@ class Proxy(s_base.Base):
         meth = Method(self, name)
         setattr(self, name, meth)
         return meth
+
+class Pool(s_base.Base):
+    '''
+    A telepath client which:
+        * connects to multiple services
+        * distributes API calls across them
+        * receives topology updates from AHA
+    '''
+    async def __anit__(self, aha, urlinfo, poolinfo):
+        self.aha = aha
+        self.avail = 0
+        self.clients = {}
+        self.proxies = set()
+        self.poolinfo = poolinfo
+
+        self.ready = asyncio.Event()
+        self.deque = collections.deque()
+
+        self.mesghands = {
+            'svc:add': self._onPoolSvcAdd,
+            'svc:del': self._onPoolSvcDel,
+        }
+        self.schedCoro(self._toposync)
+
+        async def fini():
+            # wake the sleepers
+            self.ready.set()
+
+        self.onfini(fini)
+
+    async def _onPoolSvcAdd(self, mesg):
+        svcname = mesg[1].get('name')
+        svcinfo = mesg[1].get('svcinfo')
+        urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
+        self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
+
+    async def _onPoolSvcDel(self, mesg):
+        svcname = mesg[1].get('name')
+        client = self.clients.pop(name, None)
+        if client is not None:
+            await client.fini()
+
+    async def _onPoolLink(self, proxy):
+
+        async def onfini():
+            self.proxies.remove(proxy)
+            if not len(self.proxies):
+                self.ready.clear()
+
+        proxy.onfini(onfini)
+        self.proxies.add(proxy)
+        self.ready.set()
+
+    async def _toposync(self):
+
+        async def reset():
+            # when we reconnect to our AHA service, we need to dump the current
+            # topology state and gather it again.
+            for client in self.clients.values():
+                await client.fini()
+            self.clients.clear()
+            self.proxies.clear()
+            # let the deque run itself out?
+
+        while not self.isfini:
+
+            poolname = self.poolinfo.get('name')
+
+            try:
+                ahaproxy = await self.aha.proxy()
+
+                await reset()
+
+                async for mesg in ahaproxy.iterPoolTopo(poolname):
+
+                    hand = self.mesghands.get(mesg[0])
+                    if hand is None:
+                        logger.warning(f'Unknown AHA pool topography message: {mesg}')
+
+                    await hand(mesg)
+
+            except Exception as e:
+                logger.warning(f'AHA pool topology task restarting.')
+                await asyncio.sleep(1)
+
+    async def proxy(self, timeout=None):
+
+        async def getNextProxy():
+
+            while not self.isfini:
+                await self.ready.wait()
+
+                if self.isfini:
+                    raise s_exc.IsFini()
+
+                if not self.deque:
+                    self.deque.extend(self.proxies)
+
+                if not self.deque:
+                    self.ready.clear()
+                    continue
+
+                return self.deque.popleft()
+
+        # use an inner function so we can wait overall...
+        return await s_common.wait_for(getNextProxy(), timeout)
+
+async def openclient(url):
+    pass
 
 class Client(s_base.Base):
     '''

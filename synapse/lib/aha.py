@@ -3,6 +3,7 @@ import copy
 import random
 import asyncio
 import logging
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -12,6 +13,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -431,6 +433,38 @@ class AhaCell(s_cell.Cell):
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
 
+        self.slab.initdb('aha:pools')
+        self.poolwindows = collections.defaultdict(list)
+
+    async def iterPoolTopo(self, name):
+
+        name = self._getAhaName(name)
+
+        async with await s_queue.Window.anit(maxsize=1000) as wind:
+
+            poolinfo = self._reqPoolInfo(name)
+
+            # pre-load the current state
+            for svcname in poolinfo.get('services'):
+
+                svcitem = await self.jsonstor.getPathObj(('aha', 'svcfull', svcname))
+                if not svcitem:
+                    logger.warning('Pool ({name}) includes service ({svcname}) which does not exist.')
+                    continue
+
+                await wind.put(('svc:add', svcitem))
+
+            # subscribe to changes
+            self.poolwindows[name].append(wind)
+            async def onfini():
+                self.poolwindows[name].remove(wind)
+
+            wind.onfini(onfini)
+
+            # iterate events...
+            async for mesg in wind:
+                yield mesg
+
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
         self.addHttpApi('/api/v1/aha/services', AhaServicesV1, {'cell': self})
@@ -555,6 +589,103 @@ class AhaCell(s_cell.Cell):
         # mostly for testing...
         await self.fire('aha:svcadd', svcinfo=svcinfo)
 
+    def _getAhaName(self, name):
+        # the modern version of names is absolute or ...
+        if name.endswith('...'):
+            netw = self.conf.get('aha:network')
+            name = name[:-2] + netw
+        return name
+
+    def _getAhaPool(self, name):
+        name = self._getAhaName(name)
+        byts = self.slab.get(name.encode(), db='aha:pools')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    def _savePoolInfo(self, poolinfo):
+        # TODO validate schema...
+        name = poolinfo.get('name')
+        self.slab.put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
+
+    def _loadPoolInfo(self, name):
+        byts = self.slab.get(name.encode(), db='aha:pools')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    def _reqPoolInfo(self, name):
+
+        poolinfo = self._loadPoolInfo(name)
+        if poolinfo is not None:
+            return poolinfo
+
+        mesg = f'There is no AHA service pool named {name}.'
+        raise s_exc.NoSuchName(mesg=mesg)
+
+    async def addAhaPool(self, name, info=None):
+
+        if info is None:
+            info = {}
+
+        name = self._getAhaName(name)
+        if not isinstance(info, dict):
+            raise s_exc.BadArg(mesg='addAhaPool() "info" argument must be a dictionary.')
+
+        if await self._getAhaSvc(name) is not None:
+            mesg = f'An AHA service or pool is already using the name "{name}".'
+            raise s_exc.DupName(mesg=mesg)
+
+        info['name'] = name
+        info.setdefault('services', {})
+
+        return await self._push('aha:pool:add', info)
+
+    @s_nexus.Pusher.onPush('aha:pool:add')
+    async def _addAhaPool(self, info):
+        self._savePoolInfo(info)
+        return info
+
+    @s_nexus.Pusher.onPushAuto('aha:pool:svc:add')
+    async def addAhaPoolSvc(self, poolname, svcname):
+
+        svcname = self._getAhaName(svcname)
+        poolname = self._getAhaName(poolname)
+
+        svcitem = await self._reqAhaSvc(svcname)
+        poolinfo = self._loadPoolInfo(poolname)
+        poolinfo['services'][svcname] = {}
+        self._savePoolInfo(poolinfo)
+
+        for wind in self.poolwindows.get(poolname, ()):
+            await wind.put(('svc:add', svcitem))
+
+    @s_nexus.Pusher.onPushAuto('aha:pool:svc:del')
+    async def delAhaPoolSvc(self, poolname, svcname):
+
+        svcname = self._getAhaName(svcname)
+        poolname = self._getAhaName(poolname)
+
+        poolinfo = self._reqPoolInfo(poolname)
+        poolinfo['services'].pop(svcname, None)
+        self._savePoolInfo(poolinfo)
+
+        for wind in self.poolwindows.get(poolname, ()):
+            await wind.put(('svc:del', {'name': svcname}))
+
+    async def _getAhaSvc(self, svcname):
+        # no fancy auto-resolve, just get actual servic
+        svcpath = ('aha', 'svcfull', svcname)
+        return await self.jsonstor.getPathObj(svcpath)
+
+    async def _reqAhaSvc(self, svcname):
+        svcpath = ('aha', 'svcfull', svcname)
+        svcitem = await self.jsonstor.getPathObj(svcpath)
+        if svcitem is None:
+            raise s_exc.NoSuchName(mesg=f'No AHA service is currently named "{svcname}".')
+        return svcitem
+
+    # async def delAhaPoolSvc(self, poolname, svcname, network=None):
+    # async def getAhaPool(self, name, network=None):
+
     @s_nexus.Pusher.onPushAuto('aha:svc:del')
     async def delAhaSvc(self, name, network=None):
 
@@ -595,7 +726,7 @@ class AhaCell(s_cell.Cell):
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
         logger.debug(f'Set [{svcfull}] offline.',
-                     extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+                        extra=await self.getLogExtra(name=svcname, netw=svcnetw))
 
     async def getAhaSvc(self, name, filters=None):
 

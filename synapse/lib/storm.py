@@ -2049,6 +2049,10 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
+    def reqAdmin(self, gateiden=None):
+        if not self.asroot:
+            self.user.reqAdmin(gateiden=gateiden)
+
     def confirm(self, perms, gateiden=None, default=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
