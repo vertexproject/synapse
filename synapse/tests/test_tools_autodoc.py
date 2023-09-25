@@ -50,6 +50,23 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.notin('..created\n', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
 
+            # Ipv4 property
+            self.isin('''* - ``:asn``
+        - :ref:`dm-type-inet-asn`
+        - The ASN to which the IPv4 address is currently assigned.''', s)
+
+            # Readonly inet:form:password:md5 value
+            self.isin('''* - ``:md5``
+        - :ref:`dm-type-hash-md5`
+        - The MD5 hash of the password.
+        - Read Only: ``True``''', s)
+
+            # Refs edges def
+            self.isin('''      * - ``*``
+        - ``-(refs)>``
+        - ``*``
+        - The source node contains a reference to the target node.''', s)
+
             async with self.getTestCore() as core:
                 lurl = core.getLocalUrl()
                 argv = ['--doc-model', '--savedir', path, '--cortex', lurl]

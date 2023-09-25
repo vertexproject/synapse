@@ -130,6 +130,7 @@ class SmtpMessage(s_stormtypes.StormType):
             'sender': self._setSenderEmail,
         })
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setSenderEmail(self, valu):
         # TODO handle inet:email and ps:contact Nodes
         self.sender = await s_stormtypes.tostr(valu)
@@ -137,9 +138,11 @@ class SmtpMessage(s_stormtypes.StormType):
     async def _getSenderEmail(self):
         return self.sender
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setEmailText(self, text):
         self.bodytext = await s_stormtypes.tostr(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setEmailHtml(self, html):
         self.bodyhtml = await s_stormtypes.tostr(html)
 
