@@ -6064,6 +6064,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             layer1 = (await core.addLayer()).get('iden')
             layer2 = (await core.addLayer()).get('iden')
             layer3 = (await core.addLayer()).get('iden')
+            layer4 = (await core.addLayer()).get('iden')
 
             videna = (await core.addView(
                 {'layers': (layer1,)}
@@ -6071,6 +6072,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             videnb = (await core.addView(
                 {'layers': (layer2, layer3)}
+            )).get('iden')
+
+            videnc = (await core.addView(
+                {'layers': (layer4,)}
             )).get('iden')
 
             viewa = core.getView(videna)
@@ -6081,12 +6086,19 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await viewa.setViewInfo('parent', videnb)
 
+            # Make sure View A has all the layers we expect it to have - one
+            # from itself and two from View B. Also make sure they're in the
+            # order we expect.
             self.len(3, viewa.layers)
             self.eq(layer1, viewa.layers[0].iden)
             self.eq(layer2, viewa.layers[1].iden)
             self.eq(layer3, viewa.layers[2].iden)
 
             self.len(2, viewb.layers)
+
+            # This fails because viewb has more than one layer
+            with self.raises(s_exc.BadArg):
+                await viewb.setViewInfo('parent', videnc)
 
     async def test_cortex_lockmemory(self):
         '''
