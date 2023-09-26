@@ -1,8 +1,10 @@
 import ssl
+import sys
 import socket
 import asyncio
 import multiprocessing
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
@@ -11,6 +13,7 @@ import synapse.lib.link as s_link
 import synapse.tests.utils as s_test
 
 
+# Helpers related to spawn link coverage
 async def _spawnTarget(n, info):
     link = await s_link.fromspawn(info)
     async with link:
@@ -18,6 +21,26 @@ async def _spawnTarget(n, info):
 
 def spawnTarget(n, info):
     asyncio.run(_spawnTarget(n, info))
+
+async def _spawnHost(n, pipe):
+    link0, sock0 = await s_link.linksock()
+    info = await link0.getSpawnInfo()
+    pipe.send(info)
+    data = sock0.recv(n)
+
+    sock0.close()
+    await link0.fini()
+
+    if data == b'V' * n:
+        return
+
+    return 137
+
+def spawnHost(n, pipe: multiprocessing.Pipe):
+    ret = asyncio.run(_spawnHost(n, pipe))
+    if ret is None:
+        return
+    sys.exit(ret)
 
 class LinkTest(s_test.SynTest):
 
@@ -164,12 +187,15 @@ class LinkTest(s_test.SynTest):
         await link1.fini()
         sock1.close()
 
-    async def test_link_fromspawn(self):
+    async def test_link_fromspawns(self):
+
+        ctx = multiprocessing.get_context('spawn')
+
+        # Remote use test - this is normally how linksock is used.
 
         link0, sock0 = await s_link.linksock()
 
         info = await link0.getSpawnInfo()
-        ctx = multiprocessing.get_context('spawn')
 
         n = 100000
         def getproc():
@@ -185,6 +211,37 @@ class LinkTest(s_test.SynTest):
 
         sock0.close()
         await link0.fini()
+
+        # Coverage test
+        mypipe, child_pipe = ctx.Pipe()
+
+        def getproc():
+            proc = ctx.Process(target=spawnHost, args=(n, child_pipe))
+            proc.start()
+            return proc
+
+        proc = await s_coro.executor(getproc)  # type: multiprocessing.Process
+
+        def waitforinfo():
+            nonlocal proc
+            hasdata = mypipe.poll(timeout=30)
+            if not hasdata:
+                raise s_exc.SynErr(mesg='failed to get link info')
+            info = mypipe.recv()
+            return info
+
+        info = await s_coro.executor(waitforinfo)
+
+        link = await s_link.fromspawn(info)
+        await link.send(b'V' * n)
+
+        def waitforjoin():
+            proc.join()
+            return proc.exitcode
+
+        code = await s_coro.executor(waitforjoin)
+        self.eq(code, 0)
+        await link.fini()
 
     async def test_tls_ciphers(self):
         self.thisHostMustNot(platform='darwin')
