@@ -236,6 +236,12 @@ class SynModule(s_module.CoreModule):
                     ('form', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Form the trigger is watching for.'
                     }),
+                    ('edge', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Edge the trigger is watching for.'
+                    }),
+                    ('destform', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'Destination form the trigger is watching for.'
+                    }),
                     ('prop', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Property the trigger is watching for.'
                     }),

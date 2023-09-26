@@ -552,3 +552,44 @@ class TrigTest(s_t_utils.SynTest):
 
             trig = await core.callStorm('return ($lib.trigger.get($iden))', opts=opts)
             self.eq(trig.get('user'), derp.iden)
+
+    async def test_trigger_edges(self):
+        async with self.getTestCore() as core:
+            view = await core.callStorm('return ($lib.view.get()).fork().iden')
+
+            # edge:add
+            # only edge
+            tdef = {
+                'cond': 'edge:add',
+                'edge': 'refs',
+                'storm': '[ +#neato ]',
+                'view': view,
+            }
+            await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}})
+
+            opts = {'vars': {'view': view}}
+            # n1 form + edge
+            await core.nodes('trigger.add --view $view --edge refs --form test:int --query { [ +#burrito ]}', opts=opts)
+
+            # edge + n2 form
+            await core.nodes('trigger.add --view $view --edge refs --destform test:int --query { [ +#ping ]}', opts=opts)
+
+            # n1 form + edge + n2 form
+            await core.nodes('trigger.add --view $view --edge refs --form test:int --destform test:int --query { [ +#pong ]}', opts=opts)
+
+            nodes = await core.nodes('syn:trigger')
+            self.len(8, nodes)
+
+            # edge:add globs
+            await core.nodes('trigger.add --view $view --edge refs --form test:int --query { [ +#burrito ]}', opts=opts)
+
+            # edge:del triggers
+
+            nodes = await core.nodes('syn:trigger')
+            self.len(8, nodes)
+
+            await core.nodes('[test:int=7 +(test:edge)> { [ test:int=9 ] }]')
+
+            await core.nodes('[test:int=9 <(test:edge)+ { [ test:int=11 ] }]')
+
+            await core.nodes('test:int=9 | [ <(test:edge)- { test:int=11 } ] ')

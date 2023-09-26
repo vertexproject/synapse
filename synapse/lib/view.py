@@ -891,6 +891,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runPropSet(node, prop, oldv, view=view)
 
+    async def runEdgeAdd(self, n1, edge, n2, view=None):
+        if not n1.snap.trigson:
+            return
+
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runEdgeAdd(n1, edge, n2, view=view)
+
+    async def runEdgeDel(self, n1, edge, n2, view=None):
+        if not n1.snap.trigson:
+            return
+
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runEdgeDel(n1, edge, n2, view=view)
+
     async def addTrigger(self, tdef):
         '''
         Adds a trigger to the view.

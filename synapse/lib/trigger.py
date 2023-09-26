@@ -71,6 +71,14 @@ TrigSchema = {
             'if': {'properties': {'cond': {'const': 'prop:set'}}},
             'then': {'required': ['prop']},
         },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:add'}}},
+            'then': {'required': ['edge']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:del'}}},
+            'then': {'required': ['edge']},
+        },
     ],
 }
 TrigSchemaValidator = s_config.getJsValidator(TrigSchema)
@@ -91,9 +99,9 @@ class Triggers:
         self.view = view
         self.triggers = {}
 
-        self.tagadd = collections.defaultdict(list)    # (form, tag): [ Triger ... ]
-        self.tagset = collections.defaultdict(list)    # (form, tag): [ Triger ... ]
-        self.tagdel = collections.defaultdict(list)    # (form, tag): [ Triger ... ]
+        self.tagadd = collections.defaultdict(list)    # (form, tag): [ Trigger ... ]
+        self.tagset = collections.defaultdict(list)    # (form, tag): [ Trigger ... ]
+        self.tagdel = collections.defaultdict(list)    # (form, tag): [ Trigger ... ]
 
         self.tagaddglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
         self.tagsetglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
@@ -102,6 +110,12 @@ class Triggers:
         self.nodeadd = collections.defaultdict(list)   # form: [ Trigger ... ]
         self.nodedel = collections.defaultdict(list)   # form: [ Trigger ... ]
         self.propset = collections.defaultdict(list)   # prop: [ Trigger ... ]
+
+        self.edgeadd = collections.defaultdict(list)   # (n1form, edge, n2form: [ Trigger ... ]
+        self.edgedel = collections.defaultdict(list)   # (n1form, edge, n2form: [ Trigger ... ]
+
+        self.edgeaddglobs = collections.defaultdict(s_cache.EdgeGlobs)  # (n1form, n2form: [ EdgeGlobs ... ]
+        self.edgedelglobs = collections.defaultdict(s_cache.EdgeGlobs)  # (n1form, n2form: [ EdgeGlobs ... ]
 
     @contextlib.contextmanager
     def _recursion_check(self):
@@ -184,11 +198,38 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars, view=view)
 
-    async def runEdgeAdd(self):
-        pass
+    async def runEdgeAdd(self, n1, edge, n2, view=None):
+        vars = {'auto': {'opts': {'edge': edge, 'n1': n1, 'n2': n2}}}
+        with self._recursion_check():
+            # try all the variations of the optional params
+            for trig in self.edgeadd.get((None, edge, None), ()):
+                await trig.execute(node, vars=vars, view=view)
 
-    async def runEdgeDel(self):
-        pass
+            for trig in self.edgeadd.get((n1.form, edge, None), ()):
+                await trig.execute(node, vars=vars, view=view)
+
+            for trig in self.edgeadd.get((None, edge, n2.form), ()):
+                await trig.execute(node, vars=vars, view=view)
+
+            for trig in self.edgeadd.get((n1.form, edge, n2.form), ()):
+                await trig.execute(node, vars=vars, view=view)
+
+            # do the same for the various globs we could have
+
+    async def runEdgeDel(self, n1, edge, n2, view=None):
+        vars = {'auto': {'opts': {'edge': edge, 'n1': n1, 'n2': n2}}}
+        with self._recursion_check():
+            for trig in self.edgedel.get((None, edge, None), ()):
+                await trig.execute(node, vars=vars, view=view)
+
+            for trig in self.edgedel.get((n1.form, edge, None), ()):
+                await trig.execute(node, vars=vars, view=view)
+
+            for trig in self.edgedel.get((None, edge, n2.form), ()):
+                await trig.execute(node, vars=vars, view=view)
+
+            for trig in self.edgedel.get((n1.form, edge, n2.form), ()):
+                await trig.execute(node, vars=vars, view=view)
 
     async def load(self, tdef):
 
@@ -202,6 +243,8 @@ class Triggers:
         tag = trig.tdef.get('tag')
         form = trig.tdef.get('form')
         prop = trig.tdef.get('prop')
+        edge = trig.tdef.get('edge')
+        destform = trig.tdef.get('destform')
 
         if cond not in Conditions:
             raise s_exc.NoSuchCond(name=cond)
@@ -214,6 +257,9 @@ class Triggers:
             if tag is None:
                 raise s_exc.BadOptValu(mesg='missing tag')
             s_chop.validateTagMatch(tag)
+        if cond in ('edge:add', 'edge:del') and edge is None:
+            raise s_exc.BadOptValu(mesg='edge must be present for edge:add or edge:del')
+
         if prop is not None and cond != 'prop:set':
             raise s_exc.BadOptValu(mesg='prop parameter invalid')
 
@@ -244,6 +290,18 @@ class Triggers:
                 self.tagdel[(form, tag)].append(trig)
             else:
                 self.tagdelglobs[form].add(tag, trig)
+
+        elif cond == 'edge:add':
+            if '*' not in edge:
+                self.edgeadd[(form, edge, destform)].append(trig)
+            else:
+                self.edgeaddglob[(form, destform)].add(edge, trig)
+
+        elif cond == 'edge:del':
+            if '*' not in edge:
+                self.edgedel[(form, edge, destform)].append(trig)
+            else:
+                self.edgeaddglob[(form, destform)].add(edge, trig)
 
         self.triggers[trig.iden] = trig
         return trig
@@ -298,6 +356,14 @@ class Triggers:
 
             globs = self.tagdelglobs.get(form)
             globs.rem(tag, trig)
+            return trig
+
+        # TODO:
+        if cond == 'edge:add':
+            edge = trig.tdef['edge']
+            return trig
+
+        if cond == 'edge:del':
             return trig
 
         raise AssertionError('trigger has invalid condition')
@@ -447,6 +513,14 @@ class Trigger:
         prop = self.tdef.get('prop')
         if prop is not None:
             props['prop'] = prop
+
+        edge = self.tdef.get('edge')
+        if edge  is not None:
+            props['edge'] = edge
+
+        destform = self.tdef.get('destform')
+        if edge  is not None:
+            props['destform'] = destform
 
         pnorms = {}
         for prop, valu in props.items():
