@@ -525,7 +525,6 @@ workflows:
               only: /.*/
             branches:
                only: /.*/
-               ignore: feat_python312
 
       - python311:
           filters:
@@ -533,7 +532,6 @@ workflows:
               only: /.*/
             branches:
               only: /.*/
-              ignore: feat_python312
 
       - python311_replay:
           filters:
