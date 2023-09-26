@@ -2005,7 +2005,7 @@ class LibAxon(Lib):
         return item
 
     async def readlines(self, sha256):
-        if not self.runt.allowed(('axon', 'get'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
@@ -2014,7 +2014,7 @@ class LibAxon(Lib):
             yield line
 
     async def jsonlines(self, sha256):
-        if not self.runt.allowed(('axon', 'get'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
@@ -2024,7 +2024,7 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        if not self.runt.allowed(('axon', 'del'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'del')):
             self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
@@ -2041,7 +2041,7 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        if not self.runt.allowed(('axon', 'del'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'del')):
             self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256 = await tostr(sha256)
@@ -2054,7 +2054,7 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        if not self.runt.allowed(('axon', 'wget'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
@@ -2089,7 +2089,7 @@ class LibAxon(Lib):
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        if not self.runt.allowed(('axon', 'wput'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
@@ -2181,7 +2181,7 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        if not self.runt.allowed(('axon', 'has'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'has')):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
@@ -2192,7 +2192,7 @@ class LibAxon(Lib):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        if not self.runt.allowed(('axon', 'get'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
         await self.runt.snap.core.getAxon()
@@ -2205,7 +2205,7 @@ class LibAxon(Lib):
             await asyncio.sleep(0)
 
     async def metrics(self):
-        if not self.runt.allowed(('axon', 'has'), gateiden='axon'):
+        if not self.runt.allowed(('axon', 'has')):
             self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 

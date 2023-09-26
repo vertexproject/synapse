@@ -1291,7 +1291,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
-        await self.auth.addAuthGate('axon', 'axon')
 
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
@@ -1631,13 +1630,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to change view settings.',
              'ex': 'view.set.name'},
 
-            {'perm': ('axon', 'upload'), 'gate': 'axon',
+            {'perm': ('axon', 'upload'), 'gate': 'cortex',
              'desc': 'Controls the ability to upload a file to the Axon.'},
-            {'perm': ('axon', 'get'), 'gate': 'axon',
+            {'perm': ('axon', 'get'), 'gate': 'cortex',
              'desc': 'Controls the ability to retrieve a file from the Axon.'},
-            {'perm': ('axon', 'has'), 'gate': 'axon',
+            {'perm': ('axon', 'has'), 'gate': 'cortex',
              'desc': 'Controls the ability to check if the Axon contains a file.'},
-            {'perm': ('axon', 'del'), 'gate': 'axon',
+            {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
         ))
         for pdef in self._cortex_permdefs:

@@ -6295,9 +6295,9 @@ words\tword\twrd'''
             self.eq(200, await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
 
-            await visi.addRule((True, ('axon', 'wget')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'wget')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'wget')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'wget')))
 
             # wput
 
@@ -6308,9 +6308,9 @@ words\tword\twrd'''
             self.eq(200, await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'wput')))
 
-            await visi.addRule((True, ('axon', 'wput')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'wput')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'wput')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'wput')))
 
             # urlfile
 
@@ -6321,9 +6321,9 @@ words\tword\twrd'''
             self.nn(await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
 
-            await visi.addRule((True, ('axon', 'wget')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'wget')))
             self.nn(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'wget')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'wget')))
 
             # del
 
@@ -6335,9 +6335,9 @@ words\tword\twrd'''
             await visi.delRule((True, ('storm', 'lib', 'axon', 'del')))
             await _addfile()
 
-            await visi.addRule((True, ('axon', 'del')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'del')))
             self.true(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'del')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'del')))
             await _addfile()
 
             # dels
@@ -6350,9 +6350,9 @@ words\tword\twrd'''
             await visi.delRule((True, ('storm', 'lib', 'axon', 'del')))
             await _addfile()
 
-            await visi.addRule((True, ('axon', 'del')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'del')))
             self.eq([True], await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'del')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'del')))
             await _addfile()
 
             # list
@@ -6364,9 +6364,9 @@ words\tword\twrd'''
             self.nn(await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'has')))
 
-            await visi.addRule((True, ('axon', 'has')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'has')))
             self.nn(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'has')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'has')))
 
             # readlines
 
@@ -6377,9 +6377,9 @@ words\tword\twrd'''
             self.nn(await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
 
-            await visi.addRule((True, ('axon', 'get')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'get')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'get')))
 
             # jsonlines
 
@@ -6390,9 +6390,9 @@ words\tword\twrd'''
             self.nn(await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
 
-            await visi.addRule((True, ('axon', 'get')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'get')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'get')))
 
             # csvrows
 
@@ -6403,9 +6403,9 @@ words\tword\twrd'''
             self.nn(await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
 
-            await visi.addRule((True, ('axon', 'get')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'get')))
             self.nn(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'get')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'get')))
 
             # metrics
 
@@ -6416,9 +6416,9 @@ words\tword\twrd'''
             self.nn(await core.callStorm(scmd, opts=opts))
             await visi.delRule((True, ('storm', 'lib', 'axon', 'has')))
 
-            await visi.addRule((True, ('axon', 'has')), gateiden='axon')
+            await visi.addRule((True, ('axon', 'has')))
             self.nn(await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'has')), gateiden='axon')
+            await visi.delRule((True, ('axon', 'has')))
 
     async def test_storm_lib_export(self):
 
