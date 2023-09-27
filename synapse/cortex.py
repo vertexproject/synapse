@@ -26,6 +26,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.config as s_config
@@ -5447,29 +5448,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
-            async with await self.snap(user=user, view=view) as snap:
+        with s_scope.enter({'user': user}):
 
-                async for pode in snap.iterStormPodes(text, opts=opts):
-                    await spooldict.set(pode[1]['iden'], pode)
-                    await asyncio.sleep(0)
+            async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+                async with await self.snap(user=user, view=view) as snap:
 
-                for iden, pode in spooldict.items():
-                    await asyncio.sleep(0)
-
-                    edges = []
-                    async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                    async for pode in snap.iterStormPodes(text, opts=opts):
+                        await spooldict.set(pode[1]['iden'], pode)
                         await asyncio.sleep(0)
 
-                        if not spooldict.has(n2iden):
-                            continue
+                    for iden, pode in spooldict.items():
+                        await asyncio.sleep(0)
 
-                        edges.append((verb, n2iden))
+                        edges = []
+                        async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                            await asyncio.sleep(0)
 
-                    if edges:
-                        pode[1]['edges'] = edges
+                            if not spooldict.has(n2iden):
+                                continue
 
-                    yield pode
+                            edges.append((verb, n2iden))
+
+                        if edges:
+                            pode[1]['edges'] = edges
+
+                        yield pode
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:

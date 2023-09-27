@@ -13,6 +13,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
@@ -380,11 +381,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
-        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for node in snap.eval(text, opts=opts, user=user):
-                yield node
+        with s_scope.enter({'user': user}):
+
+            await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+            async with await self.snap(user=user) as snap:
+                async for node in snap.eval(text, opts=opts, user=user):
+                    yield node
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
@@ -472,27 +476,29 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                async with await self.snap(user=user) as snap:
+                with s_scope.enter({'user': user}):
 
-                    if keepalive:
-                        snap.schedCoro(snap.keepalive(keepalive))
+                    async with await self.snap(user=user) as snap:
 
-                    if not show:
-                        snap.link(chan.put)
+                        if keepalive:
+                            snap.schedCoro(snap.keepalive(keepalive))
 
-                    else:
-                        [snap.on(n, chan.put) for n in show]
+                        if not show:
+                            snap.link(chan.put)
 
-                    if shownode:
-                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                            await chan.put(('node', pode))
-                            count += 1
+                        else:
+                            [snap.on(n, chan.put) for n in show]
 
-                    else:
-                        self.core._logStormQuery(text, user,
-                                                 info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                        async for item in snap.storm(text, opts=opts, user=user):
-                            count += 1
+                        if shownode:
+                            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                                await chan.put(('node', pode))
+                                count += 1
+
+                        else:
+                            self.core._logStormQuery(text, user,
+                                                     info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            async for item in snap.storm(text, opts=opts, user=user):
+                                count += 1
 
             except s_stormctrl.StormExit:
                 pass
@@ -571,9 +577,10 @@ class View(s_nexus.Pusher):  # type: ignore
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                yield pode
+        with s_scope.enter({'user': user}):
+            async with await self.snap(user=user) as snap:
+                async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                    yield pode
 
     async def snap(self, user):
 
