@@ -90,7 +90,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoValuForPropIndex')
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
 
             core.getLayer()._testDelFormValuStor(nid, 'inet:ipv4')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', None)]
@@ -141,9 +141,12 @@ class LayerTest(s_t_utils.SynTest):
             sode['props'] = None
             layr.setSodeDirty(sode)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(4, errors)
-            for err in errors:
-                self.eq(err[0], 'NoValuForPropIndex')
+            self.len(5, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropIndex')
+            self.eq(errors[2][0], 'NoValuForPropIndex')
+            self.eq(errors[3][0], 'NoValuForPropIndex')
+            self.eq(errors[4][0], 'InvalidRefCount')
 
         # Check arrays
         async with self.getTestCore() as core:
@@ -189,12 +192,13 @@ class LayerTest(s_t_utils.SynTest):
             sode['props'] = None
             layr.setSodeDirty(sode)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(5, errors)
+            self.len(6, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropArrayIndex')
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
             self.eq(errors[3][0], 'NoValuForPropIndex')
             self.eq(errors[4][0], 'NoValuForPropIndex')
+            self.eq(errors[5][0], 'InvalidRefCount')
 
             await core.nodes('ps:contact | delnode --force')
 
@@ -260,8 +264,9 @@ class LayerTest(s_t_utils.SynTest):
 
             config = {'scans': {'tagindex': {'autofix': 'index'}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
-            self.len(1, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'InvalidRefCount')
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
@@ -319,9 +324,10 @@ class LayerTest(s_t_utils.SynTest):
             layr.setSodeDirty(sode)
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoValuForTagPropIndex')
             self.eq(errors[1][0], 'NoValuForTagPropIndex')
+            self.eq(errors[2][0], 'InvalidRefCount')
 
             sode = layr._getStorNode(nid)
             sode['tagprops'] = {}

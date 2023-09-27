@@ -314,8 +314,8 @@ class IndxBy:
         for item in self.layr.layrslab.scanByRangeBack(self.abrv + maxindx, lmin=self.abrv + minindx, db=self.db):
             yield item
 
-    def hasIndxBuid(self, indx, buid):
-        return self.layr.layrslab.hasdup(self.abrv + indx, buid, db=self.db)
+    def hasIndxNid(self, indx, nid):
+        return self.layr.layrslab.hasdup(self.abrv + indx, nid, db=self.db)
 
     def indxToValu(self, indx):
         stortype = self.getStorType()
@@ -509,10 +509,10 @@ class StorType:
         async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
             yield item
 
-    async def verifyBuidProp(self, buid, form, prop, valu):
+    async def verifyNidProp(self, nid, form, prop, valu):
         indxby = IndxByProp(self.layr, form, prop)
         for indx in self.indx(valu):
-            if not indxby.hasIndxBuid(indx, buid):
+            if not indxby.hasIndxNid(indx, nid):
                 yield ('NoPropIndex', {'prop': prop, 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False):
@@ -1431,7 +1431,8 @@ class StorTypeLatLon(StorType):
         return (lat, lon)
 
 class SodeEnvl:
-    def __init__(self, sode):
+    def __init__(self, layriden, sode):
+        self.layriden = layriden
         self.sode = sode
 
     # any sorting that falls back to the envl are equal already...
@@ -1665,7 +1666,7 @@ class Layer(s_nexus.Pusher):
             return -1
         return last[1][1].get('indx', -1)
 
-    async def verifyBuidTag(self, nid, formname, tagname, tagvalu):
+    async def verifyNidTag(self, nid, formname, tagname, tagvalu):
         abrv = self.tagabrv.bytsToAbrv(tagname.encode())
         abrv += self.getPropAbrv(formname, None)
         if not self.layrslab.hasdup(abrv, nid, db=self.bytag):
@@ -1736,11 +1737,6 @@ class Layer(s_nexus.Pusher):
 
         scans = config.get('scans', {})
 
-        nodescan = scans.get('nodes', defconf)
-        if nodescan is not None:
-            async for error in self.verifyAllBuids(nodescan):
-                yield error
-
         tagsscan = scans.get('tagindex', defconf)
         if tagsscan is not None:
             async for error in self.verifyAllTags(tagsscan):
@@ -1754,6 +1750,11 @@ class Layer(s_nexus.Pusher):
         tagpropscan = scans.get('tagpropindex', defconf)
         if tagpropscan is not None:
             async for error in self.verifyAllTagProps(tagpropscan):
+                yield error
+
+        nodescan = scans.get('nodes', defconf)
+        if nodescan is not None:
+            async for error in self.verifyAllBuids(nodescan):
                 yield error
 
     async def verifyAllBuids(self, scanconf=None):
@@ -2039,7 +2040,7 @@ class Layer(s_nexus.Pusher):
                 yield ('NoStorTypeForTagProp', {'nid': s_common.ehex(nid), 'form': form,
                                                 'tag': tag, 'prop': prop, 'stortype': stortype})
 
-    async def verifyByBuid(self, buid, sode):
+    async def verifyByBuid(self, nid, sode):
 
         await asyncio.sleep(0)
 
@@ -2047,7 +2048,7 @@ class Layer(s_nexus.Pusher):
         stortags = sode.get('tags')
         if stortags:
             for tagname, storvalu in stortags.items():
-                async for error in self.verifyBuidTag(buid, form, tagname, storvalu):
+                async for error in self.verifyNidTag(nid, form, tagname, storvalu):
                     yield error
 
         storprops = sode.get('props')
@@ -2059,11 +2060,45 @@ class Layer(s_nexus.Pusher):
                     continue
 
                 try:
-                    async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
+                    async for error in self.stortypes[stortype].verifyNidProp(nid, form, propname, storvalu):
                         yield error
                 except IndexError as e:
-                    yield ('NoStorTypeForProp', {'buid': s_common.ehex(buid), 'form': form, 'prop': propname,
+                    yield ('NoStorTypeForProp', {'nid': s_common.ehex(nid), 'form': form, 'prop': propname,
                                                  'stortype': stortype})
+
+        refs = await self.calcSodeRefs(nid, sode)
+        if not refs == sode.get('refs'):
+            yield ('InvalidRefCount', {'nid': s_common.ehex(nid),
+                                       'refs': sode.get('refs'), 'realrefs': refs})
+
+            sode['refs'] = refs
+            self.setSodeDirty(sode)
+
+    async def calcSodeRefs(self, nid, sode):
+
+        refs = 0
+        if sode.get('valu') is not None:
+            refs += 1
+
+        props = sode.get('props')
+        if props:
+            refs += len(props)
+
+        tags = sode.get('tags')
+        if tags:
+            refs += len(tags)
+
+        tagprops = sode.get('tagprops')
+        if tagprops:
+            for props in tagprops.values():
+                refs += len(props)
+
+        refs += await self.layrslab.countByPref(nid, db=self.edgesn1)
+        refs += await self.layrslab.countByPref(nid, db=self.edgesn2)
+
+        refs += await self.dataslab.countByPref(nid, db=self.nodedata)
+
+        return refs
 
     async def pack(self):
         ret = self.layrinfo.pack()
@@ -2384,7 +2419,7 @@ class Layer(s_nexus.Pusher):
             return envl
 
         sode = self._genStorNode(nid)
-        envl = SodeEnvl(self._genStorNode(nid))
+        envl = SodeEnvl(self.iden, self._genStorNode(nid))
 
         self.weakcache[nid] = envl
         return envl
@@ -3162,6 +3197,7 @@ class Layer(s_nexus.Pusher):
 
         n1nid = sode.get('nid')
         n2nid = self.core.getNidByBuid(n2buid)
+        n2sode = self._genStorNode(n2nid)
 
         n1n2nid = n1nid + n2nid
 
@@ -3172,8 +3208,11 @@ class Layer(s_nexus.Pusher):
         self.layrslab.delete(n1nid + venc, n2nid, db=self.edgesn1)
         self.layrslab.delete(n2nid + venc, n1nid, db=self.edgesn2)
 
+        sode['n1verbs'][verb] = sode['n1verbs'].get(verb, 0) - 1
+        n2sode['n2verbs'][verb] = n2sode['n2verbs'].get(verb, 0) - 1
+
         self._incSodeRefs(buid, sode, inc=-1)
-        self.core.incBuidNid(n2buid, inc=-1)
+        self._incSodeRefs(n2buid, n2sode, inc=-1)
 
         return (
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
@@ -3210,8 +3249,11 @@ class Layer(s_nexus.Pusher):
             self.layrslab.delete(n2nid + venc, nid, db=self.edgesn2)
             self.layrslab.delete(nid + n2nid, venc, db=self.edgesn1n2)
 
+            n2sode = self._genStorNode(n2nid)
+            n2sode['n2verbs'][venc] = n2sode['n2verbs'].get(venc, 0) - 1
+
             self._incSodeRefs(buid, sode, inc=-1)
-            self.core.incBuidNid(n2nid, inc=-1)
+            self._incSodeRefs(None, n2sode, inc=-1)
 
     def getStorIndx(self, stortype, valu):
 
