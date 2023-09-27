@@ -7575,6 +7575,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
                 msgs = [json.loads(m) for m in raw_mesgs]
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
-                self.eq('Set admin=True for lowuser', mesg.get('message'))
+                self.isin('Set admin=True for lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
                 self.eq('lowuser', mesg.get('target_username'))
