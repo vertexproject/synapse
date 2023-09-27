@@ -521,7 +521,7 @@ bar baz",vv
         Test Axon HTTP APIs.
 
         Args:
-            axon: A cell the implements the axon http apis
+            axon: A cell that implements the axon http apis
             realaxon: The actual axon cell; if None defaults to the axon arg
         '''
 
