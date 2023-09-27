@@ -277,44 +277,44 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=maxval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=maxval [ .seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=midval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=midval [ .seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=minval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=minval [ .seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=exival .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=exival [ .seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
 
             # bad type
 

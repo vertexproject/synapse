@@ -119,9 +119,9 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(1, result)
 
                 node = result[0]
-                self.eq(node.props.get('tick'), 3)
-                self.ge(node.props.get('.created', 0), 5)
-                self.eq(node.tags.get('cool'), (1, 2))
+                self.eq(node.get('tick'), 3)
+                self.ge(node.get('.created', 0), 5)
+                self.eq(node.get('#cool'), (1, 2))
 
                 nodes = await alist(snap.nodesByPropValu('test:str', '=', 'hehe'))
                 self.len(1, nodes)
@@ -184,7 +184,7 @@ class SnapTest(s_t_utils.SynTest):
 
                     for i in data:
                         node = await snap.addNode('test:int', i)
-                        if node.props.get('.created') is None:
+                        if node.get('.created') is None:
                             failed = True
                             done_event.set()
                             return
@@ -276,7 +276,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await alist(view1.eval('inet:ipv4 +:asn=42')))
             self.len(1, await alist(view1.eval('inet:ipv4 +#woot')))
 
-    async def test_cortex_lift_layers_bad_filter(self):
+    async def test_cortex_lift_layers_bad_filter2(self):
         '''
         Test a two layer cortex where a lift operation gives the wrong result
         '''
@@ -361,22 +361,22 @@ class SnapTest(s_t_utils.SynTest):
             async with await core.snap() as snap0:  # type: s_snap.Snap
 
                 original_node0 = await snap0.addNode('test:str', 'node0')
-                self.len(1, snap0.buidcache)
+                self.len(1, snap0.nodecache)
                 self.len(1, snap0.livenodes)
                 self.len(0, snap0.tagcache)
                 self.len(0, snap0.tagnorms)
 
                 await original_node0.addTag('foo.bar.baz')
-                self.len(4, snap0.buidcache)
+                self.len(4, snap0.nodecache)
                 self.len(4, snap0.livenodes)
                 self.len(3, snap0.tagnorms)
 
                 async with await core.snap() as snap1:  # type: s_snap.Snap
                     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
                     await snap1_node0.delTag('foo.bar.baz')
-                    self.notin('foo.bar.baz', snap1_node0.tags)
-                    # Our reference to original_node0 still has the tag though
-                    self.isin('foo.bar.baz', original_node0.tags)
+                    self.notin('foo.bar.baz', snap1_node0.getTags())
+                    # Original reference is updated as well
+                    self.notin('foo.bar.baz', original_node0.getTags())
 
                 # We rely on the layer's row cache to be correct in this test.
 
@@ -386,7 +386,7 @@ class SnapTest(s_t_utils.SynTest):
 
                 # flush snap0 cache!
                 await snap0.clearCache()
-                self.len(0, snap0.buidcache)
+                self.len(0, snap0.nodecache)
                 self.len(0, snap0.livenodes)
                 self.len(0, snap0.tagcache)
                 self.len(0, snap0.tagnorms)
@@ -395,7 +395,7 @@ class SnapTest(s_t_utils.SynTest):
                 # was lifted directly from the layer.
                 new_node0 = await snap0.getNodeByNdef(('test:str', 'node0'))
                 self.ne(id(original_node0), id(new_node0))
-                self.notin('foo.bar.baz', new_node0.tags)
+                self.notin('foo.bar.baz', new_node0.getTags())
 
     async def test_cortex_lift_layers_bad_filter_tagprop(self):
         '''
@@ -466,7 +466,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.props.get('asn')
+                asn = node.get('asn')
                 self.gt(asn, last)
                 last = asn
 
@@ -474,7 +474,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.props.get('asn')
+                asn = node.get('asn')
                 self.gt(asn, last)
                 last = asn
 
@@ -482,7 +482,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                asn = node.props.get('asn')
+                asn = node.get('asn')
                 self.gt(asn, last)
                 last = asn
 
@@ -490,7 +490,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 5
             for node in nodes:
-                asn = node.props.get('asn')
+                asn = node.get('asn')
                 self.lt(asn, last)
                 last = asn
 
