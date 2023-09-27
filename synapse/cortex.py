@@ -1135,6 +1135,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # NOTE: we may not make *any* nexus actions in this method
         self.macrodb = self.slab.initdb('storm:macros')
+        self.slab.initdb('http:ext:apis')
+        # TODO load them into a list ordered by "index" value
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
@@ -4214,6 +4216,60 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
+        self.addHttpApi('/api/ext/.*', s_httpapi.ExtApiHandler, {'cell': self})
+
+    async def addHttpExtApi(self, adef, indx=-1):
+
+        adef['iden'] = s_common.guid()
+        adef.setdefault('runas', 'owner')
+        adef.setdefault('authenticated', True)
+        adef.setdefault('methods', {})
+        # require: iden, authenticated, owner, methods, runas=(owner|user)
+
+        # TODO check schema
+        return await self._push('http:api:add', adef, indx)
+
+    @s_nexus.Pusher.onPush('http:api:add')
+    async def _addHttpExtApi(self, adef, indx):
+        iden = adef.get('iden')
+        self.slab.set(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
+        # TODO handle refreshing index ordered list...
+        return adef
+
+    @s_nexus.Pusher.onPushAuto('http:api:del')
+    async def delHttpExtApi(self, iden):
+
+        byts = self.slab.pop(s_common.uhex(iden), db='http:ext:apis')
+        if byts is None:
+            return
+
+        adef = s_msgpack.un(byts)
+
+        # TODO remove from cached (index ordered) list...
+        return adef
+
+    @s_nexus.Pusher.onPushAuto('http:api:mod')
+    async def modHttpExtApi(self, iden, name, valu):
+
+        byts = self.slab.pop(s_common.uhex(iden), db='http:ext:apis')
+        if byts is None:
+            raise s_exc.NoSuchIden()
+
+        adef = s_msgpack.un(byts)
+        adef[name] = valu
+
+        # TODO handle bumping other values index values down
+        # TODO handle refresh index ordered list
+
+        exts = list(self.httpexts)
+        self.httpexts = [a for a in exts if a['iden'] != iden]
+
+    async def getHttpExtApis(self):
+        return list(self.httpexts)
+
+    async def getHttpExtApi(self, path):
+        # use index ordered list to resolve which and (adef, globs)
+        return None, ()
 
     async def getCellApi(self, link, user, path):
 

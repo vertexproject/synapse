@@ -1240,3 +1240,52 @@ class CoreInfoV1(Handler):
 
         resp = await self.cell.getCoreInfoV2()
         return self.sendRestRetn(resp)
+
+class ExtApiHandler(Handler):
+    '''
+    /api/ext/.*
+    '''
+    async def get(self, path):
+        return await self._runHttpExt('get', path)
+
+    async def post(self, path):
+        return await self._runHttpExt('post', path)
+
+    async def head(self, path):
+        return await self._runHttpExt('head', path)
+
+    async def _runHttpExt(self, meth, path):
+
+        adef, argv = self.cell.getHttpExtApi(path)
+        if adef is None:
+            # send 404 rest reply
+            return
+
+        if adef.get('authenticated'):
+            useriden = await self.useriden()
+            if useriden is None:
+                self.reqAuthUser()
+                return
+
+        if adef.get('runas') == 'owner':
+            useriden = adef.get('owner')
+            # TODO check locked / archived / etc
+
+        view = self.cell.getView(adef.get('view'))
+        opts = {
+            'user': useriden,
+            'vars': {
+                # chicken / egg problem in here somewhere...
+                # may need to create runtime first?
+                'request': s_libstorm_cortex.HttpReq(),
+            }
+        }
+
+        storm = adef['methods'].get(meth)
+        # run storm in correct view/user and handle return() to allow them to bail
+        # run the storm callback in the proper view
+        # check http:req.replied and send 500 if not
+        # try/except and send 500 on unexpected bail
+        # asyncio sleep(0) for each iteration but drop them on the floor :D
+        # async for node, path in view.storm()
+        # needs logging etc?
