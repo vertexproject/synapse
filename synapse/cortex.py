@@ -1017,6 +1017,10 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
+    @s_cell.adminapi()
+    async def getHttpExtApi(self, path):
+        return await self.cell.getHttpExtApi(path)
+
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1135,7 +1139,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # NOTE: we may not make *any* nexus actions in this method
         self.macrodb = self.slab.initdb('storm:macros')
-        self.slab.initdb('http:ext:apis')
+        self.httpextapidb = self.slab.initdb('http:ext:apis')
+
         # TODO load them into a list ordered by "index" value
 
         if self.inaugural:
@@ -1213,6 +1218,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
+        self.httpexts = []
+        for key, valu in self.slab.scanByFull(self.httpextapidb):
+            print(f'{key=} {valu=}')
+            self.httpexts.append(valu)
 
         self.model = s_datamodel.Model()
 
@@ -4218,6 +4227,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
         self.addHttpApi('/api/ext/.*', s_httpapi.ExtApiHandler, {'cell': self})
 
+    # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
     async def addHttpExtApi(self, adef, indx=-1):
 
         adef['iden'] = s_common.guid()
@@ -4230,7 +4241,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await self._push('http:api:add', adef, indx)
 
     @s_nexus.Pusher.onPush('http:api:add')
-    async def _addHttpExtApi(self, adef, indx):
+    async def _addHttpExtApi(self, adef):
         iden = adef.get('iden')
         self.slab.set(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
         # TODO handle refreshing index ordered list...
@@ -4269,7 +4280,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def getHttpExtApi(self, path):
         # use index ordered list to resolve which and (adef, globs)
+        if self.httpexts:
+            # TODO Actually implement a handler....
+            return self.httpexts[0], path
         return None, ()
+
+    # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
     async def getCellApi(self, link, user, path):
 

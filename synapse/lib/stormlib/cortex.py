@@ -112,8 +112,6 @@ class HttpReq(s_stormtypes.StormType):
             await self.hreq.flush()
             return
 
-        # TODO (not MVP) allow stream of jsonlines via emitter (or something)
-
         self.hreq.set_status(code)
         self.hreq.set_header('Content-Type', 'application/json')
         self.hreq.write(json.dumps(body))
@@ -145,5 +143,5 @@ class CortexHttpApi(s_stormtypes.Lib):
             'authenticated': True,
         }
 
-        adef = await runt.snap.view.core.addHttpExtApi(adef)
+        adef = await self.runt.snap.view.core.addHttpExtApi(adef)
         return HttpApi(self.runt, adef)

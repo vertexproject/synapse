@@ -1251,6 +1251,11 @@ class ExtApiHandler(Handler):
     async def post(self, path):
         return await self._runHttpExt('post', path)
 
+    async def put(self, path):
+        return await self._runHttpExt('put', path)
+    async def patch(self, path):
+        return await self._runHttpExt('patch', path)
+
     async def head(self, path):
         return await self._runHttpExt('head', path)
 

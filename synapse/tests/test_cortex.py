@@ -7537,3 +7537,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, mrevstart)
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
+
+    async def test_cortex_double_init(self):
+        async with self.getTestCore() as core:
+            q = '''
+            init {$foo = bar $lib.print(`{$foo} {$wow}`) }
+            init {$baz = hehe $lib.print('second init!') }
+            $lib.print($baz)
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe'}})
+            pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe'])
