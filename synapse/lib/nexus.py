@@ -271,7 +271,8 @@ class NexsRoot(s_base.Base):
         assert self.started, 'Attempt to issue before nexsroot is started'
 
         if self.readonly:
-            raise s_exc.IsReadOnly(mesg='Unable to issue Nexus events when readonly is set')
+            mesg = f'Unable to issue Nexus events when readonly is set: {self.readonlyreason}'
+            raise s_exc.IsReadOnly(mesg=mesg, reason=self.readonlyreason)
 
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
