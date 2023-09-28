@@ -2,6 +2,8 @@ import json
 
 import synapse.exc as s_exc
 
+import synapse.lib.msgpack as s_msgpack
+
 import synapse.lookup.cvss as s_cvss
 
 import synapse.tests.utils as s_test
@@ -507,3 +509,48 @@ class InfoSecTest(s_test.SynTest):
             opts = {'vars': {'flow': flow}}
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
             self.stormHasNoWarnErr(msgs)
+
+            # Remove a mandatory property from the bundle
+            tmp = s_msgpack.deepcopy(flow)
+            tmp.pop('spec_version')
+            opts = {'vars': {'flow': tmp}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            self.stormIsInErr("data must contain ['spec_version'] properties", msgs)
+
+            # Remove the mandatory attack-flow object
+            tmp = s_msgpack.deepcopy(flow)
+            objects = [k for k in tmp['objects'] if k['type'] != 'attack-flow']
+            tmp['objects'] = objects
+            opts = {'vars': {'flow': tmp}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            self.stormIsInErr('data.objects must contain one of contains definition', msgs)
+
+            # Remove a mandatory property from attack-flow types
+            tmp = s_msgpack.deepcopy(flow)
+            objects = [k for k in tmp['objects'] if k['type'] != 'attack-flow']
+            attack_flows = [k for k in tmp['objects'] if k['type'] == 'attack-flow']
+            [k.pop('scope') for k in attack_flows]
+            tmp['objects'] = objects + attack_flows
+            opts = {'vars': {'flow': tmp}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            self.stormIsInErr("data.objects[33] must contain ['scope'] properties", msgs)
+
+            # Change a fixed property value from attack-flow types
+            tmp = s_msgpack.deepcopy(flow)
+            objects = [k for k in tmp['objects'] if k['type'] != 'attack-flow']
+            attack_flows = [k for k in tmp['objects'] if k['type'] == 'attack-flow']
+            [k.update({'spec_version': '2.2'}) for k in attack_flows]
+            tmp['objects'] = objects + attack_flows
+            opts = {'vars': {'flow': tmp}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            self.stormIsInErr("data.objects[33].spec_version must be one of ['2.0', '2.1']", msgs)
+
+            # Remove a mandatory property from attack-action types
+            tmp = s_msgpack.deepcopy(flow)
+            objects = [k for k in tmp['objects'] if k['type'] != 'attack-action']
+            attack_actions = [k for k in tmp['objects'] if k['type'] == 'attack-action']
+            [k.pop('extensions') for k in attack_actions]
+            tmp['objects'] = objects + attack_actions
+            opts = {'vars': {'flow': tmp}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            self.stormIsInErr("data.objects[23] must contain ['extensions'] properties", msgs)

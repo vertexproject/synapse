@@ -49,7 +49,7 @@ def getJsSchema(confbase, confdefs):
     props.update(confbase)
     return schema
 
-def getJsValidator(schema, use_default=True):
+def getJsValidator(schema, use_default=True, handlers=None):
     '''
     Get a fastjsonschema callable.
 
@@ -63,14 +63,17 @@ def getJsValidator(schema, use_default=True):
     if schema.get('$schema') is None:
         schema['$schema'] = 'http://json-schema.org/draft-07/schema#'
 
+    if handlers is None:
+        handlers = {}
+
     # It is faster to hash and cache the functions here than it is to
     # generate new functions each time we have the same schema.
-    key = s_hashitem.hashitem((schema, use_default))
+    key = s_hashitem.hashitem((schema, {k: v.__name__ for k, v in handlers.items()}, use_default))
     func = _JsValidators.get(key)
     if func:
         return func
 
-    func = fastjsonschema.compile(schema, use_default=use_default)
+    func = fastjsonschema.compile(schema, handlers=handlers, use_default=use_default)
 
     def wrap(*args, **kwargs):
         try:

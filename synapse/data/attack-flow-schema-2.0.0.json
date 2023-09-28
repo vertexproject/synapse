@@ -6,65 +6,26 @@
     "type": "object",
     "unevaluatedProperties": false,
     "allOf": [
-        {
-            "$comment": "All Attack Flow SDOs implement the required common properties.",
-            "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json"
-        },
-        {
-            "$comment": "Attack Flow SDOs must reference the extension definition.",
-            "type": "object",
-            "properties": {
-                "extensions": {
-                    "type": "object",
-                    "properties": {
-                        "extension-definition--fb9c968a-745b-4ade-9b25-c324172197f4": {
-                            "type": "object",
-                            "properties": {
-                                "extension_type": {
-                                    "type": "string",
-                                    "const": "new-sdo"
-                                }
-                            },
-                            "required": [
-                                "extension_type"
-                            ]
-                        }
-                    },
-                    "required": [
-                        "extension-definition--fb9c968a-745b-4ade-9b25-c324172197f4"
-                    ]
-                }
-            },
-            "required": [
-                "extensions"
-            ]
-        },
-        {
-            "$comment": "Link to the Attack Flow SDO subschemas based on object type. Note: this nested if-else construction is difficult to maintain. We weighed several different structures here, e.g. using a oneOf, but selected this structure because it produces better validation messages than a oneOf and make it easy to forward-reference the Attack Flow SDO subschemas from the main Attack Flow schema.",
-            "if": {
-                "type": "object",
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "const": "attack-flow"
-                    }
-                }
-            },
-            "then": {
-                "$ref": "#/$defs/attack-flow"
-            },
-            "else": {
+        { "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json" }
+    ],
+    "properties": {
+        "type": {"const": "bundle"},
+        "objects": {
+            "type": "array",
+            "items": {
+
+                "$comment": "Try each of the Attack Flow types in order, eventually falling through to the STIX common object definition.",
                 "if": {
                     "type": "object",
                     "properties": {
                         "type": {
                             "type": "string",
-                            "const": "attack-action"
+                            "const": "attack-flow"
                         }
                     }
                 },
                 "then": {
-                    "$ref": "#/$defs/attack-action"
+                    "$ref": "#/$defs/attack-flow"
                 },
                 "else": {
                     "if": {
@@ -72,12 +33,12 @@
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "const": "attack-condition"
+                                "const": "attack-action"
                             }
                         }
                     },
                     "then": {
-                        "$ref": "#/$defs/attack-condition"
+                        "$ref": "#/$defs/attack-action"
                     },
                     "else": {
                         "if": {
@@ -85,12 +46,12 @@
                             "properties": {
                                 "type": {
                                     "type": "string",
-                                    "const": "attack-operator"
+                                    "const": "attack-asset"
                                 }
                             }
                         },
                         "then": {
-                            "$ref": "#/$defs/attack-operator"
+                            "$ref": "#/$defs/attack-asset"
                         },
                         "else": {
                             "if": {
@@ -98,24 +59,51 @@
                                 "properties": {
                                     "type": {
                                         "type": "string",
-                                        "const": "attack-asset"
+                                        "const": "attack-condition"
                                     }
                                 }
                             },
                             "then": {
-                                "$ref": "#/$defs/attack-asset"
+                                "$ref": "#/$defs/attack-condition"
                             },
-                            "else": true
+                            "else": {
+                                "if": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "const": "attack-operator"
+                                        }
+                                    }
+                                },
+                                "then": {
+                                    "$ref": "#/$defs/attack-operator"
+                                },
+                                "else": {
+                                    "$comment": "All Attack Flow SDOs implement the required common properties.",
+                                    "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json"
+                                }
+                            }
                         }
                     }
                 }
-            }
+            },
+
+            "$comment": "Attack Flow documents MUST have ONLY ONE 'attack-flow' type. That is enforced here with the 'contains', 'minContains', and 'maxContains'",
+            "contains": {
+                "$ref": "#/$defs/attack-flow"
+            },
+            "minContains": 1,
+            "maxContains": 1
         }
-    ],
+    },
     "$defs": {
         "attack-flow": {
             "description": "Every Attack Flow document **MUST** contain exactly one ``attack-flow`` object. It provides metadata for name and description, starting points for the flow of actions, and can be referenced from other STIX objects.",
             "type": "object",
+            "allOf": [
+                { "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json" }
+            ],
             "properties": {
                 "type": {
                     "description": "The type **MUST** be ``attack-flow``.",
@@ -160,6 +148,9 @@
                         ]
                     },
                     "minItems": 1
+                },
+                "extensions": {
+                    "$ref": "#/$defs/extensions"
                 }
             },
             "required": [
@@ -167,13 +158,17 @@
                 "spec_version",
                 "name",
                 "start_refs",
-                "scope"
+                "scope",
+                "extensions"
             ],
             "x-exampleObject": "attack-flow--e9ec3a4b-f787-4e81-a3d9-4cfe017ebc2f"
         },
         "attack-action": {
             "description": "An ``attack-action`` object represents the execution of a particular technique, i.e. a discrete unit of adverary behavior.",
             "type": "object",
+            "allOf": [
+                { "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json" }
+            ],
             "properties": {
                 "type": {
                     "description": "The type **MUST** be ``attack-action``.",
@@ -222,11 +217,11 @@
                 },
                 "execution_start": {
                     "description": "Timestamp indicating when the execution of this action began.",
-                    "$ref": "https://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/master/schemas/common/timestamp.json"
+                    "$ref": "https://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/timestamp.json"
                 },
                 "execution_end": {
                     "description": "Timestamp indicating when the execution of this action ended.",
-                    "$ref": "https://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/master/schemas/common/timestamp.json"
+                    "$ref": "https://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/timestamp.json"
                 },
                 "command_ref": {
                     "description": "Describe tools or commands executed by the attacker by referring to a STIX Process object, which can represent commands, environment variables, process image, etc.",
@@ -268,18 +263,25 @@
                         ]
                     },
                     "minItems": 1
+                },
+                "extensions": {
+                    "$ref": "#/$defs/extensions"
                 }
             },
             "required": [
                 "type",
                 "spec_version",
-                "name"
+                "name",
+                "extensions"
             ],
             "x-exampleObject": "attack-action--37345417-3ee0-4e11-b421-1d4be68e6f15"
         },
         "attack-asset": {
             "description": "An asset is any object that is the subject or target of an action. Assets can be technical assets (such as machines and data) or non-technical assets such as people and physical systems. Actions typically either modify or depend upon the *state* of an asset in some way.\n\nNote that assets are not applicable in all contexts. For example, public threat reports may not include enough detail to represent the assets in a flow, or the flow might represent aggregate behavior (at the campaign or actor level) for which it does not make sense to specify an asset. Assets should be used to add context to a flow when the underlying intelligence contains sufficient detail to do so.",
             "type": "object",
+            "allOf": [
+                { "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json" }
+            ],
             "properties": {
                 "type": {
                     "description": "The type **MUST** be ``attack-asset``.",
@@ -302,18 +304,25 @@
                 "object_ref": {
                     "description": "A reference to any STIX data object (i.e. SDO) or observable (i.e. SCO) that contains structured data about this asset.",
                     "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/identifier.json"
+                },
+                "extensions": {
+                    "$ref": "#/$defs/extensions"
                 }
             },
             "required": [
                 "type",
                 "spec_version",
-                "name"
+                "name",
+                "extensions"
             ],
             "x-exampleObject": "attack-asset--f7edf4aa-29ec-47aa-b4f6-c42dfbe2ac20"
         },
         "attack-condition": {
             "description": "An ``attack-condition`` object represents some possible condition, outcome, or state that could occur. Conditions can be used to split flows based on the success or failure of an action, or to provide further description of an action's results.",
             "type": "object",
+            "allOf": [
+                { "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json" }
+            ],
             "properties": {
                 "type": {
                     "description": "The type **MUST** be ``attack-condition``.",
@@ -370,18 +379,25 @@
                         ]
                     },
                     "minItems": 1
+                },
+                "extensions": {
+                    "$ref": "#/$defs/extensions"
                 }
             },
             "required": [
                 "type",
                 "spec_version",
-                "description"
+                "description",
+                "extensions"
             ],
             "x-exampleObject": "attack-condition--7e809f5b-319a-4b3f-82fe-e4dc09af5088"
         },
         "attack-operator": {
             "description": "An ``attack-operator`` object joins multiple attack paths together using boolean logic.",
             "type": "object",
+            "allOf": [
+                { "$ref": "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json" }
+            ],
             "properties": {
                 "type": {
                     "description": "The type **MUST** be ``attack-operator``.",
@@ -415,14 +431,38 @@
                         ]
                     },
                     "minItems": 1
+                },
+                "extensions": {
+                    "$ref": "#/$defs/extensions"
                 }
             },
             "required": [
                 "type",
                 "spec_version",
-                "operator"
+                "operator",
+                "extensions"
             ],
             "x-exampleObject": "attack-operator--609d7adf-a3d2-44e8-82de-4b30e3fb97be"
+        },
+        "extensions": {
+            "type": "object",
+            "properties": {
+                "extension-definition--fb9c968a-745b-4ade-9b25-c324172197f4": {
+                    "type": "object",
+                    "properties": {
+                        "extension_type": {
+                            "type": "string",
+                            "const": "new-sdo"
+                        }
+                    },
+                    "required": [
+                        "extension_type"
+                    ]
+                }
+            },
+            "required": [
+                "extension-definition--fb9c968a-745b-4ade-9b25-c324172197f4"
+            ]
         }
     }
 }

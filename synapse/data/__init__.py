@@ -1,5 +1,9 @@
 import os
 import json
+import urllib
+import functools
+
+import fastjsonschema
 
 import synapse.common as s_common
 import synapse.lib.datfile as s_datfile
@@ -27,3 +31,41 @@ def getJSON(name):
 
 def path(*names):
     return s_common.genpath(dirname, *names)
+
+def refHandler(func):
+    '''
+    Simple decorator for jsonschema ref handlers to allow for an automatic
+    default behavior of fetching the schema if the custom ref handlers returns
+    None.
+    '''
+
+    @functools.wraps(func)
+    def wrapper(uri):
+        ret = func(uri)
+        if ret is None:
+            if __debug__:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning('Fetching remote JSON schema: %s', uri)
+            return fastjsonschema.ref_resolver.resolve_remote(uri, {})
+        return ret
+
+    return wrapper
+
+@refHandler
+def localSchemaRefHandler(uri):
+    try:
+        parts = urllib.parse.urlparse(uri)
+    except ValueError:
+        return None
+
+    filename = path('jsonschemas', *parts.path.split('/'))
+    if not os.path.exists(filename) or not os.path.isfile(filename):
+        return None
+
+    # Check for path traversal. Unlikely, but still check
+    if not filename.startswith(path('jsonschemas')):
+        return None
+
+    with open(filename, 'r') as fp:
+        return json.load(fp)
