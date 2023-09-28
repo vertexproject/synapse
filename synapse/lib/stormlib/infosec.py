@@ -459,6 +459,9 @@ def getAttackFlowValidator(version='2.0.0'):
 
 @s_stormtypes.registry.registerLib
 class MitreAttackFlowLib(s_stormtypes.Lib):
+    '''
+    A Storm library which implements modeling MITRE ATT&CK Flow diagrams.
+    '''
     _storm_lib_path = ('infosec', 'mitre', 'attack', 'flow')
     _storm_locals = (
         {'name': 'validate', 'desc': 'Validate a MITRE ATT&CK Flow diagram in JSON format.',
@@ -466,9 +469,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to validate against the schema.'},
                   ),
-                  'raises': [
-                      {'name': 'SchemaViolation', 'reason': 'The JSON input data is not compliant with the schema.'},
-                  ],
                   'returns': {'type': 'null'}}
         },
         {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
@@ -476,14 +476,13 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to ingest.'},
                   ),
-                  'raises': [
-                      {'name': 'SchemaViolation', 'reason': 'The JSON input data is not compliant with the schema.'},
-                  ],
                   'returns': {'type': 'null'}}},
 
     )
     _storm_query = '''
         function ingest(flow) {
+            $lib.infosec.mitre.attack.flow.validate($flow)
+
             $objs_byid = ({})
             $objs_bytype = ({})
 
@@ -506,7 +505,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             ($_, $guid) = $created_by.id.split("--", 1)
             $created_by.guid = $guid
 
-            $lib.print($attack_flow.id)
             [ it:mitre:attack:flow = $attack_flow.guid
                 :name ?= $attack_flow.name
                 :json ?= $flow
@@ -518,6 +516,8 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                                         :email ?= $created_by.contact_information
                                     ]}
             ]
+
+            return($node)
         }
     '''
 
