@@ -86,6 +86,7 @@ class NexsRoot(s_base.Base):
         self.started = False
         self.celliden = self.cell.iden
         self.readonly = False
+        self.readonlyreason = None
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
@@ -271,8 +272,7 @@ class NexsRoot(s_base.Base):
         assert self.started, 'Attempt to issue before nexsroot is started'
 
         if self.readonly:
-            mesg = f'Unable to issue Nexus events when readonly is set: {self.readonlyreason}'
-            raise s_exc.IsReadOnly(mesg=mesg, reason=self.readonlyreason)
+            raise s_exc.IsReadOnly(mesg=self.readonlyreason)
 
         # pick up a reference to avoid race when we eventually can promote
         client = self.client

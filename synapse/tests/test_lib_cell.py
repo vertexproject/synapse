@@ -2084,7 +2084,7 @@ class CellTest(s_t_utils.SynTest):
             await orig(self, valu, reason=reason)
             revt.set()
 
-        errmsg = 'Unable to issue Nexus events when readonly is set: Insufficient free space on disk.'
+        errmsg = 'Insufficient free space on disk.'
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
              mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
