@@ -484,12 +484,40 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     )
     _storm_query = '''
         function ingest(flow) {
-                [ it:mitre:attack:flow=$attack_flow.id
-                    :name ?= $attack_flow.name
-                    :json ?= $flow
-                    :created ?= $attack_flow.created
-                    :updated ?= $attack_flow.modified
-                    :author:user ?= $lib.user.get()
+            $objs_byid = ({})
+            $objs_bytype = ({})
+
+            for $obj in $flow.objects {
+                $id = $obj.id
+                $objs_byid.$id = $obj
+
+                $type = $obj.type
+                if (not $objs_bytype.$type) {
+                    $objs_bytype.$type = ([])
+                }
+                $objs_bytype.$type.append($obj)
+            }
+
+            $attack_flow = $objs_bytype."attack-flow".0
+            ($_, $guid) = $attack_flow.id.split("--", 1)
+            $attack_flow.guid = $guid
+
+            $created_by = $objs_byid.($attack_flow.created_by_ref)
+            ($_, $guid) = $created_by.id.split("--", 1)
+            $created_by.guid = $guid
+
+            $lib.print($attack_flow.id)
+            [ it:mitre:attack:flow = $attack_flow.guid
+                :name ?= $attack_flow.name
+                :json ?= $flow
+                :created ?= $attack_flow.created
+                :updated ?= $attack_flow.modified
+                :author:user ?= $lib.user.iden
+                :author:contact ?= {[ ps:contact = $created_by.guid
+                                        :name ?= $created_by.name
+                                        :email ?= $created_by.contact_information
+                                    ]}
+            ]
         }
     '''
 

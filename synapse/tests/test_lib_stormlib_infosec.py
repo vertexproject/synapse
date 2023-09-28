@@ -510,6 +510,10 @@ class InfoSecTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
+            opts = {'vars': {'flow': flow}}
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
             # Remove a mandatory property from the bundle
             tmp = s_msgpack.deepcopy(flow)
             tmp.pop('spec_version')
