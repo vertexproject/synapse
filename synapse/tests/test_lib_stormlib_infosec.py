@@ -2,6 +2,7 @@ import json
 
 import synapse.exc as s_exc
 
+import synapse.lib.time as s_time
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.lookup.cvss as s_cvss
@@ -513,6 +514,21 @@ class InfoSecTest(s_test.SynTest):
             opts = {'vars': {'flow': flow}}
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('ps:contact')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'lauren parker')
+            self.eq(nodes[0].get('email'), 'lparker@mitre.org')
+            contact = nodes[0]
+
+            nodes = await core.nodes('it:mitre:attack:flow')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'CISA AA22-138B VMWare Workspace (Alt)')
+            self.eq(nodes[0].get('json'), flow)
+            self.eq(nodes[0].get('created'), s_time.parse('2023-02-21T14:51:27.768Z'))
+            self.eq(nodes[0].get('updated'), s_time.parse('2023-03-10T19:54:29.098Z'))
+            self.eq(nodes[0].get('author:user'), core.auth.rootuser.iden)
+            self.eq(nodes[0].get('author:contact'), contact.repr())
 
             # Remove a mandatory property from the bundle
             tmp = s_msgpack.deepcopy(flow)
