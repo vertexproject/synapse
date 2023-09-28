@@ -2135,12 +2135,12 @@ class Layer(s_nexus.Pusher):
 
         await self._saveDirtySodes()
 
-        # VISI
         async for nid, sode in self.getStorNodes():
 
             edits = []
 
             async for verb, n2nid in self.iterNodeEdgesN1(nid):
+                n2iden = s_common.ehex(self.core.getBuidByNid(n2nid))
                 edits.append((EDIT_EDGE_DEL, (verb, n2iden), ()))
 
             async for prop, valu in self.iterNodeData(nid):
@@ -3503,12 +3503,14 @@ class Layer(s_nexus.Pusher):
 
             sode = s_msgpack.un(byts)
             buid = self.core.getBuidByNid(nid)
+            ndef = self.core.getNidNdef(nid)
 
-            form = sode.get('form')
-            if form is None:
+            if ndef is None:
                 iden = s_common.ehex(buid)
                 logger.warning(f'NODE HAS NO FORM: {iden}')
                 continue
+
+            form = ndef[0]
 
             edits = []
             nodeedit = (buid, form, edits)

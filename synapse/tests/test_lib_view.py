@@ -587,7 +587,7 @@ class ViewTest(s_t_utils.SynTest):
                 'test:str': 0,
             }, await layr.getFormCounts())
 
-            self.eq(0, layr.layrslab.stat(db=layr.bybuidv3)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.bynid)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.byverb)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.edgesn1)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.edgesn2)['entries'])
@@ -733,12 +733,6 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
-
-            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
-
-            with self.raises(s_exc.AuthDeny) as cm:
-                await core.nodes('$lib.view.get().merge()', opts=viewopts)
             self.eq('node.tag.add.seen', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
@@ -749,12 +743,17 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addUserRule(useriden, (True, ('node', 'data', 'set')), gateiden=baselayr)
 
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
+
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
 
             nodes = await core.nodes('test:str=foo $node.data.load(foo)')
             self.len(1, nodes)
-            self.nn(nodes[0].props.get('.seen'))
-            self.nn(nodes[0].tags.get('seen'))
-            self.nn(nodes[0].tagprops.get('seen'))
-            self.nn(nodes[0].tagprops['seen'].get('score'))
+            self.nn(nodes[0].get('.seen'))
+            self.nn(nodes[0].get('#seen'))
+            self.nn(nodes[0].getTagProp('seen', 'score'))
             self.nn(nodes[0].nodedata.get('foo'))

@@ -4902,12 +4902,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
                     if len(alledits) > 1000:
-                        await layr1.storNodeEdits(alledits, meta)
+                        await layr1.saveNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
 
                 if alledits:
-                    await layr1.storNodeEdits(alledits, meta)
+                    await layr1.saveNodeEdits(alledits, meta)
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
