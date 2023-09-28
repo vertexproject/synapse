@@ -1,3 +1,4 @@
+import json
 import asyncio
 import logging
 
@@ -117,6 +118,103 @@ class HttpReq(s_stormtypes.StormType):
         self.hreq.write(json.dumps(body))
         await self.hreq.flush()
 
+@s_stormtypes.registry.registerType
+class HttpReq2(s_stormtypes.StormType):
+    '''
+    Examples:
+
+        $hapi = $lib.cortex.httpapi.add('foo/bar/baz')
+        $hapi.authenticated = (false)
+
+        $hapi.methods.get = ${
+            $request.reply(200, ({"ok": true, "value": 10}))
+        }
+
+        $resquest.params.<name> ( URL params / form params )
+        $resquest.json.<stuff>  ( parse body as json (cache) and deref )
+
+        // run the authenticated query as the owner
+
+        $hapi = $lib.cortex.httpapi.add('foo/bar/baz')
+        $hapi.methods.get = ${
+            $request.reply(200, ({"ok": true, "value": 10}))
+        }
+
+        // run the query as the authenticated user
+
+        $hapi = $lib.cortex.httpapi.add('foo/(.*)/blah')
+        $hapi.runas = user
+        $hapi.methods.get = ${
+            $request.reply(200, $lib.user.jsonstor.get($request.argv.1))
+        }
+
+        // queue an item from an anonymous API request
+
+        $hapi = $lib.cortex.httpapi.add(`foo/{$lib.guid}`)
+        $hapi.
+
+    '''
+    _storm_typename = 'http:api:request'
+    _storm_locals = ()
+
+    def __init__(self, runt, iden, hreq):
+        s_stormtypes.StormType.__init__(self)
+        self.replied = False
+        self.runt = runt
+        self.iden = iden
+        self.hreq = hreq
+        self.rcode = None
+        self.rbody = None
+        self.rheaders = None
+
+    def value(self):
+        return {
+            'iden': self.iden,
+            'code': self.rcode,
+            'headers': self.rheaders,
+            'body': self.rbody
+        }
+
+    def getObjLocals(self):
+        return {
+            # 'api': <http:api>,
+            'argv': (), # any wild globs from the endpoint parsing
+        }
+
+    async def _derefGet(self, name):
+        # TODO
+        # headers
+        # params ( dynamically parse / cache URL params and form params )
+        # json ( dynamically deserialize / cache JSON body )
+        # session (not MVP can delay) - $request.session.get() / set()
+
+        pass
+
+    def value(self):
+        return {
+            'iden': self.iden,
+            'code': self.rcode,
+            'body': self.rbody,
+            'headers': self.rheaders,
+        }
+    async def reply(self, code, body=None, headers=None):
+
+        if self.replied:
+            raise s_exc.BadArg(mesg='Response.reply() has already been called.')
+
+        self.replied = True
+
+        code = s_stormtypes.toint(code)
+        body = s_stormtypes.toprim(body)
+
+        headers = s_stormtypes.toprim(headers)
+        if headers is None:
+            headers = {}
+
+        self.rcode = code
+        self.rbody = body
+        self.rheaders = headers
+
 @s_stormtypes.registry.registerLib
 class CortexHttpApi(s_stormtypes.Lib):
     '''
@@ -130,7 +228,14 @@ class CortexHttpApi(s_stormtypes.Lib):
             'del': self.delHttpApi,
             'get': self.getHttpApi,
             'list': self.listHttpApis,
+            'response': self.makeHttpResponse,
         }
+
+    async def makeHttpResponse(self, iden, requestinfo):
+        iden = await s_stormtypes.tostr(iden)
+        prim = await s_stormtypes.toprim(requestinfo)
+
+        return HttpReq2(self.runt, iden, requestinfo)
 
     async def addHttpApi(self, path):
         # check for admin perms ( for add/del and list )
