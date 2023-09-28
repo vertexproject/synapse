@@ -264,6 +264,10 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
+    def setReadOnly(self, readonly, reason=None):
+        self.readonly = readonly
+        self.readonlyreason = reason
+
     async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop

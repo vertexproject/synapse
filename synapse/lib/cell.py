@@ -1374,8 +1374,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 reason = "Insufficient free space on disk."
 
                 await self._setReadOnly(True, reason=reason)
-                nexsroot.readonly = True
-                nexsroot.readonlyreason = reason
+                nexsroot.setReadOnly(True, reason=reason)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
@@ -1384,8 +1383,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             elif nexsroot.readonly:
 
                 await self._setReadOnly(False)
-                nexsroot.readonly = False
-                nexsroot.readonlyreason = None
+                nexsroot.setReadOnly(False)
 
                 await self.nexsroot.startup()
 
