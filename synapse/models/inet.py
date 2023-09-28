@@ -800,6 +800,10 @@ class Url(s_types.Str):
         local = False
         isUNC = False
 
+        if valu.startswith('\\\\'):
+            orig = s_chop.uncnorm(valu)
+            # Fall through to original norm logic
+
         # Protocol
         for splitter in ('://///', ':////'):
             try:
@@ -1390,28 +1394,27 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:email:message', ('guid', {}), {
-                        'doc': 'A unique email message.',
-                    }),
+                        'doc': 'An individual email message delivered to an inbox.'}),
 
                     ('inet:email:header:name', ('str', {'lower': True}), {
-                        'doc': 'An email header name.',
                         'ex': 'subject',
-                    }),
+                        'doc': 'An email header name.'}),
+
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
-                        'doc': 'A unique email message header.',
-                    }),
+                        'doc': 'A unique email message header.'}),
+
                     ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
-                        'doc': 'A file which was attached to an email message.',
-                    }),
+                        'doc': 'A file which was attached to an email message.'}),
+
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
-                        'doc': 'A url/link embedded in an email message.',
-                    }),
+                        'doc': 'A url/link embedded in an email message.'}),
+
                     ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
-                        'doc': 'A TLS JARM fingerprint hash.',
-                    }),
+                        'doc': 'A TLS JARM fingerprint hash.'}),
+
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
-                        'doc': 'A JARM hash sample taken from a server.',
-                    }),
+                        'doc': 'A JARM hash sample taken from a server.'}),
+
                 ),
 
                 'interfaces': (
@@ -1456,30 +1459,33 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:message', {}, (
 
                         ('to', ('inet:email', {}), {
-                            'doc': 'The email address of the recipient.'
-                        }),
+                            'doc': 'The email address of the recipient.'}),
+
                         ('from', ('inet:email', {}), {
-                            'doc': 'The email address of the sender.'
-                        }),
+                            'doc': 'The email address of the sender.'}),
+
                         ('replyto', ('inet:email', {}), {
-                            'doc': 'The email address from the reply-to header.'
-                        }),
+                            'doc': 'The email address parsed from the "reply-to" header.'}),
+
+                        ('cc', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                            'doc': 'Email addresses parsed from the "cc" header.'}),
+
                         ('subject', ('str', {}), {
-                            'doc': 'The email message subject line.'
-                        }),
+                            'doc': 'The email message subject parsed from the "subject" header.'}),
+
                         ('body', ('str', {}), {
-                            'doc': 'The body of the email message.',
                             'disp': {'hint': 'text'},
-                        }),
+                            'doc': 'The body of the email message.'}),
+
                         ('date', ('time', {}), {
-                            'doc': 'The time the email message was received.'
-                        }),
+                            'doc': 'The time the email message was delivered.'}),
+
                         ('bytes', ('file:bytes', {}), {
-                            'doc': 'The file bytes which contain the email message.'
-                        }),
+                            'doc': 'The file bytes which contain the email message.'}),
+
                         ('headers', ('array', {'type': 'inet:email:header'}), {
-                            'doc': 'An array of email headers from the message.'
-                        }),
+                            'doc': 'An array of email headers from the message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
@@ -3025,7 +3031,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
                         }),
                         ('registrant', ('inet:whois:ipcontact', {}), {
-                            'doc': 'The registrant contact from the record.'
+                            'deprecated': True,
+                            'doc': 'Deprecated. Add the registrant inet:whois:ipcontact to the :contacts array.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',

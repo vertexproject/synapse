@@ -64,7 +64,7 @@ SETTAGOPER: "?"
 // The set of non-edit non-commands in storm
 
 _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
-     | formjoinin | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
+     | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
@@ -151,7 +151,8 @@ _RIGHTPIVOT.4: "->"
 _LEFTPIVOT.4:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
-            | liftbytagprop | liftbyformtagprop
+            | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag
+            | liftreverse
 
 WILDCARD: "*"
 
@@ -185,15 +186,20 @@ edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
 edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
 
-liftformtag: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname [_cmpr _valu]
+_REVERSE: /reverse(?=[\s\(])/
+liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | lifttagtag | liftbytag | liftbytagprop | liftbyformtagprop) ")"
+
 _DEREF.3:  /\*(?=\$)/
+
+liftformtag: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname [_cmpr _valu]
 liftpropby: ((PROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
 liftprop: ((PROPS | UNIVNAME) | _DEREF _varvalu)
 liftbyarray: ((PROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
-lifttagtag:(_HASH | _HASHSPACE) tagname [_cmpr _valu]
+lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace) [_cmpr _valu]
 liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
+
 tagprop: tagname _COLONNOSPACE (BASEPROP | _varvalu)
 tagpropwithspace: tagnamewithspace _COLONNOSPACE (BASEPROP | _varvalu) -> tagprop
 formtagprop: ((PROPS | UNIVNAME) | _DEREF _varvalu) tagname _COLONNOSPACE (BASEPROP | _varvalu)
@@ -208,7 +214,7 @@ stormcmdargs: _stormcmdarg
 _stormcmdarg: _stormcmdarg? ((CMDOPT (EQNOSPACE (argvquery | _argvalu | wordtokn))?) | argvquery | _argvalu | wordtokn)
 
 // The name of a storm command
-CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
+CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as|reverse)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 

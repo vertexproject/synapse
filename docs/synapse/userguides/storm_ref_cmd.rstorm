@@ -138,6 +138,8 @@ help
 
 The ``help`` command displays the list of available commands within the current instance of Synapse and
 a brief message describing each command. Help for individual commands is available via ``<command> --help``.
+The ``help`` command can also be used to inspect information about :ref:`stormtypes-libs-header` and
+:ref:`stormtypes-prim-header`.
 
 **Syntax:**
 
@@ -852,6 +854,23 @@ the language name (``lang:language:name`` and / or ``lang:language:names``).
 
 .. storm-cli:: gen.lang.language --help
 
+.. _storm-gen-ou-id
+
+gen.ou.id.number
+++++++++++++++++
+
+The ``gen.ou.id.number`` command locates (lifts) or creates an ``ou:id:number`` node based on
+the organization ID type (``ou:id:type``) and organization ID value (``str``).
+
+.. storm-cli:: gen.ou.id.number --help
+
+gen.ou.id.type
+++++++++++++++
+
+The ``gen.ou.id.type`` command locates (lifts) or creates an ``ou:id:type`` node based on
+the friendly name of the organization ID type (``str``).
+
+.. storm-cli:: gen.ou.id.type --help
 
 .. _storm-gen-industry:
 

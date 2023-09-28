@@ -583,7 +583,7 @@ Pivot to tags syntax allows you to pivot from a set of nodes with tags to the se
 - pivot to all tag nodes matching a specified pattern, and
 - pivot to tag nodes matching an exact tag.
 
-See the :ref:`analytical-model-tags` document for additional discussion of tags as nodes (``syn:tag`` nodes) and tags as labels applied to other nodes.
+See the :ref:`analytical-model` document for additional discussion of tags as nodes (``syn:tag`` nodes) and tags as labels applied to other nodes.
 
 **Syntax:**
 

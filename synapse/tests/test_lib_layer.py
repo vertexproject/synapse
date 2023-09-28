@@ -26,7 +26,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 9)
+            self.eq(layr.layrvers, 10)
 
     async def test_layer_verify(self):
 
@@ -1561,6 +1561,9 @@ class LayerTest(s_t_utils.SynTest):
             readlayr = core.getLayer(readlayrinfo.get('iden'))
             self.true(readlayr.readonly)
 
+            with self.raises(s_exc.IsReadOnly):
+                await readlayr.truncate()
+
     async def test_layer_ro(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -1575,9 +1578,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 layriden = readonly[0].get('iden')
                 layr = core.getLayer(layriden)
-                self.true(layr.layrslab.readonly)
-                self.true(layr.dataslab.readonly)
-                self.true(layr.nodeeditslab.readonly)
 
                 view = await core.callStorm(f'return($lib.view.add(layers=({layriden},)))')
 
@@ -1704,6 +1704,45 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
 
             self.checkLayrvers(core)
+
+    async def test_layer_v10(self):
+
+        async with self.getRegrCore('layer-v10') as core:
+
+            nodes = await core.nodes('file:bytes inet:user')
+            verbs = [verb async for verb in nodes[0].iterEdgeVerbs(nodes[1].buid)]
+            self.eq(('refs',), verbs)
+
+            nodes0 = await core.nodes('[ ps:contact=* :name=visi +(has)> {[ mat:item=* :name=laptop ]} ]')
+            self.len(1, nodes0)
+            buid1 = nodes0[0].buid
+
+            nodes1 = await core.nodes('mat:item')
+            self.len(1, nodes1)
+            buid2 = nodes1[0].buid
+
+            layr = core.getView().layers[0]
+            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.eq(('has',), verbs)
+
+            await core.nodes('ps:contact:name=visi [ -(has)> { mat:item:name=laptop } ]')
+
+            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.len(0, verbs)
+
+            await core.nodes('ps:contact:name=visi [ +(has)> { mat:item:name=laptop } ]')
+
+            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.eq(('has',), verbs)
+
+            await core.nodes('ps:contact:name=visi | delnode --force')
+
+            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
+            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
+            self.len(0, verbs)
 
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
@@ -1834,25 +1873,64 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_setinfo(self):
 
-        async with self.getTestCore() as core:
+        with self.getTestDir() as dirn:
 
-            layer = core.getView().layers[0]
+            async with self.getTestCore(dirn=dirn) as core:
 
-            self.eq('hehe', await core.callStorm('$layer = $lib.layer.get() $layer.set(name, hehe) return($layer.get(name))'))
+                layer = core.getView().layers[0]
 
-            self.eq(False, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.false) return($layer.get(logedits))'))
-            edits0 = [e async for e in layer.syncNodeEdits(0, wait=False)]
-            await core.callStorm('[inet:ipv4=1.2.3.4]')
-            edits1 = [e async for e in layer.syncNodeEdits(0, wait=False)]
-            self.eq(len(edits0), len(edits1))
+                self.eq('hehe', await core.callStorm('$layer = $lib.layer.get() $layer.set(name, hehe) return($layer.get(name))'))
 
-            self.eq(True, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.true) return($layer.get(logedits))'))
-            await core.callStorm('[inet:ipv4=5.5.5.5]')
-            edits2 = [e async for e in layer.syncNodeEdits(0, wait=False)]
-            self.gt(len(edits2), len(edits1))
+                self.eq(False, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.false) return($layer.get(logedits))'))
+                edits0 = [e async for e in layer.syncNodeEdits(0, wait=False)]
+                await core.callStorm('[inet:ipv4=1.2.3.4]')
+                edits1 = [e async for e in layer.syncNodeEdits(0, wait=False)]
+                self.eq(len(edits0), len(edits1))
 
-            with self.raises(s_exc.BadOptValu):
-                await core.callStorm('$layer = $lib.layer.get() $layer.set(newp, hehe)')
+                self.eq(True, await core.callStorm('$layer = $lib.layer.get() $layer.set(logedits, $lib.true) return($layer.get(logedits))'))
+                await core.callStorm('[inet:ipv4=5.5.5.5]')
+                edits2 = [e async for e in layer.syncNodeEdits(0, wait=False)]
+                self.gt(len(edits2), len(edits1))
+
+                self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
+                await self.asyncraises(s_exc.IsReadOnly, core.nodes('[inet:ipv4=7.7.7.7]'))
+                await self.asyncraises(s_exc.IsReadOnly, core.nodes('$lib.layer.get().set(logedits, $lib.false)'))
+
+                self.false(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.false) return($layer.get(readonly))'))
+                self.len(1, await core.nodes('[inet:ipv4=7.7.7.7]'))
+
+                msgs = []
+                didset = False
+                async for mesg in core.storm('[( test:guid=(rotest00,) )] $lib.time.sleep(1) [( test:guid=(rotest01,) )]'):
+                    msgs.append(mesg)
+                    if mesg[0] == 'node:edits' and not didset:
+                        self.true(await core.callStorm('$layer=$lib.layer.get() $layer.set(readonly, $lib.true) return($layer.get(readonly))'))
+                        didset = True
+
+                self.stormIsInErr(f'Layer {layer.iden} is read only!', msgs)
+                self.len(1, [mesg for mesg in msgs if mesg[0] == 'node'])
+
+                with self.raises(s_exc.BadOptValu):
+                    await core.callStorm('$layer = $lib.layer.get() $layer.set(newp, hehe)')
+
+                await core.nodes('''
+                    $layer = $lib.layer.get()
+                    $layer.set(readonly, $lib.false)  // so we can set everything else
+                    $layer.set(name, foo)
+                    $layer.set(desc, foodesc)
+                    $layer.set(logedits, $lib.false)
+                    $layer.set(readonly, $lib.true)
+                ''')
+
+                info00 = await core.callStorm('return($lib.layer.get().pack())')
+                self.eq('foo', info00['name'])
+                self.eq('foodesc', info00['desc'])
+                self.false(info00['logedits'])
+                self.true(info00['readonly'])
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                self.eq(info00, await core.callStorm('return($lib.layer.get().pack())'))
 
     async def test_reindex_byarray(self):
 

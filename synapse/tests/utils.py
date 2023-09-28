@@ -52,6 +52,7 @@ import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
@@ -114,12 +115,22 @@ class LibTst(s_stormtypes.Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
+        {'name': 'someargs',
+         'desc': '''Example storm func with args.''',
+         'type': {'type': 'function', '_funcname': 'someargs',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                      {'name': 'bar', 'type': 'bool', 'desc': 'The value to beep.', 'default': True, },
+                      {'name': 'faz', 'type': 'str', 'desc': 'The value to beep.', 'default': None, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
 
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
+            'someargs': self.someargs,
         })
 
     async def beep(self, valu):
@@ -127,6 +138,13 @@ class LibTst(s_stormtypes.Lib):
         Example storm func
         '''
         ret = f'A {valu} beep!'
+        return ret
+
+    async def someargs(self, valu, bar=True, faz=None):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
 
 class TestType(s_types.Type):
@@ -210,6 +228,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('taxonomy',)}),
         ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
@@ -258,6 +277,7 @@ testmodel = {
         )),
         ('test:arrayform', {}, (
         )),
+        ('test:taxonomy', {}, ()),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {}),
@@ -829,6 +849,31 @@ test_schema = {
         },
         'type': 'object',
     }
+
+class ReloadCell(s_cell.Cell):
+    async def postAnit(self):
+        self._reloaded = False
+        self._reloadevt = None
+
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['cell']['reloaded'] = self._reloaded
+        return info
+
+    async def addTestReload(self):
+        async def func():
+            self._reloaded = True
+            if self._reloadevt:
+                self._reloadevt.set()
+            return True
+
+        self.addReloadableSystem('testreload', func)
+
+    async def addTestBadReload(self):
+        async def func():
+            return 1 / 0
+
+        self.addReloadableSystem('badreload', func)
 
 class SynTest(unittest.TestCase):
     '''

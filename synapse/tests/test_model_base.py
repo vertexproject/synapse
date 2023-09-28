@@ -37,12 +37,24 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
             self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
+            await core.nodes('meta:note | [ :updated=now ]')
+            self.len(1, await core.nodes('meta:note:updated<=now'))
 
             # Notes are always unique when made by note.add
             nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
             self.len(2, await core.nodes('meta:note'))
             self.ne(nodes[0].ndef, nodes[1].ndef)
             self.eq(nodes[0].get('text'), nodes[1].get('text'))
+
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add --yield "yieldnote"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'yieldnote')
+
+            nodes = await core.nodes('note.add --yield "nonodes"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'nonodes')
+
+            self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
 
     async def test_model_base_node(self):
 
@@ -197,12 +209,14 @@ class BaseTest(s_t_utils.SynTest):
                 props = {
                     'name': 'FOO BAR',
                     'type': 'osint',
+                    'url': 'https://foo.bar/index.html'
                 }
 
                 sorc = await snap.addNode('meta:source', '*', props=props)
 
                 self.eq(sorc.get('type'), 'osint')
                 self.eq(sorc.get('name'), 'foo bar')
+                self.eq(sorc.get('url'), 'https://foo.bar/index.html')
 
                 valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
 

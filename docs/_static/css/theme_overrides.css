@@ -3,6 +3,11 @@
     max-width: 90%;
 }
 
+/* provide a tight table option */
+.tight-table td {
+    white-space: normal !important;
+}
+
 /* Set search window background color to VTX GRAY1 */
 .wy-side-nav-search {
     background-color: #333F48;

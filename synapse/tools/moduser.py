@@ -79,12 +79,12 @@ async def main(argv, outp=s_output.stdout):
                 return 0
 
             if opts.admin is not None:
-                admin = yaml.safe_load(opts.admin)
+                admin = s_common.yamlloads(opts.admin)
                 outp.printf(f'...setting admin: {opts.admin}')
                 await cell.setUserAdmin(useriden, admin)
 
             if opts.locked is not None:
-                locked = yaml.safe_load(opts.locked)
+                locked = s_common.yamlloads(opts.locked)
                 outp.printf(f'...setting locked: {opts.locked}')
                 await cell.setUserLocked(useriden, locked)
 

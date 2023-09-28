@@ -26,6 +26,14 @@ class BackupLib(s_stormtypes.Lib):
                   'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('backup',)
+    _storm_lib_perms = (
+        {'perm': ('backup', 'del'), 'gate': 'cortex',
+         'desc': 'Permits a user to delete an existing backup.'},
+        {'perm': ('backup', 'list'), 'gate': 'cortex',
+         'desc': 'Permits a user to list existing backups.'},
+        {'perm': ('backup', 'run'), 'gate': 'cortex',
+         'desc': 'Permits a user to create a backup.'},
+    )
 
     def getObjLocals(self):
         return {

@@ -267,6 +267,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'key': ('baz', True), 'data': {'bam': 2}}, items[0][1])
             self.eq({'key': 'baz', 'data': {'bam': 3}}, items[1][1])
 
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel(newp/newp, nah))'))
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel(foo/bar, baz))'))
+            self.true(await core.callStorm('return($lib.jsonstor.cachedel((foo, bar), (baz, $lib.true)))'))
+            await self.agenlen(0, core.jsonstor.getPathObjs(path))
+
             with self.raises(s_exc.NoSuchType):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, $lib.queue, (1)))')
 
@@ -274,6 +279,8 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.jsonstor.cacheget(foo, bar))', opts=asvisi)
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.jsonstor.cacheset(foo, bar, baz))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.cachedel(foo, bar))', opts=asvisi)
 
     async def test_stormtypes_userjson(self):
 
@@ -598,7 +605,8 @@ class StormTypesTest(s_test.SynTest):
             'name': 'foo',
             'desc': 'test',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'modules': [
                 {
                     'name': 'test',
@@ -3935,6 +3943,46 @@ class StormTypesTest(s_test.SynTest):
             edits = [ne for ne in msgs if ne[0] == 'node:edits']
             self.len(0, edits)
 
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            # Add a layer
+            ldef = await core.addLayer()
+            layer = core.getLayer(ldef.get('iden'))
+
+            # Add a view via stormlib, worldreadable=False (default)
+            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},)).iden)')
+            self.nn(iden)
+            self.false(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via stormlib, worldreadable=True (default)
+            iden = await core.callStorm(f'return($lib.view.add(({layer.iden},), worldreadable=$lib.true).iden)')
+            self.nn(newiden)
+            self.true(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via storm cmd, worldreadable=False (default)
+            msgs = await core.stormlist(f'view.add --name view1 --layers {layer.iden}')
+            self.stormIsInPrint('View added.', msgs)
+
+            views = core.listViews()
+            views = {view.info.get('name'): view.iden for view in views}
+
+            iden = views.get('view1')
+            self.nn(iden)
+            self.false(visi.allowed(('view', 'read'), gateiden=iden))
+
+            # Add a view via storm cmd, worldreadable=True
+            msgs = await core.stormlist(f'view.add --name view1 --worldreadable $lib.true --layers {layer.iden}')
+            self.stormIsInPrint('View added.', msgs)
+
+            views = core.listViews()
+            views = {view.info.get('name'): view.iden for view in views}
+
+            iden = views.get('view1')
+            self.nn(iden)
+            self.true(visi.allowed(('view', 'read'), gateiden=iden))
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
@@ -3961,15 +4009,16 @@ class StormTypesTest(s_test.SynTest):
         async with self.getRegrCore('2.112.0-trigger-noasyncdef') as core:
 
             # Old trigger - created in v2.70.0 with no async flag set
+            view = await core.callStorm('return($lib.view.get().iden)')
             tdef = await core.callStorm('return ( $lib.trigger.get(bc1cbf350d151bba5936e6654dd13ff5) )')
             self.notin('async', tdef)
 
             msgs = await core.stormlist('trigger.list')
             self.stormHasNoWarnErr(msgs)
-            trgs = ('iden                             en?    async? cond      object',
-                    '8af9a5b134d08fded3edb667f8d8bbc2 true   true   tag:add   inet:ipv4',
-                    '99b637036016dadd6db513552a1174b8 true   false  tag:add            ',
-                    'bc1cbf350d151bba5936e6654dd13ff5 true   false  node:add  inet:ipv4',
+            trgs = ('iden                             view                             en?    async? cond      object',
+                    f'8af9a5b134d08fded3edb667f8d8bbc2 {view} true   true   tag:add   inet:ipv4',
+                    f'99b637036016dadd6db513552a1174b8 {view} true   false  tag:add            ',
+                    f'bc1cbf350d151bba5936e6654dd13ff5 {view} true   false  node:add  inet:ipv4',
                     )
             for m in trgs:
                 self.stormIsInPrint(m, msgs)
@@ -4008,7 +4057,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.list'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('user', mesgs)
-
+            self.stormIsInPrint('node:add', mesgs)
             self.stormIsInPrint('root', mesgs)
 
             nodes = await core.nodes('syn:trigger')
@@ -4152,21 +4201,70 @@ class StormTypesTest(s_test.SynTest):
             tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
             self.eq(tdef.get('doc'), 'awesome trigger')
 
+            with self.raises(s_exc.BadArg):
+                q = '$t = $lib.trigger.get($trig) $t.set("foo", "bar")'
+                await core.callStorm(q, opts={'vars': {'trig': trig}})
+
             nodes = await core.nodes('[ test:str=test1 ]')
             self.nn(nodes[0].tags.get('tagged'))
 
             mainview = await core.callStorm('return($lib.view.get().iden)')
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
 
+            forkopts = {'view': forkview}
+            await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            nodes = await core.nodes('syn:trigger', opts=forkopts)
+            self.stormNotInPrint(mainview, mesgs)
+            self.stormIsInPrint(forkview, mesgs)
+            self.len(1, nodes)
+            othr = nodes[0].ndef[1]
+
+            # fetch a trigger from another view
+            self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))
+
+            # mess with things to make a bad trigger and make sure move doesn't delete it
+            core.views[forkview].triggers.triggers[othr].tdef.pop('storm')
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            self.stormIsInErr('Cannot move invalid trigger', mesgs)
+
+            mesgs = await core.stormlist('trigger.list')
+            self.stormNotInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            self.stormIsInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint(othr, mesgs)
+
+            core.views[forkview].triggers.triggers[othr].tdef['storm'] = '[ +#naughty.trigger'
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            self.stormIsInErr('Cannot move invalid trigger', mesgs)
+
+            mesgs = await core.stormlist('trigger.list')
+            self.stormNotInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list', opts=forkopts)
+            self.stormIsInPrint(othr, mesgs)
+            mesgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint(othr, mesgs)
+
+            # fix that trigger in another view
+            await core.stormlist(f'trigger.mod {othr} {{ [ +#neato.trigger ] }}')
+            othrtrig = await core.callStorm(f'return($lib.trigger.get({othr}))')
+            self.eq('[ +#neato.trigger ]', othrtrig['storm'])
+
+            # now we can move it while being in a different view
+            await core.nodes(f'$lib.trigger.get({othr}).move({mainview})')
+            # but still retrieve it from the other view
+            self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))', opts=forkopts))
+
             await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
 
             nodes = await core.nodes('[ test:str=test2 ]')
             self.none(nodes[0].tags.get('tagged'))
 
-            nodes = await core.nodes('[ test:str=test3 ]', opts={'view': forkview})
+            nodes = await core.nodes('[ test:str=test3 ]', opts=forkopts)
             self.nn(nodes[0].tags.get('tagged'))
 
-            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts={'view': forkview})
+            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts=forkopts)
             nodes = await core.nodes('[ test:str=test4 ]')
             self.nn(nodes[0].tags.get('tagged'))
 
@@ -4185,6 +4283,19 @@ class StormTypesTest(s_test.SynTest):
             '''
             with self.raises(s_exc.DupIden):
                 await core.callStorm(q, opts={'view': forkview, 'vars': {'trig': trig}})
+
+            # toggle trigger in other view
+            mesgs = await core.stormlist(f'trigger.disable {othr}')
+            self.stormIsInPrint(f'Disabled trigger: {othr}', mesgs)
+
+            mesgs = await core.stormlist(f'trigger.enable {othr}')
+            self.stormIsInPrint(f'Enabled trigger: {othr}', mesgs)
+
+            mesgs = await core.stormlist(f'trigger.mod {othr} {{ [ +#burrito ] }}')
+            self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
+
+            await core.stormlist(f'trigger.del {othr}')
+            await self.asyncraises(s_exc.NoSuchIden, core.callStorm(f'return($lib.trigger.get({othr}))'))
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
@@ -4568,7 +4679,7 @@ class StormTypesTest(s_test.SynTest):
                 async with getCronJob("cron.add --year +2 {$lib.queue.get(foo).put(year1)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=1, day=1, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('year1', await getNextFoo())
 
@@ -4576,7 +4687,7 @@ class StormTypesTest(s_test.SynTest):
                 async with getCronJob("cron.add --month February --day=-2 {$lib.queue.get(foo).put(year2)}") as guid:
 
                     unixtime = datetime.datetime(year=2021, month=2, day=27, hour=0, minute=0,
-                                                 tzinfo=tz.utc).timestamp()  # Now Thursday
+                                                 tzinfo=tz.utc).timestamp() + 1  # Now Thursday
 
                     self.eq('year2', await getNextFoo())
 
@@ -4982,6 +5093,14 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
             self.stormIsInPrint('wootwoot                         : lol lol ( default: false )', msgs)
             self.stormIsInPrint('wootwoot.wow                     : a new permission ( default: true )', msgs)
+
+            async with core.getLocalProxy() as proxy:
+                for permdef in stormpkg.get('perms'):
+                    pdef = await proxy.getPermDef(permdef.get('perm'))
+                    self.eq(permdef.get('perm'), pdef.get('perm'))
+                    self.eq(permdef.get('desc'), pdef.get('desc'))
+                    self.eq(permdef.get('gate'), pdef.get('gate'))
+                    self.eq(permdef.get('default'), pdef.get('default'))
 
             visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
@@ -6348,3 +6467,36 @@ words\tword\twrd'''
 
             nodes = await core.nodes(f'test:str:_hugearray*[=({valu})]')
             self.len(1, nodes)
+
+    async def test_storm_stor_readonly(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('user')
+            user = udef.get('iden')
+
+            q = '$user=$lib.auth.users.get($iden) $user.name = $newname'
+            msgs = await core.stormlist(q, opts={'readonly': True,
+                                                 'vars': {
+                                                     'iden': user,
+                                                     'newname': 'oops'
+                                                 }})
+
+            self.stormIsInErr('Function (_storUserName) is not marked readonly safe.', msgs)
+
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+
+            q = '$user=$lib.auth.users.get($iden) $user.profile.foo = bar'
+            msgs = await core.stormlist(q, opts={'readonly': True,
+                                                 'vars': {'iden': user}})
+
+            self.stormIsInErr(mesg, msgs)
+
+            q = '$user=$lib.auth.users.get($iden) $user.vars.foo = bar'
+            msgs = await core.stormlist(q, opts={'readonly': True,
+                                                 'vars': {'iden': user}})
+
+            self.stormIsInErr(mesg, msgs)
+
+            q = '$lib.debug=$lib.true return($lib.debug)'
+            debug = await core.callStorm(q, opts={'readonly': True,
+                                                  'vars': {'iden': user}})
+            self.true(debug)

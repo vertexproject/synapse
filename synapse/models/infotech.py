@@ -213,6 +213,14 @@ loglevels = (
     (80, 'emerg'),
 )
 
+tlplevels = (
+    (10, 'clear'),
+    (20, 'green'),
+    (30, 'amber'),
+    (40, 'amber-strict'),
+    (50, 'red'),
+)
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -338,6 +346,20 @@ class ItModule(s_module.CoreModule):
                     'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
                     'ex': 'CWE-120',
                 }),
+
+                ('it:sec:tlp', ('int', {'enums': tlplevels}), {
+                    'doc': 'The US CISA Traffic-Light-Protocol used to designate information sharing boundaries.',
+                    'ex': 'green'}),
+
+                ('it:sec:metrics', ('guid', {}), {
+                    'doc': "A node used to track metrics of an organization's infosec program."}),
+
+                ('it:sec:vuln:scan', ('guid', {}), {
+                    'doc': "An instance of running a vulnerability scan."}),
+
+                ('it:sec:vuln:scan:result', ('guid', {}), {
+                    'doc': "A vulnerability scan result for an asset."}),
+
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
                     'doc': 'A Mitre ATT&CK element status.',
                     'ex': 'current',
@@ -937,6 +959,115 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ChildOf CWE Relationships.'
                     }),
                 )),
+
+                ('it:sec:metrics', {}, (
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization whose security program is being measured.'}),
+
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The organization name. Used for entity resolution.'}),
+
+                    ('org:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The organization FQDN. Used for entity resolution.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period used to compute the metrics.'}),
+
+                    ('alerts:meantime:triage', ('duration', {}), {
+                        'doc': 'The mean time to triage alerts generated within the time period.'}),
+
+                    ('alerts:count', ('int', {}), {
+                        'doc': 'The total number of alerts generated within the time period.'}),
+
+                    ('alerts:falsepos', ('int', {}), {
+                        'doc': 'The number of alerts generated within the time period that were determined to be false positives.'}),
+
+                    ('assets:hosts', ('int', {}), {
+                        'doc': 'The total number of hosts within scope for the information security program.'}),
+
+                    ('assets:users', ('int', {}), {
+                        'doc': 'The total number of users within scope for the information security program.'}),
+
+                    ('assets:vulns:count', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the end of the time period.'}),
+
+                    ('assets:vulns:preexisting', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the beginning of the time period.'}),
+
+                    ('assets:vulns:discovered', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities discovered during the time period.'}),
+
+                    ('assets:vulns:mitigated', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities mitigated during the time period.'}),
+
+                    ('assets:vulns:meantime:mitigate', ('duration', {}), {
+                        'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time period.'}),
+
+                )),
+
+                ('it:sec:vuln:scan', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan was started.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'Description of the scan and scope.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An externally generated ID for the scan.'}),
+
+                    ('ext:url', ('inet:url', {}), {
+                        'doc': 'An external URL which documents the scan.'}),
+
+                    ('software', ('it:prod:softver', {}), {
+                        'doc': 'The scanning software used.'}),
+
+                    ('software:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'Contact information for the scan operator.'}),
+
+                )),
+
+                ('it:sec:vuln:scan:result', {}, (
+
+                    ('scan', ('it:sec:vuln:scan', {}), {
+                        'doc': 'The scan that discovered the vulnerability in the asset.'}),
+
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability detected in the asset.'}),
+
+                    ('asset', ('ndef', {}), {
+                        'doc': 'The node which is vulnerable.'}),
+
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the vulnerability and how it was detected in the asset.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan result was produced.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An externally generated ID for the scan result.'}),
+
+                    ('ext:url', ('inet:url', {}), {
+                        'doc': 'An external URL which documents the scan result.'}),
+
+                    ('mitigation', ('risk:mitigation', {}), {
+                        'doc': 'The mitigation used to address this asset vulnerability.'}),
+
+                    ('mitigated', ('time', {}), {
+                        'doc': 'The time that the vulnerability in the asset was mitigated.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of mitigating the vulnerability.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
+                )),
+
                 ('it:mitre:attack:group', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
@@ -1239,8 +1370,14 @@ class ItModule(s_module.CoreModule):
                     ('created', ('time', {}), {
                         'doc': 'The time the issue was created.',
                     }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the issue was updated.',
+                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the issue is hosted.',
+                    }),
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the issue in the repository system.',
                     }),
                 )),
 
@@ -1257,6 +1394,12 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the comment is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the comment was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the comment was updated.',
                     }),
                 )),
 
@@ -1279,6 +1422,12 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the comment is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the comment was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the comment was updated.',
                     }),
                 )),
 
@@ -1640,7 +1789,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file basename of the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
-                        'doc': 'The path to the executable which started the process.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Create :src:proc and set :path.',
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
