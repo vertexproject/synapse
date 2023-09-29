@@ -754,6 +754,5 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.isin('del.all', nodes[0].tags)
 
-            breakpoint()
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.nodes('syn:trigger'))
