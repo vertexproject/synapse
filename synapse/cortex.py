@@ -75,9 +75,10 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
-import synapse.lib.stormlib.hashes as s_stormlib_hashes # NOQA
-import synapse.lib.stormlib.random as s_stormlib_random # NOQA
-import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
+import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
+import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
+import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
+import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
@@ -1219,9 +1220,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self._initCortexHttpApi()
         self.httpexts = []
-        for key, valu in self.slab.scanByFull(self.httpextapidb):
-            print(f'{key=} {valu=}')
-            self.httpexts.append(valu)
+        self._initCortexHttpExtApi()
 
         self.model = s_datamodel.Model()
 
@@ -4225,9 +4224,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
-        self.addHttpApi('/api/ext/.*', s_httpapi.ExtApiHandler, {'cell': self})
+        self.addHttpApi('/api/ext/(.*)', s_httpapi.ExtApiHandler, {'cell': self})
 
     # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    def _initCortexHttpExtApi(self):
+        # TODO - indexed order loading
+        self.httpexts.clear()
+        for key, byts in self.slab.scanByFull(self.httpextapidb):
+            logger.info(f'{key=} {byts=}')
+            self.httpexts.append(s_msgpack.un(byts))
 
     async def addHttpExtApi(self, adef, indx=-1):
 
@@ -4241,45 +4246,60 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return await self._push('http:api:add', adef, indx)
 
     @s_nexus.Pusher.onPush('http:api:add')
-    async def _addHttpExtApi(self, adef):
+    async def _addHttpExtApi(self, adef, indx):
         iden = adef.get('iden')
-        self.slab.set(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
         # TODO handle refreshing index ordered list...
+        # Re-initialize the HTTP API list from the index order
+        self._initCortexHttpExtApi()
         return adef
 
     @s_nexus.Pusher.onPushAuto('http:api:del')
     async def delHttpExtApi(self, iden):
 
-        byts = self.slab.pop(s_common.uhex(iden), db='http:ext:apis')
+        byts = self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
         if byts is None:
             return
 
         adef = s_msgpack.un(byts)
 
         # TODO remove from cached (index ordered) list...
+        self._initCortexHttpExtApi()
+
         return adef
 
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
 
-        byts = self.slab.pop(s_common.uhex(iden), db='http:ext:apis')
+        if name not in ('name', 'desc', 'path', 'runas', 'owner', 'perms', 'methods'):
+            raise s_exc.BadArg(mesg=f'Cannot set {name=}')
+
+        byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
         if byts is None:
-            raise s_exc.NoSuchIden()
+            raise s_exc.NoSuchIden(mesg='No http api')
 
         adef = s_msgpack.un(byts)
         adef[name] = valu
 
+        # TODO Schema validation
+
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
+
         # TODO handle bumping other values index values down
         # TODO handle refresh index ordered list
+        # exts = list(self.httpexts)
+        # self.httpexts = [a for a in exts if a['iden'] != iden]
 
-        exts = list(self.httpexts)
-        self.httpexts = [a for a in exts if a['iden'] != iden]
+        self._initCortexHttpExtApi()
+
+        return adef
 
     async def getHttpExtApis(self):
         return list(self.httpexts)
 
     async def getHttpExtApi(self, path):
         # use index ordered list to resolve which and (adef, globs)
+        logger.info(f'{self.httpexts=}')
         if self.httpexts:
             # TODO Actually implement a handler....
             return self.httpexts[0], path

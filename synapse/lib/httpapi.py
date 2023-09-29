@@ -1241,17 +1241,13 @@ class CoreInfoV1(Handler):
         resp = await self.cell.getCoreInfoV2()
         return self.sendRestRetn(resp)
 
-class ExtApiHandle(StormHandler):
+class ExtApiHandler(StormHandler):
     '''
     /api/ext/.*
     '''
 
-    storm_prefix = '''init {
-        $request = $lib.cortex.httpapi.response($_http_request_iden, $_http_request_info)
-        $lib.vars.del($_http_request_iden)
-        $lib.vars.del($_http_request_info)
-    }
-    '''
+    storm_prefix = 'init { $request = $lib.cortex.httpapi.response($_http_request_info) }'
+
     async def get(self, path):
         return await self._runHttpExt('get', path)
 
@@ -1267,7 +1263,7 @@ class ExtApiHandle(StormHandler):
         return await self._runHttpExt('head', path)
 
     async def _runHttpExt(self, meth, path):
-
+        logger.info(f'{path=} {self.path_kwargs} {self.path_args}')
         core = self.getCore()
         adef, argv = await core.getHttpExtApi(path)
         if adef is None:
@@ -1277,27 +1273,37 @@ class ExtApiHandle(StormHandler):
         if adef.get('authenticated'):
             useriden = await self.useriden()
             if useriden is None:
-                self.reqAuthUser()
+                await self.reqAuthUser()
                 return
 
         if adef.get('runas') == 'owner':
             useriden = adef.get('owner')
-            # TODO check locked / archived / etc
-            # TODO - These are enforced by the callStorm API
-            # already, we don't need to handle those here.
+
+        # TODO - Handle permissions / role requirements
+        # adef.get('perms')
+        # for perm in perms:
+        #     # check the perm for the user against the Cortex authgate
 
         # TODO - Handle authenticated = false + ruans != owner
+        # PER VISI - Run that as the owner ( despite configuration stating otherwise )
 
-        iden = s_common.guid()  # per-request iden
+        iden = s_common.guid()  # per-request iden # OBE
+
+        # TODO serialize the request data so we can push it into the
+        # Storm runtime and have it wrapped into the request object.
         info = {}
         vars = {
-            '_http_request_iden': iden,
             '_http_request_info': info,
         }
         opts = {
             'vars': vars,
             'user': useriden,
             'view': adef.get('view'),
+            'show': (
+                'http:resp:body',
+                'http:resp:code',
+                'http:resp:headers',
+            )
         }
 
         storm = adef['methods'].get(meth)
@@ -1305,64 +1311,40 @@ class ExtApiHandle(StormHandler):
         if storm is None:
             return self.sendRestErr('BadPathOrSomething', f'No storm endpoint defined for method {meth}')
 
-        query = '\n'.join(self.storm_prefix, storm)
+        query = '\n'.join((self.storm_prefix, storm))
 
-        # FIXME - This is a copy of the storm/call code
-        try:
-            ret = await core.callStorm(query, opts=opts)
-        except s_exc.SynErr as e:
-            mesg = e.get('mesg', str(e))
-            return self.sendRestErr(e.__class__.__name__, mesg)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-        except Exception as e:
-            mesg = str(e)
-            return self.sendRestErr(e.__class__.__name__, mesg)
+        rcode = None
+        rheaders = None
 
-        # TODO Validate return struct...
+        async for mtyp, info in core.storm(query, opts=opts):
+            if mtyp == 'http:resp:code':
+                if rcode is not None:
+                    # TODO HTTP 500
+                    logger.error('Already got rcode!')
+                rcode = info['code']
+                self.set_status(rcode)
 
-        if not isinstance(ret, dict):
-            return self.sendRestErr('BadReturnOrSomething', f'Invalid response - expected a dictionary')
+            if mtyp == 'http:resp:headers':
+                if rheaders is not None:
+                    # TODO HTTP 500
+                    logger.error('Already got rcode!')
+                rheaders = info['headers']
+                for hkey, hval in rheaders.items():
+                    self.set_header(hkey, hval)
 
-        if iden != ret.get('iden'):
-            return self.sendRestErr('BadReturnOrSomething', f'Invalid response - incorrect iden')
+            if mtyp == 'http:resp:body':
+                if rheaders is None or rcode is None:
+                    # TODO HTTP 500
+                    logger.error('Handler must set status code and headers first!')
+                body = info['body']
+                flush = info['body']
+                self.write(body)
+                if flush:
+                    await self.flush()
 
-        headers = ret.get('headers')
+        await self.finish()
 
-        if not isinstance(headers, dict):
-            return self.sendRestErr('BadReturnOrSomething', f'Invalid response headers - should have been a dict')
-
-        for name, valu in headers.items():
-            self.set_header(name, valu)
-
-        code = ret.get('code')
-        body = ret.get('body')
-
-        if isinstance(body, bytes):
-            self.set_status(code)
-            self.write(body)
-            await self.flush()
-            return
-
-        if isinstance(body, str):
-            self.set_status(code)
-            self.write(body.encode())
-            await self.flush()
-            return
-
-        # Easy path - json data
-        self.set_status(code)
-        self.set_header('Content-Type', 'application/json')
-        self.write(json.dumps(body))
-        await self.flush()
-
-        # run storm in correct view/user and handle return() to allow them to bail
-        # run the storm callback in the proper view
-        # check http:req.replied and send 500 if not
-        # try/except and send 500 on unexpected bail
-        # asyncio sleep(0) for each iteration but drop them on the floor :D
-        # async for node, path in view.storm()
-        # needs logging etc?
+        # TODO needs logging etc?
 
 class ExtApiHandleV(Handler):
     '''

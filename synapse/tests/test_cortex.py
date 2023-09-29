@@ -7548,3 +7548,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe'}})
             pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
             self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe'])
+
+            q = '''
+            init {$foo = bar $lib.print(`{$foo} {$wow}`) }
+            init {$baz = hehe $lib.print('second init!') }
+            $lib.print($baz)
+            [test:str=stuff]
+            $stuff = $node.value()
+            fini { $lib.print(fini1) }
+            fini { $lib.print(`fini {$stuff}`) }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe', 'stuff': None}})
+            pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe', 'fini1', 'fini stuff'])
