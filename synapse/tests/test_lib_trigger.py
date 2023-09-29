@@ -671,7 +671,7 @@ class TrigTest(s_t_utils.SynTest):
             self.isin('cookies', node[0].tags)
             self.isin('icecream', node[0].tags)
 
-            nodes = await core.nodes('syn:trigger')
+            nodes = await core.nodes('syn:trigger', opts=opts)
             self.len(4, nodes)
             for n in nodes:
                 self.eq(n.props['edge'], 'refs')
