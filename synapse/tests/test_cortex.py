@@ -6890,28 +6890,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'version'] properties")
+                        "data must contain ['name'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'version'] properties")
+                        "data must contain ['version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data.modules[0] must contain ['name', 'storm'] properties")
-
-                pkg = copy.deepcopy(base_pkg)
-                pkg.pop('version')
-                with self.raises(s_exc.SchemaViolation) as cm:
-                    await core.addStormPkg(pkg)
-                self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'version'] properties")
+                        "data.modules[0] must contain ['name'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['commands'][0]['cmdargs'] = ((
