@@ -46,7 +46,7 @@ def refHandler(func):
     def wrapper(uri):
         ret = func(uri)
         if ret is None:
-            if __debug__:
+            if __debug__:  # pragma: no cover
                 logger.warning('Fetching remote JSON schema: %s. Consider caching to disk.', uri)
             return fastjsonschema.ref_resolver.resolve_remote(uri, {})
         return ret
