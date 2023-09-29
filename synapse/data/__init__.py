@@ -1,6 +1,7 @@
 import os
 import json
 import urllib
+import logging
 import functools
 
 import fastjsonschema
@@ -8,6 +9,8 @@ import fastjsonschema
 import synapse.common as s_common
 import synapse.lib.datfile as s_datfile
 import synapse.lib.msgpack as s_msgpack
+
+logger = logging.getLogger(__name__)
 
 dirname = os.path.dirname(__file__)
 
@@ -44,9 +47,7 @@ def refHandler(func):
         ret = func(uri)
         if ret is None:
             if __debug__:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning('Fetching remote JSON schema: %s', uri)
+                logger.warning('Fetching remote JSON schema: %s. Consider caching to disk.', uri)
             return fastjsonschema.ref_resolver.resolve_remote(uri, {})
         return ret
 
@@ -54,6 +55,11 @@ def refHandler(func):
 
 @refHandler
 def localSchemaRefHandler(uri):
+    '''
+    This function parses the given URI to get the path component and then tries
+    to resolve the referenced schema from the 'jsonschemas' directory of
+    synapse.data.
+    '''
     try:
         parts = urllib.parse.urlparse(uri)
     except ValueError:
@@ -69,3 +75,11 @@ def localSchemaRefHandler(uri):
 
     with open(filename, 'r') as fp:
         return json.load(fp)
+
+# This default_schema_ref_handlers dictionary can be used by any jsonschema
+# validator to attempt to resolve schema '$ref' values locally from disk first,
+# and then fallback to downloading from the internet.
+default_schema_ref_handlers = {
+    'http': localSchemaRefHandler,
+    'https': localSchemaRefHandler,
+}

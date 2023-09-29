@@ -413,50 +413,6 @@ CVSS_CALC = {
 def roundup(x):
     return (math.ceil(x * 10) / 10.0)
 
-@s_data.refHandler
-def stix21SchemaRefHandler(uri):
-    # We only handle STIX 2.1 schemas like so:
-    # http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json
-
-    try:
-        parts = urllib.parse.urlparse(uri)
-    except ValueError:
-        return None
-
-    if parts.hostname != 'raw.githubusercontent.com':
-        return None
-
-    if not parts.path.startswith('/oasis-open/cti-stix2-json-schemas/stix2.1'):
-        return None
-
-    return s_data.localSchemaRefHandler(uri)
-
-attack_flow_validators = {}
-def getAttackFlowValidator(version='2.0.0'):
-    validator = attack_flow_validators.get(version)
-    if validator is None:
-        # The published Attack Flow json schema at the below URL is horribly
-        # broken. It depends on some custom python scripting to validate each
-        # object individually against the schema for each object's type instead
-        # of validating the document as a whole. Instead, the
-        # attack-flow-schema-2.0.0 file that is published in the synapse data
-        # directory is a heavily modified version of the official schema that
-        # actually works as a json schema should.
-        # https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
-
-        schema = s_data.getJSON(f'attack-flow-schema-{version}')
-
-        # The Attack Flow schema references stix2.1 schemas by URI. Setup a ref
-        # handler to fetch these from local disk instead of over the WAN every
-        # single time.
-        handlers = {
-          'http': stix21SchemaRefHandler,
-          'https': stix21SchemaRefHandler
-        }
-
-        validator = attack_flow_validators[version] = s_config.getJsValidator(schema, handlers=handlers, use_default=False)
-    return validator
-
 @s_stormtypes.registry.registerLib
 class MitreAttackFlowLib(s_stormtypes.Lib):
     '''
@@ -464,13 +420,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     '''
     _storm_lib_path = ('infosec', 'mitre', 'attack', 'flow')
     _storm_locals = (
-        {'name': 'validate', 'desc': 'Validate a MITRE ATT&CK Flow diagram in JSON format.',
-         'type': {'type': 'function', '_funcname': 'validate',
-                  'args': (
-                      {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to validate against the schema.'},
-                  ),
-                  'returns': {'type': 'null'}}
-        },
         {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -481,7 +430,9 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     )
     _storm_query = '''
         function ingest(flow) {
-            $lib.infosec.mitre.attack.flow.validate($flow)
+            $lib.cast(it:mitre:attack:flow:json, $flow)
+
+            $guid = $lib.guid($flow)
 
             $objs_byid = ({})
             $objs_bytype = ({})
@@ -498,20 +449,15 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             }
 
             $attack_flow = $objs_bytype."attack-flow".0
-            ($_, $guid) = $attack_flow.id.split("--", 1)
-            $attack_flow.guid = $guid
-
             $created_by = $objs_byid.($attack_flow.created_by_ref)
-            ($_, $guid) = $created_by.id.split("--", 1)
-            $created_by.guid = $guid
 
-            [ it:mitre:attack:flow = $attack_flow.guid
+            [ it:mitre:attack:flow = $guid
                 :name ?= $attack_flow.name
                 :json ?= $flow
                 :created ?= $attack_flow.created
                 :updated ?= $attack_flow.modified
                 :author:user ?= $lib.user.iden
-                :author:contact ?= {[ ps:contact = $created_by.guid
+                :author:contact ?= {[ ps:contact = (attack-flow, $created_by.name, $created_by.contact_information)
                                         :name ?= $created_by.name
                                         :email ?= $created_by.contact_information
                                     ]}
@@ -520,15 +466,6 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             return($node)
         }
     '''
-
-    def getObjLocals(self):
-        return {
-            'validate': self.validate,
-        }
-
-    def validate(self, flow):
-        s_common.reqjsonsafe(flow)
-        getAttackFlowValidator()(flow)
 
 @s_stormtypes.registry.registerLib
 class CvssLib(s_stormtypes.Lib):

@@ -508,7 +508,7 @@ class InfoSecTest(s_test.SynTest):
         flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
         async with self.getTestCore() as core:
             opts = {'vars': {'flow': flow}}
-            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
             opts = {'vars': {'flow': flow}}
@@ -534,7 +534,7 @@ class InfoSecTest(s_test.SynTest):
             tmp = s_msgpack.deepcopy(flow)
             tmp.pop('spec_version')
             opts = {'vars': {'flow': tmp}}
-            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormIsInErr("data must contain ['spec_version'] properties", msgs)
 
             # Remove the mandatory attack-flow object
@@ -542,7 +542,7 @@ class InfoSecTest(s_test.SynTest):
             objects = [k for k in tmp['objects'] if k['type'] != 'attack-flow']
             tmp['objects'] = objects
             opts = {'vars': {'flow': tmp}}
-            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormIsInErr('data.objects must contain one of contains definition', msgs)
 
             # Remove a mandatory property from attack-flow types
@@ -552,7 +552,7 @@ class InfoSecTest(s_test.SynTest):
             [k.pop('scope') for k in attack_flows]
             tmp['objects'] = objects + attack_flows
             opts = {'vars': {'flow': tmp}}
-            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormIsInErr("data.objects[33] must contain ['scope'] properties", msgs)
 
             # Change a fixed property value from attack-flow types
@@ -562,7 +562,7 @@ class InfoSecTest(s_test.SynTest):
             [k.update({'spec_version': '2.2'}) for k in attack_flows]
             tmp['objects'] = objects + attack_flows
             opts = {'vars': {'flow': tmp}}
-            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormIsInErr("data.objects[33].spec_version must be one of ['2.0', '2.1']", msgs)
 
             # Remove a mandatory property from attack-action types
@@ -572,5 +572,5 @@ class InfoSecTest(s_test.SynTest):
             [k.pop('extensions') for k in attack_actions]
             tmp['objects'] = objects + attack_actions
             opts = {'vars': {'flow': tmp}}
-            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.validate($flow)', opts=opts)
+            msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)
             self.stormIsInErr("data.objects[23] must contain ['extensions'] properties", msgs)

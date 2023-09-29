@@ -1458,8 +1458,12 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            typeitem = self.runt.snap.core.model.prop(name)
+            if typeitem is None:
+                mesg = f'No type found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = typeitem.type
 
         # TODO an eventual mapping between model types and storm prims
 
@@ -1473,8 +1477,12 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            typeitem = self.runt.snap.core.model.prop(name)
+            if typeitem is None:
+                mesg = f'No type found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = typeitem.type
 
         try:
             norm, info = typeitem.norm(valu)

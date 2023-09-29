@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 
 import synapse.common as s_common
 
@@ -220,6 +221,17 @@ tlplevels = (
     (40, 'amber-strict'),
     (50, 'red'),
 )
+
+# The published Attack Flow json schema at the below URL is horribly
+# broken. It depends on some custom python scripting to validate each
+# object individually against the schema for each object's type instead
+# of validating the document as a whole. Instead, the
+# attack-flow-schema-2.0.0 file that is published in the synapse data
+# directory is a heavily modified version of the official schema that
+# actually works as a json schema should.
+# https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
+
+attack_flow_schema_2_0_0 = s_data.getJSON(f'attack-flow-schema-2.0.0')
 
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
@@ -1223,7 +1235,7 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The name of the attack-flow diagram.'}),
-                    ('json', ('data', {}), {
+                    ('json', ('data', {'schema': attack_flow_schema_2_0_0}), {
                         'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time that the diagram was created.'}),
