@@ -3181,55 +3181,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (realcore, core):
 
-            msgs = await alist(core.storm('.created | limit 1 | help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-            self.len(1, [n for n in msgs if n[0] == 'node'])
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: synapse')
-            self.stormIsInPrint('help', msgs)
-            self.stormIsInPrint(': List available commands and a brief description for each.', msgs)
-
-            msgs = await alist(core.storm('help view'))
-            self.stormIsInPrint('view.merge', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            msgs = await alist(core.storm('help newp'))
-            self.stormIsInPrint('No commands found matching "newp"', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('uniq', msgs)
-
-            # test that storm package commands that didn't come from
-            # a storm service are displayed
-            otherpkg = {
-                'name': 'foosball',
-                'version': '0.0.1',
-                'synapse_minversion': [2, 144, 0],
-                'synapse_version': '>=2.8.0,<3.0.0',
-                'commands': ({
-                    'name': 'testcmd',
-                    'descr': 'test command',
-                    'storm': '[ inet:ipv4=1.2.3.4 ]',
-                },)
-            }
-            self.none(await core.addStormPkg(otherpkg))
-
-            msgs = await alist(core.storm('help'))
-            self.printed(msgs, 'package: foosball')
-            self.stormIsInPrint('testcmd', msgs)
-            self.stormIsInPrint(': test command', msgs)
-
-            msgs = await alist(core.storm('help testcmd'))
-            self.stormIsInPrint('testcmd', msgs)
-            with self.raises(AssertionError):
-                self.stormIsInPrint('view.merge', msgs)
-
-            msgs = await alist(core.storm('[test:str=uniq] | help $node.value()'))
-            self.stormIsInErr('help does not support per-node invocation', msgs)
-
             await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
             self.eq(2, await core.count('inet:user'))
@@ -6897,28 +6848,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'version'] properties")
+                        "data must contain ['name'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'version'] properties")
+                        "data must contain ['version'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['modules'][0].pop('name')
                 with self.raises(s_exc.SchemaViolation) as cm:
                     await core.addStormPkg(pkg)
                 self.eq(cm.exception.errinfo.get('mesg'),
-                        "data.modules[0] must contain ['name', 'storm'] properties")
-
-                pkg = copy.deepcopy(base_pkg)
-                pkg.pop('version')
-                with self.raises(s_exc.SchemaViolation) as cm:
-                    await core.addStormPkg(pkg)
-                self.eq(cm.exception.errinfo.get('mesg'),
-                        "data must contain ['name', 'version'] properties")
+                        "data.modules[0] must contain ['name'] properties")
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg['commands'][0]['cmdargs'] = ((

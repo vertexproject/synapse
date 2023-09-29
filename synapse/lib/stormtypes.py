@@ -31,6 +31,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -186,7 +187,7 @@ class StormTypesRegistry:
 
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
-        funcname = rtype.pop('_funcname')
+        funcname = rtype.get('_funcname')
         if funcname == '_storm_query':
             # Sentinel used for future validation of pure storm
             # functions defined in _storm_query data.
@@ -242,12 +243,16 @@ class StormTypesRegistry:
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
         assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
-    def getLibDocs(self):
+    def getLibDocs(self, lib=None):
         # Ensure type docs are loaded/verified.
         _ = self.getTypeDocs()
 
-        libs = self.iterLibs()
-        libs.sort(key=lambda x: x[0])
+        if lib is None:
+            libs = self.iterLibs()
+            libs.sort(key=lambda x: x[0])
+        else:
+            libs = ((lib._storm_lib_path, lib),)
+
         docs = []
         for (sname, slib) in libs:
             sname = slib.__class__.__name__
@@ -288,10 +293,12 @@ class StormTypesRegistry:
 
         return docs
 
-    def getTypeDocs(self):
-
-        types = self.iterTypes()
-        types.sort(key=lambda x: x[1]._storm_typename)
+    def getTypeDocs(self, styp: str =None):
+        if styp is None:
+            types = self.iterTypes()
+            types.sort(key=lambda x: x[1]._storm_typename)
+        else:
+            types = [(k, v) for (k, v) in self.iterTypes() if styp == v._storm_typename]
 
         docs = []
         for (sname, styp) in types:
@@ -443,6 +450,10 @@ class StormType:
             mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
+        if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
+            mesg = f'Function ({stor.__name__}) is not marked readonly safe.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
+
         await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
@@ -504,7 +515,14 @@ class Lib(StormType):
             async for item in self.modrunt.execute():
                 await asyncio.sleep(0)  # pragma: no cover
 
-            self.locls.update(self.modrunt.vars)
+            for k, v in self.modrunt.vars.items():
+                # Annotate the name and lib onto the callable
+                # so that it can be inspected later.
+                if callable(v) and v.__name__ == 'realfunc':
+                    v._storm_runtime_lib = self
+                    v._storm_runtime_lib_func = k
+
+                self.locls[k] = v
 
     async def stormrepr(self):
         if '__module__' in self.locls:
@@ -1323,6 +1341,7 @@ class LibBase(Lib):
     async def _getRuntDebug(self):
         return self.runt.debug
 
+    @stormfunc(readonly=True)
     async def _setRuntDebug(self, debug):
         self.runt.debug = await tobool(debug)
 
@@ -3497,7 +3516,7 @@ class Proxy(StormType):
     An example of calling a method which is a generator::
 
         $prox = $lib.telepath.open($url)
-        for $item in = $prox.genrStuff($data) {
+        for $item in $prox.genrStuff($data) {
             $doStuff($item)
         }
 
@@ -3528,8 +3547,17 @@ class Proxy(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyMethod(StormType):
+    '''
+    Implements the call methods for the telepath:proxy.
+
+    An example of calling a method which returns data::
+
+        $prox = $lib.telepath.open($url)
+        $result = $prox.doWork($data)
+        $doStuff($result)
+    '''
 
     _storm_typename = 'telepath:proxy:method'
 
@@ -3551,9 +3579,18 @@ class ProxyMethod(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyGenrMethod(StormType):
+    '''
+    Implements the generator methods for the telepath:proxy.
 
+    An example of calling a method which is a generator::
+
+        $prox = $lib.telepath.open($url)
+        for $item in $prox.genrStuff($data) {
+            $doStuff($item)
+        }
+    '''
     _storm_typename = 'telepath:proxy:genrmethod'
 
     def __init__(self, meth, path=None):
@@ -6135,7 +6172,7 @@ class Layer(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the Layer definition.',
+        {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name to set.', },
@@ -6660,6 +6697,8 @@ class Layer(Prim):
                 valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
             valu = await tobool(valu)
+        elif name == 'readonly':
+            valu = await tobool(valu)
         else:
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
@@ -7143,8 +7182,12 @@ class LibTrigger(Lib):
                                'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the deleted trigger which matched the prefix.', }}},
-        {'name': 'list', 'desc': 'Get a list of Triggers in the current view.',
+        {'name': 'list', 'desc': 'Get a list of Triggers in the current view or every view.',
          'type': {'type': 'function', '_funcname': '_methTriggerList',
+                  'args': (
+                      {'name': 'all', 'type': 'boolean', 'default': False,
+                       'desc': 'Get a list of all the readable Triggers in every readable View.'},
+                  ),
                   'returns': {'type': 'list',
                               'desc': 'A list of ``trigger`` objects the user is allowed to access.', }}},
         {'name': 'get', 'desc': 'Get a Trigger in the Cortex.',
@@ -7181,6 +7224,24 @@ class LibTrigger(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
     _storm_lib_path = ('trigger',)
+    _storm_lib_perms = (
+        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding triggers.'},
+        {'perm': ('trigger', 'del'), 'gate': 'view',
+         'desc': 'Controls deleting triggers.'},
+        {'perm': ('trigger', 'get'), 'gate': 'trigger',
+         'desc': 'Controls listing/retrieving triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'view',
+         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of triggers.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Controls modifying the user property of triggers.'},
+        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
+         'desc': 'Controls modifying specific trigger properties.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7199,18 +7260,22 @@ class LibTrigger(Lib):
         exactly one.
         '''
         match = None
-        trigs = await self.runt.snap.view.listTriggers()
+        for view in self.runt.snap.core.listViews():
+            if not allowed(('view', 'read'), gateiden=view.iden):
+                continue
 
-        for iden, trig in trigs:
-            if iden.startswith(prefix):
-                if match is not None:
-                    mesg = 'Provided iden matches more than one trigger.'
-                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+            trigs = await view.listTriggers()
 
-                if not allowed(('trigger', 'get'), gateiden=iden):
-                    continue
+            for iden, trig in trigs:
+                if iden.startswith(prefix):
+                    if match is not None:
+                        mesg = 'Provided iden matches more than one trigger.'
+                        raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                match = trig
+                    if not allowed(('trigger', 'get'), gateiden=iden):
+                        continue
+
+                    match = trig
 
         if match is None:
             mesg = 'Provided iden does not match any valid authorized triggers.'
@@ -7222,11 +7287,14 @@ class LibTrigger(Lib):
         tdef = await toprim(tdef)
 
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
 
         tdef['user'] = useriden
-        tdef['view'] = viewiden
 
+        viewiden = tdef.pop('view', None)
+        if viewiden is None:
+            viewiden = self.runt.snap.view.iden
+
+        tdef['view'] = viewiden
         # query is kept to keep this API backwards compatible.
         query = tdef.pop('query', None)
         if query is not None:  # pragma: no cover
@@ -7261,43 +7329,58 @@ class LibTrigger(Lib):
 
     async def _methTriggerDel(self, prefix):
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         trig = await self._matchIdens(prefix)
         iden = trig.iden
 
         todo = s_common.todo('delTrigger', iden)
         gatekeys = ((useriden, ('trigger', 'del'), iden),)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
     async def _methTriggerMod(self, prefix, query):
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
-    async def _methTriggerList(self):
-        view = self.runt.snap.view
-        triggers = []
+    async def _methTriggerList(self, all=False):
+        if all:
+            views = self.runt.snap.core.listViews()
+        else:
+            views = [self.runt.snap.view]
 
-        for iden, trig in await view.listTriggers():
-            if not allowed(('trigger', 'get'), gateiden=iden):
+        triggers = []
+        for view in views:
+            if not allowed(('view', 'read'), gateiden=view.iden):
                 continue
-            triggers.append(Trigger(self.runt, trig.pack()))
+
+            for iden, trig in await view.listTriggers():
+                if not allowed(('trigger', 'get'), gateiden=iden):
+                    continue
+                triggers.append(Trigger(self.runt, trig.pack()))
 
         return triggers
 
     async def _methTriggerGet(self, iden):
-        trigger = await self.runt.snap.view.getTrigger(iden)
+        trigger = None
+        try:
+            # fast path to our current view
+            trigger = await self.runt.snap.view.getTrigger(iden)
+        except s_exc.NoSuchIden:
+            for view in self.runt.snap.core.listViews():
+                try:
+                    trigger = await view.getTrigger(iden)
+                except s_exc.NoSuchIden:
+                    pass
+
         if trigger is None:
-            return None
+            raise s_exc.NoSuchIden('Trigger not found')
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
@@ -7314,10 +7397,9 @@ class LibTrigger(Lib):
         iden = trig.iden
 
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
@@ -7419,6 +7501,12 @@ class Trigger(Prim):
         tdef['view'] = viewiden
         tdef['user'] = useriden
 
+        try:
+            s_trigger.reqValidTdef(tdef)
+            await self.runt.snap.core.reqValidStorm(tdef['storm'])
+        except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
+            raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
+
         gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
         todo = s_common.todo('delTrigger', trigiden)
         await self.runt.dyncall(trigview, todo, gatekeys=gatekeys)
@@ -7487,9 +7575,11 @@ class LibAuth(Lib):
         }
 
     @staticmethod
+    @stormfunc(readonly=True)
     def ruleFromText(text):
         return ruleFromText(text)
 
+    @stormfunc(readonly=True)
     async def textFromRule(self, rule):
         rule = await toprim(rule)
         text = '.'.join(rule[1])
@@ -7497,9 +7587,11 @@ class LibAuth(Lib):
             text = '!' + text
         return text
 
+    @stormfunc(readonly=True)
     async def getPermDefs(self):
         return self.runt.snap.core.getPermDefs()
 
+    @stormfunc(readonly=True)
     async def getPermDef(self, perm):
         perm = await toprim(perm)
         return self.runt.snap.core.getPermDef(perm)
@@ -7546,6 +7638,47 @@ class LibUsers(Lib):
     )
     _storm_lib_path = ('auth', 'users')
     _storm_lib_perms = (
+        {'perm': ('auth', 'role', 'set', 'name'), 'gate': 'cortex',
+         'desc': 'Permits a user to change the name of a role.'},
+        {'perm': ('auth', 'role', 'set', 'rules'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify rules of a role.'},
+
+         {'perm': ('auth', 'self', 'set', 'email'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own email address.',
+         'default': True},
+        {'perm': ('auth', 'self', 'set', 'name'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own username.',
+         'default': True},
+        {'perm': ('auth', 'self', 'set', 'passwd'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own password.',
+         'default': True},
+
+        {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
+         'desc': 'Controls granting roles to a user.'},
+        {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',
+         'desc': 'Controls revoking roles from a user.'},
+
+        {'perm': ('auth', 'user', 'set', 'admin'), 'gate': 'cortex',
+         'desc': 'Controls setting/removing a user\'s admin status.'},
+        {'perm': ('auth', 'user', 'set', 'email'), 'gate': 'cortex',
+         'desc': 'Controls changing a user\'s email address.'},
+        {'perm': ('auth', 'user', 'set', 'locked'), 'gate': 'cortex',
+         'desc': 'Controls locking/unlocking a user account.'},
+        {'perm': ('auth', 'user', 'set', 'passwd'), 'gate': 'cortex',
+         'desc': 'Controls changing a user password.'},
+        {'perm': ('auth', 'user', 'set', 'rules'), 'gate': 'cortex',
+         'desc': 'Controls adding rules to a user.'},
+
+        {'perm': ('auth', 'user', 'get', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to retrieve their profile information.',
+         'ex': 'auth.user.get.profile.fullname'},
+        {'perm': ('auth', 'user', 'pop', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to remove profile information.',
+         'ex': 'auth.user.pop.profile.fullname'},
+        {'perm': ('auth', 'user', 'set', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to set profile information.',
+         'ex': 'auth.user.set.profile.fullname'},
+
         {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
         {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
@@ -8005,6 +8138,10 @@ class UserProfile(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
 
+        if s_scope.get('runt').readonly:
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
+
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8175,6 +8312,10 @@ class UserVars(Prim):
 
     async def setitem(self, name, valu):
         name = await tostr(name)
+
+        if s_scope.get('runt').readonly:
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)
@@ -8839,6 +8980,18 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
     _storm_lib_path = ('cron',)
+    _storm_lib_perms = (
+        {'perm': ('cron', 'add'), 'gate': 'view',
+         'desc': 'Permits a user to create a cron job.'},
+        {'perm': ('cron', 'del'), 'gate': 'cronjob',
+         'desc': 'Permits a user to remove a cron job.'},
+        {'perm': ('cron', 'get'), 'gate': 'cronjob',
+         'desc': 'Permits a user to list cron jobs.'},
+        {'perm': ('cron', 'set'), 'gate': 'cronjob',
+         'desc': 'Permits a user to modify/move a cron job.'},
+        {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the creator property of a cron job.'},
+    )
 
     def getObjLocals(self):
         return {

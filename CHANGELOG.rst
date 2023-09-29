@@ -6,6 +6,134 @@
 Synapse Changelog
 *****************
 
+v2.150.0 - 2023-09-22
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet`` model.
+  (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
+
+  **Updated Types**
+
+  ``inet:url``
+    The ``inet:url`` type now recognizes UNC network paths and converts
+    them into ``smb://`` URLs.
+
+Features and Enhancements
+-------------------------
+- Allow Storm trigger APIs to reference triggers from other views.
+  (`#3342 <https://github.com/vertexproject/synapse/pull/3342>`_)
+- Update the ``synapse.lib.scrape`` and associated APIs to capture
+  additional data:
+  (`#3223 <https://github.com/vertexproject/synapse/pull/3223>`_)
+  (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
+
+  ``it:sec:cpe``
+    CPE 2.3 strings are now identified.
+
+  ``inet:url``
+    UNC based paths are now identified.
+
+- Update the ``synapse.lib.scrape`` and associated APIs to use subprocesses
+  when scraping large volumes of text.
+  (`#3344 <https://github.com/vertexproject/synapse/pull/3344>`_)
+- Add additional logging for HTTP API endpoints when a request has invalid
+  login information.
+  (`#3345 <https://github.com/vertexproject/synapse/pull/3345>`_)
+- The CryoTank service has had permissions added to it.
+  (`#3328 <https://github.com/vertexproject/synapse/pull/3328>`_)
+
+Bugfixes
+--------
+- Stormtypes ``stor`` functions were not previously checked during
+  ``readonly`` runtime execution. These are now validated and ``stor``
+  functions which would result in changing data in the Cortex will now
+  raise an exception when used with a ``readonly`` Storm runtime.
+  (`#3349 <https://github.com/vertexproject/synapse/pull/3349>`_)
+
+Improved Documentation
+----------------------
+- Update the list of Cortex permissions in the Admin Guide.
+  (`#3331 <https://github.com/vertexproject/synapse/pull/3331>`_)
+- The Form documentation has been updated to project the secondary properties
+  and associated light edges as tables.
+  (`#3348 <https://github.com/vertexproject/synapse/pull/3348>`_)
+
+v2.149.0 - 2023-09-14
+=====================
+
+Model Changes
+-------------
+- Updates to the ``it``, ``meta``, and ``org`` models.
+  (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
+
+  **New Properties**
+
+  ``taxonomy``
+    The interface had the following property added to it:
+
+    ``description``
+      'A definition of the taxonomy entry.
+
+  ``inet:email:message``
+    The form had the following property added to it:
+
+    ``cc``
+      Email addresses parsed from the "cc" header.
+
+  ``meta:source``
+    The form had the following property added to it:
+
+    ``url``
+      A URL which documents the meta source.
+
+  ``ou:campaign``
+    The form had the following property added to it:
+
+    ``timeline``
+      A timeline of significant events related to the campaign.
+
+  **Deprecated Properties**
+
+  ``taxonomy``
+    The ``taxonomy`` interface had the following property marked as deprecated:
+
+    * ``summary``
+
+Features and Enhancements
+-------------------------
+- Add best-effort support to scrape APIs to identify Windows and Linux file
+  paths.
+  (`#3343 <https://github.com/vertexproject/synapse/pull/3343>`_)
+- Update the Storm ``view.add`` command to add a ``--worldreadable`` flag to
+  create a view which is readable by the ``all`` role. The ``$lib.view.add()``
+  Storm API now also accepts an optional ``worldreadable`` argument as well.
+  (`#3333 <https://github.com/vertexproject/synapse/pull/3333>`_)
+- Update the Storm ``node.add`` command to add a ``--yield`` flag which yields
+  the newly created node.
+  (`#3337 <https://github.com/vertexproject/synapse/pull/3337>`_)
+- Add Storm commands ``gen.ou.id.number`` and ``gen.ou.id.type`` to help
+  generate ``ou:id:number`` and ``ou:id:type`` nodes.
+  (`#3339 <https://github.com/vertexproject/synapse/pull/3339>`_)
+- Support dynamically setting a Layer to ``readonly`` using the Storm
+  ``$layer.set()`` API.
+  (`#3332 <https://github.com/vertexproject/synapse/pull/3332>`_)
+- Update the Storm command ``help`` to display information about Storm types,
+  Storm Libraries and functions.
+  (`#3335 <https://github.com/vertexproject/synapse/pull/3335>`_)
+
+Bugfixes
+--------
+- Ensure that the Cell ``tmp`` directory is on the same volume as the Cell
+  storage directory prior to attempting to run the onboot optimization
+  process. If the volumes are different this now issues a warning message and
+  skips the optimization process.
+  (`#3336 <https://github.com/vertexproject/synapse/pull/3336>`_)
+- Protect the Cortex Cron scheduling loop from errors that could happen when
+  starting an agenda item.
+  (`#3340 <https://github.com/vertexproject/synapse/pull/3340>`_)
+
 v2.148.0 - 2023-09-05
 =====================
 

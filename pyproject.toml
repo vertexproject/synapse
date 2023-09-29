@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.148.0'
+version = '2.150.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -37,7 +37,7 @@ dependencies = [
     'lark==1.1.5',
     'Pygments>=2.7.4,<2.16.0',
     'packaging>=20.0,<24.0',
-    'fastjsonschema>=2.16.3,<2.18.0',
+    'fastjsonschema>=2.18.0,<2.19.0',
     'stix2-validator>=3.0.0,<4.0.0',
     'vcrpy>=4.3.1,<5.1.0',
     'base58>=2.1.0,<2.2.0',

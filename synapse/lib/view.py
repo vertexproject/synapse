@@ -1012,7 +1012,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, refang=refang, first=False):
+            async for item in s_scrape.contextScrapeAsync(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:
