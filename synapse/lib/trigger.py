@@ -401,7 +401,6 @@ class Triggers:
             globs.rem(tag, trig)
             return trig
 
-        # TODO:
         if cond == 'edge:add':
             edge = trig.tdef['edge']
             form = trig.tdef.get('form')
@@ -410,7 +409,8 @@ class Triggers:
                 self.edgeadd[(form, edge, destform)].remove(trig)
                 return trig
 
-            globs = self.edgeaddglobs.get(())
+            globs = self.edgeaddglobs.get((form, destform))
+            globs.rem(edge, trig)
             return trig
 
         if cond == 'edge:del':
@@ -422,6 +422,8 @@ class Triggers:
                 self.edgedel[(form, edge, destform)].remove(trig)
                 return trig
 
+            globs = self.edgedelglobs.get((form, destform))
+            globs.rem(edge, trig)
             return trig
 
         raise AssertionError('trigger has invalid condition')

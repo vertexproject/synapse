@@ -717,3 +717,43 @@ class TrigTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:int=789 +(nope)> { test:str=burrito } ]')
             self.len(1, nodes)
             self.isin('both', nodes[0].tags)
+
+            await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
+            self.len(0, await core.nodes('syn:trigger'))
+
+            nodes = await core.nodes('[test:int=9876 +(foo:bar)> { test:str=neato }]')
+            self.len(1, nodes)
+            self.notin('foo', nodes[0].tags)
+
+            await core.nodes('trigger.add edge:del --edge foo* --query { [ +#del.none ] | spin | yield $auto.opts.n2 | [+#del.other] }')
+            await core.nodes('trigger.add edge:del --edge see* --form test:int --query { [ +#del.one ] }')
+            await core.nodes('trigger.add edge:del --edge r* --destform test:int --query { [ +#del.two ] }')
+            await core.nodes('trigger.add edge:del --edge no** --form test:int --destform test:str --query { [ +#del.all ] }')
+
+            nodes = await core.nodes('test:int=123 | [ -(foo:bar:baz)> { test:str=neato } ]')
+            self.len(1, nodes)
+            self.isin('del.none', nodes[0].tags)
+
+            nodes = await core.nodes('test:str=neato')
+            self.len(1, nodes)
+            self.isin('del.other', nodes[0].tags)
+
+            nodes = await core.nodes('test:int=456 | [ -(see.saw)> {test:str=neato} ]')
+            self.len(1, nodes)
+            self.isin('del.one', nodes[0].tags)
+
+            nodes = await core.nodes('test:int=456 | [ -(ready)> {test:int=123}]')
+            self.len(1, nodes)
+            self.isin('del.two', nodes[0].tags)
+
+            nodes = await core.nodes('test:int=789 | [ -(nope)> { test:int=123 } ]')
+            self.len(1, nodes)
+            self.notin('del.all', nodes[0].tags)
+
+            nodes = await core.nodes('test:int=789 | [ -(nope)> { test:str=burrito } ]')
+            self.len(1, nodes)
+            self.isin('del.all', nodes[0].tags)
+
+            breakpoint()
+            await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
+            self.len(0, await core.nodes('syn:trigger'))
