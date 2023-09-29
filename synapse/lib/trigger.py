@@ -43,7 +43,7 @@ TrigSchema = {
         'prop': {'type': 'string', 'pattern': _propre},
         'name': {'type': 'string', },
         'doc': {'type': 'string', },
-        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
+        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set', 'edge:add', 'edge:del']},
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
@@ -199,37 +199,80 @@ class Triggers:
                     await trig.execute(node, vars=vars, view=view)
 
     async def runEdgeAdd(self, n1, edge, n2, view=None):
-        vars = {'auto': {'opts': {'edge': edge, 'n1': n1, 'n2': n2}}}
+        n1form = n1.form.name
+        n2form = n2.form.name
+        vars = {'auto': {'opts': {'edge': edge, 'n2': n2}}}
         with self._recursion_check():
             # try all the variations of the optional params
             for trig in self.edgeadd.get((None, edge, None), ()):
-                await trig.execute(node, vars=vars, view=view)
+                await trig.execute(n1, vars=vars, view=view)
 
-            for trig in self.edgeadd.get((n1.form, edge, None), ()):
-                await trig.execute(node, vars=vars, view=view)
+            for trig in self.edgeadd.get((n1form, edge, None), ()):
+                await trig.execute(n1, vars=vars, view=view)
 
-            for trig in self.edgeadd.get((None, edge, n2.form), ()):
-                await trig.execute(node, vars=vars, view=view)
+            for trig in self.edgeadd.get((None, edge, n2form), ()):
+                await trig.execute(n1, vars=vars, view=view)
 
-            for trig in self.edgeadd.get((n1.form, edge, n2.form), ()):
-                await trig.execute(node, vars=vars, view=view)
+            for trig in self.edgeadd.get((n1form, edge, n2form), ()):
+                await trig.execute(n1, vars=vars, view=view)
 
             # do the same for the various globs we could have
+            globs = self.edgeaddglobs.get((None, None))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgeaddglobs.get((n1form, None))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgeaddglobs.get((None, n2form))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgeaddglobs.get((n1form, n2form))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
 
     async def runEdgeDel(self, n1, edge, n2, view=None):
-        vars = {'auto': {'opts': {'edge': edge, 'n1': n1, 'n2': n2}}}
+        n1form = n1.form.name
+        n2form = n2.form.name
+        vars = {'auto': {'opts': {'edge': edge, 'n2': n2}}}
         with self._recursion_check():
             for trig in self.edgedel.get((None, edge, None), ()):
-                await trig.execute(node, vars=vars, view=view)
+                await trig.execute(n1, vars=vars, view=view)
 
-            for trig in self.edgedel.get((n1.form, edge, None), ()):
-                await trig.execute(node, vars=vars, view=view)
+            for trig in self.edgedel.get((n1form, edge, None), ()):
+                await trig.execute(n1, vars=vars, view=view)
 
-            for trig in self.edgedel.get((None, edge, n2.form), ()):
-                await trig.execute(node, vars=vars, view=view)
+            for trig in self.edgedel.get((None, edge, n2form), ()):
+                await trig.execute(n1, vars=vars, view=view)
 
-            for trig in self.edgedel.get((n1.form, edge, n2.form), ()):
-                await trig.execute(node, vars=vars, view=view)
+            for trig in self.edgedel.get((n1form, edge, n2form), ()):
+                await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgedelglobs.get((None, None))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgedelglobs.get((n1form, None))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgedelglobs.get((None, n2form))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
+
+            globs = self.edgedelglobs.get((n1form, n2form))
+            if globs:
+                for _, trig in globs.get(edge):
+                    await trig.execute(n1, vars=vars, view=view)
 
     async def load(self, tdef):
 
@@ -295,13 +338,13 @@ class Triggers:
             if '*' not in edge:
                 self.edgeadd[(form, edge, destform)].append(trig)
             else:
-                self.edgeaddglob[(form, destform)].add(edge, trig)
+                self.edgeaddglobs[(form, destform)].add(edge, trig)
 
         elif cond == 'edge:del':
             if '*' not in edge:
                 self.edgedel[(form, edge, destform)].append(trig)
             else:
-                self.edgeaddglob[(form, destform)].add(edge, trig)
+                self.edgedelglobs[(form, destform)].add(edge, trig)
 
         self.triggers[trig.iden] = trig
         return trig
@@ -361,9 +404,24 @@ class Triggers:
         # TODO:
         if cond == 'edge:add':
             edge = trig.tdef['edge']
+            form = trig.tdef.get('form')
+            destform = trig.tdef.get('destform')
+            if '*' not in edge:
+                self.edgeadd[(form, edge, destform)].remove(trig)
+                return trig
+
+            globs = self.edgeaddglobs.get(())
             return trig
 
         if cond == 'edge:del':
+            edge = trig.tdef['edge']
+            form = trig.tdef.get('form')
+            destform = trig.tdef.get('destform')
+
+            if '*' not in edge:
+                self.edgedel[(form, edge, destform)].remove(trig)
+                return trig
+
             return trig
 
         raise AssertionError('trigger has invalid condition')

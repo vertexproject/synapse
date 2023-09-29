@@ -58,6 +58,10 @@ Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
 supported.
 
+When the condition is edge:add or edge:del, you may optionally provide a
+form name or a destination form name to only fire on edges added or deleted
+from nodes of those forms
+
 Examples:
     # Adds a tag to every inet:ipv4 added
     trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
@@ -68,8 +72,12 @@ Examples:
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
     trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
 
-    # Adds a tag #todo to the N1 node of every edge add
+    # Adds a tag #todo to the N1 node of every refs edge add
     trigger.add edge:add --edge refs --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    # both nodes are of form file:bytes
+    trigger.add edge:del --edge seen --query {[ +#todo ]}
 '''
 
 addcrondescr = '''

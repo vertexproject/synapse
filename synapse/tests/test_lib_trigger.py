@@ -555,41 +555,165 @@ class TrigTest(s_t_utils.SynTest):
 
     async def test_trigger_edges(self):
         async with self.getTestCore() as core:
-            view = await core.callStorm('return ($lib.view.get()).fork().iden')
+            view = await core.callStorm('return ($lib.view.get().fork().iden)')
 
             # edge:add
-            # only edge
             tdef = {
                 'cond': 'edge:add',
                 'edge': 'refs',
-                'storm': '[ +#neato ]',
+                'storm': '[ +#neato ] | spin | yield $auto.opts.n2 | [ +#other ] | [ <(seen)+ { [ test:str=$auto.opts.edge] } ]',
                 'view': view,
             }
-            await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}})
+            await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}}) # only edge
 
-            opts = {'vars': {'view': view}}
-            # n1 form + edge
-            await core.nodes('trigger.add --view $view --edge refs --form test:int --query { [ +#burrito ]}', opts=opts)
+            opts = {'view': view}
+            await core.nodes('trigger.add edge:add --edge refs --form test:int --query { [ +#burrito ] }', opts=opts)   # n1 + edge
+            await core.nodes('trigger.add edge:add --edge refs --destform test:int --query { [ +#ping ]}', opts=opts)  # edge + n2
+            await core.nodes('trigger.add edge:add --edge refs --form test:int --destform test:int --query { [ +#pong ]}', opts=opts)  # n1 + edge + n2
 
-            # edge + n2 form
-            await core.nodes('trigger.add --view $view --edge refs --destform test:int --query { [ +#ping ]}', opts=opts)
+            await core.nodes('[ test:str=foo <(refs)+ { [ test:str=bar ] } ]', opts=opts)  # fire the edge-only trigger
+            await core.nodes('[ test:int=123 +(refs)> { [ test:str=biz ] } ]', opts=opts)  # fire the n1 trigger and the edge trigger
+            await core.nodes('[ test:int=456 <(refs)+ { [ test:str=baz ] } ]', opts=opts)  # fire the n2 trigger and the edge trigger
+            await core.nodes('[ test:int=789 +(refs)> { [ test:int=0 ] } ]', opts=opts) # FIRE ALL THE CANNONS
 
-            # n1 form + edge + n2 form
-            await core.nodes('trigger.add --view $view --edge refs --form test:int --destform test:int --query { [ +#pong ]}', opts=opts)
+            node = await core.nodes('test:int=0', opts=opts)
+            self.len(1, node)
+            self.isin('other', node[0].tags)
 
-            nodes = await core.nodes('syn:trigger')
-            self.len(8, nodes)
+            node = await core.nodes('test:int=123', opts=opts)
+            self.len(1, node)
+            self.isin('neato', node[0].tags)
+            self.isin('burrito', node[0].tags)
+
+            node = await core.nodes('test:int=456', opts=opts)
+            self.len(1, node)
+            self.isin('other', node[0].tags)
+
+            node = await core.nodes('test:int=789', opts=opts)
+            self.len(1, node)
+            self.isin('neato', node[0].tags)
+            self.isin('burrito', node[0].tags)
+            self.isin('pong', node[0].tags)
+            self.isin('pong', node[0].tags)
+
+            node = await core.nodes('test:str=foo', opts=opts)
+            self.len(1, node)
+            self.isin('other', node[0].tags)
+
+            node = await core.nodes('test:str=bar', opts=opts)
+            self.len(1, node)
+            self.isin('neato', node[0].tags)
+
+            node = await core.nodes('test:str=biz', opts=opts)
+            self.len(1, node)
+            self.isin('other', node[0].tags)
+
+            node = await core.nodes('test:str=baz', opts=opts)
+            self.len(1, node)
+            self.isin('ping', node[0].tags)
+            self.isin('neato', node[0].tags)
+
+            nodes = await core.nodes('test:str=refs -(seen)> *', opts=opts)  # collates all the n2 nodes
+            ndefs = set([
+                ('test:int', 0),
+                ('test:int', 456),
+                ('test:str', 'foo'),
+                ('test:str', 'biz'),
+            ])
+            self.eq(ndefs, set([n.ndef for n in nodes]))
+
+            nodes = await core.nodes('syn:trigger', opts=opts)
+            self.len(4, nodes)
+            for n in nodes:
+                self.eq(n.props['edge'], 'refs')
+
+            await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
+            self.len(0, await core.nodes('syn:trigger', opts=opts))
 
             # edge:add globs
-            await core.nodes('trigger.add --view $view --edge refs --form test:int --query { [ +#burrito ]}', opts=opts)
+            # await core.nodes('trigger.add --view $view --edge refs --form test:int --query { [ +#burrito ]}', opts=opts)
 
             # edge:del triggers
+            await core.nodes('trigger.add edge:del --edge refs  --query { [ +#cookies ] | spin | yield $auto.opts.n2 | [ +#milk ] }', opts=opts)  # only edge
+            await core.nodes('trigger.add edge:del --edge refs --form test:int --query { [ +#cupcake ] }', opts=opts) # n1 form + edge
+            await core.nodes('trigger.add edge:del --edge refs --destform test:int --query { [ +#icecream ] }', opts=opts) # edge + n2 form
+            await core.nodes('trigger.add edge:del --edge refs --form test:int --destform test:int --query { [ +#croissant ] }', opts=opts) # n1 form + edge + n2 form
+
+            await core.nodes('test:str=foo [ <(refs)- { test:str=bar }]', opts=opts)  # fire the edge-only trigger
+            await core.nodes('test:int=123 | edges.del *', opts=opts)  # fire the n1 trigger and edge trigger
+            await core.nodes('test:int=456 | edges.del refs --n2', opts=opts)  # fire the n2 trigger and edge trigger
+            await core.nodes('test:int=789 [ -(refs)> { test:int=0 } ]', opts=opts)  # fire everything
+
+            node = await core.nodes('test:int=0', opts=opts)
+            self.isin('milk', node[0].tags)
+
+            node = await core.nodes('test:int=123', opts=opts)
+            self.isin('cupcake', node[0].tags)
+            self.isin('cookies', node[0].tags)
+
+            # test:int=456 won't have anything on it, but test:str=baz will
+            node = await core.nodes('test:int=789', opts=opts)
+            self.isin('cookies', node[0].tags)
+            self.isin('icecream', node[0].tags)
+            self.isin('croissant', node[0].tags)
+            self.isin('cupcake', node[0].tags)
+
+            node = await core.nodes('test:str=foo', opts=opts)
+            self.isin('milk', node[0].tags)
+
+            node = await core.nodes('test:str=bar', opts=opts)
+            self.isin('cookies', node[0].tags)
+
+            node = await core.nodes('test:str=biz', opts=opts)
+            self.isin('milk', node[0].tags)
+
+            node = await core.nodes('test:str=baz', opts=opts)
+            self.isin('cookies', node[0].tags)
+            self.isin('icecream', node[0].tags)
 
             nodes = await core.nodes('syn:trigger')
-            self.len(8, nodes)
+            self.len(4, nodes)
+            for n in nodes:
+                self.eq(n.props['edge'], 'refs')
 
-            await core.nodes('[test:int=7 +(test:edge)> { [ test:int=9 ] }]')
+            await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
+            self.len(0, await core.nodes('syn:trigger', opts=opts))
 
-            await core.nodes('[test:int=9 <(test:edge)+ { [ test:int=11 ] }]')
+    async def test_trigger_edge_globs(self):
+        async with self.getTestCore() as core:
+            await core.nodes('trigger.add edge:add --edge foo* --query { [ +#foo ] | spin | yield $auto.opts.n2 | [+#other] }')
+            await core.nodes('trigger.add edge:add --edge see* --form test:int --query { [ +#n1 ] }')
+            await core.nodes('trigger.add edge:add --edge r* --destform test:int --query { [ +#n2 ] }')
+            await core.nodes('trigger.add edge:add --edge no** --form test:int --destform test:str --query { [ +#both ] }')
 
-            await core.nodes('test:int=9 | [ <(test:edge)- { test:int=11 } ] ')
+            nodes = await core.nodes('[test:int=123 +(foo:bar:baz)> { [test:str=neato] }]')
+            self.len(1, nodes)
+            self.isin('foo', nodes[0].tags)
+
+            nodes = await core.nodes('test:str=neato')
+            self.len(1, nodes)
+            self.isin('other', nodes[0].tags)
+
+            nodes = await core.nodes('[test:str=stuff +(see.saw)> { test:str=neato } ]')
+            self.len(1, nodes)
+            self.notin('n1', nodes[0].tags)
+
+            nodes = await core.nodes('[test:int=456 +(see.saw)> { test:str=neato } ]')
+            self.len(1, nodes)
+            self.isin('n1', nodes[0].tags)
+
+            nodes = await core.nodes('[test:str=neato +(ready)> { [ test:str=burrito ] } ]')
+            self.len(1, nodes)
+            self.notin('n2', nodes[0].tags)
+
+            nodes = await core.nodes('[test:int=456 +(ready)> { test:int=123 } ]')
+            self.len(1, nodes)
+            self.isin('n2', nodes[0].tags)
+
+            nodes = await core.nodes('[test:int=789 +(nope)> { test:int=123 } ]')
+            self.len(1, nodes)
+            self.notin('both', nodes[0].tags)
+
+            nodes = await core.nodes('[test:int=789 +(nope)> { test:str=burrito } ]')
+            self.len(1, nodes)
+            self.isin('both', nodes[0].tags)
