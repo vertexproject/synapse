@@ -1458,6 +1458,8 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
             typeitem = self.runt.snap.core.model.prop(name)
             if typeitem is None:
                 mesg = f'No type found for name {name}.'
@@ -1477,6 +1479,8 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
             typeitem = self.runt.snap.core.model.prop(name)
             if typeitem is None:
                 mesg = f'No type found for name {name}.'

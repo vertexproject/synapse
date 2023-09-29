@@ -1,14 +1,10 @@
-import os
 import math
-import urllib
 import decimal
 
 import synapse.exc as s_exc
-import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
-import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lookup.cvss as s_cvss
