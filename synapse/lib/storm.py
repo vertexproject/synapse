@@ -77,7 +77,7 @@ Examples:
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --edge seen --query {[ +#todo ]}
+    trigger.add edge:del --edge seen --form file:bytes --destform file:bytes --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
