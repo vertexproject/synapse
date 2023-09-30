@@ -4297,9 +4297,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getHttpExtApis(self):
         return list(self.httpexts)
 
-    async def getHttpExtApi(self, path):
+    async def getHttpExtApiByIden(self, iden):
+        pass
+
+    async def getHttpExtApiByPath(self, path):
         # use index ordered list to resolve which and (adef, globs)
         logger.info(f'{self.httpexts=}')
+        logger.info(f'{path=}')
+
+        for adef in self.httpexts:
+            match = regex.fullmatch(adef.get('path'), path)
+            logger.info(f'{match=}')
+
+            if match is None:
+                continue
+
+            print(match.captures())
+            print(match.groups())
+            print(match.groupdict())
+
+            # Break the parts up?
+            return adef, path
+
         if self.httpexts:
             # TODO Actually implement a handler....
             return self.httpexts[0], path

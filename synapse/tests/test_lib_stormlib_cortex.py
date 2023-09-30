@@ -36,13 +36,28 @@ $request.reply(200, headers=$headers, body=$body)
             for m in msgs:
                 print(m)
 
+            q = '''
+            $obj = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
+$obj.get = ${
+$data = ({'oh': 'we got a wildcard match!'})
+$body = $lib.json.save($data).encode()
+$headers = ({'Secret-Header': 'ItsWildcarded!'})
+$headers."Content-Type" = "application/json"
+$headers."Content-Length" = $lib.len($body)
+$request.reply(200, headers=$headers, body=$body)
+}
+                        '''
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
                 print(resp)
                 buf = await resp.read()
                 print(buf)
 
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha?sup=dude')
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha/haha/wow?sup=dude')
                 print(resp)
                 buf = await resp.read()
                 print(buf)
