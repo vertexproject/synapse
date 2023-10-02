@@ -1,12 +1,7 @@
 import os
 import json
-import urllib
 import logging
-import functools
 
-import fastjsonschema
-
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.datfile as s_datfile
 import synapse.lib.msgpack as s_msgpack

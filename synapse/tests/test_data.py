@@ -1,17 +1,6 @@
-import json
-
-import synapse.exc as s_exc
-import synapse.data as s_data
-
-import synapse.lib.httpapi as s_httpapi
-
 import synapse.tests.utils as s_t_utils
 
-schema = s_data.getJSON('attack-flow-schema-2.0.0')
-
-class HttpJsonSchema(s_httpapi.Handler):
-    async def get(self):
-        self.write(json.dumps(schema))
+import synapse.data as s_data
 
 class DataTest(s_t_utils.SynTest):
 
