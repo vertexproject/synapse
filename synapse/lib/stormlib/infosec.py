@@ -447,15 +447,27 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             $attack_flow = $objs_bytype."attack-flow".0
             $created_by = $objs_byid.($attack_flow.created_by_ref)
 
+            ($ok, $email) = $lib.trycast(ps:name, $created_by.contact_information)
+            if (not $ok) {
+                $lib.warn(`Error casting contact name to ou:name: {$created_by.name}`)
+                return($lib.null)
+            }
+
+            ($ok, $contact_information) = $lib.trycast(inet:email, $created_by.contact_information)
+            if (not $ok) {
+                $lib.warn(`Error casting contact information to inet:email: {$created_by.contact_information}`)
+                return($lib.null)
+            }
+
             [ it:mitre:attack:flow = $guid
                 :name ?= $attack_flow.name
-                :json ?= $flow
+                :json = $flow
                 :created ?= $attack_flow.created
                 :updated ?= $attack_flow.modified
                 :author:user ?= $lib.user.iden
-                :author:contact ?= {[ ps:contact = (attack-flow, $created_by.name, $created_by.contact_information)
-                                        :name ?= $created_by.name
-                                        :email ?= $created_by.contact_information
+                :author:contact = {[ ps:contact = (attack-flow, $name, $contact_information)
+                                        :name = $name
+                                        :email = $contact_information
                                     ]}
             ]
 

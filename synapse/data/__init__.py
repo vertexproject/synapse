@@ -6,6 +6,7 @@ import functools
 
 import fastjsonschema
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.datfile as s_datfile
 import synapse.lib.msgpack as s_msgpack
@@ -37,18 +38,15 @@ def path(*names):
 
 def refHandler(func):
     '''
-    Simple decorator for jsonschema ref handlers to allow for an automatic
-    default behavior of fetching the schema if the custom ref handlers returns
-    None.
+    Simple decorator for jsonschema ref handlers to allow for automatically
+    raising an exception if the custom ref handlers returns None.
     '''
 
     @functools.wraps(func)
     def wrapper(uri):
         ret = func(uri)
         if ret is None:
-            if __debug__:  # pragma: no cover
-                logger.warning('Fetching remote JSON schema: %s. Consider caching to disk.', uri)
-            return fastjsonschema.ref_resolver.resolve_remote(uri, {})
+            raise s_exc.NoSuchFile('Local JSON schema not found for %s', uri)
         return ret
 
     return wrapper
