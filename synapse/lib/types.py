@@ -7,7 +7,6 @@ import collections
 import regex
 
 import synapse.exc as s_exc
-import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
@@ -1504,10 +1503,7 @@ class Data(Type):
         self.validator = None
         schema = self.opts.get('schema')
         if schema is not None:
-            self.validator = s_config.getJsValidator(
-                schema,
-                handlers=s_data.default_schema_ref_handlers
-            )
+            self.validator = s_config.getJsValidator(schema)
 
     def norm(self, valu):
         try:

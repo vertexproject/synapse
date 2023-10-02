@@ -447,7 +447,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             $attack_flow = $objs_bytype."attack-flow".0
             $created_by = $objs_byid.($attack_flow.created_by_ref)
 
-            ($ok, $email) = $lib.trycast(ps:name, $created_by.contact_information)
+            ($ok, $name) = $lib.trycast(ps:name, $created_by.name)
             if (not $ok) {
                 $lib.warn(`Error casting contact name to ou:name: {$created_by.name}`)
                 return($lib.null)
