@@ -3881,6 +3881,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': s_version.verstring,
             },
             'cell': {
+                'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,

@@ -311,7 +311,6 @@ class StepTimeout(SynErr):
 class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 
-class TeleRedir(SynErr): pass
 class FatalErr(SynErr):
     '''
     Raised when a fatal error has occurred which an application cannot recover from.

@@ -260,6 +260,36 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
     @s_cell.adminapi()
+    async def iterPoolTopo(self, name):
+        async for item in self.cell.iterPoolTopo(name):
+            yield item
+
+    @s_cell.adminapi()
+    async def addAhaPool(self, name, info=None):
+        return await self.cell.addAhaPool(name, info=None)
+
+    @s_cell.adminapi()
+    async def delAhaPool(self, name):
+        return await self.cell.delAhaPool(name)
+
+    @s_cell.adminapi()
+    async def getAhaPool(self, name):
+        return await self.cell.getAhaPool(name)
+
+    @s_cell.adminapi()
+    async def getAhaPools(self):
+        async for item in self.cell.getAhaPools():
+            yield item
+
+    @s_cell.adminapi()
+    async def addAhaPoolSvc(self, poolname, svcname):
+        return await self.cell.addAhaPoolSvc(poolname, svcname)
+
+    @s_cell.adminapi()
+    async def delAhaPoolSvc(self, poolname, svcname):
+        return await self.cell.delAhaPoolSvc(poolname, svcname)
+
+    @s_cell.adminapi()
     async def addAhaSvcProv(self, name, provinfo=None):
         '''
         Provision the given relative service name within the configured network name.
@@ -596,6 +626,9 @@ class AhaCell(s_cell.Cell):
             name = name[:-2] + netw
         return name
 
+    async def getAhaPool(self, name):
+        return self._getAhaPool(name)
+
     def _getAhaPool(self, name):
         name = self._getAhaName(name)
         byts = self.slab.get(name.encode(), db='aha:pools')
@@ -639,6 +672,10 @@ class AhaCell(s_cell.Cell):
 
         return await self._push('aha:pool:add', info)
 
+    async def getAhaPools(self):
+        for lkey, byts in self.slab.scanByFull(db='aha:pools'):
+            yield s_msgpack.un(byts)
+
     @s_nexus.Pusher.onPush('aha:pool:add')
     async def _addAhaPool(self, info):
         self._savePoolInfo(info)
@@ -658,6 +695,8 @@ class AhaCell(s_cell.Cell):
         for wind in self.poolwindows.get(poolname, ()):
             await wind.put(('svc:add', svcitem))
 
+        return poolinfo
+
     @s_nexus.Pusher.onPushAuto('aha:pool:svc:del')
     async def delAhaPoolSvc(self, poolname, svcname):
 
@@ -670,6 +709,8 @@ class AhaCell(s_cell.Cell):
 
         for wind in self.poolwindows.get(poolname, ()):
             await wind.put(('svc:del', {'name': svcname}))
+
+        return poolinfo
 
     async def _getAhaSvc(self, svcname):
         # no fancy auto-resolve, just get actual servic
@@ -730,33 +771,38 @@ class AhaCell(s_cell.Cell):
 
     async def getAhaSvc(self, name, filters=None):
 
-        if name.endswith('...'):
-            ahanetw = self.conf.get('aha:network')
-            if ahanetw is None:
-                mesg = f'Relative service name ({name}) can not be resolved without aha:network set.'
-                raise s_exc.BadArg(mesg=mesg)
-
-            name = f'{name[:-2]}{ahanetw}'
+        name = self._getAhaName(name)
 
         path = ('aha', 'svcfull', name)
         svcentry = await self.jsonstor.getPathObj(path)
-        if svcentry is None:
-            return None
 
-        # if they requested a mirror, try to locate one
-        if filters is not None and filters.get('mirror'):
-            ahanetw = svcentry.get('ahanetw')
-            svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None: # pragma: no cover
-                return svcentry
+        if svcentry is not None:
+            # if they requested a mirror, try to locate one
+            if filters is not None and filters.get('mirror'):
+                ahanetw = svcentry.get('ahanetw')
+                svcinfo = svcentry.get('svcinfo')
+                if svcinfo is None: # pragma: no cover
+                    return svcentry
 
-            celliden = svcinfo.get('iden')
-            mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
+                celliden = svcinfo.get('iden')
+                mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
 
-            if mirrors:
-                return random.choice(mirrors)
+                if mirrors:
+                    return random.choice(mirrors)
 
-        return svcentry
+            return svcentry
+
+        pooldef = self._getAhaPool(name)
+        if pooldef is not None:
+
+            # in case the caller is not pool aware, merge a service entry and the pool def
+            svcnames = list(pooldef.get('services').keys())
+            svcentry = await self.jsonstor.getPathObj(('aha', 'svcfull', random.choice(svcnames)))
+            svcentry.update(pooldef)
+
+            return svcentry
+
+        return None
 
     async def getAhaSvcMirrors(self, iden, network=None):
 

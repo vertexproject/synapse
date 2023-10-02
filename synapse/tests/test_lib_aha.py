@@ -1120,24 +1120,53 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAhaProv() as aha:
 
-            ahaurl = aha.getLocalUrl()
-
             import synapse.cortex as s_cortex
 
-            with self.getTestDir() as dirn:
+            async with await s_base.Base.anit() as base:
 
-                cdr0 = s_common.genpath(dirn, 'core00')
-                cdr1 = s_common.genpath(dirn, 'core01')
+                with self.getTestDir() as dirn:
 
-                async with self.addSvcToAha(aha, '00', s_cell.Cell, dirn=cdr0) as cell00:
-                    async with self.addSvcToAha(aha, '01', s_cell.Cell, dirn=cdr1) as cell01:
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+                    dirn02 = s_common.genpath(dirn, 'cell02')
 
-                        poolinfo = await aha.addAhaPool('pool00...')
-                        poolinfo = await aha.addAhaPoolSvc('pool00...', '00...')
-                        poolinfo = await aha.addAhaPoolSvc('pool00...', '01...')
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01', s_cell.Cell, dirn=dirn01))
 
-                        # async for mesg in aha.iterPoolTopo('pool00...'):
-                            # print(repr(mesg))
+                    core00 = await base.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn02))
 
-                        async with s_telepath.Pool('aha://pool00...') as pool:
-                            print(repr(await pool.getCellInfo()))
+                    msgs = await core00.stormlist('aha.pool.list')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('0 pools', msgs)
+
+                    msgs = await core00.stormlist('aha.pool.add pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+
+                    async with await s_telepath.open('aha://pool00...') as pool:
+
+                        waiter = pool.waiter('svc:add', 2)
+
+                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.loop.vertex.link)', msgs)
+
+                        await waiter.wait(timeout=3)
+
+                        proxy00 = await pool.proxy(timeout=3)
+                        run00 = await (await pool.proxy(timeout=3)).getCellRunId()
+                        run01 = await (await pool.proxy(timeout=3)).getCellRunId()
+                        self.ne(run00, run01)
+
+                        waiter = pool.waiter('svc:del', 1)
+
+                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (00...) removed from service pool (pool00.loop.vertex.link)', msgs)
+
+                        await waiter.wait(timeout=3)
+                        self.eq(run01, await (await pool.proxy(timeout=3)).getCellRunId())

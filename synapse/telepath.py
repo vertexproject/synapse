@@ -134,31 +134,42 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
-async def getAhaClient(urlinfo):
+async def open(url, timeout=None):
+    '''
+    Open a new telepath Client (or AHA Service Pool) based on the given URL.
+    '''
+    urlinfo = chopurl(url)
+    if urlinfo.get('scheme') == 'aha':
 
-async def getAhaProxy(urlinfo):
-    '''
-    Return a telepath proxy by looking up a host from an aha registry.
-    '''
-    host = urlinfo.get('host')
-    if host is None:
-        mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
-        raise s_exc.NoSuchName(mesg=mesg)
+        ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=timeout)
+
+        # check if we should return a Pool rather than a Client :)
+        if ahasvc.get('services'):
+            return await Pool.anit(ahaclient, ahasvc, urlinfo)
+
+    return await Client.anit(urlinfo)
+
+async def _getAhaSvc(urlinfo, timeout=None):
 
     if not aha_clients:
         mesg = f'No aha servers registered to lookup {host}'
         raise s_exc.NotReady(mesg=mesg)
 
-    laste = None
+    host = urlinfo.get('host')
+    if host is None:
+        mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
+        raise s_exc.NoSuchName(mesg=mesg)
+
+    errs = []
     for ahaurl, cnfo in list(aha_clients.items()):
         client = cnfo.get('client')
         if client is None:
-            client = await Client.anit(cnfo.get('url'))
+            client = await Client.anit(ahaurl)
             client._fini_atexit = True
             cnfo['client'] = client
 
         try:
-            proxy = await client.proxy(timeout=5)
+            proxy = await client.proxy(timeout=timeout)
 
             cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
 
@@ -173,19 +184,7 @@ async def getAhaProxy(urlinfo):
             if ahasvc is None:
                 continue
 
-            if ahasvc.get('ispool'):
-                return Pool.anit(client, urlinfo, ahasvc)
-
-            svcinfo = ahasvc.get('svcinfo', {})
-            if not svcinfo.get('online'):
-                continue
-
-            info = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
-
-            return await openinfo(info)
-
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
+            return client, ahasvc
 
         except Exception as e:
             if isinstance(ahaurl, str):
@@ -193,14 +192,24 @@ async def getAhaProxy(urlinfo):
             else:
                 surl = tuple([s_urlhelp.sanitizeUrl(u) for u in ahaurl])
             logger.exception(f'Unable to get aha client ({surl})')
+            errs.append(e)
 
-            laste = e
-
-    if laste is not None:
-        raise laste
+    if errs:
+        raise errs[-1]
 
     mesg = f'aha lookup failed: {host}'
     raise s_exc.NoSuchName(mesg=mesg)
+
+async def getAhaProxy(urlinfo):
+    '''
+    Return a telepath proxy by looking up a host from an aha registry.
+    '''
+    ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=5)
+
+    svcinfo = ahasvc.get('svcinfo', {})
+    svcurlinfo = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
+
+    return await openinfo(svcurlinfo)
 
 @contextlib.asynccontextmanager
 async def withTeleEnv():
@@ -965,12 +974,15 @@ class Pool(s_base.Base):
         * distributes API calls across them
         * receives topology updates from AHA
     '''
-    async def __anit__(self, aha, urlinfo, poolinfo):
-        self.aha = aha
+    async def __anit__(self, aha, ahasvc, urlinfo):
+        await s_base.Base.__anit__(self)
         self.avail = 0
         self.clients = {}
         self.proxies = set()
-        self.poolinfo = poolinfo
+
+        self.aha = aha
+        self.ahasvc = ahasvc
+        self.urlinfo = urlinfo
 
         self.ready = asyncio.Event()
         self.deque = collections.deque()
@@ -979,7 +991,7 @@ class Pool(s_base.Base):
             'svc:add': self._onPoolSvcAdd,
             'svc:del': self._onPoolSvcDel,
         }
-        self.schedCoro(self._toposync)
+        self.schedCoro(self._toposync())
 
         async def fini():
             # wake the sleepers
@@ -990,7 +1002,11 @@ class Pool(s_base.Base):
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
         svcinfo = mesg[1].get('svcinfo')
+        svcinfo['urlinfo'].setdefault('user', 'root')
         urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
+
+        # one-off default user to root
+        urlinfo.setdefault('user', 'root')
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
 
     async def _onPoolSvcDel(self, mesg):
@@ -998,6 +1014,7 @@ class Pool(s_base.Base):
         client = self.clients.pop(name, None)
         if client is not None:
             await client.fini()
+        self.deque.clear()
 
     async def _onPoolLink(self, proxy):
 
@@ -1013,17 +1030,19 @@ class Pool(s_base.Base):
     async def _toposync(self):
 
         async def reset():
+
             # when we reconnect to our AHA service, we need to dump the current
             # topology state and gather it again.
             for client in self.clients.values():
                 await client.fini()
+
             self.clients.clear()
             self.proxies.clear()
-            # let the deque run itself out?
+            # TODO let the deque run itself out?
 
         while not self.isfini:
 
-            poolname = self.poolinfo.get('name')
+            poolname = self.ahasvc.get('name')
 
             try:
                 ahaproxy = await self.aha.proxy()
@@ -1039,7 +1058,7 @@ class Pool(s_base.Base):
                     await hand(mesg)
 
             except Exception as e:
-                logger.warning(f'AHA pool topology task restarting.')
+                logger.warning(f'AHA pool topology task restarting: {e}')
                 await asyncio.sleep(1)
 
     async def proxy(self, timeout=None):
@@ -1047,6 +1066,7 @@ class Pool(s_base.Base):
         async def getNextProxy():
 
             while not self.isfini:
+
                 await self.ready.wait()
 
                 if self.isfini:
@@ -1064,9 +1084,6 @@ class Pool(s_base.Base):
         # use an inner function so we can wait overall...
         return await s_common.wait_for(getNextProxy(), timeout)
 
-async def openclient(url):
-    pass
-
 class Client(s_base.Base):
     '''
     A Telepath client object which reconnects and allows waiting for link up.
@@ -1083,9 +1100,14 @@ class Client(s_base.Base):
             }
 
     '''
-    async def __anit__(self, url, opts=None, conf=None, onlink=None):
+    async def __anit__(self, urlinfo, opts=None, conf=None, onlink=None):
 
         await s_base.Base.__anit__(self)
+
+        if isinstance(urlinfo, (str, dict)):
+            urlinfo = (urlinfo,)
+
+        urlinfo = [chopurl(u) for u in urlinfo]
 
         if conf is None:
             conf = {}
@@ -1093,8 +1115,8 @@ class Client(s_base.Base):
         if opts is None:
             opts = {}
 
-        self._t_url = url
-        self._t_urls = collections.deque()
+        self._t_urlinfo = urlinfo
+        self._t_urldeque = collections.deque()
 
         self._t_opts = opts
         self._t_conf = conf
@@ -1119,21 +1141,10 @@ class Client(s_base.Base):
 
         await self._fireLinkLoop()
 
-    def _initUrlDeque(self):
-        self._t_urls.clear()
-        if isinstance(self._t_url, str):
-            self._t_urls.append(self._t_url)
-            return
-        self._t_urls.extend(self._t_url)
-
     def _getNextUrl(self):
-        # TODO url list in deque
-        if not self._t_urls:
-            self._initUrlDeque()
-        return self._t_urls.popleft()
-
-    def _setNextUrl(self, url):
-        self._t_urls.appendleft(url)
+        if not self._t_urldeque:
+            self._t_urldeque.extend(self._t_urlinfo)
+        return self._t_urldeque.popleft()
 
     async def onlink(self, func):
         self._t_onlinks.append(func)
@@ -1153,24 +1164,18 @@ class Client(s_base.Base):
 
         while not self.isfini:
 
-            url = self._getNextUrl()
+            urlinfo = self._getNextUrl()
 
             try:
-                await self._initTeleLink(url)
+                await self._initTeleLink(urlinfo)
                 self._t_ready.set()
                 return
-
-            except s_exc.TeleRedir as e:
-                self._setNextUrl(e.errinfo.get('url'))
-                continue
-
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
 
             except Exception as e:
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
-                    logger.exception(f'telepath client ({s_urlhelp.sanitizeUrl(url)}) encountered an error: {e}')
+                    url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
+                    logger.exception(f'telepath client ({url}) encountered an error: {e}')
                     lastlog = now
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
@@ -1181,8 +1186,9 @@ class Client(s_base.Base):
             raise s_exc.IsFini(mesg='Telepath Client Proxy is not available.')
         return ret
 
-    async def _initTeleLink(self, url):
-        self._t_proxy = await openurl(url, **self._t_opts)
+    async def _initTeleLink(self, urlinfo):
+
+        self._t_proxy = await openinfo(urlinfo, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
@@ -1211,22 +1217,16 @@ class Client(s_base.Base):
         # implement the main workhorse method for a proxy to allow Method
         # objects to use us as the proxy.
         while not self.isfini:
-            try:
-                await self.waitready()
 
-                # there is a small race where the daemon may fini the proxy
-                # account for that here...
-                if self._t_proxy is None or self._t_proxy.isfini:
-                    self._t_ready.clear()
-                    continue
+            await self.waitready()
 
-                return await self._t_proxy.task(todo, name=name)
+            # there is a small race where the daemon may fini the proxy
+            # account for that here...
+            if self._t_proxy is None or self._t_proxy.isfini:
+                self._t_ready.clear()
+                continue
 
-            except s_exc.TeleRedir as e:
-                url = e.errinfo.get('url')
-                self._setNextUrl(url)
-                logger.warning(f'telepath task redirected: ({s_urlhelp.sanitizeUrl(url)})')
-                await self._t_proxy.fini()
+            return await self._t_proxy.task(todo, name=name)
 
         raise s_exc.IsFini(mesg='Telepath Client isfini')
 
