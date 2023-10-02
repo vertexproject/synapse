@@ -3,6 +3,8 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
+
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -252,9 +254,25 @@ class HttpReq(s_stormtypes.StormType):
         if self.replied:
             raise s_exc.BadArg(mesg='Response.reply() has already been called.')
 
+        headers = await s_stormtypes.toprim(headers)
+        if headers is None:
+            headers = {}
+
+        body = await s_stormtypes.toprim(body)
+        if body is not None and not isinstance(body, bytes):
+            # TODO - discuss strict use
+            # s_common.reqJsonSafeStrict(body)
+            body = json.dumps(body, sort_keys=True).encode('utf-8', 'surrogatepass')
+            headers['Content-Type'] = 'application/json'
+            headers['Content-Length'] = len(body)
+
         await self._methCode(code)
-        await self._methHeaders(headers)
-        await self._methBody(body)
+
+        if headers:
+            await self._methHeaders(headers)
+
+        if body is not None:
+            await self._methBody(body)
 
         self.replied = True
         return True

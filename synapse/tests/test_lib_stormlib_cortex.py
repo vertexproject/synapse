@@ -11,8 +11,51 @@ import synapse.tests.utils as s_test
 from pprint import pprint
 
 class CortexLibTest(s_test.SynTest):
+    async def test_libcortex_httpapi_simple(self):
+        async with self.getTestCore() as core:
 
-    async def test_libcortex_httpapi(self):
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            # Define our first handler!
+            q = '''
+                $obj = $lib.cortex.httpapi.add('hehe/haha')
+                $obj.get = ${
+    $data = ({'oh': 'my'})
+    $headers = ({'Secret-Header': 'OhBoy!'})
+    $request.reply(200, headers=$headers, body=$data)
+                }
+                '''
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
+            q = '''
+                $obj = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
+    $obj.get = ${
+    $data = ({'oh': 'we got a wildcard match!'})
+    $headers = ({'Secret-Header': 'ItsWildcarded!'})
+    $request.reply(200, headers=$headers, body=$data)
+    }
+                            '''
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
+                print(resp)
+                buf = await resp.read()
+                print(buf)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha/haha/wow?sup=dude')
+                print(resp)
+                buf = await resp.read()
+                print(buf)
+    async def test_libcortex_httpapi_asbytes(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
             lowuser = udef.get('iden')
