@@ -557,6 +557,25 @@ class TrigTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             view = await core.callStorm('return ($lib.view.get().fork().iden)')
 
+            await self.asyncraises(s_exc.SchemaViolation, core.nodes('''
+                $tdef = $lib.dict(
+                    cond="edge:add",
+                    form="test:int",
+                    storm="[+#asdfasdf]"
+                )
+                $lib.trigger.add($tdef)
+            '''))
+
+            await self.asyncraises(s_exc.BadOptValu, core.nodes('''
+                $tdef = $lib.dict(
+                    cond="edge:add",
+                    form="test:int",
+                    storm="[+#asdfasdf]",
+                    edge=$lib.null
+                )
+                $lib.trigger.add($tdef)
+            '''))
+
             # edge:add
             tdef = {
                 'cond': 'edge:add',
@@ -567,6 +586,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}}) # only edge
 
             opts = {'view': view}
+
             await core.nodes('trigger.add edge:add --edge refs --form test:int --query { [ +#burrito ] }', opts=opts)   # n1 + edge
             await core.nodes('trigger.add edge:add --edge refs --destform test:int --query { [ +#ping ]}', opts=opts)  # edge + n2
             await core.nodes('trigger.add edge:add --edge refs --form test:int --destform test:int --query { [ +#pong ]}', opts=opts)  # n1 + edge + n2
@@ -686,6 +706,11 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('trigger.add edge:add --edge r* --destform test:int --query { [ +#n2 ] }')
             await core.nodes('trigger.add edge:add --edge no** --form test:int --destform test:str --query { [ +#both ] }')
 
+            async with core.enterMigrationMode():
+                nodes = await core.nodes('[test:int=123 +(foo:beep:boop)> { [test:str=neato] }]')
+                self.len(1, nodes)
+                self.notin('foo', nodes[0].tags)
+
             nodes = await core.nodes('[test:int=123 +(foo:bar:baz)> { [test:str=neato] }]')
             self.len(1, nodes)
             self.isin('foo', nodes[0].tags)
@@ -729,6 +754,11 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('trigger.add edge:del --edge see* --form test:int --query { [ +#del.one ] }')
             await core.nodes('trigger.add edge:del --edge r* --destform test:int --query { [ +#del.two ] }')
             await core.nodes('trigger.add edge:del --edge no** --form test:int --destform test:str --query { [ +#del.all ] }')
+
+            async with core.enterMigrationMode():
+                nodes = await core.nodes('test:int=123 | [ -(foo:beep:boop)> { test:str=neato } ]')
+                self.len(1, nodes)
+                self.notin('del.none', nodes[0].tags)
 
             nodes = await core.nodes('test:int=123 | [ -(foo:bar:baz)> { test:str=neato } ]')
             self.len(1, nodes)
