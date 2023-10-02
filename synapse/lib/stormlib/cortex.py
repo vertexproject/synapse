@@ -10,19 +10,6 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 
-# HttpApi ctor for .method -> HttpApiMethods getter/ setter for methods
-#
-# class HttpApiMethods(s_stormtypes.StormType):
-#     _storm_typename = 'http:api:methods'
-#     _storm_locals = ()
-#
-#     def __init__(self, runt, iden):
-#         s_stormtypes.StormType.__init__(self)
-#         self.runt = runt
-#         self.iden = iden
-#
-#
-
 class HttpApi(s_stormtypes.StormType):
     '''
     HTTPApi object
@@ -48,12 +35,6 @@ class HttpApi(s_stormtypes.StormType):
             'owner': self._storOwner,
             'perms': self._storPerms,
 
-            # Meth setters
-            'get': self._storMethGet,
-            # 'head': self._storMethHead,
-            # 'put': self._storMethPut,
-            # 'post': self._storMethPost,
-            # 'patch': self._storMethPatch,
         })
 
         self.gtors.update({
@@ -63,13 +44,10 @@ class HttpApi(s_stormtypes.StormType):
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
             'perms': self._gtorPerms,
+        })
 
-            # Meth setters
-            'get': self._gtorMethGet,
-            # 'head': self._gtorMethHead,
-            # 'put': self._gtorMethPut,
-            # 'post': self._gtorMethPost,
-            # 'patch': self._gtorMethPatch,
+        self.ctors.update({
+            'methods': self._ctorMethods
         })
 
     def getObjLocals(self):
@@ -83,6 +61,9 @@ class HttpApi(s_stormtypes.StormType):
     async def _methPack(self):
         # TODO Return a copy of the data from the cortex!
         return self.info
+
+    def _ctorMethods(self, path):
+        return HttpApiMethods(self)
 
     async def _storPath(self, path):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -144,19 +125,83 @@ class HttpApi(s_stormtypes.StormType):
     async def _gtorPerms(self):
         return self.info.get('perms')
 
-    async def _storMethGet(self, query):
-        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
+class HttpApiMethods(s_stormtypes.StormType):
+    _storm_typename = 'http:api:methods'
+    _storm_locals = ()
+
+    def __init__(self, httpapi: HttpApi):
+        s_stormtypes.StormType.__init__(self)
+        self.httpapi = httpapi
+
+        self.gtors.update({
+            'get': self._gtorMethGet,
+            'head': self._gtorMethHead,
+            'post': self._gtorMethPost,
+            'put': self._gtorMethPut,
+            'delete': self._gtorMethDelete,
+            'patch': self._gtorMethPatch,
+            'options': self._gtorMethOptions,
+        })
+
+        self.stors.update({
+            'get': self._storMethGet,
+            'head': self._storMethHead,
+            'post': self._storMethPost,
+            'put': self._storMethPut,
+            'delete': self._storMethDelete,
+            'patch': self._storMethPatch,
+            'options': self._storMethOptions,
+        })
+
+    async def _storMethFunc(self, meth, query):
         query = await s_stormtypes.tostr(query)
         query = query.strip()
-        methods = self.info.get('methods')
-        methods['get'] = query
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'methods', methods)
+        methods = self.httpapi.info.get('methods')
+        methods[meth] = query
+        self.httpapi.info = await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
         return True
 
-    async def _gtorMethGet(self):
-        return self.info.get('methods').get('get')
+    async def _storMethGet(self, query):
+        return await self._storMethFunc('get', query)
 
-    # * methods ($hapi.methods.get = ${})
+    async def _storMethHead(self, query):
+        return await self._storMethFunc('head', query)
+
+    async def _storMethPost(self, query):
+        return await self._storMethFunc('post', query)
+
+    async def _storMethPut(self, query):
+        return await self._storMethFunc('put', query)
+
+    async def _storMethPatch(self, query):
+        return await self._storMethFunc('patch', query)
+
+    async def _storMethOptions(self, query):
+        return await self._storMethFunc('options', query)
+
+    async def _storMethDelete(self, query):
+        return await self._storMethFunc('delete', query)
+
+    async def _gtorMethGet(self):
+        return self.httpapi.info.get('methods').get('get')
+
+    async def _gtorMethHead(self):
+        return self.httpapi.info.get('methods').get('head')
+
+    async def _gtorMethPost(self):
+        return self.httpapi.info.get('methods').get('post')
+
+    async def _gtorMethPut(self):
+        return self.httpapi.info.get('methods').get('put')
+
+    async def _gtorMethDelete(self):
+        return self.httpapi.info.get('methods').get('delete')
+
+    async def _gtorMethPatch(self):
+        return self.httpapi.info.get('methods').get('patch')
+
+    async def _gtorMethOptions(self):
+        return self.httpapi.info.get('methods').get('options')
 
 @s_stormtypes.registry.registerType
 class HttpReq(s_stormtypes.StormType):

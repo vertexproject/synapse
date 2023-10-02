@@ -1251,16 +1251,23 @@ class ExtApiHandler(StormHandler):
     async def get(self, path):
         return await self._runHttpExt('get', path)
 
+    async def head(self, path):
+        return await self._runHttpExt('head', path)
+
     async def post(self, path):
         return await self._runHttpExt('post', path)
 
     async def put(self, path):
         return await self._runHttpExt('put', path)
+
+    async def delete(self, path):
+        return await self._runHttpExt('delete', path)
+
     async def patch(self, path):
         return await self._runHttpExt('patch', path)
 
-    async def head(self, path):
-        return await self._runHttpExt('head', path)
+    async def options(self, path):
+        return await self._runHttpExt('options', path)
 
     async def _runHttpExt(self, meth, path):
         logger.info(f'{path=} {self.path_kwargs} {self.path_args}')

@@ -23,7 +23,7 @@ class CortexLibTest(s_test.SynTest):
             # Define our first handler!
             q = '''
                 $obj = $lib.cortex.httpapi.add('hehe/haha')
-                $obj.get = ${
+                $obj.methods.get = ${
     $data = ({'oh': 'my'})
     $headers = ({'Secret-Header': 'OhBoy!'})
     $request.reply(200, headers=$headers, body=$data)
@@ -35,7 +35,7 @@ class CortexLibTest(s_test.SynTest):
 
             q = '''
                 $obj = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
-    $obj.get = ${
+    $obj.methods.get = ${
     $data = ({'oh': 'we got a wildcard match!'})
     $headers = ({'Secret-Header': 'ItsWildcarded!'})
     $request.reply(200, headers=$headers, body=$data)
@@ -66,7 +66,7 @@ class CortexLibTest(s_test.SynTest):
             # Define our first handler!
             q = '''
             $obj = $lib.cortex.httpapi.add('hehe/haha')
-            $obj.get = ${
+            $obj.methods.get = ${
 $data = ({'oh': 'my'})
 $body = $lib.json.save($data).encode()
 $headers = ({'Secret-Header': 'OhBoy!'})
@@ -81,7 +81,7 @@ $request.reply(200, headers=$headers, body=$body)
 
             q = '''
             $obj = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
-$obj.get = ${
+$obj.methods.get = ${
 $data = ({'oh': 'we got a wildcard match!'})
 $body = $lib.json.save($data).encode()
 $headers = ({'Secret-Header': 'ItsWildcarded!'})
@@ -115,7 +115,7 @@ $request.reply(200, headers=$headers, body=$body)
 
             # Define our first handler!
             q = '''$obj = $lib.cortex.httpapi.add('hehe/haha')
-            $obj.get = ${
+            $obj.methods.get = ${
 $request.code(201)
 $headers = ({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"})
 $request.headers($headers)
