@@ -516,8 +516,18 @@ bar baz",vv
         async with self.getTestAxon() as axon:
             await self.runAxonTestHttp(axon)
 
-    async def runAxonTestHttp(self, axon):
-        # This test assumes a heavy axon object.
+    async def runAxonTestHttp(self, axon, realaxon=None):
+        '''
+        Test Axon HTTP APIs.
+
+        Args:
+            axon: A cell that implements the axon http apis
+            realaxon: The actual axon cell; if None defaults to the axon arg
+        '''
+
+        if realaxon is None:
+            realaxon = axon
+
         host, port = await axon.addHttpsPort(0, host='127.0.0.1')
 
         newb = await axon.auth.addUser('newb')
@@ -620,7 +630,7 @@ bar baz",vv
                 self.eq(set(result.keys()), {'size', 'md5', 'sha1', 'sha256', 'sha512'})
                 self.eq(result.get('size'), asdfretn[0])
                 self.eq(result.get('sha256'), asdfhash_h)
-                self.true(await axon.has(asdfhash))
+                self.true(await realaxon.has(asdfhash))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
@@ -635,7 +645,7 @@ bar baz",vv
                 result = item.get('result')
                 self.eq(result.get('size'), asdfretn[0])
                 self.eq(result.get('sha256'), asdfhash_h)
-                self.true(await axon.has(asdfhash))
+                self.true(await realaxon.has(asdfhash))
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
@@ -651,7 +661,7 @@ bar baz",vv
                 result = item.get('result')
                 self.eq(result.get('size'), bbufretn[0])
                 self.eq(result.get('sha256'), bbufhash_h)
-                self.true(await axon.has(bbufhash))
+                self.true(await realaxon.has(bbufhash))
 
             byts = io.BytesIO(bbuf)
 
@@ -662,7 +672,7 @@ bar baz",vv
                 result = item.get('result')
                 self.eq(result.get('size'), bbufretn[0])
                 self.eq(result.get('sha256'), bbufhash_h)
-                self.true(await axon.has(bbufhash))
+                self.true(await realaxon.has(bbufhash))
 
             byts = io.BytesIO(b'')
 
@@ -673,7 +683,7 @@ bar baz",vv
                 result = item.get('result')
                 self.eq(result.get('size'), emptyretn[0])
                 self.eq(result.get('sha256'), emptyhash_h)
-                self.true(await axon.has(emptyhash))
+                self.true(await realaxon.has(emptyhash))
 
             # Streaming download
             async with sess.get(f'{url_dl}/{bbufhash_h}') as resp:
