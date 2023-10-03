@@ -4273,7 +4273,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
         if byts is None:
-            raise s_exc.NoSuchIden(mesg='No http api')
+            raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)
 
         adef = s_msgpack.un(byts)
         adef[name] = valu
@@ -4295,11 +4295,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return list(self.httpexts)
 
     async def getHttpExtApiByIden(self, iden):
-        pass
+        byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
+        if byts is None:
+            raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)
+
+        adef = s_msgpack.un(byts)
+        return adef
 
     async def getHttpExtApiByPath(self, path):
         # use index ordered list to resolve which and (adef, globs)
-        logger.info(f'{self.httpexts=}')
         logger.info(f'{path=}')
 
         for adef in self.httpexts:
@@ -4309,12 +4313,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if match is None:
                 continue
 
-            print(match.captures())
-            print(match.groups())
-            print(match.groupdict())
-
-            # Break the parts up?
-            return adef, path
+            return adef, match.groups()
 
         if self.httpexts:
             # TODO Actually implement a handler....

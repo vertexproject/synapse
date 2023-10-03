@@ -242,52 +242,74 @@ class HttpReq(s_stormtypes.StormType):
     _storm_typename = 'http:api:request'
     _storm_locals = ()
 
-    def __init__(self, runt, info):
+    def __init__(self, runt, rnfo):
         s_stormtypes.StormType.__init__(self)
 
         self.replied = False
 
-        # self._code_called = False
-        # self._headers_called = False
-
         self.runt = runt
-        self.info = info
+        self.rnfo = rnfo
         self.rcode = None
         self.rbody = None
         self.rheaders = None
         self.locls.update(self.getObjLocals())
 
+        # Constants for a given instance
+        self.locls.update({
+            'args': self.rnfo.get('args'),
+            'body': self.rnfo.get('body'),
+            'method': self.rnfo.get('method'),
+            'headers': self.rnfo.get('headers'),
+            'params': self.rnfo.get('params'),
+            'remote_ip': self.rnfo.get('remote_ip'),
+            'uri': self.rnfo.get('uri'),
+            'path': self.rnfo.get('path'),
+        })
+
+        self.gtors.update({
+            'api': self._gtorApi,
+            'json': self._gtorJson,
+        })
+
     def getObjLocals(self):
         return {
-            # 'api': <http:api>,
             # 'argv': (), # any wild globs from the endpoint parsing
-            'code': self._methCode,
-            'headers': self._methHeaders,
-            'body': self._methBody,
+            # Methods
+            'sendcode': self._methSendCode,
+            'sendheaders': self._methSendHeaders,
+            'sendbody': self._methSendBody,
             'reply': self._methReply,
         }
+    #
+    # async def _derefGet(self, name):
+    #     # TODO
+    #     # headers
+    #     # params ( dynamically parse / cache URL params and form params )
+    #     # json ( dynamically deserialize / cache JSON body )
+    #     pass
 
-    async def _derefGet(self, name):
-        # TODO
-        # headers
-        # params ( dynamically parse / cache URL params and form params )
-        # json ( dynamically deserialize / cache JSON body )
-        # session (not MVP can delay) - $request.session.get() / set()
+    async def _gtorApi(self):
+        adef = self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
+        return HttpApi(self.runt, adef)
 
-        pass
+    async def _gtorJson(self):
+        try:
+            return json.loads(self.rnfo.get('body'))
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise s_exc.StormRuntimeError(mesg='Failed to decode request body as JSON: {e}') from None
 
-    async def _methCode(self, code):
+    async def _methSendCode(self, code):
         code = await s_stormtypes.toint(code)
         await self.runt.snap.fire('http:resp:code', code=code)
 
-    async def _methHeaders(self, headers):
+    async def _methSendHeaders(self, headers):
         headers = await s_stormtypes.toprim(headers)
         if not isinstance(headers, dict):
             # TODO include type
             raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary. {type(headers)=}')
         await self.runt.snap.fire('http:resp:headers', headers=headers)
 
-    async def _methBody(self, body, flush=True):
+    async def _methSendBody(self, body, flush=True):
         body = await s_stormtypes.toprim(body)
         if not isinstance(body, bytes):
             # TODO include type
@@ -311,13 +333,13 @@ class HttpReq(s_stormtypes.StormType):
             headers['Content-Type'] = 'application/json'
             headers['Content-Length'] = len(body)
 
-        await self._methCode(code)
+        await self._methSendCode(code)
 
         if headers:
-            await self._methHeaders(headers)
+            await self._methSendHeaders(headers)
 
         if body is not None:
-            await self._methBody(body)
+            await self._methSendBody(body)
 
         self.replied = True
         return True
@@ -334,7 +356,7 @@ class CortexHttpApi(s_stormtypes.Lib):
         return {
             'add': self.addHttpApi,
             'del': self.delHttpApi,
-            # 'get': self.getHttpApi,
+            'get': self.getHttpApi,
             'list': self.listHttpApis,
             'response': self.makeHttpResponse,
         }
@@ -343,12 +365,10 @@ class CortexHttpApi(s_stormtypes.Lib):
         requestinfo = await s_stormtypes.toprim(requestinfo)
         return HttpReq(self.runt, requestinfo)
 
-    # async def getHttpApi(self, iden):
-    #     s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
-    #     iden = await s_stormtypes.tostr(iden)
-    #     adefs = await self.runt.snap.core.getHtp()
-    #     apis = [HttpApi(self.runt, adef) for adef in adefs]
-    #     return apis
+    async def getHttpApi(self, iden):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
+        iden = await s_stormtypes.tostr(iden)
+        return await self.runt.snap.core.getHttpExtApiByIden(iden)
 
     async def listHttpApis(self):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))

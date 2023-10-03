@@ -1,3 +1,4 @@
+import collections
 import json
 import base64
 import asyncio
@@ -1272,7 +1273,7 @@ class ExtApiHandler(StormHandler):
     async def _runHttpExt(self, meth, path):
         logger.info(f'{path=} {self.path_kwargs} {self.path_args}')
         core = self.getCore()
-        adef, argv = await core.getHttpExtApiByPath(path)
+        adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
             # send 404 rest reply
             return
@@ -1296,12 +1297,42 @@ class ExtApiHandler(StormHandler):
 
         # TODO serialize the request data so we can push it into the
         # Storm runtime and have it wrapped into the request object.
-        info = {}
-        vars = {
-            '_http_request_info': info,
+        request_headers = dict(self.request.headers)
+
+        # TODO - Discuss if we want to expose these values to the Storm runtime.
+        # request_headers.pop('Cookie', None)  # Session Auth
+        # request_headers.pop('Authorization')  # Basic Auth
+
+        print(type(request_headers))
+        for key, valu in request_headers.items():
+            print(f'{key} => {valu}')
+
+        # convert params into a list of strings
+        params = collections.defaultdict(list)
+        for key, valus in self.request.query_arguments.items():
+            for valu in valus:
+                params[key].append(valu.decode())
+        params = dict(params)
+
+        info = {
+            'uri': self.request.uri,
+            'body': self.request.body,
+            'iden': adef.get('iden'),
+            'path': path,
+            'method': self.request.method,
+            'params': params,
+            'headers': request_headers,
+            'args': args,
+            'remote_ip': self.request.remote_ip,
         }
+
+        from pprint import pprint
+        pprint(info)
+
         opts = {
-            'vars': vars,
+            'vars': {
+                '_http_request_info': info,
+            },
             'user': useriden,
             'view': adef.get('view'),
             'show': (
@@ -1347,6 +1378,6 @@ class ExtApiHandler(StormHandler):
                 if flush:
                     await self.flush()
 
-        await self.finish()
+        # TODO - Handle a incomplete message stream!
 
-        # TODO needs logging etc?
+        await self.finish()

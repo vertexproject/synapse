@@ -45,16 +45,59 @@ class CortexLibTest(s_test.SynTest):
             for m in msgs:
                 print(m)
 
+            q = '''$obj = $lib.cortex.httpapi.add('echo/(.*)')
+                $obj.methods.get = ${
+                $data = ({
+                    "echo": $lib.true,
+                    "method": $request.method,
+                    "headers": $request.headers,
+                    "params": $request.params,
+                    "uri": $request.uri,
+                    "path": $request.path,
+                    "remote_ip": $request.remote_ip,
+                    "args": $request.args,
+                })
+                try {
+                    $data.json = $request.json
+                } catch StormRuntimeError as err {
+                    $data.json = "err"
+                }
+                $headers = ({'Echo': 'hehe!'})
+                $request.reply(200, headers=$headers, body=$data)
+                }
+                                        '''
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
                 print(resp)
                 buf = await resp.read()
                 print(buf)
 
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha/haha/wow?sup=dude')
+                resp = await sess.get(f'https://lowuser:secret@localhost:{hport}/api/ext/hehe/haha/haha/wow?sup=dude')
                 print(resp)
                 buf = await resp.read()
                 print(buf)
+
+                resp = await sess.get(f'https://lowuser:secret@localhost:{hport}/api/ext/echo/sup?echo=test')
+                print(resp)
+                buf = await resp.json()
+                pprint(buf)
+
+                resp = await sess.get(f'https://lowuser:secret@localhost:{hport}/api/ext/echo/sup?echo=test',
+                                      json={'look': 'at this!'})
+                print(resp)
+                buf = await resp.json()
+                pprint(buf)
+
+                resp = await sess.get(f'https://lowuser:secret@localhost:{hport}/api/ext/echo/sup?echo=test',
+                                      data=b'buffer')
+                print(resp)
+                buf = await resp.json()
+                pprint(buf)
+
     async def test_libcortex_httpapi_asbytes(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
@@ -116,17 +159,17 @@ $request.reply(200, headers=$headers, body=$body)
             # Define our first handler!
             q = '''$obj = $lib.cortex.httpapi.add('hehe/haha')
             $obj.methods.get = ${
-$request.code(201)
+$request.sendcode(201)
 $headers = ({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"})
-$request.headers($headers)
+$request.sendheaders($headers)
 $values = (1, 2, 3)
 $newline = "\\n"
 $newline = $newline.encode()
 for $i in $values {
     $data = ({'oh': $i})
     $body = $lib.json.save($data).encode()
-    $request.body($body, flush=$lib.false)
-    $request.body($newline)
+    $request.sendbody($body, flush=$lib.false)
+    $request.sendbody($newline)
 }
 }
             '''
