@@ -633,8 +633,8 @@ class CellApi(s_base.Base):
         return await self.cell.getRoleDefs()
 
     @adminapi()
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden, default=default)
 
     @adminapi()
     async def isRoleAllowed(self, iden, perm, gateiden=None):
@@ -2229,12 +2229,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = False
 
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        user = self.auth.user(iden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        user = self.auth.user(iden)  # type: s_hiveauth.HiveUser
         if user is None:
             return False
 
-        return user.allowed(perm, gateiden=gateiden)
+        return user.allowed(perm, default=default, gateiden=gateiden)
 
     async def isRoleAllowed(self, iden, perm, gateiden=None):
         role = self.auth.role(iden)

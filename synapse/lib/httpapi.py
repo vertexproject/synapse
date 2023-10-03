@@ -326,7 +326,7 @@ class HandlerBase:
         self.web_username = udef.get('name')
         return self.web_useriden
 
-    async def allowed(self, perm, gateiden=None):
+    async def allowed(self, perm, gateiden=None, default=False):
         '''
         Check if the authenticated user has the given permission.
 
@@ -347,7 +347,7 @@ class HandlerBase:
             self.sendAuthRequired()
             return False
 
-        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden):
+        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden, default=default):
             return True
 
         self.set_status(403)
@@ -1277,24 +1277,22 @@ class ExtApiHandler(StormHandler):
             # send 404 rest reply
             return
 
+        useriden = adef.get('owner')
+
         if adef.get('authenticated'):
-            useriden = await self.useriden()
-            if useriden is None:
+
+            requester = await self.useriden()
+
+            if requester is None:
                 await self.reqAuthUser()
                 return
 
-        if adef.get('runas') == 'owner':
-            useriden = adef.get('owner')
+            for pdef in adef.get('perms'):
+                if not await self.allowed(pdef.get('perm'), default=pdef.get('default')):
+                    return
 
-        # TODO - Handle permissions / role requirements
-        # adef.get('perms')
-        # for perm in perms:
-        #     # check the perm for the user against the Cortex authgate
-
-        # TODO - Handle authenticated = false + ruans != owner
-        # PER VISI - Run that as the owner ( despite configuration stating otherwise )
-
-        iden = s_common.guid()  # per-request iden # OBE
+            if adef.get('runas') == 'user':
+                useriden = requester
 
         # TODO serialize the request data so we can push it into the
         # Storm runtime and have it wrapped into the request object.

@@ -35,6 +35,7 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
@@ -4237,12 +4238,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def addHttpExtApi(self, adef, indx=-1):
 
         adef['iden'] = s_common.guid()
-        adef.setdefault('runas', 'owner')
-        adef.setdefault('authenticated', True)
-        adef.setdefault('methods', {})
-        # require: iden, authenticated, owner, methods, runas=(owner|user)
+        adef = s_schemas.HttpExaAPIConfSchema(adef)
 
-        # TODO check schema
         return await self._push('http:api:add', adef, indx)
 
     @s_nexus.Pusher.onPush('http:api:add')
@@ -4281,7 +4278,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         adef = s_msgpack.un(byts)
         adef[name] = valu
 
-        # TODO Schema validation
+        adef = s_schemas.HttpExaAPIConfSchema(adef)
 
         self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
 
