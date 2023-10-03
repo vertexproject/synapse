@@ -1133,32 +1133,6 @@ class View(s_nexus.Pusher):  # type: ignore
             if srefs is not None:
                 yield lastnid, srefs
 
-    async def _mergeLiftRowsUniq(self, genrs, filtercmpr=None, reverse=False):
-        lastnid = None
-        smap = {}
-        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as uset:
-            async for indx, nid, sref in s_common.merggenr2(genrs, reverse=reverse):
-                if nid in uset:
-                    continue
-
-                if not nid == lastnid or sref.layriden in smap:
-                    if lastnid is not None:
-                        srefs = await self._genSrefList(lastnid, smap, filtercmpr)
-                        if srefs is not None:
-                            yield lastnid, srefs
-
-                        smap.clear()
-
-                    await uset.add(lastnid)
-                    lastnid = nid
-
-                smap[sref.layriden] = sref
-
-            if lastnid is not None:
-                srefs = await self._genSrefList(lastnid, smap, filtercmpr)
-                if srefs is not None:
-                    yield lastnid, srefs
-
     # view "lift by" functions yield (nid, srefs) tuples for results.
     async def liftByProp(self, form, prop, reverse=False):
 
@@ -1167,8 +1141,14 @@ class View(s_nexus.Pusher):  # type: ignore
                 yield nid, [sref]
             return
 
+        def filt(sode):
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
+
         genrs = [layr.liftByProp(form, prop, reverse=reverse) for layr in self.layers]
-        async for item in self._mergeLiftRowsUniq(genrs, reverse=reverse):
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
     async def liftByFormValu(self, form, cmprvals, reverse=False):
@@ -1236,8 +1216,17 @@ class View(s_nexus.Pusher):  # type: ignore
                 yield nid, [sref]
             return
 
+        def filt(sode):
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
+                return False
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
+
         genrs = [layr.liftByTagProp(form, tag, prop, reverse=reverse) for layr in self.layers]
-        async for item in self._mergeLiftRowsUniq(genrs, reverse=reverse):
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
