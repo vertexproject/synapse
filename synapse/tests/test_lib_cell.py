@@ -2183,6 +2183,13 @@ class CellTest(s_t_utils.SynTest):
                         nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
                         self.true(stream.wait(1))
 
+        async with self.getTestCore() as core:
+
+            core.nexsroot.setReadOnly(True)
+
+            msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+            self.stormIsInErr('Unable to issue Nexus events when readonly is set.', msgs)
+
     async def test_cell_onboot_optimize(self):
 
         with self.getTestDir() as dirn:
