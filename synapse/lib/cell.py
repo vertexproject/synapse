@@ -2983,8 +2983,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 elif rolelevel >= level:
                     return True
 
-        if level <= PERM_READ:
-            return item['permissions'].get('worldreadable', True)
+        default = item['permissions'].get('default', PERM_READ)
+        if level <= default:
+            return True
 
         return False
 
@@ -3030,14 +3031,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             perms[iden] = level
 
-    def _initEasyPerm(self, item, worldreadable=True):
+    def _initEasyPerm(self, item, default=PERM_READ):
         '''
         Ensure that the given object has populated the "easy perm" convention.
         '''
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
-        item['permissions']['worldreadable'] = worldreadable
+        item['permissions']['default'] = default
 
     async def getTeleApi(self, link, mesg, path):
 

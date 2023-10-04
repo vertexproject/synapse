@@ -415,7 +415,7 @@ class LibVault(s_stormtypes.Lib):
         return await self.runt.snap.core.addVault(name, vtype, scope, iden, data, user=user)
 
     async def _getVault(self, name):
-        vault = self.runt.snap.core.getVaultByIden(name)
+        vault = self.runt.snap.core.getVault(name)
         if not vault:
             vault = self.runt.snap.core.reqVaultByName(name)
 
@@ -436,7 +436,7 @@ class LibVault(s_stormtypes.Lib):
     async def _getByIden(self, viden):
         viden = await s_stormtypes.tostr(viden)
 
-        vault = self.runt.snap.core.reqVaultByIden(viden)
+        vault = self.runt.snap.core.reqVault(viden)
         self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, viden)
@@ -481,7 +481,7 @@ class VaultData(s_stormtypes.Prim):
         self.runt = runt
 
     async def setitem(self, name, valu):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
 
         name = await s_stormtypes.tostr(name)
 
@@ -493,7 +493,7 @@ class VaultData(s_stormtypes.Prim):
         return await self.runt.snap.core.setVaultData(self.valu, name, valu)
 
     async def deref(self, name):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
 
         name = await s_stormtypes.tostr(name)
 
@@ -506,7 +506,7 @@ class VaultData(s_stormtypes.Prim):
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
     async def iter(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         data = vault.get('data')
 
         for item in data.items():
@@ -561,7 +561,7 @@ class Vault(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu
@@ -596,7 +596,7 @@ class Vault(s_stormtypes.Prim):
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
 
     async def _storName(self, name):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_EDIT)
 
         name = await s_stormtypes.tostr(name)
@@ -604,11 +604,11 @@ class Vault(s_stormtypes.Prim):
         await self.runt.snap.core.renameVault(self.valu, name)
 
     async def _gtorName(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         return vault.get('name')
 
     async def _gtorData(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
         if not edit and not self.runt.asroot:
             return None
@@ -616,11 +616,11 @@ class Vault(s_stormtypes.Prim):
         return VaultData(self.runt, self.valu)
 
     async def _gtorPermissions(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         return vault.get('permissions')
 
     async def _methPack(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
 
         edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
         if edit or self.runt.asroot:
@@ -630,7 +630,7 @@ class Vault(s_stormtypes.Prim):
         return vault
 
     async def _methSetPerm(self, iden, level):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
         iden = await s_stormtypes.tostr(iden)
@@ -639,7 +639,7 @@ class Vault(s_stormtypes.Prim):
         return await self.runt.snap.core.setVaultPerm(self.valu, iden, level)
 
     async def _methDelete(self):
-        vault = self.runt.snap.core.reqVaultByIden(self.valu)
+        vault = self.runt.snap.core.reqVault(self.valu)
         self._reqEasyPerm(vault, s_cell.PERM_ADMIN)
 
         return await self.runt.snap.core.delVault(self.valu)
