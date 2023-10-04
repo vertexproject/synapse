@@ -352,7 +352,10 @@ class HandlerBase:
             return True
 
         self.set_status(403)
+
         mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
+        if default:
+            mesg = f'{mesg} default=true'
         self.sendRestErr('AuthDeny', mesg)
         return False
 

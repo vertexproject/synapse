@@ -197,13 +197,16 @@ class HttpApi(s_stormtypes.StormType):
     async def _storPerms(self, perms):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         perms = await s_stormtypes.toprim(perms)
-        _perms = []
-        for perm in perms:
-            # # TODO Convert perms string into a perm value using perm helper
-            # if isinstance(perm, str):
-            #     perm = ...
-            _perms.append(perm)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', _perms)
+        pdefs = []
+        for pdef in perms:
+            if isinstance(pdef, str):
+                if pdef.startswith('!'):
+                    raise s_exc.BadArg(mesg=f'Permission assignment must not start with a !, got {perm}')
+                parts = pdef.split('.')
+                pdef = {'perm': parts, 'default': False}
+
+            pdefs.append(pdef)
+        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', pdefs)
         return True
 
     async def _gtorPerms(self):
@@ -218,7 +221,10 @@ class HttpApi(s_stormtypes.StormType):
     async def _gtorAuthenticated(self):
         return self.info.get('authenticated')
 
+@s_stormtypes.registry.registerType
 class HttpApiMethods(s_stormtypes.StormType):
+    '''
+    '''
     _storm_typename = 'http:api:methods'
     _storm_locals = ()
 

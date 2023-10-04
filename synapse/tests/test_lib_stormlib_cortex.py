@@ -277,3 +277,66 @@ for $i in $values {
                 print(resp)
                 buf = await resp.read()
                 print(buf)
+
+    async def test_libcortex_perms(self):
+
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            # Define our first handler!
+            q = '''
+            $obj = $lib.cortex.httpapi.add('hehe/haha')
+            $obj.methods.get = ${
+            $data = ({'path': $request.path})
+            $request.reply(200, body=$data)
+            }
+            $obj.methods.head = ${
+                $request.replay(200, ({"yup": "it exists"}) )
+            }
+            $obj.name = 'the hehe/haha handler'
+            $obj.desc = 'beep boop zoop robot captain'
+            $obj.runas = user
+            $obj.perms = (foocorp.http.user, )
+            return ( $obj.iden )
+            '''
+            iden0 = await core.callStorm(q)
+
+            q = '''$obj = $lib.cortex.httpapi.add('weee')
+            $obj.methods.get = ${
+            $data = ({'path': $request.path})
+            $request.reply(200, body=$data)
+            }
+            $obj.perms = ( ({'perm': ['foocorp', 'http', 'user']}), ({'perm': ['apiuser'], 'default': $lib.true}) )
+            $obj.runas = user
+            return ( $obj.iden )
+            '''
+            iden1 = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
+                print(resp)
+                buf = await resp.read()
+                print(buf)
+
+                await core.stormlist('auth.user.addrule lowuser foocorp.http.user')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
+                print(resp)
+                buf = await resp.read()
+                print(buf)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
+                print(resp)
+                buf = await resp.read()
+                print(buf)
+
+                await core.stormlist('auth.user.addrule lowuser "!apiuser"')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
+                print(resp)
+                buf = await resp.read()
+                print(buf)
