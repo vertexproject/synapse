@@ -1104,6 +1104,12 @@ class SetItemOper(Oper):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
+            if runt.readonly:
+                _storm_readonly = getattr(item.setitem, '_storm_readonly')
+                if _storm_readonly is not None and not _storm_readonly:
+                    mesg = f'Setitem method for ({item.__name__}) is not marked readonly safe.'
+                    raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+
             name = await self.kids[1].compute(runt, path)
             valu = await self.kids[2].compute(runt, path)
 
@@ -1116,6 +1122,12 @@ class SetItemOper(Oper):
         if count == 0 and self.isRuntSafe(runt):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
+
+            if runt.readonly:
+                _storm_readonly = getattr(item.setitem, '_storm_readonly')
+                if _storm_readonly is not None and not _storm_readonly:
+                    mesg = f'Setitem method for ({item.__name__}) is not marked readonly safe.'
+                    raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
             name = await self.kids[1].compute(runt, None)
             valu = await self.kids[2].compute(runt, None)

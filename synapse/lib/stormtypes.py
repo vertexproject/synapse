@@ -8135,10 +8135,6 @@ class UserProfile(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
 
-        if s_scope.get('runt').readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
-
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8307,12 +8303,9 @@ class UserVars(Prim):
         name = await tostr(name)
         return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
 
+    @stormfunc(readonly=False)
     async def setitem(self, name, valu):
         name = await tostr(name)
-
-        if s_scope.get('runt').readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)

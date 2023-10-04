@@ -6348,7 +6348,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
         return self._getVaultByBidn(bidn)
 
-    def getVaultByType(self, vtype, iden, scope=None):
+    def getVaultByType(self, vtype, useriden, scope=None):
         '''
         Get a vault of type `vtype` and scope `scope` for user with `iden`.
 
@@ -6365,7 +6365,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         Args:
             vtype (str): Type of the vault to open.
-            iden (str): Iden of user trying to open the vault.
+            useriden (str): Iden of user trying to open the vault.
             scope (str|None): The vault scope to open.
 
         Raises:
@@ -6379,13 +6379,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def _getVault(_scope):
             vault = None
             if _scope == 'user':
-                vault = self._getVaultByTSI(vtype, _scope, iden)
+                vault = self._getVaultByTSI(vtype, _scope, useriden)
 
             elif _scope == 'role':
-                user = self.auth.user(iden)
+                user = self.auth.user(useriden)
                 if user is None:
-                    mesg = f'No user with iden {iden}.'
-                    raise s_exc.NoSuchUser(mesg=mesg, user=iden)
+                    mesg = f'No user with iden {useriden}.'
+                    raise s_exc.NoSuchUser(mesg=mesg, user=useriden)
 
                 for role in user.getRoles():
                     vault = self._getVaultByTSI(vtype, _scope, role.iden)
@@ -6631,7 +6631,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             data[key] = valu
 
-        return self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        return data
 
     def listVaults(self):
         '''
