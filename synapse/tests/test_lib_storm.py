@@ -834,7 +834,7 @@ class StormTest(s_t_utils.SynTest):
                     $list.append($item)
                 }
                 return($list)''', opts=opts)
-            self.len(2, sodes)
+            self.len(3, sodes)
 
             ipv4 = await core.callStorm('''
                 $list = $lib.list()
@@ -890,7 +890,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(100, await core.callStorm('inet:ipv4=11.22.33.44 return(#foo:score)'))
 
             sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            self.eq(0, sodes[0].get('refs'))
+            self.eq({}, sodes[0])
 
             with self.raises(s_exc.CantMergeView):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
@@ -1350,7 +1350,7 @@ class StormTest(s_t_utils.SynTest):
             self.notin("Property is read only: ou:name.created", buf)
 
             newn = await core.nodes('ou:name=readonly')
-            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
+            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
 
@@ -2095,10 +2095,10 @@ class StormTest(s_t_utils.SynTest):
                 self.eq(newt.get('title'), 'haha title')
 
                 node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.eq((20, 30), node.tags.get('woot.haha'))
+                self.eq((20, 30), node.get('#woot.haha'))
 
-                self.none(node.tags.get('hehe'))
-                self.none(node.tags.get('hehe.haha'))
+                self.none(node.get('#hehe'))
+                self.none(node.get('#hehe.haha'))
 
                 node = await snap.getNodeByNdef(('syn:tag', 'hehe'))
                 self.eq('woot', node.get('isnow'))
@@ -2111,11 +2111,11 @@ class StormTest(s_t_utils.SynTest):
                 # test isnow plumbing
                 await node.addTag('hehe.haha')
 
-                self.nn(node.tags.get('woot'))
-                self.nn(node.tags.get('woot.haha'))
+                self.nn(node.get('#woot'))
+                self.nn(node.get('#woot.haha'))
 
-                self.none(node.tags.get('hehe'))
-                self.none(node.tags.get('hehe.haha'))
+                self.none(node.get('#hehe'))
+                self.none(node.get('#hehe.haha'))
 
         async with self.getTestCore() as core:
 
@@ -2374,28 +2374,28 @@ class StormTest(s_t_utils.SynTest):
             q = 'test:str=foo | once tagger | [+#my.cool.tag]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.len(3, nodes[0].tags)
-            self.isin('my.cool.tag', nodes[0].tags)
+            self.len(3, nodes[0].getTagNames())
+            self.isin('my.cool.tag', nodes[0].getTagNames())
 
             # run it again and see all the things get swatted to the floor
             q = 'test:str=foo | once tagger | [+#less.cool.tag]'
             self.len(0, await core.nodes(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
-            self.notin('less.cool.tag', nodes[0].tags)
+            self.notin('less.cool.tag', nodes[0].getTagNames())
 
             # make a few more and see at least some of them make it through
             nodes = await core.nodes('test:str=neato test:str=burrito | once tagger | [+#my.cool.tag]')
             self.len(2, nodes)
             for node in nodes:
-                self.isin('my.cool.tag', node.tags)
+                self.isin('my.cool.tag', node.getTagNames())
 
             q = 'test:str | once tagger | [ +#yet.another.tag ]'
             nodes = await core.nodes(q)
             self.len(3, nodes)
             for node in nodes:
-                self.isin('yet.another.tag', node.tags)
-                self.notin('my.cool.tag', node.tags)
+                self.isin('yet.another.tag', node.getTagNames())
+                self.notin('my.cool.tag', node.getTagNames())
 
             q = 'test:str | once tagger'
             nodes = await core.nodes(q)
@@ -2406,30 +2406,30 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str=foo | once tagger --asof -30days | [+#another.tag]'))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
-            self.notin('less.cool.tag', nodes[0].tags)
+            self.notin('less.cool.tag', nodes[0].getTagNames())
 
             # but if it's super recent, we can override it
             nodes = await core.nodes('test:str | once tagger --asof now | [ +#tag.the.third ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('tag.the.third', node.tags)
+                self.isin('tag.the.third', node.getTagNames())
 
             # keys shouldn't interact
             nodes = await core.nodes('test:str | once ninja | [ +#lottastrings ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('lottastrings', node.tags)
+                self.isin('lottastrings', node.getTagNames())
 
             nodes = await core.nodes('test:str | once beep --asof -30days | [ +#boop ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('boop', node.tags)
+                self.isin('boop', node.getTagNames())
 
             # we update to the more recent timestamp, so providing now should update things
             nodes = await core.nodes('test:str | once beep --asof now | [ +#bbq ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('bbq', node.tags)
+                self.isin('bbq', node.getTagNames())
 
             # but still, no time means if it's ever been done
             self.len(0, await core.nodes('test:str | once beep | [ +#metal]'))
@@ -3791,7 +3791,7 @@ class StormTest(s_t_utils.SynTest):
                 class FastPush:
                     def __init__(self):
                         self.edits = []
-                    async def storNodeEdits(self, edits, meta):
+                    async def saveNodeEdits(self, edits, meta):
                         self.edits.extend(edits)
 
                 pull = FastPull()
@@ -3853,48 +3853,48 @@ class StormTest(s_t_utils.SynTest):
                 'parent.child',
                 'parent.child.grandchild'
             ]
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             node = (await core.nodes('test:str=bar'))[0]
             exp = [
                 'parent',
-                'parent.childtag',
                 'parent.child',
+                'parent.child.grandchild',
                 'parent.child.step',
-                'parent.child.grandchild'
+                'parent.childtag'
             ]
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             node = (await core.nodes('test:str=baz'))[0]
             exp = [
                 'parent',
                 'parent.child',
                 'parent.child.step',
-                'parent.child.step.two',
-                'parent.child.step.three'
+                'parent.child.step.three',
+                'parent.child.step.two'
             ]
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             await core.nodes('test:str | tag.prune parent.child.grandchild')
 
             # Should remove all tags
             node = (await core.nodes('test:str=foo'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             # Should only remove parent.child.grandchild
             node = (await core.nodes('test:str=bar'))[0]
-            exp = ['parent', 'parent.childtag', 'parent.child', 'parent.child.step']
-            self.eq(list(node.tags.keys()), exp)
+            exp = ['parent', 'parent.child', 'parent.child.step', 'parent.childtag']
+            self.eq(node.getTagNames(), exp)
 
             await core.nodes('test:str | tag.prune parent.child.step')
 
             # Should only remove parent.child.step and parent.child
             node = (await core.nodes('test:str=bar'))[0]
-            self.eq(list(node.tags.keys()), ['parent', 'parent.childtag'])
+            self.eq(node.getTagNames(), ['parent', 'parent.childtag'])
 
             # Should remove all tags
             node = (await core.nodes('test:str=baz'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'foo')
@@ -3919,11 +3919,11 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes(f'test:str | tag.prune {tags}')
 
             node = (await core.nodes('test:str=foo'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             node = (await core.nodes('test:str=baz'))[0]
             exp = ['tag', 'tag.that', 'tag.that.stays']
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'runtsafety')
@@ -3940,13 +3940,13 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('test:str | tag.prune $node.value()')
 
             node = (await core.nodes('test:str=runtsafety'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             node = (await core.nodes('test:str=foo'))[0]
-            self.eq(list(node.tags.keys()), ['runtsafety'])
+            self.eq(node.getTagNames(), ['runtsafety'])
 
             node = (await core.nodes('test:str=runt.safety.two'))[0]
-            self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+            self.eq(node.getTagNames(), ['runt', 'runt.child'])
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'foo')
@@ -3972,12 +3972,12 @@ class StormTest(s_t_utils.SynTest):
                 await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
 
                 node = (await core.nodes('test:str=foo'))[0]
-                self.eq(list(node.tags.keys()), ['runtsafety'])
+                self.eq(node.getTagNames(), ['runtsafety'])
 
                 await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
-                self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+                self.eq(node.getTagNames(), ['runt', 'runt.child'])
 
     async def test_storm_cmdscope(self):
 
@@ -4063,7 +4063,7 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(q)
             for node in nodes:
-                self.nn(node.tags.get('atag'))
+                self.nn(node.get('#atag'))
 
             async with core.getLocalProxy(user='visi') as asvisi:
                 await self.asyncraises(s_exc.AuthDeny, asvisi.callStorm(q))
@@ -4071,7 +4071,7 @@ class StormTest(s_t_utils.SynTest):
             q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
             await core.nodes(q)
             nodes = await core.nodes('inet:fqdn=foo.com')
-            self.nn(nodes[0].tags.get('btag'))
+            self.nn(nodes[0].get('#btag'))
 
             await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
 
@@ -4108,7 +4108,7 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
-                self.none(node.tags.get('btag'))
+                self.none(node.get('#btag'))
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:
@@ -4176,8 +4176,8 @@ class StormTest(s_t_utils.SynTest):
             ]'''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('asn'), 1234)
-            self.nn(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].get('asn'), 1234)
+            self.nn(nodes[0].get('.seen'))
 
             case = [
                 ('+', 'plus'),

@@ -355,6 +355,11 @@ class SnapEditor:
         if node:
             return self.loadNode(node)
 
+    async def getNodeByNid(self, nid):
+        node = await self.snap.getNodeByNid(nid)
+        if node:
+            return self.loadNode(node)
+
     def getNodeEdits(self):
         nodeedits = []
         for protonode in self.protonodes.values():
