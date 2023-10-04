@@ -1453,7 +1453,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'desc': 'a super cool new feature'
                 },
 
-                ('it:dev:repo:issue:label', issuelabel): {
+                ('it:dev:repo:label', issuelabel): {
                     'issue': issue,
                     'label': label,
                     'applied': 97,

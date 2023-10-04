@@ -429,11 +429,11 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
                 }),
+                ('it:dev:repo:label', ('guid', {}), {
+                    'doc': 'A label applied to a repository issue.',
+                }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
-                }),
-                ('it:dev:repo:issue:label', ('guid', {}), {
-                    'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue:comment', ('guid', {}), {
                     'doc': 'A comment on an issue in a repository.',
@@ -1371,6 +1371,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The ID of the issue in the repository system.',
                     }),
                 )),
+
                 ('it:dev:label', {}, (
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the label.',
@@ -1384,7 +1385,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('it:dev:repo:issue:label', {}, (
+                ('it:dev:repo:label', {}, (
                     ('issue', ('it:dev:repo:issue', {}), {
                         'doc': 'The issue the label was applied to.',
                     }),
