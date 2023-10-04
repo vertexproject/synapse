@@ -252,13 +252,15 @@ $request.reply(200, headers=$headers, body=$body)
 $request.sendcode(201)
 $headers = ({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"})
 $request.sendheaders($headers)
+$request.sendheaders(({"MoreHeader": "SphericalCow"}))
+$request.sendheaders(({"Secret-Header": "TheOverwrite"}))
 $values = (1, 2, 3)
 $newline = "\\n"
 $newline = $newline.encode()
 for $i in $values {
     $data = ({'oh': $i})
     $body = $lib.json.save($data).encode()
-    $request.sendbody($body, flush=$lib.false)
+    $request.sendbody($body)
     $request.sendbody($newline)
 }
 }

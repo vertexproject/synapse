@@ -395,16 +395,16 @@ class HttpReq(s_stormtypes.StormType):
     async def _methSendHeaders(self, headers):
         headers = await s_stormtypes.toprim(headers)
         if not isinstance(headers, dict):
-            # TODO include type
-            raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary. {type(headers)=}')
+            typ = await s_stormtypes.totype(headers)
+            raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary, got {typ}')
         await self.runt.snap.fire('http:resp:headers', headers=headers)
 
-    async def _methSendBody(self, body, flush=True):
+    async def _methSendBody(self, body):
         body = await s_stormtypes.toprim(body)
         if not isinstance(body, bytes):
-            # TODO include type
-            raise s_exc.BadArg(mesg='HTTP Response body must be bytes.')
-        await self.runt.snap.fire('http:resp:body', body=body, flush=flush)
+            typ = await s_stormtypes.totype(body)
+            raise s_exc.BadArg(mesg=f'HTTP Response body must be bytes, got {typ}.')
+        await self.runt.snap.fire('http:resp:body', body=body)
 
     # Convenience method
     async def _methReply(self, code, headers=None, body=None):
@@ -476,7 +476,13 @@ class CortexHttpApi(s_stormtypes.Lib):
         runas = await s_stormtypes.tostr(runas)
         authenticated = await s_stormtypes.tobool(authenticated)
 
-        # check for admin perms ( for add/del and list )
+        # TODO: Discuss to confirm the following behavior:
+        # Since the path value may be a regular expression, and a user can easily
+        # re-order the endpoints values, we just accept whatever path is provided.
+        # This removes the burden of resolving path conflicts from Synapse and onto
+        # the Cortex administrator which are performing the management of their
+        # custom HTTP API endpoints.
+
         adef = {
             'path': path,
             'view': self.runt.snap.view.iden,

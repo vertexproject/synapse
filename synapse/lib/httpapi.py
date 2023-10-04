@@ -1278,8 +1278,9 @@ class ExtApiHandler(StormHandler):
         core = self.getCore()
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
-            # send 404 rest reply
-            return
+            self.set_status(404)
+            self.sendRestErr('NeedConfValu', f'No Custom HTTP API endpoint matches {path}')
+            return await self.finish()
 
         useriden = adef.get('owner')
 
@@ -1339,39 +1340,45 @@ class ExtApiHandler(StormHandler):
         storm = adef['methods'].get(meth)
 
         if storm is None:
-            return self.sendRestErr('BadPathOrSomething', f'No storm endpoint defined for method {meth}')
+            self.set_status(500)
+            self.sendRestErr('NeedConfValu', f'No storm endpoint defined for method {meth}')
+            return await self.finish()
 
         query = '\n'.join((self.storm_prefix, storm))
 
-        rcode = None
-        rheaders = None
+        rcode = False
+        rbody = False
 
         async for mtyp, info in core.storm(query, opts=opts):
             if mtyp == 'http:resp:code':
-                if rcode is not None:
-                    # TODO HTTP 500
-                    logger.error('Already got rcode!')
-                rcode = info['code']
-                self.set_status(rcode)
+                if rbody:
+                    self.set_status(500)
+                    self.sendRestErr('StormRuntimeError', 'Handler may not set status code after setting the body.')
+                    return await self.finish()
+
+                rcode = True
+                self.set_status(info['code'])
 
             if mtyp == 'http:resp:headers':
-                if rheaders is not None:
-                    # TODO HTTP 500
-                    logger.error('Already got rcode!')
-                rheaders = info['headers']
-                for hkey, hval in rheaders.items():
+                if rbody:
+                    self.set_status(500)
+                    self.sendRestErr('StormRuntimeError', 'Handler may not set headers after setting the body.')
+                    return await self.finish()
+                for hkey, hval in info['headers'].items():
                     self.set_header(hkey, hval)
 
             if mtyp == 'http:resp:body':
-                if rheaders is None or rcode is None:
-                    # TODO HTTP 500
-                    logger.error('Handler must set status code and headers first!')
+                if not rcode:
+                    self.set_status(500)
+                    self.sendRestErr('StormRuntimeError', 'Handler must set status code before sending body.')
+                    return await self.finish()
+                rbody = True
                 body = info['body']
-                flush = info['body']
                 self.write(body)
-                if flush:
-                    await self.flush()
+                await self.flush()
 
-        # TODO - Handle a incomplete message stream!
+        if rcode is False:
+            self.set_status(500)
+            self.sendRestErr('StormRuntimeError', 'Handler never set status code.')
 
         await self.finish()

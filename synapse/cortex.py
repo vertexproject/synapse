@@ -4231,7 +4231,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     httpapiextorder = b'httpapiextorderhttpapiextorderhttpapiextorder'
     def _initCortexHttpExtApi(self):
-        # TODO - indexed order loading
         self.httpexts.clear()
 
         byts = self.slab.get(self.httpapiextorder, self.httpextapidb)
@@ -4242,6 +4241,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for iden in order:
             byts = self.slab.get(s_common.uhex(iden), self.httpextapidb)
+
+            # TODO - Discuss if want to keep this as a list of adefs
+            # OR if we ant to keep this as a list of (iden, path) values.
+            # list(adefs) has a lil bit larger live memory footprint.
+            # list(iden, path) incurs a lookup every time we resolve a handler to a given iden
+            # We could do a lru cache for ~16 items that is flushed whenever we reload them.
+            # That would prevent an unbound number of adefs being present in memory.
+
             if byts is None:
                 logger.error(f'Missing HTTP API definition for iden={iden}')
                 continue
