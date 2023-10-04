@@ -6266,6 +6266,160 @@ words\tword\twrd'''
                 'size:bytes': 651,
             }, await core.callStorm('return($lib.axon.metrics())'))
 
+    async def test_storm_lib_axon_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://visi:secret@127.0.0.1:{port}/api/v0/test'
+
+            async def _addfile():
+                async with await core.axon.upload() as fd:
+                    await fd.write(b'{"foo": "bar"}')
+                    return await fd.save()
+
+            size, sha256 = await _addfile()
+
+            opts = {'user': visi.iden, 'vars': {'url': url, 'sha256': s_common.ehex(sha256)}}
+
+            # wget
+
+            scmd = 'return($lib.axon.wget($url, ssl=$lib.false).code)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
+
+            await visi.addRule((True, ('axon', 'wget')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wget')))
+
+            # wput
+
+            scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=$lib.false).code)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'wput')))
+
+            await visi.addRule((True, ('axon', 'wput')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wput')))
+
+            # urlfile
+
+            scmd = 'yield $lib.axon.urlfile($url, ssl=$lib.false) return($node)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
+
+            await visi.addRule((True, ('axon', 'wget')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wget')))
+
+            # del
+
+            scmd = 'return($lib.axon.del($sha256))'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+            self.true(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'del')))
+            await _addfile()
+
+            await visi.addRule((True, ('axon', 'del')))
+            self.true(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'del')))
+            await _addfile()
+
+            # dels
+
+            scmd = 'return($lib.axon.dels(($sha256,)))'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+            self.eq([True], await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'del')))
+            await _addfile()
+
+            await visi.addRule((True, ('axon', 'del')))
+            self.eq([True], await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'del')))
+            await _addfile()
+
+            # list
+
+            scmd = '$x=$lib.null for $x in $lib.axon.list() { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'has')))
+
+            await visi.addRule((True, ('axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'has')))
+
+            # readlines
+
+            scmd = '$x=$lib.null for $x in $lib.axon.readlines($sha256) { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            await visi.addRule((True, ('axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'get')))
+
+            # jsonlines
+
+            scmd = '$x=$lib.null for $x in $lib.axon.jsonlines($sha256) { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            await visi.addRule((True, ('axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'get')))
+
+            # csvrows
+
+            scmd = '$x=$lib.null for $x in $lib.axon.csvrows($sha256) { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            await visi.addRule((True, ('axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'get')))
+
+            # metrics
+
+            scmd = 'return($lib.axon.metrics())'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'has')))
+
+            await visi.addRule((True, ('axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'has')))
+
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:

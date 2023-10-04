@@ -2005,7 +2005,8 @@ class LibAxon(Lib):
         return item
 
     async def readlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2013,7 +2014,8 @@ class LibAxon(Lib):
             yield line
 
     async def jsonlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2022,7 +2024,8 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2038,7 +2041,9 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
@@ -2049,7 +2054,8 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        if not self.runt.allowed(('axon', 'wget')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2083,7 +2089,8 @@ class LibAxon(Lib):
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        if not self.runt.allowed(('axon', 'wput')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2174,7 +2181,8 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2184,7 +2192,9 @@ class LibAxon(Lib):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2195,7 +2205,8 @@ class LibAxon(Lib):
             await asyncio.sleep(0)
 
     async def metrics(self):
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
@@ -9489,9 +9500,7 @@ class CronJob(Prim):
 
     @staticmethod
     def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
