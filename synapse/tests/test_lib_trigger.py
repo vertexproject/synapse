@@ -667,7 +667,7 @@ class TrigTest(s_t_utils.SynTest):
             n2 = 0
             for n in nodes:
                 self.eq(n.props['verb'], 'refs')
-                if n.props.get('n2form') != None:
+                if n.props.get('n2form') is not None:
                     n2 += 1
             self.eq(n2, 3)
 
@@ -730,7 +730,7 @@ class TrigTest(s_t_utils.SynTest):
             n2 = 0
             for n in nodes:
                 self.eq(n.props['verb'], 'refs')
-                if n.props.get('n2form') != None:
+                if n.props.get('n2form') is not None:
                     n2 += 1
             self.eq(n2, 3)
 
