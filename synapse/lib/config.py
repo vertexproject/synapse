@@ -46,6 +46,14 @@ def localSchemaRefHandler(uri):
     with open(filename, 'r') as fp:
         return json.load(fp)
 
+# This handlers dictionary is used by the jsonschema validator to attempt to
+# resolve schema '$ref' values locally from disk and will raise an exception
+# if the schema isn't found locally
+local_ref_handlers = {
+    'http': localSchemaRefHandler,
+    'https': localSchemaRefHandler,
+}
+
 def getJsSchema(confbase, confdefs):
     '''
     Generate a Synapse JSON Schema for a Cell using a pair of confbase and confdef values.
@@ -74,7 +82,7 @@ def getJsSchema(confbase, confdefs):
     props.update(confbase)
     return schema
 
-def getJsValidator(schema, use_default=True):
+def getJsValidator(schema, use_default=True, handlers=None):
     '''
     Get a fastjsonschema callable.
 
@@ -88,18 +96,12 @@ def getJsValidator(schema, use_default=True):
     if schema.get('$schema') is None:
         schema['$schema'] = 'http://json-schema.org/draft-07/schema#'
 
-    # This handlers dictionary is used by the jsonschema validator to attempt to
-    # resolve schema '$ref' values locally from disk and will raise an exception
-    # if the schema isn't found locally
-    handlers = {
-        'http': localSchemaRefHandler,
-        'https': localSchemaRefHandler,
-    }
+    if handlers is None:
+        handlers = {}
 
     # It is faster to hash and cache the functions here than it is to
-    # generate new functions each time we have the same schema. We don't have to
-    # include the handlers in the hash key because it's always used.
-    key = s_hashitem.hashitem((schema, use_default))
+    # generate new functions each time we have the same schema.
+    key = s_hashitem.hashitem((schema, {k: v.__name__ for k, v in handlers.items()}, use_default))
     func = _JsValidators.get(key)
     if func:
         return func
