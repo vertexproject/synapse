@@ -6654,3 +6654,14 @@ words\tword\twrd'''
             debug = await core.callStorm(q, opts={'readonly': True,
                                                   'vars': {'iden': user}})
             self.true(debug)
+
+            q = '''$dict = $lib.dict()
+            [(test:str=key1 :hehe=val1) (test:str=key2 :hehe=val2)]
+            $key=$node.value()
+            $dict.$key=:hehe
+            fini {
+                $lib.fire(event, dict=$dict)
+            }
+            '''
+            mesgs = await core.stormlist(q, opts={'readonly': True})
+            self.stormIsInErr(mesg, msgs)
