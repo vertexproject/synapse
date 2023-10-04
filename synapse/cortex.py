@@ -1143,8 +1143,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.macrodb = self.slab.initdb('storm:macros')
         self.httpextapidb = self.slab.initdb('http:ext:apis')
 
-        # TODO load them into a list ordered by "index" value
-
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
 

@@ -360,26 +360,17 @@ class HttpReq(s_stormtypes.StormType):
         })
 
         self.gtors.update({
-            'api': self._gtorApi,
+            'api': self._gtorApi,  # Not a ctor since the adef retrieval is an async process
             'json': self._gtorJson,
         })
 
     def getObjLocals(self):
         return {
-            # 'argv': (), # any wild globs from the endpoint parsing
-            # Methods
             'sendcode': self._methSendCode,
             'sendheaders': self._methSendHeaders,
             'sendbody': self._methSendBody,
             'reply': self._methReply,
         }
-    #
-    # async def _derefGet(self, name):
-    #     # TODO
-    #     # headers
-    #     # params ( dynamically parse / cache URL params and form params )
-    #     # json ( dynamically deserialize / cache JSON body )
-    #     pass
 
     async def _gtorApi(self):
         adef = self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))

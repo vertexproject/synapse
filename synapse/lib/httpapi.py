@@ -1295,17 +1295,11 @@ class ExtApiHandler(StormHandler):
             if adef.get('runas') == 'user':
                 useriden = requester
 
-        # TODO serialize the request data so we can push it into the
-        # Storm runtime and have it wrapped into the request object.
         request_headers = dict(self.request.headers)
 
         # TODO - Discuss if we want to expose these values to the Storm runtime.
         # request_headers.pop('Cookie', None)  # Session Auth
         # request_headers.pop('Authorization')  # Basic Auth
-
-        print(type(request_headers))
-        for key, valu in request_headers.items():
-            print(f'{key} => {valu}')
 
         # convert params into a list of strings
         params = collections.defaultdict(list)
@@ -1325,9 +1319,6 @@ class ExtApiHandler(StormHandler):
             'args': args,
             'remote_ip': self.request.remote_ip,
         }
-
-        from pprint import pprint
-        pprint(info)
 
         opts = {
             'vars': {
