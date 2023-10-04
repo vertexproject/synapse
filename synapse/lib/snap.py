@@ -1151,22 +1151,22 @@ class Snap(s_base.Base):
                     continue
 
                 if etyp == s_layer.EDIT_EDGE_ADD:
-                    edge, n2iden = parms
+                    verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
                     if not n2:
-                        logger.warning(f'applyNodeEdits got EDIT_EDGE_ADD for bad edge {edge} between n1={node.iden()} and n2={n2iden}')
+                        logger.warning(f'applyNodeEdits got EDIT_EDGE_ADD for bad verb {verb} between n1={node.iden()} and n2={n2iden}')
                         continue
 
-                    callbacks.append((self.view.runEdgeAdd, (node, edge, n2), {}))
+                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
 
                 if etyp == s_layer.EDIT_EDGE_DEL:
-                    edge, n2iden = parms
+                    verb, n2iden = parms
                     n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
                     if not n2:
-                        logger.warning(f'applyNodeEdits got EDIT_EDGE_DEL for bad edge {edge} between n1={node.iden()} and n2={n2iden}')
+                        logger.warning(f'applyNodeEdits got EDIT_EDGE_DEL for bad verb {verb} between n1={node.iden()} and n2={n2iden}')
                         continue
 
-                    callbacks.append((self.view.runEdgeDel, (node, edge, n2), {}))
+                    callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 

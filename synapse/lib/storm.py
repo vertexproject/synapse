@@ -60,7 +60,7 @@ supported.
 
 When the condition is edge:add or edge:del, you may optionally provide a
 form name or a destination form name to only fire on edges added or deleted
-from nodes of those forms
+from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
@@ -73,11 +73,11 @@ Examples:
     trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --edge refs --query {[ +#todo ]}
+    trigger.add edge:add --verb refs --query {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --edge seen --form file:bytes --destform file:bytes --query {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -1012,8 +1012,8 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
-            ('--edge', {'help': 'Edge name to fire on.'}),
-            ('--destform', {'help': 'Destination form to fire on.'}),
+            ('--verb', {'help': 'Edge verb to fire on.'}),
+            ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
