@@ -292,19 +292,19 @@ log message pretty-printed log message::
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
 
-Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFMT`` string. These is expected to be
-a strftime_ format string. The following shows an example of setting this value::
+Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFMT`` string. This is expected to be a
+strftime_ format string. The following shows an example of setting this value::
 
     SYN_LOG_DATEFMT="%d%m%Y %H:%M:%S"
 
-produces teh following output::
+produces the following output::
 
     28062021 15:48:01 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 
 This will also be used to format the ``time`` key used for structured logging.
 
 .. warning::
-    Milliseconds are not available when using the date formatting option. This will result in a lose of precision for
+    Milliseconds are not available when using the date formatting option. This will result in a loss of precision for
     the timestamps that appear in log output.
 
 .. _devops-task-diskfree:

@@ -802,6 +802,7 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=Non
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
         structlog (bool): Enabled structured (jsonl) logging output.
+        datefmt (str): Optional strftime format string.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
