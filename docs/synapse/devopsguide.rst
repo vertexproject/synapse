@@ -301,7 +301,7 @@ produces teh following output::
 
     28062021 15:48:01 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
 
-This will also be used to set formnat ``time`` key for structured logging.
+This will also be used to format the ``time`` key used for structured logging.
 
 .. warning::
     Milliseconds are not available when using the date formatting option. This will result in a lose of precision for
