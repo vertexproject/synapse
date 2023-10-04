@@ -10,6 +10,85 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 
+stormcds = [
+    {
+        'name': 'httpapi.ext.list',
+        'descr': 'List Custom HTTP API endpoints',
+        'cmdargs': (),
+        'storm': '''
+        $apis = $lib.cortex.httpapi.list()
+        if $apis {
+            $header = 'order iden                             owner                auth  runas  path'
+            $lib.print($header)
+            for ($n, $api) in $lib.iters.enum($apis) {
+                // $lib.print($api)
+                $user = $lib.auth.users.get($api.owner)
+                $user = $user.name
+                $auth = `{$api.authenticated}`
+                $order = `{$n}`
+                $mesg=`{$order.ljust(5)} {$api.iden} {$user.ljust(20)} {$auth.ljust(5)} {$api.runas.ljust(6)} {$api.path}`
+                $lib.print($mesg)
+            }
+        } else {
+            $lib.print('No Custom HTTP API endpoints are registered.')
+        }
+        '''
+    },
+    {
+        'name': 'httpapi.ext.stat',
+        'descr': 'Get details for a Custom HTTP API endpoint.',
+        'cmdargs': (
+            ('iden', {'help': 'The iden of the endpoint to inspect', 'type': 'str'}),
+        ),
+        'storm': '''
+        // TODO Resolve the $api by a partial iden
+        $api = $lib.cortex.httpapi.get($cmdopts.iden)
+        $lib.print(`Iden: {$api.iden}`)
+        $lib.print(`Path: {$api.path}`)
+        $user = $lib.auth.users.get($api.owner)
+        $lib.print(`Owner: {$user.name} ({$api.owner})`)
+        $lib.print(`Runas: {$api.runas}`)
+        $lib.print(`Authenticated: {$api.authenticated}`)
+        $lib.print(`Name: {$api.name}`)
+        $lib.print(`Description: {$api.desc}`)
+
+        $perms = $api.perms
+        if $perms {
+            for $pdef in $perms {
+                $perm = $pdef.perm
+                $default = $pdef.default
+            }
+            // pass
+        } else {
+            $lib.print('No user permissions are required to run this handler.')
+        }
+        $methods = $api.methods
+        if $methods {
+            for ($meth, $storm) in $methods {
+                $lib.print(`Method: {$meth.upper()}`)
+                $lib.print($storm)
+            }
+        } else {
+            $lib.print('No HTTP Methods are set for the handler.')
+        }
+        '''
+    },
+    {
+        'name': 'httpapi.ext.index',
+        # TODO Give detailed example
+        'desc': 'Set the index of a Custom HTTP API endpoint.',
+        'cmdargs': (
+            ('iden', {'help': 'The iden of the endpoint to move.', 'type': 'str'}),
+            ('index', {'help': 'The order value to move the endpoint too.', 'type': 'int'}),
+        ),
+        'storm': '''// TODO Resolve the $api by a partial iden
+        $api = $lib.cortex.httpapi.get($cmdopts.iden)
+        $index = $lib.cortex.httpapi.index($api.iden, $cmdopts.index)
+        $lib.print(`Set HTTP API {$api.iden} to index {$index}`)
+        '''
+    }
+]
+
 class HttpApi(s_stormtypes.StormType):
     '''
     HTTPApi object
@@ -34,7 +113,7 @@ class HttpApi(s_stormtypes.StormType):
             'runas': self._storRunas,
             'owner': self._storOwner,
             'perms': self._storPerms,
-
+            'authenticated': self._storAuthenticated,
         })
 
         self.gtors.update({
@@ -44,16 +123,21 @@ class HttpApi(s_stormtypes.StormType):
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
             'perms': self._gtorPerms,
+            'authenticated': self._gtorAuthenticated,
         })
 
         self.ctors.update({
             'methods': self._ctorMethods
         })
 
-    def getObjLocals(self):
-        return {
-            'pack': self._methPack,
-        }
+        self.locls.update({
+            'iden': self.iden,
+        })
+
+    # def getObjLocals(self):
+    #     return {
+    #         'pack': self._methPack,
+    #     }
 
     def value(self):
         return self.info
@@ -99,7 +183,7 @@ class HttpApi(s_stormtypes.StormType):
         return True
 
     async def _gtorRunas(self):
-        return self.info.get('desc')
+        return self.info.get('runas')
 
     async def _storOwner(self, owner):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -124,6 +208,15 @@ class HttpApi(s_stormtypes.StormType):
 
     async def _gtorPerms(self):
         return self.info.get('perms')
+
+    async def _storAuthenticated(self, authenticated):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
+        authenticated = await s_stormtypes.tobool(authenticated)
+        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'authenticated', authenticated)
+        return True
+
+    async def _gtorAuthenticated(self):
+        return self.info.get('authenticated')
 
 class HttpApiMethods(s_stormtypes.StormType):
     _storm_typename = 'http:api:methods'
@@ -358,6 +451,7 @@ class CortexHttpApi(s_stormtypes.Lib):
             'del': self.delHttpApi,
             'get': self.getHttpApi,
             'list': self.listHttpApis,
+            'index': self.setHttpApiIndx,
             'response': self.makeHttpResponse,
         }
 
@@ -398,3 +492,11 @@ class CortexHttpApi(s_stormtypes.Lib):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'del'))
         iden = await s_stormtypes.tostr(iden)
         return await self.runt.snap.view.core.delHttpExtApi(iden)
+
+    async def setHttpApiIndx(self, iden, index=0):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'mod'))
+        iden = await s_stormtypes.tostr(iden)
+        index = await s_stormtypes.toint(index)
+        if index < 0:
+            raise s_exc.BadArg(mesg=f'indx must be greater than or equal to 0; got {index}')
+        return await self.runt.snap.view.core.setHttpApiIndx(iden, index)

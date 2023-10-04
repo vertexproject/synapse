@@ -4146,6 +4146,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_model.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_cortex.stormcds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
     async def _initPureStormCmds(self):
         oldcmds = []
         for name, cdef in self.cmdhive.items():
@@ -4228,25 +4231,44 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/ext/(.*)', s_httpapi.ExtApiHandler, {'cell': self})
 
     # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    httpapiextorder = b'httpapiextorderhttpapiextorderhttpapiextorder'
     def _initCortexHttpExtApi(self):
         # TODO - indexed order loading
         self.httpexts.clear()
-        for key, byts in self.slab.scanByFull(self.httpextapidb):
-            logger.info(f'{key=} {byts=}')
+
+        byts = self.slab.get(self.httpapiextorder, self.httpextapidb)
+        if byts is None:
+            return
+
+        order = s_msgpack.un(byts)
+
+        for iden in order:
+            byts = self.slab.get(s_common.uhex(iden), self.httpextapidb)
+            if byts is None:
+                logger.error(f'Missing HTTP API definition for iden={iden}')
+                continue
             self.httpexts.append(s_msgpack.un(byts))
 
-    async def addHttpExtApi(self, adef, indx=-1):
-
+    async def addHttpExtApi(self, adef):
         adef['iden'] = s_common.guid()
         adef = s_schemas.HttpExaAPIConfSchema(adef)
-
-        return await self._push('http:api:add', adef, indx)
+        return await self._push('http:api:add', adef)
 
     @s_nexus.Pusher.onPush('http:api:add')
-    async def _addHttpExtApi(self, adef, indx):
+    async def _addHttpExtApi(self, adef):
         iden = adef.get('iden')
-        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
-        # TODO handle refreshing index ordered list...
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+
+        order = self.slab.get(self.httpapiextorder, db=self.httpextapidb)
+        if order is None:
+            self.slab.put(self.httpapiextorder, s_msgpack.en([iden]), db=self.httpextapidb)
+        else:
+            order = s_msgpack.un(order)  # type: tuple
+            if iden not in order:
+                # Replay safety
+                order = order + (iden, )  # New handlers go to the end of the list of handlers
+                self.slab.put(self.httpapiextorder, s_msgpack.en(order), db=self.httpextapidb)
+
         # Re-initialize the HTTP API list from the index order
         self._initCortexHttpExtApi()
         return adef
@@ -4260,7 +4282,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         adef = s_msgpack.un(byts)
 
-        # TODO remove from cached (index ordered) list...
+        byts = self.slab.get(self.httpapiextorder, self.httpextapidb)
+        order = list(s_msgpack.un(byts))
+        order.remove(iden)
+
+        self.slab.put(self.httpapiextorder, s_msgpack.en(order), db=self.httpextapidb)
         self._initCortexHttpExtApi()
 
         return adef
@@ -4268,8 +4294,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
 
-        if name not in ('name', 'desc', 'path', 'runas', 'owner', 'perms', 'methods'):
-            raise s_exc.BadArg(mesg=f'Cannot set {name=}')
+        if name not in ('name', 'desc', 'path', 'runas', 'owner', 'perms', 'methods', 'authenticated'):
+            raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 
         byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
         if byts is None:
@@ -4277,22 +4303,33 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         adef = s_msgpack.un(byts)
         adef[name] = valu
-
         adef = s_schemas.HttpExaAPIConfSchema(adef)
-
-        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db='http:ext:apis')
-
-        # TODO handle bumping other values index values down
-        # TODO handle refresh index ordered list
-        # exts = list(self.httpexts)
-        # self.httpexts = [a for a in exts if a['iden'] != iden]
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
         self._initCortexHttpExtApi()
 
         return adef
 
+    @s_nexus.Pusher.onPushAuto('http:api:indx')
+    async def setHttpApiIndx(self, iden, indx):
+        # Ensure our iden is valid...
+        adef = await self.getHttpExtApiByIden(iden)
+
+        byts = self.slab.get(self.httpapiextorder, db=self.httpextapidb)
+        if byts is None:
+            # TODO Fix this error / message
+            raise s_exc.SynErr(mesg='We do not have any handlers..')
+
+        order = list(s_msgpack.un(byts))
+        order.remove(iden)
+        # indx values > length of the list end up at the end of the list.
+        order.insert(indx, iden)
+        self.slab.put(self.httpapiextorder, s_msgpack.en(order), db=self.httpextapidb)
+        self._initCortexHttpExtApi()
+        return order.index(iden)
+
     async def getHttpExtApis(self):
-        return list(self.httpexts)
+        return copy.deepcopy(self.httpexts)
 
     async def getHttpExtApiByIden(self, iden):
         byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)

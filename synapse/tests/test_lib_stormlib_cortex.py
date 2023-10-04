@@ -98,6 +98,96 @@ class CortexLibTest(s_test.SynTest):
                 buf = await resp.json()
                 pprint(buf)
 
+    async def test_libcortex_httpapi_order(self):
+
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            # Define our first handler!
+            q = '''
+            $obj = $lib.cortex.httpapi.add('hehe/haha')
+            $obj.methods.get = ${
+            $data = ({'path': $request.path})
+            $request.reply(200, body=$data)
+            }
+            $obj.methods.head = ${
+                $request.replay(200, ({"yup": "it exists"}) )
+            }
+            $obj.name = 'the hehe/haha handler'
+            $obj.desc = 'beep boop zoop robot captain'
+            $obj.runas = user
+            return ( $obj.iden )
+            '''
+            iden0 = await core.callStorm(q)
+
+            q = '''
+            $obj = $lib.cortex.httpapi.add('hehe')
+            $obj.methods.get = ${
+            $data = ({'path': $request.path})
+            $request.reply(200, body=$data)
+            }
+            $obj.authenticated = $lib.false
+            return ( $obj.iden )
+            '''
+            iden1 = await core.callStorm(q)
+
+            q = '''
+            $obj = $lib.cortex.httpapi.add('wow')
+            $obj.methods.get = ${
+            $data = ({'path': $request.path})
+            $request.reply(200, body=$data)
+            }
+            $obj.authenticated = $lib.false
+            return ( $obj.iden )
+            '''
+            iden2 = await core.callStorm(q)
+
+            msgs = await core.stormlist('httpapi.ext.list')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
+            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden0}})
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
+            msgs = await core.stormlist('httpapi.ext.index $iden 1', opts={'vars': {'iden': iden0}})
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
+            msgs = await core.stormlist('httpapi.ext.list')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
+            msgs = await core.stormlist('httpapi.ext.index $iden 100', opts={'vars': {'iden': iden1}})
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
+            msgs = await core.stormlist('httpapi.ext.list')
+            for m in msgs:
+                if m[0] == 'print':
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
     async def test_libcortex_httpapi_asbytes(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
@@ -132,7 +222,7 @@ $headers."Content-Type" = "application/json"
 $headers."Content-Length" = $lib.len($body)
 $request.reply(200, headers=$headers, body=$body)
 }
-                        '''
+            '''
             msgs = await core.stormlist(q)
             for m in msgs:
                 print(m)
