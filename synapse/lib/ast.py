@@ -1104,6 +1104,13 @@ class SetItemOper(Oper):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
+            if runt.readonly:
+                _storm_readonly = getattr(item.setitem, '_storm_readonly', None)
+                if _storm_readonly is not None and not _storm_readonly:
+                    # mesg = f'{item.__class__.__name__}.setitem() is not marked readonly safe.'
+                    mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+                    raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+
             name = await self.kids[1].compute(runt, path)
             valu = await self.kids[2].compute(runt, path)
 
@@ -1119,6 +1126,13 @@ class SetItemOper(Oper):
 
             name = await self.kids[1].compute(runt, None)
             valu = await self.kids[2].compute(runt, None)
+
+            if runt.readonly:
+                _storm_readonly = getattr(item.setitem, '_storm_readonly', None)
+                if _storm_readonly is not None and not _storm_readonly:
+                    # mesg = f'{item.__class__.__name__}.setitem() is not marked readonly safe.'
+                    mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+                    raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
             # TODO: ditch this when storm goes full heavy object
             with s_scope.enter({'runt': runt}):
