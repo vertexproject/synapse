@@ -467,19 +467,25 @@ class CortexHttpApi(s_stormtypes.Lib):
         apis = [HttpApi(self.runt, adef) for adef in adefs]
         return apis
 
-    async def addHttpApi(self, path):
+    async def addHttpApi(self, path, name='', desc='', runas='owner', authenticated=True):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'add'))
 
         path = await s_stormtypes.tostr(path)
+        name = await s_stormtypes.tostr(name)
+        desc = await s_stormtypes.tostr(desc)
+        runas = await s_stormtypes.tostr(runas)
+        authenticated = await s_stormtypes.tobool(authenticated)
 
         # check for admin perms ( for add/del and list )
         adef = {
             'path': path,
             'view': self.runt.snap.view.iden,
-            'runas': 'owner',
+            'runas': runas,
             'owner': self.runt.user.iden,
             'methods': {},
-            'authenticated': True,
+            'authenticated': authenticated,
+            'name': name,
+            'desc': desc,
         }
 
         adef = await self.runt.snap.core.addHttpExtApi(adef)
