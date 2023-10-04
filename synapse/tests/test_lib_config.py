@@ -383,6 +383,7 @@ class ConfTest(s_test.SynTest):
 
         filename = pathlib.Path(s_data.path(
             'jsonschemas',
+            'raw.githubusercontent.com',
             'oasis-open',
             'cti-stix2-json-schemas',
             'stix2.1',
@@ -400,7 +401,7 @@ class ConfTest(s_test.SynTest):
             "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json"
         ))
 
-        # test the wrapper
+        # test the handler
         with self.raises(s_exc.NoSuchFile):
             s_config.localSchemaRefHandler(
                 f'https://loop.vertex.link/foo/bar/baz/newp.json'
@@ -413,4 +414,4 @@ class ConfTest(s_test.SynTest):
             s_config.localSchemaRefHandler('http://foo.com/newp.json')
 
         with self.raises(s_exc.BadArg):
-            s_config.localSchemaRefHandler('http://foo.com/../attack-flow-schema-2.0.0.json')
+            s_config.localSchemaRefHandler('http://raw.githubusercontent.com/../../attack-flow-schema-2.0.0.json')

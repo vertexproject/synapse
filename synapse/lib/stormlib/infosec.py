@@ -421,7 +421,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to ingest.'},
                   ),
-                  'returns': {'type': 'null'}}},
+                  'returns': {'type': 'it:mitre:attack:flow', 'desc': 'The it:mitre:attack:flow node representing the ingested attack flow diagram.'}}},
 
     )
     _storm_query = '''
@@ -450,13 +450,13 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             ($ok, $name) = $lib.trycast(ps:name, $created_by.name)
             if (not $ok) {
                 $lib.warn(`Error casting contact name to ou:name: {$created_by.name}`)
-                return($lib.null)
+                return()
             }
 
             ($ok, $contact_information) = $lib.trycast(inet:email, $created_by.contact_information)
             if (not $ok) {
                 $lib.warn(`Error casting contact information to inet:email: {$created_by.contact_information}`)
-                return($lib.null)
+                return()
             }
 
             [ it:mitre:attack:flow = $guid

@@ -35,13 +35,14 @@ def localSchemaRefHandler(uri):
     except ValueError:
         raise s_exc.BadUrl(f'Malformed URI: {uri}.') from None
 
-    filename = s_data.path('jsonschemas', *parts.path.split('/'))
-    if not os.path.exists(filename) or not os.path.isfile(filename):
-        raise s_exc.NoSuchFile(f'Local JSON schema not found for {uri}.')
+    filename = s_data.path('jsonschemas', parts.hostname, *parts.path.split('/'))
 
     # Check for path traversal. Unlikely, but still check
-    if not filename.startswith(s_data.path('jsonschemas')):
+    if not filename.startswith(s_data.path('jsonschemas', parts.hostname)):
         raise s_exc.BadArg(f'Path traversal in schema URL: {uri}.')
+
+    if not os.path.exists(filename) or not os.path.isfile(filename):
+        raise s_exc.NoSuchFile(f'Local JSON schema not found for {uri}.')
 
     with open(filename, 'r') as fp:
         return json.load(fp)
@@ -82,7 +83,7 @@ def getJsSchema(confbase, confdefs):
     props.update(confbase)
     return schema
 
-def getJsValidator(schema, use_default=True, handlers=None):
+def getJsValidator(schema, use_default=True, handlers=local_ref_handlers):
     '''
     Get a fastjsonschema callable.
 
