@@ -4322,7 +4322,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         byts = self.slab.get(self.httpapiextorder, db=self.httpextapidb)
         if byts is None:
-            # TODO Fix this error / message
+            # TODO Fix this error / message / can we even get here?
             raise s_exc.SynErr(mesg='We do not have any handlers..')
 
         order = list(s_msgpack.un(byts))

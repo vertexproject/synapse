@@ -110,6 +110,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
+            # 'view': self._storView,  # TODO -> Implement .view
             'runas': self._storRunas,
             'owner': self._storOwner,
             'perms': self._storPerms,
@@ -120,6 +121,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
+            # 'view': self._gtorView,  # TODO -> Implement .view
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
             'perms': self._gtorPerms,
@@ -142,9 +144,9 @@ class HttpApi(s_stormtypes.StormType):
     def value(self):
         return self.info
 
-    async def _methPack(self):
-        # TODO Return a copy of the data from the cortex!
-        return self.info
+    # async def _methPack(self):
+    #     # TODO Return a copy of the data from the cortex!
+    #     return self.info
 
     def _ctorMethods(self, path):
         return HttpApiMethods(self)
@@ -188,10 +190,12 @@ class HttpApi(s_stormtypes.StormType):
     async def _storOwner(self, owner):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         owner = await s_stormtypes.tostr(owner)
+        # TODO - Confirm the owner is a user
         self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'owner', owner)
         return True
 
     async def _gtorOwner(self):
+        # TODO Return a s_stormtypes.User object!
         return self.info.get('owner')
 
     async def _storPerms(self, perms):
