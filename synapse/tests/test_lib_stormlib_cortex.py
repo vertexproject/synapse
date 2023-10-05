@@ -342,3 +342,49 @@ for $i in $values {
                 print(resp)
                 buf = await resp.read()
                 print(buf)
+
+    async def test_libcortex_view(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            def_view = await core.callStorm('return ( $lib.view.get().iden )')
+
+            q = '$lyr=$lib.layer.add() $view=$lib.view.add(($lyr.iden,), name="iso view") return ( $view.iden )'
+            view = await core.callStorm(q)
+
+            q = '''$obj = $lib.cortex.httpapi.add(testpath)
+            $obj.methods.get = ${
+                $view = $lib.view.get()
+                $request.reply(200, body=({'view': $view.iden}) )
+            }
+            return ( $obj.iden )
+            '''
+            iden = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
+                print(resp)
+                data = await resp.json()
+                self.eq(data.get('view'), def_view)
+
+                # Change the view the endpoint uses
+                q = '$obj=$lib.cortex.httpapi.get($http_iden) $lib.print($obj) $lib.print($lib.vars.type($obj))' \
+                    '$view=$lib.view.get($view_iden) $lib.print($view)' \
+                    '$obj.view = $view $lib.print($obj) '
+                msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden, 'view_iden': view}})
+                for m in msgs:
+                    print(m)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
+                print(resp)
+                data = await resp.json()
+                self.eq(data.get('view'), view)
+
+                # Our gtor gives a heavy view object
+                name = await core.callStorm('$obj=$lib.cortex.httpapi.get($http_iden) return ($obj.view.get(name))',
+                                            opts={'vars': {'http_iden': iden}})
+                self.eq(name, 'iso view')

@@ -110,7 +110,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
-            # 'view': self._storView,  # TODO -> Implement .view
+            'view': self._storView,
             'runas': self._storRunas,
             'owner': self._storOwner,
             'perms': self._storPerms,
@@ -121,7 +121,7 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._gtorName,
             'desc': self._gtorDesc,
             'path': self._gtorPath,
-            # 'view': self._gtorView,  # TODO -> Implement .view
+            'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
             'perms': self._gtorPerms,
@@ -164,6 +164,21 @@ class HttpApi(s_stormtypes.StormType):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         name = await s_stormtypes.tostr(name)
         self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'name', name)
+        return True
+
+    async def _gtorView(self):
+        iden = self.info.get('view')
+        vdef = await self.runt.snap.core.getViewDef(iden)
+        if vdef is None:
+            raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
+        return s_stormtypes.View(self.runt, vdef, path=self.path)
+
+    async def _storView(self, iden):
+        if isinstance(iden, s_stormtypes.View):
+            view = iden.value().get('iden')
+        else:
+            view = await s_stormtypes.tostr(iden)
+        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'view', view)
         return True
 
     async def _gtorName(self):
@@ -226,7 +241,7 @@ class HttpApi(s_stormtypes.StormType):
         return self.info.get('authenticated')
 
 @s_stormtypes.registry.registerType
-class HttpApiMethods(s_stormtypes.StormType):
+class HttpApiMethods(s_stormtypes.Prim):
     '''
     '''
     _storm_typename = 'http:api:methods'
@@ -255,6 +270,14 @@ class HttpApiMethods(s_stormtypes.StormType):
             'patch': self._storMethPatch,
             'options': self._storMethOptions,
         })
+
+    async def iter(self):
+        meths = self.httpapi.info.get('methods')
+        for k, v in meths.items():
+            yield (k, v)
+
+    def value(self):
+        return self.httpapi.info.get('methods')
 
     async def _storMethFunc(self, meth, query):
         query = await s_stormtypes.tostr(query)
@@ -463,7 +486,8 @@ class CortexHttpApi(s_stormtypes.Lib):
     async def getHttpApi(self, iden):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.getHttpExtApiByIden(iden)
+        adef = await self.runt.snap.core.getHttpExtApiByIden(iden)
+        return HttpApi(self.runt, adef)
 
     async def listHttpApis(self):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))

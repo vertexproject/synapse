@@ -4299,7 +4299,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
 
-        if name not in ('name', 'desc', 'path', 'runas', 'owner', 'perms', 'methods', 'authenticated'):
+        if name in ('name', 'desc', 'path', 'runas', 'methods', 'authenticated', 'perms'):
+            # Schema takes care of these values
+            pass
+        elif name == 'owner':
+            _obj = await self.getUserDef(valu, packroles=False)
+            if _obj is None:
+                raise s_exc.NoSuchUser(mesg=f'Cannot set user={valu} on extended httpapi, it does not exist.')
+        elif name == 'view':
+            _obj = self.getView(valu)
+            if _obj is None:
+                raise s_exc.NoSuchView(mesg=f'Cannot set view={valu} on extended httpapi, it does not exist.')
+        else:
             raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 
         byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
@@ -4345,21 +4356,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return adef
 
     async def getHttpExtApiByPath(self, path):
-        # use index ordered list to resolve which and (adef, globs)
+        # FIXME Remove logger lines
         logger.info(f'{path=}')
 
         for adef in self.httpexts:
             match = regex.fullmatch(adef.get('path'), path)
-            logger.info(f'{match=}')
+
+            logger.info(f'{adef.get("path")=} -> {match=}')
 
             if match is None:
                 continue
 
             return adef, match.groups()
 
-        if self.httpexts:
-            # TODO Actually implement a handler....
-            return self.httpexts[0], path
         return None, ()
 
     # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

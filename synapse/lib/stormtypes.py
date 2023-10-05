@@ -6822,10 +6822,9 @@ class LibView(Lib):
     async def _methViewGet(self, iden=None):
         if iden is None:
             iden = self.runt.snap.view.iden
-        todo = s_common.todo('getViewDef', iden)
-        vdef = await self.runt.dyncall('cortex', todo)
+        vdef = await self.runt.snap.core.getViewDef(iden)
         if vdef is None:
-            raise s_exc.NoSuchView(mesg=iden)
+            raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
 
         return View(self.runt, vdef, path=self.path)
 
