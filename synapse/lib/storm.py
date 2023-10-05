@@ -5480,13 +5480,14 @@ class EdgesDelCmd(Cmd):
 
     async def delEdges(self, node, verb, n2=False):
         if n2:
-            n2nid = node.nid
+            n2iden = node.iden()
             async for (v, n1nid) in node.iterEdgesN2(verb):
                 n1 = await self.runt.snap.getNodeByNid(n1nid)
-                await n1.delEdge(v, n2nid)
+                await n1.delEdge(v, n2iden)
         else:
             async for (v, n2nid) in node.iterEdgesN1(verb):
-                await node.delEdge(v, n2nid)
+                n2buid = self.runt.snap.core.getBuidByNid(n2nid)
+                await node.delEdge(v, s_common.ehex(n2buid))
 
     async def execStormCmd(self, runt, genr):
 

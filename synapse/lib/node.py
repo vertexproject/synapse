@@ -152,15 +152,18 @@ class Node(NodeBase):
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2iden)
 
-    async def delEdge(self, verb, n2nid):
+    async def delEdge(self, verb, n2iden):
 
-        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
-        nodeedits = (
-            (self.buid, self.form.name, (
-                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
-            )),
-        )
-        await self.snap.saveNodeEdits(nodeedits)
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.delEdge(verb, n2iden)
+
+#        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
+#        nodeedits = (
+#            (self.buid, self.form.name, (
+#                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
+#            )),
+#        )
+#        await self.snap.saveNodeEdits(nodeedits)
 
     async def iterEdgesN1(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb):

@@ -567,7 +567,7 @@ class CvssLib(s_stormtypes.Lib):
             mesg = '$lib.infosec.cvss.calculate() requires a risk:vuln node.'
             raise s_exc.BadArg(mesg=mesg)
 
-        rval = await self.calculateFromProps(node.props, vers=vers)
+        rval = await self.calculateFromProps(node.getProps(), vers=vers)
 
         if save and rval.get('ok'):
 

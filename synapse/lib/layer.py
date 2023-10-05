@@ -2418,7 +2418,6 @@ class Layer(s_nexus.Pusher):
         if envl is not None:
             return envl
 
-        sode = self._genStorNode(nid)
         envl = SodeEnvl(self.iden, self._genStorNode(nid))
 
         self.weakcache[nid] = envl

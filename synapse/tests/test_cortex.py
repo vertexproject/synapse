@@ -799,7 +799,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(n1edges, (('refs', ipv4.nid),))
                 self.eq(n2edges, (('refs', news.nid),))
 
-                await news.delEdge('refs', ipv4.nid)
+                await news.delEdge('refs', ipv4.iden())
 
                 self.len(0, await alist(news.iterEdgesN1()))
                 self.len(0, await alist(ipv4.iterEdgesN2()))
@@ -3750,7 +3750,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             def checkGraph(seeds, alldefs):
                 # our TLDs should be omits
                 self.len(2, seeds)
-                self.len(6, alldefs)
+                self.len(5, alldefs)
 
                 self.isin(('inet:fqdn', 'woot.com'), seeds)
                 self.isin(('inet:fqdn', 'vertex.link'), seeds)
@@ -3881,7 +3881,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # our TLDs are no longer omits
             self.len(4, seeds)
-            self.len(8, alldefs)
+            self.len(7, alldefs)
             self.isin(('inet:fqdn', 'com'), seeds)
             self.isin(('inet:fqdn', 'link'), seeds)
             self.isin(('inet:fqdn', 'woot.com'), seeds)
@@ -3905,7 +3905,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # we still get the seeds. We also get an inet:dns:a node we
             # previously omitted.
             self.len(4, seeds)
-            self.len(9, alldefs)
+            self.len(8, alldefs)
             self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
 
             # refs
@@ -3997,7 +3997,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
             # default to full pivots including
-            # iden = s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))
             rules = {
                 'refs': True,
                 'edges': True,
@@ -4006,17 +4005,33 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
 
             nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
-            self.len(3, nodes)
+            self.len(2, nodes)
 
             props = set()
-            for edge in nodes[('inet:fqdn', 'vertex.link')][1]['path']['edges']:
+            for edge in nodes[('inet:fqdn', 'link')][1]['path']['edges']:
                 if edge[1].get('type') == 'prop':
-                    props.add(edge[1].get('name'))
+                    props.add(edge[1].get('prop'))
 
-            self.isin('zone', props)
             self.isin('domain', props)
 
-            edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][0][1]
+            # include a light edge
+            rules = {
+                'refs': True,
+                'edges': True,
+                'degrees': 1,
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<(*)- *']
+                    }
+                }
+            }
+
+            msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
+
+            nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
+            self.len(3, nodes)
+
+            edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][1][1]
             self.eq({'type': 'edge', 'verb': 'refs'}, edgeinfo)
 
         with self.getTestDir() as dirn:

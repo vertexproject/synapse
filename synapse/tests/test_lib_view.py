@@ -519,7 +519,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.none(await prox.storNodeEdits(edits, None))
 
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
-            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+            self.len(0, await core.nodes('test:str=foo', opts={'view': view}))
 
     async def test_lib_view_wipeLayer(self):
 

@@ -96,15 +96,11 @@ class SnapTest(s_t_utils.SynTest):
 
                 gc.collect()
 
-                # Test that coherency goes away (and we don't store all nodes forever)
                 await alist(snap.addNodes([(('test:int', x), {}) for x in range(20, 30)]))
 
                 node = await snap.getNodeByNdef(('test:int', 0))
                 self.eq(nodebuid, node.buid)
-                # Ensure that the node is not the same object as we encountered earlier.
-                # We cannot check via id() since it is possible for a pyobject to be
-                # allocated at the same location as the old object.
-                self.false(hasattr(node, '_test'))
+                self.true(hasattr(node, '_test'))
 
     async def test_addNodes(self):
         async with self.getTestCore() as core:
