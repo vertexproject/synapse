@@ -761,7 +761,7 @@ def _getLogConfFromEnv(defval=None, structlog=None, datefmt=None):
     else:
         structlog = 'false'
     defval = os.getenv('SYN_LOG_LEVEL', defval)
-    datefmt = os.getenv('SYN_LOG_DATEFMT', datefmt)
+    datefmt = os.getenv('SYN_LOG_DATEFORMAT', datefmt)
     structlog = envbool('SYN_LOG_STRUCT', structlog)
     ret = {'defval': defval, 'structlog': structlog, 'datefmt': datefmt}
     return ret

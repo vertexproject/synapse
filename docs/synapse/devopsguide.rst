@@ -292,10 +292,10 @@ log message pretty-printed log message::
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
 
-Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFMT`` string. This is expected to be a
+Custom date formatting strings can also be provided by setting the ``SYN_LOG_DATEFORMAT`` string. This is expected to be a
 strftime_ format string. The following shows an example of setting this value::
 
-    SYN_LOG_DATEFMT="%d%m%Y %H:%M:%S"
+    SYN_LOG_DATEFORMAT="%d%m%Y %H:%M:%S"
 
 produces the following output::
 
