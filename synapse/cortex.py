@@ -4241,14 +4241,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for iden in order:
             byts = self.slab.get(s_common.uhex(iden), self.httpextapidb)
-
-            # TODO - Discuss if want to keep this as a list of adefs
-            # OR if we ant to keep this as a list of (iden, path) values.
-            # list(adefs) has a lil bit larger live memory footprint.
-            # list(iden, path) incurs a lookup every time we resolve a handler to a given iden
-            # We could do a lru cache for ~16 items that is flushed whenever we reload them.
-            # That would prevent an unbound number of adefs being present in memory.
-
             if byts is None:
                 logger.error(f'Missing HTTP API definition for iden={iden}')
                 continue
@@ -4299,21 +4291,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
 
-        if name in ('name', 'desc', 'path', 'runas', 'methods', 'authenticated', 'perms'):
+        if name in ('name', 'desc', 'path', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
             # Schema takes care of these values
             pass
         elif name == 'owner':
             _obj = await self.getUserDef(valu, packroles=False)
             if _obj is None:
                 raise s_exc.NoSuchUser(mesg=f'Cannot set user={valu} on extended httpapi, it does not exist.')
-            # TODO - Discuss - who is responsible for checking view permissions for the owner are correct?
-            # The system or the admin?
         elif name == 'view':
             _obj = self.getView(valu)
             if _obj is None:
                 raise s_exc.NoSuchView(mesg=f'Cannot set view={valu} on extended httpapi, it does not exist.')
-                # TODO Discuss - "extended http api" vs "custom http api" - how do we want to refer to this
-                # in our code + documentation?
+                # TODO Discuss - use "custom http api" in code + documentation
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 
@@ -4360,19 +4349,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return adef
 
     async def getHttpExtApiByPath(self, path):
-        # FIXME Remove logger lines
-        logger.info(f'{path=}')
-
         for adef in self.httpexts:
             match = regex.fullmatch(adef.get('path'), path)
-
-            logger.info(f'{adef.get("path")=} -> {match=}')
-
             if match is None:
                 continue
-
             return adef, match.groups()
-
         return None, ()
 
     # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

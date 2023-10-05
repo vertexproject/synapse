@@ -1299,18 +1299,17 @@ class ExtApiHandler(StormHandler):
             if adef.get('runas') == 'user':
                 useriden = requester
 
-        request_headers = dict(self.request.headers)
+        # We flatten the request headers and parameters into a flat key/valu map.
+        # The first instnace of a given key wins.
+        request_headers = {}
+        for key, valu in self.request.headers.get_all():
+            request_headers.setdefault(key.lower(), valu)
 
-        # TODO - Discuss if we want to expose these values to the Storm runtime.
-        # request_headers.pop('Cookie', None)  # Session Auth
-        # request_headers.pop('Authorization')  # Basic Auth
-
-        # convert params into a list of strings
-        params = collections.defaultdict(list)
+        params = {}
         for key, valus in self.request.query_arguments.items():
             for valu in valus:
-                params[key].append(valu.decode())
-        params = dict(params)
+                params.setdefault(key, valu.decode())
+                continue
 
         info = {
             'uri': self.request.uri,
@@ -1324,17 +1323,19 @@ class ExtApiHandler(StormHandler):
             'remote_ip': self.request.remote_ip,
         }
 
+        varz = adef.get('vars')
+        varz['_http_request_info'] = info
+
         opts = {
-            'vars': {
-                '_http_request_info': info,
-            },
-            'user': useriden,
-            'view': adef.get('view'),
+            'readonly': adef.get('readonly'),
             'show': (
                 'http:resp:body',
                 'http:resp:code',
                 'http:resp:headers',
-            )
+            ),
+            'user': useriden,
+            'vars': varz,
+            'view': adef.get('view'),
         }
 
         storm = adef['methods'].get(meth)

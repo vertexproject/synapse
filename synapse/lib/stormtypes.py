@@ -4323,7 +4323,14 @@ class Dict(Prim):
         return self.valu.get(name)
 
     async def value(self):
-        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
+        # return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
+        ret = {}
+        for k, v in self.valu.items():
+            logger.info(f'{k=}  {v=}')
+            _k = await toprim(k)
+            _v = await toprim(v)
+            ret[_k] = _v
+        return ret
 
     async def stormrepr(self):
         reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]

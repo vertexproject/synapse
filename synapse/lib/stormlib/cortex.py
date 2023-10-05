@@ -21,9 +21,11 @@ stormcds = [
             $header = 'order iden                             owner                auth  runas  path'
             $lib.print($header)
             for ($n, $api) in $lib.iters.enum($apis) {
-                // $lib.print($api)
-                $user = $lib.auth.users.get($api.owner)
-                $user = $user.name
+                try {
+                    $user = $api.owner.name
+                } catch NoSuchUser as err {
+                    $user = `No user found ({$err.user})`
+                }
                 $auth = `{$api.authenticated}`
                 $order = `{$n}`
                 $mesg=`{$order.ljust(5)} {$api.iden} {$user.ljust(20)} {$auth.ljust(5)} {$api.runas.ljust(6)} {$api.path}`
@@ -43,11 +45,16 @@ stormcds = [
         'storm': '''
         // TODO Resolve the $api by a partial iden
         $api = $lib.cortex.httpapi.get($cmdopts.iden)
+
         $lib.print(`Iden: {$api.iden}`)
         $lib.print(`Path: {$api.path}`)
-        $user = $lib.auth.users.get($api.owner)
-        $lib.print(`Owner: {$user.name} ({$api.owner})`)
+        try {
+            $lib.print(`Owner: {$api.owner.name} ({$api.owner.iden})`)
+        } catch NoSuchUser as err {
+            $lib.print(`Owner: No user found ({$err.user})`)
+        }
         $lib.print(`Runas: {$api.runas}`)
+        $lib.print(`Readonly: {$api.readonly}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
@@ -64,12 +71,22 @@ stormcds = [
         }
         $methods = $api.methods
         if $methods {
+            $lib.print('The handler defines the following HTTP methods:')
             for ($meth, $storm) in $methods {
                 $lib.print(`Method: {$meth.upper()}`)
                 $lib.print($storm)
             }
         } else {
             $lib.print('No HTTP Methods are set for the handler.')
+        }
+        $vars = $api.vars
+        if $vars {
+            $lib.print('The handler has the following runtime variables set:')
+            for ($key, $valu) in $vars {
+                $lib.print(`{$key} => {$valu}`)
+            }
+        } else {
+            $lib.print('No vars are set for the handler.')
         }
         '''
     },
@@ -110,10 +127,12 @@ class HttpApi(s_stormtypes.StormType):
             'name': self._storName,
             'desc': self._storDesc,
             'path': self._storPath,
+            'vars': self._storVars,
             'view': self._storView,
             'runas': self._storRunas,
             'owner': self._storOwner,
             'perms': self._storPerms,
+            'readonly': self._storReadonly,
             'authenticated': self._storAuthenticated,
         })
 
@@ -125,29 +144,31 @@ class HttpApi(s_stormtypes.StormType):
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
             'perms': self._gtorPerms,
+            'readonly': self._gtorReadonly,
             'authenticated': self._gtorAuthenticated,
         })
 
         self.ctors.update({
+            'vars': self._ctorVars,
             'methods': self._ctorMethods
         })
 
         # constants
+        self.locls.update(self.getObjLocals())
         self.locls.update({
             'iden': self.iden,
         })
 
-    # def getObjLocals(self):
-    #     return {
-    #         'pack': self._methPack,
-    #     }
+    def getObjLocals(self):
+        return {
+            'pack': self._methPack,
+        }
 
     def value(self):
         return self.info
 
-    # async def _methPack(self):
-    #     # TODO Return a copy of the data from the cortex!
-    #     return self.info
+    async def _methPack(self):
+        return copy.deepcopy(self.info)
 
     def _ctorMethods(self, path):
         return HttpApiMethods(self)
@@ -155,8 +176,8 @@ class HttpApi(s_stormtypes.StormType):
     async def _storPath(self, path):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         path = await s_stormtypes.tostr(path)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'path', path)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'path', path)
+        self.info['path'] = path
 
     async def _gtorPath(self):
         return self.info.get('path')
@@ -164,8 +185,8 @@ class HttpApi(s_stormtypes.StormType):
     async def _storName(self, name):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         name = await s_stormtypes.tostr(name)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'name', name)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'name', name)
+        self.info['name'] = name
 
     async def _gtorView(self):
         iden = self.info.get('view')
@@ -174,13 +195,20 @@ class HttpApi(s_stormtypes.StormType):
             raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
         return s_stormtypes.View(self.runt, vdef, path=self.path)
 
+    async def _storVars(self, varz):
+        varz = await s_stormtypes.toprim(varz)
+        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'vars', varz)
+        _varz = self.info.get('vars')
+        _varz.clear()
+        _varz.update(**adef.get('vars'))
+
     async def _storView(self, iden):
         if isinstance(iden, s_stormtypes.View):
             view = iden.value().get('iden')
         else:
             view = await s_stormtypes.tostr(iden)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'view', view)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'view', view)
+        self.info['view'] = view
 
     async def _gtorName(self):
         return self.info.get('name')
@@ -188,8 +216,8 @@ class HttpApi(s_stormtypes.StormType):
     async def _storDesc(self, desc):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         desc = await s_stormtypes.tostr(desc)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'desc', desc)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'desc', desc)
+        self.info['desc'] = desc
 
     async def _gtorDesc(self):
         return self.info.get('desc')
@@ -197,11 +225,23 @@ class HttpApi(s_stormtypes.StormType):
     async def _storRunas(self, runas):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         runas = await s_stormtypes.tostr(runas)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'runas', runas)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'runas', runas)
+        self.info['runas'] = runas
 
     async def _gtorRunas(self):
         return self.info.get('runas')
+
+    async def _storReadonly(self, readonly):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
+        readonly = await s_stormtypes.tobool(readonly)
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'readonly', readonly)
+        self.info['readonly'] = readonly
+
+    def _ctorVars(self, path=None):
+        return HttpApiVars(self, path=path)
+
+    async def _gtorReadonly(self):
+        return self.info.get('readonly')
 
     async def _storOwner(self, owner):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -210,8 +250,8 @@ class HttpApi(s_stormtypes.StormType):
             owner = info.get('iden')
         else:
             owner = await s_stormtypes.tostr(owner)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'owner', owner)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'owner', owner)
+        self.info['owner'] = owner
 
     async def _gtorOwner(self):
         iden = self.info.get('owner')
@@ -232,8 +272,8 @@ class HttpApi(s_stormtypes.StormType):
                 pdef = {'perm': parts, 'default': False}
 
             pdefs.append(pdef)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', pdefs)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', pdefs)
+        self.info['perms'] = pdefs
 
     async def _gtorPerms(self):
         return self.info.get('perms')
@@ -241,8 +281,8 @@ class HttpApi(s_stormtypes.StormType):
     async def _storAuthenticated(self, authenticated):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         authenticated = await s_stormtypes.tobool(authenticated)
-        self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'authenticated', authenticated)
-        return True
+        await self.runt.snap.core.modHttpExtApi(self.iden, 'authenticated', authenticated)
+        self.info['authenticated'] = authenticated
 
     async def _gtorAuthenticated(self):
         return self.info.get('authenticated')
@@ -257,6 +297,7 @@ class HttpApiMethods(s_stormtypes.Prim):
     def __init__(self, httpapi: HttpApi):
         s_stormtypes.StormType.__init__(self)
         self.httpapi = httpapi
+        self.meths = httpapi.info.get('methods')
 
         self.gtors.update({
             'get': self._gtorMethGet,
@@ -287,12 +328,23 @@ class HttpApiMethods(s_stormtypes.Prim):
         return self.httpapi.info.get('methods')
 
     async def _storMethFunc(self, meth, query):
-        query = await s_stormtypes.tostr(query)
-        query = query.strip()
-        methods = self.httpapi.info.get('methods')
-        methods[meth] = query
-        self.httpapi.info = await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
-        return True
+        meth = await s_stormtypes.tostr(meth)
+        methods = self.meths.copy()
+
+        if query is s_stormtypes.undef:
+            methods.pop(meth, None)
+            await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
+            self.meths.pop(meth, None)
+        else:
+            query = await s_stormtypes.tostr(query)
+            query = query.strip()
+
+            # Ensure our query can be parsed.
+            await self.httpapi.runt.snap.core.getStormQuery(query)
+
+            methods[meth] = query
+            await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
+            self.meths[meth] = query
 
     async def _storMethGet(self, query):
         return await self._storMethFunc('get', query)
@@ -335,6 +387,57 @@ class HttpApiMethods(s_stormtypes.Prim):
 
     async def _gtorMethOptions(self):
         return self.httpapi.info.get('methods').get('options')
+
+@s_stormtypes.registry.registerType
+class HttpDict(s_stormtypes.Dict):
+    '''
+    Immutable lowercase key access dictionary for HTTP request headers and parameters
+    '''
+    _storm_typename = 'http:request:headers'
+    _storm_locals = ()
+
+    _ismutable = False
+
+    # TODO DOCSTRING
+
+    async def setitem(self, name, valu):
+        mesg = f'{self._storm_typename} may not be modified by the runtime'
+        raise s_exc.StormRuntimeError(mesg=mesg, name=name)
+
+    async def deref(self, name):
+        name = await s_stormtypes.tostr(name)
+        name = name.lower()
+        return self.valu.get(name)
+
+@s_stormtypes.registry.registerType
+class HttpApiVars(s_stormtypes.Dict):
+    '''
+    Immutable lowercase key access dictionary for HTTP request headers and parameters
+    '''
+    _storm_typename = 'http:api:vars'
+    _storm_locals = ()
+
+    _ismutable = False
+
+    # TODO DOCSTRING
+    def __init__(self, httpapi, path=None):
+        self.valu = httpapi.info.get('vars')
+        self.path = path
+        self.httpapi = httpapi
+    async def setitem(self, name, valu):
+        name = await s_stormtypes.tostr(name)
+
+        varz = self.valu.copy()
+        if valu is s_stormtypes.undef:
+            varz.pop(name, None)
+            await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
+            self.valu.pop(name, None)
+        else:
+            valu = await s_stormtypes.toprim(valu)
+            varz[name] = valu
+            await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
+            self.valu[name] = valu
+
 
 @s_stormtypes.registry.registerType
 class HttpReq(s_stormtypes.StormType):
@@ -392,7 +495,7 @@ class HttpReq(s_stormtypes.StormType):
             'args': self.rnfo.get('args'),
             'body': self.rnfo.get('body'),
             'method': self.rnfo.get('method'),
-            'headers': self.rnfo.get('headers'),
+            #
             'params': self.rnfo.get('params'),
             'remote_ip': self.rnfo.get('remote_ip'),
             'uri': self.rnfo.get('uri'),
@@ -404,6 +507,10 @@ class HttpReq(s_stormtypes.StormType):
             'json': self._gtorJson,
         })
 
+        self.ctors.update({
+            'headers': self._ctorHeaders,
+        })
+
     def getObjLocals(self):
         return {
             'sendcode': self._methSendCode,
@@ -411,6 +518,10 @@ class HttpReq(s_stormtypes.StormType):
             'sendbody': self._methSendBody,
             'reply': self._methReply,
         }
+
+    def _ctorHeaders(self, path=None):
+        headers = self.rnfo.get('headers')
+        return HttpDict(valu=headers, path=path)
 
     async def _gtorApi(self):
         adef = self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
@@ -451,9 +562,7 @@ class HttpReq(s_stormtypes.StormType):
 
         body = await s_stormtypes.toprim(body)
         if body is not None and not isinstance(body, bytes):
-            # TODO - discuss strict use
-            # s_common.reqJsonSafeStrict(body)
-            body = json.dumps(body, sort_keys=True).encode('utf-8', 'surrogatepass')
+            body = json.dumps(body).encode('utf-8', 'surrogatepass')
             headers['Content-Type'] = 'application/json'
             headers['Content-Length'] = len(body)
 
@@ -502,21 +611,15 @@ class CortexHttpApi(s_stormtypes.Lib):
         apis = [HttpApi(self.runt, adef) for adef in adefs]
         return apis
 
-    async def addHttpApi(self, path, name='', desc='', runas='owner', authenticated=True):
+    async def addHttpApi(self, path, name='', desc='', runas='owner', authenticated=True, readonly=False):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'add'))
 
         path = await s_stormtypes.tostr(path)
         name = await s_stormtypes.tostr(name)
         desc = await s_stormtypes.tostr(desc)
         runas = await s_stormtypes.tostr(runas)
+        readonly = await s_stormtypes.tobool(readonly)
         authenticated = await s_stormtypes.tobool(authenticated)
-
-        # TODO: Discuss to confirm the following behavior:
-        # Since the path value may be a regular expression, and a user can easily
-        # re-order the endpoints values, we just accept whatever path is provided.
-        # This removes the burden of resolving path conflicts from Synapse and onto
-        # the Cortex administrator which are performing the management of their
-        # custom HTTP API endpoints.
 
         adef = {
             'path': path,
@@ -527,13 +630,8 @@ class CortexHttpApi(s_stormtypes.Lib):
             'authenticated': authenticated,
             'name': name,
             'desc': desc,
+            'readonly': readonly,
         }
-
-        # TODO - Discuss additional options
-        # 1. readonly - run the storm query in readonly mode
-        # 2. vars - allow the user to set vares which are set
-        # in the storm runtime when the query runs?
-        # $obj.vars = ({"hehe": "haha", ... })
 
         adef = await self.runt.snap.core.addHttpExtApi(adef)
         return HttpApi(self.runt, adef)
