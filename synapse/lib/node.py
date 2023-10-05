@@ -70,8 +70,13 @@ class NodeBase:
         if rval is not None and rval != self.ndef[1]:
             pode[1]['repr'] = rval
 
-        pode[1]['reprs'] = self._getPropReprs(pode[1]['props'])
-        pode[1]['tagpropreprs'] = self._getTagPropReprs(pode[1]['tagprops'])
+        props = pode[1].get('props')
+        if props:
+            pode[1]['reprs'] = self._getPropReprs(props)
+
+        tagprops = pode[1].get('tagprops')
+        if tagprops:
+            pode[1]['tagpropreprs'] = self._getTagPropReprs(tagprops)
 
     def _getTagPropReprs(self, tagprops):
 
@@ -1099,6 +1104,10 @@ def _tagscommon(pode, leafonly):
     Return either all the leaf tags or all the leaf tags and all the internal tags with values
     '''
     retn = []
+
+    tags = pode[1].get('tags')
+    if tags is None:
+        return retn
 
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):

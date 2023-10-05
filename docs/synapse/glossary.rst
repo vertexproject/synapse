@@ -1300,15 +1300,6 @@ Sode
 
 Short for "storage node". See :ref:`gloss-node-storage`.
 
-.. _gloss-splice:
-
-Splice
-------
-
-A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag,
-or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within
-the Cortex's splice log.
-
 .. _gloss-spotlight-tool:
 
 Spotlight Tool

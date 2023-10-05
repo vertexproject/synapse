@@ -1,0 +1,1097 @@
+.. highlight:: none
+
+
+.. _storm-ref-filter:
+
+Storm Reference - Filtering
+===========================
+
+Filter operations are performed on the output of a previous Storm operation such as a lift or pivot.
+A filter operation downselects from the working set of nodes by either including or excluding a subset
+of nodes based on a set of criteria.
+
+- ``+`` specifies an **inclusion** filter. The filter downselects the working set to **only** those
+  nodes that match the specified criteria.
+- ``-`` specifies an **exclusion** filter. The filter downselects the working set to all nodes **except**
+  those that match the specified criteria.
+
+The types of filter operations within Storm are highly flexible and consist of the following:
+
+- `Simple Filters`_
+- `Filters Using Standard Comparison Operators`_
+- `Filters Using Extended Comparison Operators`_
+- `Compound Filters`_
+- `Subquery Filters`_
+- `Expression Filters`_
+- `Embedded Property Syntax`_
+
+In most cases, the criteria and available comparators for lift operations (:ref:`storm-ref-lift`) are
+also available for filter operations.
+
+.. NOTE::
+  
+  When filtering based on a secondary property (*<prop>*) or secondary property value (*<prop> = <pval>*),
+  you can specify the property using either the relative property name (``:baz``) or the full form and
+  property name (``foo:bar:baz``).
+  
+  Using the relative property name allows for simplified syntax and more efficient data entry ("less
+  typing") within the CLI. Full property names can be used for clarity (i.e., specifying **exactly**
+  what you want to filter on).
+  
+  Full property names may be **required** in cases where multiple nodes in the inbound node set have the
+  same secondary property (e.g., ``inet:dns:a:ipv4`` and ``inet:url:ipv4``) and you only wish to filter
+  based on the property / property value of one of the forms.
+  
+  In the examples below, both syntaxes (full and relative) are provided where appropriate for completeness
+  and clarity. See the :ref:`data-props` section of :ref:`data-model-terms` for additional discussion of
+  properties.
+
+See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
+
+See :ref:`storm-ref-type-specific` for details on special syntax or handling for specific data types.
+
+Simple Filters
+--------------
+
+"Simple" filters refers to the most "basic" filter operations: that is, operations to include ( ``+`` )
+or exclude ( ``-`` ) a subset of nodes based on:
+
+- The presence of a specific primary or secondary property in the working set of nodes.
+- The presence of a specific primary property value or secondary property value in the working set of
+  nodes.
+
+**Note:** :ref:`filter-tag` is addressed below.
+
+The only difference between "simple" filters and "filters using comparison operators" is that we define
+simple filters as those that use the equals ( ``=`` ) comparator, which is the "simplest" comparator
+to use to explain basic filtering concepts.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* [ **=** *<valu>* ] 
+
+*<query>* **+** | **-** [ *<form>* ] **:** *<prop>* [ **=** *<pval>* ]  
+
+**Examples:**
+
+*Filter by Form (<form>):*
+
+- Filter results to only include domains:
+
+::
+    
+    <query> +inet:fqdn
+
+
+*Filter by Primary Property Value:*
+
+- Filter results to exclude the domain ``google.com``:
+
+::
+    
+    <query> -inet:fqdn=google.com
+
+
+*Filter by Presence of Secondary Property:*
+
+- Filter results to exclude any DNS SOA records with an "email" property:
+
+::
+    
+    <query> -inet:dns:soa:email
+
+
+::
+    
+    <query> -:email
+
+
+*Filter by Secondary Property Value:*
+
+- Filter results to include only those domains that are also logical zones:
+
+::
+    
+    <query> +inet:fqdn:iszone=1
+
+
+::
+    
+    <query> +:iszone=1
+
+
+- Filter results to exclude any files with a PE compiled time of ``1992-06-19 22:22:17``:
+
+::
+  
+  <query> -file:bytes:mime:pe:compiled="1992/06/19 22:22:17"
+  
+
+::
+  
+  <query> -:mime:pe:compiled="1992/06/19 22:22:17"
+
+
+- Filter results to include only those files compiled in 2019:
+
+::
+  
+  <query> +file:bytes:mime:pe:compiled=2019*
+
+::
+  
+  <query> +:mime:pe:compiled=2019*
+
+
+*Filter by Presence of Universal Property:*
+
+- Filter results to include only those domains with a ``.seen`` property:
+
+::
+    
+    <query> +inet:fqdn.seen
+
+
+::
+    
+    <query> +.seen
+
+
+**Usage Notes:**
+
+- The comparator (comparison operator) specifies how *<form>* or *<prop>* is evaluated with respect
+  to *<valu>* or *<pval>*. The most common comparator is equals (``=``), although other comparators
+  are available (see below).
+- When filtering nodes by secondary property value where the value is a time (date / time), you do not
+  need to use full ``YYYY/MM/DD hh:mm:ss.mmm`` syntax. Synapse allows you to use either lower resolution
+  values (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``). In particular, wildcard syntax
+  can be used to specify any values that match the wildcard expression. See the type-specific documentation
+  for :ref:`type-time` types for a detailed discussion of these behaviors.
+
+Filters Using Standard Comparison Operators
+-------------------------------------------
+
+Filter operations can be performed using any of the standard mathematical / logical comparison operators
+(comparators):
+
+- ``=``: equals (described above)
+- ``!=`` : not equals
+- ``<`` : less than
+- ``>`` : greater than
+- ``<=`` : less than or equal to
+- ``>=`` : greater than or equal to
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* | *<prop>* *<comparator>* *<valu>* | *<pval>*
+
+**Examples:**
+
+*Filter by Not Equals:*
+
+- Filter results to exclude the domain ``google.com``:
+
+::
+    
+    <query> +inet:fqdn != google.com
+
+
+*Filter by Less Than:*
+
+- Filter results to include only WHOIS records collected prior to January 1, 2017:
+
+::
+    
+    <query> +inet:whois:rec:asof < 2017/01/01
+
+
+::
+    
+    <query> +:asof < 2017/01/01
+
+
+*Filter by Greater Than:*
+
+- Filter results to exclude files larger than 4096 bytes:
+
+::
+    
+    <query> -file:bytes:size > 4096
+
+
+::
+    
+    <query> -:size > 4096
+
+
+*Filter by Less Than or Equal To:*
+
+- Filter results to include only WHOIS nodes for domains created on or before noon on January 1, 2018:
+
+::
+  
+  <query> +inet:whois:rec:created <= "2018/01/01 12:00"
+
+
+::
+  
+  <query> +:created <= "2018/01/01 12:00"
+
+
+*Filter by Greater Than or Equal To:*
+
+- Filter results to include only people born on or after January 1, 1980:
+
+::
+    
+    <query> +ps:person:dob >= 1980/01/01
+
+
+::
+    
+    <query> +:dob >= 1980/01/01
+
+
+**Usage Notes:**
+
+- Storm supports both equals ( ``=`` ) and not equals ( ``!=`` ) comparators for filtering, although
+  use of not equals is not strictly necessary. Because filters are either inclusive ( ``+`` ) or
+  exclusive ( ``-`` ), you can use an "equals" filter to create equivalent logic for any "not equals"
+  expression. That is, "**include** domains **not equal** to google.com" (``+inet:fqdn != google.com``) is
+  equivalent to "**exclude** the domain google.com" (``-inet:fqdn = google.com``).
+- When filtering nodes by secondary property value where the value is a time (date / time), you do not
+  need to use full ``YYYY/MM/DD hh:mm:ss.mmm`` syntax. Synapse allows you to use either lower resolution
+  values (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``). In particular, wildcard syntax
+  can be used to specify any values that match the wildcard expression. See the type-specific documentation
+  for :ref:`type-time` types for a detailed discussion of these behaviors.
+
+Filters Using Extended Comparison Operators
+-------------------------------------------
+
+Storm supports a set of extended comparison operators (comparators) for specialized filter operations.
+In most cases, the same extended comparators are available for both lifting and filtering:
+
+- `Filter by Regular Expression (~=)`_
+- `Filter by Prefix (^=)`_
+- `Filter by Time or Interval (@=)`_
+- `Filter by Range (*range=)`_
+- `Filter by Set Membership (*in=)`_
+- `Filter by Proximity (*near=)`_
+- `Filter by (Arrays) (*[ ])`_
+- `Filter by Tag (#)`_
+
+.. _filter-regex:
+
+Filter by Regular Expression (~=)
++++++++++++++++++++++++++++++++++
+
+The extended comparator ``~=`` is used to filter nodes based on regular expressions (PCRE / Perl
+compatible regular expressions).
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* | *<prop>* **~=** *<regex>*
+
+**Examples:**
+
+*Filter by Regular Expression:*
+
+- Filter results to include only mutexes that start with the string “Net”:
+
+::
+    
+    <query> +it:dev:mutex ~= "^Net"
+
+
+**Usage Notes:**
+
+- Filtering using regular expressions is performed by matching the regex against the relevant property
+  of each node in the working set. Note that **prefix filtering** (see below) is supported for string
+  types and can be used as a more efficient alternative in some cases.
+
+.. _filter-prefix:
+
+Filter by Prefix (^=)
++++++++++++++++++++++
+
+Synapse performs prefix indexing on strings (and string-derived types), which optimizes filtering nodes
+whose *<valu>* or *<pval>* starts with a given prefix. The extended comparator ``^=`` is used to filter
+nodes by prefix.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* | *<prop>* **^=** *<prefix>*
+
+**Examples:**
+
+*Filter by primary property by prefix:*
+
+- Filter results to include only usernames that start with "pinky":
+
+::
+    
+    <query> +inet:user ^= pinky
+
+
+*Filter by secondary property by prefix:*
+
+- Filter results to include only organizations whose name starts with "International":
+
+::
+    
+    <query> +ou:org:name ^= international
+
+
+::
+    
+    <query> +:name ^= international
+
+
+**Usage Notes:**
+
+- Extended string types that support dotted notation (such as the ``loc`` or ``syn:tag`` types) have
+  custom behaviors with respect to lifting and filtering by prefix. See the respective sections in
+  :ref:`storm-ref-type-specific` for additional details.
+
+.. _filter-interval:
+
+Filter by Time or Interval (@=)
++++++++++++++++++++++++++++++++
+
+The time extended comparator (``@=``) supports filtering nodes based on comparisons among various
+combinations of times and intervals.
+
+See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` and ``ival`` data types.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<prop>* **@=(** *<ival_min>* **,** *<ival_max>* **)**
+
+*<query>* **+** | **-** *<prop>* **@=** *<time>*
+
+**Examples:**
+
+*Filter by comparing an interval to an interval:*
+
+- Filter results to include only those DNS A records whose ``.seen`` values fall between July 1, 2018
+  and August 1, 2018:
+
+
+::
+    
+    <query> +inet:dns:a.seen@=(2018/07/01, 2018/08/01)
+
+
+::
+    
+    <query> +.seen@=(2018/07/01, 2018/08/01)
+
+
+- Filter results to include only those nodes (e.g., IP addresses) that were associated with TOR network
+  infrastructure between June 1, 2016 and September 30, 2016 (note the interval here applies to the
+  timestamps for the **tag** that indicates a node was associated with TOR):
+
+::
+    
+    <query> +#cno.infra.anon.tor@=(2016/06/01, 2016/09/30)
+
+
+*Filter by comparing a time to an interval:*
+
+- Filter results to include only those DNS request nodes whose requests occurred between 2:00 PM November
+  12, 2017 and 9:30 AM November 14, 2017:
+
+::
+    
+    <query> +inet:dns:request:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
+
+
+::
+    
+    <query> +:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
+
+
+*Filter by comparing an interval to a time:*
+
+- Filter results to include only those DNS A records whose resolution time windows include the date
+  December 1, 2017:
+
+::
+    
+    <query> +inet:dns:a.seen@=2017/12/01
+
+
+::
+    
+    <query> +.seen@=2017/12/01
+
+
+*Filter by comparing a time to a time:*
+
+- Filter results to include only those WHOIS records whose domain was registered (created) **exactly**
+  on March 19, 1986 at 5:00 AM:
+
+::
+    
+    <query> +inet:whois:rec:created@="1986/03/19 05:00:00"
+
+
+::
+    
+    <query> +:created@="1986/03/19 05:00:00"
+
+
+*Filter using an interval with relative times:*
+
+- Filter results to include only those ``inet:whois:email`` nodes that were observed between
+  January 1, 2018 and the present:
+
+::
+    
+    <query> +inet:whois:email.seen@=(2018/01/01, now)
+
+
+::
+    
+    <query> +.seen@=(2018/01/01, now)
+
+
+- Filter results to include only DNS requests whose requests occurred within one week after October 15, 2018:
+
+::
+    
+    <query> +inet:dns:request:time@=(2018/10/15, "+ 7 days")
+
+
+::
+    
+    <query> +:time@=(2018/10/15, "+ 7 days")
+
+
+**Usage Notes:**
+
+- When specifying an interval, the minimum value is **included** in the interval but the maximum value
+  is **excluded** (the equivalent of "greater than or equal to *<min>* and less than *<max>*"). This
+  behavior is slightly different than that for ``*range=``, which includes **both** the minimum and
+  maximum.
+- When comparing an **interval to an interval,** Storm will return nodes whose interval has **any**
+  overlap with the specified interval.
+
+  - For example, a filter interval of September 1, 2018 to October 1, 2018 (2018/09/01, 2018/10/01) will
+    match nodes with **any** of the following intervals:
+  
+    - 2018/08/12 to 2018/09/06 (range overlaps with the `<min>` value).
+    - 2018/09/13 to 2018/09/17 (range falls between `<min>` and `<max>` values).
+    - 2018/09/30 to 2018/11/05 (range overlaps with the `<max>` value).
+
+- When comparing a **time to an interval,** Storm will return nodes whose timestamp falls **within** the
+  specified interval.
+- When comparing a **time to a time,** Storm will return nodes whose timestamp is an **exact match.** 
+  Interval syntax (e.g.,  ``:time@=<time>`` ) syntax is supported when specifying an exact time match,
+  although you can simply use the equals comparator instead (e.g., ``:time=<time>`` ).
+- Because tags can have optional timestamps (min / max interval values), interval filters can also be
+  used to filter based on tag timestamps.
+- When specifying interval date/time values, Synapse allows you to use either lower resolution values
+  (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum interval
+  values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify
+  some intervals. For example ``+inet:whois:rec:asof=2018*`` (or ``+:asof=2018*``) is equivalent to
+  ``+inet:whois:rec:asof@=('2018/01/01', '2019/01/01')`` (or ``+:asof@=('2018/01/01, '2019/01/01')``).
+  See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
+
+.. _filter-range:
+
+Filter by Range (\*range=)
+++++++++++++++++++++++++++
+
+The range extended comparator (``*range=``) supports filtering nodes whose *<form> = <valu>* or *<prop> = <pval>*
+fall within a specified range of values. The comparator can be used with types such as integers and times,
+including types that are extensions of those types, such as IP addresses.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* | *<prop>* ***range = (** *<range_min>* **,** *<range_max>* **)**
+
+**Examples:**
+
+*Filter by primary property in range:*
+
+- Filter results to include all IP addresses between 192.168.0.0 and 192.168.0.10:
+
+::
+    
+    <query> +inet:ipv4*range=(192.168.0.0, 192.168.0.10)
+
+
+*Filter by secondary property in range:*
+
+- Filter results to include files whose size in bytes is within the specified range:
+
+::
+    
+    <query> +file:bytes:size*range=(1000, 100000)
+
+
+::
+    
+    <query> +:size*range=(1000, 100000)
+
+
+- Filter results to include WHOIS records that were captured between the specified dates:
+
+::
+    
+    <query> +inet:whois:rec:asof*range=(2013/11/29, 2016/06/14)
+
+
+::
+    
+    <query> +:asof*range=(2013/11/29, 2016/06/14)
+
+
+- Filter results to include DNS requests made within 1 day of December 1, 2018:
+
+::
+    
+    <query> +inet:dns:request:time*range=(2018/12/01, "+-1 day")
+
+
+::
+    
+    <query> +:time*range=(2018/12/01, "+-1 day")
+
+
+**Usage Notes:**
+
+- When specifying a range (``*range=``), both the minimum and maximum values are **included** in the
+  range (the equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
+  This behavior is slightly different than that for time interval (``@=``), which includes the minimum
+  but not the maximum.
+- The ``*range=`` extended comparator can be used with time types, although the time / interval extended
+  comparator ( ``@=`` ) is preferred.
+- When specifying a range of time values, Synapse allows you to use either lower resolution values
+  (e.g., ``YYYY/MM/DD``) or wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range
+  values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify
+  some time ranges. For example ``+inet:whois:rec:asof=2018*`` (or ``+:asof=2018*``) is equivalent to
+  ``+inet:whois:rec:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')`` (or
+  ``+:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')``).  See the type-specific documentation for
+  :ref:`type-time` types for a detailed discussion of these behaviors.
+
+.. _filter-set:
+
+Filter by Set Membership (\*in=)
+++++++++++++++++++++++++++++++++
+
+The set membership extended comparator (``*in=``) supports filtering nodes whose *<form> = <valu>* or
+*<prop> = <pval>* matches any of a set of specified values. The comparator can be used with any type.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* | *<prop>* ***in = (** *<set_1>* **,** *<set_2>* **,** ... **)**
+
+**Examples:**
+
+*Filter by primary property in set:*
+
+- Filter results to include IP addresses matching any of the specified values:
+
+::
+    
+    <query> +inet:ipv4*in=(127.0.0.1, 192.168.0.100, 255.255.255.254)
+
+
+*Filter by secondary property in set:*
+
+- Filter results to include files whose size in bytes matches any of the specified values:
+
+::
+    
+    <query> +file:bytes:size*in=(4096, 16384, 65536)
+
+
+::
+    
+    <query> +:size*in=(4096, 16384, 65536)
+
+
+- Filter results to exclude tags that end in ``foo``, ``bar``, or ``baz``:
+
+::
+    
+    <query> -syn:tag:base*in=(foo, bar, baz)
+
+
+::
+    
+    <query> -:base*in=(foo, bar, baz)
+
+
+.. _filter-proximity:
+
+Filter by Proximity (\*near=)
++++++++++++++++++++++++++++++
+
+The proximity extended comparator (``*near=``) supports filtering nodes by "nearness" to another node
+based on a specified property type. Currently, ``*near=`` supports proximity based on geospatial
+location (that is, nodes within a given radius of a specified latitude / longitude).
+
+**Syntax:**
+
+*<query>* **+** | **-** *<form>* | *<prop>* ***near = ((** *<lat>* **,** *<long>* **),** *<radius>* **)**
+
+**Examples:**
+
+*Filter by proximity:*
+
+- Filter results to include only Acme Corporation offices within 1 km of a specific coffee shop:
+
+::
+  
+  <query> +geo:place:latlong*near=((47.6050632,-122.3339756),1 km)
+
+::
+  
+  <query> +:latlong*near=((47.6050632,-122.3339756),1 km)
+
+
+- Filter results to include only Acme Corporation offices within 1 mile of a specific coffee shop:
+
+::
+  
+  <query> +geo:place:latlong*near=((47.6050632,-122.3339756), 1 mile)
+
+::
+  
+  <query> +:latlong*near=((47.6050632,-122.3339756), 1 mile)
+
+
+**Usage Notes:**
+
+- In the example above, the latitude and longitude of the desired location (i.e., the coffee shop) are
+  explicitly specified as parameters to ``*near=``.
+- Radius can be specified in the following units. The values in parentheses are the acceptable terms
+  for specifying a given unit:
+
+  - Kilometers (km / kilometer / kilometers)
+  - Meters (m / meter / meters)
+  - Centimeters (cm / centimeter / centimeters)
+  - Millimeters (mm / millimeter / millimeters)
+  - Miles (mile / miles)
+  - Yards (yard / yards)
+  - Feet (foot / feet)
+
+- When specifying a radius, values of less than 1 must be specified with a leading zero (e.g., ``0.5 km``
+  is valid; ``.5 km`` is not).
+
+- The ``*near=`` comparator works by identifying nodes within a square bounding box centered at
+  *<lat>, <long>*, then filters the nodes to be returned by ensuring that they are within the great-circle
+  distance given by the *<radius>* argument.
+
+.. _filter-by-arrays:
+
+Filter by (Arrays) (\*[ ])
+++++++++++++++++++++++++++
+
+Storm uses a special "by" syntax to filter (or lift) by comparison with one or more elements of an
+:ref:`type-array` type. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets
+( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or
+more elements in the array. This allows users to match any value in the array list without needing to
+know the exact order or values of the array itself.
+
+**Syntax:**
+
+*<query>* **+** | **-** *<prop>* ***[** *<operator>* *<pval>* **]**
+
+**Examples:**
+
+- Filter results to include only x509 certificates that reference a specific email address:
+
+::
+    
+    <query> +:identities:emails*[=root@localhost.localdomain]
+
+
+- Filter results to exclude organizations whose names start with "ministry":
+
+::
+    
+    <query> -:names*[^=ministry]
+
+
+**Usage Notes:**
+
+- Filter operations using secondary properties of type :ref:`type-array` must specify the property
+  using its relative property name. Filtering using the full property syntax will generate an error.
+
+  - ``ou:org | limit 10 | +:names*[=vertex]`` is valid syntax.
+  - ``ou:org | limit 10 | +ou:org:names*[=vertex]`` is invalid syntax.
+
+- The comparison operator used must be valid for filter operations for the type used in the array.
+- The standard equals ( ``=`` ) operator can be used to filter nodes based on array properties, but
+  the value specified must **exactly match** the **full** property value in question:
+
+  - For example: ``ou:org +:names=("the vertex project","the vertex project llc",vertex)`` will
+    filter to any ``ou:org`` nodes whose ``:names`` property consists of **exactly** those names in
+    **exactly** that order.
+
+- See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional
+  details on working with arrays.
+
+.. _filter-tag:
+
+Filter by Tag (#)
++++++++++++++++++
+
+The tag extended comparator (``#``) supports filtering nodes based on the tags applied to a node.
+You can filter based on a given tag or on the timestamps associated with a given tag (using the
+interval comparator, ``@=``).
+
+.. NOTE::
+  
+  You can also use "filter by tag" to filter nodes based on any tags with tag properties, or tags
+  with tag properties and specific tag property values, if tag properties are present in your data
+  model.
+  
+  :ref:`tag-properties` are still supported by Synapse, but their use has largely been deprecated
+  in favor of extended model properties where needed.
+
+
+**Syntax:**
+
+*<query>* **+** | **-** **#** *<tag>*
+
+*<query>* **+** | **-** **#** *<tag>* **@=** *<time>* | **(** *<min>* **,** *<max>* **)**
+
+**Examples:**
+
+*Filter by tag:*
+
+- Filter results to include only nodes that ESET says are part of the Seduploader malware family:
+
+
+::
+    
+    <query> +#rep.eset.seduploader
+
+
+- Filter results to exclude nodes tagged as being associated with the TOR network:
+
+
+::
+    
+    <query> -#cno.infra.anon.tor
+
+
+- Filter results to exclude nodes tagged as sinkholes:
+
+
+::
+    
+    <query> -#cno.infra.dns.sinkhole
+
+
+*Filter by tag and time:*
+
+- Filter results to include only nodes that were associated with TOR infrastructure as of December 12, 2019:
+
+
+::
+    
+    <query> +#cno.infra.anon.tor@=2019/12/12
+
+
+*Filter by tag and time interval:*
+
+- Filter results to include only those nodes associated with sinkhole infrastructure between January 1,
+  2017 and January 1, 2018:
+
+
+::
+    
+    <query> +#cno.infra.dns.sinkhole@=(2017/01/01, 2018/01/01)
+
+
+- Filter results to exclude nodes associated with threat cluster 17 after January 1, 2019:
+
+
+::
+    
+    <query> -#cno.threat.t17.own@=(2019/01/01, now)
+
+
+**Usage Notes**
+
+- When filtering by tag, you can only specify a single tag (though you can specify a tag "higher up"
+  in a tag tree to encompass any / all tags lower in the tree - e.g., ``+#foo.bar`` will include any
+  nodes with the tag ``#foo.bar.hurr``, ``#foo.bar.derp``, etc.). To filter on multiple different tags,
+  use `Compound Filters`_.
+- Tag timestamps are interval (``ival``) types. See the :ref:`type-time` and :ref:`type-ival` sections
+  of the :ref:`storm-ref-type-specific` document for additional details on working with times and intervals.
+
+.. _filter-compound:
+
+Compound Filters
+----------------
+
+Storm allows you to use the logical operators **and**, **or**, and **not** (including **and not**) to
+construct compound filters. You can use parentheses to group portions of the filter statement to indicate
+order of precedence and clarify logical operations when evaluating the filter.
+
+**Syntax:**
+
+*<query>* **+** | **-** **(** *<filter>* **and** | **or** | **not** | **and not** ... **)**
+
+**Examples:**
+
+- Filter results to exclude files that are less than or equal to 16384 bytes in size and were compiled
+  prior to January 1, 2014:
+
+::
+    
+    <query> -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
+
+
+::
+    
+    <query> -(:size <= 16384 and :mime:pe:compiled < 2014/01/01)
+
+
+- Filter results to include only files or domains that ESET claims are associated with Sednit:
+
+
+::
+    
+    <query> +((file:bytes or inet:fqdn) and #rep.eset.sednit)
+
+
+- Filter results to include only files and domains that ESET claims are associated with Sednit that are **not**
+  sinkholed:
+
+::
+    
+    <query> +((file:bytes or inet:fqdn) and (#rep.eset.sednit and not #cno.infra.dns.sinkhole))
+
+
+**Usage Notes:**
+
+- Logical operators must be specified in lower case.
+- Synapse evalutes compound filters **in order from left to right**. Depending on the specific filter,
+  left-to-right order may differ from the standard Boolean order of operations (**not** then **and**
+  then **or**).
+- Parentheses should be used to logically group portions of the filter statement if necessary to
+  clarify order of operations.
+
+
+.. _filter-subquery:
+
+Subquery Filters
+----------------
+
+You can use Storm's subquery syntax (:ref:`storm-ref-subquery`) to create filters. A subquery
+(enclosed in curly braces ( ``{ }`` ) ) can be placed within a larger Storm query.
+
+When nodes are passed to a subquery filter, they are evaluated against the filter's criteria:
+
+- Nodes are **excluded** ("consumed", discarded) if they evaluate **false.**
+- Nodes are **included** (not "consumed", retained) if they evaluate **true.**
+
+Most filter operations in Storm will modify (reduce) your current set of nodes based on some
+criteria of the **nodes themselves** (e.g., a node's form, property, or tag).
+
+Subquery filters allow you to filter your **current** set of nodes based on some criteria of
+**nearby** nodes. You use the subquery filter to effectively "look ahead" at nodes one or more
+pivots away from your current nodes, and filter your current nodes based on the properties
+of those "nearby" nodes.
+
+The subquery pivot operation (used to "look ahead" at other nodes) is effectively performed in
+the background (without navigating away from your current working set), which provides a more
+powerful and efficent way to filter your data. (The alternative would be to **actually** navigate
+to the nearby nodes, filter those nodes, and then navigate **back** to the data you are interested in.)
+
+You can optionally use a mathematical comparison operation with a subquery filter, in order to
+filter your current set of nodes based on the **number of results** returned by executing the
+subfilter's Storm query (see example below).
+
+Refer to the :ref:`storm-ref-subquery` guide for additional information on subqueries and subquery filters.
+
+**Syntax:**
+
+*<query>* **+** | **-** **{** *<query>* **}**
+
+*<query>* **+** | **-** **{** *<query>* **}** [ *<mathematical operator>* *<value>* ]
+
+**Examples:**
+
+- From an initial set of domains, filter results to only those domains that resolve to an IP address
+  that Trend Micro associates with the Pawn Storm threat group (i.e., an IP address tagged
+  ``#rep.trend.pawnstorm``):
+
+::
+
+    <inet:fqdn> +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#rep.trend.pawnstorm }
+
+
+- From an initial set of IPv4 addresses, filter results to only those IPv4s registered to an Autonomous
+  System (AS) whose name starts with "makonix":
+
+::
+
+    <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
+
+
+- From an initial set of ``file:bytes`` nodes, filter results to only those that are detected as
+  malicious by ten (10) or more antivirus / malscanner vendors (i.e., files that are associated with
+  10 or more ``it:av:filehit`` nodes):
+
+::
+
+    <file:bytes> +{ -> it:av:filehit }>=10
+
+- From an initial set of x509 certificates (``crypto:x509:cert``), filter results to only those
+  certificates linked to more than one FQDN (``inet:fqdn``) identity:
+
+::
+  
+  <crypto:x509:cert> +{ :identities:fqdns -> inet:fqdn }>1
+
+
+.. _filter-expression:
+
+Expression Filters
+------------------
+
+You can filter your current set of data (nodes) based on the evaluation of a particular expression.
+Expression filters are useful when you need to compute a value that you want to use for the filter,
+or when you want to filter based on a value that may change (e.g., when using Storm queries that
+assign variables - see :ref:`storm-adv-vars`).
+
+**Syntax:**
+
+*<query>* **+** | **-** **$(** *<expression>* **)**
+
+
+**Examples:**
+
+- From an initial set of network flows (``inet:flow`` nodes), filter results to only those flows where
+  the total number of bytes transferred in the flow between the source (``inet:flow:src:txbytes``) and
+  destination (``inet:flow:dst:txbytes``) is greater than 100MB (~100,000,000 bytes):
+
+::
+  
+  <inet:flow> +$( :src:txbytes + :dst:txbytes >=100000000 )
+
+
+- From an initial set of x509 certificates (``crypto:x509:cert``), filter results to only those
+  certificates linked to more than one FQDN (``inet:fqdn``) identity:
+
+::
+  
+  <crypto:x509:cert> $fqdns=:identities:fqdns +$( $fqdns.size() > 1 )
+
+This example assigns the list of domains in the ``crypto:x509:cert:identities:fqdns`` property to the
+user-defined variable ``$fqdns``, computes the number of domains in the list using :ref:`stormprims-list-size`,
+and checks to see if the result is greater than 1.
+
+(See the :ref:`stormtypes_index` for additional detail on Storm types and Storm libraries.)
+
+.. NOTE::
+    
+    This certificates example is identical to the final example under :ref:`filter-subquery` above, and
+    shows an alternate way to return the same data.
+    
+    The expression filter above is more efficient than the subquery filter because the expression
+    filter simply evaluates the expression, where the subquery filter needs to pivot to the adjacent
+    nodes in order to evaluate the results. This difference in performance is negligible for small
+    data sets but more pronounced when working with large numbers of nodes.
+
+
+- From the set of nodes associated with any threat group or threat cluster (e.g., tagged
+  ``#cno.threat.<threat_name>``), filter results to those nodes that are attributed to more than one
+  threat (e.g., that have more than one ``#cno.threat.<threat_name>`` tag. This may identify nodes that
+  are incorrectly attributed to more than one group; or instances where two threat clusters overlap,
+  which may indicate that the clusters actually represent a single set of activity):
+
+::
+  
+  #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
+
+This example uses the :ref:`meth-node-globtags` method to select the set of tags on each node that
+match the specified expression (``cno.threat.*``) and :ref:`stormprims-list-size` to count the number
+of matches.
+
+
+.. _embed_prop_syntax:
+
+Embedded Property Syntax
+------------------------
+
+Storm includes a shortened syntax consisting of two colons (``::``) that can be used to reference a
+secondary property of an **adjacent** node. Because the syntax can be used to "pull in" a property or
+property value from a nearby node, it is known as "embedded property syntax".
+
+Embedded property syntax expresses something that is similar (in concept, though not in practice) to a
+secondary-to-secondary property pivot (see :ref:`storm-ref-pivot`). The syntax expresses navigation:
+
+- From a **secondary property** of a form (such as ``inet:ipv4:asn``), to
+- The **form** for that secondary property (i.e., ``inet:asn``), to
+- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
+
+This process can be repeated to reference properties of forms more than one pivot away.
+
+Despite its similarity to a pivot operation, embedded property syntax is commonly used for:
+
+- **Filter operations** (specifically, as a more concise alternative to certain :ref:`filter-subquery`)
+- **Variable assignment** (see :ref:`storm-adv-vars`)
+- Defining an :ref:`gloss-embed-col` in the Synapse UI (Optic)
+
+
+**Syntax:**
+
+*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>*
+
+*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>* **=** *<pval>*
+
+.. NOTE::
+  
+  In Storm, the leading colon (i.e., the colon before the name of the initial secondary property) is
+  **required**. When using this syntax to create an embed column in Optic, the initial colon should be
+  **omitted** (i.e., ``asn::name`` vs ``:asn::name``). Optic will prepend the initial colon for you.
+
+
+**Examples:**
+
+
+*Filter Example - Single Pivot*
+
+- From an initial set of IPv4 addresses, filter results to only those IPv4s registered to an Autonomous
+  System (AS) whose name starts with "makonix":
+
+::
+
+    <inet:ipv4> +:asn::name^="makonix"
+
+Note that this example of embedded property syntax is equivalent to the following subquery filter
+(referenced above):
+
+::
+
+    <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
+
+
+*Filter Example - Multiple Pivots*
+
+- From an initial set of ``it:exec:file:read`` operations, filter results to only those operations where
+  the base file name of the PDB path of the file performing the read operation is ``moonclient2.pdb``:
+
+::
+
+  <it:exec:file:read> +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
+
+
+*Variable Assignment Example*
+
+- Set the variable ``$name`` to the name of the Autonomous System (AS) associated with a given IPv4
+  address:
+
+::
+
+    <inet:ipv4> $name=:asn::name
