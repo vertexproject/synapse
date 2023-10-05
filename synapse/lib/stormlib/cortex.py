@@ -412,7 +412,7 @@ class HttpDict(s_stormtypes.Dict):
 @s_stormtypes.registry.registerType
 class HttpApiVars(s_stormtypes.Dict):
     '''
-    Immutable lowercase key access dictionary for HTTP request headers and parameters
+    Accessor dictionary for getting and setting http:api vars.
     '''
     _storm_typename = 'http:api:vars'
     _storm_locals = ()
@@ -424,6 +424,7 @@ class HttpApiVars(s_stormtypes.Dict):
         self.valu = httpapi.info.get('vars')
         self.path = path
         self.httpapi = httpapi
+
     async def setitem(self, name, valu):
         name = await s_stormtypes.tostr(name)
 
@@ -438,42 +439,10 @@ class HttpApiVars(s_stormtypes.Dict):
             await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
             self.valu[name] = valu
 
-
 @s_stormtypes.registry.registerType
 class HttpReq(s_stormtypes.StormType):
     '''
-    Examples:
-
-        $hapi = $lib.cortex.httpapi.add('foo/bar/baz')
-        $hapi.authenticated = (false)
-
-        $hapi.methods.get = ${
-            $request.reply(200, ({"ok": true, "value": 10}))
-        }
-
-        $resquest.params.<name> ( URL params / form params )
-        $resquest.json.<stuff>  ( parse body as json (cache) and deref )
-
-        // run the authenticated query as the owner
-
-        $hapi = $lib.cortex.httpapi.add('foo/bar/baz')
-        $hapi.methods.get = ${
-            $request.reply(200, ({"ok": true, "value": 10}))
-        }
-
-        // run the query as the authenticated user
-
-        $hapi = $lib.cortex.httpapi.add('foo/(.*)/blah')
-        $hapi.runas = user
-        $hapi.methods.get = ${
-            $request.reply(200, $lib.user.jsonstor.get($request.argv.1))
-        }
-
-        // queue an item from an anonymous API request
-
-        $hapi = $lib.cortex.httpapi.add(`foo/{$lib.guid}`)
-        $hapi.
-
+    TODO Write new docstrings
     '''
     _storm_typename = 'http:api:request'
     _storm_locals = ()
@@ -495,7 +464,6 @@ class HttpReq(s_stormtypes.StormType):
             'args': self.rnfo.get('args'),
             'body': self.rnfo.get('body'),
             'method': self.rnfo.get('method'),
-            #
             'params': self.rnfo.get('params'),
             'remote_ip': self.rnfo.get('remote_ip'),
             'uri': self.rnfo.get('uri'),

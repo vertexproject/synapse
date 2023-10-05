@@ -1274,7 +1274,6 @@ class ExtApiHandler(StormHandler):
         return await self._runHttpExt('options', path)
 
     async def _runHttpExt(self, meth, path):
-        logger.info(f'{path=} {self.path_kwargs} {self.path_args}')
         core = self.getCore()
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
@@ -1300,7 +1299,7 @@ class ExtApiHandler(StormHandler):
                 useriden = requester
 
         # We flatten the request headers and parameters into a flat key/valu map.
-        # The first instnace of a given key wins.
+        # The first instance of a given key wins.
         request_headers = {}
         for key, valu in self.request.headers.get_all():
             request_headers.setdefault(key.lower(), valu)
