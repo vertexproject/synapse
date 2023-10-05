@@ -5368,7 +5368,6 @@ class NodeProps(Prim):
     async def _derefGet(self, name):
         return self.valu.get(name)
 
-    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         '''
         Set a property on a Node.
