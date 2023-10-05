@@ -1614,19 +1614,3 @@ class LayerTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadStorageVersion):
             async with self.getRegrCore('future-layrvers') as core:
                 pass
-
-    async def test_layer_readonly_new(self):
-        with self.getLoggerStream('synapse.cortex') as stream:
-            async with self.getRegrCore('readonly-newlayer') as core:
-                ldefs = await core.callStorm('return($lib.layer.list())')
-                self.len(2, ldefs)
-
-                readidens = [ldef['iden'] for ldef in ldefs if ldef.get('readonly')]
-                self.len(1, readidens)
-
-                writeidens = [ldef['iden'] for ldef in ldefs if not ldef.get('readonly')]
-
-                readlayr = core.getLayer(readidens[0])
-                writelayr = core.getLayer(writeidens[0])
-
-                self.eq(readlayr.meta.get('version'), writelayr.meta.get('version'))

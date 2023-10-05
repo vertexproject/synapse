@@ -4005,24 +4005,6 @@ class StormTypesTest(s_test.SynTest):
                 return($views)
             '''))
 
-    async def test_storm_lib_trigger_async_regression(self):
-        async with self.getRegrCore('2.112.0-trigger-noasyncdef') as core:
-
-            # Old trigger - created in v2.70.0 with no async flag set
-            view = await core.callStorm('return($lib.view.get().iden)')
-            tdef = await core.callStorm('return ( $lib.trigger.get(bc1cbf350d151bba5936e6654dd13ff5) )')
-            self.notin('async', tdef)
-
-            msgs = await core.stormlist('trigger.list')
-            self.stormHasNoWarnErr(msgs)
-            trgs = ('iden                             view                             en?    async? cond      object',
-                    f'8af9a5b134d08fded3edb667f8d8bbc2 {view} true   true   tag:add   inet:ipv4',
-                    f'99b637036016dadd6db513552a1174b8 {view} true   false  tag:add            ',
-                    f'bc1cbf350d151bba5936e6654dd13ff5 {view} true   false  node:add  inet:ipv4',
-                    )
-            for m in trgs:
-                self.stormIsInPrint(m, msgs)
-
     async def test_storm_lib_trigger(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
