@@ -4306,10 +4306,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             _obj = await self.getUserDef(valu, packroles=False)
             if _obj is None:
                 raise s_exc.NoSuchUser(mesg=f'Cannot set user={valu} on extended httpapi, it does not exist.')
+            # TODO - Discuss - who is responsible for checking view permissions for the owner are correct?
+            # The system or the admin?
         elif name == 'view':
             _obj = self.getView(valu)
             if _obj is None:
                 raise s_exc.NoSuchView(mesg=f'Cannot set view={valu} on extended httpapi, it does not exist.')
+                # TODO Discuss - "extended http api" vs "custom http api" - how do we want to refer to this
+                # in our code + documentation?
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 

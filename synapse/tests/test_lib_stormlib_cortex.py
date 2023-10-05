@@ -388,3 +388,28 @@ for $i in $values {
                 name = await core.callStorm('$obj=$lib.cortex.httpapi.get($http_iden) return ($obj.view.get(name))',
                                             opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'iso view')
+
+    async def test_libcortex_owner(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$obj = $lib.cortex.httpapi.add(testpath)
+            $obj.methods.get = ${
+                $view = $lib.view.get()
+                $request.reply(200, body=({'view': $view.iden}) )
+            }
+            return ( ($obj.iden, $obj.owner.name) )
+            '''
+            iden, uname = await core.callStorm(q)
+            self.eq(uname, 'root')
+
+            q = '''
+            $obj=$lib.cortex.httpapi.get($http_iden)
+            $user=$lib.auth.users.byname(lowuser) $obj.owner = $user
+            return ($obj.owner.name)'''
+            name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
+            self.eq(name, 'lowuser')

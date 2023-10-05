@@ -132,6 +132,7 @@ class HttpApi(s_stormtypes.StormType):
             'methods': self._ctorMethods
         })
 
+        # constants
         self.locls.update({
             'iden': self.iden,
         })
@@ -204,14 +205,20 @@ class HttpApi(s_stormtypes.StormType):
 
     async def _storOwner(self, owner):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
-        owner = await s_stormtypes.tostr(owner)
-        # TODO - Confirm the owner is a user
+        if isinstance(owner, s_stormtypes.User):
+            info = await owner.value()
+            owner = info.get('iden')
+        else:
+            owner = await s_stormtypes.tostr(owner)
         self.info = await self.runt.snap.core.modHttpExtApi(self.iden, 'owner', owner)
         return True
 
     async def _gtorOwner(self):
-        # TODO Return a s_stormtypes.User object!
-        return self.info.get('owner')
+        iden = self.info.get('owner')
+        udef = await self.runt.snap.core.getUserDef(iden)
+        if udef is None:
+            raise s_exc.NoSuchUser(mesg=f'HTTP API owner does not exist {iden}', user=iden)
+        return s_stormtypes.User(self.runt, udef['iden'])
 
     async def _storPerms(self, perms):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -521,6 +528,12 @@ class CortexHttpApi(s_stormtypes.Lib):
             'name': name,
             'desc': desc,
         }
+
+        # TODO - Discuss additional options
+        # 1. readonly - run the storm query in readonly mode
+        # 2. vars - allow the user to set vares which are set
+        # in the storm runtime when the query runs?
+        # $obj.vars = ({"hehe": "haha", ... })
 
         adef = await self.runt.snap.core.addHttpExtApi(adef)
         return HttpApi(self.runt, adef)
