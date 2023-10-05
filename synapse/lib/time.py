@@ -11,11 +11,16 @@ import regex
 
 import synapse.exc as s_exc
 
+import synapse.lookup.timezones as s_l_timezones
+
 logger = logging.getLogger(__name__)
 
 EPOCH = datetime.datetime(1970, 1, 1)
 
-tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\w+|\+\w))')
+tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\d+\w+|\+\d+\w+))')
+
+tzcat = '|'.join(s_l_timezones.getTimezones())
+tz_str_re = regex.compile(r'\d(\s?(%s))(\-\d+\w+|\+\d+\w+)?$' % tzcat, flags=regex.IGNORECASE)
 
 def _rawparse(text, base=None, chop=False):
     otext = text
@@ -127,8 +132,8 @@ def parsetz(text):
     Returns:
         tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
     '''
-    tz_hm = tz_hm_re.search(text)
 
+    tz_hm = tz_hm_re.search(text)
     if tz_hm is not None:
 
         tzstr, rel, hrs, mins, _, _ = tz_hm.groups()
@@ -140,6 +145,17 @@ def parsetz(text):
         if abs(base) >= oneday:
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
                                     valu=text, name='time')
+
+        return text.replace(tzstr, '', 1), base
+
+    tz_str = tz_str_re.search(text)
+    if tz_str is not None:
+
+        tzstr, tzname, _ = tz_str.groups()
+
+        base = s_l_timezones.getTzOffset(tzname)
+        if base is None:
+            raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
 
         return text.replace(tzstr, '', 1), base
 
