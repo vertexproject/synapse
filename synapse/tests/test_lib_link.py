@@ -26,13 +26,22 @@ async def _spawnHost(n, pipe):
     link0, sock0 = await s_link.linksock()
     info = await link0.getSpawnInfo()
     pipe.send(info)
-    data = sock0.recv(n)
+    buf = b''
+    j = n
+    while True:
+        data = sock0.recv(j)
+        buf = buf + data
+        if len(buf) == n:
+            break
+        j = n - len(data)
 
     sock0.close()
     await link0.fini()
 
-    if data == b'V' * n:
+    if buf == b'V' * n:
         return
+
+    print(f'Data is not equal to V*{n}, got {len(buf)} {buf[:30]}...')
 
     return 137
 
@@ -189,6 +198,7 @@ class LinkTest(s_test.SynTest):
 
     async def test_link_fromspawns(self):
 
+        n = 100000
         ctx = multiprocessing.get_context('spawn')
 
         # Remote use test - this is normally how linksock is used.
@@ -197,7 +207,6 @@ class LinkTest(s_test.SynTest):
 
         info = await link0.getSpawnInfo()
 
-        n = 100000
         def getproc():
             proc = ctx.Process(target=spawnTarget, args=(n, info))
             proc.start()
@@ -239,7 +248,7 @@ class LinkTest(s_test.SynTest):
             proc.join()
             return proc.exitcode
 
-        code = await s_coro.executor(waitforjoin)
+        code = await asyncio.wait_for(s_coro.executor(waitforjoin), timeout=30)
         self.eq(code, 0)
         await link.fini()
 
