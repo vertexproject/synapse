@@ -44,7 +44,7 @@ def download_refs_handler(uri):
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
     # Get the data from the interwebs
-    logger.info('Downloading schema from {uri}.')
+    logger.info(f'Downloading schema from {uri}.')
     resp = requests.get(uri)
     data = resp.json()
 
@@ -63,7 +63,7 @@ def download_refs(schema):
 
     s_config.getJsValidator(schema, handlers=handlers)
 
-def main(argv):  # pragma: no cover
+def main(argv):
     with argv.schema.open() as fp:
         schema = json.load(fp)
 
@@ -71,7 +71,7 @@ def main(argv):  # pragma: no cover
 
     return 0
 
-def parse_args(argv):  # pragma: no cover
+def parse_args(argv):
     desc = 'Locally cache external `$ref`s from a JSON schema file.'
     parser = argparse.ArgumentParser('synapse.utils.getrefs', description=desc)
     parser.add_argument('schema', help='The source schema to get `$ref`s from.', type=pathlib.Path)

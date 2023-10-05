@@ -1241,8 +1241,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time that the diagram was created.'}),
                     ('updated', ('time', {}), {
                         'doc': 'The time that the diagram was last updated.'}),
-                    ('author:user', ('syn:user', {}), {}),
-                    ('author:contact', ('ps:contact', {}), {}),
+                    ('author:user', ('syn:user', {}), {
+                        'doc': 'The Synapse user that created the node.'}),
+                    ('author:contact', ('ps:contact', {}), {
+                        'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
                 )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),

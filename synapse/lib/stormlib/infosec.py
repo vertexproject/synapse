@@ -2,9 +2,11 @@ import math
 import decimal
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lookup.cvss as s_cvss
@@ -416,6 +418,14 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     '''
     _storm_lib_path = ('infosec', 'mitre', 'attack', 'flow')
     _storm_locals = (
+        {'name': 'norm', 'desc': 'Normalize a MITRE ATT&CK Flow diagram in JSON format.',
+         'type': {'type': 'function', '_funcname': '_norm',
+                  'args': (
+                      {'name': 'flow', 'type': 'data',
+                       'desc': 'The MITRE ATT&CK Flow diagram in JSON format to normalize (flatten and sort).'},
+                  ),
+                  'returns': {'type': 'data', 'desc': 'The normalized MITRE ATT&CK Flow diagram.', }
+        }},
         {'name': 'ingest', 'desc': 'Ingest a MITRE ATT&CK Flow diagram in JSON format.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -426,8 +436,10 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     )
     _storm_query = '''
         function ingest(flow) {
-            $lib.cast(it:mitre:attack:flow:json, $flow)
+            // norm (validate, flatten, and sort)
+            $flow = $lib.infosec.mitre.attack.flow.norm($flow)
 
+            // Use the normed flow to generate the guid
             $guid = $lib.guid($flow)
 
             $objs_byid = ({})
@@ -474,6 +486,23 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             return($node)
         }
     '''
+
+    def getObjLocals(self):
+        return {
+            'norm': self._norm,
+        }
+
+    async def _norm(self, flow):
+        flow = await s_stormtypes.toprim(flow)
+
+        schema = s_data.getJSON('attack-flow-schema-2.0.0')
+        validate = s_config.getJsValidator(schema)
+
+        flow = validate(flow)
+        flow = s_common.flatten(flow)
+        flow['objects'] = sorted(flow.get('objects'), key=lambda x: x.get('id'))
+
+        return flow
 
 @s_stormtypes.registry.registerLib
 class CvssLib(s_stormtypes.Lib):

@@ -4,7 +4,6 @@ import json
 import urllib
 import logging
 import argparse
-import functools
 import collections.abc as c_abc
 
 import fastjsonschema
