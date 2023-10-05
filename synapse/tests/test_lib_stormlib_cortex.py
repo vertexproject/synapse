@@ -556,3 +556,31 @@ for $i in $values {
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('mesg'), 'No storm endpoint defined for method post')
+
+    async def test_libcortex_fsm(self):
+
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$obj = $lib.cortex.httpapi.add(testpath)
+            $obj.methods.get =  ${
+                $body = hehe
+                $body = $body.encode()
+                //$request.sendbody( $body )
+                 $request.sendheaders( ({"oh":"my"}) )
+            }
+
+            return ( ($obj.iden) )
+            '''
+            iden = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath',)
+                self.eq(resp.status, 500)
+                print(resp)
+                data = await resp.read()
+                print(data)
