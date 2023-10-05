@@ -1020,8 +1020,8 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi()
-    async def getHttpExtApi(self, path):
-        return await self.cell.getHttpExtApi(path)
+    async def getHttpExtApiByPath(self, path):
+        return await self.cell.getHttpExtApiByPath(path)
 
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
