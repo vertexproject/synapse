@@ -8,7 +8,7 @@ import logging
 
 import regex
 
-from unittest.mock import patch
+from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1109,7 +1109,6 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_prop_deref(self):
 
-        self.skip('TODO RUNT NODES')
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:str=woot ]')
             text = '''
@@ -5569,7 +5568,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
                 # Try a write with the leader down
-                with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
+                with mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
                     await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
 
                 # Bring the leader back up and try again
@@ -5647,7 +5646,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(log00 == log01 == log02)
 
                         # simulate a waiter timing out
-                        with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
+                        with mock.patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
@@ -7336,11 +7335,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # next start
                 ldef = await core.addLayer()
                 layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers(mrev.revs[-2][0])
+                await layr.setModelVers((0, 0, 0))
 
-            with self.getLoggerStream('') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    pass
+            async def _pass(todo):
+                pass
+
+            def _fake(self, core):
+                self.core = core
+                self.revs = ((s_modelrev.maxvers, _pass),)
+
+            with mock.patch.object(s_modelrev.ModelRev, '__init__', _fake):
+                with self.getLoggerStream('') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+                        pass
 
             stream.seek(0)
             data = stream.read()

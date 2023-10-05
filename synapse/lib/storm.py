@@ -4233,7 +4233,7 @@ class MoveNodesCmd(Cmd):
                     # TODO local edits vs compat edits?
                     edge = (verb, s_common.ehex(layr.core.getBuidByNid(nid)))
                     n2node = await node.snap.getNodeByNid(nid)
-                    print(f'MOVE EDGE {node} {edge} TO {n2node}')
+
                     if not self.opts.apply:
                         name, dest = edge
                         await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')

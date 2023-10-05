@@ -2231,7 +2231,7 @@ class Layer(s_nexus.Pusher):
         self.propabrv = self.layrslab.getNameAbrv('propabrv')
         self.tagpropabrv = self.layrslab.getNameAbrv('tagpropabrv')
 
-        self.bynid = self.layrslab.initdb('bynid')
+        self.bynid = self.layrslab.initdb('bynid', integerkey=True)
 
         self.byverb = self.layrslab.initdb('byverb', dupsort=True)
         self.edgesn1 = self.layrslab.initdb('edgesn1', dupsort=True)
@@ -3188,7 +3188,6 @@ class Layer(s_nexus.Pusher):
 
     async def _editNodeEdgeDel(self, buid, form, edit, sode, meta):
 
-        # TODO n1verb / n2verb!
         verb, n2iden = edit[1]
 
         venc = verb.encode()
