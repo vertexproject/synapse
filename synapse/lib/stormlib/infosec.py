@@ -421,7 +421,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'flow', 'type': 'data', 'desc': 'The JSON data to ingest.'},
                   ),
-                  'returns': {'type': 'it:mitre:attack:flow', 'desc': 'The it:mitre:attack:flow node representing the ingested attack flow diagram.'}}},
+                  'returns': {'type': ['node', 'null'], 'desc': 'The it:mitre:attack:flow node representing the ingested attack flow diagram.'}}},
 
     )
     _storm_query = '''
