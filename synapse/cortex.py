@@ -1245,8 +1245,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
-        self.httpexts = []
-        self._initCortexHttpExtApi()
+        self._exthttpapis = []
+        self._exthttpapiorder = b'exthttpapiorder'
+        self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model()
 
@@ -4261,14 +4262,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/axon/files/del', CortexAxonHttpDelV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/put', CortexAxonHttpUploadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpBySha256V1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', CortexAxonHttpBySha256InvalidV1, {'cell': self})
+
         self.addHttpApi('/api/ext/(.*)', s_httpapi.ExtApiHandler, {'cell': self})
 
-    # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    httpapiextorder = b'httpapiextorderhttpapiextorderhttpapiextorder'
-    def _initCortexHttpExtApi(self):
-        self.httpexts.clear()
+    def _initCortexExtHttpApi(self):
+        self._exthttpapis.clear()
 
-        byts = self.slab.get(self.httpapiextorder, self.httpextapidb)
+        byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
         if byts is None:
             return
 
@@ -4279,7 +4285,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if byts is None:
                 logger.error(f'Missing HTTP API definition for iden={iden}')
                 continue
-            self.httpexts.append(s_msgpack.un(byts))
+            self._exthttpapis.append(s_msgpack.un(byts))
 
     async def addHttpExtApi(self, adef):
         adef['iden'] = s_common.guid()
@@ -4291,18 +4297,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         iden = adef.get('iden')
         self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
-        order = self.slab.get(self.httpapiextorder, db=self.httpextapidb)
+        order = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
         if order is None:
-            self.slab.put(self.httpapiextorder, s_msgpack.en([iden]), db=self.httpextapidb)
+            self.slab.put(self._exthttpapiorder, s_msgpack.en([iden]), db=self.httpextapidb)
         else:
             order = s_msgpack.un(order)  # type: tuple
             if iden not in order:
                 # Replay safety
                 order = order + (iden, )  # New handlers go to the end of the list of handlers
-                self.slab.put(self.httpapiextorder, s_msgpack.en(order), db=self.httpextapidb)
+                self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
 
         # Re-initialize the HTTP API list from the index order
-        self._initCortexHttpExtApi()
+        self._initCortexExtHttpApi()
         return adef
 
     @s_nexus.Pusher.onPushAuto('http:api:del')
@@ -4314,12 +4320,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         adef = s_msgpack.un(byts)
 
-        byts = self.slab.get(self.httpapiextorder, self.httpextapidb)
+        byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
         order = list(s_msgpack.un(byts))
         order.remove(iden)
 
-        self.slab.put(self.httpapiextorder, s_msgpack.en(order), db=self.httpextapidb)
-        self._initCortexHttpExtApi()
+        self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+        self._initCortexExtHttpApi()
 
         return adef
 
@@ -4350,7 +4356,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         adef = s_schemas.HttpExaAPIConfSchema(adef)
         self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
-        self._initCortexHttpExtApi()
+        self._initCortexExtHttpApi()
 
         return adef
 
@@ -4359,7 +4365,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # Ensure our iden is valid...
         adef = await self.getHttpExtApiByIden(iden)
 
-        byts = self.slab.get(self.httpapiextorder, db=self.httpextapidb)
+        byts = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
         if byts is None:
             # TODO Fix this error / message / can we even get here?
             raise s_exc.SynErr(mesg='We do not have any handlers..')
@@ -4368,12 +4374,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         order.remove(iden)
         # indx values > length of the list end up at the end of the list.
         order.insert(indx, iden)
-        self.slab.put(self.httpapiextorder, s_msgpack.en(order), db=self.httpextapidb)
-        self._initCortexHttpExtApi()
+        self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+        self._initCortexExtHttpApi()
         return order.index(iden)
 
     async def getHttpExtApis(self):
-        return copy.deepcopy(self.httpexts)
+        return copy.deepcopy(self._exthttpapis)
 
     async def getHttpExtApiByIden(self, iden):
         byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
@@ -4384,20 +4390,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return adef
 
     async def getHttpExtApiByPath(self, path):
-        for adef in self.httpexts:
+        for adef in self._exthttpapis:
             match = regex.fullmatch(adef.get('path'), path)
             if match is None:
                 continue
             return adef, match.groups()
         return None, ()
-
-    # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-        self.addHttpApi('/api/v1/axon/files/del', CortexAxonHttpDelV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/put', CortexAxonHttpUploadV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpBySha256V1, {'cell': self})
-        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', CortexAxonHttpBySha256InvalidV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 
