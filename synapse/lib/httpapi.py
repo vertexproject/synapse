@@ -1,4 +1,3 @@
-import collections
 import json
 import base64
 import asyncio
