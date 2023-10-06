@@ -231,7 +231,7 @@ tlplevels = (
 # actually works as a json schema should.
 # https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
 
-attack_flow_schema_2_0_0 = s_data.getJSON(f'attack-flow-schema-2.0.0')
+attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
 
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):

@@ -27,7 +27,7 @@ class TestUtilsGetrefs(s_utils.SynTest):
     async def test_basics(self):
 
         args = s_getrefs.parse_args([
-            s_data.path('attack-flow-schema-2.0.0.json')
+            s_data.path('attack-flow', 'attack-flow-schema-2.0.0.json')
         ])
 
         with self.getLoggerStream('synapse.utils.getrefs') as stream:
@@ -43,7 +43,7 @@ class TestUtilsGetrefs(s_utils.SynTest):
             s_getrefs.download_refs_handler('http://[/newp')
 
         with self.raises(s_exc.BadArg):
-            s_getrefs.download_refs_handler('http://raw.githubusercontent.com/../../attack-flow-schema-2.0.0.json')
+            s_getrefs.download_refs_handler('http://raw.githubusercontent.com/../../attack-flow/attack-flow-schema-2.0.0.json')
 
         filename = pathlib.Path(s_data.path(
             'jsonschemas',

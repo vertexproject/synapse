@@ -498,7 +498,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
         flow = await s_stormtypes.toprim(flow)
 
         if self.__class__._validator is None:
-            schema = s_data.getJSON('attack-flow-schema-2.0.0')
+            schema = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
             self.__class__._validator = s_config.getJsValidator(schema)
 
         flow = await s_coro.executor(self.__class__._validator, flow)

@@ -414,4 +414,4 @@ class ConfTest(s_test.SynTest):
             s_config.localSchemaRefHandler('http://foo.com/newp.json')
 
         with self.raises(s_exc.BadArg):
-            s_config.localSchemaRefHandler('http://raw.githubusercontent.com/../../attack-flow-schema-2.0.0.json')
+            s_config.localSchemaRefHandler('http://raw.githubusercontent.com/../../attack-flow/attack-flow-schema-2.0.0.json')

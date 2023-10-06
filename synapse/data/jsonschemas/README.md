@@ -26,4 +26,4 @@ so if you have the schema. In the `utils` directory is a `getrefs.py` script
 that uses the ref handler functionality of fastjsonschema to download and save
 any externally referenced schemas. Example:
 
-    python -m synapse.utils.getrefs synapse/data/attack-flow-schema-2.0.0.json
+    python -m synapse.utils.getrefs synapse/data/attack-flow/attack-flow-schema-2.0.0.json
