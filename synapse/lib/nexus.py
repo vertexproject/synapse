@@ -86,6 +86,7 @@ class NexsRoot(s_base.Base):
         self.started = False
         self.celliden = self.cell.iden
         self.readonly = False
+        self.readonlyreason = None
         self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
@@ -263,6 +264,10 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
+    def setReadOnly(self, readonly, reason=None):
+        self.readonly = readonly
+        self.readonlyreason = reason
+
     async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
@@ -271,7 +276,11 @@ class NexsRoot(s_base.Base):
         assert self.started, 'Attempt to issue before nexsroot is started'
 
         if self.readonly:
-            raise s_exc.IsReadOnly(mesg='Unable to issue Nexus events when readonly is set')
+            mesg = self.readonlyreason
+            if mesg is None:
+                mesg = 'Unable to issue Nexus events when readonly is set.'
+
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         # pick up a reference to avoid race when we eventually can promote
         client = self.client

@@ -31,14 +31,14 @@ class BaseTest(s_t_utils.SynTest):
             self.len(2, nodes)
             self.len(1, await core.nodes('meta:note'))
             self.len(1, await core.nodes('meta:note:created<=now'))
+            self.len(1, await core.nodes('meta:note:updated<=now'))
+            self.len(1, await core.nodes('meta:note:created +(:created = :updated)'))
             self.len(1, await core.nodes('meta:note:creator=$lib.user.iden'))
             self.len(1, await core.nodes('meta:note:text="foo bar baz"'))
             self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
             self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
             self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
-            await core.nodes('meta:note | [ :updated=now ]')
-            self.len(1, await core.nodes('meta:note:updated<=now'))
 
             # Notes are always unique when made by note.add
             nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
@@ -53,6 +53,8 @@ class BaseTest(s_t_utils.SynTest):
             nodes = await core.nodes('note.add --yield "nonodes"')
             self.len(1, nodes)
             self.eq(nodes[0].get('text'), 'nonodes')
+            self.nn(nodes[0].get('created'))
+            self.nn(nodes[0].get('updated'))
 
             self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
 

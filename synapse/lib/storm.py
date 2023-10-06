@@ -1006,6 +1006,7 @@ stormcmds = (
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--view', {'help': 'The view to add the trigger to.'})
         ),
         'storm': '''
             $opts = $lib.copy($cmdopts)
@@ -1043,17 +1044,20 @@ stormcmds = (
     {
         'name': 'trigger.list',
         'descr': "List existing triggers in the cortex.",
-        'cmdargs': (),
+        'cmdargs': (
+            ('--all', {'help': 'List every trigger in every readable view, rather than just the current view.', 'action': 'store_true'}),
+        ),
         'storm': '''
-            $triggers = $lib.trigger.list()
+            $triggers = $lib.trigger.list($cmdopts.all)
 
             if $triggers {
 
-                $lib.print("user       iden                             en?    async? cond      object                    storm query")
+                $lib.print("user       iden                             view                             en?    async? cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
+                    $view = $trigger.view.ljust(12)
                     ($ok, $async) = $lib.trycast(bool, $trigger.async)
                     if $ok {
                         $async = $lib.model.type(bool).repr($async).ljust(6)
@@ -1088,9 +1092,7 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {enabled} {async} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, enabled=$enabled, async=$async, cond=$cond,
-                              obj=$obj, obj2=$obj2, query=$trigger.storm)
+                    $lib.print(`{$user} {$iden} {$view} {$enabled} {$async} {$cond} {$obj} {$obj2} {$trigger.storm}`)
                 }
             } else {
                 $lib.print("No triggers found")
@@ -1493,7 +1495,7 @@ stormcmds = (
             init {
                 function addNoteNode(text, type) {
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
                     if $type {[ :type=$type ]}
                     return($node)
                 }
