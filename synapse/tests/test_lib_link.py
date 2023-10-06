@@ -222,7 +222,6 @@ class LinkTest(s_test.SynTest):
             j = n - len(data)
 
         self.eq(buf, b'V' * n)
-        # self.eq(sock0.recv(n), b'V' * n)
 
         await s_coro.executor(proc.join)
 
