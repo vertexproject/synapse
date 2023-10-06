@@ -157,8 +157,8 @@ Features and Enhancements
   create a view which is readable by the ``all`` role. The ``$lib.view.add()``
   Storm API now also accepts an optional ``worldreadable`` argument as well.
   (`#3333 <https://github.com/vertexproject/synapse/pull/3333>`_)
-- Update the Storm ``node.add`` command to add a ``--yield`` flag which yields
-  the newly created node.
+- Update the Storm ``note.add`` command to add a ``--yield`` flag which yields
+  the newly created note.
   (`#3337 <https://github.com/vertexproject/synapse/pull/3337>`_)
 - Add Storm commands ``gen.ou.id.number`` and ``gen.ou.id.type`` to help
   generate ``ou:id:number`` and ``ou:id:type`` nodes.
