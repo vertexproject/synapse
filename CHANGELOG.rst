@@ -15,11 +15,11 @@ Features and Enhancements
 - Add the Axon HTTP APIs to the Cortex. These API endpoints use the Axon that
   the Cortex is configured to use.
   (`#3550 <https://github.com/vertexproject/synapse/pull/3550>`_)
-- Allow user defined functions in Storm to execute in ``readonly`` Storm
+- Allow user defined functions in Storm to execute in a ``readonly`` Storm
   runtime.
   (`#3552 <https://github.com/vertexproject/synapse/pull/3552>`_)
 - Clarify the Nexus ``IsReadOnly`` exception to include the common cause for
-  the error, which insufficent space on disk.
+  the error, which is normally insufficent space on disk.
   (`#3359 <https://github.com/vertexproject/synapse/pull/3359>`_)
 - Add a ``SYN_LOG_DATEFORMAT`` environment variable to allow specifying custom
   timestamp formats for Synapse services.
