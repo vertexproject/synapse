@@ -23,6 +23,11 @@ async def _main(argv, outp):
             valu = s_version.fmtVersion(*e.get('valu'))
             outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
             return 1
+        classes = prox._getClasses()
+        if 'synapse.lib.aha.AhaApi' not in classes:
+            outp.printf(f'Service is not connected to an AhaApi; got {", ".join(classes)}.')
+            return 1
+
         try:
             network = argv[1]
         except IndexError:
