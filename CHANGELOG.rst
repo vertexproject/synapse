@@ -6,6 +6,53 @@
 Synapse Changelog
 *****************
 
+v2.151.0 - 2023-10-06
+=====================
+
+Features and Enhancements
+-------------------------
+
+- Add the Axon HTTP APIs to the Cortex. These API endpoitns use the Axon that
+  the Cortex is configured to use.
+  (`#3550 <https://github.com/vertexproject/synapse/pull/3550>`_)
+- Allow user defined functions in Storm to execute in ``readonly`` Storm
+  runtime.
+  (`#3552 <https://github.com/vertexproject/synapse/pull/3552>`_)
+- Clarify the Nexus ``IsReadOnly`` exception to include the common cause for
+  the error, which insufficent space on disk.
+  (`#3359 <https://github.com/vertexproject/synapse/pull/3359>`_)
+- Add a ``SYN_LOG_DATEFORMAT`` environment variable to allow specifying custom
+  timestamp formats for Synapse services.
+  (`#3362 <https://github.com/vertexproject/synapse/pull/3362>`_)
+- Add a ``status`` attribute to structured log events for user and role
+  related log events. This attribute indicates if the event was a ``CREATE``,
+  ``DELETE``, or ``MODIFY`` operation.
+  (`#3363 <https://github.com/vertexproject/synapse/pull/3363>`_)
+- Update Storm setitem AST operator to check the readonly flag on functions
+  when operating in a ``readonly`` Storm runtime.
+  (`#3364 <https://github.com/vertexproject/synapse/pull/3364>`_)
+- Update the minimum required version of the ``fastjsonschema`` library.
+  (`#3358 <https://github.com/vertexproject/synapse/pull/3358>`_)
+- Update tests and remove the use of deprecated functions for improved
+  Python 3.12 compatibility.
+  (`#3355 <https://github.com/vertexproject/synapse/pull/3355>`_)
+
+Bugfixes
+--------
+- Fixed a byg when parenting a View to another View where the bottom view has
+  more than one layer in it omitted non-write layers. The set of layers is now
+  properly computed.
+  (`#3354 <https://github.com/vertexproject/synapse/pull/3354>`_)
+
+Improved Documentation
+----------------------
+- Update the list of Cortex permissions in the Admin Guide.
+  (`#3331 <https://github.com/vertexproject/synapse/pull/3331>`_)
+- The Form documentation has been updated to project the secondary properties
+  and associated light edges as tables.
+  (`#3348 <https://github.com/vertexproject/synapse/pull/3348>`_)
+
+
 v2.150.0 - 2023-09-22
 =====================
 
