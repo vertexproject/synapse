@@ -12,7 +12,7 @@ v2.151.0 - 2023-10-06
 Features and Enhancements
 -------------------------
 
-- Add the Axon HTTP APIs to the Cortex. These API endpoitns use the Axon that
+- Add the Axon HTTP APIs to the Cortex. These API endpoints use the Axon that
   the Cortex is configured to use.
   (`#3550 <https://github.com/vertexproject/synapse/pull/3550>`_)
 - Allow user defined functions in Storm to execute in ``readonly`` Storm
