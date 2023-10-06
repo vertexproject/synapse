@@ -2711,8 +2711,8 @@ class TagValuCond(Cond):
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
                 if '*' in name:
-                    mesg = 'Wildcard tag names may not be used in conjunction with tag value comparison.'
-                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+                    mesg = f'Wildcard tag names may not be used in conjunction with tag value comparison: {name}'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
                 valu = await rnode.compute(runt, path)
                 return cmprctor(valu)(node.tags.get(name))
@@ -2721,8 +2721,8 @@ class TagValuCond(Cond):
 
         name = await lnode.compute(runt, None)
         if '*' in name:
-            mesg = 'Wildcard tag names may not be used in conjunction with tag value comparison.'
-            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+            mesg = f'Wildcard tag names may not be used in conjunction with tag value comparison: {name}'
+            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
         if isinstance(rnode, Const):
 
@@ -2804,8 +2804,8 @@ class TagPropCond(Cond):
             name = await self.kids[1].compute(runt, path)
 
             if '*' in tag:
-                mesg = 'Wildcard tag names may not be used in conjunction with tagprop value comparison.'
-                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+                mesg = f'Wildcard tag names may not be used in conjunction with tagprop value comparison: {tag}'
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=tag))
 
             prop = runt.model.getTagProp(name)
             if prop is None:
