@@ -479,7 +479,7 @@ class SubGraph:
                     if rev.get(n2buid) is None:
                         rev[n2buid] = collections.defaultdict(list)
 
-                    rev[n2buid][b].append(verb)
+                    rev[n2buid][buid].append(verb)
                     await asyncio.sleep(0)
 
             async def todogenr():
