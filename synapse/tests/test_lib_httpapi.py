@@ -7,11 +7,13 @@ import aiohttp.client_exceptions as a_exc
 import synapse.common as s_common
 import synapse.tools.backup as s_backup
 
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_tests
+import synapse.tests.test_axon as s_t_axon
 
 class HttpApiTest(s_tests.SynTest):
 
@@ -1854,3 +1856,33 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(mesg.get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
+
+    async def test_core_local_axon_http(self):
+        async with self.getTestCore() as core:
+            await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=core.axon)
+
+    async def test_core_remote_axon_http(self):
+        timeout = aiohttp.ClientTimeout(total=1)
+
+        async with self.getTestAxon() as axon:
+            conf = {
+                'axon': axon.getLocalUrl(),
+            }
+
+            async with self.getTestCore(conf=conf) as core:
+                self.true(await s_coro.event_wait(core.axready, timeout=2))
+
+                await s_t_axon.AxonTest.runAxonTestHttp(self, core, realaxon=core.axon)
+
+                # additional test for axon down
+
+                host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+                async with self.getHttpSess() as sess:
+                    await axon.fini()
+
+                    with self.raises(TimeoutError):
+                        sha256 = s_common.ehex(s_t_axon.asdfhash)
+                        url = f'https://localhost:{port}/api/v1/axon/files/has/sha256/{sha256}'
+                        async with sess.get(url, timeout=timeout) as resp:
+                            pass

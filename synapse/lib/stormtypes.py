@@ -31,6 +31,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -436,6 +437,7 @@ class StormType:
         mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if not self.stors:
@@ -448,6 +450,10 @@ class StormType:
         if stor is None:
             mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
+
+        if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
+            mesg = f'Function ({stor.__name__}) is not marked readonly safe.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         await s_coro.ornot(stor, valu)
 
@@ -1336,6 +1342,7 @@ class LibBase(Lib):
     async def _getRuntDebug(self):
         return self.runt.debug
 
+    @stormfunc(readonly=True)
     async def _setRuntDebug(self, debug):
         self.runt.debug = await tobool(debug)
 
@@ -1999,7 +2006,8 @@ class LibAxon(Lib):
         return item
 
     async def readlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2007,7 +2015,8 @@ class LibAxon(Lib):
             yield line
 
     async def jsonlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2016,7 +2025,8 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2032,7 +2042,9 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
@@ -2043,7 +2055,8 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        if not self.runt.allowed(('axon', 'wget')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2077,7 +2090,8 @@ class LibAxon(Lib):
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        if not self.runt.allowed(('axon', 'wput')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2168,7 +2182,8 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2178,7 +2193,9 @@ class LibAxon(Lib):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2189,7 +2206,8 @@ class LibAxon(Lib):
             await asyncio.sleep(0)
 
     async def metrics(self):
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
@@ -4299,6 +4317,7 @@ class Dict(Prim):
         for item in tuple(self.valu.items()):
             yield item
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if ismutable(name):
@@ -4341,6 +4360,7 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
@@ -4585,6 +4605,7 @@ class List(Prim):
             'extend': self.extend,
         }
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -5841,6 +5862,7 @@ class PathMeta(Prim):
         name = await tostr(name)
         return self.path.metadata.get(name)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -5874,6 +5896,7 @@ class PathVars(Prim):
         mesg = f'No var with name: {name}.'
         raise s_exc.StormRuntimeError(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -7176,8 +7199,12 @@ class LibTrigger(Lib):
                                'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the deleted trigger which matched the prefix.', }}},
-        {'name': 'list', 'desc': 'Get a list of Triggers in the current view.',
+        {'name': 'list', 'desc': 'Get a list of Triggers in the current view or every view.',
          'type': {'type': 'function', '_funcname': '_methTriggerList',
+                  'args': (
+                      {'name': 'all', 'type': 'boolean', 'default': False,
+                       'desc': 'Get a list of all the readable Triggers in every readable View.'},
+                  ),
                   'returns': {'type': 'list',
                               'desc': 'A list of ``trigger`` objects the user is allowed to access.', }}},
         {'name': 'get', 'desc': 'Get a Trigger in the Cortex.',
@@ -7250,18 +7277,22 @@ class LibTrigger(Lib):
         exactly one.
         '''
         match = None
-        trigs = await self.runt.snap.view.listTriggers()
+        for view in self.runt.snap.core.listViews():
+            if not allowed(('view', 'read'), gateiden=view.iden):
+                continue
 
-        for iden, trig in trigs:
-            if iden.startswith(prefix):
-                if match is not None:
-                    mesg = 'Provided iden matches more than one trigger.'
-                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+            trigs = await view.listTriggers()
 
-                if not allowed(('trigger', 'get'), gateiden=iden):
-                    continue
+            for iden, trig in trigs:
+                if iden.startswith(prefix):
+                    if match is not None:
+                        mesg = 'Provided iden matches more than one trigger.'
+                        raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                match = trig
+                    if not allowed(('trigger', 'get'), gateiden=iden):
+                        continue
+
+                    match = trig
 
         if match is None:
             mesg = 'Provided iden does not match any valid authorized triggers.'
@@ -7273,11 +7304,14 @@ class LibTrigger(Lib):
         tdef = await toprim(tdef)
 
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
 
         tdef['user'] = useriden
-        tdef['view'] = viewiden
 
+        viewiden = tdef.pop('view', None)
+        if viewiden is None:
+            viewiden = self.runt.snap.view.iden
+
+        tdef['view'] = viewiden
         # query is kept to keep this API backwards compatible.
         query = tdef.pop('query', None)
         if query is not None:  # pragma: no cover
@@ -7312,43 +7346,58 @@ class LibTrigger(Lib):
 
     async def _methTriggerDel(self, prefix):
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         trig = await self._matchIdens(prefix)
         iden = trig.iden
 
         todo = s_common.todo('delTrigger', iden)
         gatekeys = ((useriden, ('trigger', 'del'), iden),)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
     async def _methTriggerMod(self, prefix, query):
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
-    async def _methTriggerList(self):
-        view = self.runt.snap.view
-        triggers = []
+    async def _methTriggerList(self, all=False):
+        if all:
+            views = self.runt.snap.core.listViews()
+        else:
+            views = [self.runt.snap.view]
 
-        for iden, trig in await view.listTriggers():
-            if not allowed(('trigger', 'get'), gateiden=iden):
+        triggers = []
+        for view in views:
+            if not allowed(('view', 'read'), gateiden=view.iden):
                 continue
-            triggers.append(Trigger(self.runt, trig.pack()))
+
+            for iden, trig in await view.listTriggers():
+                if not allowed(('trigger', 'get'), gateiden=iden):
+                    continue
+                triggers.append(Trigger(self.runt, trig.pack()))
 
         return triggers
 
     async def _methTriggerGet(self, iden):
-        trigger = await self.runt.snap.view.getTrigger(iden)
+        trigger = None
+        try:
+            # fast path to our current view
+            trigger = await self.runt.snap.view.getTrigger(iden)
+        except s_exc.NoSuchIden:
+            for view in self.runt.snap.core.listViews():
+                try:
+                    trigger = await view.getTrigger(iden)
+                except s_exc.NoSuchIden:
+                    pass
+
         if trigger is None:
-            return None
+            raise s_exc.NoSuchIden('Trigger not found')
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
@@ -7365,10 +7414,9 @@ class LibTrigger(Lib):
         iden = trig.iden
 
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
@@ -7470,6 +7518,12 @@ class Trigger(Prim):
         tdef['view'] = viewiden
         tdef['user'] = useriden
 
+        try:
+            s_trigger.reqValidTdef(tdef)
+            await self.runt.snap.core.reqValidStorm(tdef['storm'])
+        except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
+            raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
+
         gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
         todo = s_common.todo('delTrigger', trigiden)
         await self.runt.dyncall(trigview, todo, gatekeys=gatekeys)
@@ -7538,9 +7592,11 @@ class LibAuth(Lib):
         }
 
     @staticmethod
+    @stormfunc(readonly=True)
     def ruleFromText(text):
         return ruleFromText(text)
 
+    @stormfunc(readonly=True)
     async def textFromRule(self, rule):
         rule = await toprim(rule)
         text = '.'.join(rule[1])
@@ -7548,9 +7604,11 @@ class LibAuth(Lib):
             text = '!' + text
         return text
 
+    @stormfunc(readonly=True)
     async def getPermDefs(self):
         return self.runt.snap.core.getPermDefs()
 
+    @stormfunc(readonly=True)
     async def getPermDef(self, perm):
         perm = await toprim(perm)
         return self.runt.snap.core.getPermDef(perm)
@@ -9432,9 +9490,7 @@ class CronJob(Prim):
 
     @staticmethod
     def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
