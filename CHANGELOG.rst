@@ -11,7 +11,9 @@ v2.151.0 - 2023-10-06
 
 Features and Enhancements
 -------------------------
-
+- Update the Storm ``note.add`` command to set the ``meta:note:created``
+  property on the note.
+  (`#3569 <https://github.com/vertexproject/synapse/pull/3569>`_)
 - Add the Axon HTTP APIs to the Cortex. These API endpoints use the Axon that
   the Cortex is configured to use.
   (`#3550 <https://github.com/vertexproject/synapse/pull/3550>`_)
