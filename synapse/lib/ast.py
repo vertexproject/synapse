@@ -267,7 +267,7 @@ class Lookup(Query):
                 return
 
             for tokn in tokns:
-                for form, valu in s_scrape.scrape(tokn, first=True):
+                async for form, valu in s_scrape.scrapeAsync(tokn, first=True):
                     node = await getnode(form, valu)
                     if node is not None:
                         yield node, runt.initPath(node)
@@ -1104,11 +1104,9 @@ class SetItemOper(Oper):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
-            if runt.readonly:
-                _storm_readonly = getattr(item.setitem, '_storm_readonly')
-                if _storm_readonly is not None and not _storm_readonly:
-                    mesg = f'Setitem method for ({item.__name__}) is not marked readonly safe.'
-                    raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+            if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
+                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
             name = await self.kids[1].compute(runt, path)
             valu = await self.kids[2].compute(runt, path)
@@ -1123,14 +1121,16 @@ class SetItemOper(Oper):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
 
-            if runt.readonly:
-                _storm_readonly = getattr(item.setitem, '_storm_readonly')
-                if _storm_readonly is not None and not _storm_readonly:
-                    mesg = f'Setitem method for ({item.__name__}) is not marked readonly safe.'
-                    raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+            if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
+                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
             name = await self.kids[1].compute(runt, None)
             valu = await self.kids[2].compute(runt, None)
+
+            if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
+                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
             # TODO: ditch this when storm goes full heavy object
             with s_scope.enter({'runt': runt}):
@@ -4294,6 +4294,7 @@ class Function(AstNode):
         async def once():
             argdefs = await argskid.compute(runt, None)
 
+            @s_stormtypes.stormfunc(readonly=True)
             async def realfunc(*args, **kwargs):
                 return await self.callfunc(runt, argdefs, args, kwargs)
 

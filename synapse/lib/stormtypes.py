@@ -438,6 +438,7 @@ class StormType:
         mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if not self.stors:
@@ -1459,8 +1460,14 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
+            propitem = self.runt.snap.core.model.prop(name)
+            if propitem is None:
+                mesg = f'No type or prop found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = propitem.type
 
         # TODO an eventual mapping between model types and storm prims
 
@@ -1474,8 +1481,14 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
+            propitem = self.runt.snap.core.model.prop(name)
+            if propitem is None:
+                mesg = f'No type or prop found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = propitem.type
 
         try:
             norm, info = typeitem.norm(valu)
@@ -2006,7 +2019,8 @@ class LibAxon(Lib):
         return item
 
     async def readlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2014,7 +2028,8 @@ class LibAxon(Lib):
             yield line
 
     async def jsonlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2023,7 +2038,8 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2039,7 +2055,9 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
@@ -2050,7 +2068,8 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        if not self.runt.allowed(('axon', 'wget')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2084,7 +2103,8 @@ class LibAxon(Lib):
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        if not self.runt.allowed(('axon', 'wput')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2175,7 +2195,8 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2185,7 +2206,9 @@ class LibAxon(Lib):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2196,7 +2219,8 @@ class LibAxon(Lib):
             await asyncio.sleep(0)
 
     async def metrics(self):
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
@@ -4306,6 +4330,7 @@ class Dict(Prim):
         for item in tuple(self.valu.items()):
             yield item
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if ismutable(name):
@@ -4348,6 +4373,7 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
@@ -4592,6 +4618,7 @@ class List(Prim):
             'extend': self.extend,
         }
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -5848,6 +5875,7 @@ class PathMeta(Prim):
         name = await tostr(name)
         return self.path.metadata.get(name)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -5881,6 +5909,7 @@ class PathVars(Prim):
         mesg = f'No var with name: {name}.'
         raise s_exc.StormRuntimeError(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -7576,9 +7605,11 @@ class LibAuth(Lib):
         }
 
     @staticmethod
+    @stormfunc(readonly=True)
     def ruleFromText(text):
         return ruleFromText(text)
 
+    @stormfunc(readonly=True)
     async def textFromRule(self, rule):
         rule = await toprim(rule)
         text = '.'.join(rule[1])
@@ -7586,9 +7617,11 @@ class LibAuth(Lib):
             text = '!' + text
         return text
 
+    @stormfunc(readonly=True)
     async def getPermDefs(self):
         return self.runt.snap.core.getPermDefs()
 
+    @stormfunc(readonly=True)
     async def getPermDef(self, perm):
         perm = await toprim(perm)
         return self.runt.snap.core.getPermDef(perm)
@@ -9471,9 +9504,7 @@ class CronJob(Prim):
 
     @staticmethod
     def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
