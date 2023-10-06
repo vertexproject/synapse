@@ -1462,7 +1462,7 @@ class LibBase(Lib):
             # that has a type we can use
             propitem = self.runt.snap.core.model.prop(name)
             if propitem is None:
-                mesg = f'No type found for name {name}.'
+                mesg = f'No type or prop found for name {name}.'
                 raise s_exc.NoSuchType(mesg=mesg)
 
             typeitem = propitem.type
@@ -1483,7 +1483,7 @@ class LibBase(Lib):
             # that has a type we can use
             propitem = self.runt.snap.core.model.prop(name)
             if propitem is None:
-                mesg = f'No type found for name {name}.'
+                mesg = f'No type or prop found for name {name}.'
                 raise s_exc.NoSuchType(mesg=mesg)
 
             typeitem = propitem.type
