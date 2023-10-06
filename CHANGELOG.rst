@@ -39,7 +39,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fixed a byg when parenting a View to another View where the bottom view has
+- Fixed a bug when parenting a View to another View where the bottom view has
   more than one layer in it omitted non-write layers. The set of layers is now
   properly computed.
   (`#3354 <https://github.com/vertexproject/synapse/pull/3354>`_)
