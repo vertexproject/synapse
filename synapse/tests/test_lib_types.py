@@ -614,6 +614,10 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((1594038593000, 1594038593001), ival.norm('20200707162953+04:00-1day')[0])
         self.eq((1594240193000, 1594240193001), ival.norm('20200707162953-04:00+1day')[0])
         self.eq((1594067393000, 1594067393001), ival.norm('20200707162953-04:00-1day')[0])
+        self.eq((1594240193000, 1594240193001), ival.norm('20200707162953EDT+1day')[0])
+        self.eq((1594067393000, 1594067393001), ival.norm('20200707162953EDT-1day')[0])
+
+        # todo: more timezone testing
 
         start = s_common.now() + s_time.oneday - 1
         end = ival.norm(('now', '+1day'))[0][1]

@@ -153,9 +153,11 @@ def parsetz(text):
 
         tzstr, tzname, _ = tz_str.groups()
 
-        base = s_l_timezones.getTzOffset(tzname)
-        if base is None:
+        offset = s_l_timezones.getTzOffset(tzname)
+        if offset is None:
             raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
+
+        base = offset * -1
 
         return text.replace(tzstr, '', 1), base
 

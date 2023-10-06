@@ -66,6 +66,32 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('20200707162953+423'),
                 1594139393000 - s_time.onehour * 4 - s_time.onemin * 23)
 
+        # named timezones
+        utc = 1594139393000
+        self.eq(s_time.parse('2020-07-07T16:29:53EDT'), utc + s_time.onehour * 4)
+        self.eq(s_time.parse('2020-07-07T16:29:53 EDT'), utc + s_time.onehour * 4)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234 EDT'), utc + s_time.onehour * 4 + 234)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234567 EDT'), utc + s_time.onehour * 4 + 234)
+        self.eq(s_time.parse('2020-07-07T16:29:53-04:00'), s_time.parse('2020-07-07T16:29:53EDT'))
+
+        self.eq(s_time.parse('2020-07-07T16:29:53 A'), utc + s_time.onehour)
+        self.eq(s_time.parse('2020-07-07T16:29:53 CDT'), utc + s_time.onehour * 5)
+        self.eq(s_time.parse('2020-07-07T16:29:53 CST'), utc + s_time.onehour * 6)
+        self.eq(s_time.parse('2020-07-07T16:29:53 EST'), utc + s_time.onehour * 5)
+        self.eq(s_time.parse('2020-07-07T16:29:53 GMT'), utc)
+        self.eq(s_time.parse('2020-07-07T16:29:53 M'), utc + s_time.onehour * 12)
+        self.eq(s_time.parse('2020-07-07T16:29:53 MDT'), utc + s_time.onehour * 6)
+        self.eq(s_time.parse('2020-07-07T16:29:53 MST'), utc + s_time.onehour * 7)
+        self.eq(s_time.parse('2020-07-07T16:29:53 N'), utc - s_time.onehour)
+        self.eq(s_time.parse('2020-07-07T16:29:53 PDT'), utc + s_time.onehour * 7)
+        self.eq(s_time.parse('2020-07-07T16:29:53 PST'), utc + s_time.onehour * 8)
+        self.eq(s_time.parse('2020-07-07T16:29:53 UT'), utc)
+        self.eq(s_time.parse('2020-07-07T16:29:53 UTC'), utc)
+        self.eq(s_time.parse('2020-07-07T16:29:53 Y'), utc - s_time.onehour * 12)
+        self.eq(s_time.parse('2020-07-07T16:29:53 Z'), utc)
+
+        # todo: more tz testing
+
         # This partial value is ignored and treated like a millisecond value
         self.eq(s_time.parse('20200707162953+04'), 1594139393040)
 

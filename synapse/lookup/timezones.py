@@ -2,32 +2,40 @@
 Timezones are defined per RFC822 5.1 (plus GMT and UTC),
 with values representing offsets from UTC in milliseconds.
 '''
+import types
 
-onehour = 3600000
+_onehour = 3600000
 
-timezones = {
-    'Y': 12 * onehour,
-    'N': 1 * onehour,
-    'Z': 0,
+_timezones = types.MappingProxyType({
+    'A': -1 * _onehour,
+    'CDT': -5 * _onehour,
+    'CST': -6 * _onehour,
+    'EDT': -4 * _onehour,
+    'EST': -5 * _onehour,
+    'GMT': 0,
+    'M': -12 * _onehour,
+    'MDT': -6 * _onehour,
+    'MST': -7 * _onehour,
+    'N': 1 * _onehour,
+    'PDT': -7 * _onehour,
+    'PST': -8 * _onehour,
     'UT': 0,
     'UTC': 0,
-    'GMT': 0,
-    'A': -1 * onehour,
-    'EDT': -4 * onehour,
-    'EST': -5 * onehour,
-    'CDT': -5 * onehour,
-    'CST': -6 * onehour,
-    'MDT': -6 * onehour,
-    'MST': -7 * onehour,
-    'PDT': -7 * onehour,
-    'PST': -8 * onehour,
-    'M': -12 * onehour,
-}
+    'Y': 12 * _onehour,
+    'Z': 0,
+})
 
 def getTimezones():
-    return tuple(timezones.keys())
+    '''
+    Return a tuple of all supported timezone names.
+    '''
+    return tuple(_timezones.keys())
 
 def getTzOffset(name, defval=None):
-    if isinstance(name, str):
-        return timezones.get(name.upper(), defval)
-    return defval
+    '''
+    Return the UTC offset in milliseconds.
+    '''
+    try:
+        return _timezones.get(name.upper(), defval)
+    except AttributeError:
+        return defval
