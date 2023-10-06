@@ -96,6 +96,8 @@ class BaseModule(s_module.CoreModule):
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
             ),
+            ('interfaces', (
+            )),
             'edges': (
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),

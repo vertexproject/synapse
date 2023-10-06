@@ -924,6 +924,10 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
+            # allow MS specific wild card syntax
+            if host is None and part == '+':
+                host = '+'
+
         if host and local:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Host specified on local-only file URI') from None
@@ -950,10 +954,8 @@ class Url(s_types.Str):
             if port is not None:
                 hostparts = f'{hostparts}:{port}'
 
-        if proto != 'file':
-            if (not subs.get('fqdn')) and (subs.get('ipv4') is None) and (subs.get('ipv6') is None):
-                raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                        mesg='Missing address/url') from None
+        if proto != 'file' and host is None:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
@@ -1415,6 +1417,112 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
+                    ('inet:service:platform', ('guid', {}), {
+                        'doc': 'A service provider platform such as twitter, Azure AD, or telegram.'})
+
+                    ('inet:service:instance', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'instance::type'}},
+                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'id'}},
+                            {'type': 'prop', 'opts': {'prop': 'name'}},
+                        )},
+                        'doc': 'An instance of a service provider platform.'})
+
+                    ('inet:service:account', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'instance::type'}},
+                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'id'}},
+                            {'type': 'prop', 'opts': {'prop': 'name'}},
+                        )},
+                        'doc': 'An account within a network service.'})
+
+                    ('inet:service:group', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'instance::type'}},
+                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'id'}},
+                            {'type': 'prop', 'opts': {'prop': 'name'}},
+                        )},
+                        'doc': 'An account group/role within a network service.'})
+
+                    ('inet:service:message', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'sender::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'time'}},
+                            {'type': 'prop', 'opts': {'prop': 'text'}},
+                        )},
+                        'doc': 'A message or post sent by an account.'})
+
+                    ('inet:service:message:link', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'message::time'}},
+                            {'type': 'embed', 'opts': {'embed': 'message::sender::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'title'}},
+                            {'type': 'prop', 'opts': {'prop': 'url'}},
+                        )},
+                        'doc': 'A URL attached to a message.'})
+
+                    ('inet:service:message:attachment', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'prop', 'opts': {'prop': 'name'}},
+                            {'type': 'prop', 'opts': {'prop': 'file'}},
+                            {'type': 'embed', 'opts': {'embed': 'message::time'}},
+                            {'type': 'embed', 'opts': {'embed': 'message::sender::name'}},
+                        )},
+                        'doc': 'A file attached to a message.'})
+
+                    ('inet:service:channel', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'prop', 'opts': {'prop': 'name'}},
+                            {'type': 'prop', 'opts': {'prop': 'created'}},
+                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
+                            {'type': 'embed', 'opts': {'embed': 'instance::platform::name'}},
+                        )},
+                        'doc': 'A message distribution channel within a service platform or instance.'}),
+
+                    ('inet:service:channel:member', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'account::name'}},
+                            {'type': 'embed', 'opts': {'embed': 'channel::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'period'}},
+                        )},
+                        'doc': 'An account which is a member of a channel.'}),
+
+                    ('inet:service:group:member', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'embed', 'opts': {'embed': 'account::name'}},
+                            {'type': 'embed', 'opts': {'embed': 'group::name'}},
+                            {'type': 'prop', 'opts': {'prop': 'period'}},
+                        )},
+                        'doc': 'An account which is a member of a group.'}),
+
+                    ('inet:service:resource', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'prop', 'opts': {'prop': 'name'}},
+                            {'type': 'prop', 'opts': {'prop': 'type'}},
+                            {'type': 'prop', 'opts': {'prop': 'url'}},
+                        )},
+                        'doc': 'A resource provided by the serivce such as an S3 bucket, google document, shared file.'}),
+
+                    #('inet:service:login', ('guid', {}), {
+                        #'doc': 'A login event for an account.'}),
+                    ('inet:service:session', ('guid', {}), {
+                        'doc': 'A session generated by an account logging into an instance.'}),
+
+                    ('inet:service:access', ('guid', {}), {
+                        'display': {'columns': (
+                            {'type': 'prop', 'opts': {'prop': 'time'}},
+                            {'type': 'prop', 'opts': {'prop': 'type'}},
+                            {'type': 'embed', 'opts': {'embed': 'account::name'}},
+                            {'type': 'embed', 'opts': {'embed': 'resource::name'}},
+                        )},
+                        'doc': 'An event where an account accessed a resource provided by a service instance.'}),
+
+                    ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy', {}),
+                        'doc': 'A service resource type taxonomy.'}),
                 ),
 
                 'interfaces': (
@@ -3129,6 +3237,7 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The truncated SHA256 of the TLS server extensions.'}),
                     )),
+
                     ('inet:ssl:jarmsample', {}, (
                         ('jarmhash', ('inet:ssl:jarmhash', {}), {
                             'ro': True,
@@ -3136,6 +3245,195 @@ class InetModule(s_module.CoreModule):
                         ('server', ('inet:server', {}), {
                             'ro': True,
                             'doc': 'The server that was sampled to compute the JARM hash.'}),
+                    )),
+
+                    ('inet:service:platform', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'ex': 'slack',
+                            'doc': 'A unique name for the service platform.'}),
+
+                        ('owner', ('entity:contact', {}), {}),
+
+                        ('created', ('time', {}), {
+                            'doc': 'The time that the platform was first created or went live.'}),
+                    )),
+
+                    ('inet:service:instance', {}, (
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The platform specific instance id.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The primary URL which identifies the service instance.'}),
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {}),
+                        ('provider', ('entity:contact', {}), {}),
+                        ('operator', ('entity:contact', {}), {}),
+                        ('platform', ('inet:service:platform', {}), {
+                            'doc': 'The platform that this is an instance of.'}),
+                        ('admins?',
+                    )),
+
+                    ('inet:service:account', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The platform specific user ID.'}),
+
+                        ('contact', ('entity:contact', {}), {
+                            'doc': 'The current contact details for the account.'}),
+
+                        ('platform', ('inet:service:platform', {}), {
+                            'doc': 'The platform which defines the account.'})
+
+                        ('instance', ('inet:service:instance', {}), {
+                            'doc': 'The instance which defines the account. Used if accounts are instance specific.'})
+
+                        ('data', ('json', {}), {
+                            'doc': 'Raw JSON account profile data to capture any platform specific values.'}),
+                    )),
+
+                    ('inet:service:group', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The platform specific group ID.'}),
+
+                        ('name', ('entity:name', {}), {
+                            'doc': 'The display name of the group.'}),
+
+                        ('instance', ('inet:service:instance', {}), {
+                            'doc': 'The instance which defines the group.'}),
+
+                        ('data', ('json', {}), {
+                            'doc': 'Raw JSON group profile data to capture any platform specific values.'}),
+                    )),
+
+                    ('inet:service:group:member', {}, (
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that is a member of the group.'}),
+                        ('group', ('inet:service:group', {}), {
+                            'doc': 'The group that the account is a member of.'}),
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period when the account was a member of the group.'}),
+                    )),
+
+                    ('inet:service:message', {}, (
+
+                        ('sender', ('inet:service:message', {}), {
+                            'doc': 'The account which sent the message.'}),
+
+                        ('to:account', ('inet:service:account', {}), {
+                            'doc': 'The destination account. Used for direct messages.'}),
+
+                        ('to:channel', ('inet:service:account', {}), {
+                            'doc': 'The destination account. Used for direct messages.'}),
+
+                        ('public', ('bool', {}), {
+                            'doc': 'Set to true if the message is publicly visible.'})
+
+                        ('text', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'The text body of the message.'})
+
+                        ('replyto', ('inet:service:message', {}), {
+                            'doc': 'The message that this message was sent in reply to.'}),
+
+                        ('data', ('json', {}), {
+                            'doc': 'Raw JSON message data to capture any platform specific values.'}),
+                    )),
+
+                    ('inet:service:message:link', {}, (
+
+                        ('message', ('inet:service:message', {}), {
+                            'doc': 'The message that the link was attached to.'}),
+
+                        ('title', ('str', {}), {
+                            'doc': 'The title text for the link.'}),
+
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The URL which was attached to the message.'}),
+                    )),
+                    ('inet:service:message:attachment', {}, (
+
+                        ('message', ('inet:service:message', {}), {
+                            'doc': 'The message that the link was attached to.'}),
+
+                        ('name', ('file:path', {}), {
+                            'doc': 'The name of the attached file.'}),
+
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The file which was attached to the message.'}),
+                    )),
+
+                    #('inet:service:client'
+                    #('inet:service:egress'
+                    ('inet:service:channel', {}, (
+                        ('name', ('entity:name', {}), {
+                            'doc': 'The current name of the channel.'}),
+                        # TODO history?
+                        ('instance', ('inet:service:instance', {}), {
+                            'doc': 'The service instance which defines the channel.'}),
+                    )),
+
+                    ('inet:service:channel:member', {}, (
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the account was a member of the channel.'}),
+
+                        ('channel', ('inet:service:channel', {}), {
+                            'doc': 'The channel that the account was a member of.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that was a member of the channel.'}),
+
+                        ('invited', ('inet:service:account', {}), {
+                            'doc': 'The account which invited member account to the channel.'}),
+                    )),
+
+                    ('inet:service:resource:type:taxonomy', {}, ()),
+                    ('inet:service:resource', {}, (
+
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'doc': 'A friendly display name for the service resource.'}),
+
+                        ('desc', ('str', {}), {}),
+                        ('url', ('inet:url', {}), {}),
+                        ('created', ('time', {}), {}),
+                        ('type', ('inet:service:resource:type:taxonomy', {}), {}),
+                    )),
+
+                    ('inet:service:login?', {}, (
+                        ('session', ('inet:service:session', {}), {
+                            #'doc': 'The session used to login
+                    )),
+                    ('inet:service:session', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The platform specific session id.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account which authenticated to create the session.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The period where the session was valid.'}),
+                    )),
+
+                    ('inet:service:access:type:taxonomy', {}, ()),
+                    ('inet:service:access', {}, (
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the resource was accessed by the account.'}),
+
+                        ('type', ('inet:service:access:type:taxonomy', {}), {
+                            'doc': 'A taxonomy of resource access types.'}),
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account that accessed the resource.'}),
+
+                        ('resource', ('inet:service:resource', {}), {
+                            'doc': 'The resource that was accessed by the account.'}),
+
+                        ('data', ('json', {}), {
+                            'doc': 'Raw JSON data to capture any platform specific values.'}),
                     )),
 
                 ),

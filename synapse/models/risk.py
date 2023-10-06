@@ -97,6 +97,20 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:threat:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of threat types.'}),
+
+                ('risk:leak', ('guid', {}), {
+                    'doc': 'An event where information was disclosed without permission.'}),
+
+                ('risk:leak:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of leak event types.'}),
+
+                ('risk:extortion', ('guid', {}), {
+                    'doc': 'An event where an attacker attempted to extort a victim.'}),
+
+                ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of extortion event types.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -136,6 +150,12 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
                 (('risk:mitigation', 'addresses', 'ou:technique'), {
                     'doc': 'The mitigation addresses the technique.'}),
+
+                (('risk:leak', 'leaked', None), {
+                    'doc': 'The leak included the dislcosure of the target node.'}),
+
+                (('risk:extortion', 'leveraged', None), {
+                    'doc': 'The extortion event was based on attacker access to the target node.'}),
             ),
             'forms': (
 
@@ -591,6 +611,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the alert.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which generated the alert.'}),
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
@@ -809,6 +832,79 @@ class RiskModule(s_module.CoreModule):
                     ('ext:id', ('str', {}), {
                         'doc': 'An external unique ID for the attack.'}),
 
+                )),
+
+                ('risk:leak:type:taxonomy', {}, ()),
+                ('risk:leak', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the leaked information was disclosed.'),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the leak event.'),
+
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'The owner of the leaked information.'})
+
+                    ('leaker', ('ps:contact', {}), {
+                        'doc': 'The identity which leaked the information.'}),
+
+                    ('type', ('risk:leak:type:taxonomy', {
+                        'doc': 'A type taxonomy for the leak.'}),
+
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal of the leaker in disclosing the information.'}),
+
+                    ('compromise', ('risk:compromise', {}), {
+                        'doc': 'The compromise which allowed the leaker access to the information.'}),
+
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the leaked information was made publicly available.'}),
+
+                    ('public:url', ('inet:url', {}), {
+                        'doc': 'The URL where the leaked information was made publicly available.'}),
+                )),
+
+                ('risk:extortion:type:taxonomy', {}, ()),
+                ('risk:extortion', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the attacker made their demands.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the extortion event.'}),
+
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal of the leaker in disclosing the information.'}),
+
+                    ('type', ('risk:extortion:type:taxonomy', {
+                        'doc': 'A type taxonomy for the leak.'}),
+
+                    ('attacker', ('ps:contact', {}), {
+                        'doc': 'The extortion attacker identity.'}),
+
+                    ('target', ('ps:contact', {}), {
+                        'doc': 'The extortion target identity.'}),
+
+                    ('success', ('bool', {}), {
+                        'doc': 'Set to true if the victim met the attackers demands.'}),
+
+                    ('enacted', ('bool', {}), {
+                        'doc': 'Set to true if attacker carried out the threat.'}),
+
+                    ('public', ('bool', {}), {
+                        'doc': 'Set to true if the attacker publicly announced the extortion.'),
+
+                    ('public:url', ('inet:url', {}), {
+                        'doc': 'The URL where the attacker publicly announced the extortion.'),
+
+                    ('compromise', ('risk:compromise', {}), {
+                        'doc': 'The compromise which allowed the attacker to extort the target.'),
+
+                    ('demanded:payment', ('econ:acct:payment', {}), {
+                        'doc': 'The payment demanded by the attacker.'}),
                 )),
             ),
         }
