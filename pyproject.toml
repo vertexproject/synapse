@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.150.0'
+version = '2.151.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -89,6 +89,8 @@ include-package-data = true
 'synapse' = [
     'data/*.mpk',
     'data/certs/**',
+    'data/attack-flow/**',
+    'data/jsonschemas/**',
     'lib/storm.lark',
     'tests/files/**',
     'vendor/*/LICENSE'
