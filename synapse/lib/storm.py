@@ -1495,7 +1495,7 @@ stormcmds = (
             init {
                 function addNoteNode(text, type) {
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
                     if $type {[ :type=$type ]}
                     return($node)
                 }
@@ -1662,6 +1662,7 @@ class StormDmon(s_base.Base):
 
         logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
+        s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
