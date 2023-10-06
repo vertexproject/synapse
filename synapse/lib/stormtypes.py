@@ -437,6 +437,7 @@ class StormType:
         mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if not self.stors:
@@ -4328,6 +4329,7 @@ class Dict(Prim):
         for item in tuple(self.valu.items()):
             yield item
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if ismutable(name):
@@ -4370,6 +4372,7 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
@@ -4614,6 +4617,7 @@ class List(Prim):
             'extend': self.extend,
         }
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -5870,6 +5874,7 @@ class PathMeta(Prim):
         name = await tostr(name)
         return self.path.metadata.get(name)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -5903,6 +5908,7 @@ class PathVars(Prim):
         mesg = f'No var with name: {name}.'
         raise s_exc.StormRuntimeError(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -8161,10 +8167,6 @@ class UserProfile(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
 
-        if s_scope.get('runt').readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
-
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8335,10 +8337,6 @@ class UserVars(Prim):
 
     async def setitem(self, name, valu):
         name = await tostr(name)
-
-        if s_scope.get('runt').readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)

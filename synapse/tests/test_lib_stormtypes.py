@@ -6662,3 +6662,13 @@ words\tword\twrd'''
             debug = await core.callStorm(q, opts={'readonly': True,
                                                   'vars': {'iden': user}})
             self.true(debug)
+
+            await core.callStorm('[inet:fqdn=foo]')
+
+            q = '''
+                $user=$lib.auth.users.get($iden)
+                inet:fqdn=foo
+                $user.vars.foo = bar
+            '''
+            msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
+            self.stormIsInErr(mesg, msgs)
