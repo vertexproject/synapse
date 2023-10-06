@@ -2060,6 +2060,18 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.IsReadOnly):
                 await core.nodes('inet:ipv4 | limit 1 | tee { [+#foo] }', opts={'readonly': True})
 
+            q = 'function func(arg) { $lib.print(`hello {$arg}`) return () } $func(world)'
+            msgs = await core.stormlist(q, opts={'readonly': True})
+            self.stormIsInPrint('hello world', msgs)
+
+            q = 'function func(arg) { [test:str=$arg] return ($node) } $func(world)'
+            with self.raises(s_exc.IsReadOnly) as cm:
+                await core.nodes(q, opts={'readonly': True})
+
+            q = 'function func(arg) { auth.user.addrule root $arg | return () } $func(hehe.haha)'
+            msgs = await core.stormlist(q, opts={'readonly': True})
+            self.stormIsInErr('Function (_methUserAddRule) is not marked readonly safe.', msgs)
+
     async def test_ast_yield(self):
 
         async with self.getTestCore() as core:

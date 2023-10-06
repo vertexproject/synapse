@@ -284,6 +284,9 @@ of the provided APIs are pure REST APIs for simple data model operations and sin
 modification.  However, many of the HTTP APIs provided by the Cortex are streaming APIs which use
 HTTP chunked encoding to deliver a stream of results as they become available.
 
+The Cortex also implements the `Axon`_ HTTP API. Permissions are checked within the Cortex, and then
+the request is executed on the Axon.
+
 /api/v1/feed
 ~~~~~~~~~~~~
 

@@ -162,6 +162,33 @@ async def wrap_liftgenr(iden, genr):
     async for indx, buid, sode in genr:
         yield iden, (indx, buid), sode
 
+class CortexAxonMixin:
+
+    async def prepare(self):
+        await self.cell.axready.wait()
+        await s_coro.ornot(super().prepare)
+
+    def getAxon(self):
+        return self.cell.axon
+
+    async def getAxonInfo(self):
+        return self.cell.axoninfo
+
+class CortexAxonHttpHasV1(CortexAxonMixin, s_axon.AxonHttpHasV1):
+    pass
+
+class CortexAxonHttpDelV1(CortexAxonMixin, s_axon.AxonHttpDelV1):
+    pass
+
+class CortexAxonHttpUploadV1(CortexAxonMixin, s_axon.AxonHttpUploadV1):
+    pass
+
+class CortexAxonHttpBySha256V1(CortexAxonMixin, s_axon.AxonHttpBySha256V1):
+    pass
+
+class CortexAxonHttpBySha256InvalidV1(CortexAxonMixin, s_axon.AxonHttpBySha256InvalidV1):
+    pass
+
 class CoreApi(s_cell.CellApi):
     '''
     The CoreApi is exposed when connecting to a Cortex over Telepath.
@@ -1554,6 +1581,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to change view settings.',
              'ex': 'view.set.name'},
 
+            {'perm': ('axon', 'upload'), 'gate': 'cortex',
+             'desc': 'Controls the ability to upload a file to the Axon.'},
+            {'perm': ('axon', 'get'), 'gate': 'cortex',
+             'desc': 'Controls the ability to retrieve a file from the Axon.'},
+            {'perm': ('axon', 'has'), 'gate': 'cortex',
+             'desc': 'Controls the ability to check if the Axon contains a file.'},
+            {'perm': ('axon', 'del'), 'gate': 'cortex',
+             'desc': 'Controls the ability to remove a file from the Axon.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -3952,6 +3987,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/axon/files/del', CortexAxonHttpDelV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/put', CortexAxonHttpUploadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpBySha256V1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', CortexAxonHttpBySha256InvalidV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 

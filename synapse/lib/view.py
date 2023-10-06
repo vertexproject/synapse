@@ -290,12 +290,75 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-        layers = [self.layers[0]]
 
-        view = self.parent
-        while view is not None:
+        '''
+        We spent a lot of time thinking/talking about this so some hefty
+        comments are in order:
+
+        For a given stack of views (example below), only the bottom view of
+        the stack may have more than one original layer. When adding a new view to the
+        top of the stack (via `<viewE>.setViewInfo('parent', <viewD>)`), we
+        grab the top layer of each of the views from View D to View B and then
+        all of the layers from View A. We know this is the right behavior
+        because all views above the bottom view only have one original layer
+        (but will include all of the layers of it's parents) which is enforced
+        by `setViewInfo()`.
+
+        View D
+        - Layer 6 (original to View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View C (parent of D)
+        - Layer 5 (original to View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View B (parent of C)
+        - Layer 4 (original to View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View A (parent of B)
+        - Layer 3
+        - Layer 2
+        - Layer 1
+
+        Continuing the exercise: when adding View E, it has it's own layer
+        (Layer 7). We then copy Layer 6 from View D, Layer 5 from View C, Layer
+        4 from View B, and Layers 3-1 from View A (the bottom view). This gives
+        us the new view which looks like this:
+
+        View E:
+        - Layer 7 (original to View E)
+        - Layer 6 (copied from View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View D (now parent of View E)
+        ... (everything from View D and below is the same as above)
+        '''
+
+        layers = []
+
+        # Add the top layer from each of the views that aren't the bottom view.
+        # This is the view's original layer.
+        view = self
+        while view.parent is not None:
             layers.append(view.layers[0])
             view = view.parent
+
+        # Add all of the bottom view's layers.
+        layers.extend(view.layers)
 
         self.layers = layers
         await self.info.set('layers', [layr.iden for layr in layers])
@@ -1017,7 +1080,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, refang=refang, first=False):
+            async for item in s_scrape.contextScrapeAsync(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:

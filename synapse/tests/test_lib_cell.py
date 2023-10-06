@@ -2080,9 +2080,11 @@ class CellTest(s_t_utils.SynTest):
 
         revt = asyncio.Event()
         orig = s_cortex.Cortex._setReadOnly
-        async def wrapReadOnly(self, valu):
-            await orig(self, valu)
+        async def wrapReadOnly(self, valu, reason=None):
+            await orig(self, valu, reason=reason)
             revt.set()
+
+        errmsg = 'Insufficient free space on disk.'
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
              mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
@@ -2095,7 +2097,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await asyncio.wait_for(revt.wait(), 1))
 
                     msgs = await core.stormlist('[inet:fqdn=newp.fail]')
-                    self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                    self.stormIsInErr(errmsg, msgs)
 
                     revt.clear()
 
@@ -2127,9 +2129,9 @@ class CellTest(s_t_utils.SynTest):
                             self.true(await asyncio.wait_for(revt.wait(), 1))
 
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
-                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            self.stormIsInErr(errmsg, msgs)
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
-                            self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                            self.stormIsInErr(errmsg, msgs)
                             self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
 
                             offs = await core00.getNexsIndx()
@@ -2158,7 +2160,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch('shutil.disk_usage', full_disk):
                         opts = {'view': viewiden}
                         msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
-                        self.stormIsInErr('Unable to issue Nexus events when readonly is set', msgs)
+                        self.stormIsInErr(errmsg, msgs)
                         nodes = await core.nodes('inet:ipv4', opts=opts)
                         self.gt(len(nodes), 0)
                         self.lt(len(nodes), 20000)
@@ -2180,6 +2182,13 @@ class CellTest(s_t_utils.SynTest):
                                               'Error during slab resize callback - foo') as stream:
                         nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
                         self.true(stream.wait(1))
+
+        async with self.getTestCore() as core:
+
+            core.nexsroot.setReadOnly(True)
+
+            msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+            self.stormIsInErr('Unable to issue Nexus events when readonly is set.', msgs)
 
     async def test_cell_onboot_optimize(self):
 
