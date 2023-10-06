@@ -41,8 +41,6 @@ async def _spawnHost(n, pipe):
     if buf == b'V' * n:
         return
 
-    print(f'Data is not equal to V*{n}, got {len(buf)} {buf[:30]}...')
-
     return 137
 
 def spawnHost(n, pipe: multiprocessing.Pipe):
@@ -214,7 +212,17 @@ class LinkTest(s_test.SynTest):
 
         proc = await s_coro.executor(getproc)
 
-        self.eq(sock0.recv(n), b'V' * n)
+        buf = b''
+        j = n
+        while True:
+            data = sock0.recv(j)
+            buf = buf + data
+            if len(buf) == n:
+                break
+            j = n - len(data)
+
+        self.eq(buf, b'V' * n)
+        # self.eq(sock0.recv(n), b'V' * n)
 
         await s_coro.executor(proc.join)
 
