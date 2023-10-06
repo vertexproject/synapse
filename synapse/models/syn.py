@@ -55,11 +55,17 @@ class SynModule(s_module.CoreModule):
         if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
             item = self.model.prop(cmprvalu[1])
             if item is not None:
-                yield item.getRuntPode()
+                if item.isform:
+                    yield item.getRuntPropPode()
+                else:
+                    yield item.getRuntPode()
             return
 
         for item in self.model.getProps():
-            yield item.getRuntPode()
+            if item.isform:
+                yield item.getRuntPropPode()
+            else:
+                yield item.getRuntPode()
 
     async def _liftRuntSynType(self, view, prop, cmprvalu=None):
 

@@ -5,7 +5,7 @@
 feed
 ====
 
-The Synapse ``feed`` tool is a way to ingest data exported from one Cortex into another Cortex. Users should be familiar with both the Synapse data model (:ref:`data-model-terms` et al.) as well as Synapse concepts such as packed nodes and splices in order to use and understand the ``feed`` tool effectively.
+The Synapse ``feed`` tool is a way to ingest data exported from one Cortex into another Cortex. Users should be familiar with both the Synapse data model (:ref:`data-model-terms` et al.) as well as Synapse concepts such as packed nodes in order to use and understand the ``feed`` tool effectively.
 
 
 Syntax
@@ -29,7 +29,7 @@ Where:
   
 - ``FORMAT`` specifies the format of the input files. 
 
-  - Currently, only the values "syn.nodes", "syn.splices", and "syn.nodeedits" are supported.
+  - Currently, only the values "syn.nodes" and "syn.nodeedits" are supported.
   - Defaults to "syn.nodes" if not specified
   
 - ``MODULES`` specifies a path to a Synapse CoreModule class that will be loaded into the temporary Cortex.
@@ -133,99 +133,3 @@ However, once we've inspected the data, let's say that the it:reveng:function an
     testnodes.jsonl --chunksize 1 --offset 1
     
 With the ``chunksize`` parameter signifying that the ``feed`` tool should read two lines at a time from the file and process those before reading the next line, and the ``offset`` parameter meaning the ``feed`` tool should skip all lines before and including line 1 (so lines 1 and 0) when attempting to add nodes, and only add nodes once it's read in lines 2 and beyond.
-
-Ingest Example 2
-++++++++++++++++
-
-This example demonstrates loading a series of splices via the "syn.splices" format option. Splices are atomic edits made to the Cortex, so they are more granular, and thus more voluminous than just nodes. For instance, the storm command ``[it:host=1cad54991eaff5bba5d2015c29c3e3a3 :desc="synapse server" :name="syn007"]`` results in this set of splices (which have been saved to ``testsplices.yaml``).
-
-::
-
-  ---
-  - - node:add
-    - ndef:
-      - it:host
-      - 1cad54991eaff5bba5d2015c29c3e3a3
-      time: 1625087167677
-      user: 267d945a32e3ae246ecf71e0bc6a620e
-  - - prop:set
-    - ndef:
-      - it:host
-      - 1cad54991eaff5bba5d2015c29c3e3a3
-      oldv: null
-      prop: .created
-      time: 1625087167677
-      user: 267d945a32e3ae246ecf71e0bc6a620e
-      valu: 1625087167677
-  - - prop:set
-    - ndef:
-      - it:host
-      - 1cad54991eaff5bba5d2015c29c3e3a3
-      oldv: null
-      prop: desc
-      time: 1625087167679
-      user: 267d945a32e3ae246ecf71e0bc6a620e
-      valu: synapse server
-  - - prop:set
-    - ndef:
-      - it:host
-      - 1cad54991eaff5bba5d2015c29c3e3a3
-      oldv: null
-      prop: name
-      time: 1625087167680
-      user: 267d945a32e3ae246ecf71e0bc6a620e
-      valu: syn007
-  - - node:add
-    - ndef:
-      - it:hostname
-      - syn007
-      time: 1625087167680
-      user: 267d945a32e3ae246ecf71e0bc6a620e
-  - - prop:set
-    - ndef:
-      - it:hostname
-      - syn007
-      oldv: null
-      prop: .created
-      time: 1625087167680
-      user: 267d945a32e3ae246ecf71e0bc6a620e
-      valu: 1625087167680
-  ...
-
-
-**Verifying the Data:**
-
-To load ``testsplices.yaml`` into a test Cortex to see the splices getting applied, we can run the ``feed`` tool like so:
-
-::
-
-  python -m synapse.tools.feed --test --debug --format "syn.splice" testsplices.yaml
-  
-Which drops us into a ``cmdr`` prompt, where we can verify that the ``it:host`` node and ``it:hostname`` nodes were created:
-
-::
-
-  cli> storm it:host
-  
-  it:host=1cad54991eaff5bba5d2015c29c3e3a3
-        .created = 2021/06/30 21:34:57.181
-        :desc = synapse server
-        :name = syn007
-        
-  complete. 1 nodes in 5 ms (200/sec).
-
-  cli> storm it:hostname
-  
-  it:hostname=syn007
-        .created = 2021/06/30 21:34:57.182
-  complete. 1 nodes in 5 ms (200/sec).
-
-
-**Loading the Data:**
-
-As before, once the data has been inspected and approved, we can point the ``feed`` tool at the Cortex we want to apply the splices to in order to apply them.
-
-::
-
-    python -m synapse.tools.feed --cortex tcp://cortex.vertex.link:4444/cortex00 --format 'syn.splice' 
-      testsplices.yaml

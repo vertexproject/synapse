@@ -8,7 +8,7 @@ import logging
 
 import regex
 
-from unittest.mock import patch
+from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -149,10 +149,6 @@ class CortexTest(s_t_utils.SynTest):
                             self.true((await core00.getCellInfo())['cell']['uplink'])
                             self.false((await core01.getCellInfo())['cell']['uplink'])
                             self.true((await core02.getCellInfo())['cell']['uplink'])
-
-    async def test_cortex_bugfix_2_80_0(self):
-        async with self.getRegrCore('2.80.0-jsoniden') as core:
-            self.eq(core.jsonstor.iden, s_common.guid((core.iden, 'jsonstor')))
 
     async def test_cortex_usernotifs(self):
 
@@ -799,7 +795,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(n1edges, (('refs', ipv4.nid),))
                 self.eq(n2edges, (('refs', news.nid),))
 
-                await news.delEdge('refs', ipv4.nid)
+                await news.delEdge('refs', ipv4.iden())
 
                 self.len(0, await alist(news.iterEdgesN1()))
                 self.len(0, await alist(ipv4.iterEdgesN2()))
@@ -1113,7 +1109,6 @@ class CortexTest(s_t_utils.SynTest):
 
     async def test_cortex_prop_deref(self):
 
-        self.skip('TODO RUNT NODES')
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:str=woot ]')
             text = '''
@@ -3750,7 +3745,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             def checkGraph(seeds, alldefs):
                 # our TLDs should be omits
                 self.len(2, seeds)
-                self.len(6, alldefs)
+                self.len(5, alldefs)
 
                 self.isin(('inet:fqdn', 'woot.com'), seeds)
                 self.isin(('inet:fqdn', 'vertex.link'), seeds)
@@ -3881,7 +3876,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # our TLDs are no longer omits
             self.len(4, seeds)
-            self.len(8, alldefs)
+            self.len(7, alldefs)
             self.isin(('inet:fqdn', 'com'), seeds)
             self.isin(('inet:fqdn', 'link'), seeds)
             self.isin(('inet:fqdn', 'woot.com'), seeds)
@@ -3905,7 +3900,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # we still get the seeds. We also get an inet:dns:a node we
             # previously omitted.
             self.len(4, seeds)
-            self.len(9, alldefs)
+            self.len(8, alldefs)
             self.isin(('inet:dns:a', ('vertex.link', 84215045)), alldefs)
 
             # refs
@@ -3997,7 +3992,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchForm, core.nodes(q))
 
             # default to full pivots including
-            # iden = s_common.ehex(s_common.buid(('inet:fqdn', 'vertex.link')))
             rules = {
                 'refs': True,
                 'edges': True,
@@ -4006,17 +4000,33 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
 
             nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
-            self.len(3, nodes)
+            self.len(2, nodes)
 
             props = set()
-            for edge in nodes[('inet:fqdn', 'vertex.link')][1]['path']['edges']:
+            for edge in nodes[('inet:fqdn', 'link')][1]['path']['edges']:
                 if edge[1].get('type') == 'prop':
-                    props.add(edge[1].get('name'))
+                    props.add(edge[1].get('prop'))
 
-            self.isin('zone', props)
             self.isin('domain', props)
 
-            edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][0][1]
+            # include a light edge
+            rules = {
+                'refs': True,
+                'edges': True,
+                'degrees': 1,
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<(*)- *']
+                    }
+                }
+            }
+
+            msgs = await core.stormlist('inet:fqdn=vertex.link', opts={'graph': rules})
+
+            nodes = {m[1][0]: m[1] for m in msgs if m[0] == 'node'}
+            self.len(3, nodes)
+
+            edgeinfo = nodes[('media:news', 'cd5d6bff3fd78bbf1eee91afc80a50dd')][1]['path']['edges'][1][1]
             self.eq({'type': 'edge', 'verb': 'refs'}, edgeinfo)
 
         with self.getTestDir() as dirn:
@@ -5558,7 +5568,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, (await core01.nodes('inet:ipv4=7.7.7.7')))
 
                 # Try a write with the leader down
-                with patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
+                with mock.patch('synapse.lib.nexus.FOLLOWER_WRITE_WAIT_S', 2):
                     await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
 
                 # Bring the leader back up and try again
@@ -5636,7 +5646,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.true(log00 == log01 == log02)
 
                         # simulate a waiter timing out
-                        with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
+                        with mock.patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
@@ -7261,24 +7271,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
 
-    async def test_cortex_storage_v1(self):
-
-        async with self.getRegrCore('cortex-storage-v1') as core:
-
-            mdef = await core.callStorm('return($lib.macro.get(woot))')
-            self.true(core.cellvers.get('cortex:storage') >= 1)
-
-            self.eq(core.auth.rootuser.iden, mdef['user'])
-            self.eq(core.auth.rootuser.iden, mdef['creator'])
-
-            self.eq(1673371514938, mdef['created'])
-            self.eq(1673371514938, mdef['updated'])
-            self.eq('$lib.print("hi there")', mdef['storm'])
-
-            msgs = await core.stormlist('macro.exec woot')
-            self.stormHasNoWarnErr(msgs)
-            self.stormIsInPrint('hi there', msgs)
-
     async def test_cortex_depr_props_warning(self):
 
         conf = {
@@ -7343,11 +7335,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # next start
                 ldef = await core.addLayer()
                 layr = core.getLayer(ldef['iden'])
-                await layr.setModelVers(mrev.revs[-2][0])
+                await layr.setModelVers((0, 0, 0))
 
-            with self.getLoggerStream('') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    pass
+            async def _pass(todo):
+                pass
+
+            def _fake(self, core):
+                self.core = core
+                self.revs = ((s_modelrev.maxvers, _pass),)
+
+            with mock.patch.object(s_modelrev.ModelRev, '__init__', _fake):
+                with self.getLoggerStream('') as stream:
+                    async with self.getTestCore(dirn=dirn) as core:
+                        pass
 
             stream.seek(0)
             data = stream.read()

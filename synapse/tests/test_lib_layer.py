@@ -90,7 +90,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoValuForPropIndex')
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
 
             core.getLayer()._testDelFormValuStor(nid, 'inet:ipv4')
             errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', None)]
@@ -141,9 +141,12 @@ class LayerTest(s_t_utils.SynTest):
             sode['props'] = None
             layr.setSodeDirty(sode)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(4, errors)
-            for err in errors:
-                self.eq(err[0], 'NoValuForPropIndex')
+            self.len(5, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropIndex')
+            self.eq(errors[2][0], 'NoValuForPropIndex')
+            self.eq(errors[3][0], 'NoValuForPropIndex')
+            self.eq(errors[4][0], 'InvalidRefCount')
 
         # Check arrays
         async with self.getTestCore() as core:
@@ -189,12 +192,13 @@ class LayerTest(s_t_utils.SynTest):
             sode['props'] = None
             layr.setSodeDirty(sode)
             errors = [e async for e in core.getLayer().verify()]
-            self.len(5, errors)
+            self.len(6, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropArrayIndex')
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
             self.eq(errors[3][0], 'NoValuForPropIndex')
             self.eq(errors[4][0], 'NoValuForPropIndex')
+            self.eq(errors[5][0], 'InvalidRefCount')
 
             await core.nodes('ps:contact | delnode --force')
 
@@ -260,8 +264,9 @@ class LayerTest(s_t_utils.SynTest):
 
             config = {'scans': {'tagindex': {'autofix': 'index'}}}
             errors = [e async for e in core.getLayer().verify(config=config)]
-            self.len(1, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'InvalidRefCount')
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
@@ -319,9 +324,10 @@ class LayerTest(s_t_utils.SynTest):
             layr.setSodeDirty(sode)
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoValuForTagPropIndex')
             self.eq(errors[1][0], 'NoValuForTagPropIndex')
+            self.eq(errors[2][0], 'InvalidRefCount')
 
             sode = layr._getStorNode(nid)
             sode['tagprops'] = {}
@@ -997,7 +1003,6 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(created00, nodes[0].get('.created'))
 
     async def test_layer_nodeedits(self):
-        self.skip('OMG COME BACK')
 
         async with self.getTestCoreAndProxy() as (core0, prox0):
 
@@ -1024,7 +1029,7 @@ class LayerTest(s_t_utils.SynTest):
                 async with await s_telepath.openurl(url) as layrprox:
 
                     for nodeedits in editlist:
-                        self.nn(await layrprox.saveNodeEdits(nodeedits))
+                        self.nn(await layrprox.saveNodeEdits(nodeedits, {}))
 
                     nodelist1 = []
                     nodelist1.extend(await core1.nodes('test:str'))
@@ -1041,9 +1046,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 async with await s_telepath.openurl(url) as layrprox:
 
-                    print('WOOT')
                     for nodeedits in editlist:
-                        print(repr(nodeedits))
                         self.none(await layrprox.storNodeEditsNoLift(nodeedits))
 
                     nodelist1 = []
@@ -1051,8 +1054,7 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1.extend(await core1.nodes('inet:ipv4'))
 
                     nodelist1 = [node.pack() for node in nodelist1]
-                    print(len(editlist))
-                    [print(f'PODE: {n}') for n in nodelist1]
+
                     self.eq(nodelist0, nodelist1)
 
                     meta = {'user': s_common.guid(),
@@ -1361,166 +1363,6 @@ class LayerTest(s_t_utils.SynTest):
                 with self.raises(s_exc.IsReadOnly):
                     await core.nodes('[inet:fqdn=vertex.link]', opts={'view': view['iden']})
 
-    async def test_layer_v3(self):
-
-        async with self.getRegrCore('2.0-layerv2tov3') as core:
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.4')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[0].get('asn'), 33)
-            self.true(nodes[0].getTag('foo.bar'), (None, None))
-            self.true(nodes[0].getTagProp('foo.bar', 'confidence'), 22)
-
-            self.eq(10004, await core.count('.created'))
-            self.len(2, await core.nodes('syn:tag~=foo'))
-
-            self.checkLayrvers(core)
-
-    async def test_layer_v7(self):
-        async with self.getRegrCore('2.78.0-tagprop-missing-indx') as core:
-            nodes = await core.nodes('inet:ipv4=1.2.3.4')
-            # Our malformed node was migrated properly.
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[0].get('asn'), 20)
-            self.eq(nodes[0].getTag('foo'), (None, None))
-            self.eq(nodes[0].getTagProp('foo', 'comment'), 'words')
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.3')
-            # Our partially malformed node was migrated properly.
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020303))
-            self.eq(nodes[0].get('asn'), 20)
-            self.eq(nodes[0].getTag('foo'), (None, None))
-            self.eq(nodes[0].getTagProp('foo', 'comment'), 'bar')
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.2')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020302))
-            self.eq(nodes[0].get('asn'), 10)
-            self.eq(nodes[0].getTag('foo'), (None, None))
-            self.eq(nodes[0].getTagProp('foo', 'comment'), 'foo')
-
-            nodes = await core.nodes('inet:ipv4=1.2.3.1')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020301))
-            self.eq(nodes[0].get('asn'), 10)
-            self.eq(nodes[0].getTag('bar'), (None, None))
-            self.none(nodes[0].getTagProp('foo', 'comment'))
-
-            self.checkLayrvers(core)
-
-    async def test_layer_v8(self):
-        async with self.getRegrCore('2.85.1-hugenum-indx') as core:
-
-            nodes = await core.nodes('inet:fqdn:_huge=1.23')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array=(1.23, 2.34)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array*[=1.23]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array*[=2.34]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn._univhuge=2.34')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('._univhuge=2.34')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn._hugearray=(3.45, 4.56)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn._hugearray*[=3.45]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn._hugearray*[=4.56]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('._hugearray=(3.45, 4.56)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('._hugearray*[=3.45]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('._hugearray*[=4.56]')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('inet:fqdn#bar:cool:huge=1.23')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('#bar:cool:huge=1.23')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:fqdn:_huge:array = (1.23, 10E-21)')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['_huge:array'], ('1.23', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn._hugearray = (3.45, 10E-21)')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn:_huge:array*[=10E-21]')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['_huge:array'], ('1.23', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn._hugearray*[=10E-21]')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
-
-            nodes = await core.nodes('inet:fqdn:_huge=0.00000000000000000001')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.props.get('_huge'), '0.00000000000000000001')
-            self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
-            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
-            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
-
-            self.checkLayrvers(core)
-
-    async def test_layer_v10(self):
-
-        async with self.getRegrCore('layer-v10') as core:
-
-            nodes = await core.nodes('file:bytes inet:user')
-            verbs = [verb async for verb in nodes[0].iterEdgeVerbs(nodes[1].buid)]
-            self.eq(('refs',), verbs)
-
-            nodes0 = await core.nodes('[ ps:contact=* :name=visi +(has)> {[ mat:item=* :name=laptop ]} ]')
-            self.len(1, nodes0)
-            buid1 = nodes0[0].buid
-
-            nodes1 = await core.nodes('mat:item')
-            self.len(1, nodes1)
-            buid2 = nodes1[0].buid
-
-            layr = core.getView().layers[0]
-            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.eq(('has',), verbs)
-
-            await core.nodes('ps:contact:name=visi [ -(has)> { mat:item:name=laptop } ]')
-
-            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.len(0, verbs)
-
-            await core.nodes('ps:contact:name=visi [ +(has)> { mat:item:name=laptop } ]')
-
-            self.true(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.eq(('has',), verbs)
-
-            await core.nodes('ps:contact:name=visi | delnode --force')
-
-            self.false(layr.layrslab.hasdup(buid1 + buid2, b'has', db=layr.edgesn1n2))
-            verbs = [verb async for verb in nodes0[0].iterEdgeVerbs(buid2)]
-            self.len(0, verbs)
-
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)
@@ -1697,138 +1539,6 @@ class LayerTest(s_t_utils.SynTest):
 
                 self.eq(info00, await core.callStorm('return($lib.layer.get().pack())'))
 
-    async def test_reindex_byarray(self):
-
-        async with self.getRegrCore('reindex-byarray2') as core:
-
-            layr = core.getView().layers[0]
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop4]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop1')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header3, valu3)]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header1', 'valu1'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header3', 'valu3'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            opts = {'vars': {
-                'longfqdn': '.'.join(('a' * 63,) * 5),
-                'longname': 'a' * 256,
-            }}
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=foo]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
-            self.len(1, nodes)
-
-            self.checkLayrvers(core)
-
-    async def test_rebuild_byarray(self):
-
-        async with self.getRegrCore('reindex-byarray3') as core:
-
-            layr = core.getView().layers[0]
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('transport:air:flightnum:stops*[=stop4]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop1')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('transport:air:flightnum:stops')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('inet:http:request:headers*[=(header3, valu3)]')
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header1', 'valu1'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            prop = core.model.prop('inet:http:request:headers')
-            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header3', 'valu3'))
-            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
-            self.len(1, nodes)
-
-            opts = {'vars': {
-                'longfqdn': '.'.join(('a' * 63,) * 5),
-                'longname': 'a' * 256,
-            }}
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=foo]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
-            self.len(1, nodes)
-
-            self.checkLayrvers(core)
-
-    async def test_migr_tagprop_keys(self):
-
-        async with self.getRegrCore('tagprop-keymigr') as core:
-
-            nodes = await core.nodes('ps:person#bar:score=10')
-            self.len(4003, nodes)
-
-            nodes = await core.nodes('ou:org#foo:score=20')
-            self.len(4000, nodes)
-
-            nodes = await core.nodes('ou:contract#foo:score=30')
-            self.len(2000, nodes)
-
-            nodes = await core.nodes('ou:industry#foo:score=40')
-            self.len(2, nodes)
-
-            self.checkLayrvers(core)
-
     async def test_layer_edit_perms(self):
 
         async with self.getTestCore() as core:
@@ -1900,60 +1610,7 @@ class LayerTest(s_t_utils.SynTest):
                 ('node', 'edge', 'del', 'refs'),
             }, set(perms))
 
-    async def test_layer_v9(self):
-        async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
-
-            huge1 = '730750818665451459101841.000000000000000000000001'
-            huge2 = '730750818665451459101841.000000000000000000000002'
-            huge3 = '730750818665451459101841.000000000000000000000003'
-
-            nodes = await core.nodes(f'econ:purchase:price={huge1}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('econ:purchase', '99a453112c45570ac2ccc6b941b09035'))
-
-            nodes = await core.nodes(f'econ:purchase:price={huge2}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('econ:purchase', '95afaf2b258160e0845f899ffff5115c'))
-
-            nodes = await core.nodes(f'inet:fqdn:_hugearray*[={huge1}]')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test1.com'))
-
-            nodes = await core.nodes(f'inet:fqdn:_hugearray*[={huge3}]')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test2.com'))
-
-            nodes = await core.nodes(f'inet:fqdn#test:hugetp={huge1}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test3.com'))
-
-            nodes = await core.nodes(f'inet:fqdn#test:hugetp={huge2}')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:fqdn', 'test4.com'))
-
-            self.len(1, await core.nodes(f'_test:huge={huge1}'))
-            self.len(1, await core.nodes(f'_test:huge={huge2}'))
-            self.len(1, await core.nodes(f'_test:hugearray*[={huge1}]'))
-            self.len(1, await core.nodes(f'_test:hugearray*[={huge2}]'))
-            self.len(1, await core.nodes(f'_test:hugearray*[={huge3}]'))
-
     async def test_layer_fromfuture(self):
         with self.raises(s_exc.BadStorageVersion):
             async with self.getRegrCore('future-layrvers') as core:
                 pass
-
-    async def test_layer_readonly_new(self):
-        with self.getLoggerStream('synapse.cortex') as stream:
-            async with self.getRegrCore('readonly-newlayer') as core:
-                ldefs = await core.callStorm('return($lib.layer.list())')
-                self.len(2, ldefs)
-
-                readidens = [ldef['iden'] for ldef in ldefs if ldef.get('readonly')]
-                self.len(1, readidens)
-
-                writeidens = [ldef['iden'] for ldef in ldefs if not ldef.get('readonly')]
-
-                readlayr = core.getLayer(readidens[0])
-                writelayr = core.getLayer(writeidens[0])
-
-                self.eq(readlayr.meta.get('version'), writelayr.meta.get('version'))

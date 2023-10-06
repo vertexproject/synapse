@@ -277,44 +277,44 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=maxval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=maxval [ .seen=2020 ]', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=maxval', opts=forkopts)
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=midval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=midval [ .seen=2012 ]', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=midval', opts=forkopts)
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=minval .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=minval [ .seen=2000 ]', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=minval', opts=forkopts)
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
 
             await core.nodes('[ test:str=exival .seen=(2010, 2015) ]')
 
             nodes = await core.nodes('test:str=exival [ .seen=(2000, 2021) ]', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
             nodes = await core.nodes('test:str=exival', opts=forkopts)
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
 
             await core.nodes('$lib.view.get().merge()', opts=forkopts)
 
             nodes = await core.nodes('test:str=maxval')
-            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            self.eq(seen_maxval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=midval')
-            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            self.eq(seen_midval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=minval')
-            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            self.eq(seen_minval, nodes[0].get('.seen'))
 
             nodes = await core.nodes('test:str=exival')
-            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            self.eq(seen_exival, nodes[0].get('.seen'))
 
             # bad type
 
@@ -519,7 +519,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.none(await prox.storNodeEdits(edits, None))
 
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
-            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+            self.len(0, await core.nodes('test:str=foo', opts={'view': view}))
 
     async def test_lib_view_wipeLayer(self):
 
@@ -587,7 +587,7 @@ class ViewTest(s_t_utils.SynTest):
                 'test:str': 0,
             }, await layr.getFormCounts())
 
-            self.eq(0, layr.layrslab.stat(db=layr.bybuidv3)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.bynid)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.byverb)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.edgesn1)['entries'])
             self.eq(0, layr.layrslab.stat(db=layr.edgesn2)['entries'])
@@ -733,12 +733,6 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.nodes('$lib.view.get().merge()', opts=viewopts)
-            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
-
-            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
-
-            with self.raises(s_exc.AuthDeny) as cm:
-                await core.nodes('$lib.view.get().merge()', opts=viewopts)
             self.eq('node.tag.add.seen', cm.exception.errinfo['perm'])
 
             await core.addUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
@@ -749,12 +743,17 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addUserRule(useriden, (True, ('node', 'data', 'set')), gateiden=baselayr)
 
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
+
             await core.nodes('$lib.view.get().merge()', opts=viewopts)
 
             nodes = await core.nodes('test:str=foo $node.data.load(foo)')
             self.len(1, nodes)
-            self.nn(nodes[0].props.get('.seen'))
-            self.nn(nodes[0].tags.get('seen'))
-            self.nn(nodes[0].tagprops.get('seen'))
-            self.nn(nodes[0].tagprops['seen'].get('score'))
+            self.nn(nodes[0].get('.seen'))
+            self.nn(nodes[0].get('#seen'))
+            self.nn(nodes[0].getTagProp('seen', 'score'))
             self.nn(nodes[0].nodedata.get('foo'))

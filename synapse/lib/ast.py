@@ -377,7 +377,7 @@ class SubGraph:
         self.rules.setdefault('filters', ())
         self.rules.setdefault('existing', ())
 
-        self.rules.setdefault('refs', False)
+        self.rules.setdefault('refs', True)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
         self.rules.setdefault('maxsize', 100000)
@@ -3950,7 +3950,7 @@ class EditEdgeDel(Edit):
                         if subn.form.isrunt:
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-                        await subn.delEdge(verb, node.nid)
+                        await subn.delEdge(verb, iden)
 
                 else:
                     async with node.snap.getEditor() as editor:

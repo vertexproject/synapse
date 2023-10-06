@@ -70,8 +70,13 @@ class NodeBase:
         if rval is not None and rval != self.ndef[1]:
             pode[1]['repr'] = rval
 
-        pode[1]['reprs'] = self._getPropReprs(pode[1]['props'])
-        pode[1]['tagpropreprs'] = self._getTagPropReprs(pode[1]['tagprops'])
+        props = pode[1].get('props')
+        if props:
+            pode[1]['reprs'] = self._getPropReprs(props)
+
+        tagprops = pode[1].get('tagprops')
+        if tagprops:
+            pode[1]['tagpropreprs'] = self._getTagPropReprs(tagprops)
 
     def _getTagPropReprs(self, tagprops):
 
@@ -152,15 +157,18 @@ class Node(NodeBase):
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2iden)
 
-    async def delEdge(self, verb, n2nid):
+    async def delEdge(self, verb, n2iden):
 
-        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
-        nodeedits = (
-            (self.buid, self.form.name, (
-                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
-            )),
-        )
-        await self.snap.saveNodeEdits(nodeedits)
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.delEdge(verb, n2iden)
+
+#        n2iden = s_common.ehex(self.snap.core.getBuidByNid(n2nid))
+#        nodeedits = (
+#            (self.buid, self.form.name, (
+#                (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
+#            )),
+#        )
+#        await self.snap.saveNodeEdits(nodeedits)
 
     async def iterEdgesN1(self, verb=None):
         async for edge in self.snap.iterNodeEdgesN1(self.nid, verb=verb):
@@ -873,6 +881,7 @@ class RuntNode(NodeBase):
         self.snap = snap
         self.ndef = pode[0]
         self.pode = pode
+        self.buid = s_common.buid(self.ndef)
         self.form = snap.core.model.form(self.ndef[0])
 
     def get(self, name, defv=None):
@@ -1095,6 +1104,10 @@ def _tagscommon(pode, leafonly):
     Return either all the leaf tags or all the leaf tags and all the internal tags with values
     '''
     retn = []
+
+    tags = pode[1].get('tags')
+    if tags is None:
+        return retn
 
     # brute force rather than build a tree.  faster in small sets.
     for tag, val in sorted((t for t in pode[1]['tags'].items()), reverse=True, key=lambda x: len(x[0])):

@@ -355,6 +355,11 @@ class SnapEditor:
         if node:
             return self.loadNode(node)
 
+    async def getNodeByNid(self, nid):
+        node = await self.snap.getNodeByNid(nid)
+        if node:
+            return self.loadNode(node)
+
     def getNodeEdits(self):
         nodeedits = []
         for protonode in self.protonodes.values():
@@ -709,8 +714,8 @@ class Snap(s_base.Base):
         return node
 
     async def nodesByDataName(self, name):
-        async for (nid, sodes) in self.core._liftByDataName(name, self.layers):
-            node = await self._joinSodes(nid, sodes)
+        async for nid, srefs in self.view.liftByDataName(name):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
