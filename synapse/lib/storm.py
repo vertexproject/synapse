@@ -1662,6 +1662,7 @@ class StormDmon(s_base.Base):
 
         logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
+        s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')

@@ -7851,3 +7851,44 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Requested type/scope doesn't exist
                 core.reqVaultByType(vtype1, visi1.iden, 'user')
             self.eq(f'Vault not found for type: {vtype1}.', exc.exception.get('mesg'))
+
+    async def test_cortex_user_scope(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            udef = await core.addUser('admin')
+            admin = udef.get('iden')
+            await core.setUserAdmin(admin, True)
+            async with core.getLocalProxy() as prox:
+
+                # Proxy our storm requests as the admin user
+                opts = {'user': admin}
+
+                self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
+
+                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
+                    (whoami, udef) = await prox.callStorm(q, opts=opts)
+                    self.eq('admin', whoami)
+                    self.eq('lowuser', udef.get('name'))
+
+                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
+                self.eq('Added user=lowuser', mesg.get('message'))
+                self.eq('admin', mesg.get('username'))
+                self.eq('lowuser', mesg.get('target_username'))
+
+                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    q = 'auth.user.mod lowuser --admin $lib.true'
+                    msgs = []
+                    async for mesg in prox.storm(q, opts=opts):
+                        msgs.append(mesg)
+                    self.stormHasNoWarnErr(msgs)
+
+                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
+                self.isin('Set admin=True for lowuser', mesg.get('message'))
+                self.eq('admin', mesg.get('username'))
+                self.eq('lowuser', mesg.get('target_username'))

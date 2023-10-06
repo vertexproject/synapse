@@ -3095,8 +3095,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A dictionary
         '''
         extra = {**kwargs}
-        sess = s_scope.get('sess')
-        if sess and sess.user:
+        sess = s_scope.get('sess')  # type: s_daemon.Sess
+        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        if user:
+            extra['user'] = user.iden
+            extra['username'] = user.name
+        elif sess and sess.user:
             extra['user'] = sess.user.iden
             extra['username'] = sess.user.name
         return {'synapse': extra}

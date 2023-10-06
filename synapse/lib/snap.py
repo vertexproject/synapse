@@ -484,8 +484,6 @@ class Snap(s_base.Base):
         '''
         await s_base.Base.__anit__(self)
 
-        self.stack = contextlib.ExitStack()
-
         assert user is not None
 
         self.strict = True
@@ -517,7 +515,6 @@ class Snap(s_base.Base):
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
         self._warnonce_keys = set()
 
-        self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
         self.trigson = self.core.trigson
