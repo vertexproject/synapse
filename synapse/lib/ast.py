@@ -466,8 +466,21 @@ class SubGraph:
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
-            # load the existing graph as already done
-            [await results.add(s_common.uhex(b)) for b in existing]
+            rev = {}
+
+            for b in existing:
+                await asyncio.sleep(0)
+
+                buid = s_common.uhex(b)
+                # load the existing graph as already done
+                await results.add(buid)
+
+                async for n2buid, verb in runt.snap.iterEdgePref(buid):
+                    if rev.get(n2buid) is None:
+                        rev[n2buid] = collections.defaultdict(list)
+
+                    rev[n2buid][b].append(verb)
+                    await asyncio.sleep(0)
 
             async def todogenr():
 
@@ -536,19 +549,21 @@ class SubGraph:
 
                 if doedges:
 
-                    async for buid01 in results:
-
+                    async for n2buid, verb in runt.snap.iterEdgePref(node.buid):
                         await asyncio.sleep(0)
+                        if rev.get(n2buid) is None:
+                            rev[n2buid] = collections.defaultdict(list)
 
-                        iden01 = s_common.ehex(buid01)
-                        async for verb in node.iterEdgeVerbs(buid01):
-                            await asyncio.sleep(0)
-                            edges.append((iden01, {'type': 'edge', 'verb': verb}))
+                        # TODO: old way doesn't make self-referential nodes?
+                        if n2buid != node.buid:
+                            rev[n2buid][node.buid].append(verb)
+                            if n2buid in results:
+                                edges.append((s_common.ehex(n2buid), {'type': 'edge', 'verb': verb}))
 
-                        # for existing nodes, we need to add n2 -> n1 edges in reverse
-                        async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                    for n1buid, verbs in rev.get(node.buid, {}).items():
+                        for verb in verbs:
                             await asyncio.sleep(0)
-                            edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                            edges.append((s_common.ehex(n1buid), {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                     await results.add(node.buid)
 

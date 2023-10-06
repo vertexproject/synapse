@@ -1410,6 +1410,11 @@ class Snap(s_base.Base):
             last = verb
             yield verb
 
+    async def iterEdgePref(self, buid):
+        gens = [layr.iterEdgePref(buid) for layr in self.layers]
+        async for key, verb in s_common.merggenr2(gens):
+            yield key, verb
+
     async def hasNodeData(self, buid, name):
         '''
         Return True if the buid has nodedata set on it under the given name
