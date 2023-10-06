@@ -1235,7 +1235,7 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The name of the attack-flow diagram.'}),
-                    ('json', ('data', {'schema': attack_flow_schema_2_0_0}), {
+                    ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
                         'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time that the diagram was created.'}),

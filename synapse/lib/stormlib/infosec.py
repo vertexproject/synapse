@@ -474,7 +474,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
 
             [ it:mitre:attack:flow = $guid
                 :name ?= $attack_flow.name
-                :json = $flow
+                :data = $flow
                 :created ?= $attack_flow.created
                 :updated ?= $attack_flow.modified
                 :author:user ?= $lib.user.iden
