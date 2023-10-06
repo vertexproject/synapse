@@ -17,7 +17,7 @@ Model Changes
   **New Forms**
 
   ``it:mitre:attack:flow``
-    A Mitre ATT&CK Flow diagram.
+    A MITRE ATT&CK Flow diagram.
 
 Features and Enhancements
 -------------------------
