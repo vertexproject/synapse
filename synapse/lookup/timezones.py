@@ -25,7 +25,7 @@ _timezones = types.MappingProxyType({
     'Z': 0,
 })
 
-def getTimezones():
+def getTimezoneNames():
     '''
     Return a tuple of all supported timezone names.
     '''
@@ -33,9 +33,10 @@ def getTimezones():
 
 def getTzOffset(name, defval=None):
     '''
-    Return the UTC offset in milliseconds.
+    Return tuple of the UTC offset in milliseconds and an info dict.
     '''
     try:
-        return _timezones.get(name.upper(), defval)
+        return _timezones.get(name.upper(), defval), {}
+
     except AttributeError:
-        return defval
+        return defval, {}

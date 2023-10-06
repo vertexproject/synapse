@@ -19,8 +19,11 @@ EPOCH = datetime.datetime(1970, 1, 1)
 
 tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\d+\w+|\+\d+\w+))')
 
-tzcat = '|'.join(s_l_timezones.getTimezones())
+tzcat = '|'.join(sorted(s_l_timezones.getTimezoneNames(), key=lambda x: len(x), reverse=True))
 tz_str_re = regex.compile(r'\d(\s?(%s))(\-\d+\w+|\+\d+\w+)?$' % tzcat, flags=regex.IGNORECASE)
+
+rfc822_re = regex.compile(r'([a-z]{3},)?\d{1,2}[a-z]{3}\d{4}\d{2}:\d{2}:\d{2}')
+rfc822_fmt = '%d%b%Y%H:%M:%S'
 
 def _rawparse(text, base=None, chop=False):
     otext = text
@@ -31,6 +34,21 @@ def _rawparse(text, base=None, chop=False):
         text, base = parsetz(text)
         if base != 0:
             parsed_tz = True
+
+    # regex match is ~10x faster than strptime, so optimize
+    # for the case that *most* datetimes will not be RFC822
+    rfc822_match = rfc822_re.match(text)
+    if rfc822_match is not None:
+
+        # remove leading day since it is not used in strptime
+        if grp := rfc822_match.groups()[0]:
+            text = text.replace(grp, '', 1)
+
+        try:
+            dt = datetime.datetime.strptime(text, rfc822_fmt)
+            return dt, base, len(text)
+        except ValueError as e:
+            raise s_exc.BadTypeValu(mesg=f'Error parsing time as RFC822 "{otext}"; {str(e)}', valu=otext)
 
     text = (''.join([c for c in text if c.isdigit()]))
 
@@ -133,6 +151,8 @@ def parsetz(text):
         tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
     '''
 
+    # todo: consider combining these regexes into one
+
     tz_hm = tz_hm_re.search(text)
     if tz_hm is not None:
 
@@ -153,7 +173,7 @@ def parsetz(text):
 
         tzstr, tzname, _ = tz_str.groups()
 
-        offset = s_l_timezones.getTzOffset(tzname)
+        offset, _ = s_l_timezones.getTzOffset(tzname)
         if offset is None:
             raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
 

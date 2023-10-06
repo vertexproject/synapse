@@ -38,6 +38,22 @@ class TimeTest(s_t_utils.SynTest):
         # malformed times that can still be parsed
         self.eq(s_time.parse('2020 jun 10 12:14:34'), s_time.parse('2020-10-12 14:34'))
 
+        # rfc822
+        self.eq(s_time.parse('Sat, 17 Dec 2050 03:04:32'), 2554859072000)
+        self.eq(s_time.parse('Sat, 03 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)
+        self.eq(s_time.parse('Sat, 3 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)
+        self.eq(s_time.parse('17 Dec 2050 03:04:32'), 2554859072000)
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            # rfc822 does support 2-digit years,
+            # but strptime doesn't so it is excluded
+            self.eq(s_time.parse('Sat, 17 Dec 50 03:04:32'), 2554859072000)
+        self.isin('unconverted data remains: 2', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            self.eq(s_time.parse('17 Nah 2050 03:04:32'), 2554859072000)
+        self.isin('Error parsing time as RFC822', cm.exception.get('mesg'))
+
     def test_time_parse_tz(self):
 
         # explicit iso8601
@@ -90,7 +106,13 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020-07-07T16:29:53 Y'), utc - s_time.onehour * 12)
         self.eq(s_time.parse('2020-07-07T16:29:53 Z'), utc)
 
-        # todo: more tz testing
+        # todo: sad path testing
+
+        # rfc822
+        self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 EDT'), utc + s_time.onehour * 4)
+        self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 -0400'), utc + s_time.onehour * 4)
+
+        # todo: sad path testing
 
         # This partial value is ignored and treated like a millisecond value
         self.eq(s_time.parse('20200707162953+04'), 1594139393040)

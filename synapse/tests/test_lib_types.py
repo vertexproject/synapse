@@ -616,8 +616,15 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((1594067393000, 1594067393001), ival.norm('20200707162953-04:00-1day')[0])
         self.eq((1594240193000, 1594240193001), ival.norm('20200707162953EDT+1day')[0])
         self.eq((1594067393000, 1594067393001), ival.norm('20200707162953EDT-1day')[0])
+        self.eq((1594240193000, 1594240193001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
+        # fixme: this doesnt work b/c spaces are not stripped unlike direct call to parse()
+        # self.eq((1594067393000, 1594067393001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
 
-        # todo: more timezone testing
+        # these fail because ival norming will split on a comma
+        self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 EDT+1day')
+        self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 -0400+1day')
+
+        # todo: more sad path testing
 
         start = s_common.now() + s_time.oneday - 1
         end = ival.norm(('now', '+1day'))[0][1]
