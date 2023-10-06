@@ -643,9 +643,9 @@ class StormTypesTest(s_test.SynTest):
             # trycast/cast a property instead of a form/type
             flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
             opts = {'vars': {'flow': flow}}
-            self.true(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:json, $flow).0)', opts=opts))
-            self.false(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:json, {}).0)'))
-            self.eq(flow, await core.callStorm('return($lib.cast(it:mitre:attack:flow:json, $flow))', opts=opts))
+            self.true(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, $flow).0)', opts=opts))
+            self.false(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, {}).0)'))
+            self.eq(flow, await core.callStorm('return($lib.cast(it:mitre:attack:flow:data, $flow))', opts=opts))
 
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
