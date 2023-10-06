@@ -487,7 +487,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             return($node)
         }
     '''
-    _schema = None
+    _validator = None
 
     def getObjLocals(self):
         return {
@@ -497,12 +497,11 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
     async def _norm(self, flow):
         flow = await s_stormtypes.toprim(flow)
 
-        if self._schema is None:
-            self.__class__._schema = s_data.getJSON('attack-flow-schema-2.0.0')
+        if self.__class__._validator is None:
+            schema = s_data.getJSON('attack-flow-schema-2.0.0')
+            self.__class__._validator = s_config.getJsValidator(schema)
 
-        validate = s_config.getJsValidator(self._schema)
-
-        flow = await s_coro.executor(validate, flow)
+        flow = await s_coro.executor(self.__class__._validator, flow)
         flow = s_common.flatten(flow)
         flow['objects'] = sorted(flow.get('objects'), key=lambda x: x.get('id'))
 
