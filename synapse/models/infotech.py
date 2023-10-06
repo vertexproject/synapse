@@ -411,7 +411,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A version control system type taxonomy.',
                     'interfaces': ('taxonomy',)
                 }),
-                ('it:dev:label', ('guid', {}), {
+                ('it:dev:repo:label', ('guid', {}), {
                     'doc': 'A developer selected label.',
                 }),
                 ('it:dev:repo', ('guid', {}), {
@@ -429,7 +429,7 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
                 }),
-                ('it:dev:repo:label', ('guid', {}), {
+                ('it:dev:repo:issue:label', ('guid', {}), {
                     'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
@@ -1372,7 +1372,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('it:dev:label', {}, (
+                ('it:dev:repo:label', {}, (
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the label.',
                     }),
@@ -1385,11 +1385,11 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('it:dev:repo:label', {}, (
+                ('it:dev:repo:issue:label', {}, (
                     ('issue', ('it:dev:repo:issue', {}), {
                         'doc': 'The issue the label was applied to.',
                     }),
-                    ('label', ('it:dev:label', {}), {
+                    ('label', ('it:dev:repo:label', {}), {
                         'doc': 'The label that was applied to the issue.',
                     }),
                     ('applied', ('time', {}), {

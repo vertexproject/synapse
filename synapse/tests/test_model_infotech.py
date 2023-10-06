@@ -1447,13 +1447,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'url': 'https://github.com/vertexproject/synapse/issues/2821',
                 },
 
-                ('it:dev:label', label): {
+                ('it:dev:repo:label', label): {
                     'id': '123456789',
                     'title': 'new feature',
                     'desc': 'a super cool new feature'
                 },
 
-                ('it:dev:repo:label', issuelabel): {
+                ('it:dev:repo:issue:label', issuelabel): {
                     'issue': issue,
                     'label': label,
                     'applied': 97,
