@@ -116,13 +116,56 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 # HEAD had no body in its response
                 self.eq(await resp.read(), b'')
 
-                # Unset a handler
+                # exercise _gtors
+                q = '''$api = $lib.cortex.httpapi.get($iden)
+                $ret = ({
+                    "get": $api.methods.get,
+                    "put": $api.methods.put,
+                    "head": $api.methods.head,
+                    "post": $api.methods.post,
+                    "patch": $api.methods.patch,
+                    "delete": $api.methods.delete,
+                    "options": $api.methods.options,
+                })
+                return ($ret)
+                '''
+                queries = await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+                self.len(7, queries)
+
+                # Stat the api to enumerate all its method _gtors
+                msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': testpath00}})
+                self.stormIsInPrint('Method: GET', msgs)
+                self.stormIsInPrint('Method: PUT', msgs)
+                self.stormIsInPrint('Method: POST', msgs)
+                self.stormIsInPrint('Method: PATCH', msgs)
+                self.stormIsInPrint('Method: OPTIONS', msgs)
+                self.stormIsInPrint('Method: DELETE', msgs)
+                self.stormIsInPrint('Method: HEAD', msgs)
+
+                # Unset a method and try to use it
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.post = $lib.undef'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('mesg'), 'No storm endpoint defined for method post')
+
+                # Unsetting a HEAD method and calling it yields a 500
+                # but still has no body in the response.
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.head = $lib.undef'
+                await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+                resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 500)
+                self.eq(await resp.read(), b'')
+
+                msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': testpath00}})
+                self.stormNotInPrint('Method: POST', msgs)
+                self.stormNotInPrint('Method: HEAD', msgs)
+                self.stormIsInPrint('Method: GET', msgs)
+                self.stormIsInPrint('Method: PUT', msgs)
+                self.stormIsInPrint('Method: PATCH', msgs)
+                self.stormIsInPrint('Method: OPTIONS', msgs)
+                self.stormIsInPrint('Method: DELETE', msgs)
 
     async def test_libcortex_httpapi_simpleOLD(self):
 
