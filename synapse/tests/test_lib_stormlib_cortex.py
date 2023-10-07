@@ -1,17 +1,131 @@
 import asyncio
 
-from unittest import mock
-
-import aioimaplib
+import aiohttp
 
 import synapse.common as s_common
+import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
 from pprint import pprint
 
 class CortexLibTest(s_test.SynTest):
-    async def test_libcortex_httpapi_simple(self):
+    async def test_libcortex_httpapi_methods(self):
+
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            # Define a handler. Add storm for each METHOD we support
+            q = '''
+            $api = $lib.cortex.httpapi.add(testpath00)
+            $api.methods.get = ${
+$data = ({'method': 'get'})
+$headers = ({'Secret-Header': 'OhBoy!'})
+$request.reply(200, headers=$headers, body=$data)
+            }
+            $api.methods.post = ${
+$data = ({'method': 'post'})
+$headers = ({'Secret-Header': 'OhBoy!'})
+$request.reply(201, headers=$headers, body=$data)
+            }
+            $api.methods.put = ${
+$data = ({'method': 'put'})
+$headers = ({'Secret-Header': 'OhBoy!'})
+$request.reply(202, headers=$headers, body=$data)
+            }
+            $api.methods.patch = ${
+$data = ({'method': 'patch'})
+$headers = ({'Secret-Header': 'OhBoy!'})
+$request.reply(203, headers=$headers, body=$data)
+            }
+            $api.methods.options = ${
+$data = ({'method': 'options'})
+$headers = ({'Secret-Header': 'Options'})
+$request.reply(204, headers=$headers, body=$data)
+            }
+            $api.methods.delete = ${
+$data = ({'method': 'delete'})
+$headers = ({'Secret-Header': 'OhBoy!'})
+$request.reply(205, headers=$headers, body=$data)
+            }
+            $api.methods.head = ${
+$headers = ({'Secret-Header': 'Head'})
+$request.reply(206, headers=$headers, body=({"no":"body"}))
+            }
+
+            return ( $api.iden )
+            '''
+            testpath00 = await core.callStorm(q)
+
+            with self.raises(s_exc.BadSyntax):
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.get = "| | | "'
+                await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+
+            with self.raises(s_exc.NoSuchName):
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.trace = ${}'
+                await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+
+            with self.raises(s_exc.NoSuchName):
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.connect = ${}'
+                await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+
+            with self.raises(s_exc.NoSuchName):
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.wildycustomverb = ${}'
+                await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('method'), 'get')
+
+                resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 201)
+                data = await resp.json()
+                self.eq(data.get('method'), 'post')
+
+                resp = await sess.put(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 202)
+                data = await resp.json()
+                self.eq(data.get('method'), 'put')
+
+                resp = await sess.patch(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 203)
+                data = await resp.json()
+                self.eq(data.get('method'), 'patch')
+
+                resp = await sess.options(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 204)
+                self.eq(resp.headers.get('Secret-Header'), 'Options')
+                # HTTP 204 code has no response content per rfc9110
+                self.eq(await resp.read(), b'')
+
+                resp = await sess.delete(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 205)
+                data = await resp.json()
+                self.eq(data.get('method'), 'delete')
+
+                resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 206)
+                self.eq(resp.headers.get('Secret-Header'), 'Head')
+                self.eq(resp.headers.get('Content-Length'), '14')
+                # HEAD had no body in its response
+                self.eq(await resp.read(), b'')
+
+                # Unset a handler
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.post = $lib.undef'
+                await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+                resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('mesg'), 'No storm endpoint defined for method post')
+
+    async def test_libcortex_httpapi_simpleOLD(self):
+
         async with self.getTestCore() as core:
 
             udef = await core.addUser('lowuser')
