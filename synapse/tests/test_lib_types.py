@@ -623,8 +623,6 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 EDT+1day')
         self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 -0400+1day')
 
-        # todo: more sad path testing
-
         start = s_common.now() + s_time.oneday - 1
         end = ival.norm(('now', '+1day'))[0][1]
         self.lt(start, end)

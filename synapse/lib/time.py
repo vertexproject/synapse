@@ -39,7 +39,7 @@ timeunits = {
     'days': oneday,
 }
 
-tzcat = '|'.join(sorted(s_l_timezones.getTimezoneNames(), key=lambda x: len(x), reverse=True))
+tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), reverse=True))
 unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
 tz_re = regex.compile(
     r'\d(?P<tzstr>\s?(?:'

@@ -72,6 +72,9 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020-07-07T16:29:53.234567+02:00'), 1594132193234)
         self.eq(s_time.parse('2020-07-07T16:29:53.234567+10:00'), 1594103393234)
 
+        self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53 -04:00'))
+        self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53-04:00'))
+
         utc = s_time.parse('2020-07-07 16:29')
         self.eq(s_time.parse('2020-07-07 16:29-06:00'), utc + 6 * s_time.onehour)
 
@@ -84,11 +87,14 @@ class TimeTest(s_t_utils.SynTest):
 
         # named timezones
         utc = 1594139393000
-        self.eq(s_time.parse('2020-07-07T16:29:53EDT'), utc + s_time.onehour * 4)
         self.eq(s_time.parse('2020-07-07T16:29:53 EDT'), utc + s_time.onehour * 4)
+        self.eq(s_time.parse('2020-07-07T16:29:53 edt'), utc + s_time.onehour * 4)
         self.eq(s_time.parse('2020-07-07T16:29:53.234 EDT'), utc + s_time.onehour * 4 + 234)
         self.eq(s_time.parse('2020-07-07T16:29:53.234567 EDT'), utc + s_time.onehour * 4 + 234)
         self.eq(s_time.parse('2020-07-07T16:29:53-04:00'), s_time.parse('2020-07-07T16:29:53EDT'))
+
+        self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53 EDT'))
+        self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53EDT'))
 
         self.eq(s_time.parse('2020-07-07T16:29:53 A'), utc + s_time.onehour)
         self.eq(s_time.parse('2020-07-07T16:29:53 CDT'), utc + s_time.onehour * 5)
@@ -106,13 +112,18 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020-07-07T16:29:53 Y'), utc - s_time.onehour * 12)
         self.eq(s_time.parse('2020-07-07T16:29:53 Z'), utc)
 
-        # todo: sad path testing
+        # unsupported timezone names are not recognized and get stripped as before
+        self.eq(s_time.parse('2020-07-07T16:29:53 ET'), utc)
+        self.eq(s_time.parse('2020-07-07T16:29:53 NEWP'), utc)
+        self.eq(s_time.parse('2020-07-07T16:29:53 Etc/GMT-4'), utc + 400)
+        self.eq(s_time.parse('2020-07-07T16:29:53 America/New_York'), utc)
+
+        # invalid multiple timezones do not match
+        self.eq(0, s_time.parsetz('2020-07-07T16:29:53 EST -0400')[1])
 
         # rfc822
         self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 EDT'), utc + s_time.onehour * 4)
         self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 -0400'), utc + s_time.onehour * 4)
-
-        # todo: sad path testing
 
         # This partial value is ignored and treated like a millisecond value
         self.eq(s_time.parse('20200707162953+04'), 1594139393040)

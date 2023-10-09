@@ -25,7 +25,7 @@ _timezones = types.MappingProxyType({
     'Z': 0,
 })
 
-def getTimezoneNames():
+def getTzNames():
     '''
     Return a tuple of all supported timezone names.
     '''
