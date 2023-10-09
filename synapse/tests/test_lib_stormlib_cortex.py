@@ -725,8 +725,9 @@ for $i in $values {
                 self.eq(data.get('code'), 'NoSuchVar')
                 self.eq(data.get('mesg'), 'Missing variable: sup')
 
-    async def test_libcortex_fsm(self):
+    async def test_libcortex_httpapi_fsm_sadpath(self):
 
+        # Test to exercise sad paths of the state machine for the ExtHttpApi handler
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
             lowuser = udef.get('iden')
@@ -734,21 +735,93 @@ for $i in $values {
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            q = '''$obj = $lib.cortex.httpapi.add(testpath)
-            $obj.methods.get =  ${
-                $body = hehe
-                $body = $body.encode()
-                //$request.sendbody( $body )
-                 $request.sendheaders( ({"oh":"my"}) )
-            }
+            # nothing
+            q = '''$api = $lib.cortex.httpapi.add(bad00)
+            $api.methods.get =  ${ }
+            return ( ($api.iden) )'''
+            iden00 = await core.callStorm(q)
 
-            return ( ($obj.iden) )
-            '''
-            iden = await core.callStorm(q)
+            # no status code
+            q = '''$api = $lib.cortex.httpapi.add(bad01)
+            $api.methods.get =  ${ $request.sendheaders( ({"oh":"my"}) ) }
+            return ( ($api.iden) )'''
+            iden01 = await core.callStorm(q)
+
+            # no status code and a body being sent
+            q = '''$api = $lib.cortex.httpapi.add(bad02)
+            $api.methods.get = ${ $request.sendheaders(({"oh":"my"})) $data='text' $request.sendbody($data.encode()) }
+            return ( ($api.iden) )'''
+            iden02 = await core.callStorm(q)
+
+            # code after body has been sent
+            q = '''$api = $lib.cortex.httpapi.add(bad03)
+            $api.methods.get = ${ $data='text' $request.reply(201, body=$data.encode()) $request.sendcode(403) }
+            return ( ($api.iden) )'''
+            iden03 = await core.callStorm(q)
+
+            # headers after body has been sent
+            q = '''$api = $lib.cortex.httpapi.add(bad04)
+            $api.methods.get = ${$d='text' $request.reply(200, body=$d.encode()) $request.sendheaders(({"oh": "hi"}))}
+            return ( ($api.iden) )'''
+            iden04 = await core.callStorm(q)
+
+            # storm error
+            q = '''$api = $lib.cortex.httpapi.add(bad05)
+            $api.methods.get = ${ [test:int = notAnInt ] }
+            return ( ($api.iden) )'''
+            iden05 = await core.callStorm(q)
+
+            # storm error AFTER body has been sent
+            q = '''$api = $lib.cortex.httpapi.add(bad06)
+            $api.methods.get = ${ $request.reply(201, body=({})) [test:int = notAnInt ] }
+            return ( ($api.iden) )'''
+            iden06 = await core.callStorm(q)
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath',)
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/bad00')
                 self.eq(resp.status, 500)
-                print(resp)
-                data = await resp.read()
-                print(data)
+                data = await resp.json()
+                self.eq(data.get('code'), 'StormRuntimeError')
+                self.eq(data.get('mesg'), f'Custom HTTP API {iden00} never set status code.')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/bad01')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.notin('oh', resp.headers)
+                self.eq(data.get('code'), 'StormRuntimeError')
+                self.eq(data.get('mesg'), f'Custom HTTP API {iden01} never set status code.')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/bad02')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.notin('oh', resp.headers)
+                self.eq(data.get('code'), 'StormRuntimeError')
+                self.eq(data.get('mesg'), f'Custom HTTP API {iden02} must set status code before sending body.')
+
+                with self.getAsyncLoggerStream('synapse.lib.httpapi',
+                                               f'Custom HTTP API {iden03} tried to set code after sending body.') as stream:
+
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/bad03')
+                    self.true(await stream.wait(timeout=6))
+                    self.eq(resp.status, 201)
+                    self.eq(await resp.read(), b'text')
+
+                with self.getAsyncLoggerStream('synapse.lib.httpapi',
+                                               f'Custom HTTP API {iden04} tried to set headers after sending body.') as stream:
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/bad04')
+                    self.true(await stream.wait(timeout=6))
+                    self.eq(resp.status, 200)
+                    self.eq(await resp.read(), b'text')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/bad05')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'BadTypeValu')
+                self.eq(data.get('mesg'), "invalid literal for int() with base 0: 'notAnInt'")
+
+                with self.getAsyncLoggerStream('synapse.lib.httpapi',
+                                               f'Error executing custom HTTP API {iden06}: BadTypeValu') as stream:
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/bad06')
+                    self.true(await stream.wait(timeout=6))
+                    self.eq(resp.status, 201)
+                    self.eq(await resp.json(), {})

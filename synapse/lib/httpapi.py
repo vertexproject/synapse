@@ -1309,10 +1309,11 @@ class ExtApiHandler(StormHandler):
                 params.setdefault(key, valu.decode())
                 continue
 
+        iden = adef.get("iden")
         info = {
             'uri': self.request.uri,
             'body': self.request.body,
-            'iden': adef.get('iden'),
+            'iden': iden,
             'path': path,
             'method': self.request.method,
             'params': params,
@@ -1340,7 +1341,7 @@ class ExtApiHandler(StormHandler):
 
         if storm is None:
             self.set_status(500)
-            self.sendRestErr('NeedConfValu', f'No storm endpoint defined for method {meth}')
+            self.sendRestErr('NeedConfValu', f'Custom HTTP API {iden} has no method for {meth.upper()}')
             return await self.finish()
 
         query = '\n'.join((self.storm_prefix, storm))
@@ -1351,25 +1352,33 @@ class ExtApiHandler(StormHandler):
         async for mtyp, info in core.storm(query, opts=opts):
             if mtyp == 'http:resp:code':
                 if rbody:
-                    self.set_status(500)
-                    self.sendRestErr('StormRuntimeError', 'Handler may not set status code after setting the body.')
-                    return await self.finish()
+                    # We've already flushed() the stream at this point, so we cannot
+                    # change the status code or the response headers. We just have to
+                    # log the error and move along.
+                    mesg = f'Custom HTTP API {iden} tried to set code after sending body.'
+                    logger.error(mesg)
+                    continue
 
                 rcode = True
                 self.set_status(info['code'])
 
             if mtyp == 'http:resp:headers':
                 if rbody:
-                    self.set_status(500)
-                    self.sendRestErr('StormRuntimeError', 'Handler may not set headers after setting the body.')
-                    return await self.finish()
+                    # We've already flushed() the stream at this point, so we cannot
+                    # change the status code or the response headers. We just have to
+                    # log the error and move along.
+                    mesg = f'Custom HTTP API {iden} tried to set headers after sending body.'
+                    logger.error(mesg)
+                    continue
                 for hkey, hval in info['headers'].items():
                     self.set_header(hkey, hval)
 
             if mtyp == 'http:resp:body':
                 if not rcode:
+                    self.clear()
                     self.set_status(500)
-                    self.sendRestErr('StormRuntimeError', 'Handler must set status code before sending body.')
+                    self.sendRestErr('StormRuntimeError',
+                                     f'Custom HTTP API {iden} must set status code before sending body.')
                     return await self.finish()
                 rbody = True
                 body = info['body']
@@ -1378,7 +1387,7 @@ class ExtApiHandler(StormHandler):
 
             if mtyp == 'err':
                 errname, erfo = info
-                mesg = f'Error executing custom HTTP API handler {adef.get("iden")}: {errname} {erfo.get("mesg")}'
+                mesg = f'Error executing custom HTTP API {iden}: {errname} {erfo.get("mesg")}'
                 logger.error(mesg)
                 if rbody:
                     # We've already flushed() the stream at this point, so we cannot
@@ -1395,7 +1404,8 @@ class ExtApiHandler(StormHandler):
                 rbody = True
 
         if rcode is False:
+            self.clear()
             self.set_status(500)
-            self.sendRestErr('StormRuntimeError', 'Handler never set status code.')
+            self.sendRestErr('StormRuntimeError', f'Custom HTTP API {iden} never set status code.')
 
         await self.finish()
