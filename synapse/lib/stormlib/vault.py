@@ -277,7 +277,7 @@ class LibVault(s_stormtypes.Lib):
                        'desc': 'The type of this vault.'},
                       {'name': 'scope', 'type': 'str',
                        'desc': 'Scope for this vault. One of "user", "role", "global", or $lib.null for unscoped vaults.'},
-                      {'name': 'iden', 'type': 'str',
+                      {'name': 'owner', 'type': 'str',
                        'desc': 'User/role iden for this vault if scope is "user" or "role". None for "global" scope vaults.'},
                       {'name': 'data', 'type': 'dict',
                        'desc': 'The initial data to store in this vault.'},
