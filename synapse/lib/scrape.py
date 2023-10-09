@@ -150,8 +150,6 @@ def linux_path_check(match: regex.Match):
 
     path = pathlib.PurePosixPath(valu)
     parts = path.parts
-    if not parts:
-        return None, {}
 
     if parts[0] != '/':
         return None, {}
@@ -188,9 +186,6 @@ def windows_path_check(match: regex.Match):
 
     path = pathlib.PureWindowsPath(valu)
     parts = path.parts
-
-    if not parts:
-        return None, {}
 
     if parts[0].lower() not in windows_drive_paths:
         return None, {}
