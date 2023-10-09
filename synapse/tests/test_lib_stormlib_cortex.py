@@ -10,6 +10,7 @@ import synapse.tests.utils as s_test
 from pprint import pprint
 
 class CortexLibTest(s_test.SynTest):
+
     async def test_libcortex_httpapi_methods(self):
 
         async with self.getTestCore() as core:
@@ -166,6 +167,60 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormIsInPrint('Method: PATCH', msgs)
                 self.stormIsInPrint('Method: OPTIONS', msgs)
                 self.stormIsInPrint('Method: DELETE', msgs)
+
+    async def test_libcortex_httpapi_runas_owner(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$obj = $lib.cortex.httpapi.add(testpath00)
+            $obj.methods.get = ${
+                $view = $lib.view.get()
+                $request.reply(200, body=({'view': $view.iden, "username": $lib.user.name()}) )
+            }
+            return ( ($obj.iden, $obj.owner.name) )
+            '''
+            iden, uname = await core.callStorm(q)
+            self.eq(uname, 'root')
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'root')
+
+                q = '''
+                $obj=$lib.cortex.httpapi.get($http_iden)
+                $user=$lib.auth.users.byname(lowuser) $obj.owner = $user
+                return ($obj.owner.name)'''
+                name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
+                self.eq(name, 'lowuser')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'lowuser')
+
+                q = '''
+                $obj=$lib.cortex.httpapi.get($http_iden)
+                $obj.runas = user
+                return ($obj.runas)'''
+                name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
+                self.eq(name, 'user')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'root')
+
+            async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:  # type: aiohttp.ClientSession
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'lowuser')
 
     async def test_libcortex_httpapi_simpleOLD(self):
 
@@ -585,31 +640,6 @@ for $i in $values {
                 name = await core.callStorm('$obj=$lib.cortex.httpapi.get($http_iden) return ($obj.view.get(name))',
                                             opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'iso view')
-
-    async def test_libcortex_owner(self):
-        async with self.getTestCore() as core:
-            udef = await core.addUser('lowuser')
-            lowuser = udef.get('iden')
-            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
-            await core.setUserPasswd(lowuser, 'secret')
-            addr, hport = await core.addHttpsPort(0)
-
-            q = '''$obj = $lib.cortex.httpapi.add(testpath)
-            $obj.methods.get = ${
-                $view = $lib.view.get()
-                $request.reply(200, body=({'view': $view.iden}) )
-            }
-            return ( ($obj.iden, $obj.owner.name) )
-            '''
-            iden, uname = await core.callStorm(q)
-            self.eq(uname, 'root')
-
-            q = '''
-            $obj=$lib.cortex.httpapi.get($http_iden)
-            $user=$lib.auth.users.byname(lowuser) $obj.owner = $user
-            return ($obj.owner.name)'''
-            name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
-            self.eq(name, 'lowuser')
 
     async def test_libcortex_headers_params(self):
 
