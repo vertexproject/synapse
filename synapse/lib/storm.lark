@@ -242,8 +242,8 @@ TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
 tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | _wildtagsegs)
-_MATCHHASH.3: /(?<!\s)#/
-_MATCHHASHSPACE.3: /(?<=\s)#/
+_MATCHHASH.3: /(?<!\s)#(?![\w*.\s!@?<>~=$:]+=)/
+_MATCHHASHSPACE.3: /(?<=\s)#(?![\w*.\s!@?<>~=$:]+=)/
 _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
@@ -378,10 +378,10 @@ relpropvalue:   relprop | univprop
 abspropcond:  ABSPROPNOUNIV _cmpr _valu
 hasabspropcond: ABSPROPNOUNIV
 
-tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
+tagpropcond: tagname _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
 hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
 
-tagvalucond: tagmatch _cmpr _valu
+tagvalucond: tagname _cmpr _valu
 tagcond: tagmatch
 
 condsubq: "{" query "}" [ _cmpr _valu]

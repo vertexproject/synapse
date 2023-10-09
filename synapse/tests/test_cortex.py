@@ -2046,7 +2046,7 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('test:str +test:str@=2018')
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +test:str:tick*near=newp')
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#test*near=newp')
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str -> # } limit 10')
