@@ -503,16 +503,14 @@ $request.reply(200, headers=$headers, body=$body)
 $request.sendcode(200)
 $request.sendheaders(({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"}))
 $values = ((1), (2), (3))
-$newline = "\\n"
-$newline = $newline.encode()
 for $i in $values {
-    $request.sendbody($lib.json.save(({'oh': $i})).encode())
-    $request.sendbody($newline)
+    $body=`{$lib.json.save(({'oh': $i}))}\\n`
+    $request.sendbody($body.encode())
 }
             }
             return ( $api.iden )
             '''
-            iden00 = await core.stormlist(q)
+            iden00 = await core.callStorm(q)
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/jsonlines')
@@ -522,7 +520,6 @@ for $i in $values {
                 msgs = []
                 bufr = b''
                 async for byts, x in resp.content.iter_chunks():
-
                     if not byts:
                         break
 
@@ -691,7 +688,7 @@ for $i in $values {
                 self.eq(data.get('Secret-Key'), 'myluggagecombination')
                 self.eq(data.get('secret-key'), 'myluggagecombination')
 
-    async def test_libcortex_varz(self):
+    async def test_libcortex_httpapi_vars(self):
 
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
@@ -732,26 +729,15 @@ for $i in $values {
                 data = await resp.json()
                 self.eq(data.get('sup'), 'word')
 
-                q = '''$obj=$lib.cortex.httpapi.get($http_iden)
-                $obj.vars.sup = $lib.undef
-                '''
-                msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden}})
+                # Cause a NoSuchVar error due to a missing var in the handler
+                q = '$obj=$lib.cortex.httpapi.get($iden) $obj.vars.sup = $lib.undef'
+                msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', )
                 self.eq(resp.status, 500)
                 data = await resp.json()
-                # Generic error
-                self.eq(data.get('mesg'), 'Handler never set status code.')
-
-                q = '''$obj=$lib.cortex.httpapi.get($http_iden)
-                $obj.methods.post = $lib.undef
-                '''
-                msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden}})
-                self.stormHasNoWarnErr(msgs)
-                resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', )
-                self.eq(resp.status, 500)
-                data = await resp.json()
-                self.eq(data.get('mesg'), 'No storm endpoint defined for method post')
+                self.eq(data.get('code'), 'NoSuchVar')
+                self.eq(data.get('mesg'), 'Missing variable: sup')
 
     async def test_libcortex_fsm(self):
 

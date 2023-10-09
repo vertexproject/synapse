@@ -1376,6 +1376,24 @@ class ExtApiHandler(StormHandler):
                 self.write(body)
                 await self.flush()
 
+            if mtyp == 'err':
+                errname, erfo = info
+                mesg = f'Error executing custom HTTP API handler {adef.get("iden")}: {errname} {erfo.get("mesg")}'
+                logger.error(mesg)
+                if rbody:
+                    # We've already flushed() the stream at this point, so we cannot
+                    # change the status code or the response headers. We just have to
+                    # log the error and move along.
+                    continue
+
+                # Since we haven't flushed the body yet, we can clear the handler
+                # and send the error the user.
+                self.clear()
+                self.set_status(500)
+                self.sendRestErr(errname, erfo.get('mesg'))
+                rcode = True
+                rbody = True
+
         if rcode is False:
             self.set_status(500)
             self.sendRestErr('StormRuntimeError', 'Handler never set status code.')
