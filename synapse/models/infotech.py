@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 
 import synapse.common as s_common
 
@@ -221,6 +222,17 @@ tlplevels = (
     (50, 'red'),
 )
 
+# The published Attack Flow json schema at the below URL is horribly
+# broken. It depends on some custom python scripting to validate each
+# object individually against the schema for each object's type instead
+# of validating the document as a whole. Instead, the
+# attack-flow-schema-2.0.0 file that is published in the synapse data
+# directory is a heavily modified version of the official schema that
+# actually works as a json schema should.
+# https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
+
+attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -387,6 +399,9 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
+                }),
+                ('it:mitre:attack:flow', ('guid', {}), {
+                    'doc': 'A Mitre ATT&CK Flow diagram.',
                 }),
                 ('it:dev:str', ('str', {}), {
                     'doc': 'A developer selected string.'
@@ -1222,6 +1237,20 @@ class ItModule(s_module.CoreModule):
                                              'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
+                )),
+                ('it:mitre:attack:flow', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the attack-flow diagram.'}),
+                    ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
+                        'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the diagram was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the diagram was last updated.'}),
+                    ('author:user', ('syn:user', {}), {
+                        'doc': 'The Synapse user that created the node.'}),
+                    ('author:contact', ('ps:contact', {}), {
+                        'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
                 )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
