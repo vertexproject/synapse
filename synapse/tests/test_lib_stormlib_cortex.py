@@ -440,7 +440,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     continue
                 print(m)
 
-    async def test_libcortex_httpapi_asbytes(self):
+    async def test_libcortex_httpapi_raw(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
             lowuser = udef.get('iden')
@@ -448,10 +448,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            # Define our first handler!
+            # Define a handler that makes its own response headers, bytes, body.
             q = '''
-            $obj = $lib.cortex.httpapi.add('hehe/haha')
-            $obj.methods.get = ${
+            $api = $lib.cortex.httpapi.add('raw')
+            $api.methods.get = ${
 $data = ({'oh': 'my'})
 $body = $lib.json.save($data).encode()
 $headers = ({'Secret-Header': 'OhBoy!'})
@@ -459,36 +459,20 @@ $headers."Content-Type" = "application/json"
 $headers."Content-Length" = $lib.len($body)
 $request.reply(200, headers=$headers, body=$body)
             }
+            return ( $api.iden )
             '''
-            msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
-
-            q = '''
-            $obj = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
-$obj.methods.get = ${
-$data = ({'oh': 'we got a wildcard match!'})
-$body = $lib.json.save($data).encode()
-$headers = ({'Secret-Header': 'ItsWildcarded!'})
-$headers."Content-Type" = "application/json"
-$headers."Content-Length" = $lib.len($body)
-$request.reply(200, headers=$headers, body=$body)
-}
-            '''
-            msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
+            await core.callStorm(q)
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/raw')
+                self.eq(resp.status, 200)
+                self.eq(resp.headers.get('Content-Type'), 'application/json')
+                self.eq(resp.headers.get('Content-Length'), '12')
+                self.eq(resp.headers.get('Secret-Header'), 'OhBoy!')
 
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha/haha/wow?sup=dude')
-                print(resp)
                 buf = await resp.read()
-                print(buf)
+                self.len(12, buf)
+                self.eq(json.loads(buf), {'oh': 'my'})
 
     async def test_libcortex_httpapi_jsonlines(self):
         async with self.getTestCore() as core:
@@ -647,7 +631,9 @@ for $i in $values {
                                             opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'iso view')
 
-    async def test_libcortex_headers_params(self):
+    async def test_libcortex_httpapi_headers_params(self):
+
+        # Test around case sensitivity of request headers and parameters
 
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
