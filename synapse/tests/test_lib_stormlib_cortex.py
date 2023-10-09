@@ -1,4 +1,4 @@
-import asyncio
+import json
 
 import aiohttp
 
@@ -490,47 +490,57 @@ $request.reply(200, headers=$headers, body=$body)
                 buf = await resp.read()
                 print(buf)
 
-    async def test_libcortex_jsonlines(self):
+    async def test_libcortex_httpapi_jsonlines(self):
         async with self.getTestCore() as core:
-            udef = await core.addUser('lowuser')
-            lowuser = udef.get('iden')
             await core.setUserPasswd(core.auth.rootuser.iden, 'root')
-            await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            # Define our first handler!
-            q = '''$obj = $lib.cortex.httpapi.add('hehe/haha')
-            $obj.methods.get = ${
-$request.sendcode(201)
-$headers = ({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"})
-$request.sendheaders($headers)
-$request.sendheaders(({"MoreHeader": "SphericalCow"}))
-$request.sendheaders(({"Secret-Header": "TheOverwrite"}))
-$values = (1, 2, 3)
+            # Example which uses the sendcode / sendheaders / sendbody
+            # methods in order to implement a streaming API endpoint
+
+            q = '''$api = $lib.cortex.httpapi.add('jsonlines')
+            $api.methods.get = ${
+$request.sendcode(200)
+$request.sendheaders(({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"}))
+$values = ((1), (2), (3))
 $newline = "\\n"
 $newline = $newline.encode()
 for $i in $values {
-    $data = ({'oh': $i})
-    $body = $lib.json.save($data).encode()
-    $request.sendbody($body)
+    $request.sendbody($lib.json.save(({'oh': $i})).encode())
     $request.sendbody($newline)
 }
-}
+            }
+            return ( $api.iden )
             '''
-            msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
+            iden00 = await core.stormlist(q)
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/jsonlines')
+                self.eq(resp.status, 200)
+                self.eq(resp.headers.get('Content-Type'), 'application/jsonlines')
 
-                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha?sup=dude')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                msgs = []
+                bufr = b''
+                async for byts, x in resp.content.iter_chunks():
+
+                    if not byts:
+                        break
+
+                    bufr += byts
+                    for jstr in bufr.split(b'\n'):
+                        if not jstr:
+                            bufr = b''
+                            break
+
+                        try:
+                            mesg = json.loads(byts)
+                        except json.JSONDecodeError:
+                            bufr = jstr
+                            break
+                        else:
+                            msgs.append(mesg)
+
+                self.eq(msgs, ({'oh': 1}, {'oh': 2}, {'oh': 3}))
 
     async def test_libcortex_httpapi_perms(self):
 
