@@ -126,7 +126,7 @@ _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | fo
 formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | tagmatch)
 formpivot_jointags: _RIGHTJOIN (ALLTAGS | tagmatch)
 // The special symbol that indicates to pivot to syn:tag nodes
-ALLTAGS.4: /#(?=\/[\/\*]|\s|$|\})/
+ALLTAGS.3: /#(?=\/[\/\*]|\s|$|\})/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
 formpivot_:            _RIGHTPIVOT ABSPROP
@@ -242,14 +242,14 @@ TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
 tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | _wildtagsegs)
-_MATCHHASH.3: /(?<!\s)#(?![\w*.$:]+\s*[!@?<>~=]*=)/
-_MATCHHASHSPACE.3: /(?<=\s)#(?![\w*.$:]+\s*[!@?<>~=]*=)/
+_MATCHHASH.3: /(?<!\s)#/
+_MATCHHASHSPACE.3: /(?<=\s)#/
 _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
 _cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
-BYNAME.2: /\w+=/
+BYNAME.2: /[^=\s]+=/
 
 _safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 
@@ -378,11 +378,13 @@ relpropvalue:   relprop | univprop
 abspropcond:  ABSPROPNOUNIV _cmpr _valu
 hasabspropcond: ABSPROPNOUNIV
 
-tagpropcond: tagname _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
+tagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
 hastagpropcond: tagmatch _COLONNOSPACE (BASEPROP | _varvalu)
 
-tagvalucond: tagname _cmpr _valu
+tagvalucond: tagmatch _tagcmpr _valu
 tagcond: tagmatch
+
+_tagcmpr: CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 
 condsubq: "{" query "}" [ _cmpr _valu]
 arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
