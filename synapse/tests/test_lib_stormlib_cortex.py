@@ -187,6 +187,59 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(data.get('code'), 'NoSuchPath')
                 self.eq(data.get('mesg'), 'No Custom HTTP API endpoint matches testpath01')
 
+                # Test method reply types
+                q = '''$api = $lib.cortex.httpapi.add(testreply)
+                            $api.methods.post = ${ $request.reply(200, body=$request.json.data) }
+                            return ( $api.iden )'''
+                testreply = await core.callStorm(q)
+                edata = ('hello',
+                         31337,
+                         ['a', 2],
+                         {'key': 'valu', 'hehe': [1, '2']},
+                         None,
+                         )
+                for valu in edata:
+                    resp = await sess.post(f'https://localhost:{hport}/api/ext/testreply',
+                                           json={'data': valu}
+                                           )
+                    self.eq(resp.status, 200)
+                    data = await resp.json()
+                    self.eq(data, valu)
+
+                # Sad paths on the $request methods
+                q = '''$api = $lib.cortex.httpapi.add(testpath02)
+                $api.methods.get = ${ $request.sendcode(200) $request.sendheaders('beep beep') }
+                return ( $api.iden )'''
+                testpath02 = await core.callStorm(q)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath02')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'BadArg')
+                self.eq(data.get('mesg'), 'HTTP Response headers must be a dictionary, got str.')
+
+                q = '''$api = $lib.cortex.httpapi.add(testpath03)
+                $api.methods.get = ${ $request.sendcode(200) $request.sendbody('beep beep') }
+                return ( $api.iden )'''
+                testpath03 = await core.callStorm(q)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath03')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'BadArg')
+                self.eq(data.get('mesg'), 'HTTP Response body must be bytes, got str.')
+
+                q = '''$api = $lib.cortex.httpapi.add(testpath04)
+                $api.methods.get = ${ $request.reply(200, body=({"hehe": "yes!"})) $request.reply(201, body=({"hehe":" newp"})) }
+                return ( $api.iden )'''
+                test04 = await core.callStorm(q)
+
+                emsg = f'Error executing custom HTTP API {test04}: BadArg Response.reply() has already been called.'
+                with self.getAsyncLoggerStream('synapse.lib.httpapi', emsg) as stream:
+                    resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath04')
+                    self.eq(resp.status, 200)
+                    self.eq(await resp.json(), {'hehe': 'yes!'})
+
     async def test_libcortex_httpapi_runas_owner(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')

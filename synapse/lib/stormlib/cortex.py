@@ -509,7 +509,7 @@ class HttpReq(s_stormtypes.StormType):
         headers = await s_stormtypes.toprim(headers)
         if not isinstance(headers, dict):
             typ = await s_stormtypes.totype(headers)
-            raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary, got {typ}')
+            raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary, got {typ}.')
         await self.runt.snap.fire('http:resp:headers', headers=headers)
 
     async def _methSendBody(self, body):
@@ -520,16 +520,16 @@ class HttpReq(s_stormtypes.StormType):
         await self.runt.snap.fire('http:resp:body', body=body)
 
     # Convenience method
-    async def _methReply(self, code, headers=None, body=None):
+    async def _methReply(self, code, headers=None, body=s_stormtypes.undef):
         if self.replied:
-            raise s_exc.BadArg(mesg='Response.reply() has already been called.')
+            raise s_exc.BadArg(mesg='Response.reply() has already been call ed.')
 
         headers = await s_stormtypes.toprim(headers)
         if headers is None:
             headers = {}
 
         body = await s_stormtypes.toprim(body)
-        if body is not None and not isinstance(body, bytes):
+        if body is not s_stormtypes.undef and not isinstance(body, bytes):
             body = json.dumps(body).encode('utf-8', 'surrogatepass')
             headers['Content-Type'] = 'application/json'
             headers['Content-Length'] = len(body)
@@ -539,7 +539,7 @@ class HttpReq(s_stormtypes.StormType):
         if headers:
             await self._methSendHeaders(headers)
 
-        if body is not None:
+        if body is not s_stormtypes.undef:
             await self._methSendBody(body)
 
         self.replied = True
