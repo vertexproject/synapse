@@ -184,9 +184,10 @@ def parsetz(text):
 
     tzrel = match['tzrel']
     if tzrel is not None:
-        rel = 1 if tzrel == '-' else -1
 
-        base = rel * (onehour * int(match['tzhr']) + onemin * int(match['tzmin']))
+        base = onehour * int(match['tzhr']) + onemin * int(match['tzmin'])
+        if tzrel == '+':
+            base *= -1
 
         if abs(base) >= oneday:
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
