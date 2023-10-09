@@ -149,7 +149,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, 500)
                 data = await resp.json()
-                self.eq(data.get('mesg'), 'No storm endpoint defined for method post')
+                self.eq(data.get('mesg'), f'Custom HTTP API {testpath00} has no method for POST')
 
                 # Unsetting a HEAD method and calling it yields a 500
                 # but still has no body in the response.
@@ -167,6 +167,25 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormIsInPrint('Method: PATCH', msgs)
                 self.stormIsInPrint('Method: OPTIONS', msgs)
                 self.stormIsInPrint('Method: DELETE', msgs)
+
+                q = '''$api = $lib.cortex.httpapi.add(testpath01)
+                $api.methods.get = ${ $request.reply(200, body=({"hehe": "haha"})) }
+                return ( $api.iden )'''
+                testpath01 = await core.callStorm(q)
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath01')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('hehe'), 'haha')
+
+                q = '$lib.cortex.httpapi.del($iden)'
+                msgs = await core.stormlist(q, opts={'vars': {'iden': testpath01}})
+                self.stormHasNoWarnErr(msgs)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath01')
+                self.eq(resp.status, 404)
+                data = await resp.json()
+                self.eq(data.get('code'), 'NoSuchPath')
+                self.eq(data.get('mesg'), 'No Custom HTTP API endpoint matches testpath01')
 
     async def test_libcortex_httpapi_runas_owner(self):
         async with self.getTestCore() as core:

@@ -1277,7 +1277,7 @@ class ExtApiHandler(StormHandler):
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
             self.set_status(404)
-            self.sendRestErr('NeedConfValu', f'No Custom HTTP API endpoint matches {path}')
+            self.sendRestErr('NoSuchPath', f'No Custom HTTP API endpoint matches {path}')
             return await self.finish()
 
         useriden = adef.get('owner')
