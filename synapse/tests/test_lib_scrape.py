@@ -442,6 +442,7 @@ home/foo/bar/baz.txt
 tmp/foo/bar
 var/run/foo/
 var/run/foo/bar
+but they not have a open SDK :/.
 '''
 
 windows_paths = '''
@@ -751,16 +752,6 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
 
-    async def test_scrape_async(self):
-
-        with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
-            ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
-            self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
-
-            text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
-            infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
-            self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
-
         nodes = list(s_scrape.scrape(linux_paths))
         nodes = [k for k in nodes if k[0] == 'file:path']
 
@@ -825,6 +816,17 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', f'smb://server/share/{AAA}.txt:sname:stype'))
         nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
         nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
+
+
+    async def test_scrape_async(self):
+
+        with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
+            ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
+            self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+
+            text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
+            infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
+            self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
