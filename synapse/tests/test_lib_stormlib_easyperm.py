@@ -16,7 +16,7 @@ class StormlibEasyPermTest(s_test.SynTest):
             alliden = (await core.getRoleDefByName('all'))['iden']
 
             opts = {'user': visi.iden}
-            exp = {'permissions': {'users': {visi.iden: s_cell.PERM_ADMIN}, 'roles': {}, 'worldreadable': True}}
+            exp = {'permissions': {'users': {visi.iden: s_cell.PERM_ADMIN}, 'roles': {}, 'default': s_cell.PERM_READ}}
 
             retn = await core.callStorm('return($lib.auth.easyperm.init())', opts=opts)
             self.eq(retn, exp)
@@ -72,15 +72,15 @@ class StormlibEasyPermTest(s_test.SynTest):
 
             q = 'return($lib.auth.easyperm.init(({})))'
             obj = await core.callStorm(q)
-            self.eq(obj['permissions'].get('worldreadable'), True)
+            self.eq(obj['permissions'].get('default'), s_cell.PERM_READ)
 
             opts = {'vars': {'obj': obj}, 'user': visi.iden}
             q = 'return($lib.auth.easyperm.allowed($obj, $lib.auth.easyperm.level.read))'
             self.true(await core.callStorm(q, opts=opts))
 
-            q = 'return($lib.auth.easyperm.init(({}), worldreadable=$lib.false))'
+            q = 'return($lib.auth.easyperm.init(({}), default=$lib.auth.easyperm.level.deny))'
             obj = await core.callStorm(q)
-            self.eq(obj['permissions'].get('worldreadable'), False)
+            self.eq(obj['permissions'].get('default'), s_cell.PERM_DENY)
 
             opts = {'vars': {'obj': obj}, 'user': visi.iden}
             q = 'return($lib.auth.easyperm.allowed($obj, $lib.auth.easyperm.level.read))'
