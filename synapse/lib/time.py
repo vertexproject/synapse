@@ -196,7 +196,7 @@ def parsetz(text):
         return text.replace(match['tzstr'], '', 1), base
 
     offset, _ = s_l_timezones.getTzOffset(match['tzname'])
-    if offset is None:
+    if offset is None:  # pragma: no cover
         raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
 
     base = offset * -1

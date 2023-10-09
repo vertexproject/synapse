@@ -4,6 +4,8 @@ with values representing offsets from UTC in milliseconds.
 '''
 import types
 
+import synapse.exc as s_exc
+
 _onehour = 3600000
 
 _timezones = types.MappingProxyType({
@@ -37,6 +39,5 @@ def getTzOffset(name, defval=None):
     '''
     try:
         return _timezones.get(name.upper(), defval), {}
-
     except AttributeError:
-        return defval, {}
+        raise s_exc.BadArg(mesg=f'Timezone name must a string') from None

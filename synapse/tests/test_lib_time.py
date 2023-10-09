@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 
 import synapse.lib.time as s_time
+import synapse.lookup.timezones as s_l_timezones
 
 import synapse.tests.utils as s_t_utils
 
@@ -117,6 +118,9 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020-07-07T16:29:53 NEWP'), utc)
         self.eq(s_time.parse('2020-07-07T16:29:53 Etc/GMT-4'), utc + 400)
         self.eq(s_time.parse('2020-07-07T16:29:53 America/New_York'), utc)
+
+        # coverage for bad args
+        self.raises(s_exc.BadArg, s_l_timezones.getTzOffset, 42)
 
         # invalid multiple timezones do not match
         self.eq(0, s_time.parsetz('2020-07-07T16:29:53 EST -0400')[1])
