@@ -532,7 +532,7 @@ for $i in $values {
                 buf = await resp.read()
                 print(buf)
 
-    async def test_libcortex_perms(self):
+    async def test_libcortex_httpapi_perms(self):
 
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
@@ -541,7 +541,6 @@ for $i in $values {
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            # Define our first handler!
             q = '''
             $obj = $lib.cortex.httpapi.add('hehe/haha')
             $obj.methods.get = ${
@@ -572,28 +571,29 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                self.eq(resp.status, 403)
+                data = await resp.json()
+                self.eq(data.get('mesg'), 'User (lowuser) must have permission foocorp.http.user')
 
                 await core.stormlist('auth.user.addrule lowuser foocorp.http.user')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe/haha')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('path'), 'weee')
 
+                # Add a deny rule for this user
                 await core.stormlist('auth.user.addrule lowuser "!apiuser"')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
-                print(resp)
-                buf = await resp.read()
-                print(buf)
+                self.eq(resp.status, 403)
+                data = await resp.json()
+                self.eq(data.get('mesg'), 'User (lowuser) must have permission apiuser default=true')
 
     async def test_libcortex_view(self):
         async with self.getTestCore() as core:
