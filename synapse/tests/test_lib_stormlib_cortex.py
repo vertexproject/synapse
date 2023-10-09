@@ -551,6 +551,8 @@ for $i in $values {
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
+            # Set a handler which requires a single permission
+
             q = '''
             $obj = $lib.cortex.httpapi.add('hehe/haha')
             $obj.methods.get = ${
@@ -568,6 +570,8 @@ for $i in $values {
             '''
             iden0 = await core.callStorm(q)
 
+            # Set a handler which has a few permissions, using perm
+            # defs to require there is a default=true permission
             q = '''$obj = $lib.cortex.httpapi.add('weee')
             $obj.methods.get = ${
             $data = ({'path': $request.path})
@@ -605,7 +609,7 @@ for $i in $values {
                 data = await resp.json()
                 self.eq(data.get('mesg'), 'User (lowuser) must have permission apiuser default=true')
 
-    async def test_libcortex_view(self):
+    async def test_libcortex_httpapi_view(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
             lowuser = udef.get('iden')
@@ -629,20 +633,15 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
-                print(resp)
                 data = await resp.json()
                 self.eq(data.get('view'), def_view)
 
                 # Change the view the endpoint uses
-                q = '$obj=$lib.cortex.httpapi.get($http_iden) $lib.print($obj) $lib.print($lib.vars.type($obj))' \
-                    '$view=$lib.view.get($view_iden) $lib.print($view)' \
-                    '$obj.view = $view $lib.print($obj) '
+                q = '$obj=$lib.cortex.httpapi.get($http_iden) $obj.view = $lib.view.get($view_iden)'
                 msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden, 'view_iden': view}})
-                for m in msgs:
-                    print(m)
+                self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
-                print(resp)
                 data = await resp.json()
                 self.eq(data.get('view'), view)
 
