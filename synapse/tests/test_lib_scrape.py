@@ -817,7 +817,6 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
         nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
 
-
     async def test_scrape_async(self):
 
         with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
