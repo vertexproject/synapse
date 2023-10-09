@@ -7689,6 +7689,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.SynErr):
                 await core.setHttpApiIndx(newp, 0)
 
+            with self.raises(s_exc.BadArg):
+                await core.setHttpApiIndx(newp, -1)
+
             with self.raises(s_exc.NoSuchUser):
                 await core.modHttpExtApi(iden, 'owner', newp)
 

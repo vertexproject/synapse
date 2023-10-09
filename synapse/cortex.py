@@ -4363,6 +4363,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('http:api:indx')
     async def setHttpApiIndx(self, iden, indx):
+        if indx < 0:
+            raise s_exc.BadArg(mesg=f'indx must be greater than or equal to 0; got {indx}')
         byts = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
         if byts is None:
             raise s_exc.SynErr(mesg='No Custom HTTP handlers registered. Cannot set order.')

@@ -613,6 +613,4 @@ class CortexHttpApi(s_stormtypes.Lib):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'mod'))
         iden = await s_stormtypes.tostr(iden)
         index = await s_stormtypes.toint(index)
-        if index < 0:
-            raise s_exc.BadArg(mesg=f'indx must be greater than or equal to 0; got {index}')
         return await self.runt.snap.view.core.setHttpApiIndx(iden, index)
