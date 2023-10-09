@@ -4283,7 +4283,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for iden in order:
             byts = self.slab.get(s_common.uhex(iden), self.httpextapidb)
-            if byts is None:
+            if byts is None:  # pragma: no cover
                 logger.error(f'Missing HTTP API definition for iden={iden}')
                 continue
             self._exthttpapis.append(s_msgpack.un(byts))
@@ -4363,15 +4363,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('http:api:indx')
     async def setHttpApiIndx(self, iden, indx):
-        # Ensure our iden is valid...
-        adef = await self.getHttpExtApiByIden(iden)
-
         byts = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
         if byts is None:
-            # TODO Fix this error / message / can we even get here?
-            raise s_exc.SynErr(mesg='We do not have any handlers..')
+            raise s_exc.SynErr(mesg='No Custom HTTP handlers registered. Cannot set order.')
 
         order = list(s_msgpack.un(byts))
+
+        if iden not in order:
+            raise s_exc.NoSuchIden(mesg=f'Custom HTTP API is not set: {iden}')
+
         order.remove(iden)
         # indx values > length of the list end up at the end of the list.
         order.insert(indx, iden)

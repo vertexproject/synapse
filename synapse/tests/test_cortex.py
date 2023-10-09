@@ -7637,3 +7637,71 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
                 self.eq('lowuser', mesg.get('target_username'))
+
+    async def test_cortex_ext_httpapi(self):
+        # Cortex API tests for Custom HttpAPI
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            newp = s_common.guid()
+            with self.raises(s_exc.SynErr):
+                await core.setHttpApiIndx(newp, 0)
+
+            unfo = await core.getUserDefByName('root')
+            view = core.getView()
+            info = await core.addHttpExtApi({
+                'path': 'test/path/(hehe|haha)/(.*)',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
+            info2 = await core.addHttpExtApi({
+                'path': 'something/else',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+            iden = info.get('iden')
+
+            adef = await core.getHttpExtApiByIden(iden)
+            self.eq(adef, info)
+
+            adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
+            self.eq(adef, info)
+            self.eq(args, ('hehe', 'wow'))
+
+            adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow/more/')
+            self.eq(adef, info)
+            self.eq(args, ('hehe', 'wow/more/'))
+
+            adef, args = await core.getHttpExtApiByPath('test/path/HeHe/wow')
+            self.none(adef)
+            self.eq(args, ())
+
+            async with core.getLocalProxy() as prox:
+                adef, args = await prox.getHttpExtApiByPath('test/path/haha/words')
+                self.eq(adef, info)
+                self.eq(args, ('haha', 'words'))
+
+            items = await core.getHttpExtApis()
+            self.eq(items, (info, info2))
+
+            # Sad path
+
+            with self.raises(s_exc.SynErr):
+                await core.setHttpApiIndx(newp, 0)
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.modHttpExtApi(iden, 'owner', newp)
+
+            with self.raises(s_exc.NoSuchView):
+                await core.modHttpExtApi(iden, 'view', newp)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'newp', newp)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.modHttpExtApi(newp, 'path', 'a/new/path/')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.getHttpExtApiByIden(newp)
+
+            self.none(await core.delHttpExtApi(newp))
