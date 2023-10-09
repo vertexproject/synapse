@@ -9,8 +9,23 @@ Synapse Changelog
 v2.151.0 - 2023-10-06
 =====================
 
+Model Changes
+-------------
+- Update to the ``it`` model.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+
+  **New Forms**
+
+  ``it:mitre:attack:flow``
+    A MITRE ATT&CK Flow diagram.
+
 Features and Enhancements
 -------------------------
+- Add a new Storm library ``$lib.infosec.mitre.attack.flow``. This can be used
+  to normalize and create ``it:mitre:attack:flow`` nodes from MITRE ATT&CK
+  Flow Diagrams.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+  (`#3372 <https://github.com/vertexproject/synapse/pull/3372>`_)
 - Update the Storm ``note.add`` command to set the ``meta:note:created``
   property on the note.
   (`#3569 <https://github.com/vertexproject/synapse/pull/3569>`_)
@@ -30,6 +45,12 @@ Features and Enhancements
   related log events. This attribute indicates if the event was a ``CREATE``,
   ``DELETE``, or ``MODIFY`` operation.
   (`#3363 <https://github.com/vertexproject/synapse/pull/3363>`_)
+- Update ``Cell.getLogExtra()`` to prefer using the ``user`` key from the task
+  scope before using the ``sess`` key from the task scope. Cortex APIs which
+  execute Storm queries now set the ``user`` scope to the user the query is
+  running as. This increases the accuracy of log events caused by Storm
+  queries when the ``user`` is specified in the ``opts``.
+  (`#3356 <https://github.com/vertexproject/synapse/pull/3356>`_)
 - Update Storm setitem AST operator to check the readonly flag on functions
   when operating in a ``readonly`` Storm runtime.
   (`#3364 <https://github.com/vertexproject/synapse/pull/3364>`_)
@@ -38,6 +59,7 @@ Features and Enhancements
 - Update tests and remove the use of deprecated functions for improved
   Python 3.12 compatibility.
   (`#3355 <https://github.com/vertexproject/synapse/pull/3355>`_)
+  (`#3567 <https://github.com/vertexproject/synapse/pull/3567>`_)
 
 Bugfixes
 --------
