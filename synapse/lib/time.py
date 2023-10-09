@@ -17,10 +17,37 @@ logger = logging.getLogger(__name__)
 
 EPOCH = datetime.datetime(1970, 1, 1)
 
-tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\d+\w+|\+\d+\w+))')
+onesec = 1000
+onemin = 60000
+onehour = 3600000
+oneday = 86400000
+
+timeunits = {
+    'sec': onesec,
+    'secs': onesec,
+    'seconds': onesec,
+
+    'min': onemin,
+    'mins': onemin,
+    'minute': onemin,
+    'minutes': onemin,
+
+    'hour': onehour,
+    'hours': onehour,
+
+    'day': oneday,
+    'days': oneday,
+}
 
 tzcat = '|'.join(sorted(s_l_timezones.getTimezoneNames(), key=lambda x: len(x), reverse=True))
-tz_str_re = regex.compile(r'\d(\s?(%s))(\-\d+\w+|\+\d+\w+)?$' % tzcat, flags=regex.IGNORECASE)
+unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
+tz_re = regex.compile(
+    r'\d(?P<tzstr>\s?(?:'
+    r'(?P<tzname>%s)|'
+    r'(?:(?P<tzrel>\-|\+)(?P<tzhr>\d{1,2}):?(?P<tzmin>\d{2})))'
+    r')(?:[\-|\+]\d+(?:%s))?$' % (tzcat, unitcat),
+    flags=regex.IGNORECASE
+)
 
 rfc822_re = regex.compile(r'([a-z]{3},)?\d{1,2}[a-z]{3}\d{4}\d{2}:\d{2}:\d{2}')
 rfc822_fmt = '%d%b%Y%H:%M:%S'
@@ -151,37 +178,29 @@ def parsetz(text):
         tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
     '''
 
-    # todo: consider combining these regexes into one
+    match = tz_re.search(text)
+    if match is None:
+        return text, 0
 
-    tz_hm = tz_hm_re.search(text)
-    if tz_hm is not None:
+    tzrel = match['tzrel']
+    if tzrel is not None:
+        rel = 1 if tzrel == '-' else -1
 
-        tzstr, rel, hrs, mins, _, _ = tz_hm.groups()
-
-        rel = 1 if rel == '-' else -1
-
-        base = rel * (onehour * int(hrs) + onemin * int(mins))
+        base = rel * (onehour * int(match['tzhr']) + onemin * int(match['tzmin']))
 
         if abs(base) >= oneday:
             raise s_exc.BadTypeValu(mesg=f'Timezone offset must be between +/- 24 hours for {text}',
                                     valu=text, name='time')
 
-        return text.replace(tzstr, '', 1), base
+        return text.replace(match['tzstr'], '', 1), base
 
-    tz_str = tz_str_re.search(text)
-    if tz_str is not None:
+    offset, _ = s_l_timezones.getTzOffset(match['tzname'])
+    if offset is None:
+        raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
 
-        tzstr, tzname, _ = tz_str.groups()
+    base = offset * -1
 
-        offset, _ = s_l_timezones.getTzOffset(tzname)
-        if offset is None:
-            raise s_exc.BadTypeValu(mesg=f'Unknown timezone for {text}', valu=text, name='time') from None
-
-        base = offset * -1
-
-        return text.replace(tzstr, '', 1), base
-
-    return text, 0
+    return text.replace(match['tzstr'], '', 1), base
 
 def repr(tick, pack=False):
     '''
@@ -240,28 +259,6 @@ def ival(*times):
         maxv += 1
 
     return (minv, maxv)
-
-onesec = 1000
-onemin = 60000
-onehour = 3600000
-oneday = 86400000
-
-timeunits = {
-    'sec': onesec,
-    'secs': onesec,
-    'seconds': onesec,
-
-    'min': onemin,
-    'mins': onemin,
-    'minute': onemin,
-    'minutes': onemin,
-
-    'hour': onehour,
-    'hours': onehour,
-
-    'day': oneday,
-    'days': oneday,
-}
 
 # TODO: use synapse.lib.syntax once it gets cleaned up
 def _noms(text, offs, cset):
