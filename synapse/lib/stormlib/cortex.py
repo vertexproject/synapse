@@ -545,7 +545,6 @@ class HttpReq(s_stormtypes.StormType):
         self.replied = True
         return True
 
-
 @s_stormtypes.registry.registerLib
 class CortexHttpApi(s_stormtypes.Lib):
     '''
