@@ -6545,7 +6545,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if 'permissions' in vdef:
             vdef.pop('permissions')
 
-        self._initEasyPerm(vdef, default=s_cell.PERM_EDIT)
+        self._initEasyPerm(vdef, default=s_cell.PERM_DENY)
 
         vault = reqValidVault(vdef)
 

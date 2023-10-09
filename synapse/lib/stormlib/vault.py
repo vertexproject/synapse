@@ -28,20 +28,48 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
             ('type', {'type': 'str', 'help': 'The vault type.'}),
             ('data', {'help': 'The data to store in the new vault.'}),
-            ('--scope', {'type': 'str', 'help': 'The scope of the vault (user, role, global).'}),
-            ('--user', {'help': 'The user name or role name to add the vault for.'}),
+            ('--user', {'type': 'str',
+                        'help': 'This vault is a user-scoped vault, for the specified user name.'}),
+            ('--role', {'type': 'str',
+                        'help': 'This vault is a role-scoped vault, for the specified role name.'}),
+            ('--unscoped', {'type': 'str',
+                            'help': 'This vault is an unscoped vault, for the specified user name.'}),
+            ('--global', {'type': 'bool', 'action': 'store_true', 'default': False,
+                          'help': 'This vault is a global-scoped vault.'}),
         ),
         'storm': '''
             $owner = $lib.null
-            if $cmdopts.user {
-                if ($cmdopts.scope = "role") {
-                    $owner = $lib.auth.roles.byname($cmdopts.role).iden
-                } else {
-                    $owner = $lib.auth.users.byname($cmdopts.user).iden
-                }
+            $scope = $lib.null
+
+            $exclusive_args = (0)
+            if $cmdopts.user { $exclusive_args = ($exclusive_args + 1) }
+            if $cmdopts.role { $exclusive_args = ($exclusive_args + 1) }
+            if $cmdopts.unscoped { $exclusive_args = ($exclusive_args + 1) }
+            if $cmdopts.global { $exclusive_args = ($exclusive_args + 1) }
+
+            if ($exclusive_args != 1) {
+                $lib.exit('Must specify one of --user <username>, --role <rolename>, --unscoped <username>, --global.')
             }
 
-            $iden = $lib.vault.add($cmdopts.name, $cmdopts.type, $cmdopts.scope, $owner, $cmdopts.data)
+            if $cmdopts.user {
+                $scope = user
+                $owner = $lib.auth.users.byname($cmdopts.user).iden
+            }
+
+            if $cmdopts.role {
+                $scope = role
+                $owner = $lib.auth.roles.byname($cmdopts.role).iden
+            }
+
+            if $cmdopts.unscoped {
+                $owner = $lib.auth.users.byname($cmdopts.user).iden
+            }
+
+            if $cmdopts.global {
+                $scope = global
+            }
+
+            $iden = $lib.vault.add($cmdopts.name, $cmdopts.type, $scope, $owner, $cmdopts.data)
             $lib.print(`Vault created with iden: {$iden}.`)
             $vault = $lib.vault.get($iden)
             $lib.vault.print($vault)
@@ -67,29 +95,26 @@ stormcmds = (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
             ('key', {'type': 'str', 'help': 'The key in the vault data to operate on.'}),
             ('--value', {'help': 'The data value to store in the vault.'}),
-            ('--delete', {'type': 'boolean', 'action': 'store_true', 'default': False, 'help': 'Specify this flag to remove the key/value from the vault data.'}),
+            ('--delete', {'type': 'bool', 'action': 'store_true', 'default': False,
+                          'help': 'Specify this flag to remove the key/value from the vault data.'}),
         ),
         'storm': '''
-            if (not $cmdopts.value and not $cmdopts.delete) {
+            if ((not $cmdopts.value and not $cmdopts.delete) or ($cmdopts.value and $cmdopts.delete)) {
                 $lib.exit('One of `--value <value>` or `--delete` is required.')
-            }
-
-            $value = $lib.undef
-            if $cmdopts.value {
-                $value = $cmdopts.value
             }
 
             // Try iden first then name
             try {
                 $vault = $lib.vault.get($cmdopts.name)
-            } catch NoSuchIden as exc {
+            } catch (BadArg, NoSuchIden) as exc {
                 $vault = $lib.vault.byname($cmdopts.name)
             }
 
-            $vault.data.($cmdopts.key) = $value
             if $cmdopts.value {
+                $vault.data.($cmdopts.key) = $cmdopts.value
                 $lib.print(`Set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
             } else {
+                $vault.data.($cmdopts.key) = $lib.undef
                 $lib.print(`Removed {$cmdopts.key} from vault {$cmdopts.name}.`)
             }
         ''',
@@ -114,7 +139,7 @@ stormcmds = (
             // Try iden first then name
             try {
                 $vault = $lib.vault.get($cmdopts.name)
-            } catch NoSuchIden as exc {
+            } catch (BadArg, NoSuchIden) as exc {
                 $vault = $lib.vault.byname($cmdopts.name)
             }
 
@@ -176,16 +201,21 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden to set permissions on.'}),
-            ('user', {'type': 'str', 'help': 'The user name or role name to update in the vault.'}),
-            ('--level', {'type': 'str', 'help': 'The permission level to grant.'}),
-            ('--role', {'type': 'boolean', 'action': 'store_true', 'default': False,
+            ('--user', {'type': 'str',
+                        'help': 'The user name or role name to update in the vault.'}),
+            ('--role', {'type': 'str',
                         'help': 'Specified when `user` is a role name.'}),
-            ('--revoke', {'type': 'boolean', 'action': 'store_true', 'default': False,
+            ('--level', {'type': 'str', 'help': 'The permission level to grant.'}),
+            ('--revoke', {'type': 'bool', 'action': 'store_true', 'default': False,
                           'help': 'Specify this flag when revoking an existing permission.'}),
         ),
         'storm': '''
-            if (not $cmdopts.level and not $cmdopts.revoke) {
+            if ((not $cmdopts.level and not $cmdopts.revoke) or ($cmdopts.level and $cmdopts.revoke)) {
                 $lib.exit('One of `--level <level>` or `--revoke` is required.')
+            }
+
+            if ((not $cmdopts.user and not $cmdopts.role) or ($cmdopts.user and $cmdopts.role)) {
+                $lib.exit('One of `--user <username>` or `--role <rolename>` is required.')
             }
 
             $level = $lib.null
@@ -204,10 +234,10 @@ stormcmds = (
             }
 
             if $cmdopts.role {
-                $iden = $lib.auth.roles.byname($cmdopts.user)
+                $iden = $lib.auth.roles.byname($cmdopts.user).iden
                 $type = "Role"
             } else {
-                $iden = $lib.auth.users.byname($cmdopts.user)
+                $iden = $lib.auth.users.byname($cmdopts.user).iden
                 $type = "User"
             }
 
@@ -218,7 +248,7 @@ stormcmds = (
             // Try iden first then name
             try {
                 $vault = $lib.vault.get($cmdopts.name)
-            } catch NoSuchIden as exc {
+            } catch (BadArg, NoSuchIden) as exc {
                 $vault = $lib.vault.byname($cmdopts.name)
             }
 
@@ -483,6 +513,10 @@ class VaultData(s_stormtypes.Prim):
         data = vault.get('data')
         return repr(data)
 
+    def value(self):
+        vault = self.runt.snap.core.reqVault(self.valu)
+        return vault.get('data')
+
 @s_stormtypes.registry.registerType
 class Vault(s_stormtypes.Prim):
     '''
@@ -602,6 +636,9 @@ class Vault(s_stormtypes.Prim):
         return await self.runt.snap.core.delVault(self.valu)
 
     async def stormrepr(self):
+        return f'vault: {self.valu}'
+
+    def value(self):
         vault = self.runt.snap.core.reqVault(self.valu)
 
         if not self.runt.asroot and not self.runt.user.isAdmin():
@@ -609,4 +646,4 @@ class Vault(s_stormtypes.Prim):
             if not edit:
                 vault.pop('data')
 
-        return repr(vault)
+        return vault
