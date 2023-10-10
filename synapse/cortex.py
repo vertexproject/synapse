@@ -1649,6 +1649,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to check if the Axon contains a file.'},
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
+
+            {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'add'), 'gate': 'cortex',
+             'desc': 'Controls the ability to add a new Extended HTTP API on the Cortex.'},
+            {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'get'), 'gate': 'cortex',
+             'desc': 'Controls the ability to get or list Extended HTTP APIs on the Cortex.'},
+            {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'del'), 'gate': 'cortex',
+             'desc': 'Controls the ability to delete a Extended HTTP API on the Cortex.'},
+            {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'mod'), 'gate': 'cortex',
+             'desc': 'Controls the ability to modify a Extended HTTP API on the Cortex.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
