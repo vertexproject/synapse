@@ -108,7 +108,7 @@ stormcds = [
 
 class HttpApi(s_stormtypes.StormType):
     '''
-    HTTPApi object
+    Custom HTTPApi object
     '''
     _storm_typename = 'http:api'
     _storm_locals = ()
@@ -267,7 +267,7 @@ class HttpApi(s_stormtypes.StormType):
         for pdef in perms:
             if isinstance(pdef, str):
                 if pdef.startswith('!'):
-                    raise s_exc.BadArg(mesg=f'Permission assignment must not start with a !, got {perm}')
+                    raise s_exc.BadArg(mesg=f'Permission assignment must not start with a !, got {pdef}')
                 parts = pdef.split('.')
                 pdef = {'perm': parts, 'default': False}
 
@@ -290,6 +290,7 @@ class HttpApi(s_stormtypes.StormType):
 @s_stormtypes.registry.registerType
 class HttpApiMethods(s_stormtypes.Prim):
     '''
+    Accessor dictionary for getting and setting http:api methods.
     '''
     _storm_typename = 'http:api:methods'
     _storm_locals = ()
@@ -391,7 +392,7 @@ class HttpApiMethods(s_stormtypes.Prim):
 @s_stormtypes.registry.registerType
 class HttpDict(s_stormtypes.Dict):
     '''
-    Immutable lowercase key access dictionary for HTTP request headers and parameters
+    Immutable lowercase key access dictionary for HTTP request headers.
     '''
     _storm_typename = 'http:request:headers'
     _storm_locals = ()
@@ -442,7 +443,7 @@ class HttpApiVars(s_stormtypes.Dict):
 @s_stormtypes.registry.registerType
 class HttpReq(s_stormtypes.StormType):
     '''
-    TODO Write new docstrings
+    Custom HTTP API Request object.
     '''
     _storm_typename = 'http:api:request'
     _storm_locals = ()
@@ -548,6 +549,7 @@ class HttpReq(s_stormtypes.StormType):
 @s_stormtypes.registry.registerLib
 class CortexHttpApi(s_stormtypes.Lib):
     '''
+    Library for interacting with the Custom HTTP API.
     '''
     _storm_locals = ()
     _storm_lib_path = ('cortex', 'httpapi')
