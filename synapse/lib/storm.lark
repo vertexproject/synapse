@@ -242,7 +242,7 @@ TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
 tagmatch: _MATCHHASH (_varvalu | _wildtagsegs)
-_MATCHHASH.3: /#(?=([\w.]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*(\$(?!([\w.]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\*([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)|\*(?!([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)))/
+_MATCHHASH.3: /#(?=[\w.]*(\$(?!([\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\*([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)|\*(?!([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)))/
 
 _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
