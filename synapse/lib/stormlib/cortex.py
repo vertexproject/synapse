@@ -57,16 +57,22 @@ stormcds = [
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
         $lib.print(`Description: {$api.desc}`)
-
+        $lib.print('')
         $perms = $api.perms
         if $perms {
+            $lib.print('The following user permissions are required to run this custom HTTP API endpoint:')
             for $pdef in $perms {
                 $perm = $pdef.perm
                 $default = $pdef.default
+                $valu = $lib.str.join('.', $perm)
+                if $default {
+                    $valu = `{$valu}, default: true`
+                }
+                $lib.print($valu)
             }
-            // pass
+            $lib.print('')
         } else {
-            $lib.print('No user permissions are required to run this handler.')
+            $lib.print('No user permissions are required to run this custom HTTP API endpoint.')
         }
         $methods = $api.methods
         if $methods {
@@ -75,6 +81,7 @@ stormcds = [
                 $lib.print(`Method: {$meth.upper()}`)
                 $lib.print($storm)
             }
+            $lib.print('')
         } else {
             $lib.print('No HTTP Methods are set for the handler.')
         }
@@ -82,8 +89,9 @@ stormcds = [
         if $vars {
             $lib.print('The handler has the following runtime variables set:')
             for ($key, $valu) in $vars {
-                $lib.print(`{$key} => {$valu}`)
+                $lib.print(`{$key.ljust(16)} => {$valu}`)
             }
+            $lib.print('')
         } else {
             $lib.print('No vars are set for the handler.')
         }

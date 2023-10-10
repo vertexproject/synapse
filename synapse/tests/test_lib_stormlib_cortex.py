@@ -383,7 +383,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 buf = await resp.json()
                 pprint(buf)
 
-    async def test_libcortex_httpapi_order(self):
+    async def test_libcortex_httpapi_order_stat(self):
 
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
@@ -392,125 +392,155 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            # Define our first handler!
+            # Define a few handlers
             q = '''
-            $api = $lib.cortex.httpapi.add('hehe/haha')
-            $api.methods.get = ${
-            $data = ({'path': $request.path})
-            $request.reply(200, body=$data)
-            }
-            $api.methods.head = ${
-                $request.replay(200, ({"yup": "it exists"}) )
-            }
-            $api.name = 'the hehe/haha handler'
-            $api.desc = 'beep boop zoop robot captain'
-            $api.runas = user
+            $api = $lib.cortex.httpapi.add('hehe/([a-z0-9]*)')
+            $api.methods.get = ${ $request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path})) }
+            $api.methods.head = ${ $request.replay(200, headers=({"yup": "wildcard"}) ) }
+            $api.name = 'the hehe wildcard handler'
+            $api.desc = 'wildcard words'
+            $api.runas = owner
             return ( $api.iden )
             '''
             iden0 = await core.callStorm(q)
 
             q = '''
-            $api = $lib.cortex.httpapi.add('hehe')
-            $api.methods.get = ${
-            $data = ({'path': $request.path})
-            $request.reply(200, body=$data)
-            }
-            $api.authenticated = $lib.false
+            $api = $lib.cortex.httpapi.add('hehe/haha')
+            $api.methods.get = ${ $request.reply(200, headers=({"yup": "hehe/haha"}), body=({"path": $request.path})) }
+            $api.methods.head = ${ $request.replay(200, headers=({"yup": "hehe/haha"}) ) }
+            $api.name = 'the hehe/haha handler'
+            $api.desc = 'beep boop zoop robot captain'
+            $api.runas = user
+            $api.perms = (
+                ({"perm": ["hehe", "haha"]}),
+                ({"perm": ["some", "thing"], "default": $lib.true}),
+            )
             return ( $api.iden )
             '''
             iden1 = await core.callStorm(q)
 
             q = '''
-            $api = $lib.cortex.httpapi.add('wow')
-            $api.methods.get = ${
-            $data = ({'path': $request.path})
-            $request.reply(200, body=$data)
-            }
+            $api = $lib.cortex.httpapi.add('hehe')
+            $api.methods.get = ${ $request.reply(200, headers=({"yup": "hehe"}), body=({"path": $request.path})) }
+            $api.methods.head = ${ $request.replay(200, headers=({"yup": "hehe"})) }
             $api.authenticated = $lib.false
             return ( $api.iden )
             '''
             iden2 = await core.callStorm(q)
 
-            msgs = await core.stormlist('httpapi.ext.list')
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
-
-            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden0}})
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
-
-            msgs = await core.stormlist('httpapi.ext.index $iden 1', opts={'vars': {'iden': iden0}})
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
-
-            msgs = await core.stormlist('httpapi.ext.list')
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
-
-            msgs = await core.stormlist('httpapi.ext.index $iden 100', opts={'vars': {'iden': iden1}})
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
-
-            msgs = await core.stormlist('httpapi.ext.list')
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
-
-            q = '''$api = $lib.cortex.httpapi.get($iden)
-
-            $api = $lib.cortex.httpapi.get($iden)
-
-            $vars = $api.vars  // _ctor to make a thin object
-            $vars.hehe = haha // set and persist hehe=haha
-
-            $lib.print('pre _stor')
-            for ($k, $v) in $vars {
-                $lib.print(`{$k} -> {$v}`)
-            }
-
-            // Use a _stor to smash the data in
-            $api.vars = ({"hehe": "i am silly", "why": "why not"})
-
-            $lib.print('post _stor')
-            for ($k, $v) in $vars {
-                $lib.print(`{$k} -> {$v}`)
-            }
+            q = '''
+            $api = $lib.cortex.httpapi.add('wow')
+            $api.methods.get = ${ $request.reply(200, body=({"path": $request.path})) }
+            $api.authenticated = $lib.false
+            $api.vars.hehe = wow
+            $api.vars.items = (1, 2, (3) )
+            return ( $api.iden )
             '''
-            msgs = await core.stormlist(q, opts={'vars': {'iden': iden0}})
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
+            iden3 = await core.callStorm(q)
 
-            self.stormHasNoWarnErr(msgs)
-            self.stormIsInPrint('hehe -> haha', msgs)
-            self.stormIsInPrint('hehe -> i am silly', msgs)
-            self.stormIsInPrint('why -> why not', msgs)
+            msgs = await core.stormlist('httpapi.ext.list')
+            self.stormIsInPrint(f'0     {iden0}', msgs)
+            self.stormIsInPrint(f'1     {iden1}', msgs)
+            self.stormIsInPrint(f'2     {iden2}', msgs)
+            self.stormIsInPrint(f'3     {iden3}', msgs)
 
+            # Order matters. The hehe/haha path occurs after the wildcard.
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe/haha')
+                self.eq(resp.headers.get('yup'), 'wildcard')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/ohmy1234')
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe/ohmy1234')
+                self.eq(resp.headers.get('yup'), 'wildcard')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe')
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe')
+                self.eq(resp.headers.get('yup'), 'hehe')
+
+            # Move the wildcard handler after the more specific handler
+            msgs = await core.stormlist('httpapi.ext.index $iden 1', opts={'vars': {'iden': iden0}})
+            self.stormIsInPrint(f'Set HTTP API {iden0} to index 1', msgs)
+
+            msgs = await core.stormlist('httpapi.ext.list')
+            self.stormIsInPrint(f'0     {iden1}', msgs)
+            self.stormIsInPrint(f'1     {iden0}', msgs)
+            self.stormIsInPrint(f'2     {iden2}', msgs)
+            self.stormIsInPrint(f'3     {iden3}', msgs)
+
+            # The wildcard handler does not match the more specific request as a result of the new order
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe/haha')
+                self.eq(resp.headers.get('yup'), 'hehe/haha')
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/ohmy1234')
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe/ohmy1234')
+                self.eq(resp.headers.get('yup'), 'wildcard')
+
+                # The paths are matched in case sensitive manner. The current regex fails to match.
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/OhMy1234')
+                self.eq(resp.status, 404)
+
+                q = "$api=$lib.cortex.httpapi.get($iden) $api.path='hehe/([A-Za-z0-9]*)' "
+                await core.callStorm(q, opts={'vars': {'iden': iden0}})
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/OhMy1234')
+                data = await resp.json()
+                self.eq(data.get('path'), 'hehe/OhMy1234')
+                self.eq(resp.headers.get('yup'), 'wildcard')
+
+            # We can move the endpoint to the end of the list too. An arbitrary high
+            # index will place it at the end.
+            msgs = await core.stormlist('httpapi.ext.index $iden 100', opts={'vars': {'iden': iden0}})
+            self.stormIsInPrint(f'Set HTTP API {iden0} to index 3', msgs)
+
+            msgs = await core.stormlist('httpapi.ext.list')
+            self.stormIsInPrint(f'0     {iden1}', msgs)
+            self.stormIsInPrint(f'1     {iden2}', msgs)
+            self.stormIsInPrint(f'2     {iden3}', msgs)
+            self.stormIsInPrint(f'3     {iden0}', msgs)
+
+            # Show detailed information for a given api
             msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden0}})
-            for m in msgs:
-                if m[0] == 'print':
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
+            self.stormIsInPrint(f'Iden: {iden0}', msgs)
+            self.stormIsInPrint('Owner: root', msgs)
+            self.stormIsInPrint('Runas: owner', msgs)
+            self.stormIsInPrint('Readonly: false', msgs)
+            self.stormIsInPrint('Authenticated: true', msgs)
+            self.stormIsInPrint('Name: the hehe wildcard handler', msgs)
+            self.stormIsInPrint('Description: wildcard words', msgs)
+            self.stormIsInPrint('No user permissions are required to run this custom HTTP API endpoint.', msgs)
+            self.stormIsInPrint('Method: GET', msgs)
+            self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path}))',
+                                msgs)
+            self.stormIsInPrint(f'Method: HEAD', msgs)
+            self.stormIsInPrint('$request.replay(200, headers=({"yup": "wildcard"}) )', msgs)
+            self.stormIsInPrint('No vars are set for the handler.', msgs)
+
+            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden1}})
+            self.stormIsInPrint(f'Iden: {iden1}', msgs)
+            self.stormIsInPrint('Owner: root', msgs)
+            self.stormIsInPrint('Runas: user', msgs)
+            self.stormIsInPrint('Readonly: false', msgs)
+            self.stormIsInPrint('Authenticated: true', msgs)
+            self.stormIsInPrint('Name: the hehe/haha handler', msgs)
+            self.stormIsInPrint('Description: beep boop zoop robot captain', msgs)
+            self.stormIsInPrint('The following user permissions are required to run this custom HTTP API endpoint:',
+                                msgs)
+            self.stormIsInPrint('hehe.haha', msgs)
+            self.stormIsInPrint('some.thing, default: true', msgs)
+
+            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden3}})
+            self.stormIsInPrint(f'Iden: {iden3}', msgs)
+            self.stormIsInPrint('The handler has the following runtime variables set:', msgs)
+            self.stormIsInPrint('hehe             => wow', msgs)
+            self.stormIsInPrint("items            => ('1', '2', 3)", msgs)
 
     async def test_libcortex_httpapi_auth(self):
         async with self.getTestCore() as core:
@@ -852,6 +882,32 @@ for $i in $values {
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchVar')
                 self.eq(data.get('mesg'), 'Missing variable: sup')
+
+            q = '''$api = $lib.cortex.httpapi.get($iden)
+
+            $api = $lib.cortex.httpapi.get($iden)
+
+            $vars = $api.vars  // _ctor to make a thin object
+            $vars.hehe = haha // set and persist hehe=haha
+
+            $lib.print('pre _stor')
+            for ($k, $v) in $vars {
+                $lib.print(`{$k} -> {$v}`)
+            }
+
+            // Use a _stor to set new vars in place
+            $api.vars = ({"hehe": "i am silly", "why": "why not"})
+
+            $lib.print('post _stor')
+            for ($k, $v) in $vars {
+                $lib.print(`{$k} -> {$v}`)
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint('hehe -> haha', msgs)
+            self.stormIsInPrint('hehe -> i am silly', msgs)
+            self.stormIsInPrint('why -> why not', msgs)
 
     async def test_libcortex_httpapi_fsm_sadpath(self):
 
