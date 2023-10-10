@@ -466,6 +466,9 @@ class SubGraph:
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
+            # delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+
+            # rev = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             rev = {}
 
             for b in existing:
@@ -475,11 +478,12 @@ class SubGraph:
                 # load the existing graph as already done
                 await results.add(buid)
 
-                async for n2buid, verb in runt.snap.iterEdgePref(buid):
-                    if rev.get(n2buid) is None:
-                        rev[n2buid] = collections.defaultdict(list)
+                async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
 
-                    rev[n2buid][buid].append(verb)
+                    if rev.get(n2iden) is None:
+                        rev[n2iden] = collections.defaultdict(list)
+
+                    rev[n2iden][b].append(verb)
                     await asyncio.sleep(0)
 
             async def todogenr():
@@ -548,22 +552,23 @@ class SubGraph:
                         await intodo.add(pivn.buid)
 
                 if doedges:
-
-                    async for n2buid, verb in runt.snap.iterEdgePref(node.buid):
+                    n1iden = node.iden()
+                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(node.buid):
                         await asyncio.sleep(0)
-                        if rev.get(n2buid) is None:
-                            rev[n2buid] = collections.defaultdict(list)
 
-                        # TODO: old way doesn't make self-referential nodes?
-                        if n2buid != node.buid:
-                            rev[n2buid][node.buid].append(verb)
-                            if n2buid in results:
-                                edges.append((s_common.ehex(n2buid), {'type': 'edge', 'verb': verb}))
+                        if rev.get(n2iden) is None:
+                            rev[n2iden] = collections.defaultdict(list)
 
-                    for n1buid, verbs in rev.get(node.buid, {}).items():
-                        for verb in verbs:
-                            await asyncio.sleep(0)
-                            edges.append((s_common.ehex(n1buid), {'type': 'edge', 'verb': verb, 'reverse': True}))
+                        if n2iden != n1iden:
+                            rev[n2iden][n1iden].append(verb)
+                            if s_common.uhex(n2iden) in results:
+                                edges.append((n2iden, {'type': 'edge', 'verb': verb}))
+
+                    if n1iden in rev:
+                        for n2iden, verbs in rev[n1iden].items():
+                            for verb in verbs:
+                                await asyncio.sleep(0)
+                                edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                     await results.add(node.buid)
 

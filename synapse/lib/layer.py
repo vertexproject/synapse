@@ -3762,11 +3762,6 @@ class Layer(s_nexus.Pusher):
         for lkey, venc in self.layrslab.scanByDups(n1buid + n2buid, db=self.edgesn1n2):
             yield venc.decode()
 
-    async def iterEdgePref(self, buid):
-        for lkey, lval in self.layrslab.scanByPref(buid, db=self.edgesn1n2):
-            n2buid = lkey[32:]
-            yield n2buid, lval.decode()
-
     async def hasNodeEdge(self, buid1, verb, buid2):
         lkey = buid1 + verb.encode()
         return self.layrslab.hasdup(lkey, buid2, db=self.edgesn1)
