@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 stormcds = [
     {
         'name': 'cortex.httpapi.list',
-        'descr': 'List Custom HTTP API endpoints',
+        'descr': 'List Extended HTTP API endpoints',
         'cmdargs': (),
         'storm': '''
         $apis = $lib.cortex.httpapi.list()
@@ -31,13 +31,13 @@ stormcds = [
                 $lib.print($mesg)
             }
         } else {
-            $lib.print('No Custom HTTP API endpoints are registered.')
+            $lib.print('No Extended HTTP API endpoints are registered.')
         }
         '''
     },
     {
         'name': 'cortex.httpapi.stat',
-        'descr': 'Get details for a Custom HTTP API endpoint.',
+        'descr': 'Get details for a Extended HTTP API endpoint.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to inspect', 'type': 'str'}),
         ),
@@ -65,7 +65,7 @@ stormcds = [
         $lib.print('')
         $perms = $api.perms
         if $perms {
-            $lib.print('The following user permissions are required to run this custom HTTP API endpoint:')
+            $lib.print('The following user permissions are required to run this HTTP API endpoint:')
             for $pdef in $perms {
                 $perm = $pdef.perm
                 $default = $pdef.default
@@ -77,7 +77,7 @@ stormcds = [
             }
             $lib.print('')
         } else {
-            $lib.print('No user permissions are required to run this custom HTTP API endpoint.')
+            $lib.print('No user permissions are required to run this HTTP API endpoint.')
         }
         $methods = $api.methods
         if $methods {
@@ -105,7 +105,7 @@ stormcds = [
     {
         'name': 'cortex.httpapi.index',
         # TODO Give detailed example
-        'desc': 'Set the index of a Custom HTTP API endpoint.',
+        'desc': 'Set the index of a Extended HTTP API endpoint.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to move.', 'type': 'str'}),
             ('index', {'help': 'The order value to move the endpoint too.', 'type': 'int'}),
@@ -120,7 +120,7 @@ stormcds = [
 
 class HttpApi(s_stormtypes.StormType):
     '''
-    Custom HTTPApi object
+    Extended HTTPApi object
     '''
     _storm_typename = 'http:api'
     _storm_locals = ()
@@ -452,7 +452,7 @@ class HttpApiVars(s_stormtypes.Dict):
 @s_stormtypes.registry.registerType
 class HttpReq(s_stormtypes.StormType):
     '''
-    Custom HTTP API Request object.
+    Extended HTTP API Request object.
     '''
     _storm_typename = 'http:api:request'
     _storm_locals = ()
@@ -559,7 +559,7 @@ class HttpReq(s_stormtypes.StormType):
 @s_stormtypes.registry.registerLib
 class CortexHttpApi(s_stormtypes.Lib):
     '''
-    Library for interacting with the Custom HTTP API.
+    Library for interacting with the Extended HTTP API.
     '''
     _storm_locals = ()
     _storm_lib_path = ('cortex', 'httpapi')

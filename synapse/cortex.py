@@ -4344,7 +4344,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             _obj = self.getView(valu)
             if _obj is None:
                 raise s_exc.NoSuchView(mesg=f'Cannot set view={valu} on extended httpapi, it does not exist.')
-                # TODO Discuss - use "custom http api" in code + documentation
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 
@@ -4367,12 +4366,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg(mesg=f'indx must be greater than or equal to 0; got {indx}')
         byts = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
         if byts is None:
-            raise s_exc.SynErr(mesg='No Custom HTTP handlers registered. Cannot set order.')
+            raise s_exc.SynErr(mesg='No Extended HTTP handlers registered. Cannot set order.')
 
         order = list(s_msgpack.un(byts))
 
         if iden not in order:
-            raise s_exc.NoSuchIden(mesg=f'Custom HTTP API is not set: {iden}')
+            raise s_exc.NoSuchIden(mesg=f'Extended HTTP API is not set: {iden}')
 
         order.remove(iden)
         # indx values > length of the list end up at the end of the list.

@@ -1277,7 +1277,7 @@ class ExtApiHandler(StormHandler):
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
             self.set_status(404)
-            self.sendRestErr('NoSuchPath', f'No Custom HTTP API endpoint matches {path}')
+            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}')
             return await self.finish()
 
         useriden = adef.get('owner')
@@ -1341,7 +1341,7 @@ class ExtApiHandler(StormHandler):
 
         if storm is None:
             self.set_status(500)
-            self.sendRestErr('NeedConfValu', f'Custom HTTP API {iden} has no method for {meth.upper()}')
+            self.sendRestErr('NeedConfValu', f'Extended HTTP API {iden} has no method for {meth.upper()}')
             return await self.finish()
 
         query = '\n'.join((self.storm_prefix, storm))
@@ -1356,7 +1356,7 @@ class ExtApiHandler(StormHandler):
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
                         # log the error and move along.
-                        mesg = f'Custom HTTP API {iden} tried to set code after sending body.'
+                        mesg = f'Extended HTTP API {iden} tried to set code after sending body.'
                         logger.error(mesg)
                         continue
 
@@ -1368,7 +1368,7 @@ class ExtApiHandler(StormHandler):
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
                         # log the error and move along.
-                        mesg = f'Custom HTTP API {iden} tried to set headers after sending body.'
+                        mesg = f'Extended HTTP API {iden} tried to set headers after sending body.'
                         logger.error(mesg)
                         continue
                     for hkey, hval in info['headers'].items():
@@ -1379,7 +1379,7 @@ class ExtApiHandler(StormHandler):
                         self.clear()
                         self.set_status(500)
                         self.sendRestErr('StormRuntimeError',
-                                         f'Custom HTTP API {iden} must set status code before sending body.')
+                                         f'Extended HTTP API {iden} must set status code before sending body.')
                         return await self.finish()
                     rbody = True
                     body = info['body']
@@ -1388,7 +1388,7 @@ class ExtApiHandler(StormHandler):
 
                 if mtyp == 'err':
                     errname, erfo = info
-                    mesg = f'Error executing custom HTTP API {iden}: {errname} {erfo.get("mesg")}'
+                    mesg = f'Error executing Extended HTTP API {iden}: {errname} {erfo.get("mesg")}'
                     logger.error(mesg)
                     if rbody:
                         # We've already flushed() the stream at this point, so we cannot
@@ -1407,16 +1407,16 @@ class ExtApiHandler(StormHandler):
         except Exception as e:
             rcode = True
             enfo = s_common.err(e)
-            logger.exception(f'Custom HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+            logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
             if rbody is False:
                 self.clear()
                 self.set_status(500)
                 self.sendRestErr(enfo[0],
-                                 f'Custom HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+                                 f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
 
         if rcode is False:
             self.clear()
             self.set_status(500)
-            self.sendRestErr('StormRuntimeError', f'Custom HTTP API {iden} never set status code.')
+            self.sendRestErr('StormRuntimeError', f'Extended HTTP API {iden} never set status code.')
 
         await self.finish()

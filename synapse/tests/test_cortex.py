@@ -7639,7 +7639,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('lowuser', mesg.get('target_username'))
 
     async def test_cortex_ext_httpapi(self):
-        # Cortex API tests for Custom HttpAPI
+        # Cortex API tests for Extended HttpAPI
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
 
             newp = s_common.guid()

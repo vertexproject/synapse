@@ -153,7 +153,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, 500)
                 data = await resp.json()
-                self.eq(data.get('mesg'), f'Custom HTTP API {testpath00} has no method for POST')
+                self.eq(data.get('mesg'), f'Extended HTTP API {testpath00} has no method for POST')
 
                 # Unsetting a HEAD method and calling it yields a 500
                 # but still has no body in the response.
@@ -189,7 +189,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, 404)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchPath')
-                self.eq(data.get('mesg'), 'No Custom HTTP API endpoint matches testpath01')
+                self.eq(data.get('mesg'), 'No Extended HTTP API endpoint matches testpath01')
 
                 # Test method reply types
                 q = '''$api = $lib.cortex.httpapi.add(testreply)
@@ -209,6 +209,60 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     self.eq(resp.status, 200)
                     data = await resp.json()
                     self.eq(data, valu)
+
+                # Echo handler returns the request data.
+                # This also shows some flattening of request data we do.
+
+                q = '''$api = $lib.cortex.httpapi.add('echo/(.*)/([a-zA-Z0-9]*)?')
+                $api.methods.get = ${
+                $data = ({
+                    "echo": $lib.true,
+                    "method": $request.method,
+                    "headers": $request.headers,
+                    "params": $request.params,
+                    "uri": $request.uri,
+                    "path": $request.path,
+                    "remote_ip": $request.remote_ip,
+                    "args": $request.args,
+                })
+                try {
+                    $data.json = $request.json
+                } catch StormRuntimeError as err {
+                    $data.json = "err"
+                }
+                $headers = ({'Echo': 'hehe!'})
+                $request.reply(200, headers=$headers, body=$data)
+                }
+                return ( $api.iden )
+                '''
+                echoiden = await core.callStorm(q)
+
+                url = f'https://lowuser:secret@localhost:{hport}/api/ext/echo/sup/?echo=test&giggle=haha&echo=eggs'
+                resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke')),
+                                      json={'look': 'at this!'},
+                                      )
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('args'), ['sup', ''])
+                self.eq(data.get('echo'), True)
+                self.eq(data.get('headers').get('hehe'), 'haha')
+                self.eq(data.get('headers').get('apikey'), 'secret')
+                self.eq(data.get('json'), {'look': 'at this!'})
+                self.eq(data.get('method'), 'GET')
+                self.eq(data.get('params'), {'echo': 'test', 'giggle': 'haha'})
+                self.eq(data.get('path'), 'echo/sup/')
+                self.isin('remote_ip', data)
+                self.eq(data.get('uri'), '/api/ext/echo/sup/?echo=test&giggle=haha&echo=eggs')
+
+                url = f'https://lowuser:secret@localhost:{hport}/api/ext/echo/words/wOw'
+                resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke')),
+                                      data=b'hehe',
+                                      )
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('args'), ['words', 'wOw'])
+                self.eq(data.get('json'), 'err')
+                self.eq(data.get('path'), 'echo/words/wOw')
 
                 # Sad paths on the $request methods
                 q = '''$api = $lib.cortex.httpapi.add(testpath02)
@@ -526,7 +580,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe wildcard handler', msgs)
             self.stormIsInPrint('Description: wildcard words', msgs)
-            self.stormIsInPrint('No user permissions are required to run this custom HTTP API endpoint.', msgs)
+            self.stormIsInPrint('No user permissions are required to run this HTTP API endpoint.', msgs)
             self.stormIsInPrint('Method: GET', msgs)
             self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path}))',
                                 msgs)
@@ -542,7 +596,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Authenticated: true', msgs)
             self.stormIsInPrint('Name: the hehe/haha handler', msgs)
             self.stormIsInPrint('Description: beep boop zoop robot captain', msgs)
-            self.stormIsInPrint('The following user permissions are required to run this custom HTTP API endpoint:',
+            self.stormIsInPrint('The following user permissions are required to run this HTTP API endpoint:',
                                 msgs)
             self.stormIsInPrint('hehe.haha', msgs)
             self.stormIsInPrint('some.thing, default: true', msgs)
@@ -1047,24 +1101,24 @@ for $i in $values {
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
-                self.eq(data.get('mesg'), f'Custom HTTP API {iden00} never set status code.')
+                self.eq(data.get('mesg'), f'Extended HTTP API {iden00} never set status code.')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad01')
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.notin('oh', resp.headers)
                 self.eq(data.get('code'), 'StormRuntimeError')
-                self.eq(data.get('mesg'), f'Custom HTTP API {iden01} never set status code.')
+                self.eq(data.get('mesg'), f'Extended HTTP API {iden01} never set status code.')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad02')
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.notin('oh', resp.headers)
                 self.eq(data.get('code'), 'StormRuntimeError')
-                self.eq(data.get('mesg'), f'Custom HTTP API {iden02} must set status code before sending body.')
+                self.eq(data.get('mesg'), f'Extended HTTP API {iden02} must set status code before sending body.')
 
                 with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Custom HTTP API {iden03} tried to set code after sending body.') as stream:
+                                               f'Extended HTTP API {iden03} tried to set code after sending body.') as stream:
 
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad03')
                     self.true(await stream.wait(timeout=6))
@@ -1072,7 +1126,7 @@ for $i in $values {
                     self.eq(await resp.read(), b'text')
 
                 with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Custom HTTP API {iden04} tried to set headers after sending body.') as stream:
+                                               f'Extended HTTP API {iden04} tried to set headers after sending body.') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad04')
                     self.true(await stream.wait(timeout=6))
                     self.eq(resp.status, 200)
@@ -1085,7 +1139,7 @@ for $i in $values {
                 self.eq(data.get('mesg'), "invalid literal for int() with base 0: 'notAnInt'")
 
                 with self.getAsyncLoggerStream('synapse.lib.httpapi',
-                                               f'Error executing custom HTTP API {iden06}: BadTypeValu') as stream:
+                                               f'Error executing Extended HTTP API {iden06}: BadTypeValu') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad06')
                     self.true(await stream.wait(timeout=6))
                     self.eq(resp.status, 201)
