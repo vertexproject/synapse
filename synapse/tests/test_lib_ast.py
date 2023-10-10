@@ -2578,14 +2578,17 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('$tag=taga* test:str +#$tag'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag=2023'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*=2023')
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*@=2023')
 
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('$tag=taga* test:str +#$tag=2023')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*>2023')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#taga*min>=2023')
 
             self.len(2, await core.nodes('test:str +#taga*:score'))
             self.len(1, await core.nodes('test:str +#tagaa:score=5'))
@@ -2594,11 +2597,17 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score=5'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score*range=(4,6)'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*:score=2023')
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*:score@=2023')
 
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('$tag=taga* test:str +#$tag:score=2023')
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score>2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score*min>=2023')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#taga:score*min>=2023')

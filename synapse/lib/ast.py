@@ -1755,7 +1755,7 @@ class PivotToTags(PivotOper):
 
         assert len(self.kids) == 1
         kid = self.kids[0]
-        assert isinstance(kid, TagMatch)
+        assert isinstance(kid, (TagMatch, TagName))
 
         if kid.isconst:
 
@@ -2710,19 +2710,12 @@ class TagValuCond(Cond):
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
-                if '*' in name:
-                    mesg = f'Wildcard tag names may not be used in conjunction with tag value comparison: {name}'
-                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
-
                 valu = await rnode.compute(runt, path)
                 return cmprctor(valu)(node.tags.get(name))
 
             return cond
 
         name = await lnode.compute(runt, None)
-        if '*' in name:
-            mesg = f'Wildcard tag names may not be used in conjunction with tag value comparison: {name}'
-            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
         if isinstance(rnode, Const):
 
@@ -2802,10 +2795,6 @@ class TagPropCond(Cond):
 
             tag = await self.kids[0].compute(runt, path)
             name = await self.kids[1].compute(runt, path)
-
-            if '*' in tag:
-                mesg = f'Wildcard tag names may not be used in conjunction with tagprop value comparison: {tag}'
-                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=tag))
 
             prop = runt.model.getTagProp(name)
             if prop is None:
@@ -3199,6 +3188,9 @@ class TagName(Value):
     def prepare(self):
         self.isconst = not self.kids or (len(self.kids) == 1 and isinstance(self.kids[0], Const))
         self.constval = self.kids[0].value() if self.isconst and self.kids else None
+
+    def hasglob(self):
+        return False
 
     async def compute(self, runt, path):
 
