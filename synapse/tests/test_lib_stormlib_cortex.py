@@ -770,6 +770,10 @@ for $i in $values {
                 })
                 $request.reply(200, body=$data )
             }
+            // Cannot modify request headers
+            $api.methods.post = ${
+                $request.headers.newp = haha
+            }
             return ( ($api.iden, $api.owner.name) )
             '''
             iden, uname = await core.callStorm(q)
@@ -780,6 +784,7 @@ for $i in $values {
                                       headers=(('secret-KEY', 'myluggagecombination'), ('aaa', 'zzz'), ('aaa', 'wtaf')),
                                       params=(('hehe', 'haha'), ('wow', 'words'), ('hehe', 'badjoke'), ('HeHe', ':)'))
                                       )
+                self.eq(resp.status, 200)
                 data = await resp.json()
 
                 # Params are flattened and case-sensitive upon access
@@ -790,6 +795,12 @@ for $i in $values {
                 self.eq(data.get('aaa'), 'zzz')
                 self.eq(data.get('Secret-Key'), 'myluggagecombination')
                 self.eq(data.get('secret-key'), 'myluggagecombination')
+
+                resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'StormRuntimeError')
+                self.eq(data.get('mesg'), 'http:request:headers may not be modified by the runtime')
 
     async def test_libcortex_httpapi_vars(self):
 
