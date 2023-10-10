@@ -44,9 +44,8 @@ $headers = ({'Secret-Header': 'OhBoy!'})
 $request.reply(203, headers=$headers, body=$data)
             }
             $api.methods.options = ${
-$data = ({'method': 'options'})
-$headers = ({'Secret-Header': 'Options'})
-$request.reply(204, headers=$headers, body=$data)
+$headers = ({'Secret-Header': 'Options', 'Content-Type': 'application/json'})
+$request.reply(204, headers=$headers)
             }
             $api.methods.delete = ${
 $data = ({'method': 'delete'})
