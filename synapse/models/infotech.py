@@ -405,7 +405,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Flow diagram.',
                 }),
                 ('it:dev:str', ('str', {}), {
-                    'doc': 'A developer-selected string.'
+                    'doc': 'A developer selected string.'
                 }),
                 ('it:dev:pipe', ('str', {}), {
                     'doc': 'A string representing a named pipe.',
@@ -427,6 +427,9 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A version control system type taxonomy.',
                     'interfaces': ('taxonomy',)
                 }),
+                ('it:dev:repo:label', ('guid', {}), {
+                    'doc': 'A developer selected label.',
+                }),
                 ('it:dev:repo', ('guid', {}), {
                     'doc': 'A version control system instance.',
                 }),
@@ -441,6 +444,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
+                }),
+                ('it:dev:repo:issue:label', ('guid', {}), {
+                    'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
@@ -1394,6 +1400,34 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the issue in the repository system.',
+                    }),
+                )),
+
+                ('it:dev:repo:label', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the label.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The human friendly name of the label.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the label.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:label', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue the label was applied to.',
+                    }),
+                    ('label', ('it:dev:repo:label', {}), {
+                        'doc': 'The label that was applied to the issue.',
+                    }),
+                    ('applied', ('time', {}), {
+                        'doc': 'The time the label was applied.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The time the label was removed.',
                     }),
                 )),
 
