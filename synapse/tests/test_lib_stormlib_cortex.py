@@ -248,12 +248,12 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            q = '''$obj = $lib.cortex.httpapi.add(testpath00)
-            $obj.methods.get = ${
+            q = '''$api = $lib.cortex.httpapi.add(testpath00)
+            $api.methods.get = ${
                 $view = $lib.view.get()
                 $request.reply(200, body=({'view': $view.iden, "username": $lib.user.name()}) )
             }
-            return ( ($obj.iden, $obj.owner.name) )
+            return ( ($api.iden, $api.owner.name) )
             '''
             iden, uname = await core.callStorm(q)
             self.eq(uname, 'root')
@@ -265,9 +265,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(data.get('username'), 'root')
 
                 q = '''
-                $obj=$lib.cortex.httpapi.get($http_iden)
-                $user=$lib.auth.users.byname(lowuser) $obj.owner = $user
-                return ($obj.owner.name)'''
+                $api=$lib.cortex.httpapi.get($http_iden)
+                $user=$lib.auth.users.byname(lowuser) $api.owner = $user
+                return ($api.owner.name)'''
                 name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'lowuser')
 
@@ -277,9 +277,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(data.get('username'), 'lowuser')
 
                 q = '''
-                $obj=$lib.cortex.httpapi.get($http_iden)
-                $obj.runas = user
-                return ($obj.runas)'''
+                $api=$lib.cortex.httpapi.get($http_iden)
+                $api.runas = user
+                return ($api.runas)'''
                 name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'user')
 
@@ -306,8 +306,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             # Define our first handler!
             q = '''
-                $obj = $lib.cortex.httpapi.add('hehe/haha')
-                $obj.methods.get = ${
+                $api = $lib.cortex.httpapi.add('hehe/haha')
+                $api.methods.get = ${
     $data = ({'oh': 'my'})
     $headers = ({'Secret-Header': 'OhBoy!'})
     $request.reply(200, headers=$headers, body=$data)
@@ -318,8 +318,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 print(m)
 
             q = '''
-                $obj = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
-    $obj.methods.get = ${
+                $api = $lib.cortex.httpapi.add('hehe/haha/(.*)/(.*)')
+    $api.methods.get = ${
     $data = ({'oh': 'we got a wildcard match!'})
     $headers = ({'Secret-Header': 'ItsWildcarded!'})
     $request.reply(200, headers=$headers, body=$data)
@@ -329,8 +329,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             for m in msgs:
                 print(m)
 
-            q = '''$obj = $lib.cortex.httpapi.add('echo/(.*)')
-                $obj.methods.get = ${
+            q = '''$api = $lib.cortex.httpapi.add('echo/(.*)')
+                $api.methods.get = ${
                 $data = ({
                     "echo": $lib.true,
                     "method": $request.method,
@@ -394,40 +394,40 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             # Define our first handler!
             q = '''
-            $obj = $lib.cortex.httpapi.add('hehe/haha')
-            $obj.methods.get = ${
+            $api = $lib.cortex.httpapi.add('hehe/haha')
+            $api.methods.get = ${
             $data = ({'path': $request.path})
             $request.reply(200, body=$data)
             }
-            $obj.methods.head = ${
+            $api.methods.head = ${
                 $request.replay(200, ({"yup": "it exists"}) )
             }
-            $obj.name = 'the hehe/haha handler'
-            $obj.desc = 'beep boop zoop robot captain'
-            $obj.runas = user
-            return ( $obj.iden )
+            $api.name = 'the hehe/haha handler'
+            $api.desc = 'beep boop zoop robot captain'
+            $api.runas = user
+            return ( $api.iden )
             '''
             iden0 = await core.callStorm(q)
 
             q = '''
-            $obj = $lib.cortex.httpapi.add('hehe')
-            $obj.methods.get = ${
+            $api = $lib.cortex.httpapi.add('hehe')
+            $api.methods.get = ${
             $data = ({'path': $request.path})
             $request.reply(200, body=$data)
             }
-            $obj.authenticated = $lib.false
-            return ( $obj.iden )
+            $api.authenticated = $lib.false
+            return ( $api.iden )
             '''
             iden1 = await core.callStorm(q)
 
             q = '''
-            $obj = $lib.cortex.httpapi.add('wow')
-            $obj.methods.get = ${
+            $api = $lib.cortex.httpapi.add('wow')
+            $api.methods.get = ${
             $data = ({'path': $request.path})
             $request.reply(200, body=$data)
             }
-            $obj.authenticated = $lib.false
-            return ( $obj.iden )
+            $api.authenticated = $lib.false
+            return ( $api.iden )
             '''
             iden2 = await core.callStorm(q)
 
@@ -652,32 +652,32 @@ for $i in $values {
             # Set a handler which requires a single permission
 
             q = '''
-            $obj = $lib.cortex.httpapi.add('hehe/haha')
-            $obj.methods.get = ${
+            $api = $lib.cortex.httpapi.add('hehe/haha')
+            $api.methods.get = ${
             $data = ({'path': $request.path})
             $request.reply(200, body=$data)
             }
-            $obj.methods.head = ${
+            $api.methods.head = ${
                 $request.replay(200, ({"yup": "it exists"}) )
             }
-            $obj.name = 'the hehe/haha handler'
-            $obj.desc = 'beep boop zoop robot captain'
-            $obj.runas = user
-            $obj.perms = (foocorp.http.user, )
-            return ( $obj.iden )
+            $api.name = 'the hehe/haha handler'
+            $api.desc = 'beep boop zoop robot captain'
+            $api.runas = user
+            $api.perms = (foocorp.http.user, )
+            return ( $api.iden )
             '''
             iden0 = await core.callStorm(q)
 
             # Set a handler which has a few permissions, using perm
             # defs to require there is a default=true permission
-            q = '''$obj = $lib.cortex.httpapi.add('weee')
-            $obj.methods.get = ${
+            q = '''$api = $lib.cortex.httpapi.add('weee')
+            $api.methods.get = ${
             $data = ({'path': $request.path})
             $request.reply(200, body=$data)
             }
-            $obj.perms = ( ({'perm': ['foocorp', 'http', 'user']}), ({'perm': ['apiuser'], 'default': $lib.true}) )
-            $obj.runas = user
-            return ( $obj.iden )
+            $api.perms = ( ({'perm': ['foocorp', 'http', 'user']}), ({'perm': ['apiuser'], 'default': $lib.true}) )
+            $api.runas = user
+            return ( $api.iden )
             '''
             iden1 = await core.callStorm(q)
 
@@ -720,12 +720,12 @@ for $i in $values {
             q = '$lyr=$lib.layer.add() $view=$lib.view.add(($lyr.iden,), name="iso view") return ( $view.iden )'
             view = await core.callStorm(q)
 
-            q = '''$obj = $lib.cortex.httpapi.add(testpath)
-            $obj.methods.get = ${
+            q = '''$api = $lib.cortex.httpapi.add(testpath)
+            $api.methods.get = ${
                 $view = $lib.view.get()
                 $request.reply(200, body=({'view': $view.iden}) )
             }
-            return ( $obj.iden )
+            return ( $api.iden )
             '''
             iden = await core.callStorm(q)
 
@@ -735,7 +735,7 @@ for $i in $values {
                 self.eq(data.get('view'), def_view)
 
                 # Change the view the endpoint uses
-                q = '$obj=$lib.cortex.httpapi.get($http_iden) $obj.view = $lib.view.get($view_iden)'
+                q = '$api=$lib.cortex.httpapi.get($http_iden) $api.view = $lib.view.get($view_iden)'
                 msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden, 'view_iden': view}})
                 self.stormHasNoWarnErr(msgs)
 
@@ -744,7 +744,7 @@ for $i in $values {
                 self.eq(data.get('view'), view)
 
                 # Our gtor gives a heavy view object
-                name = await core.callStorm('$obj=$lib.cortex.httpapi.get($http_iden) return ($obj.view.get(name))',
+                name = await core.callStorm('$api=$lib.cortex.httpapi.get($http_iden) return ($api.view.get(name))',
                                             opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'iso view')
 
@@ -759,8 +759,8 @@ for $i in $values {
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            q = '''$obj = $lib.cortex.httpapi.add(testpath)
-            $obj.methods.get = ${
+            q = '''$api = $lib.cortex.httpapi.add(testpath)
+            $api.methods.get = ${
                 $data = ({
                     "Secret-Key": $request.headers."Secret-Key",
                     "secret-key": $request.headers."secret-key",
@@ -770,7 +770,7 @@ for $i in $values {
                 })
                 $request.reply(200, body=$data )
             }
-            return ( ($obj.iden, $obj.owner.name) )
+            return ( ($api.iden, $api.owner.name) )
             '''
             iden, uname = await core.callStorm(q)
             self.eq(uname, 'root')
@@ -800,12 +800,12 @@ for $i in $values {
             await core.setUserPasswd(lowuser, 'secret')
             addr, hport = await core.addHttpsPort(0)
 
-            q = '''$obj = $lib.cortex.httpapi.add(testpath)
-            $obj.methods.get =  ${ $data = ({"hehe": $hehe }) $request.reply(200, body=$data) }
-            $obj.methods.post = ${ $data = ({"sup": $sup })   $request.reply(200, body=$data) }
-            $obj.vars.hehe = haha
-            $obj.vars.sup = dawg
-            return ( ($obj.iden) )
+            q = '''$api = $lib.cortex.httpapi.add(testpath)
+            $api.methods.get =  ${ $data = ({"hehe": $hehe }) $request.reply(200, body=$data) }
+            $api.methods.post = ${ $data = ({"sup": $sup })   $request.reply(200, body=$data) }
+            $api.vars.hehe = haha
+            $api.vars.sup = dawg
+            return ( ($api.iden) )
             '''
             iden = await core.callStorm(q)
 
@@ -818,8 +818,8 @@ for $i in $values {
                 data = await resp.json()
                 self.eq(data.get('sup'), 'dawg')
 
-                q = '''$obj=$lib.cortex.httpapi.get($http_iden)
-                $obj.vars = ({ "hehe": "yup", "sup": "word"})
+                q = '''$api=$lib.cortex.httpapi.get($http_iden)
+                $api.vars = ({ "hehe": "yup", "sup": "word"})
                 '''
                 msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden}})
                 self.stormHasNoWarnErr(msgs)
@@ -833,7 +833,7 @@ for $i in $values {
                 self.eq(data.get('sup'), 'word')
 
                 # Cause a NoSuchVar error due to a missing var in the handler
-                q = '$obj=$lib.cortex.httpapi.get($iden) $obj.vars.sup = $lib.undef'
+                q = '$api=$lib.cortex.httpapi.get($iden) $api.vars.sup = $lib.undef'
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', )
