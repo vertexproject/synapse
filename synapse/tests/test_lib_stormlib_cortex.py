@@ -602,7 +602,7 @@ $request.reply(200, headers=$headers, body=$body)
             q = '''$api = $lib.cortex.httpapi.add('jsonlines')
             $api.methods.get = ${
 $request.sendcode(200)
-$request.sendheaders(({"Secret-Header": "OhBoy!", "Content-Type": "application/jsonlines"}))
+$request.sendheaders(({"Secret-Header": "OhBoy!", "Content-Type": "text/plain; charset=utf8"}))
 $values = ((1), (2), (3))
 for $i in $values {
     $body=`{$lib.json.save(({'oh': $i}))}\\n`
@@ -616,7 +616,7 @@ for $i in $values {
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/jsonlines')
                 self.eq(resp.status, 200)
-                self.eq(resp.headers.get('Content-Type'), 'application/jsonlines')
+                self.eq(resp.headers.get('Content-Type'), 'text/plain; charset=utf8')
 
                 msgs = []
                 bufr = b''
