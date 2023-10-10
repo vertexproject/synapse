@@ -909,6 +909,34 @@ for $i in $values {
             self.stormIsInPrint('hehe -> i am silly', msgs)
             self.stormIsInPrint('why -> why not', msgs)
 
+    async def test_libcortex_httpapi_readonly(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            # nothing
+            q = '''$api = $lib.cortex.httpapi.add(testpath)
+            $api.methods.get = ${ [inet:asn=$request.params.asn ] $request.reply(200, body=$node.value())}
+            return ( ($api.iden) )'''
+            iden = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=0')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data, 0)
+
+                msgs = await core.stormlist('$api=$lib.cortex.httpapi.get($iden) $api.readonly = $lib.true',
+                                            opts={'vars': {'iden': iden}})
+                self.stormHasNoWarnErr(msgs)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=1')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'IsReadOnly')
     async def test_libcortex_httpapi_fsm_sadpath(self):
 
         # Test to exercise sad paths of the state machine for the ExtHttpApi handler
