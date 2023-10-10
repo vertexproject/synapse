@@ -749,7 +749,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprOrNode: [ExprOrNode: [Const: 1, Const: or, Const: 1], Const: or, Const: 0]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprAndNode: [ExprAndNode: [Const: 1, Const: and, Const: 1], Const: and, Const: 0]]]]',
     'Query: [SetVarOper: [Const: var, Const: tag1], LiftTag: [TagName: [Const: base, VarValue: [Const: var]]]]',
-    'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], FiltOper: [Const: +, TagValuCond: [TagName: [Const: base, VarValue: [Const: var]], Const: @=, Const: 2014]]]',
+    'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], FiltOper: [Const: +, TagValuCond: [TagMatch: [Const: base, VarValue: [Const: var]], Const: @=, Const: 2014]]]',
     'Query: [LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: tag1], PivotToTags: [TagMatch: [Const: base, VarValue: [Const: var]]], isjoin=False]',
     'Query: [SetVarOper: [Const: var, Const: hehe], EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: var]], Const: =, Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: heval], LiftProp: [Const: test:str], SetVarOper: [Const: var, Const: hehe], FiltOper: [Const: +, HasRelPropCond: [RelProp: [VarValue: [Const: var]]]]]',

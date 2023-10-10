@@ -2590,6 +2590,21 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#taga*min>=2023')
 
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#$tag=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#$"tag"=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#foo.$"tag"=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga* test:str +#foo*.$"tag"=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".*=2023')
+
             self.len(2, await core.nodes('test:str +#taga*:score'))
             self.len(1, await core.nodes('test:str +#tagaa:score=5'))
             self.len(1, await core.nodes('test:str +#tagaa:score*range=(4,6)'))
@@ -2611,3 +2626,15 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#taga:score*min>=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#$tag:score=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#foo.$"tag":score=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga* test:str +#foo*.$"tag":score=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".*:score=2023')

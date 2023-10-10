@@ -126,7 +126,7 @@ _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | fo
 formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | tagname | tagnamewithspace | tagmatch)
 formpivot_jointags: _RIGHTJOIN (ALLTAGS | tagname | tagnamewithspace | tagmatch)
 // The special symbol that indicates to pivot to syn:tag nodes
-ALLTAGS.4: /#(?=\/[\/\*]|\s|$|\})/
+ALLTAGS.3: /#(?=\/[\/\*]|\s|$|\})/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
 formpivot_:            _RIGHTPIVOT ABSPROP
@@ -241,9 +241,9 @@ _tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
-tagmatch: (_MATCHHASH | _MATCHHASHSPACE) (_varvalu | _wildtagsegs)
-_MATCHHASH.3: /(?<!\s)#(?=([\w.]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*[*$])(?![\w*.$:]+\s*[@?!<>^~=]+)/
-_MATCHHASHSPACE.3: /(?<=\s)#(?=([\w.]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*[*$])(?!([\w*.$:])+\s*[@?!<>^~=]+)/
+tagmatch: _MATCHHASH (_varvalu | _wildtagsegs)
+_MATCHHASH.3: /#(?=([\w.]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*(\$(?!([\w.]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\*([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)|\*(?!([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)))/
+
 _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
@@ -378,10 +378,10 @@ relpropvalue:   relprop | univprop
 abspropcond:  ABSPROPNOUNIV _cmpr _valu
 hasabspropcond: ABSPROPNOUNIV
 
-tagpropcond: (tagname | tagnamewithspace) _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
+tagpropcond: (tagname | tagnamewithspace | tagmatch) _COLONNOSPACE (BASEPROP | _varvalu)  _cmpr _valu
 hastagpropcond: (tagname | tagnamewithspace | tagmatch) _COLONNOSPACE (BASEPROP | _varvalu)
 
-tagvalucond: (tagname | tagnamewithspace) _cmpr _valu
+tagvalucond: (tagname | tagnamewithspace | tagmatch) _cmpr _valu
 tagcond: (tagname | tagnamewithspace | tagmatch)
 
 condsubq: "{" query "}" [ _cmpr _valu]
