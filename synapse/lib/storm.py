@@ -4895,7 +4895,10 @@ class ViewExecCmd(Cmd):
     '''
     Execute a storm query in a different view.
 
-    NOTE: Variables are passed through but nodes are not
+    NOTE: Variables are passed through but nodes are not. The behavior of this command may be
+    non-intuitive in relation to the way storm normally operates. For further information on
+    behavior and limitations when using `view.exec`, reference the `view.exec` section of the
+    Synapse User Guide: https://v.vtx.lk/view-exec.
 
     Examples:
 
