@@ -354,7 +354,7 @@ class HandlerBase:
 
         mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
         if default:
-            mesg = f'{mesg} default=true'
+            mesg = f'User ({self.web_username}) is denied the permission {".".join(perm)}'
         self.sendRestErr('AuthDeny', mesg)
         return False
 

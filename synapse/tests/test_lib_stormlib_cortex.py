@@ -760,7 +760,12 @@ for $i in $values {
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
                 self.eq(resp.status, 403)
                 data = await resp.json()
-                self.eq(data.get('mesg'), 'User (lowuser) must have permission apiuser default=true')
+                self.eq(data.get('mesg'), 'User (lowuser) is denied the permission apiuser')
+
+            # Defining perms as !foo.bar.baz does not work
+            with self.raises(s_exc.BadArg):
+                q = "$api=$lib.cortex.httpapi.get($iden) $api.perms=('!foo.bar.baz',)"
+                await core.callStorm(q, opts={'vars': {'iden': iden0}})
 
     async def test_libcortex_httpapi_view(self):
         async with self.getTestCore() as core:
