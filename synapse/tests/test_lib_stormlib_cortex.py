@@ -434,9 +434,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             $api.methods.get = ${ $request.reply(200, headers=({"yup": "hehe"}), body=({"path": $request.path})) }
             $api.methods.head = ${ $request.replay(200, headers=({"yup": "hehe"})) }
             $api.authenticated = $lib.false
+            $api.owner = $lowuser
             return ( $api.iden )
             '''
-            iden2 = await core.callStorm(q)
+            iden2 = await core.callStorm(q, opts={'vars': {'lowuser': lowuser}})
 
             q = '''
             $api = $lib.cortex.httpapi.add('wow')
@@ -551,6 +552,20 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('The handler has the following runtime variables set:', msgs)
             self.stormIsInPrint('hehe             => wow', msgs)
             self.stormIsInPrint("items            => ('1', '2', 3)", msgs)
+
+            # Remove a user + view and stat the handler
+            badview = await core.callStorm('''$view=$lib.view.get().fork() $lib.auth.users.del($user)
+                                        $api=$lib.cortex.httpapi.get($iden)
+                                        $api.view=$view.iden
+                                        $lib.view.del($view.iden)
+                                        return ( $view.iden )
+                                        ''',
+                                        opts={'vars': {'user': lowuser, 'iden': iden2}})
+
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden2}})
+            self.stormIsInPrint(f'Iden: {iden2}', msgs)
+            self.stormIsInPrint(f'No user found ({lowuser})', msgs)
+            self.stormIsInPrint(f'No view found ({badview})', msgs)
 
     async def test_libcortex_httpapi_auth(self):
         async with self.getTestCore() as core:

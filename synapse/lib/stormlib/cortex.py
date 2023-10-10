@@ -23,7 +23,7 @@ stormcds = [
                 try {
                     $user = $api.owner.name
                 } catch NoSuchUser as err {
-                    $user = `No user found ({$err.user})`
+                    $user = `No user found ({$err.info.user})`
                 }
                 $auth = `{$api.authenticated}`
                 $order = `{$n}`
@@ -50,9 +50,14 @@ stormcds = [
         try {
             $lib.print(`Owner: {$api.owner.name} ({$api.owner.iden})`)
         } catch NoSuchUser as err {
-            $lib.print(`Owner: No user found ({$err.user})`)
+            $lib.print(`Owner: No user found ({$err.info.user})`)
         }
         $lib.print(`Runas: {$api.runas}`)
+        try {
+            $lib.print(`View: {$api.view.get(name)} ({$api.view.iden})`)
+        } catch NoSuchView as err {
+            $lib.print(`View: No view found ({$err.info.iden})`)
+        }
         $lib.print(`Readonly: {$api.readonly}`)
         $lib.print(`Authenticated: {$api.authenticated}`)
         $lib.print(`Name: {$api.name}`)
