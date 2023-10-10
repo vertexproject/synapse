@@ -3,6 +3,7 @@ Time related utilities for synapse "epoch millis" time values.
 '''
 import logging
 import datetime
+import calendar
 
 from dateutil.relativedelta import relativedelta
 
@@ -49,7 +50,9 @@ tz_re = regex.compile(
     flags=regex.IGNORECASE
 )
 
-rfc822_re = regex.compile(r'([a-z]{3},)?\d{1,2}[a-z]{3}\d{4}\d{2}:\d{2}:\d{2}')
+daycat = '|'.join(calendar.day_abbr[i].lower() for i in range(7))
+monthcat = '|'.join(calendar.month_abbr[i].lower() for i in range(1, 13))
+rfc822_re = regex.compile(r'((?:%s),)?\d{1,2}(?:%s)\d{4}\d{2}:\d{2}:\d{2}' % (daycat, monthcat))
 rfc822_fmt = '%d%b%Y%H:%M:%S'
 
 def _rawparse(text, base=None, chop=False):

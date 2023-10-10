@@ -45,15 +45,28 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('Sat, 3 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)
         self.eq(s_time.parse('17 Dec 2050 03:04:32'), 2554859072000)
 
+        self.eq(s_time.parse('20200106030432'), s_time.parse('Mon, 06 Jan 2020 03:04:32'))
+        self.eq(s_time.parse('20200105030432'), s_time.parse('Sun, 05 Jan 2020 03:04:32'))
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('17 Dec 2050 99:04:32')
+        self.isin('Error parsing time as RFC822', cm.exception.get('mesg'))
+
         with self.raises(s_exc.BadTypeValu) as cm:
             # rfc822 does support 2-digit years,
             # but strptime doesn't so it is excluded
-            self.eq(s_time.parse('Sat, 17 Dec 50 03:04:32'), 2554859072000)
+            s_time.parse('Sat, 17 Dec 50 03:04:32')
         self.isin('unconverted data remains: 2', cm.exception.get('mesg'))
 
         with self.raises(s_exc.BadTypeValu) as cm:
-            self.eq(s_time.parse('17 Nah 2050 03:04:32'), 2554859072000)
-        self.isin('Error parsing time as RFC822', cm.exception.get('mesg'))
+            # malformed times that don't match the regex will pass
+            # through to default parsing
+            s_time.parse('17 Nah 2050 03:04:32')
+        self.isin('Error parsing time "17 Nah 2050 03:04:32"', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            s_time.parse('Wut, 17 Dec 2050 03:04:32')
+        self.isin('Error parsing time "Wut, 17 Dec 2050 03:04:32"', cm.exception.get('mesg'))
 
     def test_time_parse_tz(self):
 
