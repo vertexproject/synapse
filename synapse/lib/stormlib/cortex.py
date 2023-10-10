@@ -176,9 +176,11 @@ class HttpApi(s_stormtypes.StormType):
             'pack': self._methPack,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methPack(self):
         return copy.deepcopy(self.info)
 
+    @s_stormtypes.stormfunc(readonly=True)
     def _ctorMethods(self, path):
         return HttpApiMethods(self)
 
@@ -188,6 +190,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'path', path)
         self.info['path'] = path
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorPath(self):
         return self.info.get('path')
 
@@ -197,6 +200,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'name', name)
         self.info['name'] = name
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorView(self):
         iden = self.info.get('view')
         vdef = await self.runt.snap.core.getViewDef(iden)
@@ -219,6 +223,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'view', view)
         self.info['view'] = view
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorName(self):
         return self.info.get('name')
 
@@ -228,6 +233,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'desc', desc)
         self.info['desc'] = desc
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorDesc(self):
         return self.info.get('desc')
 
@@ -237,6 +243,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'runas', runas)
         self.info['runas'] = runas
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorRunas(self):
         return self.info.get('runas')
 
@@ -246,9 +253,11 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'readonly', readonly)
         self.info['readonly'] = readonly
 
+    @s_stormtypes.stormfunc(readonly=True)
     def _ctorVars(self, path=None):
         return HttpApiVars(self, path=path)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorReadonly(self):
         return self.info.get('readonly')
 
@@ -262,6 +271,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'owner', owner)
         self.info['owner'] = owner
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorOwner(self):
         iden = self.info.get('owner')
         udef = await self.runt.snap.core.getUserDef(iden)
@@ -284,6 +294,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', pdefs)
         self.info['perms'] = pdefs
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorPerms(self):
         return self.info.get('perms')
 
@@ -293,6 +304,7 @@ class HttpApi(s_stormtypes.StormType):
         await self.runt.snap.core.modHttpExtApi(self.iden, 'authenticated', authenticated)
         self.info['authenticated'] = authenticated
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorAuthenticated(self):
         return self.info.get('authenticated')
 
@@ -377,24 +389,31 @@ class HttpApiMethods(s_stormtypes.Prim):
     async def _storMethDelete(self, query):
         return await self._storMethFunc('delete', query)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethGet(self):
         return self.httpapi.info.get('methods').get('get')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethHead(self):
         return self.httpapi.info.get('methods').get('head')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethPost(self):
         return self.httpapi.info.get('methods').get('post')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethPut(self):
         return self.httpapi.info.get('methods').get('put')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethDelete(self):
         return self.httpapi.info.get('methods').get('delete')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethPatch(self):
         return self.httpapi.info.get('methods').get('patch')
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethOptions(self):
         return self.httpapi.info.get('methods').get('options')
 
@@ -497,24 +516,29 @@ class HttpReq(s_stormtypes.StormType):
             'reply': self._methReply,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     def _ctorHeaders(self, path=None):
         headers = self.rnfo.get('headers')
         return HttpDict(valu=headers, path=path)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorApi(self):
         adef = await self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
         return HttpApi(self.runt, adef)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _gtorJson(self):
         try:
             return json.loads(self.rnfo.get('body'))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise s_exc.StormRuntimeError(mesg='Failed to decode request body as JSON: {e}') from None
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methSendCode(self, code):
         code = await s_stormtypes.toint(code)
         await self.runt.snap.fire('http:resp:code', code=code)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methSendHeaders(self, headers):
         headers = await s_stormtypes.toprim(headers)
         if not isinstance(headers, dict):
@@ -522,6 +546,7 @@ class HttpReq(s_stormtypes.StormType):
             raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary, got {typ}.')
         await self.runt.snap.fire('http:resp:headers', headers=headers)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methSendBody(self, body):
         body = await s_stormtypes.toprim(body)
         if not isinstance(body, bytes):
@@ -530,6 +555,7 @@ class HttpReq(s_stormtypes.StormType):
         await self.runt.snap.fire('http:resp:body', body=body)
 
     # Convenience method
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methReply(self, code, headers=None, body=s_stormtypes.undef):
         if self.replied:
             raise s_exc.BadArg(mesg='Response.reply() has already been call ed.')
@@ -574,16 +600,19 @@ class CortexHttpApi(s_stormtypes.Lib):
             'response': self.makeHttpResponse,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def makeHttpResponse(self, requestinfo):
         requestinfo = await s_stormtypes.toprim(requestinfo)
         return HttpReq(self.runt, requestinfo)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def getHttpApi(self, iden):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
         adef = await self.runt.snap.core.getHttpExtApiByIden(iden)
         return HttpApi(self.runt, adef)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def listHttpApis(self):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         adefs = await self.runt.snap.core.getHttpExtApis()

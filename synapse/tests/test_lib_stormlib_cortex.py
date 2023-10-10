@@ -954,6 +954,17 @@ for $i in $values {
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('code'), 'IsReadOnly')
+
+                q = '''$api=$lib.cortex.httpapi.get($iden)
+                $api.methods.get = ${ inet:asn=$request.params.asn $request.reply(200, body=$node.value()) }'''
+                msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
+                self.stormHasNoWarnErr(msgs)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=0')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data, 0)
+
     async def test_libcortex_httpapi_fsm_sadpath(self):
 
         # Test to exercise sad paths of the state machine for the ExtHttpApi handler
