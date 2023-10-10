@@ -509,8 +509,9 @@ class SubGraph:
                     await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
                     break
 
-                await done.add(node.buid)
-                intodo.discard(node.buid)
+                buid = node.buid
+                await done.add(buid)
+                intodo.discard(buid)
 
                 omitted = False
                 if dist > 0 or filterinput:
@@ -522,7 +523,8 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                edges = list(revpivs.get(node.buid, defv=()))
+                nodeiden = node.iden()
+                edges = list(revpivs.get(buid, defv=()))
                 async for pivn, pivp, pinfo in self.pivots(runt, node, path):
 
                     await asyncio.sleep(0)
@@ -532,7 +534,7 @@ class SubGraph:
                     else:
                         pinfo['reverse'] = True
                         pivedges = revpivs.get(pivn.buid, defv=())
-                        await revpivs.set(pivn.buid, pivedges + ((node.iden(), pinfo),))
+                        await revpivs.set(pivn.buid, pivedges + ((nodeiden, pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:
@@ -552,25 +554,24 @@ class SubGraph:
                         await intodo.add(pivn.buid)
 
                 if doedges:
-                    n1iden = node.iden()
-                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(node.buid):
+                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
                         await asyncio.sleep(0)
 
                         if rev.get(n2iden) is None:
                             rev[n2iden] = collections.defaultdict(list)
 
-                        if n2iden != n1iden:
-                            rev[n2iden][n1iden].append(verb)
+                        if n2iden != nodeiden:
+                            rev[n2iden][nodeiden].append(verb)
                             if s_common.uhex(n2iden) in results:
                                 edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
-                    if n1iden in rev:
-                        for n2iden, verbs in rev[n1iden].items():
+                    if nodeiden in rev:
+                        for n2iden, verbs in rev[nodeiden].items():
                             for verb in verbs:
                                 await asyncio.sleep(0)
                                 edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
-                    await results.add(node.buid)
+                    await results.add(buid)
 
                 path.metadata['edges'] = edges
                 yield node, path
