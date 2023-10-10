@@ -512,6 +512,51 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     continue
                 print(m)
 
+    async def test_libcortex_httpapi_auth(self):
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$api = $lib.cortex.httpapi.add('auth')
+            $api.methods.get = ${ $request.reply(200, body=({"username": $lib.user.name()}) ) }
+            return ( $api.iden )
+            '''
+            iden = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'root')
+
+            async with self.getHttpSess() as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
+                self.eq(resp.status, 401)
+                data = await resp.json()
+                self.eq(data.get('code'), 'NotAuthenticated')
+
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=$lib.false'
+                msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
+                self.stormHasNoWarnErr(msgs)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'root')
+
+                # authenticated = false + runas = user -> runs as owner
+                q = '$api = $lib.cortex.httpapi.get($iden) $api.runas=user'
+                msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
+                self.stormHasNoWarnErr(msgs)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
+                self.eq(resp.status, 200)
+                data = await resp.json()
+                self.eq(data.get('username'), 'root')
+
     async def test_libcortex_httpapi_raw(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
