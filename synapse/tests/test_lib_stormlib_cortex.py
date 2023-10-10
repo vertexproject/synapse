@@ -62,6 +62,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             '''
             testpath00 = await core.callStorm(q)
 
+            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden).pack() )',
+                                        opts={'vars': {'iden': testpath00}})
+            self.eq(info.get('iden'), testpath00)
+
             with self.raises(s_exc.BadSyntax):
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.get = "| | | "'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
@@ -134,7 +138,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.len(7, queries)
 
                 # Stat the api to enumerate all its method _gtors
-                msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': testpath00}})
+                msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': testpath00}})
                 self.stormIsInPrint('Method: GET', msgs)
                 self.stormIsInPrint('Method: PUT', msgs)
                 self.stormIsInPrint('Method: POST', msgs)
@@ -159,7 +163,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, 500)
                 self.eq(await resp.read(), b'')
 
-                msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': testpath00}})
+                msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': testpath00}})
                 self.stormNotInPrint('Method: POST', msgs)
                 self.stormNotInPrint('Method: HEAD', msgs)
                 self.stormIsInPrint('Method: GET', msgs)
@@ -264,8 +268,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
 
-                q = '''
-                $api=$lib.cortex.httpapi.get($http_iden)
+                q = '''$api=$lib.cortex.httpapi.get($http_iden)
                 $user=$lib.auth.users.byname(lowuser) $api.owner = $user
                 return ($api.owner.name)'''
                 name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
@@ -293,6 +296,13 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, 200)
                 data = await resp.json()
                 self.eq(data.get('username'), 'lowuser')
+
+            # Set the user by iden
+            q = '''$api=$lib.cortex.httpapi.get($http_iden)
+            $user=$lib.auth.users.byname(root) $api.owner = $user.iden
+            return ($api.owner.name)'''
+            name = await core.callStorm(q, opts={'vars': {'http_iden': iden}})
+            self.eq(name, 'root')
 
     async def test_libcortex_httpapi_simpleOLD(self):
 
@@ -438,7 +448,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             '''
             iden3 = await core.callStorm(q)
 
-            msgs = await core.stormlist('httpapi.ext.list')
+            msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     {iden0}', msgs)
             self.stormIsInPrint(f'1     {iden1}', msgs)
             self.stormIsInPrint(f'2     {iden2}', msgs)
@@ -462,10 +472,10 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.headers.get('yup'), 'hehe')
 
             # Move the wildcard handler after the more specific handler
-            msgs = await core.stormlist('httpapi.ext.index $iden 1', opts={'vars': {'iden': iden0}})
+            msgs = await core.stormlist('cortex.httpapi.index $iden 1', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Set HTTP API {iden0} to index 1', msgs)
 
-            msgs = await core.stormlist('httpapi.ext.list')
+            msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     {iden1}', msgs)
             self.stormIsInPrint(f'1     {iden0}', msgs)
             self.stormIsInPrint(f'2     {iden2}', msgs)
@@ -497,17 +507,17 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             # We can move the endpoint to the end of the list too. An arbitrary high
             # index will place it at the end.
-            msgs = await core.stormlist('httpapi.ext.index $iden 100', opts={'vars': {'iden': iden0}})
+            msgs = await core.stormlist('cortex.httpapi.index $iden 100', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Set HTTP API {iden0} to index 3', msgs)
 
-            msgs = await core.stormlist('httpapi.ext.list')
+            msgs = await core.stormlist('cortex.httpapi.list')
             self.stormIsInPrint(f'0     {iden1}', msgs)
             self.stormIsInPrint(f'1     {iden2}', msgs)
             self.stormIsInPrint(f'2     {iden3}', msgs)
             self.stormIsInPrint(f'3     {iden0}', msgs)
 
             # Show detailed information for a given api
-            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden0}})
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Iden: {iden0}', msgs)
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: owner', msgs)
@@ -523,7 +533,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('$request.replay(200, headers=({"yup": "wildcard"}) )', msgs)
             self.stormIsInPrint('No vars are set for the handler.', msgs)
 
-            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden1}})
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden1}})
             self.stormIsInPrint(f'Iden: {iden1}', msgs)
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: user', msgs)
@@ -536,7 +546,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('hehe.haha', msgs)
             self.stormIsInPrint('some.thing, default: true', msgs)
 
-            msgs = await core.stormlist('httpapi.ext.stat $iden', opts={'vars': {'iden': iden3}})
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden3}})
             self.stormIsInPrint(f'Iden: {iden3}', msgs)
             self.stormIsInPrint('The handler has the following runtime variables set:', msgs)
             self.stormIsInPrint('hehe             => wow', msgs)
@@ -777,6 +787,29 @@ for $i in $values {
                 name = await core.callStorm('$api=$lib.cortex.httpapi.get($http_iden) return ($api.view.get(name))',
                                             opts={'vars': {'http_iden': iden}})
                 self.eq(name, 'iso view')
+
+                # If the view is deleted out from under the object, it has no knowledge of that
+                msgs = await core.stormlist('$lib.view.del($iden)', opts={'vars': {'iden': view}})
+                self.stormHasNoWarnErr(msgs)
+
+                # The gtor throws
+                with self.raises(s_exc.NoSuchView):
+                    await core.callStorm('$api=$lib.cortex.httpapi.get($http_iden) return ($api.view.get(name))',
+                                         opts={'vars': {'http_iden': iden}})
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
+                self.eq(resp.status, 500)
+                data = await resp.json()
+                self.eq(data.get('code'), 'NoSuchView')
+
+                # Change the view back to the original view by iden
+                q = '$api=$lib.cortex.httpapi.get($http_iden) $api.view = $view_iden'
+                msgs = await core.stormlist(q, opts={'vars': {'http_iden': iden, 'view_iden': def_view}})
+                self.stormHasNoWarnErr(msgs)
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
+                data = await resp.json()
+                self.eq(data.get('view'), def_view)
 
     async def test_libcortex_httpapi_headers_params(self):
 
@@ -1037,3 +1070,58 @@ for $i in $values {
                     self.true(await stream.wait(timeout=6))
                     self.eq(resp.status, 201)
                     self.eq(await resp.json(), {})
+
+    async def test_cortex_httpapi_dynamic(self):
+
+        # API endpoints can be dynamic. Use at your own risk.
+
+        async with self.getTestCore() as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$api = $lib.cortex.httpapi.add(dyn00)
+            $api.methods.get =  ${
+                $api = $request.api
+                if $n {
+                    $part = `redir0{$n}`
+                    $redir = `/api/ext/{$part}`
+                    $headers = ({"Location": $redir})
+                    $api.vars.n = ($n - (1) )
+                    $api.path = $part
+                    $request.reply(301, headers=$headers)
+                } else {
+                    $api.vars.n = (3)
+                    $api.vars.melt = $lib.true
+                    $api.path = dyn00
+                    $request.reply(200, body=({"end": "youMadeIt", "melt": $melt}) )
+                    if $melt {
+                        $lib.cortex.httpapi.del($api.iden)
+                    }
+                }
+            }
+            $api.vars.n = (3)
+            $api.vars.melt = $lib.false
+            return ( ($api.iden) )'''
+            iden00 = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
+                self.eq(resp.status, 200)
+                self.eq(resp.url.path, '/api/ext/redir01')
+                self.len(3, resp.history)
+                data = await resp.json()
+                self.eq(data, {'end': 'youMadeIt', 'melt': False})
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
+                self.eq(resp.status, 200)
+                self.len(3, resp.history)
+                data = await resp.json()
+                self.eq(data, {'end': 'youMadeIt', 'melt': True})
+
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
+                self.eq(resp.status, 404)
+                data = await resp.json()
+                self.eq(data.get('code'), 'NoSuchPath')

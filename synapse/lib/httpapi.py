@@ -1349,59 +1349,70 @@ class ExtApiHandler(StormHandler):
         rcode = False
         rbody = False
 
-        async for mtyp, info in core.storm(query, opts=opts):
-            if mtyp == 'http:resp:code':
-                if rbody:
-                    # We've already flushed() the stream at this point, so we cannot
-                    # change the status code or the response headers. We just have to
-                    # log the error and move along.
-                    mesg = f'Custom HTTP API {iden} tried to set code after sending body.'
+        try:
+            async for mtyp, info in core.storm(query, opts=opts):
+                if mtyp == 'http:resp:code':
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        mesg = f'Custom HTTP API {iden} tried to set code after sending body.'
+                        logger.error(mesg)
+                        continue
+
+                    rcode = True
+                    self.set_status(info['code'])
+
+                if mtyp == 'http:resp:headers':
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        mesg = f'Custom HTTP API {iden} tried to set headers after sending body.'
+                        logger.error(mesg)
+                        continue
+                    for hkey, hval in info['headers'].items():
+                        self.set_header(hkey, hval)
+
+                if mtyp == 'http:resp:body':
+                    if not rcode:
+                        self.clear()
+                        self.set_status(500)
+                        self.sendRestErr('StormRuntimeError',
+                                         f'Custom HTTP API {iden} must set status code before sending body.')
+                        return await self.finish()
+                    rbody = True
+                    body = info['body']
+                    self.write(body)
+                    await self.flush()
+
+                if mtyp == 'err':
+                    errname, erfo = info
+                    mesg = f'Error executing custom HTTP API {iden}: {errname} {erfo.get("mesg")}'
                     logger.error(mesg)
-                    continue
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        continue
 
-                rcode = True
-                self.set_status(info['code'])
-
-            if mtyp == 'http:resp:headers':
-                if rbody:
-                    # We've already flushed() the stream at this point, so we cannot
-                    # change the status code or the response headers. We just have to
-                    # log the error and move along.
-                    mesg = f'Custom HTTP API {iden} tried to set headers after sending body.'
-                    logger.error(mesg)
-                    continue
-                for hkey, hval in info['headers'].items():
-                    self.set_header(hkey, hval)
-
-            if mtyp == 'http:resp:body':
-                if not rcode:
+                    # Since we haven't flushed the body yet, we can clear the handler
+                    # and send the error the user.
                     self.clear()
                     self.set_status(500)
-                    self.sendRestErr('StormRuntimeError',
-                                     f'Custom HTTP API {iden} must set status code before sending body.')
-                    return await self.finish()
-                rbody = True
-                body = info['body']
-                self.write(body)
-                await self.flush()
+                    self.sendRestErr(errname, erfo.get('mesg'))
+                    rcode = True
+                    rbody = True
 
-            if mtyp == 'err':
-                errname, erfo = info
-                mesg = f'Error executing custom HTTP API {iden}: {errname} {erfo.get("mesg")}'
-                logger.error(mesg)
-                if rbody:
-                    # We've already flushed() the stream at this point, so we cannot
-                    # change the status code or the response headers. We just have to
-                    # log the error and move along.
-                    continue
-
-                # Since we haven't flushed the body yet, we can clear the handler
-                # and send the error the user.
+        except Exception as e:
+            rcode = True
+            enfo = s_common.err(e)
+            logger.exception(f'Custom HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+            if rbody is False:
                 self.clear()
                 self.set_status(500)
-                self.sendRestErr(errname, erfo.get('mesg'))
-                rcode = True
-                rbody = True
+                self.sendRestErr(enfo[0],
+                                 f'Custom HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
 
         if rcode is False:
             self.clear()

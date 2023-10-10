@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 stormcds = [
     {
-        'name': 'httpapi.ext.list',
+        'name': 'cortex.httpapi.list',
         'descr': 'List Custom HTTP API endpoints',
         'cmdargs': (),
         'storm': '''
@@ -36,7 +36,7 @@ stormcds = [
         '''
     },
     {
-        'name': 'httpapi.ext.stat',
+        'name': 'cortex.httpapi.stat',
         'descr': 'Get details for a Custom HTTP API endpoint.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to inspect', 'type': 'str'}),
@@ -98,7 +98,7 @@ stormcds = [
         '''
     },
     {
-        'name': 'httpapi.ext.index',
+        'name': 'cortex.httpapi.index',
         # TODO Give detailed example
         'desc': 'Set the index of a Custom HTTP API endpoint.',
         'cmdargs': (
@@ -170,9 +170,6 @@ class HttpApi(s_stormtypes.StormType):
         return {
             'pack': self._methPack,
         }
-
-    def value(self):
-        return self.info
 
     async def _methPack(self):
         return copy.deepcopy(self.info)
@@ -500,7 +497,7 @@ class HttpReq(s_stormtypes.StormType):
         return HttpDict(valu=headers, path=path)
 
     async def _gtorApi(self):
-        adef = self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
+        adef = await self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
         return HttpApi(self.runt, adef)
 
     async def _gtorJson(self):
@@ -536,11 +533,12 @@ class HttpReq(s_stormtypes.StormType):
         if headers is None:
             headers = {}
 
-        body = await s_stormtypes.toprim(body)
-        if body is not s_stormtypes.undef and not isinstance(body, bytes):
-            body = json.dumps(body).encode('utf-8', 'surrogatepass')
-            headers['Content-Type'] = 'application/json'
-            headers['Content-Length'] = len(body)
+        if body is not s_stormtypes.undef:
+            if not isinstance(body, bytes):
+                body = await s_stormtypes.toprim(body)
+                body = json.dumps(body).encode('utf-8', 'surrogatepass')
+                headers['Content-Type'] = 'application/json'
+                headers['Content-Length'] = len(body)
 
         await self._methSendCode(code)
 

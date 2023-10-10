@@ -7096,7 +7096,7 @@ class View(Prim):
             view = self.runt.snap.core.getView(self.valu.get('iden'))
             if view is None: # pragma: no cover
                 mesg = f'No view with iden: {self.valu.get("iden")}'
-                raise s_exc.NoSuchView(mesg=mesg)
+                raise s_exc.NoSuchView(mesg=mesg, iden=self.valu.get('iden'))
 
             layers = await toprim(valu)
             layers = tuple(str(x) for x in layers)
@@ -7517,7 +7517,7 @@ class Trigger(Prim):
         todo = s_common.todo('getViewDef', viewiden)
         vdef = await self.runt.dyncall('cortex', todo)
         if vdef is None:
-            raise s_exc.NoSuchView(mesg=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No view with iden={viewiden}', iden=viewiden)
 
         trigview = self.valu.get('view')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)

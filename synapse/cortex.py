@@ -576,7 +576,7 @@ class CoreApi(s_cell.CellApi):
 
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
         wlyr = view.layers[0]
         parts = name.split('.')
@@ -3301,7 +3301,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self.views.get(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         async with await s_queue.Window.anit(maxsize=10000) as wind:
 
@@ -4703,7 +4703,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def delView(self, iden):
         view = self.views.get(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         return await self._push('view:del', iden)
 
@@ -4776,7 +4776,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         view = self.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         await view.setLayers(layers)
         self._calcViewsByLayer()
@@ -5575,7 +5575,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self.views.get(viewiden)
         if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
         user.confirm(('view', 'read'), gateiden=viewiden)
 
@@ -5893,7 +5893,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self.getView(viewiden)
         if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
         async with await self.snap(view=view) as snap:
             snap.strict = False
