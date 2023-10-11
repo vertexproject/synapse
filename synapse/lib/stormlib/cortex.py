@@ -590,6 +590,17 @@ class CortexHttpApi(s_stormtypes.Lib):
     _storm_locals = ()
     _storm_lib_path = ('cortex', 'httpapi')
 
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'add'), 'gate': 'cortex',
+         'desc': 'Controls the ability to add a new Extended HTTP API on the Cortex.'},
+        {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'get'), 'gate': 'cortex',
+         'desc': 'Controls the ability to get or list Extended HTTP APIs on the Cortex.'},
+        {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'del'), 'gate': 'cortex',
+         'desc': 'Controls the ability to delete a Extended HTTP API on the Cortex.'},
+        {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'mod'), 'gate': 'cortex',
+         'desc': 'Controls the ability to modify a Extended HTTP API on the Cortex.'},
+    )
+
     def getObjLocals(self):
         return {
             'add': self.addHttpApi,
