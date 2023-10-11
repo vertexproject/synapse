@@ -1280,6 +1280,7 @@ class ExtApiHandler(StormHandler):
             self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}')
             return await self.finish()
 
+        requester = None
         useriden = adef.get('owner')
 
         if adef.get('authenticated'):
@@ -1315,6 +1316,7 @@ class ExtApiHandler(StormHandler):
             'body': self.request.body,
             'iden': iden,
             'path': path,
+            'user': requester,
             'method': self.request.method,
             'params': params,
             'headers': request_headers,

@@ -502,6 +502,7 @@ class HttpReq(s_stormtypes.StormType):
             'remote_ip': self.rnfo.get('remote_ip'),
             'uri': self.rnfo.get('uri'),
             'path': self.rnfo.get('path'),
+            'user': self.rnfo.get('user'),
         })
 
         self.gtors.update({
@@ -686,7 +687,7 @@ class CortexHttpApi(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'makeHttpResponse',
                   'args': (
                       {'name': 'requestinfo', 'type': 'dict',
-                       'desc': 'Request info dictionary. This is a internal data structure.'},
+                       'desc': 'Request info dictionary. This is an opaque data structure which may change.'},
                   ),
                   'returns': {'type': 'http:api:request'}}},
     )
