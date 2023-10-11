@@ -307,6 +307,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'apidocs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/apidoc'},
+                },
                 'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
@@ -315,6 +319,60 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'apidoc': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'type': 'object',
+                    'properties': {
+                        'type': {
+                            'type': 'string',
+                            'enum': ['function']
+                        },
+                        'args': {
+                            'type': ['array', 'null'],
+                            'items': {'$ref': '#/definitions/apiarg'},
+                        },
+                        'returns': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                    'enum': ['yields'],
+                                },
+                                'desc': {'type': 'string'},
+                                'type': {
+                                    'type': 'string',
+                                    'enum': list(s_stormtypes.registry.known_types),
+                                },
+                            },
+                            'additionalProperties': False,
+                            'required': ['type', 'desc']
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'returns'],
+                },
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apiarg': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'type': 'string',
+                    'enum': list(s_stormtypes.registry.known_types),
+                },
+                'default': {},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
         },
         'command': {
             'type': 'object',
