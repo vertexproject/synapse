@@ -928,6 +928,21 @@ class StormTypesTest(s_test.SynTest):
                        'refs',
                        '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
 
+            msgs = await core.stormlist('$lib.print($lib.null)')
+            self.stormIsInPrint('null', msgs)
+            self.stormNotInPrint('None', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.true)')
+            self.stormIsInPrint('true', msgs)
+            self.stormNotInPrint('True', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.false)')
+            self.stormIsInPrint('false', msgs)
+            self.stormNotInPrint('False', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.undef)')
+            self.stormIsInPrint('undef', msgs)
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
