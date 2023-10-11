@@ -326,12 +326,13 @@ class HandlerBase:
         self.web_username = udef.get('name')
         return self.web_useriden
 
-    async def allowed(self, perm, gateiden=None, default=False):
+    async def allowed(self, perm, default=False, gateiden=None):
         '''
         Check if the authenticated user has the given permission.
 
         Args:
             perm (tuple): The permission tuple to check.
+            default (boolean): The default value for the permission.
             gateiden (str): The gateiden to check the permission against.
 
         Notes:
@@ -355,6 +356,8 @@ class HandlerBase:
         mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
         if default:
             mesg = f'User ({self.web_username}) is denied the permission {".".join(perm)}'
+        if gateiden:
+            mesg = f'{mesg} on object {gateiden}'
         self.sendRestErr('AuthDeny', mesg)
         return False
 
