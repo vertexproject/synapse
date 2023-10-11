@@ -4290,7 +4290,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def addHttpExtApi(self, adef):
         adef['iden'] = s_common.guid()
-        adef = s_schemas.HttpExaAPIConfSchema(adef)
+        adef = s_schemas.reqValidHttpExtAPIConf(adef)
         return await self._push('http:api:add', adef)
 
     @s_nexus.Pusher.onPush('http:api:add')
@@ -4353,7 +4353,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         adef = s_msgpack.un(byts)
         adef[name] = valu
-        adef = s_schemas.HttpExaAPIConfSchema(adef)
+        adef = s_schemas.reqValidHttpExtAPIConf(adef)
         self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
         self._initCortexExtHttpApi()

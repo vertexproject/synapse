@@ -45,4 +45,4 @@ _HttpExtAPIConfSchema = {
 }
 
 
-HttpExaAPIConfSchema = s_config.getJsValidator(_HttpExtAPIConfSchema)
+reqValidHttpExtAPIConf = s_config.getJsValidator(_HttpExtAPIConfSchema)
