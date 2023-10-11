@@ -2474,9 +2474,7 @@ The ``view.exec`` command creates its own sub-runtime to execute a storm query i
 This sub-runtime creates a firm separation boundary between the source view and the destination
 view. This means nodes do not pass in or out across a ``view.exec`` boundary. Pipelines, events,
 messages, etc will NOT pass from the view.exec sub-runtime to the parent runtime or vice-versa. This
-includes ``$lib.print(...)``, ``$lib.warn(...)``, and other functions that may print to the CLI. The
-reason for this behavior is due to possible incoherence issues between the source and destination
-views.
+includes ``$lib.print(...)``, ``$lib.warn(...)``, and other functions that may print to the CLI.
 
 It is possible for variables from the source runtime to pass into the sub-runtime created by
 ``view.exec``. Variables from the source runtime may also be assigned to in the destination view.
