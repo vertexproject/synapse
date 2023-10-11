@@ -67,13 +67,9 @@ stormcds = [
         if $perms {
             $lib.print('The following user permissions are required to run this HTTP API endpoint:')
             for $pdef in $perms {
-                $perm = $pdef.perm
-                $default = $pdef.default
-                $valu = $lib.str.join('.', $perm)
-                if $default {
-                    $valu = `{$valu}, default: true`
-                }
-                $lib.print($valu)
+                $perm = $lib.str.join(".", $pdef.perm)
+                $lib.print($perm)
+                $lib.print(`    default: {$pdef.default}`)
             }
             $lib.print('')
         } else {
@@ -85,8 +81,8 @@ stormcds = [
             for ($meth, $storm) in $methods {
                 $lib.print(`Method: {$meth.upper()}`)
                 $lib.print($storm)
+                $lib.print('')
             }
-            $lib.print('')
         } else {
             $lib.print('No HTTP Methods are set for the handler.')
         }

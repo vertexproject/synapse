@@ -508,8 +508,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('Description: beep boop zoop robot captain', msgs)
             self.stormIsInPrint('The following user permissions are required to run this HTTP API endpoint:',
                                 msgs)
-            self.stormIsInPrint('hehe.haha', msgs)
-            self.stormIsInPrint('some.thing, default: true', msgs)
+            self.stormIsInPrint('hehe.haha\n    default: false', msgs)
+            self.stormIsInPrint('some.thing\n    default: true', msgs)
 
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden3}})
             self.stormIsInPrint(f'Iden: {iden3}', msgs)
