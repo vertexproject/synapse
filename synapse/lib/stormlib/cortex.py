@@ -572,7 +572,7 @@ class HttpReq(s_stormtypes.StormType):
             'body': self.rnfo.get('body'),
             'method': self.rnfo.get('method'),
             'params': self.rnfo.get('params'),
-            'remote_ip': self.rnfo.get('remote_ip'),
+            'client': self.rnfo.get('client'),
             'uri': self.rnfo.get('uri'),
             'path': self.rnfo.get('path'),
             'user': self.rnfo.get('user'),
