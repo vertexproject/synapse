@@ -254,6 +254,7 @@ _MATCHHASH.3: /\#
     (?!                                            # negative lookahead for cmpr
         ([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
         \s*                                        # match any whitespace before cmpr
+        (?!<\()                                    # don't match <(
         [@?!<>^~=]+                                # match any cmprs (regex fail)
     )
 )

@@ -2568,13 +2568,14 @@ class AstTest(s_test.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:score=5 ]')
+            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:score=5 <(foo)+ { test:str=foo } ]')
             await core.nodes('[ test:str=bar +#tagab=2024 +#tagab:score=6 ]')
             await core.nodes('[ test:str=baz +#tagba=2023 +#tagba:score=7 ]')
             await core.nodes('[ test:str=faz +#tagbb=2024 +#tagbb:score=8 ]')
 
             self.len(2, await core.nodes('test:str +#taga*'))
             self.len(1, await core.nodes('test:str +#tagaa=2023'))
+            self.len(1, await core.nodes('test:str +#taga* <(*)- *'))
             self.len(2, await core.nodes('$tag=taga* test:str +#$tag'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag=2023'))
 
@@ -2614,6 +2615,7 @@ class AstTest(s_test.SynTest):
             self.len(2, await core.nodes('test:str +#taga*:score'))
             self.len(1, await core.nodes('test:str +#tagaa:score=5'))
             self.len(1, await core.nodes('test:str +#tagaa:score*range=(4,6)'))
+            self.len(1, await core.nodes('test:str +#taga*:score <(*)- *'))
             self.len(2, await core.nodes('$tag=taga* test:str +#$tag:score'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score=5'))
             self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score*range=(4,6)'))
