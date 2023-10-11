@@ -221,7 +221,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     "params": $request.params,
                     "uri": $request.uri,
                     "path": $request.path,
-                    "remote_ip": $request.remote_ip,
+                    "client:addr": $request."client:addr",
                     "args": $request.args,
                 })
                 try {
@@ -250,7 +250,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(data.get('method'), 'GET')
                 self.eq(data.get('params'), {'echo': 'test', 'giggle': 'haha'})
                 self.eq(data.get('path'), 'echo/sup/')
-                self.isin('remote_ip', data)
+                self.isin('client:addr', data)
                 self.eq(data.get('uri'), '/api/ext/echo/sup/?echo=test&giggle=haha&echo=eggs')
 
                 url = f'https://lowuser:secret@localhost:{hport}/api/ext/echo/words/wOw'

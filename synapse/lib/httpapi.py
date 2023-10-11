@@ -1324,7 +1324,7 @@ class ExtApiHandler(StormHandler):
             'params': params,
             'headers': request_headers,
             'args': args,
-            'remote_ip': self.request.remote_ip,
+            'client:addr': self.request.remote_ip,
         }
 
         varz = adef.get('vars')
