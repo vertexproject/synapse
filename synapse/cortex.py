@@ -1246,8 +1246,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
-        self._exthttpapis = []
+        self._exthttpapis = {}  # iden -> adef; relies on cpython ordered dictionary behavior.
         self._exthttpapiorder = b'exthttpapiorder'
+        self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
         self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model()
@@ -4274,6 +4275,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def _initCortexExtHttpApi(self):
         self._exthttpapis.clear()
+        self._exthttpapicache.clear()
 
         byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
         if byts is None:
@@ -4286,7 +4288,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if byts is None:  # pragma: no cover
                 logger.error(f'Missing HTTP API definition for iden={iden}')
                 continue
-            self._exthttpapis.append(s_msgpack.un(byts))
+            adef = s_msgpack.un(byts)
+            self._exthttpapis[adef.get('iden')] = adef
 
     async def addHttpExtApi(self, adef):
         adef['iden'] = s_common.guid()
@@ -4381,22 +4384,26 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return order.index(iden)
 
     async def getHttpExtApis(self):
-        return copy.deepcopy(self._exthttpapis)
+        return copy.deepcopy(list(self._exthttpapis.values()))
 
     async def getHttpExtApi(self, iden):
-        byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
-        if byts is None:
-            raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)
-
-        adef = s_msgpack.un(byts)
-        return adef
+        adef = self._exthttpapis.get(iden)
+        if adef is None:
+            raise s_exc.NoSuchIden(mesg=f'No extended http api for {iden=}', iden=iden)
+        return copy.deepcopy(adef)
 
     async def getHttpExtApiByPath(self, path):
-        for adef in self._exthttpapis:
-            match = regex.fullmatch(adef.get('path'), path)
+        iden, args = self._exthttpapicache.get(path)
+        return self._exthttpapis.get(iden), args
+
+    def _getHttpExtApiByPath(self, key):
+        # Cache callback.
+        # Returns (iden, args) or (None, ()) for caching.
+        for iden, adef in self._exthttpapis.items():
+            match = regex.fullmatch(adef.get('path'), key)
             if match is None:
                 continue
-            return adef, match.groups()
+            return iden, match.groups()
         return None, ()
 
     async def getCellApi(self, link, user, path):
