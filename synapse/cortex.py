@@ -4320,15 +4320,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if s_common.isguid(iden) is False:
             raise s_exc.BadArg(mesg=f'Must provide an iden. Got {iden}')
 
-        byts = self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
-        if byts is None:
-            return
+        self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
 
         byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
         order = list(s_msgpack.un(byts))
-        order.remove(iden)
+        if iden in order:
+            order.remove(iden)
+            self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
 
-        self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
         self._initCortexExtHttpApi()
 
         return
