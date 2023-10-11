@@ -118,6 +118,7 @@ stormcds = [
     }
 ]
 
+@s_stormtypes.registry.registerType
 class HttpApi(s_stormtypes.StormType):
     '''
     Extended HTTPApi object
@@ -593,7 +594,102 @@ class CortexHttpApi(s_stormtypes.Lib):
     '''
     Library for interacting with the Extended HTTP API.
     '''
-    _storm_locals = ()
+    _storm_locals = (
+        {'name': 'add', 'desc': '''
+        Add an Extended HTTP API endpoint to the Cortex.
+
+        This can be used to add an API endpoint which will be resolved under
+        the API path "/api/ext/".  New API endpoints objects are appended to
+        a list of APIs to resolve in order.
+
+        Notes:
+            The Cortex does not make any attempt to do any inspection of path values which may conflict between one
+            another. This is because the paths for a given endpoint may be changed, they can contain regular
+            expressions, and they have their resolution order changed. Cortex administrators are responsible for
+            configuring their Extended HTTP API endpoints with correct paths and order to meet their use cases.
+
+        Example:
+
+            Add a simple API handler::
+
+                // Create a endpoint for /api/ext/foo/bar
+                $api = $lib.cortex.httpapi.add('foo/bar')
+
+                // Define a GET response handler via storm that makes a simple reply.
+                $api.methods.get = ${ $request.replay(200, body=({"some": "data}) }
+
+            Add a wildcard handler::
+
+                // Create a wildcard endpoint for /api/ext/some/thing([a-zA-Z0-9]*)/([a-zA-Z0-9]*)
+                $api = $lib.cortex.httpapi.add('some/thing([a-zA-Z0-9]*)/([a-zA-Z0-9]*)')
+
+                // The capture groups are exposed as request arguments.
+                // Echo them back to the caller.
+                $api.methods.get = ${
+                    $request.replay(200, body=({"args": $request.args})
+                }
+        ''',
+         'type': {'type': 'function', '_funcname': 'addHttpApi',
+                  'args': (
+                      {'name': 'path', 'type': 'string',
+                       'desc': 'The extended HTTP API path.'},
+                      {'name': 'name', 'type': 'string',
+                       'desc': 'Friendly name for the Extended HTTP API', 'default': ''},
+                      {'name': 'desc', 'type': 'string',
+                       'desc': 'Description for the Extended HTTP API.', 'default': ''},
+                      {'name': 'runas', 'type': 'string',
+                       'desc': 'Run the storm query as the API "owner" or as the authenticated "user".',
+                       'default': 'owner'},
+                      {'name': 'authenticated', 'type': 'boolean',
+                       'desc': 'Require the API endpoint to be authenticated.', 'default': True},
+                      {'name': 'readonly', 'type': 'booilean',
+                       'desc': 'Run the Extended HTTP Storm methods in readonly mode', 'default': False},
+                      # {'name': '', 'type': '',
+                      #  'desc': '', 'default': ''},
+                      # {'name': '', 'type': '',
+                      #  'desc': '', 'default': ''},
+                      # {'name': '', 'type': '',
+                      #  'desc': '', 'default': ''},
+                      # {'name': '', 'type': '',
+                      #  'desc': '', 'default': ''},
+                      # {'name': '', 'type': '',
+                      #  'desc': '', 'default': ''},
+                  ),
+                  'returns': {'type': 'http:api', 'desc': 'A new http:api object.'}}},
+        {'name': 'del', 'desc': 'Delete an Extended HTTPI API endpoint.',
+         'type': {'type': 'function', '_funcname': 'delHttpApi',
+                  'args': (
+                      {'name': 'iden', 'type': 'string',
+                       'desc': 'The iden of the API to delete.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The definition of the deleted endpoint.'}}},
+        {'name': 'get', 'desc': 'Get an Extended HTTP API object.',
+         'type': {'type': 'function', '_funcname': 'getHttpApi',
+                  'args': (
+                      {'name': 'iden', 'type': 'string',
+                       'desc': 'The iden of the API to retreive.'},
+                  ),
+                  'returns': {'type': 'http:api', 'desc': 'The http:api object.'}}},
+        {'name': 'list', 'desc': 'Get all the Extneded HTTP APIs on the Cortex',
+         'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
+                  'returns': {'type': 'list', 'desc': 'A list of http:api objects'}}},
+        {'name': 'index', 'desc': 'Set the index for a given Extended HTTP API.',
+         'type': {'type': 'function', '_funcname': 'setHttpApiIndx',
+                  'args': (
+                      {'name': 'iden', 'type': 'string',
+                       'desc': 'The iden of the API to modify.'},
+                      {'name': 'index', 'type': 'int', 'default': 0,
+                      'desc': 'The new index of the API. Uses zero based indexing.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The new index location of the API.'}}},
+        {'name': 'response', 'desc': 'Make a response object. Used by API handlers automatically.',
+         'type': {'type': 'function', '_funcname': 'makeHttpResponse',
+                  'args': (
+                      {'name': 'requestinfo', 'type': 'dict',
+                       'desc': 'Request info dictionary. This is a internal data structure.'},
+                  ),
+                  'returns': {'type': 'http:api:request'}}},
+    )
     _storm_lib_path = ('cortex', 'httpapi')
 
     _storm_lib_perms = (
