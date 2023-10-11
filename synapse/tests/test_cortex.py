@@ -7637,7 +7637,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             })
             iden = info.get('iden')
 
-            adef = await core.getHttpExtApiByIden(iden)
+            adef = await core.getHttpExtApi(iden)
             self.eq(adef, info)
 
             adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
@@ -7681,6 +7681,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.modHttpExtApi(newp, 'path', 'a/new/path/')
 
             with self.raises(s_exc.NoSuchIden):
-                await core.getHttpExtApiByIden(newp)
+                await core.getHttpExtApi(newp)
 
             self.none(await core.delHttpExtApi(newp))

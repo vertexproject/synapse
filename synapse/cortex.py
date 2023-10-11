@@ -4383,7 +4383,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def getHttpExtApis(self):
         return copy.deepcopy(self._exthttpapis)
 
-    async def getHttpExtApiByIden(self, iden):
+    async def getHttpExtApi(self, iden):
         byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
         if byts is None:
             raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)

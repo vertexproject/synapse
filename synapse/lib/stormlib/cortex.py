@@ -531,7 +531,7 @@ class HttpReq(s_stormtypes.StormType):
     async def _gtorApi(self):
         # FIXME: Permissions checks in gtors do not work.
         # s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
-        adef = await self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
+        adef = await self.runt.snap.core.getHttpExtApi(self.rnfo.get('iden'))
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -723,7 +723,7 @@ class CortexHttpApi(s_stormtypes.Lib):
     async def getHttpApi(self, iden):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
-        adef = await self.runt.snap.core.getHttpExtApiByIden(iden)
+        adef = await self.runt.snap.core.getHttpExtApi(iden)
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
