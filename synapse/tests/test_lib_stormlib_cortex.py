@@ -769,71 +769,69 @@ for $i in $values {
             # Perms are list-like objects that we can mutate
             q = '''$api = $lib.cortex.httpapi.add('perm/mutatorr')
             $api.perms = (hehe.haha, wow.it.works)
-            return ($api.iden)
+            return (($api.iden, $api.perms))
             '''
-            iden2 = await core.callStorm(q)
+            iden2, perms = await core.callStorm(q)
 
+            # Perform a series of modifications of permissions that should have a
+            # known end state. These exercise the HttpPermsList object
             q = '''$api=$lib.cortex.httpapi.get($iden)
             $perms = $api.perms
-            $lib.print($perms)
             $perms.append(another.permission)
-            $lib.print(`pack: {$api.pack().perms}`)
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
 
             // We can reverse the permissions...
             $perms.reverse()
-            $lib.print(reversed)
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
+
+            // No sort()
+            try { $perms.sort() } catch StormRuntimeError as err { }
 
             // Clear the perms down for extend()
             $api.perms = (hehe.haha,)
-            $lib.print('before extend')
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
             $api.perms.extend( (["woah.dude", {"perm": ["giggle", "clown"], "default": $lib.true}, "a.b.c" ]) )
-            $lib.print(extend)
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
 
-            // Pop
+            // Pop some values
             $pdef = $perms.pop()
             $pdef2 = $perms.pop()
-            $lib.print(`{$pdef}`)
-            $lib.print(`{$pdef2}`)
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
 
             // has
-            $lib.print(`has hehe.haha? {$perms.has(hehe.haha)}`)
-            $lib.print(`has hehe.newp? {$perms.has(hehe.newp)}`)
-            $lib.print(`has $pdef {$perms.has($pdef)}`)
+            if $perms.has(hehe.haha) {} else { $lib.exit(mesg="test fail") }
+            if $perms.has(haha.newp) { $lib.exit(mesg="test fail") } else { }
+            if $perms.has($pdef) { $lib.exit(mesg="test fail") } else { }
+
+            // Add pdef back
             $perms.append($pdef)
-            $lib.print(`has $pdef {$perms.has($pdef)}`)
 
             // setitem
-            $lib.print(setitem)
-            $lib.print(`ref: {$api.perms}`)
             $perms.0=$lib.undef
-            $lib.print('After removing the perm.0')
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
-
-            $lib.print($perms.0)
-
+            $old_perm = $perms.0
             $perms.0 = $pdef2
 
-            $lib.print(`ref: {$api.perms}`)
-            $lib.print(`obj: {$perms}`)
+            $perms.append(c.d.e)  // Add an additional perm
+            $perms.2 = something.else // Replace that perm with a perm string
 
+            // No-op
+            $perms.1000 = $lib.undef
+
+            $lib.fire(perms, ref=$api.perms, obj=$perms)
             '''
             msgs = await core.stormlist(q, opts={'vars': {'iden': iden2}})
-            for m in msgs:
-                if m[0] in ('print', 'warn'):
-                    print(m[1].get('mesg'))
-                    continue
-                print(m)
+            self.stormHasNoWarnErr(msgs)
+
+            mesg = [m[1] for m in msgs if m[0] == 'storm:fire'][0]
+            adef = await core.getHttpExtApi(iden2)
+            aprm = adef.get('perms')
+            self.eq(aprm, ({'perm': ('giggle', 'clown'), 'default': True},
+                           {'perm': ('a', 'b', 'c'), 'default': False},
+                           {'perm': ('something', 'else'), 'default': False}),
+
+                    )
+            self.eq(aprm, mesg.get('data').get('obj'))
+            self.eq(aprm, mesg.get('data').get('ref'))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                q = '$api=$lib.cortex.httpapi.get($iden) while $lib.true { $api.perms.pop() } '
+                await core.callStorm(q, opts={'vars': {'iden': iden2}})
+            self.eq(cm.exception.get('mesg'), 'The permissions list is empty. Nothing to pop.')
 
     async def test_libcortex_httpapi_view(self):
         async with self.getTestCore() as core:

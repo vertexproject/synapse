@@ -444,6 +444,7 @@ class HttpHeaderDict(s_stormtypes.Dict):
         name = name.lower()
         return self.valu.get(name)
 
+@s_stormtypes.registry.registerType
 class HttpPermsList(s_stormtypes.List):
     _storm_typename = 'http:api:perms'
     _storm_locals = ()
