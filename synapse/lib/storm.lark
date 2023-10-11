@@ -241,8 +241,23 @@ _tagsegs:  TAGSEGNOVAR ( "." (TAGSEGNOVAR | "$" varvalue))*
 TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
-tagmatch: _MATCHHASH (_varvalu | _wildtagsegs)
-_MATCHHASH.3: /#(?=[\w.]*(\$(?!([\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\*([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)|\*(?!([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*\s*[@?!<>^~=]+)))/
+tagmatch: _VARMATCH (_varvalu | _tagsegs)
+    | _MATCHHASH (_varvalu | _wildtagsegs)
+
+_VARMATCH.3: /#(?=[\w.]*\$)/
+
+// A tagmatch with wildcards cannot be followed by a cmpr
+_MATCHHASH.3: /\#
+(?=
+    ([\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*       # match tag parts
+    \*                                             # match a *
+    (?!                                            # negative lookahead for cmpr
+        ([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
+        \s*                                        # match any whitespace before cmpr
+        [@?!<>^~=]+                                # match any cmprs (regex fail)
+    )
+)
+/x
 
 _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
