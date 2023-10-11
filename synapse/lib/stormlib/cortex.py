@@ -209,6 +209,7 @@ class HttpApi(s_stormtypes.StormType):
         return s_stormtypes.View(self.runt, vdef, path=self.path)
 
     async def _storVars(self, varz):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         varz = await s_stormtypes.toprim(varz)
         adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'vars', varz)
         _varz = self.info.get('vars')
@@ -216,6 +217,7 @@ class HttpApi(s_stormtypes.StormType):
         _varz.update(**adef.get('vars'))
 
     async def _storView(self, iden):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         if isinstance(iden, s_stormtypes.View):
             view = iden.value().get('iden')
         else:
@@ -350,6 +352,7 @@ class HttpApiMethods(s_stormtypes.Prim):
         return self.httpapi.info.get('methods')
 
     async def _storMethFunc(self, meth, query):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         meth = await s_stormtypes.tostr(meth)
         methods = self.meths.copy()
 
@@ -455,6 +458,7 @@ class HttpApiVars(s_stormtypes.Dict):
         self.httpapi = httpapi
 
     async def setitem(self, name, valu):
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         name = await s_stormtypes.tostr(name)
 
         varz = self.valu.copy()
@@ -523,6 +527,8 @@ class HttpReq(s_stormtypes.StormType):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorApi(self):
+        # FIXME: Permissions checks in gtors do not work.
+        # s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         adef = await self.runt.snap.core.getHttpExtApiByIden(self.rnfo.get('iden'))
         return HttpApi(self.runt, adef)
 
@@ -597,7 +603,7 @@ class CortexHttpApi(s_stormtypes.Lib):
          'desc': 'Controls the ability to get or list Extended HTTP APIs on the Cortex.'},
         {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'del'), 'gate': 'cortex',
          'desc': 'Controls the ability to delete a Extended HTTP API on the Cortex.'},
-        {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'mod'), 'gate': 'cortex',
+        {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'set'), 'gate': 'cortex',
          'desc': 'Controls the ability to modify a Extended HTTP API on the Cortex.'},
     )
 
@@ -661,7 +667,7 @@ class CortexHttpApi(s_stormtypes.Lib):
         return await self.runt.snap.view.core.delHttpExtApi(iden)
 
     async def setHttpApiIndx(self, iden, index=0):
-        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'mod'))
+        s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         iden = await s_stormtypes.tostr(iden)
         index = await s_stormtypes.toint(index)
         return await self.runt.snap.view.core.setHttpApiIndx(iden, index)
