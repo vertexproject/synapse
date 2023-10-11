@@ -663,7 +663,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'string',
                        'desc': 'The iden of the API to delete.'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'The definition of the deleted endpoint.'}}},
+                  'returns': {'type': 'null'}}},
         {'name': 'get', 'desc': 'Get an Extended HTTP API object.',
          'type': {'type': 'function', '_funcname': 'getHttpApi',
                   'args': (

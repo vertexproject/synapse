@@ -4317,12 +4317,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('http:api:del')
     async def delHttpExtApi(self, iden):
+        if s_common.isguid(iden) is False:
+            raise s_exc.BadArg(mesg=f'Must provide an iden. Got {iden}')
 
         byts = self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
         if byts is None:
             return
-
-        adef = s_msgpack.un(byts)
 
         byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
         order = list(s_msgpack.un(byts))
@@ -4331,7 +4331,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
         self._initCortexExtHttpApi()
 
-        return adef
+        return
 
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
@@ -4376,6 +4376,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if iden not in order:
             raise s_exc.NoSuchIden(mesg=f'Extended HTTP API is not set: {iden}')
 
+        if order.index(iden) == indx:
+            return indx
         order.remove(iden)
         # indx values > length of the list end up at the end of the list.
         order.insert(indx, iden)

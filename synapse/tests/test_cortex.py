@@ -7635,6 +7635,19 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'owner': unfo.get('iden'),
                 'view': view.iden,
             })
+
+            info3 = await core.addHttpExtApi({
+                'path': 'something/else/goes/here',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
+            info4 = await core.addHttpExtApi({
+                'path': 'another/item',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
             iden = info.get('iden')
 
             adef = await core.getHttpExtApi(iden)
@@ -7657,8 +7670,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(adef, info)
                 self.eq(args, ('haha', 'words'))
 
+            # Reordering / safety
+            self.eq(1, await core.setHttpApiIndx(info4.get('iden'), 1))
+
+            self.eq([adef.get('iden') for adef in await core.getHttpExtApis()],
+                    [info.get('iden'), info4.get('iden'), info2.get('iden'), info3.get('iden')])
+
             items = await core.getHttpExtApis()
-            self.eq(items, (info, info2))
+            self.eq(items, (info, info4, info2, info3))
 
             # Sad path
 
@@ -7684,3 +7703,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.getHttpExtApi(newp)
 
             self.none(await core.delHttpExtApi(newp))
+
+            with self.raises(s_exc.BadArg):
+                await core.delHttpExtApi('notAGuid')
