@@ -242,7 +242,7 @@ TAGSEGNOVAR: /[\w]+/
 
 // A tag name with asterisks or $var as segment after the first segment
 tagmatch: _VARMATCH (_varvalu | _tagsegs)
-    | _MATCHHASH (_varvalu | _wildtagsegs)
+    | _MATCHHASH _wildtagsegs
 
 _VARMATCH.3: /#(?=[\w.]*\$)/
 
