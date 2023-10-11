@@ -1755,7 +1755,7 @@ class PivotToTags(PivotOper):
 
         assert len(self.kids) == 1
         kid = self.kids[0]
-        assert isinstance(kid, (TagName, TagMatch))
+        assert isinstance(kid, TagMatch)
 
         if kid.isconst:
 
@@ -2466,7 +2466,7 @@ class TagCond(Cond):
 
         kid = self.kids[0]
 
-        if not isinstance(kid, TagName):
+        if not isinstance(kid, TagMatch):
             # TODO:  we might hint based on variable value
             return []
 
@@ -3199,9 +3199,6 @@ class TagName(Value):
             self.constval = '.'.join([k.value() for k in self.kids])
         else:
             self.constval = None
-
-    def hasglob(self):
-        return False
 
     async def compute(self, runt, path):
 
