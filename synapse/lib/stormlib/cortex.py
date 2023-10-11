@@ -320,9 +320,8 @@ class HttpApiMethods(s_stormtypes.Prim):
     _storm_locals = ()
 
     def __init__(self, httpapi: HttpApi):
-        s_stormtypes.StormType.__init__(self)
+        s_stormtypes.Prim.__init__(self, httpapi.info.get('methods'))
         self.httpapi = httpapi
-        self.meths = httpapi.info.get('methods')
 
         self.gtors.update({
             'get': self._gtorMethGet,
@@ -345,22 +344,18 @@ class HttpApiMethods(s_stormtypes.Prim):
         })
 
     async def iter(self):
-        meths = self.httpapi.info.get('methods')
-        for k, v in meths.items():
+        for k, v in list(self.valu.items()):
             yield (k, v)
-
-    def value(self):
-        return self.httpapi.info.get('methods')
 
     async def _storMethFunc(self, meth, query):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         meth = await s_stormtypes.tostr(meth)
-        methods = self.meths.copy()
+        methods = self.valu.copy()
 
         if query is s_stormtypes.undef:
             methods.pop(meth, None)
             await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
-            self.meths.pop(meth, None)
+            self.valu.pop(meth, None)
         else:
             query = await s_stormtypes.tostr(query)
             query = query.strip()
@@ -370,7 +365,7 @@ class HttpApiMethods(s_stormtypes.Prim):
 
             methods[meth] = query
             await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
-            self.meths[meth] = query
+            self.valu[meth] = query
 
     async def _storMethGet(self, query):
         return await self._storMethFunc('get', query)
@@ -395,34 +390,34 @@ class HttpApiMethods(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethGet(self):
-        return self.httpapi.info.get('methods').get('get')
+        return self.valu.get('get')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethHead(self):
-        return self.httpapi.info.get('methods').get('head')
+        return self.valu.get('head')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethPost(self):
-        return self.httpapi.info.get('methods').get('post')
+        return self.valu.get('post')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethPut(self):
-        return self.httpapi.info.get('methods').get('put')
+        return self.valu.get('put')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethDelete(self):
-        return self.httpapi.info.get('methods').get('delete')
+        return self.valu.get('delete')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethPatch(self):
-        return self.httpapi.info.get('methods').get('patch')
+        return self.valu.get('patch')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorMethOptions(self):
-        return self.httpapi.info.get('methods').get('options')
+        return self.valu.get('options')
 
 @s_stormtypes.registry.registerType
-class HttpDict(s_stormtypes.Dict):
+class HttpHeaderDict(s_stormtypes.Dict):
     '''
     Immutable lowercase key access dictionary for HTTP request headers.
     '''
@@ -525,7 +520,7 @@ class HttpReq(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     def _ctorHeaders(self, path=None):
         headers = self.rnfo.get('headers')
-        return HttpDict(valu=headers, path=path)
+        return HttpHeaderDict(valu=headers, path=path)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorApi(self):
