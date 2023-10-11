@@ -511,7 +511,7 @@ class SubGraph:
 
                     if ecnt > 2000:
                         # don't let it into the cache.
-                        # We've hit a potential death start and need to deal with it specially
+                        # We've hit a potential death star and need to deal with it specially
                         await delayed.add(b)
                         continue
 
@@ -637,9 +637,10 @@ class SubGraph:
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                     async for n1iden in delayed:
-                        async for verb in run.snap.iterEdgeVerbs(n1iden, nodeiden):
+                        othr = s_common.uhex(n1iden)
+                        async for verb in runt.snap.iterEdgeVerbs(othr, buid):
                             await asyncio.sleep(0)
-                            edges.append(nodeiden, {'type': edge, 'verb': verb})
+                            edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                     await results.add(buid)
 
