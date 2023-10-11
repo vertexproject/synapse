@@ -443,6 +443,21 @@ class SubGraph:
                 yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
+    async def edgefallback(self, results, node):
+        async for buid01 in results:
+            await asyncio.sleep(0)
+
+            iden01 = s_common.ehex(buid01)
+            async for verb in node.iterEdgeVerbs(buid01):
+                await asyncio.sleep(0)
+                edges.append((iden01, {'type': 'edge', 'verb': verb}))
+
+            # for existing nodes, we need to add n2 -> n1 edges in reverse
+            async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                await asyncio.sleep(0)
+                edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+
     async def run(self, runt, genr):
 
         # NOTE: this function must agressively yield the ioloop
@@ -466,25 +481,50 @@ class SubGraph:
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
-            # delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+            delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
-            # rev = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
-            rev = {}
+            # load the existing graph as already done
+            [await results.add(s_common.uhex(b)) for b in existing]
+            if doedges:
 
-            for b in existing:
-                await asyncio.sleep(0)
+                for b in existing:
+                    eb = s_common.uhex(b)
 
-                buid = s_common.uhex(b)
-                # load the existing graph as already done
-                await results.add(buid)
+                    ecnt = 0
+                    cache = collections.defaultdict(list)
+                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(eb):
+                        if b == n2iden:
+                            continue
 
-                async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
+                        if n2iden in results:
+                            continue
 
-                    if rev.get(n2iden) is None:
-                        rev[n2iden] = collections.defaultdict(list)
+                        ecnt += 1
+                        # TODO: Should our break even point be based on the current size of the graph, down to
+                        # some minimum threshold?
+                        if ecnt > 2000:
+                            break
 
-                    rev[n2iden][b].append(verb)
-                    await asyncio.sleep(0)
+                        cache[n2iden].append(verb)
+                        await asyncio.sleep(0)
+
+                    if ecnt > 2000:
+                        # don't let it into the cache.
+                        # We've hit a potential death start and need to deal with it specially
+                        await delayed.add(b)
+                        continue
+
+                    for n2iden, verbs in cache.items():
+                        if not revedge.has(n2iden):
+                            await revedge.set(n2iden, {})
+
+                        re = revedge.get(n2iden)
+                        if b not in re:
+                            re[b] = []
+
+                        re[b] += verbs
+                        await revedge.set(n2iden, re)
 
             async def todogenr():
 
@@ -554,22 +594,52 @@ class SubGraph:
                         await intodo.add(pivn.buid)
 
                 if doedges:
+                    ecnt = 0
+                    cache = collections.defaultdict(list)
+                    # Try to lift and cache the potential edges for a node so that if we end up
+                    # seeing n2 later, we won't have to go back and check for it
                     async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
                         await asyncio.sleep(0)
+                        if nodeiden == n2iden:
+                            continue
 
-                        if rev.get(n2iden) is None:
-                            rev[n2iden] = collections.defaultdict(list)
+                        if s_common.uhex(n2iden) in results:
+                            edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
-                        if n2iden != nodeiden:
-                            rev[n2iden][nodeiden].append(verb)
-                            if s_common.uhex(n2iden) in results:
-                                edges.append((n2iden, {'type': 'edge', 'verb': verb}))
+                        if ecnt < 2000:
+                            ecnt += 1
+                            cache[n2iden].append(verb)
+                        else:
+                            break
 
-                    if nodeiden in rev:
-                        for n2iden, verbs in rev[nodeiden].items():
-                            for verb in verbs:
-                                await asyncio.sleep(0)
-                                edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                    if ecnt >= 2000:
+                        # The current node in the pipeline has too many edges from it, so it's
+                        # less prohibitive to just check against the graph
+                        await delayed.add(nodeiden)
+                        async for e in self.edgefallback(results, node):
+                            edges.append(e)
+                    else:
+                        for n2iden, verbs in cache.items():
+                            if not revedge.has(n2iden):
+                                await revedge.set(n2iden, {})
+
+                            re = revedge.get(n2iden)
+                            if nodeiden not in re:
+                                re[nodeiden] = []
+
+                            re[nodeiden] += verbs
+                            await revedge.set(n2iden, re)
+
+                        if revedge.has(nodeiden):
+                            for n2iden, verbs in revedge.get(nodeiden).items():
+                                for verb in verbs:
+                                    await asyncio.sleep(0)
+                                    edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+                    async for n1iden in delayed:
+                        async for verb in run.snap.iterEdgeVerbs(n1iden, nodeiden):
+                            await asyncio.sleep(0)
+                            edges.append(nodeiden, {'type': edge, 'verb': verb})
 
                     await results.add(buid)
 
