@@ -2588,6 +2588,12 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*>2023')
 
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*<(3+5)')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#taga<(3+5)')
+
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#taga*min>=2023')
 
@@ -2614,6 +2620,7 @@ class AstTest(s_test.SynTest):
 
             self.len(2, await core.nodes('test:str +#taga*:score'))
             self.len(1, await core.nodes('test:str +#tagaa:score=5'))
+            self.len(1, await core.nodes('test:str +#tagaa:score<(2+4)'))
             self.len(1, await core.nodes('test:str +#tagaa:score*range=(4,6)'))
             self.len(1, await core.nodes('test:str +#taga*:score <(*)- *'))
             self.len(2, await core.nodes('$tag=taga* test:str +#$tag:score'))
@@ -2628,6 +2635,9 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*:score>2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score<(3+5)')
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str +#taga*:score*min>=2023')

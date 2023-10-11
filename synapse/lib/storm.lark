@@ -254,7 +254,11 @@ _MATCHHASH.3: /\#
     (?!                                            # negative lookahead for cmpr
         ([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
         \s*                                        # match any whitespace before cmpr
-        (?!<\()                                    # don't match <(
+        (?!                                        # avoid matching n2 edge init as a cmpr
+            <\(
+            (?=(?>(?<N2MATCHRECUR>\(((?>[^()"'`]+|(?&N2MATCHRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)-
+            )
+        )
         [@?!<>^~=]+                                # match any cmprs (regex fail)
     )
 )
