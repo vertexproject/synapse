@@ -118,6 +118,13 @@ stormcds = [
     }
 ]
 
+def _normPermString(perm):
+    if perm.startswith('!'):
+        raise s_exc.BadArg(mesg=f'Permission assignment must not start with a !, got {perm}')
+    parts = perm.split('.')
+    pdef = {'perm': parts, 'default': False}
+    return pdef
+
 @s_stormtypes.registry.registerType
 class HttpApi(s_stormtypes.StormType):
     '''
@@ -134,6 +141,8 @@ class HttpApi(s_stormtypes.StormType):
         self.runt = runt
         self.info = info
         self.iden = self.info.get('iden')
+        # Perms comes in as a tuple - convert it to a list to we can have a mutable object
+        self.info['perms'] = list(self.info.get('perms'))
 
         self.stors.update({
             # General helpers
@@ -156,13 +165,14 @@ class HttpApi(s_stormtypes.StormType):
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
-            'perms': self._gtorPerms,
+            # 'perms': self._gtorPerms,
             'readonly': self._gtorReadonly,
             'authenticated': self._gtorAuthenticated,
         })
 
         self.ctors.update({
             'vars': self._ctorVars,
+            'perms': self._ctorPerms,
             'methods': self._ctorMethods
         })
 
@@ -182,7 +192,7 @@ class HttpApi(s_stormtypes.StormType):
         return copy.deepcopy(self.info)
 
     @s_stormtypes.stormfunc(readonly=True)
-    def _ctorMethods(self, path):
+    def _ctorMethods(self, path=None):
         return HttpApiMethods(self)
 
     async def _storPath(self, path):
@@ -288,18 +298,15 @@ class HttpApi(s_stormtypes.StormType):
         pdefs = []
         for pdef in perms:
             if isinstance(pdef, str):
-                if pdef.startswith('!'):
-                    raise s_exc.BadArg(mesg=f'Permission assignment must not start with a !, got {pdef}')
-                parts = pdef.split('.')
-                pdef = {'perm': parts, 'default': False}
-
+                pdef = _normPermString(pdef)
             pdefs.append(pdef)
         await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', pdefs)
-        self.info['perms'] = pdefs
+        self.info['perms'].clear()
+        self.info['perms'].extend(pdefs)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _gtorPerms(self):
-        return self.info.get('perms')
+    def _ctorPerms(self, path):
+        return HttpPermsList(self, path)
 
     async def _storAuthenticated(self, authenticated):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
@@ -437,6 +444,77 @@ class HttpHeaderDict(s_stormtypes.Dict):
         name = name.lower()
         return self.valu.get(name)
 
+class HttpPermsList(s_stormtypes.List):
+    _storm_typename = 'http:api:perms'
+    _storm_locals = ()
+
+    _ismutable = False
+
+    def __init__(self, httpapi, path=None):
+        s_stormtypes.Prim.__init__(self, httpapi.info.get('perms'))
+        self.httpapi = httpapi
+        self.locls.update(self.getObjLocals())
+
+    async def setitem(self, name, valu):
+        indx = await s_stormtypes.toint(name)
+        pdefs = self.valu.copy()
+        if valu is s_stormtypes.undef:
+            try:
+                pdefs.pop(indx)
+            except IndexError:
+                pass
+            else:
+                await self.httpapi._storPerms(pdefs)
+        else:
+            pdef = await s_stormtypes.toprim(valu)
+            if isinstance(pdef, str):
+                pdef = _normPermString(pdef)
+            pdefs[indx] = pdef
+            await self.httpapi._storPerms(pdefs)
+
+    async def _methListAppend(self, valu):
+        pdef = await s_stormtypes.toprim(valu)
+        if isinstance(pdef, str):
+            pdef = _normPermString(pdef)
+        pdefs = self.valu.copy()
+        pdefs.append(pdef)
+        await self.httpapi._storPerms(pdefs)
+
+    async def _methListHas(self, valu):
+        pdef = await s_stormtypes.toprim(valu)
+        if isinstance(pdef, str):
+            pdef = _normPermString(pdef)
+        return await s_stormtypes.List._methListHas(self, pdef)
+
+    async def _methListReverse(self):
+        pdefs = self.valu.copy()
+        pdefs.reverse()
+        await self.httpapi._storPerms(pdefs)
+
+    async def _methListPop(self):
+        pdefs = self.valu.copy()
+        try:
+            valu = pdefs.pop()
+        except IndexError:
+            mesg = 'The permissions list is empty. Nothing to pop.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+        else:
+            await self.httpapi._storPerms(pdefs)
+            return valu
+
+    async def _methListSort(self, reverse=False):
+        raise s_exc.StormRuntimeError(mesg=f'{self._storm_typename} does not support sorting.')
+
+    async def _methListExtend(self, valu):
+        pdefs = self.valu.copy()
+        async for pdef in s_stormtypes.toiter(valu):
+            pdef = await s_stormtypes.toprim(pdef)
+            if isinstance(pdef, str):
+                pdef = _normPermString(pdef)
+            pdefs.append(pdef)
+        await self.httpapi._storPerms(pdefs)
+
+
 @s_stormtypes.registry.registerType
 class HttpApiVars(s_stormtypes.Dict):
     '''
@@ -449,8 +527,7 @@ class HttpApiVars(s_stormtypes.Dict):
 
     # TODO DOCSTRING
     def __init__(self, httpapi, path=None):
-        self.valu = httpapi.info.get('vars')
-        self.path = path
+        s_stormtypes.Dict.__init__(self, httpapi.info.get('vars'), path=path)
         self.httpapi = httpapi
 
     async def setitem(self, name, valu):

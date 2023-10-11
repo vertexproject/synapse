@@ -766,6 +766,75 @@ for $i in $values {
                 q = "$api=$lib.cortex.httpapi.get($iden) $api.perms=('!foo.bar.baz',)"
                 await core.callStorm(q, opts={'vars': {'iden': iden0}})
 
+            # Perms are list-like objects that we can mutate
+            q = '''$api = $lib.cortex.httpapi.add('perm/mutatorr')
+            $api.perms = (hehe.haha, wow.it.works)
+            return ($api.iden)
+            '''
+            iden2 = await core.callStorm(q)
+
+            q = '''$api=$lib.cortex.httpapi.get($iden)
+            $perms = $api.perms
+            $lib.print($perms)
+            $perms.append(another.permission)
+            $lib.print(`pack: {$api.pack().perms}`)
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+
+            // We can reverse the permissions...
+            $perms.reverse()
+            $lib.print(reversed)
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+
+            // Clear the perms down for extend()
+            $api.perms = (hehe.haha,)
+            $lib.print('before extend')
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+            $api.perms.extend( (["woah.dude", {"perm": ["giggle", "clown"], "default": $lib.true}, "a.b.c" ]) )
+            $lib.print(extend)
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+
+            // Pop
+            $pdef = $perms.pop()
+            $pdef2 = $perms.pop()
+            $lib.print(`{$pdef}`)
+            $lib.print(`{$pdef2}`)
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+
+            // has
+            $lib.print(`has hehe.haha? {$perms.has(hehe.haha)}`)
+            $lib.print(`has hehe.newp? {$perms.has(hehe.newp)}`)
+            $lib.print(`has $pdef {$perms.has($pdef)}`)
+            $perms.append($pdef)
+            $lib.print(`has $pdef {$perms.has($pdef)}`)
+
+            // setitem
+            $lib.print(setitem)
+            $lib.print(`ref: {$api.perms}`)
+            $perms.0=$lib.undef
+            $lib.print('After removing the perm.0')
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+
+            $lib.print($perms.0)
+
+            $perms.0 = $pdef2
+
+            $lib.print(`ref: {$api.perms}`)
+            $lib.print(`obj: {$perms}`)
+
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'iden': iden2}})
+            for m in msgs:
+                if m[0] in ('print', 'warn'):
+                    print(m[1].get('mesg'))
+                    continue
+                print(m)
+
     async def test_libcortex_httpapi_view(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')

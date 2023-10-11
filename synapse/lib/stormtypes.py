@@ -4565,7 +4565,7 @@ class List(Prim):
 
                     $y=$x.slice(3)  // (b, a, r)
             ''',
-         'type': {'type': 'function', '_funcname': 'slice',
+         'type': {'type': 'function', '_funcname': '_methListSlice',
                   'args': (
                       {'name': 'start', 'type': 'int', 'desc': 'The starting index.'},
                       {'name': 'end', 'type': 'int', 'default': None,
@@ -4589,7 +4589,7 @@ class List(Prim):
 
                     // $list is now (f, o, o, b, a, r)
             ''',
-         'type': {'type': 'function', '_funcname': 'extend',
+         'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
                       {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
                   ),
@@ -4612,9 +4612,8 @@ class List(Prim):
             'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
-
-            'slice': self.slice,
-            'extend': self.extend,
+            'slice': self._methListSlice,
+            'extend': self._methListExtend,
         }
 
     @stormfunc(readonly=True)
@@ -4692,7 +4691,7 @@ class List(Prim):
     async def _methListSize(self):
         return len(self)
 
-    async def slice(self, start, end=None):
+    async def _methListSlice(self, start, end=None):
         start = await toint(start)
 
         if end is None:
@@ -4701,7 +4700,7 @@ class List(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
-    async def extend(self, valu):
+    async def _methListExtend(self, valu):
         async for item in toiter(valu):
             self.valu.append(item)
 
