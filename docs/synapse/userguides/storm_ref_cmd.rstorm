@@ -2470,7 +2470,7 @@ The ``view.exec`` command executes a Storm query in the specified view.
 
 **Behavior and Limitations**
 
-The ``view.exec`` command creates its own execution environment (sub-runtime) to execute a storm
+The ``view.exec`` command creates its own execution environment (sub-runtime) to execute a Storm
 query in a different view. This results in a firm separation boundary between the source view and
 the destination view where nodes do not pass in or out across the ``view.exec`` boundary. Pipelines,
 events, messages, etc will NOT pass from the destination view to the source view or vice-versa. This
