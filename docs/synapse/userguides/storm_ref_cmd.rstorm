@@ -2470,15 +2470,15 @@ The ``view.exec`` command executes a Storm query in the specified view.
 
 **Behavior and Limitations**
 
-The ``view.exec`` command creates its own sub-runtime to execute a storm query in a different view.
-This sub-runtime creates a firm separation boundary between the source view and the destination
-view. This means nodes do not pass in or out across a ``view.exec`` boundary. Pipelines, events,
-messages, etc will NOT pass from the view.exec sub-runtime to the parent runtime or vice-versa. This
+The ``view.exec`` command creates its own execution environment (sub-runtime) to execute a storm
+query in a different view. This results in a firm separation boundary between the source view and
+the destination view where nodes do not pass in or out across the ``view.exec`` boundary. Pipelines,
+events, messages, etc will NOT pass from the ``view.exec`` runtime to the parent or vice-versa. This
 includes ``$lib.print(...)``, ``$lib.warn(...)``, and other functions that may print to the CLI.
 
-It is possible for variables from the source runtime to pass into the sub-runtime created by
-``view.exec``. Variables from the source runtime may also be assigned to in the destination view.
-The interactive help example demonstrates this behavior:
+It is possible for variables to pass into the runtime created by ``view.exec``. Variables declared
+before the ``view.exec`` are accessible in the destination view (including assignment). The
+interactive help example demonstrates this behavior:
 
 ::
 
@@ -2487,11 +2487,11 @@ The interactive help example demonstrates this behavior:
 
 Here we have ``inet:fqdn`` nodes with the tag ``#foo.bar`` being lifted and their value (not the
 node) is saved into the ``$fqdn`` variable. This variable is later accessible in the ``view.exec``
-sub-runtime and used to create an ``inet:fqdn`` node in the destination view. If more than one
+runtime and used to create an ``inet:fqdn`` node in the destination view. If more than one
 ``inet:fqdn`` node with the tag ``#foo.bar`` exists, the ``view.exec`` command would be executed
-once for each node in the pipeline as expected. Again, the actual nodes would not enter the
-sub-runtime created by the ``view.exec`` command though. Conversely, the sub-query executed in the
-``view.exec`` may assign a different value back to ``$fqdn`` to be accessed by the source view.
+once for each node in the pipeline as expected. Again, the actual nodes will not be accessible in
+the ``view.exec`` query. Conversely, the sub-query executed in the ``view.exec`` may assign a
+different value back to ``$fqdn`` to be accessed by the source view.
 
 Finally, due to the way closures and binding work, inline functions are bound to the scope they are
 declared in. For ``view.exec``, this means that a function declared outside the ``view.exec`` command
