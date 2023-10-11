@@ -169,7 +169,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=opts)
             # We have a valid message that is the first item yielded
             # but it is not a "tell" format.
-            self.stormIsInPrint('None says None', msgs)
+            self.stormIsInPrint('null says null', msgs)
             self.stormIsInPrint('hello 4', msgs)
             self.stormIsInPrint('hello 3', msgs)
             self.stormNotInPrint('hello 2', msgs)
@@ -974,7 +974,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('xxx...', msgs)
             self.stormIsInPrint('name: storm', msgs)
             self.stormIsInPrint('user: root', msgs)
-            self.stormIsInPrint('status: None', msgs)
+            self.stormIsInPrint('status: null', msgs)
             self.stormIsInPrint('2 tasks found.', msgs)
             self.stormIsInPrint('start time: 2', msgs)
 
@@ -2885,7 +2885,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             prints = [x for x in msgs if x[0] == 'print']
             self.len(10, prints)
-            self.stormIsInPrint("#5 work status is None", msgs)
+            self.stormIsInPrint("#5 work status is null", msgs)
 
             # has
             q = '''
