@@ -39,12 +39,29 @@ stormcmds = [
         'name': 'cortex.httpapi.stat',
         'descr': 'Get details for an Extended HTTP API endpoint.',
         'cmdargs': (
-            ('iden', {'help': 'The iden of the endpoint to inspect', 'type': 'str'}),
+            ('iden', {'help': 'The iden of the endpoint to inspect. This will also match iden prefixes or name prefixes.',
+                      'type': 'str'}),
         ),
         'storm': '''
-        // TODO Resolve the $api by a partial iden
-        $api = $lib.cortex.httpapi.get($cmdopts.iden)
-
+        $iden = $lib.null
+        for $api in $lib.cortex.httpapi.list() {
+            if $api.iden.startswith($cmdopts.iden) {
+                if $iden {
+                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                }
+                $iden = $api.iden
+            }
+            if $api.name.startswith($cmdopts.iden) {
+                if $iden {
+                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                }
+                $iden = $api.iden
+            }
+        }
+        if (not $iden) {
+            $lib.raise(StormRuntimeError, 'Failed to match Extended HTTP API by iden or name!')
+        }
+        $api = $lib.cortex.httpapi.get($iden)
         $lib.print(`Iden: {$api.iden}`)
         $lib.print(`Path: {$api.path}`)
         try {
@@ -111,11 +128,30 @@ Examples:
     cortex.httpapi.index dd9e4730f16b60e5ba58fd8e2d38e909 2
 ''',
         'cmdargs': (
-            ('iden', {'help': 'The iden of the endpoint to move.', 'type': 'str'}),
+            ('iden', {'help': 'The iden of the endpoint to move. This will also match iden prefixes or name prefixes.',
+                      'type': 'str'}),
             ('index', {'help': 'Specify the endpoint location as a 0 based index.', 'type': 'int'}),
         ),
-        'storm': '''// TODO Resolve the $api by a partial iden
-        $api = $lib.cortex.httpapi.get($cmdopts.iden)
+        'storm': '''
+        $iden = $lib.null
+        for $api in $lib.cortex.httpapi.list() {
+            if $api.iden.startswith($cmdopts.iden) {
+                if $iden {
+                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                }
+                $iden = $api.iden
+            }
+            if $api.name.startswith($cmdopts.iden) {
+                if $iden {
+                    $lib.raise(StormRuntimeError, 'Already matched one Extended HTTP API!')
+                }
+                $iden = $api.iden
+            }
+        }
+        if (not $iden) {
+            $lib.raise(StormRuntimeError, 'Failed to match Extended HTTP API by iden or name!')
+        }
+        $api = $lib.cortex.httpapi.get($iden)
         $index = $lib.cortex.httpapi.index($api.iden, $cmdopts.index)
         $lib.print(`Set HTTP API {$api.iden} to index {$index}`)
         '''

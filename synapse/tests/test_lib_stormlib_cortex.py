@@ -138,6 +138,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
                 # Stat the api to enumerate all its method _gtors
                 msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': testpath00}})
+                self.stormIsInPrint(f'Iden: {testpath00}', msgs)
                 self.stormIsInPrint('Method: GET', msgs)
                 self.stormIsInPrint('Method: PUT', msgs)
                 self.stormIsInPrint('Method: POST', msgs)
@@ -481,6 +482,21 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'2     {iden3}', msgs)
             self.stormIsInPrint(f'3     {iden0}', msgs)
 
+            # iden Prefix + name matching
+            msgs = await core.stormlist('cortex.httpapi.index $iden 0', opts={'vars': {'iden': iden1[:6]}})
+            self.stormIsInPrint(f'Set HTTP API {iden1} to index 0', msgs)
+
+            msgs = await core.stormlist('cortex.httpapi.index $iden 0', opts={'vars': {'iden': 'the hehe/haha'}})
+            self.stormIsInPrint(f'Set HTTP API {iden1} to index 0', msgs)
+
+            # No match
+            msgs = await core.stormlist('cortex.httpapi.index $iden 0', opts={'vars': {'iden': 'newp'}})
+            self.stormIsInErr('Failed to match Extended HTTP API by iden or name!', msgs)
+
+            # too many matches
+            msgs = await core.stormlist('cortex.httpapi.index $iden 0', opts={'vars': {'iden': 'the'}})
+            self.stormIsInErr('Already matched one Extended HTTP API!', msgs)
+
             # Show detailed information for a given api
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden0}})
             self.stormIsInPrint(f'Iden: {iden0}', msgs)
@@ -497,6 +513,21 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'Method: HEAD', msgs)
             self.stormIsInPrint('$request.replay(200, headers=({"yup": "wildcard"}) )', msgs)
             self.stormIsInPrint('No vars are set for the handler.', msgs)
+
+            # iden Prefix + name matching
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden0[:6]}})
+            self.stormIsInPrint(f'Iden: {iden0}', msgs)
+
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': 'the hehe wildcard handler'}})
+            self.stormIsInPrint(f'Iden: {iden0}', msgs)
+
+            # No match
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': 'newp'}})
+            self.stormIsInErr('Failed to match Extended HTTP API by iden or name!', msgs)
+
+            # too many matches
+            msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': 'the'}})
+            self.stormIsInErr('Already matched one Extended HTTP API!', msgs)
 
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden1}})
             self.stormIsInPrint(f'Iden: {iden1}', msgs)

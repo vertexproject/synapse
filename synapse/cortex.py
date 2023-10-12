@@ -4395,7 +4395,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def getHttpExtApiByPath(self, path):
         iden, args = self._exthttpapicache.get(path)
-        return self._exthttpapis.get(iden), args
+        adef = copy.deepcopy(self._exthttpapis.get(iden))
+        return adef, args
 
     def _getHttpExtApiByPath(self, key):
         # Cache callback.
