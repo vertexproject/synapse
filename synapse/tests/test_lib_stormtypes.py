@@ -169,7 +169,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=opts)
             # We have a valid message that is the first item yielded
             # but it is not a "tell" format.
-            self.stormIsInPrint('None says None', msgs)
+            self.stormIsInPrint('$lib.null says $lib.null', msgs)
             self.stormIsInPrint('hello 4', msgs)
             self.stormIsInPrint('hello 3', msgs)
             self.stormNotInPrint('hello 2', msgs)
@@ -928,6 +928,21 @@ class StormTypesTest(s_test.SynTest):
                        'refs',
                        '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
 
+            msgs = await core.stormlist('$lib.print($lib.null)')
+            self.stormIsInPrint('$lib.null', msgs)
+            self.stormNotInPrint('None', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.true)')
+            self.stormIsInPrint('true', msgs)
+            self.stormNotInPrint('True', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.false)')
+            self.stormIsInPrint('false', msgs)
+            self.stormNotInPrint('False', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.undef)')
+            self.stormIsInPrint('$lib.undef', msgs)
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
@@ -959,7 +974,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('xxx...', msgs)
             self.stormIsInPrint('name: storm', msgs)
             self.stormIsInPrint('user: root', msgs)
-            self.stormIsInPrint('status: None', msgs)
+            self.stormIsInPrint('status: $lib.null', msgs)
             self.stormIsInPrint('2 tasks found.', msgs)
             self.stormIsInPrint('start time: 2', msgs)
 
@@ -2870,7 +2885,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             prints = [x for x in msgs if x[0] == 'print']
             self.len(10, prints)
-            self.stormIsInPrint("#5 work status is None", msgs)
+            self.stormIsInPrint("#5 work status is $lib.null", msgs)
 
             # has
             q = '''
