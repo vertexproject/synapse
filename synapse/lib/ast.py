@@ -443,20 +443,19 @@ class SubGraph:
                 yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
-    async def _edgefallback(self, results, node):
+    async def _edgefallback(self, runt, results, node):
         async for buid01 in results:
             await asyncio.sleep(0)
 
             iden01 = s_common.ehex(buid01)
             async for verb in node.iterEdgeVerbs(buid01):
                 await asyncio.sleep(0)
-                edges.append((iden01, {'type': 'edge', 'verb': verb}))
+                yield (iden01, {'type': 'edge', 'verb': verb})
 
             # for existing nodes, we need to add n2 -> n1 edges in reverse
             async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
                 await asyncio.sleep(0)
-                edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
-
+                yield (iden01, {'type': 'edge', 'verb': verb, 'reverse': True})
 
     async def run(self, runt, genr):
 
@@ -616,11 +615,12 @@ class SubGraph:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
                         await delayed.add(nodeiden)
-                        async for e in self._edgefallback(results, node):
+                        async for e in self._edgefallback(runt, results, node):
                             edges.append(e)
                     else:
                         for n2iden, verbs in cache.items():
                             if not revedge.has(n2iden):
+                                await asyncio.sleep(0)
                                 await revedge.set(n2iden, {})
 
                             re = revedge.get(n2iden)
