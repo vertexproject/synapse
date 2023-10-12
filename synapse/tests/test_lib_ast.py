@@ -1156,7 +1156,7 @@ class AstTest(s_test.SynTest):
             $lib.print('retn is: {retn}', retn=$retn)
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('retn is: None', msgs)
+            self.stormIsInPrint('retn is: $lib.null', msgs)
             self.stormIsInPrint('retn is: 1', msgs)
 
             # Allow plumbing through args as keywords
