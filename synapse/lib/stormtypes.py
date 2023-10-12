@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 class Undef:
     async def stormrepr(self):
-        return 'undef'
+        return '$lib.undef'
 
 undef = Undef()
 
@@ -9767,7 +9767,7 @@ async def torepr(valu, usestr=False):
         return str(valu).lower()
 
     if valu is None:
-        return 'null'
+        return '$lib.null'
 
     if usestr:
         return str(valu)
