@@ -204,8 +204,13 @@ class StormTypesRegistry:
         for parameter, argdef in zip(callsig.parameters.values(), args):
             pdef = parameter.default  # defaults to inspect._empty for undefined default values.
             adef = argdef.get('default', inspect._empty)
-            assert pdef == adef, \
-                f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            # Allow $lib.undef as a defined default to represent the undef constant.
+            if pdef is undef:
+                assert adef == '$lib.undef', \
+                    f'Expected $lib.undef for default value {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            else:
+                assert pdef == adef, \
+                    f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
 
     def _validateStor(self, obj, info, name):
         rtype = info.get('type')
@@ -227,9 +232,9 @@ class StormTypesRegistry:
         args = rtype.get('args')
         assert args is None, f'ctors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
-        # Assert the callsig for a stor has one argument
+        # Assert the callsig for a ctor has one argument
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
-        assert len(callsig_args) == 1, f'stor funcs must only have one argument for {obj} {info.get("name")}'
+        assert len(callsig_args) == 1, f'ctor funcs must only have one argument for {obj} {info.get("name")}'
 
     def _validateGtor(self, obj, info, name):
         rtype = info.get('type')

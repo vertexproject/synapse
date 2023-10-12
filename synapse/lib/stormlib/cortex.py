@@ -423,13 +423,16 @@ class HttpApiMethods(s_stormtypes.Prim):
 class HttpHeaderDict(s_stormtypes.Dict):
     '''
     Immutable lowercase key access dictionary for HTTP request headers.
+
+    Request headers can be accessed in a case insensitive manner::
+
+        $valu = $request.headers.Cookie
+        // or the lower case value
+        $valu = $request.headers.cookie
     '''
     _storm_typename = 'http:request:headers'
     _storm_locals = ()
-
     _ismutable = False
-
-    # TODO DOCSTRING
 
     async def setitem(self, name, valu):
         mesg = f'{self._storm_typename} may not be modified by the runtime'
@@ -548,7 +551,80 @@ class HttpReq(s_stormtypes.StormType):
     Extended HTTP API Request object.
     '''
     _storm_typename = 'http:api:request'
-    _storm_locals = ()
+    _storm_locals = (
+        {'name': 'args', 'desc': 'A list of path arguments.', 'type': 'list'},
+        {'name': 'body', 'desc': 'The raw request body.', 'type': 'bytes'},
+        {'name': 'method', 'desc': 'The request method', 'type': 'str'},
+        {'name': 'params', 'desc': 'Request parameters.', 'type': 'dict'},
+        {'name': 'client', 'desc': 'The remote IP of the requester.', 'type': 'str'},
+        {'name': 'uri', 'desc': 'The full request URI.', 'type': 'str'},
+        {'name': 'path', 'desc': 'The path which was matched against the Extended HTTPAPI endpoint.', 'type': 'str'},
+        {'name': 'user',
+         'desc': 'The user iden who made the HTTP API request.', 'type': 'str'},
+        {'name': 'api', 'desc': 'The http:api object for the request.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorApi',
+                  'returns': {'type': 'http:api'}}},
+        {'name': 'headers', 'desc': 'The request headers.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorJson',
+                  'returns': {'type': 'http:request:headers'}}},
+        {'name': 'json', 'desc': 'The request body as json.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorJson',
+                  'returns': {'type': 'dict'}}},
+        {'name': 'sendcode', 'desc': 'Send the HTTP response code.',
+         'type': {'type': 'function', '_funcname': '_methSendCode',
+                  'args': (
+                      {'name': 'code', 'type': 'int',
+                       'desc': 'The response code.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'sendheaders', 'desc': 'Send the HTTP response headers.',
+         'type': {'type': 'function', '_funcname': '_methSendHeaders',
+                  'args': (
+                      {'name': 'headers', 'type': 'dict',
+                       'desc': 'The response headers.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'sendbody', 'desc': 'Send the HTTP response body.',
+         'type': {'type': 'function', '_funcname': '_methSendBody',
+                  'args': (
+                      {'name': 'body', 'type': 'bytes',
+                       'desc': 'The response body.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'reply', 'desc': '''
+        Convenience method to send the response code, headers and body together.
+
+        Notes:
+            This can only be called once.
+
+            If the response body is not bytes, this method will serialize the body as JSON
+            and set the ``Content-Type`` and ``Content-Length`` response headers.
+
+        Examples:
+
+            TODO: Better examples
+
+            Do the thing::
+
+                // Send a 200 code reply
+                $request.reply(200, body=({"hehe": "haha"}))
+
+            Do another thing::
+
+                // Send a 200 code reply
+                $request.reply(200, body=({"hehe": "haha"}))
+        ''',
+         'type': {'type': 'function', '_funcname': '_methReply',
+                  'args': (
+                      {'name': 'code', 'type': 'int',
+                       'desc': 'The response code.'},
+                      {'name': 'headers', 'type': 'dict',
+                       'desc': 'The response headers.', 'default': None},
+                      {'name': 'body', 'type': 'any',
+                       'desc': 'The response body.', 'default': '$lib.undef'},
+                  ),
+                  'returns': {'type': 'null'}}},
+    )
 
     def __init__(self, runt, rnfo):
         s_stormtypes.StormType.__init__(self)
@@ -576,10 +652,10 @@ class HttpReq(s_stormtypes.StormType):
 
         self.gtors.update({
             'api': self._gtorApi,  # Not a ctor since the adef retrieval is an async process
-            'json': self._gtorJson,
         })
 
         self.ctors.update({
+            'json': self._ctorJson,
             'headers': self._ctorHeaders,
         })
 
@@ -604,7 +680,7 @@ class HttpReq(s_stormtypes.StormType):
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _gtorJson(self):
+    def _ctorJson(self, path=None):
         try:
             return json.loads(self.rnfo.get('body'))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
@@ -657,7 +733,6 @@ class HttpReq(s_stormtypes.StormType):
             await self._methSendBody(body)
 
         self.replied = True
-        return True
 
 @s_stormtypes.registry.registerLib
 class CortexHttpApi(s_stormtypes.Lib):
