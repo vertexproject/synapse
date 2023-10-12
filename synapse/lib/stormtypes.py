@@ -4520,7 +4520,7 @@ class List(Prim):
     Implements the Storm API for a List instance.
     '''
     _storm_locals = (
-        {'name': 'has', 'desc': 'Check it a value is in the list.',
+        {'name': 'has', 'desc': 'Check if a value is in the list.',
          'type': {'type': 'function', '_funcname': '_methListHas',
                   'args': (
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },

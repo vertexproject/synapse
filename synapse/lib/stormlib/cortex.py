@@ -161,7 +161,6 @@ class HttpApi(s_stormtypes.StormType):
             'view': self._gtorView,
             'runas': self._gtorRunas,
             'owner': self._gtorOwner,
-            # 'perms': self._gtorPerms,
             'readonly': self._gtorReadonly,
             'authenticated': self._gtorAuthenticated,
         })
@@ -317,10 +316,76 @@ class HttpApi(s_stormtypes.StormType):
 @s_stormtypes.registry.registerType
 class HttpApiMethods(s_stormtypes.Prim):
     '''
-    Accessor dictionary for getting and setting http:api methods.
+    Accessor dictionary for getting and setting Extened HTTP API methods.
+
+    Notes:
+        The Storm code used to run these methods will have a $request object
+        injected into them. This allows the method to send data back to the
+        caller when it is run.
+
+    Examples:
+        Setting a simple GET method::
+
+            $api.methods.get = ${
+                $data = ({"someKey": "someValue})
+                $headers = ({"someHeader": "someOtherValue"})
+                $request.replay(200, headers=$headers, body=$data)
+            }
+
+        Removing a PUT method::
+
+            $api.methods.put = $lib.undef
+
+        Crafting a custom text response::
+
+            $api.methods.get = ${
+                // Create the body
+                $data = 'some value'
+                // Encode the response as bytes
+                $data = $data.encode()
+                // Set the headers
+                $headers = ({"Content-Type": "text/plain", "Content-Length": $lib.len($data})
+                $request.replay(200, headers=$headers, body=$data)
+            }
+
+        Streaming multiple chunks of data as JSON lines. This sends the code, headers and body separately::
+
+            $api.methods.get = ${
+                $request.sendcode(200)
+                $request.sendheaders(({"Content-Type": "text/plain; charset=utf8"}))
+                $values = ((1), (2), (3))
+                for $i in $values {
+                    $body=`{$lib.json.save(({"value": $i}))}\n`
+                    $request.sendbody($body.encode())
+                }
+            }
+
     '''
     _storm_typename = 'http:api:methods'
-    _storm_locals = ()
+    _storm_locals = (
+        {'name': 'get', 'desc': 'The GET request Storm code.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethGet', '_gtorfunc': '_gtorMethGet',
+                  'returns': {'type': ['str', 'null']}}},
+        {'name': 'put', 'desc': 'The PUT request Storm code.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethPut', '_gtorfunc': '_gtorMethPut',
+                  'returns': {'type': ['str', 'null']}}},
+        {'name': 'head', 'desc': 'The HEAD request Storm code',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethHead', '_gtorfunc': '_gtorMethHead',
+                  'returns': {'type': ['str', 'null']}}},
+        {'name': 'post', 'desc': 'The POST request Storm code.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethPost', '_gtorfunc': '_gtorMethPost',
+                  'returns': {'type': ['str', 'null']}}},
+        {'name': 'delete', 'desc': 'The DELETE request Storm code.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethDelete', '_gtorfunc': '_gtorMethDelete',
+                  'returns': {'type': ['str', 'null']}}},
+        {'name': 'patch', 'desc': 'The PATCH request Storm code.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethPatch', '_gtorfunc': '_gtorMethPatch',
+                  'returns': {'type': ['str', 'null']}}},
+        {'name': 'options', 'desc': 'The OPTIONS request Storm code.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_storMethOptions', '_gtorfunc': '_gtorMethOptions',
+                  'returns': {'type': ['str', 'null']}}},
+    )
+    _ismutable = True
 
     def __init__(self, httpapi: HttpApi):
         s_stormtypes.Prim.__init__(self, httpapi.info.get('methods'))
@@ -424,11 +489,12 @@ class HttpHeaderDict(s_stormtypes.Dict):
     '''
     Immutable lowercase key access dictionary for HTTP request headers.
 
-    Request headers can be accessed in a case insensitive manner::
+    Example:
+        Request headers can be accessed in a case insensitive manner::
 
-        $valu = $request.headers.Cookie
-        // or the lower case value
-        $valu = $request.headers.cookie
+            $valu = $request.headers.Cookie
+            // or the lower case value
+            $valu = $request.headers.cookie
     '''
     _storm_typename = 'http:request:headers'
     _storm_locals = ()
@@ -445,10 +511,58 @@ class HttpHeaderDict(s_stormtypes.Dict):
 
 @s_stormtypes.registry.registerType
 class HttpPermsList(s_stormtypes.List):
+    '''
+    Accessor list for getting and setting http:api permissions.
+    '''
     _storm_typename = 'http:api:perms'
-    _storm_locals = ()
+    _storm_locals = (
+        {'name': 'has', 'desc': 'Check it a permission is in the list.',
+         'type': {'type': 'function', '_funcname': '_methListHas',
+                  'args': (
+                      {'name': 'valu', 'type': 'any', 'desc': 'The permission to check.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the permission is in the list, false otherwise.', }}},
+        {'name': 'pop', 'desc': 'Pop and return the last permission in the list.',
+         'type': {'type': 'function', '_funcname': '_methListPop',
+                  'returns': {'type': 'any', 'desc': 'The last permission from the list.', }}},
+        {'name': 'size', 'desc': 'Return the length of the list.',
+         'type': {'type': 'function', '_funcname': '_methListSize',
+                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
+        {'name': 'index', 'desc': 'Return a single permission from the list by index.',
+         'type': {'type': 'function', '_funcname': '_methListIndex',
+                  'args': (
+                      {'name': 'valu', 'type': 'int', 'desc': 'The list index value.', },
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The permission present in the list at the index position.', }}},
+        {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
+         'type': {'type': 'function', '_funcname': '_methListLength',
+                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
+        {'name': 'append', 'desc': 'Append a permission to the list.',
+         'type': {'type': 'function', '_funcname': '_methListAppend',
+                  'args': (
+                      {'name': 'valu', 'type': 'any', 'desc': 'The permission to append to the list.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
+         'type': {'type': 'function', '_funcname': '_methListReverse',
+                  'returns': {'type': 'null', }}},
+        {'name': 'slice', 'desc': 'Get a slice of the list.',
+         'type': {'type': 'function', '_funcname': '_methListSlice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending index. If not specified, slice to the end of the list.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
 
-    _ismutable = False
+        {'name': 'extend', 'desc': 'Extend a list using another iterable.',
+         'type': {'type': 'function', '_funcname': '_methListExtend',
+                  'args': (
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+    )
+    _ismutable = True
 
     def __init__(self, httpapi, path=None):
         s_stormtypes.Prim.__init__(self, httpapi.info.get('perms'))
@@ -503,6 +617,7 @@ class HttpPermsList(s_stormtypes.List):
             return valu
 
     async def _methListSort(self, reverse=False):
+        # This is not a documented method. Attempting to sort a list of permissions has no meaning.
         raise s_exc.StormRuntimeError(mesg=f'{self._storm_typename} does not support sorting.')
 
     async def _methListExtend(self, valu):
@@ -518,14 +633,36 @@ class HttpPermsList(s_stormtypes.List):
 @s_stormtypes.registry.registerType
 class HttpApiVars(s_stormtypes.Dict):
     '''
-    Accessor dictionary for getting and setting http:api vars.
+    Accessor dictionary for getting and setting Extended HTTP API variables.
+
+    This can be used to set, unset or iterate over the runtime variables that are
+    set for an Extended HTTP API endpoint. These variables are set in the Storm
+    runtime for all of the HTTP methods configured to be executed by the endpoint.
+
+    Example:
+        Set a few variables on a given API::
+
+            $api.vars.foo = 'the foo string'
+            $api.vars.bar = (1234)
+
+        Remove a variable::
+
+            $api.vars.foo = $lib.undef
+
+        Iterate over the variables set for the endpoint::
+
+            for ($key, $valu) in $api.vars {
+                $lib.print(`{$key) -> {$valu}`)
+            }
+
+        Overwrite all of the variables for a given API with a new dictionary::
+
+            $api.vars = ({"foo": "a new string", "bar": (137)})
     '''
     _storm_typename = 'http:api:vars'
     _storm_locals = ()
+    _ismutable = True
 
-    _ismutable = False
-
-    # TODO DOCSTRING
     def __init__(self, httpapi, path=None):
         s_stormtypes.Dict.__init__(self, httpapi.info.get('vars'), path=path)
         self.httpapi = httpapi
@@ -600,9 +737,8 @@ class HttpReq(s_stormtypes.StormType):
             If the response body is not bytes, this method will serialize the body as JSON
             and set the ``Content-Type`` and ``Content-Length`` response headers.
 
-        Examples:
-
-            TODO: Better examples
+        Example:
+            TODO: Better Example
 
             Do the thing::
 
@@ -613,6 +749,7 @@ class HttpReq(s_stormtypes.StormType):
 
                 // Send a 200 code reply
                 $request.reply(200, body=({"hehe": "haha"}))
+
         ''',
          'type': {'type': 'function', '_funcname': '_methReply',
                   'args': (
@@ -721,7 +858,7 @@ class HttpReq(s_stormtypes.StormType):
             if not isinstance(body, bytes):
                 body = await s_stormtypes.toprim(body)
                 body = json.dumps(body).encode('utf-8', 'surrogatepass')
-                headers['Content-Type'] = 'application/json'
+                headers['Content-Type'] = 'application/json; charset=utf8"'
                 headers['Content-Length'] = len(body)
 
         await self._methSendCode(code)
@@ -754,7 +891,6 @@ class CortexHttpApi(s_stormtypes.Lib):
             configuring their Extended HTTP API endpoints with correct paths and order to meet their use cases.
 
         Example:
-
             Add a simple API handler::
 
                 // Create a endpoint for /api/ext/foo/bar
