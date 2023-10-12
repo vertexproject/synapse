@@ -244,7 +244,7 @@ TAGSEGNOVAR: /[\w]+/
 tagmatch: _MATCHHASH (_varvalu | _tagsegs)
     | _MATCHHASHWILD _wildtagsegs
 
-_MATCHHASH.3: /#/
+_MATCHHASH.3: "#"
 
 // A tagmatch with wildcards cannot be followed by a cmpr
 _MATCHHASHWILD.3: /\#
