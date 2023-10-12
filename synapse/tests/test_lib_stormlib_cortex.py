@@ -569,7 +569,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, 200)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
-                self.eq(data.get('user'), None)
+                self.eq(data.get('user'), '')
 
                 # authenticated = false + runas = user -> runs as owner
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.runas=user'
@@ -580,7 +580,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, 200)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
-                self.eq(data.get('user'), None)
+                self.eq(data.get('user'), '')
 
             # The user value is populated for authenticated requests which
             # indicates who the requester's user iden is.
@@ -589,7 +589,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(resp.status, 200)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
-                self.eq(data.get('user'), None)
+                self.eq(data.get('user'), '')
 
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.authenticated=$lib.true'
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
