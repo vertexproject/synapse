@@ -124,13 +124,73 @@ def _normPermString(perm):
 @s_stormtypes.registry.registerType
 class HttpApi(s_stormtypes.StormType):
     '''
-    Extended HTTPApi object
+    Extended HTTP API object.
+
+    This object represents an extended HTTP API that has been configured on the Cortex.
+
+    Examples:
+        Words::
+
+            formatted words
+
+        Words2::
+
+            formatted words
+
     '''
     _storm_typename = 'http:api'
-    _storm_locals = ()
+    _storm_locals = (
+        {'name': 'iden', 'desc': 'The iden of the Extended HTTP API.', 'type': 'str'},
+        {'name': 'pack', 'desc': 'Get a packed copy of the HTTP API object.',
+         'type': {'type': 'function', '_funcname': '_methPack', 'args': (),
+                  'returns': {'type': 'dict'}}},
+        {'name': 'name', 'desc': 'The name of the API instance.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storName', '_gtorfunc': '_gtorName',
+                  'returns': {'type': 'str'}}},
+        {'name': 'desc', 'desc': 'The description of the API instance.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storDesc', '_gtorfunc': '_gtorDesc',
+                  'returns': {'type': 'str'}}},
+        {'name': 'path', 'desc': '''
+        The path of the API instance.
 
-    # TODO DOCSTRING
-    # TODO LOCALS
+        This path may contain regular expression capture groups, which are used to populate
+        request arguments.
+
+        Note:
+            The Cortex does not inspect paths in order to identify duplicates or overlapping paths.
+            It is the responsibility of the Cortex administrator to configure their Extended HTTP API
+            paths so that they are correct for their use cases.
+
+        Example:
+            Update an API path to contain a single wildcard argument::
+
+                $api.path = 'foo/bar/(.*)/baz'
+
+            Update an API path to contain a two wildcard arguments with restricted character sets::
+
+                $api.path = 'hehe/([a-z]*)/([0-9]{1-4})'
+        ''',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storPath', '_gtorfunc': '_gtorPath',
+                  'returns': {'type': 'str'}}},
+        {'name': 'vars', 'desc': 'The Storm runtime variables specific for the API instance.',
+         'type': {'type': ['stor', 'ctor'], '_storfunc': '_storVars', '_ctorfunc': '_ctorVars',
+                  'returns': {'type': 'http:api:vars'}}},
+        {'name': 'view', 'desc': 'The View of the API instance. This is the view that Storm methods are executed in.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storView', '_gtorfunc': '_gtorView',
+                  'returns': {'type': 'view'}}},
+        {'name': 'runas', 'desc': 'String indicating whether the requests run as the owner or the authenticated user.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storRunas', '_gtorfunc': '_gtorRunas',
+                  'returns': {'type': 'str'}}},
+        {'name': 'perms', 'desc': 'The permissions an authenticated user must have in order to access the HTTP API.',
+         'type': {'type': ['stor', 'ctor'], '_storfunc': '_storPerms', '_ctorfunc': '_ctorPerms',
+                  'returns': {'type': 'http:api:perms'}}},
+        {'name': 'readonly', 'desc': 'Boolean value indicating if the Storm methods are executed in a readonly Storm runtime.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storReadonly', '_gtorfunc': '_gtorReadonly',
+                  'returns': {'type': 'boolean'}}},
+        {'name': 'authenticated', 'desc': 'Boolean value indicating if the Extended HTTP API requires an authenticated user or session.',
+         'type': {'type': ['stor', 'gtor'], '_storfunc': '_storAuthenticated', '_gtorfunc': '_gtorAuthenticated',
+                  'returns': {'type': 'boolean'}}},
+    )
 
     def __init__(self, runt, info):
         s_stormtypes.StormType.__init__(self)
@@ -496,7 +556,7 @@ class HttpHeaderDict(s_stormtypes.Dict):
             // or the lower case value
             $valu = $request.headers.cookie
     '''
-    _storm_typename = 'http:request:headers'
+    _storm_typename = 'http:api:request:headers'
     _storm_locals = ()
     _ismutable = False
 
@@ -689,7 +749,10 @@ class HttpReq(s_stormtypes.StormType):
     '''
     _storm_typename = 'http:api:request'
     _storm_locals = (
-        {'name': 'args', 'desc': 'A list of path arguments.', 'type': 'list'},
+        {'name': 'args', 'desc': '''
+        A list of path arguments made as part of the HTTP API request.
+        These are the results of any capture groups defined in the Extended HTTP API path regular expression.''',
+         'type': 'list'},
         {'name': 'body', 'desc': 'The raw request body.', 'type': 'bytes'},
         {'name': 'method', 'desc': 'The request method', 'type': 'str'},
         {'name': 'params', 'desc': 'Request parameters.', 'type': 'dict'},
@@ -703,7 +766,7 @@ class HttpReq(s_stormtypes.StormType):
                   'returns': {'type': 'http:api'}}},
         {'name': 'headers', 'desc': 'The request headers.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorJson',
-                  'returns': {'type': 'http:request:headers'}}},
+                  'returns': {'type': 'http:api:request:headers'}}},
         {'name': 'json', 'desc': 'The request body as json.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorJson',
                   'returns': {'type': 'dict'}}},
@@ -736,20 +799,6 @@ class HttpReq(s_stormtypes.StormType):
 
             If the response body is not bytes, this method will serialize the body as JSON
             and set the ``Content-Type`` and ``Content-Length`` response headers.
-
-        Example:
-            TODO: Better Example
-
-            Do the thing::
-
-                // Send a 200 code reply
-                $request.reply(200, body=({"hehe": "haha"}))
-
-            Do another thing::
-
-                // Send a 200 code reply
-                $request.reply(200, body=({"hehe": "haha"}))
-
         ''',
          'type': {'type': 'function', '_funcname': '_methReply',
                   'args': (

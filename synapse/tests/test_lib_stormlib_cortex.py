@@ -949,7 +949,7 @@ for $i in $values {
                 self.eq(resp.status, 500)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
-                self.eq(data.get('mesg'), 'http:request:headers may not be modified by the runtime')
+                self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime')
 
     async def test_libcortex_httpapi_vars(self):
 
