@@ -1284,6 +1284,7 @@ class ExtApiHandler(StormHandler):
             return await self.finish()
 
         requester = ''
+        iden = adef.get("iden")
         useriden = adef.get('owner')
 
         if adef.get('authenticated'):
@@ -1301,6 +1302,12 @@ class ExtApiHandler(StormHandler):
             if adef.get('runas') == 'user':
                 useriden = requester
 
+        storm = adef['methods'].get(meth)
+        if storm is None:
+            self.set_status(500)
+            self.sendRestErr('NeedConfValu', f'Extended HTTP API {iden} has no method for {meth.upper()}')
+            return await self.finish()
+
         # We flatten the request headers and parameters into a flat key/valu map.
         # The first instance of a given key wins.
         request_headers = {}
@@ -1311,9 +1318,7 @@ class ExtApiHandler(StormHandler):
         for key, valus in self.request.query_arguments.items():
             for valu in valus:
                 params.setdefault(key, valu.decode())
-                continue
 
-        iden = adef.get("iden")
         info = {
             'uri': self.request.uri,
             'body': self.request.body,
@@ -1342,13 +1347,6 @@ class ExtApiHandler(StormHandler):
             'view': adef.get('view'),
         }
 
-        storm = adef['methods'].get(meth)
-
-        if storm is None:
-            self.set_status(500)
-            self.sendRestErr('NeedConfValu', f'Extended HTTP API {iden} has no method for {meth.upper()}')
-            return await self.finish()
-
         query = '\n'.join((self.storm_prefix, storm))
 
         rcode = False
@@ -1368,7 +1366,7 @@ class ExtApiHandler(StormHandler):
                     rcode = True
                     self.set_status(info['code'])
 
-                if mtyp == 'http:resp:headers':
+                elif mtyp == 'http:resp:headers':
                     if rbody:
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
@@ -1379,7 +1377,7 @@ class ExtApiHandler(StormHandler):
                     for hkey, hval in info['headers'].items():
                         self.set_header(hkey, hval)
 
-                if mtyp == 'http:resp:body':
+                elif mtyp == 'http:resp:body':
                     if not rcode:
                         self.clear()
                         self.set_status(500)
@@ -1391,7 +1389,7 @@ class ExtApiHandler(StormHandler):
                     self.write(body)
                     await self.flush()
 
-                if mtyp == 'err':
+                elif mtyp == 'err':
                     errname, erfo = info
                     mesg = f'Error executing Extended HTTP API {iden}: {errname} {erfo.get("mesg")}'
                     logger.error(mesg)

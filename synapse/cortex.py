@@ -4182,7 +4182,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_model.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
-        for cdef in s_stormlib_cortex.stormcds:
+        for cdef in s_stormlib_cortex.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
     async def _initPureStormCmds(self):
@@ -4341,7 +4341,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         elif name == 'owner':
             _obj = await self.getUserDef(valu, packroles=False)
             if _obj is None:
-                raise s_exc.NoSuchUser(mesg=f'Cannot set user={valu} on extended httpapi, it does not exist.')
+                raise s_exc.NoSuchUser(mesg=f'Cannot set owner={valu} on extended httpapi, it does not exist.')
         elif name == 'view':
             _obj = self.getView(valu)
             if _obj is None:

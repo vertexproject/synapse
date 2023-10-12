@@ -9,7 +9,7 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 
-stormcds = [
+stormcmds = [
     {
         'name': 'cortex.httpapi.list',
         'descr': 'List Extended HTTP API endpoints',
@@ -37,7 +37,7 @@ stormcds = [
     },
     {
         'name': 'cortex.httpapi.stat',
-        'descr': 'Get details for a Extended HTTP API endpoint.',
+        'descr': 'Get details for an Extended HTTP API endpoint.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to inspect', 'type': 'str'}),
         ),
@@ -101,10 +101,10 @@ stormcds = [
     {
         'name': 'cortex.httpapi.index',
         # TODO Give detailed example
-        'desc': 'Set the index of a Extended HTTP API endpoint.',
+        'desc': 'Set the index of an Extended HTTP API endpoint.',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to move.', 'type': 'str'}),
-            ('index', {'help': 'The order value to move the endpoint too.', 'type': 'int'}),
+            ('index', {'help': 'The order value to move the endpoint to.', 'type': 'int'}),
         ),
         'storm': '''// TODO Resolve the $api by a partial iden
         $api = $lib.cortex.httpapi.get($cmdopts.iden)
@@ -389,7 +389,7 @@ class HttpApiMethods(s_stormtypes.Prim):
             $api.methods.get = ${
                 $data = ({"someKey": "someValue})
                 $headers = ({"someHeader": "someOtherValue"})
-                $request.replay(200, headers=$headers, body=$data)
+                $request.reply(200, headers=$headers, body=$data)
             }
 
         Removing a PUT method::
@@ -405,7 +405,7 @@ class HttpApiMethods(s_stormtypes.Prim):
                 $data = $data.encode()
                 // Set the headers
                 $headers = ({"Content-Type": "text/plain", "Content-Length": $lib.len($data})
-                $request.replay(200, headers=$headers, body=$data)
+                $request.reply(200, headers=$headers, body=$data)
             }
 
         Streaming multiple chunks of data as JSON lines. This sends the code, headers and body separately::
@@ -558,10 +558,10 @@ class HttpHeaderDict(s_stormtypes.Dict):
     '''
     _storm_typename = 'http:api:request:headers'
     _storm_locals = ()
-    _ismutable = False
+    _ismutable = True
 
     async def setitem(self, name, valu):
-        mesg = f'{self._storm_typename} may not be modified by the runtime'
+        mesg = f'{self._storm_typename} may not be modified by the runtime.'
         raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def deref(self, name):
@@ -897,7 +897,7 @@ class HttpReq(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methReply(self, code, headers=None, body=s_stormtypes.undef):
         if self.replied:
-            raise s_exc.BadArg(mesg='Response.reply() has already been call ed.')
+            raise s_exc.BadArg(mesg='Response.reply() has already been called.')
 
         headers = await s_stormtypes.toprim(headers)
         if headers is None:
@@ -930,23 +930,23 @@ class CortexHttpApi(s_stormtypes.Lib):
         Add an Extended HTTP API endpoint to the Cortex.
 
         This can be used to add an API endpoint which will be resolved under
-        the API path "/api/ext/".  New API endpoints objects are appended to
+        the API path "/api/ext/". New API endpoint objects are appended to
         a list of APIs to resolve in order.
 
         Notes:
             The Cortex does not make any attempt to do any inspection of path values which may conflict between one
             another. This is because the paths for a given endpoint may be changed, they can contain regular
-            expressions, and they have their resolution order changed. Cortex administrators are responsible for
+            expressions, and they may have their resolution order changed. Cortex administrators are responsible for
             configuring their Extended HTTP API endpoints with correct paths and order to meet their use cases.
 
         Example:
             Add a simple API handler::
 
-                // Create a endpoint for /api/ext/foo/bar
+                // Create an endpoint for /api/ext/foo/bar
                 $api = $lib.cortex.httpapi.add('foo/bar')
 
                 // Define a GET response handler via storm that makes a simple reply.
-                $api.methods.get = ${ $request.replay(200, body=({"some": "data}) }
+                $api.methods.get = ${ $request.reply(200, body=({"some": "data}) }
 
             Add a wildcard handler::
 
@@ -956,7 +956,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                 // The capture groups are exposed as request arguments.
                 // Echo them back to the caller.
                 $api.methods.get = ${
-                    $request.replay(200, body=({"args": $request.args})
+                    $request.reply(200, body=({"args": $request.args})
                 }
         ''',
          'type': {'type': 'function', '_funcname': 'addHttpApi',
@@ -972,21 +972,11 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'default': 'owner'},
                       {'name': 'authenticated', 'type': 'boolean',
                        'desc': 'Require the API endpoint to be authenticated.', 'default': True},
-                      {'name': 'readonly', 'type': 'booilean',
-                       'desc': 'Run the Extended HTTP Storm methods in readonly mode', 'default': False},
-                      # {'name': '', 'type': '',
-                      #  'desc': '', 'default': ''},
-                      # {'name': '', 'type': '',
-                      #  'desc': '', 'default': ''},
-                      # {'name': '', 'type': '',
-                      #  'desc': '', 'default': ''},
-                      # {'name': '', 'type': '',
-                      #  'desc': '', 'default': ''},
-                      # {'name': '', 'type': '',
-                      #  'desc': '', 'default': ''},
+                      {'name': 'readonly', 'type': 'boolean',
+                       'desc': 'Run the Extended HTTP Storm methods in readonly mode.', 'default': False},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'A new http:api object.'}}},
-        {'name': 'del', 'desc': 'Delete an Extended HTTPI API endpoint.',
+        {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
          'type': {'type': 'function', '_funcname': 'delHttpApi',
                   'args': (
                       {'name': 'iden', 'type': 'string',
@@ -1009,7 +999,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'string',
                        'desc': 'The iden of the API to modify.'},
                       {'name': 'index', 'type': 'int', 'default': 0,
-                      'desc': 'The new index of the API. Uses zero based indexing.'},
+                       'desc': 'The new index of the API. Uses zero based indexing.'},
                   ),
                   'returns': {'type': 'int', 'desc': 'The new index location of the API.'}}},
         {'name': 'response', 'desc': 'Make a response object. Used by API handlers automatically.',
@@ -1028,9 +1018,9 @@ class CortexHttpApi(s_stormtypes.Lib):
         {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'get'), 'gate': 'cortex',
          'desc': 'Controls the ability to get or list Extended HTTP APIs on the Cortex.'},
         {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'del'), 'gate': 'cortex',
-         'desc': 'Controls the ability to delete a Extended HTTP API on the Cortex.'},
+         'desc': 'Controls the ability to delete an Extended HTTP API on the Cortex.'},
         {'perm': ('storm', 'lib', 'cortex', 'httpapi', 'set'), 'gate': 'cortex',
-         'desc': 'Controls the ability to modify a Extended HTTP API on the Cortex.'},
+         'desc': 'Controls the ability to modify an Extended HTTP API on the Cortex.'},
     )
 
     def getObjLocals(self):
