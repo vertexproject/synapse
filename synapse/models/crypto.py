@@ -155,6 +155,7 @@ class CryptoModule(s_module.CoreModule):
 
             'interfaces': (
                 ('crypto:smart:effect', {
+                    'doc': 'Properties common to the effects of a crypto smart contract transaction.',
                     'props': (
                         ('index', ('int', {}), {
                             'doc': 'The order of the effect within the effects of one transaction.'}),
