@@ -292,12 +292,8 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            for typo in core.model.types.values():
-                if typo.__module__.startswith('synapse.tests'):
-                    continue
-                doc = typo.info.get('doc')
-                self.nn(doc)
-                self.ge(len(doc), 3)
+            nodes = await core.nodes('syn:type:doc="" -:ctor^="synapse.tests"')
+            self.len(0, nodes)
 
             SYN_6315 = [
                 'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ipv4',
@@ -328,16 +324,23 @@ class BaseTest(s_t_utils.SynTest):
                 'biz:rfp:requirements',
             ]
 
-            for prop in core.model.props.values():
-                if prop.isform:
+            nodes = await core.nodes('syn:prop:doc=""')
+            keep = []
+            skip = []
+            for node in nodes:
+                name = node.ndef[1]
+
+                if name in SYN_6315:
+                    skip.append(node)
                     continue
-                if prop.full in SYN_6315: # Remove me when SYN-6315 is completed
+
+                if name.startswith('test:'):
                     continue
-                if prop.full.startswith('test:'):
-                    continue
-                doc = prop.info.get('doc')
-                self.nn(doc)
-                self.ge(len(doc), 3)
+
+                keep.append(node)
+
+            self.len(0, keep)
+            self.len(len(SYN_6315), skip)
 
             for edge in core.model.edges.values():
                 doc = edge.edgeinfo.get('doc')
