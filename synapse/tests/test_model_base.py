@@ -287,3 +287,67 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:rule -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -(has)> meta:rule -(matches)> *'))
+
+    async def test_model_doc_strings(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('syn:type:doc="" -:ctor^="synapse.tests"')
+            self.len(0, nodes)
+
+            SYN_6315 = [
+                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ipv4',
+                'inet:dns:query:name:ipv6', 'inet:dns:query:name:fqdn', 'inet:dns:query:type',
+                'inet:dns:request:time', 'inet:dns:request:query', 'inet:dns:request:query:name',
+                'inet:dns:request:query:name:ipv4', 'inet:dns:request:query:name:ipv6',
+                'inet:dns:request:query:name:fqdn', 'inet:dns:request:query:type',
+                'inet:dns:request:server', 'inet:dns:answer:ttl', 'inet:dns:answer:request',
+                'ou:team:org', 'ou:team:name', 'edge:has:n1', 'edge:has:n1:form', 'edge:has:n2',
+                'edge:has:n2:form', 'edge:refs:n1', 'edge:refs:n1:form', 'edge:refs:n2',
+                'edge:refs:n2:form', 'edge:wentto:n1', 'edge:wentto:n1:form', 'edge:wentto:n2',
+                'edge:wentto:n2:form', 'edge:wentto:time', 'graph:edge:n1', 'graph:edge:n1:form',
+                'graph:edge:n2', 'graph:edge:n2:form', 'graph:timeedge:time', 'graph:timeedge:n1',
+                'graph:timeedge:n1:form', 'graph:timeedge:n2', 'graph:timeedge:n2:form',
+                'ps:contact:asof', 'pol:country:iso2', 'pol:country:iso3', 'pol:country:isonum',
+                'pol:country:tld', 'tel:mob:carrier:mcc', 'tel:mob:carrier:mnc',
+                'tel:mob:telem:time', 'tel:mob:telem:latlong', 'tel:mob:telem:cell',
+                'tel:mob:telem:cell:carrier', 'tel:mob:telem:imsi', 'tel:mob:telem:imei',
+                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ipv4',
+                'tel:mob:telem:ipv6', 'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
+                'tel:mob:telem:wifi:bssid', 'tel:mob:telem:adid', 'tel:mob:telem:aaid',
+                'tel:mob:telem:idfa', 'tel:mob:telem:name', 'tel:mob:telem:email',
+                'tel:mob:telem:acct', 'tel:mob:telem:app', 'tel:mob:telem:data',
+                'inet:http:request:response:time', 'inet:http:request:response:code',
+                'inet:http:request:response:reason', 'inet:http:request:response:body',
+                'gov:us:cage:street', 'gov:us:cage:city', 'gov:us:cage:state', 'gov:us:cage:zip',
+                'gov:us:cage:cc', 'gov:us:cage:country', 'gov:us:cage:phone0', 'gov:us:cage:phone1',
+                'biz:rfp:requirements',
+            ]
+
+            nodes = await core.nodes('syn:prop:doc=""')
+            keep = []
+            skip = []
+            for node in nodes:
+                name = node.ndef[1]
+
+                if name in SYN_6315:
+                    skip.append(node)
+                    continue
+
+                if name.startswith('test:'):
+                    continue
+
+                keep.append(node)
+
+            self.len(0, keep)
+            self.len(len(SYN_6315), skip)
+
+            for edge in core.model.edges.values():
+                doc = edge.edgeinfo.get('doc')
+                self.nn(doc)
+                self.ge(len(doc), 3)
+
+            for ifdef in core.model.ifaces.values():
+                doc = ifdef.get('doc')
+                self.nn(doc)
+                self.ge(len(doc), 3)
