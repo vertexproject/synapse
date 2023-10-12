@@ -100,11 +100,19 @@ stormcmds = [
     },
     {
         'name': 'cortex.httpapi.index',
-        # TODO Give detailed example
-        'desc': 'Set the index of an Extended HTTP API endpoint.',
+        'descr': '''Set the index of an Extended HTTP API endpoint.
+
+Examples:
+
+    // Move an endpoint to the first index.
+    cortex.httpapi.index 60e5ba38e90958fd8e2ddd9e4730f16b 0
+
+    // Move an endpoint to the third index.
+    cortex.httpapi.index dd9e4730f16b60e5ba58fd8e2d38e909 2
+''',
         'cmdargs': (
             ('iden', {'help': 'The iden of the endpoint to move.', 'type': 'str'}),
-            ('index', {'help': 'The order value to move the endpoint to.', 'type': 'int'}),
+            ('index', {'help': 'Specify the endpoint location as a 0 based index.', 'type': 'int'}),
         ),
         'storm': '''// TODO Resolve the $api by a partial iden
         $api = $lib.cortex.httpapi.get($cmdopts.iden)
