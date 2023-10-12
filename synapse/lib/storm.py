@@ -304,7 +304,7 @@ reqValidPkgdef = s_config.getJsValidator({
         'module': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string'},
+                'name': {'type': 'string'},  # todo: should we tighten this up?
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
                 'apidocs': {
@@ -333,7 +333,7 @@ reqValidPkgdef = s_config.getJsValidator({
                             'enum': ['function']
                         },
                         'args': {
-                            'type': ['array', 'null'],
+                            'type': 'array',
                             'items': {'$ref': '#/definitions/apiarg'},
                         },
                         'returns': {
@@ -344,10 +344,7 @@ reqValidPkgdef = s_config.getJsValidator({
                                     'enum': ['yields'],
                                 },
                                 'desc': {'type': 'string'},
-                                'type': {
-                                    'type': 'string',
-                                    'enum': list(s_stormtypes.registry.known_types),
-                                },
+                                'type': {'$ref': '#/definitions/apitype'},
                             },
                             'additionalProperties': False,
                             'required': ['type', 'desc']
@@ -365,14 +362,27 @@ reqValidPkgdef = s_config.getJsValidator({
             'properties': {
                 'name': {'type': 'string'},
                 'desc': {'type': 'string'},
-                'type': {
-                    'type': 'string',
-                    'enum': list(s_stormtypes.registry.known_types),
-                },
-                'default': {},
+                'type': {'$ref': '#/definitions/apitype'},
+                'default': {},  # todo: enum here
             },
             'additionalProperties': False,
             'required': ['name', 'desc', 'type']
+        },
+        'apitype': {
+            # todo: maybe make this the str so we only have to collect types once
+            'oneOf': [
+                {
+                    'type': 'string',
+                    'enum': list(s_stormtypes.registry.known_types ^ s_stormtypes.registry.undefined_types),
+                },
+                {
+                    'type': 'array',
+                    'items': {
+                        'type': 'string',
+                        'enum': list(s_stormtypes.registry.known_types ^ s_stormtypes.registry.undefined_types),
+                    },
+                },
+            ],
         },
         'command': {
             'type': 'object',

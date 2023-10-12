@@ -587,6 +587,55 @@ async def processStormCmds(rst, pkgname, commands):
 
         rst.addLines(*lines)
 
+async def processStormModules(rst, pkgname, modules):
+    rst.addHead('Storm Modules', lvl=2)
+
+    rst.addLines('This package implements the following Storm Modules.\n')
+
+    modules = sorted(modules, key=lambda x: x.get('name'))
+
+    for mdef in modules:
+
+        mname = mdef['name']
+
+        mref = f'.. _stormmod-{pkgname.replace(":", "-")}-{mname.replace(".", "-")}:'
+        rst.addHead(mname, lvl=3, link=mref)
+
+        if apidocs := mdef.get('apidocs'):
+            # todo: do we want another header for apidocs under the module?
+
+            # todo: do a bit of validation that the func and args exist?
+            # storm = mdef['storm']
+
+            for apidoc in apidocs:
+
+                apiname = apidoc['name']
+                apidesc = apidoc['desc']
+                apitype = apidoc['type']
+
+                callsig = s_autodoc.genCallsig(apitype)
+                rst.addHead(f'{apiname}{callsig}', lvl=4)  # todo: Can we support lvl=4 in rtd and optic?
+
+                rst.addLines('::\n')
+
+                lines = s_autodoc.prepareRstLines(apidesc)
+                lines.extend(s_autodoc.getArgLines(apitype))  # todo: need to deal with backticks
+                lines.extend(s_autodoc.getReturnLines(apitype))  # todo: do we want type refs?
+                rst.addLines(*[f'    {line}' for line in lines])
+
+        else:
+
+            # todo: feels like we need something so its not just a bunch of headers only
+            # todo: should we skip modules w/o docs altogether?
+            rst.addLines('This module does not export any APIs.')
+
+        # todo: doc modconf?  thinking no...
+        # modconf = mdef.get('modconf')
+
+        # todo: do anything with asroot?  thinking leaving out initially...
+        # asroot = mdef.get('asroot')
+        # asroot_perms = mdef.get('asroot:perms')
+
 def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
     ret = collections.defaultdict(list)
 
@@ -833,7 +882,8 @@ async def docStormsvc(ctor):
         if commands:
             await processStormCmds(rst, pname, commands)
 
-        # TODO: Modules are not currently documented.
+        if modules := pkg.get('modules'):
+            await processStormModules(rst, pname, modules)
 
     return rst, clsname
 
@@ -861,7 +911,8 @@ async def docStormpkg(pkgpath):
     if commands:
         await processStormCmds(rst, pkgname, commands)
 
-    # TODO: Modules are not currently documented.
+    if modules := pkgdef.get('modules'):
+        await processStormModules(rst, pkgname, modules)
 
     return rst, pkgname
 
