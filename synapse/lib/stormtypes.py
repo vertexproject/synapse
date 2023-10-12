@@ -39,7 +39,8 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
-    pass
+    async def stormrepr(self):
+        return '$lib.undef'
 
 undef = Undef()
 
@@ -9772,6 +9773,9 @@ async def torepr(valu, usestr=False):
 
     if isinstance(valu, bool):
         return str(valu).lower()
+
+    if valu is None:
+        return '$lib.null'
 
     if usestr:
         return str(valu)
