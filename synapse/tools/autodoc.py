@@ -588,53 +588,42 @@ async def processStormCmds(rst, pkgname, commands):
         rst.addLines(*lines)
 
 async def processStormModules(rst, pkgname, modules):
+
     rst.addHead('Storm Modules', lvl=2)
 
-    rst.addLines('This package implements the following Storm Modules.\n')
-
+    hasapi = False
     modules = sorted(modules, key=lambda x: x.get('name'))
 
     for mdef in modules:
+
+        apidefs = mdef.get('apidefs')
+        if not apidefs:
+            continue
+
+        if not hasapi:
+            rst.addLines('This package implements the following Storm Modules.\n')
+            hasapi = True
 
         mname = mdef['name']
 
         mref = f'.. _stormmod-{pkgname.replace(":", "-")}-{mname.replace(".", "-")}:'
         rst.addHead(mname, lvl=3, link=mref)
 
-        if apidocs := mdef.get('apidocs'):
-            # todo: do we want another header for apidocs under the module?
+        for apidef in apidefs:
 
-            # todo: do a bit of validation that the func and args exist?
-            # storm = mdef['storm']
+            apiname = apidef['name']
+            apidesc = apidef['desc']
+            apitype = apidef['type']
 
-            for apidoc in apidocs:
+            callsig = s_autodoc.genCallsig(apitype)
+            rst.addHead(f'{apiname}{callsig}', lvl=4)
 
-                apiname = apidoc['name']
-                apidesc = apidoc['desc']
-                apitype = apidoc['type']
+            rst.addLines(*s_autodoc.prepareRstLines(apidesc))
+            rst.addLines(*s_autodoc.getArgLines(apitype))
+            rst.addLines(*s_autodoc.getReturnLines(apitype))
 
-                callsig = s_autodoc.genCallsig(apitype)
-                rst.addHead(f'{apiname}{callsig}', lvl=4)  # todo: Can we support lvl=4 in rtd and optic?
-
-                rst.addLines('::\n')
-
-                lines = s_autodoc.prepareRstLines(apidesc)
-                lines.extend(s_autodoc.getArgLines(apitype))  # todo: need to deal with backticks
-                lines.extend(s_autodoc.getReturnLines(apitype))  # todo: do we want type refs?
-                rst.addLines(*[f'    {line}' for line in lines])
-
-        else:
-
-            # todo: feels like we need something so its not just a bunch of headers only
-            # todo: should we skip modules w/o docs altogether?
-            rst.addLines('This module does not export any APIs.')
-
-        # todo: doc modconf?  thinking no...
-        # modconf = mdef.get('modconf')
-
-        # todo: do anything with asroot?  thinking leaving out initially...
-        # asroot = mdef.get('asroot')
-        # asroot_perms = mdef.get('asroot:perms')
+    if not hasapi:
+        rst.addLines('This package does not export any Storm APIs.\n')
 
 def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
     ret = collections.defaultdict(list)

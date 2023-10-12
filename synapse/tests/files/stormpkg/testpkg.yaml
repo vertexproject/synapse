@@ -8,21 +8,18 @@ logo:
 modules:
     - name: testmod
     - name: apimod
-      apidocs:
-        # fixme: devnote: return/args types come from the stormtypes registry
+      apidefs:
         - name: search
           desc: |
             Execute a search
             
             This API will foo the bar.
           type:
-            # fixme: devnote: kept the same type nesting as stormtypes in case we want to doc vars in the future
             type: function
             args:
               - { name: text, type: str, desc: "The text." }
-              - { name: mintime, type: str, desc: "The mintime.", default: "-30days" }
+              - { name: mintime, type: [str, int], desc: "The mintime.", default: "-30days" }
             returns:
-              # fixme: devnote: the name=yields stormtypes convention feels a bit icky, we could change that here
               name: yields
               type: node
               desc: Yields it:dev:str nodes.

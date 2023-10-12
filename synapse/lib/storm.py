@@ -304,12 +304,12 @@ reqValidPkgdef = s_config.getJsValidator({
         'module': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string'},  # todo: should we tighten this up?
+                'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
-                'apidocs': {
+                'apidefs': {
                     'type': ['array', 'null'],
-                    'items': {'$ref': '#/definitions/apidoc'},
+                    'items': {'$ref': '#/definitions/apidef'},
                 },
                 'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
@@ -320,7 +320,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'additionalProperties': True,
             'required': ['name', 'storm']
         },
-        'apidoc': {
+        'apidef': {
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
@@ -344,7 +344,12 @@ reqValidPkgdef = s_config.getJsValidator({
                                     'enum': ['yields'],
                                 },
                                 'desc': {'type': 'string'},
-                                'type': {'$ref': '#/definitions/apitype'},
+                                'type': {
+                                    'oneOf': [
+                                        {'$ref': '#/definitions/apitype'},
+                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                                    ],
+                                },
                             },
                             'additionalProperties': False,
                             'required': ['type', 'desc']
@@ -362,27 +367,20 @@ reqValidPkgdef = s_config.getJsValidator({
             'properties': {
                 'name': {'type': 'string'},
                 'desc': {'type': 'string'},
-                'type': {'$ref': '#/definitions/apitype'},
-                'default': {},  # todo: enum here
+                'type': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/apitype'},
+                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                    ],
+                },
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
             },
             'additionalProperties': False,
             'required': ['name', 'desc', 'type']
         },
         'apitype': {
-            # todo: maybe make this the str so we only have to collect types once
-            'oneOf': [
-                {
-                    'type': 'string',
-                    'enum': list(s_stormtypes.registry.known_types ^ s_stormtypes.registry.undefined_types),
-                },
-                {
-                    'type': 'array',
-                    'items': {
-                        'type': 'string',
-                        'enum': list(s_stormtypes.registry.known_types ^ s_stormtypes.registry.undefined_types),
-                    },
-                },
-            ],
+            'type': 'string',
+            'enum': list(s_stormtypes.registry.known_types ^ s_stormtypes.registry.undefined_types),
         },
         'command': {
             'type': 'object',
