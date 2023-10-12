@@ -249,12 +249,12 @@ _MATCHHASH.3: /#/
 // A tagmatch with wildcards cannot be followed by a cmpr
 _MATCHHASHWILD.3: /\#
 (?=
-    ([\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*       # match tag parts
-    \*                                             # match a *
-    (?!                                            # negative lookahead for cmpr
-        ([\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
-        \s*                                        # match any whitespace before cmpr
-        (?!                                        # avoid matching n2 edge init as a cmpr
+    (?:[\w.$]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))*       # match tag parts
+    \*                                               # match a *
+    (?!                                              # negative lookahead for cmpr
+        (?:[\w*.$:]|"(?:[^"\\]|\\.)*"|'[^']*'(?!'))* # continue matching tag parts
+        \s*                                          # match any whitespace before cmpr
+        (?!                                          # avoid matching EDGEN2INIT as a cmpr
             <\(
             (?=(?>(?<N2MATCHRECUR>\(((?>[^()"'`]+|(?&N2MATCHRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)-
             )
