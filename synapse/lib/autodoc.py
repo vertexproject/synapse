@@ -287,7 +287,7 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None, isst
     elif isinstance(rtype, dict):
         returns = rtype.get('returns')
         assert returns is not None, f'Invalid returns for {rtype}'
-        name = returns.get('name', 'Returns')
+        name = returns.get('name', 'Returns').title()
 
         desc = returns.get('desc')
         rettype = returns.get('type')
