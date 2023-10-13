@@ -7670,8 +7670,16 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(adef, info)
                 self.eq(args, ('haha', 'words'))
 
+            self.len(4, core._exthttpapicache)
+
             # Reordering / safety
             self.eq(1, await core.setHttpApiIndx(info4.get('iden'), 1))
+
+            # Cache is cleared when reloading reloading
+            self.len(0, core._exthttpapicache)
+            adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
+            self.eq(adef, info)
+            self.len(1, core._exthttpapicache)
 
             self.eq([adef.get('iden') for adef in await core.getHttpExtApis()],
                     [info.get('iden'), info4.get('iden'), info2.get('iden'), info3.get('iden')])
