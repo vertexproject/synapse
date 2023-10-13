@@ -25,7 +25,7 @@ async def _main(argv, outp):
             return 1
         classes = prox._getClasses()
         if 'synapse.lib.aha.AhaApi' not in classes:
-            outp.printf(f'Service is not connected to an AhaApi; got {", ".join(classes)}.')
+            outp.printf(f'Service at {argv[0]} is not an Aha server')
             return 1
 
         try:

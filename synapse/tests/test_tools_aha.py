@@ -57,7 +57,7 @@ class AhaToolsTest(s_t_utils.SynTest):
             argv = [curl]
             retn, outp = await self.execToolMain(s_a_list._main, argv)
             self.eq(1, retn)
-            outp.expect('Service is not connected to an AhaApi')
+            outp.expect(f'Service at {curl} is not an Aha server')
 
     async def test_aha_easycert(self):
 
