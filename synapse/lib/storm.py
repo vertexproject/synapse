@@ -45,6 +45,8 @@ Notes:
         * node:add
         * node:del
         * prop:set
+        * edge:add
+        * edge:del
 
 When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
@@ -56,6 +58,10 @@ Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
 supported.
 
+When the condition is edge:add or edge:del, you may optionally provide a
+form name or a destination form name to only fire on edges added or deleted
+from nodes of those forms.
+
 Examples:
     # Adds a tag to every inet:ipv4 added
     trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
@@ -65,6 +71,13 @@ Examples:
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
     trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every refs edge add
+    trigger.add edge:add --verb refs --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    # both nodes are of form file:bytes
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -1065,6 +1078,8 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
+            ('--verb', {'help': 'Edge verb to fire on.'}),
+            ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
@@ -4961,7 +4976,10 @@ class ViewExecCmd(Cmd):
     '''
     Execute a storm query in a different view.
 
-    NOTE: Variables are passed through but nodes are not
+    NOTE: Variables are passed through but nodes are not. The behavior of this command may be
+    non-intuitive in relation to the way storm normally operates. For further information on
+    behavior and limitations when using `view.exec`, reference the `view.exec` section of the
+    Synapse User Guide: https://v.vtx.lk/view-exec.
 
     Examples:
 
