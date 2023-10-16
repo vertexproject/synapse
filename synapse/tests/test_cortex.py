@@ -4348,10 +4348,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Now test globbing - single star matches one tag level
             self.len(2, await core.nodes('test:str +#foo.*.baz'))
             self.len(1, await core.nodes('test:str +#*.bad'))
+            self.len(2, await core.nodes('test:str +#foo*'))
+            self.len(1, await core.nodes('test:str +#foo.bar.baz*'))
             # Double stars matches a whole lot more!
             self.len(2, await core.nodes('test:str +#foo.**.baz'))
             self.len(1, await core.nodes('test:str +#**.bar.baz'))
             self.len(2, await core.nodes('test:str +#**.baz'))
+            self.len(1, await core.nodes('test:str +#foo.bar.baz**'))
 
     async def test_storm_lift_compute(self):
         async with self.getTestCore() as core:
