@@ -461,6 +461,7 @@ class SubGraph:
 
         # NOTE: this function must agressively yield the ioloop
 
+        edgelimit = 3000
         doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
         maxsize = self.rules.get('maxsize')
@@ -485,30 +486,26 @@ class SubGraph:
 
             # load the existing graph as already done
             [await results.add(s_common.uhex(b)) for b in existing]
+
             if doedges:
-
                 for b in existing:
-                    eb = s_common.uhex(b)
-
                     ecnt = 0
                     cache = collections.defaultdict(list)
-                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(eb):
+                    async for verb, n2iden in runt.snap.iterNodeEdgesN1(s_common.uhex(b)):
                         if b == n2iden:
                             continue
 
-                        if n2iden in results:
+                        if s_common.uhex(n2iden) in results:
                             continue
 
                         ecnt += 1
-                        # TODO: Should our break even point be based on the current size of the graph, down to
-                        # some minimum threshold?
-                        if ecnt > 2000:
+                        if ecnt > edgelimit:
                             break
 
                         cache[n2iden].append(verb)
                         await asyncio.sleep(0)
 
-                    if ecnt > 2000:
+                    if ecnt > edgelimit:
                         # don't let it into the cache.
                         # We've hit a potential death star and need to deal with it specially
                         await delayed.add(b)
@@ -522,6 +519,7 @@ class SubGraph:
                         if b not in re:
                             re[b] = []
 
+                        count = sum([len(y) for x, y in re.items()])
                         re[b] += verbs
                         await revedge.set(n2iden, re)
 
@@ -539,7 +537,8 @@ class SubGraph:
 
                 await asyncio.sleep(0)
 
-                if node.buid in done:
+                buid = node.buid
+                if buid in done:
                     continue
 
                 count += 1
@@ -548,7 +547,6 @@ class SubGraph:
                     await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
                     break
 
-                buid = node.buid
                 await done.add(buid)
                 intodo.discard(buid)
 
@@ -605,13 +603,13 @@ class SubGraph:
                         if s_common.uhex(n2iden) in results:
                             edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
-                        if ecnt < 2000:
+                        if ecnt < edgelimit:
                             ecnt += 1
                             cache[n2iden].append(verb)
                         else:
                             break
 
-                    if ecnt >= 2000:
+                    if ecnt >= edgelimit:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
                         await delayed.add(nodeiden)
@@ -637,8 +635,8 @@ class SubGraph:
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                     async for n1iden in delayed:
-                        othr = s_common.uhex(n1iden)
-                        async for verb in runt.snap.iterEdgeVerbs(othr, buid):
+                        n1buid = s_common.uhex(n1iden)
+                        async for verb in runt.snap.iterEdgeVerbs(n1buid, buid):
                             await asyncio.sleep(0)
                             edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
