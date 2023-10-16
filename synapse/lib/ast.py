@@ -481,8 +481,11 @@ class SubGraph:
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
-            revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core, size=1000))
-            delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+            edgecounts = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+            n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+
 
             # load the existing graph as already done
             [await results.add(s_common.uhex(b)) for b in existing]
@@ -508,10 +511,13 @@ class SubGraph:
                     if ecnt > edgelimit:
                         # don't let it into the cache.
                         # We've hit a potential death star and need to deal with it specially
-                        await delayed.add(b)
+                        await n1delayed.add(b)
                         continue
 
                     for n2iden, verbs in cache.items():
+                        if n2delayed.has(n2iden):
+                            continue
+
                         if not revedge.has(n2iden):
                             await revedge.set(n2iden, {})
 
@@ -519,9 +525,14 @@ class SubGraph:
                         if b not in re:
                             re[b] = []
 
-                        count = sum([len(y) for x, y in re.items()])
-                        re[b] += verbs
-                        await revedge.set(n2iden, re)
+                        count = edgecounts.get(n2iden, defv=0) + len(verbs)
+                        if count > edgelimit:
+                            await n2delayed.add(n2iden)
+                            revedge.pop(n2iden)
+                        else:
+                            await edgecounts.set(n2iden, count)
+                            re[b] += verbs
+                            await revedge.set(n2iden, re)
 
             async def todogenr():
 
@@ -612,11 +623,14 @@ class SubGraph:
                     if ecnt >= edgelimit:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
-                        await delayed.add(nodeiden)
+                        await n1delayed.add(nodeiden)
                         async for e in self._edgefallback(runt, results, node):
                             edges.append(e)
                     else:
                         for n2iden, verbs in cache.items():
+                            if n2delayed.has(n2iden):
+                                continue
+
                             if not revedge.has(n2iden):
                                 await asyncio.sleep(0)
                                 await revedge.set(n2iden, {})
@@ -625,8 +639,14 @@ class SubGraph:
                             if nodeiden not in re:
                                 re[nodeiden] = []
 
-                            re[nodeiden] += verbs
-                            await revedge.set(n2iden, re)
+                            count = edgecounts.get(n2iden, defv=0) + len(verbs)
+                            if count > edgelimit:
+                                await n2delayed.add(n2iden)
+                                revedge.pop(n2iden)
+                            else:
+                                await edgecounts.set(n2iden, count)
+                                re[nodeiden] += verbs
+                                await revedge.set(n2iden, re)
 
                         if revedge.has(nodeiden):
                             for n2iden, verbs in revedge.get(nodeiden).items():
@@ -634,11 +654,17 @@ class SubGraph:
                                     await asyncio.sleep(0)
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
-                    async for n1iden in delayed:
+                    async for n1iden in n1delayed:
                         n1buid = s_common.uhex(n1iden)
                         async for verb in runt.snap.iterEdgeVerbs(n1buid, buid):
                             await asyncio.sleep(0)
                             edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+                    async for n2iden in n2delayed:
+                        n2buid = s_common.uhex(n2iden)
+                        async for verb in runt.snap.iterEdgeVerbs(buid, n2buid):
+                            await asyncio.sleep(0)
+                            edges.append((n2iden, {'type': 'edge', 'verb': verb}))
 
                     await results.add(buid)
 
