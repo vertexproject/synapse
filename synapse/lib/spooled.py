@@ -149,7 +149,7 @@ class Dict(Spooled):
             if ret is None:
                 return defv
             self.len -= 1
-            return ret
+            return s_msgpack.un(ret)
         return self.realdict.pop(key, defv)
 
     def has(self, key):

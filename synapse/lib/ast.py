@@ -486,7 +486,6 @@ class SubGraph:
             n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
-
             # load the existing graph as already done
             [await results.add(s_common.uhex(b)) for b in existing]
 
