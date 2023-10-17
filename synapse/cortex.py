@@ -4292,6 +4292,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._exthttpapis[adef.get('iden')] = adef
 
     async def addHttpExtApi(self, adef):
+        path = adef.get('path')
+        try:
+            _ = regex.compile(path)
+        except Exception as e:
+            mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{path}] : {e}'
+            raise s_exc.BadArg(mesg=mesg) from None
         adef['iden'] = s_common.guid()
         adef = s_schemas.reqValidHttpExtAPIConf(adef)
         return await self._push('http:api:add', adef)
@@ -4334,8 +4340,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
-
-        if name in ('name', 'desc', 'path', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
+        if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
             # Schema takes care of these values
             pass
         elif name == 'owner':
@@ -4346,6 +4351,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             _obj = self.getView(valu)
             if _obj is None:
                 raise s_exc.NoSuchView(mesg=f'Cannot set view={valu} on extended httpapi, it does not exist.')
+        elif name == 'path':
+            try:
+                _ = regex.compile(valu)
+            except Exception as e:
+                mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{valu}] : {e}'
+                raise s_exc.BadArg(mesg=mesg) from None
         else:
             raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
 

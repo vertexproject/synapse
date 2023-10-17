@@ -562,6 +562,15 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint(f'No user found ({lowuser})', msgs)
             self.stormIsInPrint(f'No view found ({badview})', msgs)
 
+            # Paths must be valid regular expressions when created or modified
+            q = '''$api=$lib.cortex.httpapi.add("hehehe/hahaha)") return ($api.iden)'''
+            with self.raises(s_exc.BadArg) as cm:
+                await core.callStorm(q)
+
+            q = '''$api=$lib.cortex.httpapi.get($iden) $api.path="newp/(stuff" '''
+            with self.raises(s_exc.BadArg) as cm:
+                ret = await core.callStorm(q, opts={'vars': {'iden': iden0}})
+
     async def test_libcortex_httpapi_auth(self):
         async with self.getTestCore() as core:
             udef = await core.addUser('lowuser')
