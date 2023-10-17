@@ -443,7 +443,7 @@ class LibVault(s_stormtypes.Lib):
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
 
-        vault = self.runt.snap.core.getVaultByType(vtype, self.runt.user.iden, scope)
+        vault = self.runt.snap.core.reqVaultByType(vtype, self.runt.user.iden, scope)
         self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, vault.get('iden'))
