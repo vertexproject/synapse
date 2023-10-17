@@ -6,6 +6,99 @@
 Synapse Changelog
 *****************
 
+v2.152.0 - 2023-10-17
+=====================
+
+Model Changes
+-------------
+- Update to the  ``biz``, ``crypto``, ``geo``, ``it``, ``mat``, ``media``,
+  and ``risk`` models.
+
+  (`#3341 <https://github.com/vertexproject/synapse/pull/3341>`_)
+  (`#3377 <https://github.com/vertexproject/synapse/pull/3377>`_)
+  (`#3376 <https://github.com/vertexproject/synapse/pull/3376>`_)
+  (`#3381 <https://github.com/vertexproject/synapse/pull/3381>`_)
+
+  **Updated Interfaces**
+
+  ``crypto:smart:effect``
+   Add a ``doc`` value to the interface.
+
+  ``it:host:activity``
+   Add a ``doc`` value to the interface.
+
+  ``taxonomy``
+   Add a ``doc`` value to the interface.
+
+  **Updated Types**
+
+  ``time``
+    The ``time`` type now recognizes RFC822 formatted time strings.
+
+  ``biz:servicee:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``geo:place:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``it:log:event:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``it:prod:soft:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``mat:type``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``media:news:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:alert:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:alert:verdict:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:threat:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  **New Forms**
+
+  ``it:dev:repo:label``
+    A developer selected label.
+
+  ``it:dev:repo:issue:label``
+    A label applied to a repository issue
+
+Features and Enhancements
+-------------------------
+
+- Update the Storm string repr for ``$lib.null`` and ``$lib.undef`` values to
+  ``$lib.null`` and ``$lib.undef``. Previously these printed ``None`` and an
+  opaque Python object repr.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+- The ``synapse.tools.aha.list`` CLI tool now checks if it is connected to an
+  Aha service prior to enumerating Aha services.
+  (`#3371 <https://github.com/vertexproject/synapse/pull/3371>`_)
+
+Bugfixes
+--------
+- Update the ``file:path`` support for scrape related APIS to address an
+  issue when matching against Linux style paths.
+  (`#3378 <https://github.com/vertexproject/synapse/pull/3378>`_)
+- Update the ``hex`` type to ``zeropad`` strings prior to checking their
+  validity.
+  (`#3387 <https://github.com/vertexproject/synapse/pull/3387>`_)
+- Update the ``yaml.CSafeLoader`` check to not require the class to be
+  available.
+  (`#3386 <https://github.com/vertexproject/synapse/pull/3386>`_)
+
+Improved Documentation
+----------------------
+- Update the documentation for the Storm ``view.exec`` command to explain the
+  separation of events and nodes between the parent and sub-runtimes.
+  (`#3379 <https://github.com/vertexproject/synapse/pull/3379>`_)
+
 v2.151.0 - 2023-10-06
 =====================
 
