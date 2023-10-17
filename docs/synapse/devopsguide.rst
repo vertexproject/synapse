@@ -930,6 +930,347 @@ not be emitted.
 
 For the full list supported options, see the :ref:`autodoc-conf-cortex`.
 
+.. _devops-svc-cortex-ext-http:
+
+Extended HTTP API
+~~~~~~~~~~~~~~~~~
+
+.. highlight:: none
+
+The Cortex can be configured ( via Storm ) to service custom HTTPI API endpoints. These user defined endpoints execute
+Storm code in order to generate responses. This allows creating custom HTTP API responses or URL paths which may meet
+your organizations needs.
+
+These endpoints have a base URL of ``/api/ext/``. Additional path components made in a request are used to resolve
+which API definition is used to handle the response.
+
+The Storm queries which implement these endpoints will have a ``$request`` object ( see
+:ref:`stormprims-http-api-request-f527` ) added to them. This object is used to send custom data back to the caller.
+This object contains helpers to access the request data, as well as functions to send data back to the caller.
+
+.. note::
+
+    Several examples show the use of ``curl`` and _jq being used to access endpoints or process data. These tools are
+    not required in order to interact with the Extended HTTP API.
+
+A Simple Example
+++++++++++++++++
+
+The following simple example shows adding an API endpoint and setting the ``GET`` method on it that just returns a
+simple message embedded in a dictionary::
+
+    $api = $lib.cortex.httpapi.get('demo/path00')
+    $api.methods.get = ${
+        $mesg=`Hello! I am a request made to {$request.path}`
+        $headers = ({"Some": "Value"})
+        $body = ({"mesg": $mesg})
+        $request.reply(200, headers=$headers, body=$body)
+     }
+
+When we access that HTTP API endpoint on the Cortex, we can see the response data has the status code, custom headers,
+and custom body in the reponse::
+
+    $ curl -s -D - -k -u "root:root" "https://127.0.0.1:4443/api/ext/demo/path00"
+    HTTP/1.1 200 OK
+    Content-Type: application/json; charset=utf8"
+    Date: Tue, 17 Oct 2023 16:21:32 GMT
+    X-Content-Type-Options: nosniff
+    Some: value
+    Content-Length: 53
+
+    {"mesg": "Hello! I am a request made to demo/path00"}
+
+The ``$request.reply()`` method automatically will convert primitive objects into a JSON response, enabling rapid
+development of JSON based API endpoints.
+
+Accessing Request Data
+++++++++++++++++++++++
+
+The ``$request`` object has information available about the request itself. The following API example shows access to
+all of that request data, and echoes it back to the caller::
+
+    $api = $lib.cortex.httpapi.get('demo/([a-z0-9]*)')
+    $api.methods.post = ${
+        $body = ({
+            "method": $request.method,        // The HTTP method
+            "headers": $request.headers,      // Any request headers
+            "params": $request.params,        // Any requets parameters
+            "uri": $request.uri,              // The full URI requested
+            "path": $request.path,            // The path we matched against
+            "args": $request.args,            // Any capture groups matched from the path.
+            "client": $request.client,        // Requester client IP
+            "iden": $request.api.iden,        // The iden of the HTTP API handling the request
+            "nbyts": $lib.len($request.body), // The raw body si available as bytes
+        })
+        try {
+            $body.json = $request.json        // We will lazily load the request body as json
+        } catch StormRuntimeError as err {    // But it may not be json!
+            $body.json = 'err'
+        }
+        $headers = ({'Echo': 'hehe!'})
+        $request.reply(200, headers=$headers, body=$body)
+    }
+
+Accessing that endpoint with ``curl``and ``jq`` shows that request information being echoed back to the caller::
+
+    $ curl -sku "root:secret" -XPOST -d '{"some":["json", "items"]}' "https://127.0.0.1:4443/api/ext/demo/ohmy?hehe=haha" | jq
+    {
+      "method": "POST",
+      "headers": {
+        "host": "127.0.0.1:4443",
+        "authorization": "Basic cm9vdDpzZWNyZXQ=",
+        "user-agent": "curl/7.81.0",
+        "accept": "*/*",
+        "content-length": "26",
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      "params": {
+        "hehe": "haha"
+      },
+      "uri": "/api/ext/demo/ohmy?hehe=haha",
+      "path": "demo/ohmy",
+      "args": [
+        "ohmy"
+      ],
+      "client": "127.0.0.1",
+      "iden": "50cf80d0e332a31608331490cd453103",
+      "nbyts": 26,
+      "json": {
+        "some": [
+          "json",
+          "items"
+        ]
+      }
+    }
+
+
+The ``$request.headers`` are accessed in a case-insensitive manner.  ``$request.parameters`` are case sensitive. The
+following example shows that::
+
+    $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
+    $api.methods.get = ${
+        $body=({
+            "ua":   $request.headers."UseR-AGent",  // case insensitive match on the User-Agent string
+            "hehe": $request.params.hehe,
+            "HEHE": $request.params.HEHE,
+        })
+        $request.reply(200, body=$body)
+    }
+
+The output of that endpoint::
+
+    $ curl -s -k -u "root:secret" "https://127.0.0.1:4443/api/ext/demo/casemath?hehe=haha&HEHE=uppercase"  | jq
+    {
+      "ua": "curl/7.81.0",
+      "hehe": "haha",
+      "HEHE": "uppercase"
+    }
+
+.. note::
+
+    Request headers and parameters are flattened into a single key / value mapping. Duplicate request headers or
+    parameters are not exposed in the ``$request`` object.
+
+Managing API Paths
+++++++++++++++++++
+
+When creating an Extended HTTP API, the request path must be provided. This path component is matched against any
+path components after ``/api/etx/*`` when determing which API endpoint will service the request. The API endpoints are
+matched in order, comparing their ``path`` against the requested path using a case sensitive _fullmatch regular
+expression comparison. Newly created API endpoints are added to the end of the list for matching. It is best for
+these endpoints to be ordered from most specific to least specific.
+
+To list the registered APIs, their order, and path information, use the ``cortex.httpapi.list`` command::
+
+    storm> cortex.httpapi.list
+    order iden                             owner                auth  runas  path
+    0     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+    1     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
+    2     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/path01
+    3     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+
+In this example, there are four items listed. The ``path`` of the first item will match the paths for the second and
+third items. The index for the first item needs to be moved using the ``cortex.httpapi.index`` commmand. That command
+allows users to change the order in which the API endpoitns are matched::
+
+    storm> cortex.httpapi.index 50cf80d0e332a31608331490cd453103 3
+    Set HTTP API 50cf80d0e332a31608331490cd453103 to index 3
+
+    storm> cortex.httpapi.list
+    order iden                             owner                auth  runas  path
+    0     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
+    1     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/path01
+    2     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+    3     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+
+The endpoints in the example are now checked in a "more specific" to "least specific" order.
+
+The path of a endpoint can also be changed. This can be done by assigning a new value to the ``path`` attribute on
+the ``http:api`` object in Storm::
+
+    storm> $api=$lib.cortex.httpapi.get(1896bda5dbd97615ee553059079620ba) $api.path="demo/mynew/path"
+    complete. 0 nodes in 8 ms (0/sec).
+
+    storm> cortex.httpapi.list
+    order iden                             owner                auth  runas  path
+    0     586311d3a7a26d6138bdc07169e4cde5 root                 true  owner  demo/path00
+    1     1896bda5dbd97615ee553059079620ba root                 true  owner  demo/mynew/path
+    2     daaf33e23b16540acdc872fee2de1b61 root                 true  owner  something/Else
+    3     50cf80d0e332a31608331490cd453103 root                 true  owner  demo/([a-z0-9]*)
+
+The path components which match each regular expression capture group in the ``path`` will be set in the
+``$request.args`` data. An endpoint can capture multiple args this way::
+
+    // Set the echo API handler we defined earlier to have a path which has multiple capture groups
+    $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
+    $api.path="demo/([a-z0-9]+)/(.*)"
+
+The captures groups are then available::
+
+    $ curl -sku "root:secret" -XPOST "https://127.0.0.1:38105/api/ext/demo/foobar1/AnotherArgument/inTheGroup"  | jq '.args'
+    [
+      "foobar1",
+      "AnotherArgument/inTheGroup"
+    ]
+
+
+
+The Cortex does not make any attempt to do any inspection of path values which may conflict between one
+another. This is because the paths for a given endpoint may be changed, they can contain regular
+expressions, and they may have their resolution order changed. Cortex administrators are responsible for
+configuring their Extended HTTP API endpoints with correct paths and order to meet their use cases.
+
+
+Supported Methods
++++++++++++++++++
+
+We support the following HTTP Methods:
+
+- ``GET``
+- ``PUT``
+- ``HEAD``
+- ``POST``
+- ``PATCH``
+- ``DELETE``
+- ``OPTIONS``
+
+These can be set via Storm. The following example shows setting two simple methods for a given endpoint::
+
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.methods.get = ${ $request.reply(200, headers=({"X-Method": "GET"}))
+    $api.methods.put = ${ $request.reply(200, headers=({"X-Method": "PUT"}))
+
+These methods can be removed as well by assigning ``$lib.undef`` to the value::
+
+    // Remove the GET method
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.methods.get = $lib.undef
+
+.. note::
+
+    Any body content that is sent in response to the ``HEAD`` method will not be transmitted to the requester.
+
+
+Authentication, Users, and Permissions
+++++++++++++++++++++++++++++++++++++++
+
+Extended HTTP API endpoints can require their request to be authenticated or not. By default, the endpoints have
+authentication enabled. Endpoints can have authentication disabled in order to allow anonymous access to them.
+Endpoints also have an ``owner`` assigned to them. This is the user that
+
+
+
+
+
+
+.. note::
+
+    When an endpoint is configured with ``runas`` set to ``user`` and ``authenticated`` to ``$lib.false`` any
+    calls to that API will be executed as the ``owner``.
+
+.. note::
+
+    When the Optic UI is used to proxy the ``/api/ext`` endpoint, authentication must be done using the Optic login
+    endpoint. b
+auth is not available.
+
+
+
+Storm Support - Readonly Mode
++++++++++++++++++++++++++++++
+
+The Storm queries for a given handler may be executed in a ``readonly`` runtime. This is disabled by default. This can
+be changed by setting the ``readonly`` attribute on the ``http:api`` object::
+
+    // Enable the Storme queries to be readonly
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.readonly = $lib.true
+
+Storm Support - Variables
+++++++++++++++++++++++++++++++++++++++++++++
+
+User defined variables may be set for the queries as well. These variables are mapped into the runtime for each method.
+This can be used to provide constants or other information which may change, without needing to alter the underlying
+Storm code which defines a method. These can be read ( or removed ) by altering the ``$api.vars`` dictionary. This is
+an example of using variable in a query::
+
+    // Set a variable that a method uses:
+
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.methods.get = ${
+        $mesg = `There are {$number} things available!`
+        $request.reply(200, body=({"mesg": $mesg})
+    }
+    $api.vars.number = (5)
+
+When executing this method, the JSON response would be the following::
+
+    {"mesg": "There are 5 things available!"}
+
+If ``$api.vars.number = "several"`` was executed, this would be the following output::
+
+    {"mesg": "There are several things available!"}
+
+Variables can be removed by assigning ``$lib.undef`` to them::
+
+    $api = $lib.cortex.httpapi.get($yourIden)
+    $api.vars.number = $lib.undef
+
+
+Storm Support - Messages and Error Handling
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Messages sent out of the Storm runtime using functions such as ``$lib.print()``, ``$lib.warn()``, or ``$lib.fire()``
+are not available to HTTP API callers. The ``$lib.log`` Storm library can be used for doing out of band logging of
+messages that need to be generated while handling a response.
+
+A Storm query which generates an error which tears down the Storm runtime with an ``err`` message will result in an
+HTTP 500 response being sent. The error will be encoded in the Synapse HTTP API error convention documented at
+:ref:`http-api-conventions`.
+
+For example, if the previous example where the handler sent a ``mesg``  about the ``$number`` of things available was
+run after the variable  ``$number`` was removed, the code would generate the following response body:
+
+.. highlight:: none
+
+::
+
+    {"status": "err", "code": "NoSuchVar", "mesg": "Missing variable: number"}
+
+You can also do your own error handling using the :ref:`flow-try-catch` if you want to control error codes,
+headers, and body content.
+
+Sending Custom Responses
+++++++++++++++++++++++++++++++++++++++++++++
+
+The ``http:request`` object has methods that allow a user to send the response code, headers and body separately.
+This can be used to craft a custom response
+
+jsonlines example
+csv example
+text example
+
+
 Devops Details
 ==============
 
@@ -1480,3 +1821,5 @@ Cortex Configuration Options
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 .. _warnings: https://docs.python.org/3/library/warnings.html
 .. _strftime: https://docs.python.org/3/library/time.html#time.strftime
+.. _fullmatch: https://docs.python.org/3/library/re.html#re.fullmatch
+.. _jq: https://github.com/jqlang/jq

@@ -7,6 +7,8 @@ Many components within the Synapse ecosystem provide HTTP/REST APIs to
 provide a portable interface.  Some of these APIs are RESTful, while other
 (streaming data) APIs are technically not.
 
+.. _http-api-conventions:
+
 HTTP/REST API Conventions
 -------------------------
 
@@ -691,6 +693,13 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                     ]
                 }
             }
+
+/api/ext/*
+----------
+
+This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
+:ref:`devops-svc-cortex-ext-http:` for additional information about this endpoint.
+
 
 Aha
 ---
