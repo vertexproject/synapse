@@ -35,7 +35,7 @@ Model Changes
   ``time``
     The ``time`` type now recognizes RFC822 formatted time strings.
 
-  ``biz:servicee:type:taxonomy``
+  ``biz:service:type:taxonomy``
     The ``taxonomy`` interface has been added to the type.
 
   ``geo:place:taxonomy``
@@ -83,7 +83,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Update the ``file:path`` support for scrape related APIS to address an
+- Update the ``file:path`` support for scrape related APIs to address an
   issue when matching against Linux style paths.
   (`#3378 <https://github.com/vertexproject/synapse/pull/3378>`_)
 - Update the ``hex`` type to ``zeropad`` strings prior to checking their
