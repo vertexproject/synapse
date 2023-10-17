@@ -68,17 +68,16 @@ Model Changes
     A developer selected label.
 
   ``it:dev:repo:issue:label``
-    A label applied to a repository issue
+    A label applied to a repository issue.
 
 Features and Enhancements
 -------------------------
-
 - Update the Storm string repr for ``$lib.null`` and ``$lib.undef`` values to
   ``$lib.null`` and ``$lib.undef``. Previously these printed ``None`` and an
   opaque Python object repr.
   (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
 - The ``synapse.tools.aha.list`` CLI tool now checks if it is connected to an
-  Aha service prior to enumerating Aha services.
+  Aha server prior to enumerating Aha services.
   (`#3371 <https://github.com/vertexproject/synapse/pull/3371>`_)
 
 Bugfixes
