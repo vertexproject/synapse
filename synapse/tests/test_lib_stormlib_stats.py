@@ -168,7 +168,7 @@ class StatsTest(s_test.SynTest):
             self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
 
             tally = s_stormlib_stats.StatTally()
-            tally.inc('foo')
+            await tally.inc('foo')
 
             async for (name, valu) in tally:
-                self.eq((name, valu), ('foo', '1'))
+                self.eq((name, valu), ('foo', 1))
