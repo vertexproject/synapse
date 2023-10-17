@@ -321,6 +321,7 @@ class TypesTest(s_t_utils.SynTest):
             # size = 8, zeropad = True
             testvectors = [
                 ('0x12', '00000012'),
+                ('0x123', '00000123'),
                 ('0x1234', '00001234'),
                 ('0x123456', '00123456'),
                 ('0x12345678', '12345678'),
@@ -344,6 +345,7 @@ class TypesTest(s_t_utils.SynTest):
             # zeropad = 20
             testvectors = [
                 ('0x12', '00000000000000000012'),
+                ('0x123', '00000000000000000123'),
                 ('0x1234', '00000000000000001234'),
                 ('0x123456', '00000000000000123456'),
                 ('0x12345678', '00000000000012345678'),
@@ -433,8 +435,9 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
 
             # Check creating and lifting zeropadded hex types
-            self.len(2, await core.nodes('[test:zeropad=11 test:zeropad=0x22]'))
+            self.len(3, await core.nodes('[test:zeropad=11 test:zeropad=0x22 test:zeropad=111]'))
             self.len(1, await core.nodes('test:zeropad=0x11'))
+            self.len(1, await core.nodes('test:zeropad=0x111'))
             self.len(1, await core.nodes('test:zeropad=000000000011'))
             self.len(1, await core.nodes('test:zeropad=00000000000000000011'))  # len=20
             self.len(0, await core.nodes('test:zeropad=0000000000000000000011'))  # len=22
