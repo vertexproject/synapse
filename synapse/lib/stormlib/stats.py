@@ -1,5 +1,7 @@
 import collections
 
+import synapse.exc as s_exc
+
 import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -42,7 +44,7 @@ class StatsCountByCmd(s_storm.Cmd):
         fullwidth = await s_stormtypes.toint(self.opts.width, noneok=True)
         if fullwidth is not None and fullwidth < 0:
             mesg = f'Value for --width must be >= 0, got: {fullwidth}'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg)
 
         counts = collections.defaultdict(int)
 
@@ -52,7 +54,7 @@ class StatsCountByCmd(s_storm.Cmd):
 
             valu = self.opts.valu
             if s_stormtypes.ismutable(valu):
-                raise s_exc.BadArg(mesg='Mutable values cannot be used for counting.', name=await torepr(name))
+                raise s_exc.BadArg(mesg='Mutable values cannot be used for counting.')
 
             valu = await s_stormtypes.toprim(valu)
             counts[valu] += 1

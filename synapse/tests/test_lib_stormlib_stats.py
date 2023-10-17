@@ -23,6 +23,12 @@ histomin = '''
 ################################################## 4
 '''.strip()
 
+histominrev = '''
+################################################## 4
+          ######################################## 3
+                    ############################## 2
+'''.strip()
+
 histowidth = '''
        # 0
      ### 1
@@ -66,6 +72,9 @@ class StatsTest(s_test.SynTest):
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --min 3')
             self.stormIsInPrint(histomin, msgs)
 
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --min 3 --reverse')
+            self.stormIsInPrint(histominrev, msgs)
+
             width = 10
             msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --width {width}')
             self.stormIsInPrint(histowidth, msgs)
@@ -76,8 +85,17 @@ class StatsTest(s_test.SynTest):
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --char "+"')
             self.stormIsInPrint(histochar, msgs)
 
+            msgs = await core.stormlist('stats.countby foo')
+            self.stormIsInPrint('No values to display!', msgs)
+
             self.len(0, await core.nodes('inet:ipv4 | stats.countby :asn'))
             self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --yield'))
+
+            with self.raises(s_exc.BadArg):
+                self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --width "-1"'))
+
+            with self.raises(s_exc.BadArg):
+                self.len(15, await core.nodes('inet:ipv4 | stats.countby ({})'))
 
     async def test_stormlib_stats_tally(self):
 
