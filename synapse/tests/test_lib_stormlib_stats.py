@@ -1,6 +1,8 @@
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 
+import synapse.lib.stormlib.stats as s_stormlib_stats
+
 histonorm = '''
                                         ########## 0
                               #################### 1
@@ -164,3 +166,9 @@ class StatsTest(s_test.SynTest):
             '''
             vals = await core.callStorm(q)
             self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
+
+            tally = s_stormlib_stats.StatTally()
+            tally.inc('foo')
+
+            async for (name, valu) in tally:
+                self.eq((name, valu), ('foo', '1'))
