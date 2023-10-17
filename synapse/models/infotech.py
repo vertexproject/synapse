@@ -655,6 +655,7 @@ class ItModule(s_module.CoreModule):
             ),
             'interfaces': (
                 ('it:host:activity', {
+                    'doc': 'Properties common to instances of activity on a host.',
                     'props': (
                         ('exe', ('file:bytes', {}), {
                             'doc': 'The executable file which caused the activity.'}),
