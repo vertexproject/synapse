@@ -325,6 +325,8 @@ class TypesTest(s_t_utils.SynTest):
                 ('0X1234', '00001234'),
                 ('0x123456', '00123456'),
                 ('0X12345678', '12345678'),
+                ('56:78', '00005678'),
+                ('12:34:56:78', '12345678'),
                 ('::', s_exc.BadTypeValu),
                 ('0x::', s_exc.BadTypeValu),
                 ('0x1234qwer', s_exc.BadTypeValu),
