@@ -1,0 +1,207 @@
+import collections
+
+import synapse.lib.storm as s_storm
+import synapse.lib.stormtypes as s_stormtypes
+
+class StatsCountByCmd(s_storm.Cmd):
+    '''
+    Tally occurrences of values and display a histogram of the results.
+
+    Examples:
+
+        // Show counts of ASN values in a set of IPs.
+        inet:ipv4#myips | stats.countby :asn
+
+        // Show counts of attacker names for risk:compromise nodes.
+        risk:compromise | stats.countby :attacker::name
+
+        // Show counts of meta:source:names which have seen risk:compromise nodes.
+        risk:compromise $valu={<(seen)- meta:source return(:name) } | stats.countby $valu
+    '''
+
+    name = 'stats.countby'
+    readonly = True
+
+    def getArgParser(self):
+        pars = s_storm.Cmd.getArgParser(self)
+        pars.add_argument('valu', help='The value to tally.')
+        pars.add_argument('--reverse', default=False, action='store_true',
+                          help='Display results in descending instead of ascending order.')
+        pars.add_argument('--min', type='int', default=0,
+                          help='Minimum number of occurrences to be included in output.')
+        pars.add_argument('--char', type='str', default='#',
+                          help='Character to use for histogram display.')
+        pars.add_argument('--width', type='int', default=None,
+                          help='Width of the histogram to display (including labels).')
+        pars.add_argument('--yield', default=False, action='store_true',
+                          dest='yieldnodes', help='Yield inbound nodes.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        fullwidth = await s_stormtypes.toint(self.opts.width, noneok=True)
+        if fullwidth is not None and fullwidth < 0:
+            mesg = f'Value for --width must be >= 0, got: {fullwidth}'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        counts = collections.defaultdict(int)
+
+        async for item in genr:
+            if self.opts.yieldnodes:
+                yield item
+
+            valu = self.opts.valu
+            if s_stormtypes.ismutable(valu):
+                raise s_exc.BadArg(mesg='Mutable values cannot be used for counting.', name=await torepr(name))
+
+            valu = await s_stormtypes.toprim(valu)
+            counts[valu] += 1
+
+        if len(counts) == 0:
+            await runt.printf('No values to display!')
+            return
+
+        values = list(sorted(counts.items(), key=lambda x: x[1]))
+
+        maxv = values[-1][1]
+        minv = await s_stormtypes.toint(self.opts.min, noneok=True)
+        char = (await s_stormtypes.tostr(self.opts.char))[0]
+        reverse = self.opts.reverse
+
+        namewidth = 0
+        for (name, size) in values:
+            namelen = len(str(name))
+            if namelen > namewidth:
+                namewidth = namelen
+
+        if fullwidth is None:
+            barwidth = 50
+        else:
+            barwidth = (fullwidth - (namewidth + 1))
+
+        barwidth = max(barwidth, 0)
+
+        if reverse:
+            order = -1
+        else:
+            order = 1
+
+        for (name, size) in values[::order]:
+            if (size < minv):
+                if reverse:
+                    break
+                else:
+                    continue
+
+            barsize = int((size / maxv) * barwidth)
+            bar = ''.ljust(barsize, char)
+            line = f'{bar.rjust(barwidth)} {name}'
+
+            if fullwidth is None:
+                await runt.printf(line)
+            else:
+                await runt.printf(line[0:fullwidth])
+
+@s_stormtypes.registry.registerLib
+class LibStats(s_stormtypes.Lib):
+    '''
+    A Storm Library for statistics related functionality.
+    '''
+    _storm_locals = (
+        {'name': 'tally', 'desc': 'Get a Tally object.',
+         'type': {'type': 'function', '_funcname': 'tally',
+                  'returns': {'type': 'stat:tally', 'desc': 'A new tally object.', }}},
+    )
+    _storm_lib_path = ('stats',)
+
+    def getObjLocals(self):
+        return {
+            'tally': self.tally,
+        }
+
+    async def tally(self):
+        return StatTally(path=self.path)
+
+@s_stormtypes.registry.registerType
+class StatTally(s_stormtypes.Prim):
+    '''
+    A tally object.
+
+    An example of using it::
+
+        $tally = $lib.stats.tally()
+
+        $tally.inc(foo)
+
+        for $name, $total in $tally {
+            $doStuff($name, $total)
+        }
+
+    '''
+    _storm_typename = 'stat:tally'
+    _storm_locals = (
+        {'name': 'inc', 'desc': 'Increment a given counter.',
+         'type': {'type': 'function', '_funcname': 'inc',
+                  'args': (
+                      {'name': 'name', 'desc': 'The name of the counter to increment.', 'type': 'str', },
+                      {'name': 'valu', 'desc': 'The value to increment the counter by.', 'type': 'int', 'default': 1, },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'get', 'desc': 'Get the value of a given counter.',
+         'type': {'type': 'function', '_funcname': 'get',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the counter to get.', },
+                  ),
+                  'returns': {'type': 'int',
+                              'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
+        {'name': 'sorted', 'desc': 'Get a list of (counter, value) tuples in sorted order.',
+         'type': {'type': 'function', '_funcname': 'sorted',
+                  'args': (
+                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
+                       'type': 'bool', 'default': False},
+                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
+                       'type': 'bool', 'default': False},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'List of (counter, value) tuples in sorted order.'}}},
+    )
+    _ismutable = True
+
+    def __init__(self, path=None):
+        s_stormtypes.Prim.__init__(self, {}, path=path)
+        self.counters = collections.defaultdict(int)
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'inc': self.inc,
+            'get': self.get,
+            'sorted': self.sorted,
+        }
+
+    async def __aiter__(self):
+        for name, valu in self.counters.items():
+            yield name, valu
+
+    def __len__(self):
+        return len(self.counters)
+
+    async def inc(self, name, valu=1):
+        valu = await s_stormtypes.toint(valu)
+        self.counters[name] += valu
+
+    async def get(self, name):
+        return self.counters.get(name, 0)
+
+    def value(self):
+        return dict(self.counters)
+
+    async def iter(self):
+        for item in tuple(self.counters.items()):
+            yield item
+
+    async def sorted(self, byname=False, reverse=False):
+        if byname:
+            return list(sorted(self.counters.items(), reverse=reverse))
+        else:
+            return list(sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse))
