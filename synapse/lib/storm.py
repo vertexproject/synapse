@@ -2453,8 +2453,7 @@ class Parser:
 
         if nargs == '?':
 
-            # ? will have an implicit default value of None
-            opts.setdefault(dest, None)
+            opts.setdefault(dest, argdef.get('default'))
 
             if todo and not self._is_opt(todo[0]):
 

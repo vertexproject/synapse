@@ -1,6 +1,7 @@
 import collections
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
@@ -10,6 +11,9 @@ class StatsCountByCmd(s_storm.Cmd):
     Tally occurrences of values and display a histogram of the results.
 
     Examples:
+
+        // Show counts of geo:name values referenced by media:news nodes.
+        media:news -(refs)> geo:name | stats.countby
 
         // Show counts of ASN values in a set of IPs.
         inet:ipv4#myips | stats.countby :asn
@@ -23,7 +27,8 @@ class StatsCountByCmd(s_storm.Cmd):
 
     def getArgParser(self):
         pars = s_storm.Cmd.getArgParser(self)
-        pars.add_argument('valu', help='The value to tally.')
+        pars.add_argument('valu', nargs='?', default=s_common.novalu,
+                          help='A relative property or variable to tally.')
         pars.add_argument('--reverse', default=False, action='store_true',
                           help='Display results in descending instead of ascending order.')
         pars.add_argument('--min', type='int', default=0,
@@ -45,15 +50,21 @@ class StatsCountByCmd(s_storm.Cmd):
 
         counts = collections.defaultdict(int)
 
-        async for item in genr:
+        usenode = self.opts.valu is s_common.novalu
+
+        async for node, path in genr:
             if self.opts.yieldnodes:
-                yield item
+                yield node, path
 
-            valu = self.opts.valu
-            if s_stormtypes.ismutable(valu):
-                raise s_exc.BadArg(mesg='Mutable values cannot be used for counting.')
+            if usenode:
+                valu = node.repr()
+            else:
+                valu = self.opts.valu
+                if s_stormtypes.ismutable(valu):
+                    raise s_exc.BadArg(mesg='Mutable values cannot be used for counting.')
 
-            valu = await s_stormtypes.toprim(valu)
+                valu = await s_stormtypes.toprim(valu)
+
             counts[valu] += 1
 
         if len(counts) == 0:
