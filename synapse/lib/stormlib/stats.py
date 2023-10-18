@@ -31,8 +31,6 @@ class StatsCountByCmd(s_storm.Cmd):
                           help='A relative property or variable to tally.')
         pars.add_argument('--reverse', default=False, action='store_true',
                           help='Display results in ascending instead of descending order.')
-        pars.add_argument('--min', type='int', default=0,
-                          help='Minimum number of occurrences to be included in output.')
         pars.add_argument('--size', type='int', default=None,
                           help='Maximum number of bars to display.')
         pars.add_argument('--char', type='str', default='#',
@@ -83,7 +81,6 @@ class StatsCountByCmd(s_storm.Cmd):
         values = list(sorted(counts.items(), key=lambda x: x[1]))
 
         maxv = values[-1][1]
-        minv = await s_stormtypes.toint(self.opts.min, noneok=True)
         size = await s_stormtypes.toint(self.opts.size, noneok=True)
         char = (await s_stormtypes.tostr(self.opts.char))[0]
         reverse = self.opts.reverse
@@ -110,11 +107,6 @@ class StatsCountByCmd(s_storm.Cmd):
             namewidth = min(labelwidth, namewidth)
 
         for (name, count) in values[::order]:
-            if (count < minv):
-                if reverse:
-                    break
-                else:
-                    continue
 
             barsize = int((count / maxv) * barwidth)
             bar = ''.ljust(barsize, char)
