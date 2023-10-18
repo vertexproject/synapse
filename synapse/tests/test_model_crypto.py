@@ -555,3 +555,18 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('crypto:x509:revoked', (crl, cert)))
             self.eq(nodes[0].get('crl'), crl)
             self.nn(nodes[0].get('cert'), cert)
+
+            # odd-length serials
+            serials = [
+                '1' * 7,
+                '2' * 9,
+                '3' * 15,
+                '4' * 17,
+                '5' * 31,
+                '6' * 33,
+                '7' * 39,
+            ]
+
+            for serial in serials:
+                msgs = await core.stormlist(f'[crypto:x509:cert=* :serial={serial}]')
+                self.stormHasNoErr(msgs)

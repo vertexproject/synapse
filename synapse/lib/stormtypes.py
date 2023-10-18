@@ -7247,14 +7247,6 @@ class LibTrigger(Lib):
         if prop is not None:
             tdef['prop'] = prop
 
-        verb = tdef.pop('verb', None)
-        if verb is not None:
-            tdef['verb'] = verb
-
-        n2form = tdef.pop('n2form', None)
-        if n2form is not None:
-            tdef['n2form'] = n2form
-
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
         tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
