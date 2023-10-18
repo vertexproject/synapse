@@ -370,8 +370,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             # Define a few handlers
             q = '''
             $api = $lib.cortex.httpapi.add('hehe/([a-z0-9]*)')
-            $api.methods.get = ${ $request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path})) }
-            $api.methods.head = ${ $request.replay(200, headers=({"yup": "wildcard"}) ) }
+            $api.methods.get =  ${ $request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path})) }
+            $api.methods.head = ${ $request.reply(200, headers=({"yup": "wildcard"})) }
             $api.name = 'the hehe wildcard handler'
             $api.desc = 'wildcard words'
             $api.runas = owner
@@ -517,7 +517,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path}))',
                                 msgs)
             self.stormIsInPrint(f'Method: HEAD', msgs)
-            self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}) )', msgs)
+            self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}))', msgs)
             self.stormIsInPrint('No vars are set for the handler.', msgs)
 
             # iden Prefix + name matching
