@@ -1317,11 +1317,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
+        self._initVaults()
+
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
         ), nexs=False)
-
-        self._initVaults()
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -6742,8 +6742,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name == oldname:
             return vault
 
-        vault['name'] = name
-
         return await self._push(('vault:set'), iden, 'name', name)
 
     @s_nexus.Pusher.onPush('vault:set')
@@ -6752,15 +6750,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg('Only vault names and permissions can be changed.')
 
         vault = self.reqVault(iden)
+        vault[key] = valu
+
+        reqValidVault(vault)
 
         bidn = s_common.uhex(iden)
-        name = vault.get('name')
 
         if key == 'name':
+            name = vault.get('name')
             self.slab.delete(name.encode(), db=self.vaultsbynamedb)
             self.slab.put(valu.encode(), bidn, db=self.vaultsbynamedb)
-
-        vault[key] = valu
 
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return vault
@@ -6773,12 +6772,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Args:
             iden (str): Iden of the vault to delete.
 
-        Raises:
-            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
-
         Returns: None
         '''
-        vault = self.reqVault(iden)
+        vault = self.getVault(iden)
+        if vault is None:
+            return
+
         bidn = s_common.uhex(iden)
 
         name = vault.get('name')

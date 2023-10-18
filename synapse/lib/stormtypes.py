@@ -8344,7 +8344,6 @@ class UserVars(Prim):
         name = await tostr(name)
         return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
 
-    @stormfunc(readonly=False)
     async def setitem(self, name, valu):
         name = await tostr(name)
 

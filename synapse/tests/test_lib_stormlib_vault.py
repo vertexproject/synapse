@@ -87,8 +87,7 @@ class StormlibVaultTest(s_test.SynTest):
             ret = await core.callStorm('return($lib.vault.get($iden).data.foo)', opts=opts)
             self.eq(ret, 'bar')
 
-            with self.raises(s_exc.NoSuchName):
-                await core.callStorm('return($lib.vault.get($iden).data.newp)', opts=opts)
+            self.none(await core.callStorm('return($lib.vault.get($iden).data.newp)', opts=opts))
 
             msgs = await core.stormlist('for ($key, $val) in $lib.vault.get($iden).data { $lib.print(`{$key} = {$val}`) }', opts=opts)
             self.stormIsInPrint('name = uvault', msgs)

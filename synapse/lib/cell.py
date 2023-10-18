@@ -3042,6 +3042,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Ensure that the given object has populated the "easy perm" convention.
         '''
+        if default > PERM_ADMIN or default < PERM_DENY:
+            mesg = f'Invalid permission level: {default} (must be <= {PERM_ADMIN} and >= {PERM_DENY})'
+            raise s_exc.BadArg(mesg=mesg)
+
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})

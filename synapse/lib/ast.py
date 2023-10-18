@@ -1121,10 +1121,6 @@ class SetItemOper(Oper):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
 
-            if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
-                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
-
             name = await self.kids[1].compute(runt, None)
             valu = await self.kids[2].compute(runt, None)
 

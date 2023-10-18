@@ -443,7 +443,9 @@ class LibVault(s_stormtypes.Lib):
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
 
-        vault = self.runt.snap.core.reqVaultByType(vtype, self.runt.user.iden, scope)
+        vault = self.runt.snap.core.getVaultByType(vtype, self.runt.user.iden, scope)
+        if not vault:
+            return None
         self._reqEasyPerm(vault, s_cell.PERM_READ)
 
         return Vault(self.runt, vault.get('iden'))
@@ -489,12 +491,7 @@ class VaultData(s_stormtypes.Prim):
         name = await s_stormtypes.tostr(name)
 
         data = vault.get('data')
-        valu = data.get(name, s_common.novalu)
-
-        if valu is not s_common.novalu:
-            return valu
-
-        raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
+        return data.get(name, None)
 
     async def iter(self):
         vault = self.runt.snap.core.reqVault(self.valu)
@@ -529,9 +526,17 @@ class Vault(s_stormtypes.Prim):
         {'name': 'iden', 'desc': 'The Vault iden.', 'type': 'str', },
         {'name': 'type', 'desc': 'The Vault type.', 'type': 'str', },
         {'name': 'scope', 'desc': 'The Vault scope.', 'type': 'str', },
-        {'name': 'ident', 'desc': 'The Vault ident (user or role iden).', 'type': 'str', },
-        {'name': 'data', 'desc': 'The Vault data.', 'type': 'vault:data'},
-        {'name': 'permissions', 'desc': 'The Vault permissions.', 'type': 'dict', },
+        {'name': 'owner', 'desc': 'The Vault owner (user or role iden).', 'type': 'str', },
+        {'name': 'permissions',
+         'desc': 'The Vault permissions.',
+         'type': ['gtor'],
+         '_gtorfunc': '_gtorPermissions',
+         'returns': {'type': 'dict'}},
+        {'name': 'data',
+         'desc': 'The Vault data.',
+         'type': ['gtor'],
+         '_gtorfunc': '_gtorData',
+         'returns': {'type': 'vault:data'}},
 
         {'name': 'name',
          'desc': 'The Vault name.',
@@ -568,6 +573,7 @@ class Vault(s_stormtypes.Prim):
         self.locls['iden'] = self.valu
         self.locls['type'] = vault.get('type')
         self.locls['scope'] = vault.get('scope')
+        self.locls['owner'] = vault.get('owner')
 
         self.stors.update({
             'name': self._storName,
