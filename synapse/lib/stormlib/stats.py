@@ -8,7 +8,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 class StatsCountByCmd(s_storm.Cmd):
     '''
-    Tally occurrences of values and display a histogram of the results.
+    Tally occurrences of values and display a bar chart of the results.
 
     Examples:
 
@@ -30,22 +30,31 @@ class StatsCountByCmd(s_storm.Cmd):
         pars.add_argument('valu', nargs='?', default=s_common.novalu,
                           help='A relative property or variable to tally.')
         pars.add_argument('--reverse', default=False, action='store_true',
-                          help='Display results in descending instead of ascending order.')
+                          help='Display results in ascending instead of descending order.')
         pars.add_argument('--min', type='int', default=0,
                           help='Minimum number of occurrences to be included in output.')
+        pars.add_argument('--size', type='int', default=None,
+                          help='Maximum number of bars to display.')
         pars.add_argument('--char', type='str', default='#',
-                          help='Character to use for histogram display.')
-        pars.add_argument('--width', type='int', default=None,
-                          help='Width of the histogram to display (including labels).')
+                          help='Character to use for bars.')
+        pars.add_argument('--bar-width', type='int', default=50,
+                          help='Width of the bars to display.')
+        pars.add_argument('--label-max-width', type='int', default=None,
+                          help='Maximum width of the labels to display.')
         pars.add_argument('--yield', default=False, action='store_true',
                           dest='yieldnodes', help='Yield inbound nodes.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        fullwidth = await s_stormtypes.toint(self.opts.width, noneok=True)
-        if fullwidth is not None and fullwidth < 0:
-            mesg = f'Value for --width must be >= 0, got: {fullwidth}'
+        labelwidth = await s_stormtypes.toint(self.opts.label_max_width, noneok=True)
+        if labelwidth is not None and labelwidth < 0:
+            mesg = f'Value for --label-max-width must be >= 0, got: {labelwidth}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        barwidth = await s_stormtypes.toint(self.opts.bar_width)
+        if barwidth < 0:
+            mesg = f'Value for --bar-width must be >= 0, got: {barwidth}'
             raise s_exc.BadArg(mesg=mesg)
 
         counts = collections.defaultdict(int)
@@ -63,7 +72,7 @@ class StatsCountByCmd(s_storm.Cmd):
                 if s_stormtypes.ismutable(valu):
                     raise s_exc.BadArg(mesg='Mutable values cannot be used for counting.')
 
-                valu = await s_stormtypes.toprim(valu)
+                valu = await s_stormtypes.tostr(await s_stormtypes.toprim(valu))
 
             counts[valu] += 1
 
@@ -75,42 +84,43 @@ class StatsCountByCmd(s_storm.Cmd):
 
         maxv = values[-1][1]
         minv = await s_stormtypes.toint(self.opts.min, noneok=True)
+        size = await s_stormtypes.toint(self.opts.size, noneok=True)
         char = (await s_stormtypes.tostr(self.opts.char))[0]
         reverse = self.opts.reverse
 
+        if reverse:
+            order = 1
+            if size:
+                values = values[:size]
+        else:
+            order = -1
+            if size:
+                values = values[len(values) - size:]
+
         namewidth = 0
-        for (name, size) in values:
-            namelen = len(str(name))
-            if namelen > namewidth:
+        countwidth = 0
+        for (name, count) in values:
+            if (namelen := len(str(name))) > namewidth:
                 namewidth = namelen
 
-        if fullwidth is None:
-            barwidth = 50
-        else:
-            barwidth = (fullwidth - (namewidth + 1))
+            if (countlen := len(str(count))) > countwidth:
+                countwidth = countlen
 
-        barwidth = max(barwidth, 0)
+        if labelwidth is not None:
+            namewidth = min(labelwidth, namewidth)
 
-        if reverse:
-            order = -1
-        else:
-            order = 1
-
-        for (name, size) in values[::order]:
-            if (size < minv):
+        for (name, count) in values[::order]:
+            if (count < minv):
                 if reverse:
                     break
                 else:
                     continue
 
-            barsize = int((size / maxv) * barwidth)
+            barsize = int((count / maxv) * barwidth)
             bar = ''.ljust(barsize, char)
-            line = f'{bar.rjust(barwidth)} {name}'
+            line = f'{name[0:namewidth].rjust(namewidth)} | {count:>{countwidth}} | {bar}'
 
-            if fullwidth is None:
-                await runt.printf(line)
-            else:
-                await runt.printf(line[0:fullwidth])
+            await runt.printf(line)
 
 @s_stormtypes.registry.registerLib
 class LibStats(s_stormtypes.Lib):

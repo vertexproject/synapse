@@ -3,48 +3,56 @@ import synapse.tests.utils as s_test
 
 import synapse.lib.stormlib.stats as s_stormlib_stats
 
-histonorm = '''
-                                        ########## 0
-                              #################### 1
-                    ############################## 2
-          ######################################## 3
-################################################## 4
+chartnorm = '''
+40 | 5 | ##################################################
+30 | 4 | ########################################
+20 | 3 | ##############################
+10 | 2 | ####################
+ 0 | 1 | ##########
 '''.strip()
 
-historev = '''
-################################################## 4
-          ######################################## 3
-                    ############################## 2
-                              #################### 1
-                                        ########## 0
+chartrev = '''
+ 0 | 1 | ##########
+10 | 2 | ####################
+20 | 3 | ##############################
+30 | 4 | ########################################
+40 | 5 | ##################################################
 '''.strip()
 
-histomin = '''
-                    ############################## 2
-          ######################################## 3
-################################################## 4
+chartsize = '''
+40 | 5 | ##################################################
+30 | 4 | ########################################
+20 | 3 | ##############################
 '''.strip()
 
-histominrev = '''
-################################################## 4
-          ######################################## 3
-                    ############################## 2
+chartsizerev = '''
+ 0 | 1 | ##########
+10 | 2 | ####################
+20 | 3 | ##############################
 '''.strip()
 
-histowidth = '''
-       # 0
-     ### 1
-    #### 2
-  ###### 3
-######## 4
+chartwidth = '''
+40 | 5 | ##########
+30 | 4 | ########
+20 | 3 | ######
+10 | 2 | ####
+ 0 | 1 | ##
 '''.strip()
 
-histochar = '''
-                                        ++++++++++ 0
-                              ++++++++++++++++++++ 1
-                    ++++++++++++++++++++++++++++++ 2
-          ++++++++++++++++++++++++++++++++++++++++ 3
-++++++++++++++++++++++++++++++++++++++++++++++++++ 4
+chartlabelwidth = '''
+4 | 5 | ##################################################
+3 | 4 | ########################################
+2 | 3 | ##############################
+1 | 2 | ####################
+0 | 1 | ##########
+'''.strip()
+
+chartchar = '''
+40 | 5 | ++++++++++++++++++++++++++++++++++++++++++++++++++
+30 | 4 | ++++++++++++++++++++++++++++++++++++++++
+20 | 3 | ++++++++++++++++++++++++++++++
+10 | 2 | ++++++++++++++++++++
+ 0 | 1 | ++++++++++
 '''.strip()
 
 
@@ -58,7 +66,7 @@ class StatsTest(s_test.SynTest):
             $i = (0)
             for $x in $lib.range(5) {
                 for $y in $lib.range(($x + 1)) {
-                    [ inet:ipv4=$i :asn=$x ]
+                    [ inet:ipv4=$i :asn=($x * 10) ]
                     $i = ($i + 1)
                 }
             }
@@ -66,26 +74,25 @@ class StatsTest(s_test.SynTest):
             await core.nodes(q)
 
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn')
-            self.stormIsInPrint(histonorm, msgs)
+            self.stormIsInPrint(chartnorm, msgs)
 
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --reverse')
-            self.stormIsInPrint(historev, msgs)
+            self.stormIsInPrint(chartrev, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --min 3')
-            self.stormIsInPrint(histomin, msgs)
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3')
+            self.stormIsInPrint(chartsize, msgs)
 
-            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --min 3 --reverse')
-            self.stormIsInPrint(histominrev, msgs)
+            msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --size 3 --reverse')
+            self.stormIsInPrint(chartsizerev, msgs)
 
-            width = 10
-            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --width {width}')
-            self.stormIsInPrint(histowidth, msgs)
-            for m in msgs:
-                if m[0] == 'print':
-                    self.len(width, m[1]['mesg'])
+            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --bar-width 10')
+            self.stormIsInPrint(chartwidth, msgs)
+
+            msgs = await core.stormlist(f'inet:ipv4 | stats.countby :asn --label-max-width 1')
+            self.stormIsInPrint(chartlabelwidth, msgs)
 
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --char "+"')
-            self.stormIsInPrint(histochar, msgs)
+            self.stormIsInPrint(chartchar, msgs)
 
             msgs = await core.stormlist('stats.countby foo')
             self.stormIsInPrint('No values to display!', msgs)
@@ -94,7 +101,10 @@ class StatsTest(s_test.SynTest):
             self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --yield'))
 
             with self.raises(s_exc.BadArg):
-                self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --width "-1"'))
+                self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --label-max-width "-1"'))
+
+            with self.raises(s_exc.BadArg):
+                self.len(15, await core.nodes('inet:ipv4 | stats.countby :asn --bar-width "-1"'))
 
             with self.raises(s_exc.BadArg):
                 self.len(15, await core.nodes('inet:ipv4 | stats.countby ({})'))
