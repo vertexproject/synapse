@@ -76,6 +76,9 @@ class StatsTest(s_test.SynTest):
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn')
             self.stormIsInPrint(chartnorm, msgs)
 
+            msgs = await core.stormlist('inet:ipv4 -> inet:asn | stats.countby')
+            self.stormIsInPrint(chartnorm, msgs)
+
             msgs = await core.stormlist('inet:ipv4 | stats.countby :asn --reverse')
             self.stormIsInPrint(chartrev, msgs)
 
