@@ -560,6 +560,37 @@ stormcmds = (
         '''
     },
     {
+        'name': 'auth.gate.admin',
+        'descr': '''
+
+            Grant or revoke admin access to an auth gate for a specified user.
+
+            Examples:
+                // Grant admin access to user blackout for the current view
+                auth.gate.grant blackout $lib.view.get().iden
+
+                // Revoke admin access to user blackout for the current view
+                auth.gate.grant blackout $lib.view.get().iden --revoke
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+            ('gateiden', {'type': 'str', 'help': 'The GUID of the auth gate.'}),
+            ('--revoke', {'type': 'bool', 'action': 'store_true', 'default': False,
+             'help': 'The auth gate id to grant permission on.', 'default': None}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
+
+            $user.setAdmin((not $cmdopts.revoke), gateiden=$cmdopts.gateiden)
+            if $cmdopts.revoke {
+                $lib.print(`Admin access revoked to auth gate {$cmdopts.gateiden} for {$user.name}.`)
+            } else {
+                $lib.print(`Admin access granted to auth gate {$cmdopts.gateiden} for {$user.name}.`)
+            }
+        '''
+    },
+    {
         'name': 'auth.perms.list',
         'descr': 'Display a list of the current permissions defined within the Cortex.',
         'cmdargs': (),

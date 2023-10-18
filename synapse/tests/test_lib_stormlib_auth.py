@@ -178,12 +178,18 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f.',
                 msgs, deguid=True)
 
-            q = '$lib.auth.users.byname(visi).setAdmin($admin, gateiden=$lib.view.get().layers.0.iden)'
-            await core.nodes(q, opts={'vars': {'admin': True}})
+            msgs = await core.stormlist('auth.gate.admin visi $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('Admin access granted to auth gate 741529fa80e3fb42f63c5320e4bf348f for visi.',
+                                msgs, deguid=True)
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('allowed: true - The user is an admin of auth gate 741529fa80e3fb42f63c5320e4bf348f',
                                 msgs, deguid=True)
-            await core.nodes(q, opts={'vars': {'admin': False}})
+            msgs = await core.stormlist('auth.gate.admin visi $lib.view.get().layers.0.iden --revoke')
+            self.stormIsInPrint('Admin access revoked to auth gate 741529fa80e3fb42f63c5320e4bf348f for visi.',
+                                msgs, deguid=True)
+            msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f',
+                                msgs, deguid=True)
 
             await core.nodes('auth.role.addrule ninjas beep.sys --gate $lib.view.get().layers.0.iden')
             msgs = await core.stormlist('auth.user.allowed visi beep.sys --gate $lib.view.get().layers.0.iden')
