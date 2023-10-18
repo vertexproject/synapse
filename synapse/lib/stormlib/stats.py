@@ -16,9 +16,6 @@ class StatsCountByCmd(s_storm.Cmd):
 
         // Show counts of attacker names for risk:compromise nodes.
         risk:compromise | stats.countby :attacker::name
-
-        // Show counts of meta:source:names which have seen risk:compromise nodes.
-        risk:compromise $valu={<(seen)- meta:source return(:name) } | stats.countby $valu
     '''
 
     name = 'stats.countby'
