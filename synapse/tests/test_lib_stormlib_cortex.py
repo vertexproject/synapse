@@ -382,7 +382,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             q = '''
             $api = $lib.cortex.httpapi.add('hehe/haha')
             $api.methods.get = ${ $request.reply(200, headers=({"yup": "hehe/haha"}), body=({"path": $request.path})) }
-            $api.methods.head = ${ $request.replay(200, headers=({"yup": "hehe/haha"}) ) }
+            $api.methods.head = ${ $request.reply(200, headers=({"yup": "hehe/haha"}) ) }
             $api.name = 'the hehe/haha handler'
             $api.desc = 'beep boop zoop robot captain'
             $api.runas = user
@@ -397,7 +397,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             q = '''
             $api = $lib.cortex.httpapi.add('hehe')
             $api.methods.get = ${ $request.reply(200, headers=({"yup": "hehe"}), body=({"path": $request.path})) }
-            $api.methods.head = ${ $request.replay(200, headers=({"yup": "hehe"})) }
+            $api.methods.head = ${ $request.reply(200, headers=({"yup": "hehe"})) }
             $api.authenticated = $lib.false
             $api.owner = $lowuser
             return ( $api.iden )
@@ -453,6 +453,12 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 data = await resp.json()
                 self.eq(data.get('path'), 'hehe/haha')
                 self.eq(resp.headers.get('yup'), 'hehe/haha')
+
+                resp = await sess.head(f'https://localhost:{hport}/api/ext/hehe/haha')
+                data = await resp.read()
+                self.eq(data, b'')
+                self.eq(resp.headers.get('yup'), 'hehe/haha')
+                self.none(resp.headers.get('Etag'))  # No etag is computed for ext api
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/ohmy1234')
                 data = await resp.json()
@@ -511,7 +517,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}), body=({"path": $request.path}))',
                                 msgs)
             self.stormIsInPrint(f'Method: HEAD', msgs)
-            self.stormIsInPrint('$request.replay(200, headers=({"yup": "wildcard"}) )', msgs)
+            self.stormIsInPrint('$request.reply(200, headers=({"yup": "wildcard"}) )', msgs)
             self.stormIsInPrint('No vars are set for the handler.', msgs)
 
             # iden Prefix + name matching
@@ -752,7 +758,7 @@ for $i in $values {
             $request.reply(200, body=$data)
             }
             $api.methods.head = ${
-                $request.replay(200, ({"yup": "it exists"}) )
+                $request.reply(200, ({"yup": "it exists"}) )
             }
             $api.name = 'the hehe/haha handler'
             $api.desc = 'beep boop zoop robot captain'
@@ -1262,3 +1268,28 @@ for $i in $values {
                 self.eq(resp.status, 404)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchPath')
+
+    async def test_cortex_httpapi_cell_headers(self):
+        async with self.getTestCore(conf={'https:headers': {'Key1': 'Valu1'}}) as core:
+            udef = await core.addUser('lowuser')
+            lowuser = udef.get('iden')
+            await core.setUserPasswd(core.auth.rootuser.iden, 'root')
+            await core.setUserPasswd(lowuser, 'secret')
+            addr, hport = await core.addHttpsPort(0)
+
+            q = '''$api = $lib.cortex.httpapi.add(stuff)
+            $api.methods.get =  ${
+                $request.reply(200, headers=({"Weee": "valu"}) )
+            }
+            return ( ($api.iden) )'''
+            iden00 = await core.callStorm(q)
+
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
+                self.eq(resp.status, 200)
+                self.eq(resp.headers.get('Weee'), 'valu')
+                self.eq(resp.headers.get('Key1'), 'Valu1')
+                # general default synapse headers are not present
+                self.none(resp.headers.get('X-Content-Type-Options'))
+                # Server is still omitted though
+                self.none(resp.headers.get('Server'))

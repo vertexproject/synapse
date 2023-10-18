@@ -1254,6 +1254,14 @@ class ExtApiHandler(StormHandler):
 
     storm_prefix = 'init { $request = $lib.cortex.httpapi.response($_http_request_info) }'
 
+    # Disables the etag header from being computed and set. It is too much magic for
+    # a user defined API to utilize.
+    def compute_etag(self):
+        return None
+
+    def set_default_headers(self):
+        self.clear_header('Server')
+
     async def get(self, path):
         return await self._runHttpExt('get', path)
 

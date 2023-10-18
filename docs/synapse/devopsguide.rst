@@ -974,7 +974,6 @@ and custom body in the reponse::
     HTTP/1.1 200 OK
     Content-Type: application/json; charset=utf8"
     Date: Tue, 17 Oct 2023 16:21:32 GMT
-    X-Content-Type-Options: nosniff
     Some: value
     Content-Length: 53
 
@@ -1071,7 +1070,7 @@ The output of that endpoint::
     Request headers and parameters are flattened into a single key / value mapping. Duplicate request headers or
     parameters are not exposed in the ``$request`` object.
 
-Managing API Paths
+Managing HTTP APIS
 ++++++++++++++++++
 
 When creating an Extended HTTP API, the request path must be provided. This path component is matched against any
@@ -1133,13 +1132,62 @@ The captures groups are then available::
       "AnotherArgument/inTheGroup"
     ]
 
+The Cortex does not make any attempt to do any inspection of path values which may conflict between the Extended HTTP
+API endpoints. This is because the paths for a given endpoint may be changed, they can contain regular expressions,
+and they may have their resolution order changed. Cortex users are responsible for configuring their
+Extended HTTP API endpoints with correct paths and order to meet their use cases.
 
+The Extended HTTP APIs can also be given a name and a description. The following shows setting the ``name`` and
+``desc`` fields, and then showing the details of the API using ``cortex.httpapi.stat``. This command shows detailed
+information about the Extended HTTP API endpoint::
 
-The Cortex does not make any attempt to do any inspection of path values which may conflict between one
-another. This is because the paths for a given endpoint may be changed, they can contain regular
-expressions, and they may have their resolution order changed. Cortex administrators are responsible for
-configuring their Extended HTTP API endpoints with correct paths and order to meet their use cases.
+    $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
+    $api.name="demo wildcard"
+    $api.desc='''This API endpoint is a wildcard example. It has a GET method and a POST method available.'''
 
+    // Stat output
+    storm> cortex.httpapi.stat 50cf80d0e332a31608331490cd453103
+    Iden: 50cf80d0e332a31608331490cd453103
+    Path: demo/([a-z0-9]+)/(.*)
+    Owner: root (b13c21813628ac4464b78b5d7c55cd64)
+    Runas: owner
+    View: default (a1877dd028915d90862e35e24b491bfc)
+    Readonly: false
+    Authenticated: true
+    Name: demo wildcard
+    Description: This API endpoint is a wildcard example. It has a GET method and a POST method available.
+
+    No user permissions are required to run this HTTP API endpoint.
+    The handler defines the following HTTP methods:
+    Method: POST
+    $body = ({
+                "method": $request.method,        // The HTTP method
+                "headers": $request.headers,      // Any request headers
+                "params": $request.params,        // Any requets parameters
+                "uri": $request.uri,              // The full URI requested
+                "path": $request.path,            // The path we matched against
+                "args": $request.args,            // Any capture groups matched from the path.
+                "client": $request.client,        // Requester client IP
+                "iden": $request.api.iden,        // The iden of the HTTP API handling the request
+                "nbyts": $lib.len($request.body), // The raw body si available as bytes
+            })
+            try {
+                $body.json = $request.json        // We will lazily load the request body as json
+            } catch StormRuntimeError as err {    // But it may not be json!
+                $body.json = 'err'
+            }
+            $headers = ({'Echo': 'hehe!'})
+            $request.reply(200, headers=$headers, body=$body)
+
+    Method: GET
+    $body=({
+                "ua":   $request.headers."UseR-AGent",  // case insensitive match on the User-Agent string
+                "hehe": $request.params.hehe,
+                "HEHE": $request.params.HEHE,
+            })
+            $request.reply(200, body=$body)
+
+    No vars are set for the handler.
 
 Supported Methods
 +++++++++++++++++
@@ -1156,20 +1204,19 @@ We support the following HTTP Methods:
 
 These can be set via Storm. The following example shows setting two simple methods for a given endpoint::
 
-    $api = $lib.cortex.httpapi.get($yourIden)
+    $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
     $api.methods.get = ${ $request.reply(200, headers=({"X-Method": "GET"}))
     $api.methods.put = ${ $request.reply(200, headers=({"X-Method": "PUT"}))
 
 These methods can be removed as well by assigning ``$lib.undef`` to the value::
 
     // Remove the GET method
-    $api = $lib.cortex.httpapi.get($yourIden)
+    $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
     $api.methods.get = $lib.undef
 
-.. note::
-
-    Any body content that is sent in response to the ``HEAD`` method will not be transmitted to the requester.
-
+Users are not required to implement their methods in any particular style. The only method specific restriction on the
+endpoint logic is for the ``HEAD`` method. Any body content that is sent in response to the ``HEAD`` method will not
+be transmitted to the requester. This body content will be omitted from being transmitted without warning or error.
 
 Authentication, Users, and Permissions
 ++++++++++++++++++++++++++++++++++++++
@@ -1196,8 +1243,8 @@ auth is not available.
 
 
 
-Storm Support - Readonly Mode
-+++++++++++++++++++++++++++++
+Readonly Mode
++++++++++++++
 
 The Storm queries for a given handler may be executed in a ``readonly`` runtime. This is disabled by default. This can
 be changed by setting the ``readonly`` attribute on the ``http:api`` object::
@@ -1206,8 +1253,8 @@ be changed by setting the ``readonly`` attribute on the ``http:api`` object::
     $api = $lib.cortex.httpapi.get($yourIden)
     $api.readonly = $lib.true
 
-Storm Support - Variables
-++++++++++++++++++++++++++++++++++++++++++++
+Endpoint Variables
+++++++++++++++++++
 
 User defined variables may be set for the queries as well. These variables are mapped into the runtime for each method.
 This can be used to provide constants or other information which may change, without needing to alter the underlying
@@ -1236,9 +1283,142 @@ Variables can be removed by assigning ``$lib.undef`` to them::
     $api = $lib.cortex.httpapi.get($yourIden)
     $api.vars.number = $lib.undef
 
+Sending Custom Responses
+++++++++++++++++++++++++
 
-Storm Support - Messages and Error Handling
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Responses can be made which are not JSON formatted. The ``$request.reply()`` method can be used to send raw bytes. The
+user must provide any appropriate headers alongside their request.
+
+**HTML Example**
+
+The following example shows an endpoint which generates a small amount of HTML. It uses an HTML template stored in in
+the method ``vars``. This template has a small string formatted in it, converted to bytes, and then the headers are
+set. The end result can be then rendered in a web browser::
+
+    $api = $lib.cortex.httpapi.add('demo/html')
+    $api.vars.template = '''<!DOCTYPE html>
+    <html>
+    <body>
+    <h1>A Header</h1>
+    <p>{mesg}</p>
+    </body>
+    </html>'''
+    $api.methods.get = ${
+        $duration = $lib.model.type(duration).repr($lib.cell.uptime().uptime)
+        $mesg = `The Cortex has been up for {$duration}`
+        $html = $lib.str.format($template, mesg=$mesg)
+        $buf = $html.encode()
+        $headers = ({
+            "Content-Type": "text/html",
+            "Content-Length": `{$lib.len($buf)}`
+        })
+        $request.reply(200, headers=$headers, body=$buf)
+    }
+
+Accessing this endpoint with ``curl`` shows the following::
+
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:38105/api/ext/demo/html"
+    HTTP/1.1 200 OK
+    Content-Type: text/html
+    Date: Wed, 18 Oct 2023 14:07:47 GMT
+    Content-Length: 137
+
+    <!DOCTYPE html>
+    <html>
+    <body>
+    <h1>A Header</h1>
+    <p>The Cortex has been up for 1D 00:59:12.704</p>
+    </body>
+    </html>f
+
+**Streaming Examples**
+
+The ``http:request`` object has methods that allow a user to send the response code, headers and body separately.
+One use for this is to create a streaming response. This can be used when the total response size may not be known
+or to avoid incurring memory pressure on the Cortex when computing results.
+
+The following examples generates from JSONLines data::
+
+    $api = $lib.cortex.httpapi.add('demo/jsonlines')
+    $api.methods.get = ${
+        $request.sendcode(200)
+        // This allows a browser to view the response
+        $request.sendheaders(({"Content-Type": "text/plain; charset=utf8"}))
+        $values = ((1), (2), (3))
+        for $i in $values {
+            $data = ({'i': $i})
+            $body=`{$lib.json.save($data)}\n`
+            $request.sendbody($body.encode())
+        }
+    }
+
+Accessing this endpoint shows the JSONLines rows sent back::
+
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:38105/api/ext/demo/jsonlines"
+    HTTP/1.1 200 OK
+    Content-Type: text/plain; charset=utf8
+    Date: Wed, 18 Oct 2023 14:31:29 GMT
+     nosniff
+    Transfer-Encoding: chunked
+
+    {"i": 1}
+    {"i": 2}
+    {"i": 3}
+
+In a similar fashion, a CSV can be generated. This example shows a integer and its square being computed::
+
+    $api = $lib.cortex.httpapi.add('demo/csv')
+    $api.methods.get = ${
+        $request.sendcode(200)
+        $request.sendheaders(({"Content-Type": "text/csv"}))
+
+        // Header row
+        $header="i, square\n"
+        $request.sendbody($header.encode())
+
+        $n = 10  // Number of rows to compute
+        for $i in $lib.range($n) {
+            $square = ($i * $i)
+            $body = `{$i}, {$square}\n`
+            $request.sendbody($body.encode())
+        }
+    }
+
+Accessing this shows the CSV content being sent back::
+
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:38105/api/ext/demo/csv"
+    HTTP/1.1 200 OK
+    Content-Type: text/csv
+    Date: Wed, 18 Oct 2023 14:43:37 GMT
+    Transfer-Encoding: chunked
+
+    i, square
+    0, 0
+    1, 1
+    2, 4
+    3, 9
+    4, 16
+    5, 25
+    6, 36
+    7, 49
+    8, 64
+    9, 81
+
+
+When using the ``sendcode()``, ``sendheaders()``, and ``sendbody()`` APIS the order in which they are called does
+matter. The status code and headers can be set at any point before sending body data. They can even be set multiple
+times if the response logic needs to change a value it previously set.
+
+Once the body data has been sent, the status code and headers will be sent to the HTTP client and cannot be changed.
+Attempting to change the status code or send additional headers will have no effect. This will generate a warning
+message on the Cortex.
+
+The **minimum** data that the Extended HTTP API requires for a response to be considered valid setting the status
+code. If the status code is not set by an endpoint, or if body content is sent prior to setting the endpoint, then
+a HTTP 500 status code will be sent to the caller.
+
+Messages and Error Handling
++++++++++++++++++++++++++++
 
 Messages sent out of the Storm runtime using functions such as ``$lib.print()``, ``$lib.warn()``, or ``$lib.fire()``
 are not available to HTTP API callers. The ``$lib.log`` Storm library can be used for doing out of band logging of
@@ -1260,16 +1440,9 @@ run after the variable  ``$number`` was removed, the code would generate the fol
 You can also do your own error handling using the :ref:`flow-try-catch` if you want to control error codes,
 headers, and body content.
 
-Sending Custom Responses
-++++++++++++++++++++++++++++++++++++++++++++
+** note::
 
-The ``http:request`` object has methods that allow a user to send the response code, headers and body separately.
-This can be used to craft a custom response
-
-jsonlines example
-csv example
-text example
-
+    The HTTP 500 response will not be sent if there has already been body data send by the endpoint.
 
 Devops Details
 ==============
