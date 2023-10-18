@@ -529,14 +529,16 @@ class Vault(s_stormtypes.Prim):
         {'name': 'owner', 'desc': 'The Vault owner (user or role iden).', 'type': 'str', },
         {'name': 'permissions',
          'desc': 'The Vault permissions.',
-         'type': ['gtor'],
-         '_gtorfunc': '_gtorPermissions',
-         'returns': {'type': 'dict'}},
+         'type': {
+             'type': ['gtor'],
+             '_gtorfunc': '_gtorPermissions',
+             'returns': {'type': 'dict'}}},
         {'name': 'data',
          'desc': 'The Vault data.',
-         'type': ['gtor'],
-         '_gtorfunc': '_gtorData',
-         'returns': {'type': 'vault:data'}},
+         'type': {
+             'type': ['gtor'],
+             '_gtorfunc': '_gtorData',
+             'returns': {'type': 'vault:data'}}},
 
         {'name': 'name',
          'desc': 'The Vault name.',
