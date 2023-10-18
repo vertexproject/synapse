@@ -37,6 +37,8 @@ modules. They should be enough to understand the basic operation of the APIs.
 
 For additional examples, see the code examples at `HTTPAPI Examples`_.
 
+.. _http-api-authentication:
+
 Authentication
 --------------
 
@@ -698,7 +700,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
 ----------
 
 This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
-:ref:`devops-svc-cortex-ext-http:` for additional information about this endpoint.
+:ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
 
 
 Aha

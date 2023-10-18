@@ -939,7 +939,7 @@ Extended HTTP API
 
 The Cortex can be configured ( via Storm ) to service custom HTTPI API endpoints. These user defined endpoints execute
 Storm code in order to generate responses. This allows creating custom HTTP API responses or URL paths which may meet
-your organizations needs.
+custom needs.
 
 These endpoints have a base URL of ``/api/ext/``. Additional path components made in a request are used to resolve
 which API definition is used to handle the response.
@@ -950,7 +950,7 @@ This object contains helpers to access the request data, as well as functions to
 
 .. note::
 
-    Several examples show the use of ``curl`` and _jq being used to access endpoints or process data. These tools are
+    Several examples show the use of curl_ and jq_ being used to access endpoints or process data. These tools are
     not required in order to interact with the Extended HTTP API.
 
 A Simple Example
@@ -967,10 +967,10 @@ simple message embedded in a dictionary::
         $request.reply(200, headers=$headers, body=$body)
      }
 
-When we access that HTTP API endpoint on the Cortex, we can see the response data has the status code, custom headers,
-and custom body in the reponse::
+When accessing that HTTP API endpoint on the Cortex, the response data has the status code, custom headers, and custom
+body in the reponse::
 
-    $ curl -s -D - -k -u "root:root" "https://127.0.0.1:4443/api/ext/demo/path00"
+    $ curl -D - -sku "root:root" "https://127.0.0.1:4443/api/ext/demo/path00"
     HTTP/1.1 200 OK
     Content-Type: application/json; charset=utf8"
     Date: Tue, 17 Oct 2023 16:21:32 GMT
@@ -995,14 +995,14 @@ all of that request data, and echoes it back to the caller::
             "headers": $request.headers,      // Any request headers
             "params": $request.params,        // Any requets parameters
             "uri": $request.uri,              // The full URI requested
-            "path": $request.path,            // The path we matched against
+            "path": $request.path,            // The path component after /api/ext/
             "args": $request.args,            // Any capture groups matched from the path.
             "client": $request.client,        // Requester client IP
             "iden": $request.api.iden,        // The iden of the HTTP API handling the request
-            "nbyts": $lib.len($request.body), // The raw body si available as bytes
+            "nbyts": $lib.len($request.body), // The raw body is available as bytes
         })
         try {
-            $body.json = $request.json        // We will lazily load the request body as json
+            $body.json = $request.json        // Synapse will lazily load the request body as json upon access
         } catch StormRuntimeError as err {    // But it may not be json!
             $body.json = 'err'
         }
@@ -1010,7 +1010,7 @@ all of that request data, and echoes it back to the caller::
         $request.reply(200, headers=$headers, body=$body)
     }
 
-Accessing that endpoint with ``curl``and ``jq`` shows that request information being echoed back to the caller::
+Accessing that endpoint shows that request information is echoed back to the caller::
 
     $ curl -sku "root:secret" -XPOST -d '{"some":["json", "items"]}' "https://127.0.0.1:4443/api/ext/demo/ohmy?hehe=haha" | jq
     {
@@ -1075,7 +1075,7 @@ Managing HTTP APIS
 
 When creating an Extended HTTP API, the request path must be provided. This path component is matched against any
 path components after ``/api/etx/*`` when determing which API endpoint will service the request. The API endpoints are
-matched in order, comparing their ``path`` against the requested path using a case sensitive _fullmatch regular
+matched in order, comparing their ``path`` against the requested path using a case sensitive fullmatch_ regular
 expression comparison. Newly created API endpoints are added to the end of the list for matching. It is best for
 these endpoints to be ordered from most specific to least specific.
 
@@ -1090,7 +1090,7 @@ To list the registered APIs, their order, and path information, use the ``cortex
 
 In this example, there are four items listed. The ``path`` of the first item will match the paths for the second and
 third items. The index for the first item needs to be moved using the ``cortex.httpapi.index`` commmand. That command
-allows users to change the order in which the API endpoitns are matched::
+allows users to change the order in which the API endpoints are matched::
 
     storm> cortex.httpapi.index 50cf80d0e332a31608331490cd453103 3
     Set HTTP API 50cf80d0e332a31608331490cd453103 to index 3
@@ -1120,22 +1120,25 @@ the ``http:api`` object in Storm::
 The path components which match each regular expression capture group in the ``path`` will be set in the
 ``$request.args`` data. An endpoint can capture multiple args this way::
 
-    // Set the echo API handler we defined earlier to have a path which has multiple capture groups
+    // Set the echo API handler defined earlier to have a path which has multiple capture groups
     $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
     $api.path="demo/([a-z0-9]+)/(.*)"
 
 The captures groups are then available::
 
-    $ curl -sku "root:secret" -XPOST "https://127.0.0.1:38105/api/ext/demo/foobar1/AnotherArgument/inTheGroup"  | jq '.args'
+    $ curl -sku "root:secret" -XPOST "https://127.0.0.1:4443/api/ext/demo/foobar1/AnotherArgument/inTheGroup"  | jq '.args'
     [
       "foobar1",
       "AnotherArgument/inTheGroup"
     ]
 
-The Cortex does not make any attempt to do any inspection of path values which may conflict between the Extended HTTP
-API endpoints. This is because the paths for a given endpoint may be changed, they can contain regular expressions,
-and they may have their resolution order changed. Cortex users are responsible for configuring their
-Extended HTTP API endpoints with correct paths and order to meet their use cases.
+
+.. note::
+
+    The Cortex does not make any attempt to do any inspection of path values which may conflict between the endpoints.
+    This is because the paths for a given endpoint may be changed, they can contain regular expressions, and they may
+    have their resolution order changed. Cortex users are responsible for configuring their endpoints with correct
+    paths and order to meet their use cases.
 
 The Extended HTTP APIs can also be given a name and a description. The following shows setting the ``name`` and
 ``desc`` fields, and then showing the details of the API using ``cortex.httpapi.stat``. This command shows detailed
@@ -1165,14 +1168,14 @@ information about the Extended HTTP API endpoint::
                 "headers": $request.headers,      // Any request headers
                 "params": $request.params,        // Any requets parameters
                 "uri": $request.uri,              // The full URI requested
-                "path": $request.path,            // The path we matched against
+                "path": $request.path,            // The path component after /api/ext/
                 "args": $request.args,            // Any capture groups matched from the path.
                 "client": $request.client,        // Requester client IP
                 "iden": $request.api.iden,        // The iden of the HTTP API handling the request
-                "nbyts": $lib.len($request.body), // The raw body si available as bytes
+                "nbyts": $lib.len($request.body), // The raw body is available as bytes
             })
             try {
-                $body.json = $request.json        // We will lazily load the request body as json
+                $body.json = $request.json        // Synapse will lazily load the request body as json upon access
             } catch StormRuntimeError as err {    // But it may not be json!
                 $body.json = 'err'
             }
@@ -1192,7 +1195,7 @@ information about the Extended HTTP API endpoint::
 Supported Methods
 +++++++++++++++++
 
-We support the following HTTP Methods:
+The endpoints support the following HTTP Methods:
 
 - ``GET``
 - ``PUT``
@@ -1202,7 +1205,8 @@ We support the following HTTP Methods:
 - ``DELETE``
 - ``OPTIONS``
 
-These can be set via Storm. The following example shows setting two simple methods for a given endpoint::
+The logic which implements these methods is set via Storm. The following example shows setting two simple methods for a
+given endpoint::
 
     $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
     $api.methods.get = ${ $request.reply(200, headers=({"X-Method": "GET"}))
@@ -1212,36 +1216,133 @@ These methods can be removed as well by assigning ``$lib.undef`` to the value::
 
     // Remove the GET method
     $api = $lib.cortex.httpapi.get(586311d3a7a26d6138bdc07169e4cde5)
-    $api.methods.get = $lib.undef
+    $api.methods.put = $lib.undef
 
-Users are not required to implement their methods in any particular style. The only method specific restriction on the
-endpoint logic is for the ``HEAD`` method. Any body content that is sent in response to the ``HEAD`` method will not
-be transmitted to the requester. This body content will be omitted from being transmitted without warning or error.
+Users are not required to implement their methods in any particular styles or conventions. The only method specific
+restriction on the endpoint logic is for the ``HEAD`` method. Any body content that is sent in response to the ``HEAD``
+method will not be transmitted to the requester. This body content will be omitted from being transmitted without
+warning or error.
 
-Authentication, Users, and Permissions
+Authentication, Permissions, and Users
 ++++++++++++++++++++++++++++++++++++++
 
-Extended HTTP API endpoints can require their request to be authenticated or not. By default, the endpoints have
-authentication enabled. Endpoints can have authentication disabled in order to allow anonymous access to them.
-Endpoints also have an ``owner`` assigned to them. This is the user that
+Since the endpoints are executed by running Storm queries to generate responses, Synapse must resolve the associated
+:ref:`gloss-user` and a :ref:`gloss-view` which will be used to run the query. There are a few important properties of
+the endpoints that users configuring them must be aware of.
 
+**owner**
 
+    By default, the user that creates an endpoint is marked as the ``owner`` for that endpoint. This is the default
+    user that will execute the Storm queries which implement the HTTP Methods. This value can be changed by setting
+    the ``.owner`` property on the endpoint object to a different User.
 
+    A user marked as the ``owner`` of an endpoint does not have any permissions granted that allows them to edit the
+    endpoint.
 
+**view**
 
+    The View that an Extended HTTP API endpoint is created in is recorded as the View that the Storm endpoints are
+    executed in. This View can be changed by assigning a the ``.view`` property on the endpoint object to a different
+    View.
 
-.. note::
+**authenticated**
+
+    By default, the endpoints require the requester to have an authenticated session. Information about API
+    authentication can be found at :ref:`http-api-authentication`. This authentication requirement can be disabled by
+    setting the ``.authenticated`` property on the endpoint object to ``$lib.false``. That will allow the endpoint to
+    be resolved without presenting any sort of authentication information.
+
+**runas**
+
+    By default, the Storm logic is run by the user that is marked as the ``owner``. Endpoints can instead be configured
+    to run as the authenticated user by setting the ``.runas`` property on the HTTP PAI object to ``user``.  In order
+    to change the behavior to executing the queries as the owner, the value should be set to ``owner``.
 
     When an endpoint is configured with ``runas`` set to ``user`` and ``authenticated`` to ``$lib.false`` any
     calls to that API will be executed as the ``owner``.
 
+This allows creating endpoints that run in one of three modes:
+
+- Authenticated & runs as the Owner
+- Authenticated & runs as the User
+- Unauthenticated & runs as the Owner
+
+These three modes can be demonstrated by configuring endpoints that will echo back the current user::
+
+    // Create a query object that we will use for each handler
+    $echo=${ $request.reply(200, body=$lib.user.name()) }
+
+    // Create the first endpoint with a default configuration.
+    $api0 = $lib.cortex.httpapi.add('demo/owner')
+    $api0.methods.get=$echo
+
+    // Create the second endpoint which runs its logic as the requester.
+    $api1 = $lib.cortex.httpapi.add('demo/user')
+    $api1.runas=user
+    $api1.methods.get=$echo
+
+    // Create the third endpoint which does not require authentication.
+    $api2 = $lib.cortex.httpapi.add('demo/noauth')
+    $api2.authenticated=$lib.false  // Disable authentication
+    $api2.methods.get=$echo
+
+Accessing those endpoints with different users gives various results::
+
+    # The demo/owner endpoint runs as the owner
+    $ curl -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    "root"
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    "root"
+
+    # The demo/user endpoint runs as the requester
+    $ curl -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/user"  | jq
+    "root"
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/user"  | jq
+    "lowuser"
+
+    # The demo/noauth endpoint runas the owner
+    $ curl -sk "https://127.0.0.1:4443/api/ext/demo/noauth"  | jq
+    "root"
+
+If the the owner or an authenticated user does not have permission to execute a Storm query in the configured View,
+or if the endpoints' View is deleted from the Cortex, this will raise a fatal error and return an HTTP 500 error. Once
+a query has started executing, regular Storm permissions apply.
+
+Endpoints can also have permissions defined for them. This allows locking down an endpoint such that while a user may
+still have access to the underlying view, they may lack the specific permissions required to execute the endpoint.
+These permissions are checked against the authenticated user, and not the endpoint owner. The following example shows
+setting a single permission on a one of our earlier endpoints::
+
+    $api=$lib.cortex.httpapi.get(bd4679ab8e8a1fbc030b46e275ddba96)
+    $api.perms=(your.custom.permission,)
+
+Accessing it as a unpriveleged user generates an ``AuthDeny`` error::
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    {
+      "status": "err",
+      "code": "AuthDeny",
+      "mesg": "User (lowuser) must have permission your.custom.permission"
+    }
+
+The user can have that permission granted via Storm::
+
+    storm> auth.user.addrule lowuser your.custom.permission
+    Added rule your.custom.permission to user lowuser.
+
+Then the endpoint can be accessed::
+
+    $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
+    "root"
+
+For additional information about managing user permissions, see :ref:`admin_create_users_roles`.
+
 .. note::
 
-    When the Optic UI is used to proxy the ``/api/ext`` endpoint, authentication must be done using the Optic login
-    endpoint. b
-auth is not available.
-
-
+    When the Optic UI is used to proxy the ``/api/ext`` endpoint, authentication must be done using the Optic's login
+    endpoint. Basic auth is not available.
 
 Readonly Mode
 +++++++++++++
@@ -1317,7 +1418,7 @@ set. The end result can be then rendered in a web browser::
 
 Accessing this endpoint with ``curl`` shows the following::
 
-    $ curl -D - -sku "root:secret" "https://127.0.0.1:38105/api/ext/demo/html"
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/html"
     HTTP/1.1 200 OK
     Content-Type: text/html
     Date: Wed, 18 Oct 2023 14:07:47 GMT
@@ -1354,7 +1455,7 @@ The following examples generates from JSONLines data::
 
 Accessing this endpoint shows the JSONLines rows sent back::
 
-    $ curl -D - -sku "root:secret" "https://127.0.0.1:38105/api/ext/demo/jsonlines"
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/jsonlines"
     HTTP/1.1 200 OK
     Content-Type: text/plain; charset=utf8
     Date: Wed, 18 Oct 2023 14:31:29 GMT
@@ -1386,7 +1487,7 @@ In a similar fashion, a CSV can be generated. This example shows a integer and i
 
 Accessing this shows the CSV content being sent back::
 
-    $ curl -D - -sku "root:secret" "https://127.0.0.1:38105/api/ext/demo/csv"
+    $ curl -D - -sku "root:secret" "https://127.0.0.1:4443/api/ext/demo/csv"
     HTTP/1.1 200 OK
     Content-Type: text/csv
     Date: Wed, 18 Oct 2023 14:43:37 GMT
@@ -1437,8 +1538,8 @@ run after the variable  ``$number`` was removed, the code would generate the fol
 
     {"status": "err", "code": "NoSuchVar", "mesg": "Missing variable: number"}
 
-You can also do your own error handling using the :ref:`flow-try-catch` if you want to control error codes,
-headers, and body content.
+Custom error handling of issues that arise inside of the Storm query execution can be handled with the
+:ref:`flow-try-catch`. This allows a user to have finer control over their error codes, headres and error body content.
 
 ** note::
 
@@ -1995,4 +2096,5 @@ Cortex Configuration Options
 .. _warnings: https://docs.python.org/3/library/warnings.html
 .. _strftime: https://docs.python.org/3/library/time.html#time.strftime
 .. _fullmatch: https://docs.python.org/3/library/re.html#re.fullmatch
+.. _curl: https://curl.se/
 .. _jq: https://github.com/jqlang/jq
