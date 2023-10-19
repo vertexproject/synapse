@@ -1913,16 +1913,24 @@ class LibAxon(Lib):
         {'name': 'readlines', 'desc': '''
         Yields lines of text from a plain-text file stored in the Axon.
 
-        Example:
-            Get the lines for a given file::
+        Examples:
 
-                for $line in $lib.axon.readlines($sha256) {
-                    $dostuff($line)
-                }
+            // Get the lines for a given file.
+            for $line in $lib.axon.readlines($sha256) {
+                $dostuff($line)
+            }
+
+            // Get the lines for a given file, ignoring any decoding errors.
+            for $line in $lib.axon.readlines($sha256, errors=ignore) {
+                $dostuff($line)
+            }
+
         ''',
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'errors', 'type': 'str',
+                       'desc': 'Optional string to specify how decoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
                               'desc': 'A line of text from the file.'}}},
@@ -2018,13 +2026,13 @@ class LibAxon(Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors=None):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.readlines(sha256):
+        async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
             yield line
 
     async def jsonlines(self, sha256):

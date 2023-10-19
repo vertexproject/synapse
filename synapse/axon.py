@@ -677,18 +677,19 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors=None):
         '''
         Yield lines from a multi-line text file in the axon.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
+            errors (str): Optional string to specify how decoding errors should handled.
 
         Yields:
             str: Lines of text
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.readlines(sha256):
+        async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
@@ -1350,7 +1351,7 @@ class Axon(s_cell.Cell):
         finally:
             link.txfini()
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors=None):
 
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
@@ -1360,7 +1361,7 @@ class Axon(s_cell.Cell):
         feedtask = None
 
         try:
-            todo = s_common.todo(_spawn_readlines, sock00)
+            todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
             async with await s_base.Base.anit() as scope:
 
                 scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
@@ -1745,9 +1746,9 @@ class Axon(s_cell.Cell):
                     'err': err,
                 }
 
-def _spawn_readlines(sock): # pragma: no cover
+def _spawn_readlines(sock, errors=None): # pragma: no cover
     try:
-        with sock.makefile('r') as fd:
+        with sock.makefile('r', errors=errors) as fd:
 
             try:
 

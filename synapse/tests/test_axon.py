@@ -292,6 +292,8 @@ class AxonTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadDataValu):
             lines = [item async for item in axon.readlines(s_common.ehex(bin256))]
 
+        lines = [item async for item in axon.readlines(s_common.ehex(bin256), errors='ignore')]
+
         with self.raises(s_exc.NoSuchFile):
             lines = [item async for item in axon.readlines(s_common.ehex(newphash))]
 
