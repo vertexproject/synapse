@@ -3873,6 +3873,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # First, catch up to what was the current offset when we started, guaranteeing order
 
+            logger.debug(f'_syncNodeEdits() running catch-up sync to offs={topoffs}')
+
             genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
             async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
                 yield item
@@ -3883,6 +3885,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
             # After we've caught up, read on genrs from all the layers simultaneously
+
+            logger.debug('_syncNodeEdits() entering into live sync')
 
             todo.clear()
 
@@ -3931,6 +3935,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     except StopAsyncIteration:
                         # Help out the garbage collector
                         del layrgenrs[layriden]
+                        logger.debug(f'_syncNodeEdits() removed {layriden=} from sync')
 
     async def spliceHistory(self, user):
         '''
