@@ -3589,9 +3589,8 @@ class EditNodeAdd(Edit):
                     await asyncio.sleep(0)
 
         if runtsafe:
-            async with contextlib.aclosing(genr) as agen:
-                async for node, path in agen:
-                    yield node, path
+            async for node, path in genr:
+                yield node, path
 
         async with contextlib.aclosing(s_base.schedGenr(feedfunc())) as agen:
             async for item in agen:
