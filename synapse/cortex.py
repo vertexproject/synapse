@@ -3848,11 +3848,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async with await s_base.Base.anit() as base:
 
-            def addlayr(layr, newlayer=False):
+            def addlayr(layr, startoffs=topoffs, newlayer=False):
                 '''
                 A new layer joins the live stream
                 '''
-                genr = genrfunc(layr, topoffs, newlayer=newlayer)
+                genr = genrfunc(layr, startoffs, newlayer=newlayer)
                 layrgenrs[layr.iden] = genr
                 task = base.schedCoro(genr.__anext__())
                 task.iden = layr.iden
@@ -3887,6 +3887,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # After we've caught up, read on genrs from all the layers simultaneously
 
             logger.debug('_syncNodeEdits() entering into live sync')
+
+            lastoffs = {}
 
             todo.clear()
 
@@ -3926,6 +3928,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         yield result
 
+                        lastoffs[layriden] = result[0]
+
                         # Re-add a task to wait on the next iteration of the generator
                         genr = layrgenrs[layriden]
                         task = base.schedCoro(genr.__anext__())
@@ -3933,9 +3937,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         todo.add(task)
 
                     except StopAsyncIteration:
+
                         # Help out the garbage collector
                         del layrgenrs[layriden]
-                        logger.debug(f'_syncNodeEdits() removed {layriden=} from sync')
+
+                        layr = self.getLayer(iden=layriden)
+                        if layr is None or not layr.logedits:
+                            logger.debug(f'_syncNodeEdits() removed {layriden=} from sync')
+                            continue
+
+                        startoffs = lastoffs[layriden] + 1 if layriden in lastoffs else topoffs
+                        logger.debug(f'_syncNodeEdits() restarting {layriden=} live sync from offs={startoffs}')
+                        addlayr(layr, startoffs=startoffs)
+
+                        await self.waitfini(1)
 
     async def spliceHistory(self, user):
         '''

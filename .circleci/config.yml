@@ -590,6 +590,7 @@ workflows:
             branches:
               only:
                 - master
+                - redox-syncne-layr-stuck  # fixme
 
       - build_docker_tag:
           requires:
