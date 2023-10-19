@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import contextlib
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -51,26 +50,25 @@ class LibIters(s_stormtypes.Lib):
             yield (indx, item)
             indx += 1
 
-    async def _zipNodegenr(self, genr):
-        async for node, path in genr:
-            yield node
-
     async def _zip(self, *args):
 
         async with contextlib.AsyncExitStack() as stack:
             genrs = []
             for arg in args:
-                if inspect.isasyncgen(arg) and arg.__name__ == 'nodegenr':
-                    agen = contextlib.aclosing(self._zipNodegenr(arg))
-                    genr = await stack.enter_async_context(agen)
-                else:
-                    agen = contextlib.aclosing(s_stormtypes.toiter(arg))
-                    genr = await stack.enter_async_context(agen
-)
-                genrs.append(genr)
+                agen = contextlib.aclosing(s_stormtypes.toiter(arg))
+                genrs.append(await stack.enter_async_context(agen))
 
             try:
                 while True:
-                    yield await asyncio.gather(*[genr.__anext__() for genr in genrs])
-            except StopAsyncIteration:
+                    tasks = []
+                    async with asyncio.TaskGroup() as tg:
+                        for genr in genrs:
+                            tasks.append(tg.create_task(genr.__anext__()))
+
+                    yield [task.result() for task in tasks]
+
+                    await asyncio.sleep(0)
+                    tasks.clear()
+
+            except* StopAsyncIteration:
                 pass

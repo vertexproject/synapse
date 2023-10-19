@@ -12,7 +12,8 @@ class StormLibItersTest(s_test.SynTest):
                 $lib.print($item)
             }
             '''
-            msgs = await core.stormlist(q)
+            async with s_test.matchContexts(self):
+                msgs = await core.stormlist(q)
             self.stormIsInPrint("['1', '4', '7']", msgs)
             self.stormIsInPrint("['2', '5', '8']", msgs)
             self.stormIsInPrint("['3', '6', '9']", msgs)
@@ -22,7 +23,8 @@ class StormLibItersTest(s_test.SynTest):
                 $lib.print($item)
             }
             '''
-            msgs = await core.stormlist(q)
+            async with s_test.matchContexts(self):
+                msgs = await core.stormlist(q)
             self.stormIsInPrint("['1', '4', '7']", msgs)
             self.stormIsInPrint("['2', '5', '8']", msgs)
             self.stormNotInPrint("['3', '6']", msgs)
@@ -37,10 +39,31 @@ class StormLibItersTest(s_test.SynTest):
                 emit 9
             }
             for ($a, $b, $c) in $lib.iters.zip((1,2,3), $nodes(), $emitter()) {
-                $lib.print(($a, $b.repr(), $c))
+                $lib.print(($a, $b.0.repr(), $c))
             }
             '''
-            msgs = await core.stormlist(q)
+            async with s_test.matchContexts(self):
+                msgs = await core.stormlist(q)
             self.stormIsInPrint("['1', '4', '7']", msgs)
             self.stormIsInPrint("['2', '5', '8']", msgs)
             self.stormIsInPrint("['3', '6', '9']", msgs)
+
+            q = '''
+            function nodes() {
+                [ it:dev:str=4 it:dev:str=5 it:dev:str=6 ]
+            }
+            function emitter() {
+                emit 7
+                emit 8
+                emit 9
+            }
+            for ($a, $b, $c) in $lib.iters.zip((1,2,3), $nodes(), $emitter()) {
+                $lib.print(($a, $b.0.repr(), $c))
+                $lib.raise(foo, bar)
+            }
+            '''
+            async with s_test.matchContexts(self):
+                msgs = await core.stormlist(q)
+            self.stormIsInPrint("['1', '4', '7']", msgs)
+            self.stormNotInPrint("['2', '5', '8']", msgs)
+            self.stormNotInPrint("['3', '6', '9']", msgs)
