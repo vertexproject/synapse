@@ -378,6 +378,7 @@ class SubGraph:
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
         self.rules.setdefault('maxsize', 100000)
+        self.rules.setdefault('edgelimit', 3000)
 
         self.rules.setdefault('filterinput', True)
         self.rules.setdefault('yieldfiltered', False)
@@ -461,7 +462,7 @@ class SubGraph:
 
         # NOTE: this function must agressively yield the ioloop
 
-        edgelimit = 3000
+        edgelimit = self.rules.get('edgelimit')
         doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
         maxsize = self.rules.get('maxsize')
