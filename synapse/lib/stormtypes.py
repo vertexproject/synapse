@@ -1929,7 +1929,7 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
-                      {'name': 'errors', 'type': 'str',
+                      {'name': 'errors', 'type': 'str', 'default': None,
                        'desc': 'Optional string to specify how decoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
