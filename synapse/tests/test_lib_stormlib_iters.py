@@ -1,0 +1,46 @@
+import synapse.exc as s_exc
+
+import synapse.tests.utils as s_test
+
+class StormLibItersTest(s_test.SynTest):
+
+    async def test_stormlib_iters_zip(self):
+
+        async with self.getTestCore() as core:
+            q = '''
+            for $item in $lib.iters.zip((1,2,3), (4,5,6), (7,8,9)) {
+                $lib.print($item)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("['1', '4', '7']", msgs)
+            self.stormIsInPrint("['2', '5', '8']", msgs)
+            self.stormIsInPrint("['3', '6', '9']", msgs)
+
+            q = '''
+            for $item in $lib.iters.zip((1,2,3), (4,5,6), (7,8)) {
+                $lib.print($item)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("['1', '4', '7']", msgs)
+            self.stormIsInPrint("['2', '5', '8']", msgs)
+            self.stormNotInPrint("['3', '6']", msgs)
+
+            q = '''
+            function nodes() {
+                [ it:dev:str=4 it:dev:str=5 it:dev:str=6 ]
+            }
+            function emitter() {
+                emit 7
+                emit 8
+                emit 9
+            }
+            for ($a, $b, $c) in $lib.iters.zip((1,2,3), $nodes(), $emitter()) {
+                $lib.print(($a, $b.repr(), $c))
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("['1', '4', '7']", msgs)
+            self.stormIsInPrint("['2', '5', '8']", msgs)
+            self.stormIsInPrint("['3', '6', '9']", msgs)

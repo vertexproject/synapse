@@ -4377,18 +4377,26 @@ class Function(AstNode):
                 except s_stormctrl.StormReturn as e:
                     return e.item
 
-        async def genr():
+        if self.hasemit:
+            async def emitgenr():
+                async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+                    # inform the sub runtime to use function scope rules
+                    subr.funcscope = True
+                    try:
+                        async for item in await subr.emitter():
+                            yield item
+                    except s_stormctrl.StormStop:
+                        return
+            return emitgenr()
+
+        async def nodegenr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
                 try:
-                    if self.hasemit:
-                        async for item in await subr.emitter():
-                            yield item
-                    else:
-                        async for node, path in subr.execute():
-                            yield node, path
+                    async for node, path in subr.execute():
+                        yield node, path
                 except s_stormctrl.StormStop:
                     return
 
-        return genr()
+        return nodegenr()
