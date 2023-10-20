@@ -2710,6 +2710,10 @@ class TagValuCond(Cond):
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
+                if '*' in name:
+                    mesg = f'Wildcard tag names may not be used in conjunction with tag value comparison: {name}'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
+
                 valu = await rnode.compute(runt, path)
                 return cmprctor(valu)(node.tags.get(name))
 
@@ -2795,6 +2799,10 @@ class TagPropCond(Cond):
 
             tag = await self.kids[0].compute(runt, path)
             name = await self.kids[1].compute(runt, path)
+
+            if '*' in tag:
+                mesg = f'Wildcard tag names may not be used in conjunction with tagprop value comparison: {tag}'
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=tag))
 
             prop = runt.model.getTagProp(name)
             if prop is None:
@@ -3186,8 +3194,11 @@ class ExprAndNode(Value):
 class TagName(Value):
 
     def prepare(self):
-        self.isconst = not self.kids or (len(self.kids) == 1 and isinstance(self.kids[0], Const))
-        self.constval = self.kids[0].value() if self.isconst and self.kids else None
+        self.isconst = not self.kids or all(isinstance(k, Const) for k in self.kids)
+        if self.isconst and self.kids:
+            self.constval = '.'.join([k.value() for k in self.kids])
+        else:
+            self.constval = None
 
     async def compute(self, runt, path):
 
