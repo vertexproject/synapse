@@ -331,6 +331,7 @@ class SubGraph:
                     'degrees': 1,
 
                     'edges': True,
+                    'edgelimit': 3000,
                     'filterinput': True,
                     'yieldfiltered': False,
 

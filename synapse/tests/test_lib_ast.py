@@ -2561,3 +2561,20 @@ class AstTest(s_test.SynTest):
             self.len(0, nodes[0][1]['path']['edges'])
             # one for the refs edge (via doedges) and one for the rule..
             self.len(2, nodes[1][1]['path']['edges'])
+
+    async def test_ast_subgraph_caching(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[inet:ipv4=1.2.3.0/24]')
+            breakpoint()
+            nodes = await core.nodes('''[
+                media:news=d11bdec3e38caee4c9e35df956f68a85 <(refs)+ { [inet:ipv4] }
+            ]''')
+
+            opts = {
+                'graph': {
+                    'degrees': None,
+                    'edges': True,
+                    'edgelimit': 0,
+                    'refs': True,
+                }
+            }
