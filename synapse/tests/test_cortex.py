@@ -7661,8 +7661,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             vault = core.reqVaultByName('global2')
             self.eq(vault.get('iden'), giden)
             self.eq(vault.get('name'), 'global2')
+
             with self.raises(s_exc.DupName):
                 await core.renameVault(giden, 'global2')
+
+            self.none(await core.delVault('asdf'))
 
             await core.delVault(giden)
             vaults = list(core.listVaults())
@@ -7701,10 +7704,17 @@ class CortexBasicTest(s_t_utils.SynTest):
             }
             riden = await core.addVault(rvault)
 
+            self.none(core.getVault('asdf'))
+
             with self.raises(s_exc.DupName) as exc:
                 # type/scope/iden collision
                 await core.addVault(gvault)
             self.eq(f'Vault already exists for type {vtype1}, scope global, owner None.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # vdef is not a dict
+                await core.addVault([])
+            self.eq('Invalid vault definition provided.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.DupName) as exc:
                 # name collision
@@ -7795,6 +7805,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 vault['owner'] = visi1.iden
                 await core.addVault(vault)
             self.eq(f'Role with iden {visi1.iden} not found.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setVaultData(giden, 'newp', s_common.novalu)
+            self.eq('Key newp not found in vault data.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Invalid vault iden format

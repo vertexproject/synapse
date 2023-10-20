@@ -85,3 +85,9 @@ class StormlibEasyPermTest(s_test.SynTest):
             opts = {'vars': {'obj': obj}, 'user': visi.iden}
             q = 'return($lib.auth.easyperm.allowed($obj, $lib.auth.easyperm.level.read))'
             self.false(await core.callStorm(q, opts=opts))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.auth.easyperm.init(({}), default=(-1))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.auth.easyperm.init(({}), default=(6))')

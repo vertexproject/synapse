@@ -365,7 +365,7 @@ class LibVault(s_stormtypes.Lib):
 
             if $showdata {
                 if ($vault.data = $lib.null) {
-                    $lib.print('  Data: Cannot display data - no read permission to vault.')
+                    $lib.print('  Data: Cannot display data - no edit permission to vault.')
                 } elif ($lib.len($vault.data) != (0)) {
                     $lib.print('  Data:')
                     for ($key, $valu) in $vault.data {
@@ -393,7 +393,7 @@ class LibVault(s_stormtypes.Lib):
         if not check and not self.runt.asroot:
             iden = vault.get('iden')
             mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {iden}.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.name)
 
     async def _addVault(self, name, vtype, scope, owner, data):
         name = await s_stormtypes.tostr(name)
@@ -407,10 +407,10 @@ class LibVault(s_stormtypes.Lib):
 
             if scope in ('global', 'role') and not user.isAdmin():
                 mesg = f'User {user.name} cannot create {scope} vaults.'
-                raise s_exc.AuthDeny(mesg=mesg, user=user)
+                raise s_exc.AuthDeny(mesg=mesg, user=user.name)
 
             if scope == 'user' and user.iden != owner and not user.isAdmin():
-                mesg = f'User {user.name} cannot create vaults for user {owner.name}.'
+                mesg = f'User {user.name} cannot create vaults for user {owner}.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
         vault = {
@@ -505,7 +505,7 @@ class VaultData(s_stormtypes.Prim):
         data = vault.get('data')
         return len(data)
 
-    def stormrepr(self):
+    async def stormrepr(self):
         vault = self.runt.snap.core.reqVault(self.valu)
         data = vault.get('data')
         return repr(data)
@@ -601,7 +601,7 @@ class Vault(s_stormtypes.Prim):
 
         if not check and not self.runt.asroot:
             mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.name)
 
     async def _storName(self, name):
         vault = self.runt.snap.core.reqVault(self.valu)

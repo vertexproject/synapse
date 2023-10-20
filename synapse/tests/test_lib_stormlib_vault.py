@@ -28,6 +28,16 @@ class StormlibVaultTest(s_test.SynTest):
             vtype = 'synapse-test'
 
             # Create user vault
+            with self.raises(s_exc.AuthDeny) as exc:
+                opts = {'vars': {'vtype': vtype, 'iden': visi1.iden}, 'user': visi1.iden}
+                await core.callStorm('return($lib.vault.add(uvault, $vtype, global, $iden, ({"name": "uvault"})))', opts=opts)
+            self.eq('User visi1 cannot create global vaults.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                opts = {'vars': {'vtype': vtype, 'iden': visi2.iden}, 'user': visi1.iden}
+                await core.callStorm('return($lib.vault.add(uvault, $vtype, user, $iden, ({"name": "uvault"})))', opts=opts)
+            self.eq(f'User visi1 cannot create vaults for user {visi2.iden}.', exc.exception.get('mesg'))
+
             opts = {'vars': {'vtype': vtype, 'iden': visi1.iden}}
             uiden = await core.callStorm('return($lib.vault.add(uvault, $vtype, user, $iden, ({"name": "uvault"})))', opts=opts)
             self.nn(regex.match(s_config.re_iden, uiden))
@@ -87,6 +97,9 @@ class StormlibVaultTest(s_test.SynTest):
             ret = await core.callStorm('return($lib.vault.get($iden).data.foo)', opts=opts)
             self.eq(ret, 'bar')
 
+            msgs = await core.stormlist('$lib.print($lib.vault.get($iden).data)', opts=opts)
+            self.stormIsInPrint("{'name': 'uvault', 'foo': 'bar'}", msgs)
+
             self.none(await core.callStorm('return($lib.vault.get($iden).data.newp)', opts=opts))
 
             msgs = await core.stormlist('for ($key, $val) in $lib.vault.get($iden).data { $lib.print(`{$key} = {$val}`) }', opts=opts)
@@ -105,6 +118,10 @@ class StormlibVaultTest(s_test.SynTest):
             self.nn(vault)
             self.eq(vault.get('name'), 'gvault')
             self.none(vault.get('data'))
+
+            opts = {'user': visi1.iden}
+            vault = await core.callStorm('return($lib.vault.bytype(newp, scope=global))', opts=opts)
+            self.none(vault)
 
             # List vaults
             opts = {'user': visi1.iden}

@@ -6537,7 +6537,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns: iden of new vault
         '''
         if not isinstance(vdef, dict):
-            raise s_exc.BadArg('Invalid vault definition provided.')
+            raise s_exc.BadArg(mesg='Invalid vault definition provided.')
 
         # Set some standard properties on the vdef before validating
         vdef['iden'] = s_common.guid()
@@ -6735,18 +6735,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault with name {name} already exists.')
 
-        vault = self.reqVault(iden)
-
-        oldname = vault.get('name')
-
-        if name == oldname:
-            return vault
-
         return await self._push(('vault:set'), iden, 'name', name)
 
     @s_nexus.Pusher.onPush('vault:set')
     async def _setVault(self, iden, key, valu):
-        if key not in ('name', 'permissions'):
+        if key not in ('name', 'permissions'):  # pragma: no cover
             raise s_exc.BadArg('Only vault names and permissions can be changed.')
 
         vault = self.reqVault(iden)
