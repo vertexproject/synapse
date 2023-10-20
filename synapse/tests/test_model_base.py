@@ -351,3 +351,29 @@ class BaseTest(s_t_utils.SynTest):
                 doc = ifdef.get('doc')
                 self.nn(doc)
                 self.ge(len(doc), 3)
+
+    async def test_model_doc_deprecated(self):
+
+        async with self.getTestCore() as core:
+
+            # Check properties that have "deprecated" in the doc string. Skip "isnow" because it's
+            # likely to have "deprecated" in the doc string due to what it does.
+            nodes = await core.nodes('syn:prop:doc~="(?i)deprecate"')
+            for node in nodes:
+                prop = core.model.prop(node.ndef[1])
+                if prop.name == 'isnow':
+                    continue
+
+                self.true(prop.deprecated, msg=prop)
+
+            # Check types that have "deprecated" in the doc string.
+            nodes = await core.nodes('syn:type:doc="(?i)deprecate"')
+            for node in nodes:
+                typo = core.model.type(node.ndef[1])
+                self.true(typo.deprecated, msg=typo)
+
+            # Check forms that have "deprecated" in the doc string.
+            nodes = await core.nodes('syn:form:doc="(?i)deprecate"')
+            for node in nodes:
+                form = core.model.form(node.ndef[1])
+                self.true(form.deprecated, msg=form)
