@@ -677,13 +677,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256, errors=None):
+    async def readlines(self, sha256, errors='surrogatepass'):
         '''
         Yield lines from a multi-line text file in the axon.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
-            errors (str): Optional string to specify how decoding errors should handled.
+            errors (str): Specify how encoding errors should handled.
 
         Yields:
             str: Lines of text
@@ -692,13 +692,14 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='surrogatepass', **fmtparams):
         '''
         Yield CSV rows from a CSV file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
             dialect (str): The CSV dialect to use.
+            errors (str): Specify how encoding errors should handled.
             **fmtparams: The CSV dialect format parameters.
 
         Notes:
@@ -720,21 +721,22 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             list: Decoded CSV rows.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.csvrows(sha256, dialect, **fmtparams):
+        async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
             yield item
 
-    async def jsonlines(self, sha256):
+    async def jsonlines(self, sha256, errors='surrogatepass'):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
 
         Yields:
             object: Decoded JSON objects.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.jsonlines(sha256):
+        async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
 
@@ -1351,7 +1353,7 @@ class Axon(s_cell.Cell):
         finally:
             link.txfini()
 
-    async def readlines(self, sha256, errors=None):
+    async def readlines(self, sha256, errors='surrogatepass'):
 
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
@@ -1385,7 +1387,7 @@ class Axon(s_cell.Cell):
             if feedtask is not None:
                 await feedtask
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='surrogatepass', **fmtparams):
         await self._reqHas(sha256)
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
@@ -1395,7 +1397,7 @@ class Axon(s_cell.Cell):
         feedtask = None
 
         try:
-            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
+            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
             async with await s_base.Base.anit() as scope:
 
                 scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
@@ -1419,8 +1421,8 @@ class Axon(s_cell.Cell):
             if feedtask is not None:
                 await feedtask
 
-    async def jsonlines(self, sha256):
-        async for line in self.readlines(sha256):
+    async def jsonlines(self, sha256, errors='surrogatepass'):
+        async for line in self.readlines(sha256, errors=errors):
             line = line.strip()
             if not line:
                 continue
@@ -1746,7 +1748,7 @@ class Axon(s_cell.Cell):
                     'err': err,
                 }
 
-def _spawn_readlines(sock, errors=None): # pragma: no cover
+def _spawn_readlines(sock, errors='surrogatepass'): # pragma: no cover
     try:
         with sock.makefile('r', errors=errors) as fd:
 
@@ -1764,11 +1766,11 @@ def _spawn_readlines(sock, errors=None): # pragma: no cover
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
 
-def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
+def _spawn_readrows(sock, dialect, fmtparams, errors='surrogatepass'): # pragma: no cover
     try:
 
         # Assume utf8 encoding and ignore errors.
-        with sock.makefile('r', errors='ignore') as fd:
+        with sock.makefile('r', errors=errors) as fd:
 
             try:
 
