@@ -6296,7 +6296,9 @@ words\tword\twrd'''
             with self.raises(s_exc.BadDataValu):
                 self.eq('', await core.callStorm('''
                     $items = $lib.list()
-                    for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                    for $item in $lib.axon.readlines($sha256, errors=$lib.null) {
+                        $items.append($item)
+                    }
                     return($items)
                 ''', opts=opts))
 

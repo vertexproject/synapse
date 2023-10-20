@@ -290,7 +290,7 @@ class AxonTest(s_t_utils.SynTest):
 
         binsize, bin256 = await axon.put(bin_buf)
         with self.raises(s_exc.BadDataValu):
-            lines = [item async for item in axon.readlines(s_common.ehex(bin256))]
+            lines = [item async for item in axon.readlines(s_common.ehex(bin256), errors=None)]
 
         lines = [item async for item in axon.readlines(s_common.ehex(bin256), errors='ignore')]
 

@@ -1919,17 +1919,11 @@ class LibAxon(Lib):
             for $line in $lib.axon.readlines($sha256) {
                 $dostuff($line)
             }
-
-            // Get the lines for a given file, ignoring any decoding errors.
-            for $line in $lib.axon.readlines($sha256, errors=ignore) {
-                $dostuff($line)
-            }
-
         ''',
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
-                      {'name': 'errors', 'type': 'str', 'default': 'surrogatepass',
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
                        'desc': 'Specify how encoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
@@ -1948,7 +1942,7 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'jsonlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
-                      {'name': 'errors', 'type': 'str', 'default': 'surrogatepass',
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
                        'desc': 'Specify how encoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
@@ -1977,7 +1971,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                       {'name': 'dialect', 'type': 'str', 'desc': 'The default CSV dialect to use.',
                        'default': 'excel'},
-                      {'name': 'errors', 'type': 'str', 'default': 'surrogatepass',
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
                        'desc': 'Specify how encoding errors should handled.'},
                       {'name': '**fmtparams', 'type': 'any', 'desc': 'Format arguments.'},
                   ),
@@ -2030,7 +2024,7 @@ class LibAxon(Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
-    async def readlines(self, sha256, errors='surrogatepass'):
+    async def readlines(self, sha256, errors='ignore'):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
@@ -2039,7 +2033,7 @@ class LibAxon(Lib):
         async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
             yield line
 
-    async def jsonlines(self, sha256, errors='surrogatepass'):
+    async def jsonlines(self, sha256, errors='ignore'):
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
@@ -2216,7 +2210,7 @@ class LibAxon(Lib):
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
-    async def csvrows(self, sha256, dialect='excel', errors='surrogatepass', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))

@@ -677,7 +677,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256, errors='surrogatepass'):
+    async def readlines(self, sha256, errors='ignore'):
         '''
         Yield lines from a multi-line text file in the axon.
 
@@ -692,7 +692,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
-    async def csvrows(self, sha256, dialect='excel', errors='surrogatepass', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         '''
         Yield CSV rows from a CSV file.
 
@@ -724,7 +724,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
             yield item
 
-    async def jsonlines(self, sha256, errors='surrogatepass'):
+    async def jsonlines(self, sha256, errors='ignore'):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
 
@@ -1353,7 +1353,7 @@ class Axon(s_cell.Cell):
         finally:
             link.txfini()
 
-    async def readlines(self, sha256, errors='surrogatepass'):
+    async def readlines(self, sha256, errors='ignore'):
 
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
@@ -1387,7 +1387,7 @@ class Axon(s_cell.Cell):
             if feedtask is not None:
                 await feedtask
 
-    async def csvrows(self, sha256, dialect='excel', errors='surrogatepass', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         await self._reqHas(sha256)
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
@@ -1421,7 +1421,7 @@ class Axon(s_cell.Cell):
             if feedtask is not None:
                 await feedtask
 
-    async def jsonlines(self, sha256, errors='surrogatepass'):
+    async def jsonlines(self, sha256, errors='ignore'):
         async for line in self.readlines(sha256, errors=errors):
             line = line.strip()
             if not line:
@@ -1748,7 +1748,7 @@ class Axon(s_cell.Cell):
                     'err': err,
                 }
 
-def _spawn_readlines(sock, errors='surrogatepass'): # pragma: no cover
+def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
     try:
         with sock.makefile('r', errors=errors) as fd:
 
@@ -1766,7 +1766,7 @@ def _spawn_readlines(sock, errors='surrogatepass'): # pragma: no cover
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
 
-def _spawn_readrows(sock, dialect, fmtparams, errors='surrogatepass'): # pragma: no cover
+def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cover
     try:
 
         # Assume utf8 encoding and ignore errors.
