@@ -63,6 +63,12 @@ stormcmds = (
 
                 // Unlock the user "visi" and set their email to "visi@vertex.link"
                 auth.user.mod visi --locked $lib.false --email visi@vertex.link
+
+                // Grant admin access to user visi for the current view
+                auth.user.mod visi --admin $lib.true --gate $lib.view.get().iden
+
+                // Revoke admin access to user visi for the current view
+                auth.user.mod visi --admin $lib.false --gate $lib.view.get().iden
         ''',
         'cmdargs': (
             ('username', {'type': 'str', 'help': 'The name of the user.'}),
@@ -70,6 +76,7 @@ stormcmds = (
             ('--email', {'type': 'str', 'help': 'The email address to set for the user.'}),
             ('--passwd', {'type': 'str', 'help': 'The new password for the user. This is best passed into the runtime as a variable.'}),
             ('--admin', {'type': 'bool', 'help': 'True to make the user and admin, false to remove their remove their admin status.'}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate iden to grant or revoke admin status on. Use in conjunction with `--admin <bool>`.'}),
             ('--locked', {'type': 'bool', 'help': 'True to lock the user, false to unlock them.'}),
         ),
         'storm': '''
@@ -92,8 +99,15 @@ stormcmds = (
                     $lib.print(`User ({$cmdopts.username}) locked status set to {$cmdopts.locked=1}.`)
                 }
                 if ($cmdopts.admin != $lib.null) {
-                    $user.setAdmin($cmdopts.admin)
-                    $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1}.`)
+                    $user.setAdmin($cmdopts.admin, gateiden=$cmdopts.gate)
+                    if $cmdopts.gate {
+                        $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1} for auth gate {$cmdopts.gate}.`)
+                    } else {
+                        $lib.print(`User ({$cmdopts.username}) admin status set to {$cmdopts.admin=1}.`)
+                    }
+                }
+                if ($cmdopts.gate != $lib.null and $cmdopts.admin = $lib.null) {
+                    $lib.exit('Granting/revoking admin status on an auth gate, requires the use of `--admin <true|false>` also.')
                 }
             } else {
                 $lib.warn(`User ({$cmdopts.username}) not found!`)
@@ -556,37 +570,6 @@ stormcmds = (
                     $indxtext = $lib.cast(str, $indx).ljust(3)
                     $lib.print(`      [{$indxtext}] - {$ruletext}`)
                 }
-            }
-        '''
-    },
-    {
-        'name': 'auth.gate.admin',
-        'descr': '''
-
-            Grant or revoke admin access to an auth gate for a specified user.
-
-            Examples:
-                // Grant admin access to user blackout for the current view
-                auth.gate.grant blackout $lib.view.get().iden
-
-                // Revoke admin access to user blackout for the current view
-                auth.gate.grant blackout $lib.view.get().iden --revoke
-        ''',
-        'cmdargs': (
-            ('username', {'type': 'str', 'help': 'The name of the user.'}),
-            ('gateiden', {'type': 'str', 'help': 'The GUID of the auth gate.'}),
-            ('--revoke', {'type': 'bool', 'action': 'store_true', 'default': False,
-             'help': 'The auth gate id to grant permission on.', 'default': None}),
-        ),
-        'storm': '''
-            $user = $lib.auth.users.byname($cmdopts.username)
-            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
-
-            $user.setAdmin((not $cmdopts.revoke), gateiden=$cmdopts.gateiden)
-            if $cmdopts.revoke {
-                $lib.print(`Admin access revoked to auth gate {$cmdopts.gateiden} for {$user.name}.`)
-            } else {
-                $lib.print(`Admin access granted to auth gate {$cmdopts.gateiden} for {$user.name}.`)
             }
         '''
     },

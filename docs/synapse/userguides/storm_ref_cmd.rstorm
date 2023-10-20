@@ -155,7 +155,6 @@ Storm includes ``auth.*`` commands that allow you create and manage users and ro
 permissions (rules).
 
 - `auth.gate.show`_
-- `auth.gate.admin`_
 - `auth.role.add`_
 - `auth.role.addrule`_
 - `auth.role.del`_
@@ -188,18 +187,6 @@ The ``auth.gate.show`` command displays the user, roles, and permissions associa
 **Syntax**
 
 .. storm-cli:: auth.gate.show --help
-
-
-.. _storm-auth-gate-admin:
-
-auth.gate.admin
-+++++++++++++++
-
-The ``auth.gate.admin`` command grants or revokes admin access to an auth gate for a specified user.
-
-**Syntax**
-
-.. storm-cli:: auth.gate.admin --help
 
 
 .. _storm-auth-role-add:

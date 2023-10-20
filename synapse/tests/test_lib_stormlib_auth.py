@@ -178,14 +178,17 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f.',
                 msgs, deguid=True)
 
-            msgs = await core.stormlist('auth.gate.admin visi $lib.view.get().layers.0.iden')
-            self.stormIsInPrint('Admin access granted to auth gate 741529fa80e3fb42f63c5320e4bf348f for visi.',
+            msgs = await core.stormlist('auth.user.mod visi --gate $lib.view.get().layers.0.iden')
+            self.stormIsInWarn('Granting/revoking admin status on an auth gate, requires the use of `--admin <true|false>` also.', msgs)
+
+            msgs = await core.stormlist('auth.user.mod visi --admin $lib.true --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('User (visi) admin status set to true for auth gate 741529fa80e3fb42f63c5320e4bf348f.',
                                 msgs, deguid=True)
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('allowed: true - The user is an admin of auth gate 741529fa80e3fb42f63c5320e4bf348f',
                                 msgs, deguid=True)
-            msgs = await core.stormlist('auth.gate.admin visi $lib.view.get().layers.0.iden --revoke')
-            self.stormIsInPrint('Admin access revoked to auth gate 741529fa80e3fb42f63c5320e4bf348f for visi.',
+            msgs = await core.stormlist('auth.user.mod visi --admin $lib.false --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('User (visi) admin status set to false for auth gate 741529fa80e3fb42f63c5320e4bf348f.',
                                 msgs, deguid=True)
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f',
