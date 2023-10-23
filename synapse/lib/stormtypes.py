@@ -9651,13 +9651,15 @@ async def toiter(valu, noneok=False):
         return
 
     if isinstance(valu, Prim):
-        async for item in valu.iter():
-            yield item
+        async with contextlib.aclosing(valu.iter()) as agen:
+            async for item in agen:
+                yield item
         return
 
     try:
-        async for item in s_coro.agen(valu):
-            yield item
+        async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+            async for item in agen:
+                yield item
     except TypeError as e:
         mesg = f'Value is not iterable: {valu!r}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
