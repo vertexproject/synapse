@@ -734,6 +734,16 @@ class TrigTest(s_t_utils.SynTest):
                     n2 += 1
             self.eq(n2, 3)
 
+            trigs = await core.nodes('syn:trigger', opts=opts)
+
+            # make a pair of nodes in the base view, then the edge in the forked, and rip out one of the nodes
+            await core.nodes('[test:int=21701 test:int=23209]')
+            await core.nodes('test:int=21701 | [ <(refs)+ { test:int=23209 } ]', opts=opts)
+            await core.nodes('test:int=21701 | delnode')
+
+            await core.nodes('test:int=23209 | edges.del *', opts=opts)
+            node = await core.nodes('test:int=23209', opts=opts)
+
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
             self.len(0, await core.nodes('syn:trigger', opts=opts))
 
@@ -839,6 +849,19 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.isin('cleanup', nodes[0].tags)
             self.isin('del.all', nodes[0].tags)
+
+            view = await core.callStorm('return ($lib.view.get().fork().iden)')
+            opts = {'view': view}
+            await core.nodes('trigger.add edge:del --verb no** --form test:str --query { [ +#coffee ] }', opts=opts)
+            await core.nodes('trigger.add edge:del --verb no** --form test:str --n2form test:str --query { [ +#oeis.a000668 ] }', opts=opts)
+
+            await core.nodes('[test:str=mersenne test:str=prime]')
+            await core.nodes('test:str=mersenne [ +(notes)> { test:str=prime } ]', opts=opts)
+            await core.nodes('test:str=prime | delnode')
+            node = await core.nodes('test:str=mersenne | edges.del *', opts=opts)
+            self.len(1, node)
+            self.len(1, node[0].tags)
+            self.isin('coffee', node[0].tags)
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.nodes('syn:trigger'))
