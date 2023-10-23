@@ -2564,20 +2564,84 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_subgraph_caching(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:ipv4=1.2.3.0/24]')
-            breakpoint()
-            nodes = await core.nodes('''[
-                media:news=d11bdec3e38caee4c9e35df956f68a85 <(refs)+ { [inet:ipv4] }
+            limits = (0, 1, 10, 255, 256, 10000)
+            ipv4s = await core.nodes('[inet:ipv4=1.2.3.0/24]')
+            neato = await core.nodes('''[
+                test:str=neato +(refs)> { inet:ipv4 }
             ]''')
+            self.len(1, neato)
 
+            iden = neato[0].iden()
+            idens = [iden,]
             opts = {
                 'graph': {
                     'degrees': None,
                     'edges': True,
-                    'edgelimit': 0,
                     'refs': True,
-                }
+                    'existing': idens
+                },
+                'idens': idens
             }
+
+            def testedges(msgs):
+                self.len(258, msgs)
+                for m in msgs:
+                    if m[0] != 'node':
+                        continue
+                    node = m[1]
+                    edges = node[1]['path']['edges']
+                    self.len(1, edges)
+                    edgeiden, edgedata = edges[0]
+                    self.eq(edgeiden, iden)
+                    self.true(edgedata.get('reverse', False))
+                    self.eq(edgedata['verb'], 'refs')
+                    self.eq(edgedata['type'], 'edge')
+
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                testedges(msgs)
+
+            burrito = await core.nodes('[test:str=burrito <(awesome)+ { inet:ipv4 }]')
+            self.len(1, burrito)
+
+            iden = burrito[0].iden()
+            for m in msgs:
+                if m[0] != 'node':
+                    continue
+                node = m[1]
+                idens.append(node[1]['iden'])
+
+            opts['graph']['existing'] = idens
+            opts['idens'] = [ipv4s[0].iden(),]
+            ipidens = [n.iden() for n in ipv4s]
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                self.len(4, msgs)
+
+                node = msgs[1][1]
+                self.eq(node[0], ('test:str', 'burrito'))
+                edges = node[1]['path']['edges']
+                self.len(256, edges)
+
+                for edge in edges:
+                    edgeiden, edgedata = edge
+                    self.isin(edgeiden, ipidens)
+                    self.true(edgedata.get('reverse', False))
+                    self.eq(edgedata['verb'], 'awesome')
+                    self.eq(edgedata['type'], 'edge')
+
+                node = msgs[2][1]
+                self.eq(node[0], ('test:str', 'neato'))
+                self.len(256, edges)
+                edges = node[1]['path']['edges']
+                for edge in edges:
+                    edgeiden, edgedata = edge
+                    self.isin(edgeiden, ipidens)
+                    self.eq(edgedata['verb'], 'refs')
+                    self.eq(edgedata['type'], 'edge')
+                    self.false(edgedata.get('reverse', False))
 
     async def test_ast_tagfilters(self):
 
@@ -2676,4 +2740,3 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
->>>>>>> master

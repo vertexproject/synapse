@@ -612,9 +612,6 @@ class SubGraph:
                         if nodeiden == n2iden:
                             continue
 
-                        if s_common.uhex(n2iden) in results:
-                            edges.append((n2iden, {'type': 'edge', 'verb': verb}))
-
                         if ecnt < edgelimit:
                             ecnt += 1
                             cache[n2iden].append(verb)
@@ -654,16 +651,23 @@ class SubGraph:
                                 for verb in verbs:
                                     await asyncio.sleep(0)
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
                         elif n2delayed.has(nodeiden):
                             async for buid01 in results:
                                 async for verb in runt.snap.iterEdgeVerbs(buid01, buid):
                                     edges.append((s_common.ehex(buid01), {'type': 'edge', 'verb': verb, 'reverse': True}))
+                        else:
+                            for n2iden, verbs in cache.items():
+                                for v in verbs:
+                                    edges.append((n2iden, {'type': 'edge', 'verb': v}))
 
-                    async for n1iden in n1delayed:
-                        n1buid = s_common.uhex(n1iden)
-                        async for verb in runt.snap.iterEdgeVerbs(n1buid, buid):
-                            await asyncio.sleep(0)
-                            edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                        async for n1iden in n1delayed:
+                            n1buid = s_common.uhex(n1iden)
+                            if n1iden == nodeiden:
+                                continue
+                            async for verb in runt.snap.iterEdgeVerbs(n1buid, buid):
+                                await asyncio.sleep(0)
+                                edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                     await results.add(buid)
 
