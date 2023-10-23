@@ -6221,6 +6221,25 @@ words\tword\twrd'''
                 'size:bytes': 651,
             }, await core.callStorm('return($lib.axon.metrics())'))
 
+            bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'
+            binsize, bin256 = await core.axon.put(bin_buf)
+
+            opts = {'vars': {'sha256': s_common.ehex(bin256)}}
+            with self.raises(s_exc.BadDataValu):
+                self.eq('', await core.callStorm('''
+                    $items = $lib.list()
+                    for $item in $lib.axon.readlines($sha256, errors=$lib.null) {
+                        $items.append($item)
+                    }
+                    return($items)
+                ''', opts=opts))
+
+            self.eq(('/$A\x00_v4\x1b',), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256, errors=ignore) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
     async def test_storm_lib_axon_perms(self):
 
         async with self.getTestCore() as core:
