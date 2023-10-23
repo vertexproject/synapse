@@ -2468,6 +2468,35 @@ view.exec
 
 The ``view.exec`` command executes a Storm query in the specified view.
 
+**Behavior and Limitations**
+
+The ``view.exec`` command creates its own execution environment (sub-runtime) to execute a Storm
+query in a different view. This results in a firm separation boundary between the source view and
+the destination view where nodes do not pass in or out across the ``view.exec`` boundary. Pipelines,
+events, messages, etc will NOT pass from the destination view to the source view or vice-versa. This
+includes ``$lib.print(...)``, ``$lib.warn(...)``, and other functions that may print to the CLI.
+
+Variables declared before the ``view.exec`` are accessible in the destination view (including
+assignment). The interactive help example demonstrates this behavior:
+
+::
+
+  // Move some tagged nodes to another view
+  inet:fqdn#foo.bar $fqdn=$node.value() | view.exec 95d5f31f0fb414d2b00069d3b1ee64c6 { [ inet:fqdn=$fqdn ] }
+
+Here we have ``inet:fqdn`` nodes with the tag ``#foo.bar`` being lifted and their value (not the
+node) is saved into the ``$fqdn`` variable. This variable is later accessible in the ``view.exec``
+sub-query and used to create an ``inet:fqdn`` node in the destination view. If more than one
+``inet:fqdn`` node with the tag ``#foo.bar`` exists, the ``view.exec`` command would be executed
+once for each node in the pipeline as expected. Again, the actual nodes will not be accessible in
+the ``view.exec`` query. Also note the sub-query executed in the ``view.exec`` may assign a
+different value back to ``$fqdn`` to be accessed by the source view (that doesn't happen in this
+example though).
+
+Inline functions are bound to the scope they are declared in. For ``view.exec``, this means that a
+function declared outside the ``view.exec`` command will still run in the original scope/view, not
+the view specified to ``view.exec``.
+
 **Syntax:**
 
 .. storm-cli:: view.exec --help

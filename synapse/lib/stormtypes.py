@@ -6002,110 +6002,6 @@ class Text(Prim):
         return self.valu
 
 @registry.registerLib
-class LibStats(Lib):
-    '''
-    A Storm Library for statistics related functionality.
-    '''
-    _storm_locals = (
-        {'name': 'tally', 'desc': 'Get a Tally object.',
-         'type': {'type': 'function', '_funcname': 'tally',
-                  'returns': {'type': 'stat:tally', 'desc': 'A new tally object.', }}},
-    )
-    _storm_lib_path = ('stats',)
-
-    def getObjLocals(self):
-        return {
-            'tally': self.tally,
-        }
-
-    async def tally(self):
-        return StatTally(path=self.path)
-
-@registry.registerType
-class StatTally(Prim):
-    '''
-    A tally object.
-
-    An example of using it::
-
-        $tally = $lib.stats.tally()
-
-        $tally.inc(foo)
-
-        for $name, $total in $tally {
-            $doStuff($name, $total)
-        }
-
-    '''
-    _storm_typename = 'stat:tally'
-    _storm_locals = (
-        {'name': 'inc', 'desc': 'Increment a given counter.',
-         'type': {'type': 'function', '_funcname': 'inc',
-                  'args': (
-                      {'name': 'name', 'desc': 'The name of the counter to increment.', 'type': 'str', },
-                      {'name': 'valu', 'desc': 'The value to increment the counter by.', 'type': 'int', 'default': 1, },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get the value of a given counter.',
-         'type': {'type': 'function', '_funcname': 'get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the counter to get.', },
-                  ),
-                  'returns': {'type': 'int',
-                              'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
-        {'name': 'sorted', 'desc': 'Get a list of (counter, value) tuples in sorted order.',
-         'type': {'type': 'function', '_funcname': 'sorted',
-                  'args': (
-                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
-                       'type': 'bool', 'default': False},
-                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
-                       'type': 'bool', 'default': False},
-                  ),
-                  'returns': {'type': 'list',
-                              'desc': 'List of (counter, value) tuples in sorted order.'}}},
-    )
-    _ismutable = True
-
-    def __init__(self, path=None):
-        Prim.__init__(self, {}, path=path)
-        self.counters = collections.defaultdict(int)
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'inc': self.inc,
-            'get': self.get,
-            'sorted': self.sorted,
-        }
-
-    async def __aiter__(self):
-        for name, valu in self.counters.items():
-            yield name, valu
-
-    def __len__(self):
-        return len(self.counters)
-
-    async def inc(self, name, valu=1):
-        valu = await toint(valu)
-        self.counters[name] += valu
-
-    async def get(self, name):
-        return self.counters.get(name, 0)
-
-    def value(self):
-        return dict(self.counters)
-
-    async def iter(self):
-        for item in tuple(self.counters.items()):
-            yield item
-
-    async def sorted(self, byname=False, reverse=False):
-        if byname:
-            return list(sorted(self.counters.items(), reverse=reverse))
-        else:
-            return list(sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse))
-
-@registry.registerLib
 class LibLayer(Lib):
     '''
     A Storm Library for interacting with Layers in the Cortex.
@@ -7350,14 +7246,6 @@ class LibTrigger(Lib):
         prop = tdef.pop('prop', None)
         if prop is not None:
             tdef['prop'] = prop
-
-        verb = tdef.pop('verb', None)
-        if verb is not None:
-            tdef['verb'] = verb
-
-        n2form = tdef.pop('n2form', None)
-        if n2form is not None:
-            tdef['n2form'] = n2form
 
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
