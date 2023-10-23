@@ -238,7 +238,6 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-
                 if n1 and n2:
                     for trig in self.edgeadd.get((n1form, verb, n2form), ()):
                         cached.append(trig)
