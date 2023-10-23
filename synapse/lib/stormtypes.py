@@ -1995,6 +1995,8 @@ class LibAxon(Lib):
             'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
         {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
             'desc': 'Controls the ability to push a file from the Axon to a URL.'},
+        {'perm': ('axon', 'proxy'), 'gate': 'cortex',
+            'desc': 'Permits a user to use a proxy with `$lib.axon.wget` and `$lib.axon.wput` APIs.'},
     )
 
     def getObjLocals(self):
@@ -2071,9 +2073,6 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
         url = await tostr(url)
         method = await tostr(method)
 
@@ -2084,6 +2083,9 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
+
+        if proxy is not None and not self.runt.allowed(('axon', 'proxy')):
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2106,9 +2108,6 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
         url = await tostr(url)
         sha256 = await tostr(sha256)
         method = await tostr(method)
@@ -2121,6 +2120,9 @@ class LibAxon(Lib):
 
         params = self.strify(params)
         headers = self.strify(headers)
+
+        if proxy is not None and not self.runt.allowed(('axon', 'proxy')):
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
