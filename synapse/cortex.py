@@ -3849,7 +3849,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async with await s_base.Base.anit() as base:
 
-            def addlayr(layr, startoffs=topoffs, newlayer=False):
+            def addlayr(layr, newlayer=False, startoffs=topoffs):
                 '''
                 A new layer joins the live stream
                 '''
