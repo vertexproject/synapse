@@ -6,6 +6,169 @@
 Synapse Changelog
 *****************
 
+v2.152.0 - 2023-10-17
+=====================
+
+Model Changes
+-------------
+- Update to the  ``biz``, ``crypto``, ``geo``, ``it``, ``mat``, ``media``,
+  and ``risk`` models.
+
+  (`#3341 <https://github.com/vertexproject/synapse/pull/3341>`_)
+  (`#3377 <https://github.com/vertexproject/synapse/pull/3377>`_)
+  (`#3376 <https://github.com/vertexproject/synapse/pull/3376>`_)
+  (`#3381 <https://github.com/vertexproject/synapse/pull/3381>`_)
+
+  **Updated Interfaces**
+
+  ``crypto:smart:effect``
+   Add a ``doc`` value to the interface.
+
+  ``it:host:activity``
+   Add a ``doc`` value to the interface.
+
+  ``taxonomy``
+   Add a ``doc`` value to the interface.
+
+  **Updated Types**
+
+  ``time``
+    The ``time`` type now recognizes RFC822 formatted time strings.
+
+  ``biz:service:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``geo:place:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``it:log:event:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``it:prod:soft:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``mat:type``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``media:news:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:alert:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:alert:verdict:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:threat:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  **New Forms**
+
+  ``it:dev:repo:label``
+    A developer selected label.
+
+  ``it:dev:repo:issue:label``
+    A label applied to a repository issue.
+
+Features and Enhancements
+-------------------------
+- Update the Storm string repr for ``$lib.null`` and ``$lib.undef`` values to
+  ``$lib.null`` and ``$lib.undef``. Previously these printed ``None`` and an
+  opaque Python object repr.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+- The ``synapse.tools.aha.list`` CLI tool now checks if it is connected to an
+  Aha server prior to enumerating Aha services.
+  (`#3371 <https://github.com/vertexproject/synapse/pull/3371>`_)
+
+Bugfixes
+--------
+- Update the ``file:path`` support for scrape related APIs to address an
+  issue when matching against Linux style paths.
+  (`#3378 <https://github.com/vertexproject/synapse/pull/3378>`_)
+- Update the ``hex`` type to ``zeropad`` strings prior to checking their
+  validity.
+  (`#3387 <https://github.com/vertexproject/synapse/pull/3387>`_)
+- Update the ``yaml.CSafeLoader`` check to not require the class to be
+  available.
+  (`#3386 <https://github.com/vertexproject/synapse/pull/3386>`_)
+
+Improved Documentation
+----------------------
+- Update the documentation for the Storm ``view.exec`` command to explain the
+  separation of events and nodes between the parent and sub-runtimes.
+  (`#3379 <https://github.com/vertexproject/synapse/pull/3379>`_)
+
+v2.151.0 - 2023-10-06
+=====================
+
+Model Changes
+-------------
+- Update to the ``it`` model.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+
+  **New Forms**
+
+  ``it:mitre:attack:flow``
+    A MITRE ATT&CK Flow diagram.
+
+Features and Enhancements
+-------------------------
+- Add a new Storm library ``$lib.infosec.mitre.attack.flow``. This can be used
+  to normalize and create ``it:mitre:attack:flow`` nodes from MITRE ATT&CK
+  Flow Diagrams.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+  (`#3372 <https://github.com/vertexproject/synapse/pull/3372>`_)
+- Update the Storm ``note.add`` command to set the ``meta:note:created``
+  property on the note.
+  (`#3569 <https://github.com/vertexproject/synapse/pull/3569>`_)
+- Add the Axon HTTP APIs to the Cortex. These API endpoints use the Axon that
+  the Cortex is configured to use.
+  (`#3550 <https://github.com/vertexproject/synapse/pull/3550>`_)
+- Allow user defined functions in Storm to execute in a ``readonly`` Storm
+  runtime.
+  (`#3552 <https://github.com/vertexproject/synapse/pull/3552>`_)
+- Clarify the Nexus ``IsReadOnly`` exception to include the common cause for
+  the error, which is normally insufficent space on disk.
+  (`#3359 <https://github.com/vertexproject/synapse/pull/3359>`_)
+- Add a ``SYN_LOG_DATEFORMAT`` environment variable to allow specifying custom
+  timestamp formats for Synapse services.
+  (`#3362 <https://github.com/vertexproject/synapse/pull/3362>`_)
+- Add a ``status`` attribute to structured log events for user and role
+  related log events. This attribute indicates if the event was a ``CREATE``,
+  ``DELETE``, or ``MODIFY`` operation.
+  (`#3363 <https://github.com/vertexproject/synapse/pull/3363>`_)
+- Update ``Cell.getLogExtra()`` to prefer using the ``user`` key from the task
+  scope before using the ``sess`` key from the task scope. Cortex APIs which
+  execute Storm queries now set the ``user`` scope to the user the query is
+  running as. This increases the accuracy of log events caused by Storm
+  queries when the ``user`` is specified in the ``opts``.
+  (`#3356 <https://github.com/vertexproject/synapse/pull/3356>`_)
+- Update Storm setitem AST operator to check the readonly flag on functions
+  when operating in a ``readonly`` Storm runtime.
+  (`#3364 <https://github.com/vertexproject/synapse/pull/3364>`_)
+- Update the minimum required version of the ``fastjsonschema`` library.
+  (`#3358 <https://github.com/vertexproject/synapse/pull/3358>`_)
+- Update tests and remove the use of deprecated functions for improved
+  Python 3.12 compatibility.
+  (`#3355 <https://github.com/vertexproject/synapse/pull/3355>`_)
+  (`#3567 <https://github.com/vertexproject/synapse/pull/3567>`_)
+
+Bugfixes
+--------
+- Fixed a bug when parenting a View to another View where the bottom view has
+  more than one layer in it omitted non-write layers. The set of layers is now
+  properly computed.
+  (`#3354 <https://github.com/vertexproject/synapse/pull/3354>`_)
+
+Improved Documentation
+----------------------
+- Update the list of Cortex permissions in the Admin Guide.
+  (`#3331 <https://github.com/vertexproject/synapse/pull/3331>`_)
+- The Form documentation has been updated to project the secondary properties
+  and associated light edges as tables.
+  (`#3348 <https://github.com/vertexproject/synapse/pull/3348>`_)
+
+
 v2.150.0 - 2023-09-22
 =====================
 
@@ -110,8 +273,8 @@ Features and Enhancements
   create a view which is readable by the ``all`` role. The ``$lib.view.add()``
   Storm API now also accepts an optional ``worldreadable`` argument as well.
   (`#3333 <https://github.com/vertexproject/synapse/pull/3333>`_)
-- Update the Storm ``node.add`` command to add a ``--yield`` flag which yields
-  the newly created node.
+- Update the Storm ``note.add`` command to add a ``--yield`` flag which yields
+  the newly created note.
   (`#3337 <https://github.com/vertexproject/synapse/pull/3337>`_)
 - Add Storm commands ``gen.ou.id.number`` and ``gen.ou.id.type`` to help
   generate ``ou:id:number`` and ``ou:id:type`` nodes.

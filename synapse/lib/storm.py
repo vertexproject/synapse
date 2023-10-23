@@ -1495,7 +1495,7 @@ stormcmds = (
             init {
                 function addNoteNode(text, type) {
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
                     if $type {[ :type=$type ]}
                     return($node)
                 }
@@ -1662,6 +1662,7 @@ class StormDmon(s_base.Base):
 
         logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
+        s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
@@ -2111,25 +2112,25 @@ class Runtime(s_base.Base):
         try:
             with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
 
-                nodegenr = self.query.iterNodePaths(self, genr=genr)
-                nodegenr, empty = await s_ast.pullone(nodegenr)
+                async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
+                    nodegenr, empty = await s_ast.pullone(nodegenr)
 
-                if empty:
-                    return
+                    if empty:
+                        return
 
-                rules = self.opts.get('graph')
-                if rules not in (False, None):
-                    if rules is True:
-                        rules = {'degrees': None, 'refs': True}
-                    elif isinstance(rules, str):
-                        rules = await self.snap.core.getStormGraph(rules)
+                    rules = self.opts.get('graph')
+                    if rules not in (False, None):
+                        if rules is True:
+                            rules = {'degrees': None, 'refs': True}
+                        elif isinstance(rules, str):
+                            rules = await self.snap.core.getStormGraph(rules)
 
-                    subgraph = s_ast.SubGraph(rules)
-                    nodegenr = subgraph.run(self, nodegenr)
+                        subgraph = s_ast.SubGraph(rules)
+                        nodegenr = subgraph.run(self, nodegenr)
 
-                async for item in nodegenr:
-                    self.tick()
-                    yield item
+                    async for item in nodegenr:
+                        self.tick()
+                        yield item
 
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
@@ -2437,8 +2438,7 @@ class Parser:
 
         if nargs == '?':
 
-            # ? will have an implicit default value of None
-            opts.setdefault(dest, None)
+            opts.setdefault(dest, argdef.get('default'))
 
             if todo and not self._is_opt(todo[0]):
 
@@ -4894,7 +4894,10 @@ class ViewExecCmd(Cmd):
     '''
     Execute a storm query in a different view.
 
-    NOTE: Variables are passed through but nodes are not
+    NOTE: Variables are passed through but nodes are not. The behavior of this command may be
+    non-intuitive in relation to the way storm normally operates. For further information on
+    behavior and limitations when using `view.exec`, reference the `view.exec` section of the
+    Synapse User Guide: https://v.vtx.lk/view-exec.
 
     Examples:
 

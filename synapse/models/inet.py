@@ -2411,6 +2411,7 @@ class InetModule(s_module.CoreModule):
                         ('name:en', ('inet:user', {}), {
                             'doc': 'The English version of the name associated with the (may be different from '
                                    'the account identifier, e.g., a display name).',
+                            'deprecated': True,
                         }),
                         ('aliases', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate names for the user.',
@@ -2428,7 +2429,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The localized version of the real name of the account owner / registrant.'
                         }),
                         ('realname:en', ('ps:name', {}), {
-                            'doc': 'The English version of the real name of the account owner / registrant.'
+                            'doc': 'The English version of the real name of the account owner / registrant.',
+                            'deprecated': True,
                         }),
                         ('signup', ('time', {}), {
                             'doc': 'The date and time the account was registered.'
@@ -2646,7 +2648,8 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('name:en', ('inet:group', {}), {
                             'doc': 'The English version of the name associated with the group (may be different '
-                                   'from the localized name).'
+                                   'from the localized name).',
+                            'deprecated': True,
                         }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The service provider URL where the group is hosted.'

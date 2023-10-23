@@ -572,6 +572,7 @@ class Model:
         })
 
         self.addIface('taxonomy', {
+            'doc': 'Properties common to taxonomies.',
             'props': (
                 ('title', ('str', {}), {'doc': 'A brief title of the definition.'}),
                 ('summary', ('str', {}), {

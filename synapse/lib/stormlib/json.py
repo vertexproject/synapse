@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 def runJsSchema(schema, item, use_default=True):
     # This is a target function for multiprocessing
-    func = s_config.getJsValidator(schema, use_default=use_default)
+    func = s_config.getJsValidator(schema, use_default=use_default, handlers=None)
     resp = func(item)
     return resp
 
 def compileJsSchema(schema, use_default=True):
     # This is a target function for multiprocessing
-    _ = s_config.getJsValidator(schema, use_default=use_default)
+    _ = s_config.getJsValidator(schema, use_default=use_default, handlers=None)
     return True
 
 @s_stormtypes.registry.registerType

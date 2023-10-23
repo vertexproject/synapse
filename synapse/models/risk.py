@@ -60,7 +60,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an actor attacking a target.',
                 }),
                 ('risk:alert:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of alert types.'
+                    'doc': 'A taxonomy of alert types.',
+                    'interfaces': ('taxonomy',),
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -93,9 +94,12 @@ class RiskModule(s_module.CoreModule):
                 }),
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of verdicts for the origin and validity of the alert.'}),
+                    'doc': 'A taxonomy of verdicts for the origin and validity of the alert.',
+                    'interfaces': ('taxonomy',),
+                }),
 
                 ('risk:threat:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
                     'doc': 'A taxonomy of threat types.'}),
 
                 ('risk:leak', ('guid', {}), {

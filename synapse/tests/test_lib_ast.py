@@ -1,17 +1,13 @@
 import json
 import math
 import asyncio
-import contextlib
-import collections
 
 from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.lib.ast as s_ast
-import synapse.lib.base as s_base
 import synapse.lib.snap as s_snap
 
 import synapse.tests.utils as s_test
@@ -124,44 +120,6 @@ foo_stormpkg = {
         },
     ],
 }
-
-@contextlib.asynccontextmanager
-async def matchContexts(testself):
-    origenter = s_base.Base.__aenter__
-    origexit = s_base.Base.__aexit__
-    origstorm = s_cortex.Cortex.storm
-    orignodes = s_cortex.Cortex.nodes
-
-    contexts = collections.defaultdict(int)
-
-    async def enter(self):
-        contexts[type(self)] += 1
-        return await origenter(self)
-
-    async def exit(self, exc, cls, tb):
-        contexts[type(self)] -= 1
-        await origexit(self, exc, cls, tb)
-
-    async def storm(self, text, opts=None):
-        async for mesg in origstorm(self, text, opts=opts):
-            yield mesg
-
-        for cont, refs in contexts.items():
-            testself.eq(0, refs)
-
-    async def nodes(self, text, opts=None):
-        nodes = await orignodes(self, text, opts=opts)
-
-        for cont, refs in contexts.items():
-            testself.eq(0, refs)
-
-        return nodes
-
-    with mock.patch('synapse.lib.base.Base.__aenter__', enter):
-        with mock.patch('synapse.lib.base.Base.__aexit__', exit):
-            with mock.patch('synapse.cortex.Cortex.nodes', nodes):
-                with mock.patch('synapse.cortex.Cortex.storm', storm):
-                    yield
 
 class AstTest(s_test.SynTest):
 
@@ -1156,7 +1114,7 @@ class AstTest(s_test.SynTest):
             $lib.print('retn is: {retn}', retn=$retn)
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('retn is: None', msgs)
+            self.stormIsInPrint('retn is: $lib.null', msgs)
             self.stormIsInPrint('retn is: 1', msgs)
 
             # Allow plumbing through args as keywords
@@ -2320,7 +2278,7 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ inet:fqdn=vertex.link ]')
 
-            async with matchContexts(self):
+            async with s_test.matchContexts(self):
 
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
@@ -2561,3 +2519,101 @@ class AstTest(s_test.SynTest):
             self.len(0, nodes[0][1]['path']['edges'])
             # one for the refs edge (via doedges) and one for the rule..
             self.len(2, nodes[1][1]['path']['edges'])
+
+    async def test_ast_tagfilters(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:score=5 <(foo)+ { test:str=foo } ]')
+            await core.nodes('[ test:str=bar +#tagab=2024 +#tagab:score=6 ]')
+            await core.nodes('[ test:str=baz +#tagba=2023 +#tagba:score=7 ]')
+            await core.nodes('[ test:str=faz +#tagbb=2024 +#tagbb:score=8 ]')
+
+            self.len(2, await core.nodes('test:str +#taga*'))
+            self.len(1, await core.nodes('test:str +#tagaa=2023'))
+            self.len(1, await core.nodes('test:str +#taga* <(*)- *'))
+            self.len(2, await core.nodes('$tag=taga* test:str +#$tag'))
+            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag=2023'))
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*@=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*>2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*<(3+5)')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#taga<(3+5)')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#taga*min>=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#$tag=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#$"tag"=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#foo.$"tag"=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga* test:str +#foo*.$"tag"=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".*=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".*=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*=2023')
+
+            self.len(2, await core.nodes('test:str +#taga*:score'))
+            self.len(1, await core.nodes('test:str +#tagaa:score=5'))
+            self.len(1, await core.nodes('test:str +#tagaa:score<(2+4)'))
+            self.len(1, await core.nodes('test:str +#tagaa:score*range=(4,6)'))
+            self.len(1, await core.nodes('test:str +#taga*:score <(*)- *'))
+            self.len(2, await core.nodes('$tag=taga* test:str +#$tag:score'))
+            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score=5'))
+            self.len(1, await core.nodes('$tag=tagaa test:str +#$tag:score*range=(4,6)'))
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score@=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score>2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score<(3+5)')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('test:str +#taga*:score*min>=2023')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:str +#taga:score*min>=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#$tag:score=2023')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('$tag=taga* test:str +#foo.$"tag":score=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga* test:str +#foo*.$"tag":score=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".*:score=2023')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
