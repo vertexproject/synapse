@@ -250,6 +250,10 @@ class LibHttp(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
     )
     _storm_lib_path = ('inet', 'http')
+    _storm_lib_perms = (
+        {'perm': ('inet', 'http', 'proxy'), 'gate': 'cortex',
+         'desc': 'Permits a user to use a proxy with `$lib.inet.http` APIs.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -310,7 +314,7 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
-        if proxy is not None and not self.runt.isAdmin():
+        if proxy is not None and not self.runt.allowed(('inet', 'http', 'proxy')):
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         if proxy is None:
@@ -374,7 +378,7 @@ class LibHttp(s_stormtypes.Lib):
 
         headers = self.strify(headers)
 
-        if proxy is not None and not self.runt.isAdmin():
+        if proxy is not None and not self.runt.allowed(('inet', 'http', 'proxy')):
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         if fields:

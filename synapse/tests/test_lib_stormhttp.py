@@ -544,6 +544,21 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+
+            q = 'return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))'
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=asvisi)
+
+            await visi.addRule((True, ('inet', 'http', 'proxy')))
+
+            resp = await core.callStorm(q, opts=asvisi)
+            self.eq('ProxyConnectionError', resp['err'][0])
+
     async def test_storm_http_connect(self):
 
         async with self.getTestCore() as core:
