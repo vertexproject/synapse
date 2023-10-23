@@ -625,11 +625,11 @@ class SubGraph:
                             edges.append(e)
                     else:
                         for n2iden, verbs in cache.items():
+                            await asyncio.sleep(0)
                             if n2delayed.has(n2iden):
                                 continue
 
                             if not revedge.has(n2iden):
-                                await asyncio.sleep(0)
                                 await revedge.set(n2iden, {})
 
                             re = revedge.get(n2iden)
@@ -654,10 +654,14 @@ class SubGraph:
                         elif n2delayed.has(nodeiden):
                             async for buid01 in results:
                                 async for verb in runt.snap.iterEdgeVerbs(buid01, buid):
+                                    await asyncio.sleep(0)
                                     edges.append((s_common.ehex(buid01), {'type': 'edge', 'verb': verb, 'reverse': True}))
                         else:
                             for n2iden, verbs in cache.items():
+                                if s_common.uhex(n2iden) not in results:
+                                    continue
                                 for v in verbs:
+                                    await asyncio.sleep(0)
                                     edges.append((n2iden, {'type': 'edge', 'verb': v}))
 
                         async for n1iden in n1delayed:

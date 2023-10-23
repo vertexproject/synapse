@@ -20,6 +20,7 @@ gdefSchema = {
         'updated': {'type': 'number'},
         'refs': {'type': 'boolean', 'default': False},
         'edges': {'type': 'boolean', 'default': True},
+        'edgelimit': {'type': 'number', 'default': 3000},
         'degrees': {'type': ['integer', 'null'], 'minimum': 0},
         'filterinput': {'type': 'boolean', 'default': True},
         'yieldfiltered': {'type': 'boolean', 'default': False},
