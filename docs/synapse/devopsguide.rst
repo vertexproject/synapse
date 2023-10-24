@@ -1151,6 +1151,9 @@ information about the Extended HTTP API endpoint::
     // Stat output
     storm> cortex.httpapi.stat 50cf80d0e332a31608331490cd453103
     Iden: 50cf80d0e332a31608331490cd453103
+    Creator: root (b13c21813628ac4464b78b5d7c55cd64)
+    Created: 2023/10/18 14:02:52.070
+    Updated: 2023/10/18 14:07:29.448
     Path: demo/([a-z0-9]+)/(.*)
     Owner: root (b13c21813628ac4464b78b5d7c55cd64)
     Runas: owner

@@ -7737,7 +7737,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Reordering / safety
             self.eq(1, await core.setHttpApiIndx(info4.get('iden'), 1))
 
-            # Cache is cleared when reloading reloading
+            # Cache is cleared when reloading
             self.len(0, core._exthttpapicache)
             adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
             self.eq(adef, info)
@@ -7748,6 +7748,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             items = await core.getHttpExtApis()
             self.eq(items, (info, info4, info2, info3))
+
+            # Tiny sleep to ensure that updated ticks forward when modified
+            created = adef.get('created')
+            updated = adef.get('updated')
+            await asyncio.sleep(0.005)
+            adef = await core.modHttpExtApi(iden, 'name', 'wow')
+            self.eq(adef.get('created'), created)
+            self.gt(adef.get('updated'), updated)
 
             # Sad path
 
@@ -7762,6 +7770,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchView):
                 await core.modHttpExtApi(iden, 'view', newp)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'created', 1234)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'updated', 1234)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'creator', s_common.guid())
 
             with self.raises(s_exc.BadArg):
                 await core.modHttpExtApi(iden, 'newp', newp)

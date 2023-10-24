@@ -26,6 +26,9 @@ _HttpExtAPIConfSchema = {
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'runas': {'type': 'string', 'pattern': '^(owner|user)$'},
         'owner': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
+        'updated': {'type': 'integer', 'minimum': 0},
         'readonly': {'type': 'boolean', 'default': False},
         'perms': {
             'type': 'array',

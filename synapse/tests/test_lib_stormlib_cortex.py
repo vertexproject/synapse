@@ -537,6 +537,9 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden1}})
             self.stormIsInPrint(f'Iden: {iden1}', msgs)
+            self.stormIsInPrint('Creator: root', msgs)
+            self.stormIsInPrint('Created: ', msgs)
+            self.stormIsInPrint('Updated: ', msgs)
             self.stormIsInPrint('Owner: root', msgs)
             self.stormIsInPrint('Runas: user', msgs)
             self.stormIsInPrint('Readonly: false', msgs)
@@ -565,8 +568,8 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': iden2}})
             self.stormIsInPrint(f'Iden: {iden2}', msgs)
-            self.stormIsInPrint(f'No user found ({lowuser})', msgs)
-            self.stormIsInPrint(f'No view found ({badview})', msgs)
+            self.stormIsInPrint(f'!Owner: No user found ({lowuser})', msgs)
+            self.stormIsInPrint(f'!View: No view found ({badview})', msgs)
 
             # Paths must be valid regular expressions when created or modified
             q = '''$api=$lib.cortex.httpapi.add("hehehe/hahaha)") return ($api.iden)'''
@@ -576,6 +579,20 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             q = '''$api=$lib.cortex.httpapi.get($iden) $api.path="newp/(stuff" '''
             with self.raises(s_exc.BadArg) as cm:
                 ret = await core.callStorm(q, opts={'vars': {'iden': iden0}})
+
+            # Creator / Created / Updated may not be set
+            q = '''$api=$lib.cortex.httpapi.get($iden) $api.creator=$valu'''
+            with self.raises(s_exc.NoSuchName) as cm:
+                await core.callStorm(q, opts={'vars': {'iden': iden0, 'valu': lowuser}})
+
+            valu = 0x01020304
+            q = '''$api=$lib.cortex.httpapi.get($iden) $api.created=$valu'''
+            with self.raises(s_exc.NoSuchName) as cm:
+                await core.callStorm(q, opts={'vars': {'iden': iden0, 'valu': valu}})
+
+            q = '''$api=$lib.cortex.httpapi.get($iden) $api.updated=$valu'''
+            with self.raises(s_exc.NoSuchName) as cm:
+                await core.callStorm(q, opts={'vars': {'iden': iden0, 'valu': valu}})
 
     async def test_libcortex_httpapi_auth(self):
         async with self.getTestCore() as core:

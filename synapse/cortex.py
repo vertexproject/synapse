@@ -4321,6 +4321,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{path}] : {e}'
             raise s_exc.BadArg(mesg=mesg) from None
         adef['iden'] = s_common.guid()
+        adef['created'] = s_common.now()
+        adef['updated'] = adef['created']
         adef = s_schemas.reqValidHttpExtAPIConf(adef)
         return await self._push('http:api:add', adef)
 
@@ -4362,6 +4364,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('http:api:mod')
     async def modHttpExtApi(self, iden, name, valu):
+        # Created, Creator, Updated are not mutable
         if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
             # Schema takes care of these values
             pass
@@ -4388,6 +4391,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         adef = s_msgpack.un(byts)
         adef[name] = valu
+        adef['updated'] = s_common.now()
         adef = s_schemas.reqValidHttpExtAPIConf(adef)
         self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
