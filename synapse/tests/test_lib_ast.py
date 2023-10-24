@@ -1,17 +1,13 @@
 import json
 import math
 import asyncio
-import contextlib
-import collections
 
 from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.cortex as s_cortex
 
 import synapse.lib.ast as s_ast
-import synapse.lib.base as s_base
 import synapse.lib.snap as s_snap
 
 import synapse.tests.utils as s_test
@@ -124,44 +120,6 @@ foo_stormpkg = {
         },
     ],
 }
-
-@contextlib.asynccontextmanager
-async def matchContexts(testself):
-    origenter = s_base.Base.__aenter__
-    origexit = s_base.Base.__aexit__
-    origstorm = s_cortex.Cortex.storm
-    orignodes = s_cortex.Cortex.nodes
-
-    contexts = collections.defaultdict(int)
-
-    async def enter(self):
-        contexts[type(self)] += 1
-        return await origenter(self)
-
-    async def exit(self, exc, cls, tb):
-        contexts[type(self)] -= 1
-        await origexit(self, exc, cls, tb)
-
-    async def storm(self, text, opts=None):
-        async for mesg in origstorm(self, text, opts=opts):
-            yield mesg
-
-        for cont, refs in contexts.items():
-            testself.eq(0, refs)
-
-    async def nodes(self, text, opts=None):
-        nodes = await orignodes(self, text, opts=opts)
-
-        for cont, refs in contexts.items():
-            testself.eq(0, refs)
-
-        return nodes
-
-    with mock.patch('synapse.lib.base.Base.__aenter__', enter):
-        with mock.patch('synapse.lib.base.Base.__aexit__', exit):
-            with mock.patch('synapse.cortex.Cortex.nodes', nodes):
-                with mock.patch('synapse.cortex.Cortex.storm', storm):
-                    yield
 
 class AstTest(s_test.SynTest):
 
@@ -2320,7 +2278,7 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('[ inet:fqdn=vertex.link ]')
 
-            async with matchContexts(self):
+            async with s_test.matchContexts(self):
 
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")

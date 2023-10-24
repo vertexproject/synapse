@@ -7166,6 +7166,66 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Avoid races in cleanup
             del genr
 
+    async def test_cortex_syncnodeedits(self):
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.getLayer().iden
+            layr01 = (await core.addLayer())['iden']
+            view01 = (await core.addView({'layers': (layr01,)}))['iden']
+
+            async def layrgenr(layr, startoff, endoff=None, newlayer=False):
+                wait = endoff is None
+                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
+                    if endoff is not None and ioff >= endoff:
+                        break
+                    yield ioff, item, meta
+
+            indx = await core.getNexsIndx()
+
+            offsdict = {
+                layr00: indx,
+                layr01: indx,
+            }
+
+            genr = None
+
+            try:
+
+                # test that a slow consumer can continue to stream edits
+                # even if a layer exceeds the window maxsize
+
+                oldv = s_layer.WINDOW_MAXSIZE
+                s_layer.WINDOW_MAXSIZE = 2
+
+                genr = core._syncNodeEdits(offsdict, layrgenr, wait=True)
+
+                nodes = await core.nodes('[ test:str=foo ]')
+                item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+
+                # we should now be in live sync
+                # and the empty layer will be pulling from the window
+
+                nodes = await core.nodes('[ test:str=bar ]')
+                item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+
+                # add more nodes than the window size without consuming from the genr
+
+                opts = {'view': view01}
+                nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
+                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
+                self.sorteq(
+                    [s_common.uhex(n.iden()) for n in nodes],
+                    [item[1][0][0] for item in items],
+                )
+
+            finally:
+                s_layer.WINDOW_MAXSIZE = oldv
+                if genr is not None:
+                    del genr
+
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:
             layr = core.getView().layers[0].iden
