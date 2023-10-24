@@ -183,9 +183,9 @@ class HttpApi(s_stormtypes.StormType):
     _storm_typename = 'http:api'
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the Extended HTTP API.', 'type': 'str'},
-        {'name': 'created', 'desc': 'The time the Extended HTTP API was created.', 'type': 'integer'},
+        {'name': 'created', 'desc': 'The time the Extended HTTP API was created.', 'type': 'int'},
         {'name': 'updated', 'desc': 'The time the Extended HTTP API was last modified.',
-         'type': {'type': 'gtor', '_gtorfunc': '_gtorUpdated', 'returns': {'type': 'integer'}}},
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorUpdated', 'returns': {'type': 'int'}}},
         {'name': 'creator', 'desc': 'The user that created the Extended HTTP API.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorCreator', 'returns': {'type': 'auth:user'}}},
         {'name': 'owner', 'desc': 'The user that runs the endpoint query logic.',
