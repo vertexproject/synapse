@@ -1,6 +1,8 @@
 import asyncio
 import contextlib
 
+import synapse.exc as s_exc
+
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -72,3 +74,9 @@ class LibIters(s_stormtypes.Lib):
 
             except* StopAsyncIteration:
                 pass
+
+            except* Exception as eg:
+                errs = len(eg.exceptions)
+                errm = ', '.join(f'({str(e)})' for e in eg.exceptions)
+                mesg = f'$lib.iters.zip() encountered errors in {errs} iterators during iteration: {errm}'
+                raise s_exc.StormRuntimeError(mesg=mesg)
