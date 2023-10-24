@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import contextlib
 
@@ -61,22 +62,30 @@ class LibIters(s_stormtypes.Lib):
                 genrs.append(await stack.enter_async_context(agen))
 
             try:
-                while True:
-                    tasks = []
-                    async with asyncio.TaskGroup() as tg:
-                        for genr in genrs:
-                            tasks.append(tg.create_task(genr.__anext__()))
+                try:
+                    while True:
+                        tasks = []
+                        async with asyncio.TaskGroup() as tg:
+                            for genr in genrs:
+                                tasks.append(tg.create_task(genr.__anext__()))
 
-                    yield [task.result() for task in tasks]
+                        yield [task.result() for task in tasks]
 
-                    await asyncio.sleep(0)
-                    tasks.clear()
+                        await asyncio.sleep(0)
+                        tasks.clear()
 
-            except* StopAsyncIteration:
-                pass
+                except* StopAsyncIteration:
+                    pass
 
-            except* Exception as eg:
-                errs = len(eg.exceptions)
-                errm = ', '.join(f'({str(e)})' for e in eg.exceptions)
+            except ExceptionGroup as eg:
+                msgs = []
+                for exc in eg.exceptions:
+                    if isinstance(exc, s_exc.SynErr):
+                        msgs.append(f'({exc.errname}: {exc.errinfo.get("mesg")})')
+                    else:
+                        msgs.append(f'({exc.__class__.__name__}: {str(exc)})')
+
+                errs = len(msgs)
+                errm = ', '.join(msgs)
                 mesg = f'$lib.iters.zip() encountered errors in {errs} iterators during iteration: {errm}'
                 raise s_exc.StormRuntimeError(mesg=mesg)

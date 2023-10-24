@@ -1,6 +1,10 @@
+from unittest import mock
+
 import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
+
+import synapse.lib.stormlib.iters as s_stormlib_iters
 
 class StormLibItersTest(s_test.SynTest):
 
@@ -86,23 +90,27 @@ class StormLibItersTest(s_test.SynTest):
                 self.stormNotInPrint("['2', '5', '8']", msgs)
                 self.stormNotInPrint("['3', '6', '9']", msgs)
 
-                err = "$lib.iters.zip() encountered errors in 1 iterators during " \
-                      "iteration: (StormRaise: errname='foo' mesg='bar')"
+                err = "$lib.iters.zip() encountered errors in 1 iterators during iteration: (foo: bar)"
                 self.stormIsInErr(err, msgs)
 
-                q = '''
-                function e1() {
-                    $lib.raise(foo, bar)
-                }
-                function e2() {
-                    $lib.print($newp)
-                }
-                for ($a, $b, $c) in $lib.iters.zip((1,2,3), $e1(), $e2()) {
-                }
-                '''
-                msgs = await core.stormlist(q)
+                async def boom(self, genr):
+                    print(newp)
+                    yield True
 
-                err = "$lib.iters.zip() encountered errors in 2 iterators during iteration: " \
-                      "(StormRaise: errname='foo' mesg='bar'), " \
-                      "(NoSuchVar: mesg='Missing variable: newp' name='newp')"
-                self.stormIsInErr(err, msgs)
+                with mock.patch.object(s_stormlib_iters.LibIters, 'enum', boom):
+                    q = '''
+                    function e1() {
+                        $lib.raise(foo, bar)
+                    }
+                    function e2() {
+                        $lib.print($newp)
+                    }
+                    for ($a, $b, $c) in $lib.iters.zip($e1(), $e2(), $lib.iters.enum($e2())) {
+                    }
+                    '''
+                    msgs = await core.stormlist(q)
+                    err = "$lib.iters.zip() encountered errors in 3 iterators during iteration: " \
+                          "(foo: bar), " \
+                          "(NoSuchVar: Missing variable: newp), " \
+                          "(NameError: name 'newp' is not defined)"
+                    self.stormIsInErr(err, msgs)
