@@ -937,12 +937,12 @@ Extended HTTP API
 
 .. highlight:: none
 
-The Cortex can be configured ( via Storm ) to service custom HTTPI API endpoints. These user defined endpoints execute
+The Cortex can be configured ( via Storm ) to service custom HTTP API endpoints. These user defined endpoints execute
 Storm code in order to generate responses. This allows creating custom HTTP API responses or URL paths which may meet
 custom needs.
 
-These endpoints have a base URL of ``/api/ext/``. Additional path components made in a request are used to resolve
-which API definition is used to handle the response.
+These endpoints have a base URL of ``/api/ext/``. Additional path components in a request are used to resolve which API
+definition is used to handle the response.
 
 The Storm queries which implement these endpoints will have a ``$request`` object ( see
 :ref:`stormprims-http-api-request-f527` ) added to them. This object is used to send custom data back to the caller.
@@ -950,8 +950,8 @@ This object contains helpers to access the request data, as well as functions to
 
 .. note::
 
-    Several examples show the use of curl_ and jq_ being used to access endpoints or process data. These tools are
-    not required in order to interact with the Extended HTTP API.
+    Several examples show curl_ and jq_ being used to access endpoints or process data. These tools are not required
+    in order to interact with the Extended HTTP API.
 
 A Simple Example
 ++++++++++++++++
@@ -959,7 +959,7 @@ A Simple Example
 The following simple example shows adding an API endpoint and setting the ``GET`` method on it that just returns a
 simple message embedded in a dictionary::
 
-    $api = $lib.cortex.httpapi.get('demo/path00')
+    $api = $lib.cortex.httpapi.add('demo/path00')
     $api.methods.get = ${
         $mesg=`Hello! I am a request made to {$request.path}`
         $headers = ({"Some": "Value"})
@@ -988,7 +988,7 @@ Accessing Request Data
 The ``$request`` object has information available about the request itself. The following API example shows access to
 all of that request data, and echoes it back to the caller::
 
-    $api = $lib.cortex.httpapi.get('demo/([a-z0-9]*)')
+    $api = $lib.cortex.httpapi.add('demo/([a-z0-9]*)')
     $api.methods.post = ${
         $body = ({
             "method": $request.method,        // The HTTP method
@@ -1070,7 +1070,7 @@ The output of that endpoint::
     Request headers and parameters are flattened into a single key / value mapping. Duplicate request headers or
     parameters are not exposed in the ``$request`` object.
 
-Managing HTTP APIS
+Managing HTTP APIs
 ++++++++++++++++++
 
 When creating an Extended HTTP API, the request path must be provided. This path component is matched against any
@@ -1104,7 +1104,7 @@ allows users to change the order in which the API endpoints are matched::
 
 The endpoints in the example are now checked in a "more specific" to "least specific" order.
 
-The path of a endpoint can also be changed. This can be done by assigning a new value to the ``path`` attribute on
+The path of an endpoint can also be changed. This can be done by assigning a new value to the ``path`` attribute on
 the ``http:api`` object in Storm::
 
     storm> $api=$lib.cortex.httpapi.get(1896bda5dbd97615ee553059079620ba) $api.path="demo/mynew/path"
@@ -1124,7 +1124,7 @@ The path components which match each regular expression capture group in the ``p
     $api = $lib.cortex.httpapi.get(50cf80d0e332a31608331490cd453103)
     $api.path="demo/([a-z0-9]+)/(.*)"
 
-The captures groups are then available::
+The capture groups are then available::
 
     $ curl -sku "root:secret" -XPOST "https://127.0.0.1:4443/api/ext/demo/foobar1/AnotherArgument/inTheGroup"  | jq '.args'
     [
@@ -1242,7 +1242,7 @@ the endpoints that users configuring them must be aware of.
 **view**
 
     The View that an Extended HTTP API endpoint is created in is recorded as the View that the Storm endpoints are
-    executed in. This View can be changed by assigning a the ``.view`` property on the endpoint object to a different
+    executed in. This View can be changed by assigning the ``.view`` property on the endpoint object to a different
     View.
 
 **authenticated**
@@ -1255,7 +1255,7 @@ the endpoints that users configuring them must be aware of.
 **runas**
 
     By default, the Storm logic is run by the user that is marked as the ``owner``. Endpoints can instead be configured
-    to run as the authenticated user by setting the ``.runas`` property on the HTTP PAI object to ``user``.  In order
+    to run as the authenticated user by setting the ``.runas`` property on the HTTP API object to ``user``.  In order
     to change the behavior to executing the queries as the owner, the value should be set to ``owner``.
 
     When an endpoint is configured with ``runas`` set to ``user`` and ``authenticated`` to ``$lib.false`` any
@@ -1306,19 +1306,19 @@ Accessing those endpoints with different users gives various results::
     $ curl -sk "https://127.0.0.1:4443/api/ext/demo/noauth"  | jq
     "root"
 
-If the the owner or an authenticated user does not have permission to execute a Storm query in the configured View,
-or if the endpoints' View is deleted from the Cortex, this will raise a fatal error and return an HTTP 500 error. Once
-a query has started executing, regular Storm permissions apply.
+If the owner or an authenticated user does not have permission to execute a Storm query in the configured View, or if
+the endpoints' View is deleted from the Cortex, this will raise a fatal error and return an HTTP 500 error. Once a
+query has started executing, regular Storm permissions apply.
 
 Endpoints can also have permissions defined for them. This allows locking down an endpoint such that while a user may
 still have access to the underlying view, they may lack the specific permissions required to execute the endpoint.
 These permissions are checked against the authenticated user, and not the endpoint owner. The following example shows
-setting a single permission on a one of our earlier endpoints::
+setting a single permission on one of our earlier endpoints::
 
     $api=$lib.cortex.httpapi.get(bd4679ab8e8a1fbc030b46e275ddba96)
     $api.perms=(your.custom.permission,)
 
-Accessing it as a unpriveleged user generates an ``AuthDeny`` error::
+Accessing it as a user without the specified permission generates an ``AuthDeny`` error::
 
     $ curl -sku "lowuser:demo" "https://127.0.0.1:4443/api/ext/demo/owner"  | jq
     {
@@ -1341,7 +1341,7 @@ For additional information about managing user permissions, see :ref:`admin_crea
 
 .. note::
 
-    When the Optic UI is used to proxy the ``/api/ext`` endpoint, authentication must be done using the Optic's login
+    When the Optic UI is used to proxy the ``/api/ext`` endpoint, authentication must be done using Optic's login
     endpoint. Basic auth is not available.
 
 Readonly Mode
@@ -1360,7 +1360,7 @@ Endpoint Variables
 User defined variables may be set for the queries as well. These variables are mapped into the runtime for each method.
 This can be used to provide constants or other information which may change, without needing to alter the underlying
 Storm code which defines a method. These can be read ( or removed ) by altering the ``$api.vars`` dictionary. This is
-an example of using variable in a query::
+an example of using a variable in a query::
 
     // Set a variable that a method uses:
 
@@ -1375,7 +1375,7 @@ When executing this method, the JSON response would be the following::
 
     {"mesg": "There are 5 things available!"}
 
-If ``$api.vars.number = "several"`` was executed, this would be the following output::
+If ``$api.vars.number = "several"`` was executed, the JSON response would now be the following::
 
     {"mesg": "There are several things available!"}
 
@@ -1438,7 +1438,7 @@ The ``http:request`` object has methods that allow a user to send the response c
 One use for this is to create a streaming response. This can be used when the total response size may not be known
 or to avoid incurring memory pressure on the Cortex when computing results.
 
-The following examples generates from JSONLines data::
+The following examples generates some JSONLines data::
 
     $api = $lib.cortex.httpapi.add('demo/jsonlines')
     $api.methods.get = ${
@@ -1466,7 +1466,7 @@ Accessing this endpoint shows the JSONLines rows sent back::
     {"i": 2}
     {"i": 3}
 
-In a similar fashion, a CSV can be generated. This example shows a integer and its square being computed::
+In a similar fashion, a CSV can be generated. This example shows an integer and its square being computed::
 
     $api = $lib.cortex.httpapi.add('demo/csv')
     $api.methods.get = ${
@@ -1506,7 +1506,7 @@ Accessing this shows the CSV content being sent back::
     9, 81
 
 
-When using the ``sendcode()``, ``sendheaders()``, and ``sendbody()`` APIS the order in which they are called does
+When using the ``sendcode()``, ``sendheaders()``, and ``sendbody()`` APIs the order in which they are called does
 matter. The status code and headers can be set at any point before sending body data. They can even be set multiple
 times if the response logic needs to change a value it previously set.
 
@@ -1514,9 +1514,9 @@ Once the body data has been sent, the status code and headers will be sent to th
 Attempting to change the status code or send additional headers will have no effect. This will generate a warning
 message on the Cortex.
 
-The **minimum** data that the Extended HTTP API requires for a response to be considered valid setting the status
+The **minimum** data that the Extended HTTP API requires for a response to be considered valid is setting the status
 code. If the status code is not set by an endpoint, or if body content is sent prior to setting the endpoint, then
-a HTTP 500 status code will be sent to the caller.
+an HTTP 500 status code will be sent to the caller.
 
 Messages and Error Handling
 +++++++++++++++++++++++++++
@@ -1539,7 +1539,7 @@ run after the variable  ``$number`` was removed, the code would generate the fol
     {"status": "err", "code": "NoSuchVar", "mesg": "Missing variable: number"}
 
 Custom error handling of issues that arise inside of the Storm query execution can be handled with the
-:ref:`flow-try-catch`. This allows a user to have finer control over their error codes, headres and error body content.
+:ref:`flow-try-catch`. This allows a user to have finer control over their error codes, headers and error body content.
 
 ** note::
 
