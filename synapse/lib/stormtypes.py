@@ -2090,8 +2090,8 @@ class LibAxon(Lib):
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
 
-        if proxy is not None and not self.runt.allowed(('axon', 'proxy')):
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        if proxy is not None:
+            self.runt.confirm(('axon', 'proxy'))
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2127,8 +2127,8 @@ class LibAxon(Lib):
         params = self.strify(params)
         headers = self.strify(headers)
 
-        if proxy is not None and not self.runt.allowed(('axon', 'proxy')):
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        if proxy is not None:
+            self.runt.confirm(('axon', 'proxy'))
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)

@@ -314,8 +314,8 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
-        if proxy is not None and not self.runt.allowed(('inet', 'http', 'proxy')):
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('inet', 'http', 'proxy'))
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
@@ -378,8 +378,8 @@ class LibHttp(s_stormtypes.Lib):
 
         headers = self.strify(headers)
 
-        if proxy is not None and not self.runt.allowed(('inet', 'http', 'proxy')):
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('inet', 'http', 'proxy'))
 
         if fields:
             if any(['sha256' in field for field in fields]):
