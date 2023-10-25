@@ -252,7 +252,7 @@ class LibHttp(s_stormtypes.Lib):
     _storm_lib_path = ('inet', 'http')
     _storm_lib_perms = (
         {'perm': ('inet', 'http', 'proxy'), 'gate': 'cortex',
-         'desc': 'Permits a user to use a proxy with `$lib.inet.http` APIs.'},
+         'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
     )
 
     def getObjLocals(self):

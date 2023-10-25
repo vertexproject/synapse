@@ -640,6 +640,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             dict: An information dictionary containing the results of the request.
         '''
         await self._reqUserAllowed(('axon', 'wget'))
+        if proxy is not None:
+            await self._reqUserAllowed(('axon', 'proxy'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl,
                                     timeout=timeout, proxy=proxy)
 
@@ -650,6 +652,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, proxy=None):
         await self._reqUserAllowed(('axon', 'wput'))
+        if proxy is not None:
+            await self._reqUserAllowed(('axon', 'proxy'))
         return await self.cell.wput(sha256, url, params=params, headers=headers, method=method, ssl=ssl,
                                     timeout=timeout, proxy=proxy)
 
