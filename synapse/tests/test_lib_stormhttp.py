@@ -546,7 +546,7 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
-        async with self.getTestCore() as core:
+        async with self.getTestCore(conf=conf) as core:
             # Proxy permission tests in this section
 
             visi = await core.auth.addUser('visi')
