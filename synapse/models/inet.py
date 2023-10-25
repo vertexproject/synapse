@@ -3254,7 +3254,8 @@ class InetModule(s_module.CoreModule):
                             'ex': 'slack',
                             'doc': 'A unique name for the service platform.'}),
 
-                        ('owner', ('ps:contact', {}), {}),
+                        ('owner', ('ps:contact', {}), {
+                            'doc': 'The contact information of the platform owner.'}),
 
                         ('created', ('time', {}), {
                             'doc': 'The time that the platform was first created or went live.'}),
@@ -3270,9 +3271,12 @@ class InetModule(s_module.CoreModule):
 
                         ('name', ('str', {'onespace': True, 'lower': True}), {}),
                         # ('provider', ('ps:contact', {}), {}),
-                        ('operator', ('ps:contact', {}), {}),
+                        ('operator', ('ps:contact', {}), {
+                            'doc': 'The contact information of the intance operator.'}),
+
                         ('platform', ('inet:service:platform', {}), {
                             'doc': 'The platform that this is an instance of.'}),
+
                         ('admins?',
                     )),
 
