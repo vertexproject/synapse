@@ -942,6 +942,14 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
+            visi = await axon.auth.addUser('visi')
+            await visi.addRule((True, ('axon', 'wget')))
+
+            async with axon.getLocalProxy(user='visi') as proxy:
+                with self.raises(s_exc.AuthDeny) as exc:
+                    await proxy.wget('http://vertex.link', proxy=False)
+                self.isin('axon.proxy', exc.exception.get('mesg'))
+
             resp = await proxy.wget('vertex.link')
             self.false(resp.get('ok'))
             self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
@@ -1022,13 +1030,21 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 
-            resp = await proxy.wput(sha256, 'vertex.link')
-            self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+                resp = await proxy.wput(sha256, 'vertex.link')
+                self.false(resp.get('ok'))
+                self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
 
-            resp = await proxy.postfiles(fields, 'vertex.link')
-            self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('reason'))
+                resp = await proxy.postfiles(fields, 'vertex.link')
+                self.false(resp.get('ok'))
+                self.isin('InvalidURL: vertex.link', resp.get('reason'))
+
+            visi = await axon.auth.addUser('visi')
+            await visi.addRule((True, ('axon', 'wput')))
+
+            async with axon.getLocalProxy(user='visi') as proxy:
+                with self.raises(s_exc.AuthDeny) as exc:
+                    await proxy.wput(sha256, 'http://vertex.link', proxy=False)
+                self.isin('axon.proxy', exc.exception.get('mesg'))
 
             # Bypass the Axon proxy configuration from Storm
             url = axon.getLocalUrl()

@@ -6258,17 +6258,11 @@ words\tword\twrd'''
 
             size, sha256 = await _addfile()
 
-            opts = {
-                'user': visi.iden,
-                'vars': {
-                    'url': url,
-                    'sha256': s_common.ehex(sha256),
-                    'proxy': None,
-            }}
+            opts = {'user': visi.iden, 'vars': {'url': url, 'sha256': s_common.ehex(sha256)}}
 
             # wget
 
-            scmd = 'return($lib.axon.wget($url, ssl=$lib.false, proxy=$proxy).code)'
+            scmd = 'return($lib.axon.wget($url, ssl=$lib.false).code)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
@@ -6277,18 +6271,11 @@ words\tword\twrd'''
 
             await visi.addRule((True, ('axon', 'wget')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
-
-            opts['vars']['proxy'] = False
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm(scmd, opts=opts)
-            self.isin('axon.proxy', exc.exception.get('mesg'))
-
-            opts['vars']['proxy'] = None
             await visi.delRule((True, ('axon', 'wget')))
 
             # wput
 
-            scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=$lib.false, proxy=$proxy).code)'
+            scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=$lib.false).code)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
@@ -6297,13 +6284,6 @@ words\tword\twrd'''
 
             await visi.addRule((True, ('axon', 'wput')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
-
-            opts['vars']['proxy'] = False
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm(scmd, opts=opts)
-            self.isin('axon.proxy', exc.exception.get('mesg'))
-
-            opts['vars']['proxy'] = False
             await visi.delRule((True, ('axon', 'wput')))
 
             # urlfile
