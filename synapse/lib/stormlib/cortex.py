@@ -188,7 +188,7 @@ class HttpApi(s_stormtypes.StormType):
          'type': {'type': 'gtor', '_gtorfunc': '_gtorUpdated', 'returns': {'type': 'int'}}},
         {'name': 'creator', 'desc': 'The user that created the Extended HTTP API.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorCreator', 'returns': {'type': 'auth:user'}}},
-        {'name': 'owner', 'desc': 'The user that runs the endpoint query logic.',
+        {'name': 'owner', 'desc': 'The user that runs the endpoint query logic when runas="owner".',
          'type': {'type': ['gtor', 'stor'], '_gtorfunc': '_gtorOwner', '_storfunc': '_storOwner',
                   'returns': {'type': 'auth:user'}}},
         {'name': 'pack', 'desc': 'Get a packed copy of the HTTP API object.',
