@@ -6268,7 +6268,7 @@ words\tword\twrd'''
 
             # wget
 
-            scmd = 'return($lib.axon.wget($url, ssl=$lib.false).code)'
+            scmd = 'return($lib.axon.wget($url, ssl=$lib.false, proxy=$proxy).code)'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
