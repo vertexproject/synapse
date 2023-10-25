@@ -2544,6 +2544,14 @@ class AstTest(s_test.SynTest):
             pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
             self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe', 'fini1', 'fini stuff'])
 
+            q = '''
+            init { $foo = bar }
+            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            $lib.print($baz)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo=bar', msgs)
+
     async def test_ast_tagfilters(self):
 
         async with self.getTestCore() as core:
