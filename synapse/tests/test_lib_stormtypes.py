@@ -6277,13 +6277,14 @@ words\tword\twrd'''
 
             await visi.addRule((True, ('axon', 'wget')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'wget')))
 
             opts['vars']['proxy'] = False
-            with self.raises(s_exc.AuthDeny):
+            with self.raises(s_exc.AuthDeny) as exc:
                 await core.callStorm(scmd, opts=opts)
+            self.isin('axon.proxy', exc.exception.get('mesg'))
 
             opts['vars']['proxy'] = None
+            await visi.delRule((True, ('axon', 'wget')))
 
             # wput
 
@@ -6296,13 +6297,14 @@ words\tword\twrd'''
 
             await visi.addRule((True, ('axon', 'wput')))
             self.eq(200, await core.callStorm(scmd, opts=opts))
-            await visi.delRule((True, ('axon', 'wput')))
 
             opts['vars']['proxy'] = False
-            with self.raises(s_exc.AuthDeny):
+            with self.raises(s_exc.AuthDeny) as exc:
                 await core.callStorm(scmd, opts=opts)
+            self.isin('axon.proxy', exc.exception.get('mesg'))
 
             opts['vars']['proxy'] = False
+            await visi.delRule((True, ('axon', 'wput')))
 
             # urlfile
 
