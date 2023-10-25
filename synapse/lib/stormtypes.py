@@ -2002,7 +2002,7 @@ class LibAxon(Lib):
         {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
             'desc': 'Controls the ability to push a file from the Axon to a URL.'},
         {'perm': ('axon', 'proxy'), 'gate': 'cortex',
-            'desc': 'Permits a user to use a proxy with `$lib.axon.wget` and `$lib.axon.wput` APIs.'},
+            'desc': 'Permits a user to specify the proxy used with `$lib.axon.wget` and `$lib.axon.wput` APIs.'},
     )
 
     def getObjLocals(self):
