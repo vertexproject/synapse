@@ -557,9 +557,11 @@ class StormHttpTest(s_test.SynTest):
             _, sha256 = await core.axon.put(b'asdf')
             sha256 = s_common.ehex(sha256)
 
-            q1 = 'return($lib.inet.http.get(http://loop.vertex.link, proxy=$proxy))'
-            q2 = 'return($lib.axon.wget(http://loop.vertex.link, proxy=$proxy))'
-            q3 = f'return($lib.axon.wput({sha256}, http://loop.vertex.link, proxy=$proxy))'
+            host, port = await core.addHttpsPort(0)
+
+            q1 = f'return($lib.inet.http.get(https://loop.vertex.link:{port}, ssl_verify=$lib.false, proxy=$proxy))'
+            q2 = f'return($lib.axon.wget(https://loop.vertex.link:{port}, ssl=$lib.false, proxy=$proxy))'
+            q3 = f'return($lib.axon.wput({sha256}, https://loop.vertex.link:{port}, ssl=$lib.false, proxy=$proxy))'
 
             for proxy in ('socks5://user:pass@127.0.0.1:1', False):
                 opts = {'vars': {'proxy': proxy}, 'user': visi.iden}
@@ -591,13 +593,16 @@ class StormHttpTest(s_test.SynTest):
             opts = {'vars': {'proxy': False}, 'user': visi.iden}
 
             resp = await core.callStorm(q1, opts=opts)
-            self.eq('ClientConnectorError', resp['err'][0])
+            self.eq(resp['code'], 404)
+            self.eq(resp['reason'], 'Not Found')
 
             resp = await core.callStorm(q2, opts=opts)
-            self.eq('ClientConnectorError', resp['err'][0])
+            self.eq(resp['code'], 404)
+            self.eq(resp['reason'], 'Not Found')
 
             resp = await core.callStorm(q3, opts=opts)
-            self.eq('ClientConnectorError', resp['err'][0])
+            self.eq(resp['code'], 404)
+            self.eq(resp['reason'], 'Not Found')
 
     async def test_storm_http_connect(self):
 
