@@ -1355,7 +1355,7 @@ Readonly Mode
 The Storm queries for a given handler may be executed in a ``readonly`` runtime. This is disabled by default. This can
 be changed by setting the ``readonly`` attribute on the ``http:api`` object::
 
-    // Enable the Storme queries to be readonly
+    // Enable the Storm queries to be readonly
     $api = $lib.cortex.httpapi.get($yourIden)
     $api.readonly = $lib.true
 
