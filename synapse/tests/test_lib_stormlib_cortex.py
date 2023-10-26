@@ -61,6 +61,12 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             '''
             testpath00 = await core.callStorm(q)
 
+            q = '''
+            $api = $lib.cortex.httpapi.add(nomeths)
+            return ( $api.iden )
+            '''
+            nomeths = await core.callStorm(q)
+
             info = await core.callStorm('return( $lib.cortex.httpapi.get($iden).pack() )',
                                         opts={'vars': {'iden': testpath00}})
             self.eq(info.get('iden'), testpath00)
@@ -151,17 +157,26 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.post = $lib.undef'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, 405)
+                self.eq(resp.headers.get('Allowed'), 'GET, PUT, PATCH, OPTIONS, DELETE, HEAD')
                 data = await resp.json()
-                self.eq(data.get('mesg'), f'Extended HTTP API {testpath00} has no method for POST')
+                self.eq(data.get('mesg'), f'Extended HTTP API {testpath00} has no method for POST. Supports GET, PUT, PATCH, OPTIONS, DELETE, HEAD.')
 
                 # Unsetting a HEAD method and calling it yields a 500
                 # but still has no body in the response.
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.head = $lib.undef'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
                 resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, 405)
+                self.eq(resp.headers.get('Allowed'), 'GET, PUT, PATCH, OPTIONS, DELETE')
                 self.eq(await resp.read(), b'')
+
+                # No methods returns a 405 and nothing allowed
+                resp = await sess.get(f'https://localhost:{hport}/api/ext/nomeths')
+                self.eq(resp.status, 405)
+                self.eq(resp.headers.get('Allowed'), '')
+                data = await resp.json()
+                self.eq(data.get('mesg'), f'Extended HTTP API {nomeths} has no method for GET.')
 
                 msgs = await core.stormlist('cortex.httpapi.stat $iden', opts={'vars': {'iden': testpath00}})
                 self.stormNotInPrint('Method: POST', msgs)

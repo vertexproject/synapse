@@ -1226,6 +1226,8 @@ restriction on the endpoint logic is for the ``HEAD`` method. Any body content t
 method will not be transmitted to the requester. This body content will be omitted from being transmitted without
 warning or error.
 
+A request which is made with for method that a matching handler does not implement will return an HTTP 405 error.
+
 Authentication, Permissions, and Users
 ++++++++++++++++++++++++++++++++++++++
 

@@ -1312,8 +1312,13 @@ class ExtApiHandler(StormHandler):
 
         storm = adef['methods'].get(meth)
         if storm is None:
-            self.set_status(500)
-            self.sendRestErr('NeedConfValu', f'Extended HTTP API {iden} has no method for {meth.upper()}')
+            self.set_status(405)
+            meths = [meth.upper() for meth in adef.get('methods')]
+            self.set_header('Allowed', ', '.join(meths))
+            mesg = f'Extended HTTP API {iden} has no method for {meth.upper()}.'
+            if meths:
+                mesg = f'{mesg} Supports {", ".join(meths)}.'
+            self.sendRestErr('NeedConfValu', mesg)
             return await self.finish()
 
         # We flatten the request headers and parameters into a flat key/valu map.
