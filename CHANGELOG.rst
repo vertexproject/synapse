@@ -60,7 +60,7 @@ Bugfixes
   ``Cortex.syncIndexEvents()`` APIs which caused layers to stop sending their
   node edits under certain conditions.
   (`#3394 <https://github.com/vertexproject/synapse/pull/3394>`_)
-- Storm now raises as ``BadSyntaxError`` when attempting to filter by wildcard
+- Storm now raises a ``BadSyntaxError`` when attempting to filter by wildcard
   tags or tagprops when a value is specified for the filter.
   (`#3373 <https://github.com/vertexproject/synapse/pull/3373>`_)
 
