@@ -64,12 +64,6 @@ Bugfixes
   tags or tagprops when a value is specified for the filter.
   (`#3373 <https://github.com/vertexproject/synapse/pull/3373>`_)
 
-Improved Documentation
-----------------------
-- Update the documentation for the Storm ``view.exec`` command to explain the
-  separation of events and nodes between the parent and sub-runtimes.
-  (`#3379 <https://github.com/vertexproject/synapse/pull/3379>`_)
-
 v2.152.0 - 2023-10-17
 =====================
 
