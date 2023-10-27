@@ -2001,8 +2001,6 @@ class LibAxon(Lib):
             'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
         {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
             'desc': 'Controls the ability to push a file from the Axon to a URL.'},
-        {'perm': ('storm', 'lib', 'axon', 'proxy'), 'gate': 'cortex',
-            'desc': 'Permits a user to specify the proxy used with `$lib.axon.wget` and `$lib.axon.wput` APIs.'},
     )
 
     def getObjLocals(self):
@@ -2091,7 +2089,7 @@ class LibAxon(Lib):
         proxy = await toprim(proxy)
 
         if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'axon', 'proxy'))
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2128,7 +2126,7 @@ class LibAxon(Lib):
         headers = self.strify(headers)
 
         if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'axon', 'proxy'))
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
