@@ -6,6 +6,64 @@
 Synapse Changelog
 *****************
 
+v2.153.0 - TBD
+=====================
+
+Model Changes
+-------------
+- Update to the ``inet`` and ``ou`` models.
+
+  (`#3393 <https://github.com/vertexproject/synapse/pull/3393>`_)
+  (`#3396 <https://github.com/vertexproject/synapse/pull/3396>`_)
+
+  **Deprecated Properties**
+
+  ``inet:web:acct``
+    The ``inet:web:acct`` form had the following properties marked as deprecated:
+
+    * ``name:en``
+    * ``realname:en``
+
+  ``inet:web:group``
+    The ``inet:web:group`` form had the following property marked as deprecated:
+
+    * ``name:en``
+
+  ``ou:industry``
+    The ``ou:industry`` form had the following property marked as deprecated:
+
+    * ``subs``
+
+Features and Enhancements
+-------------------------
+- Add a new Storm API, ``$lib.iters.zip()``, to iterate over sequences of
+  items together.
+  (`#3392 <https://github.com/vertexproject/synapse/pull/3392>`_)
+  (`#3398 <https://github.com/vertexproject/synapse/pull/3398>`_)
+- Add a Storm command ``stats.countby`` to tally occurrences of values and
+  display a barchart representing the values.
+  (`#3385 <https://github.com/vertexproject/synapse/pull/3385>`_)
+- Update the Storm command ``auth.user.mod`` to allow setting a user as admin
+  on a specific auth gate.
+  (`#3391 <https://github.com/vertexproject/synapse/pull/3391>`_)
+- Add an ``errors`` parameter to ``$lib.axon.readlines()``,
+  ``$lib.axon.csvrows()``, and ``$lib.axon.jsonlines()``. This parameter
+  defaults to ``ignore`` to ignore any decoding errors that are encountered
+  when decoding text.
+  (`#3395 <https://github.com/vertexproject/synapse/pull/3395>`_)
+- Lower the maximum allowed version of the ``pyopenssl`` library.
+  (`#3399 <https://github.com/vertexproject/synapse/pull/3399>`_)
+
+Bugfixes
+--------
+- Fix a bug in the ``Cortex.syncLayersEvents()`` and
+  ``Cortex.syncIndexEvents()`` APIs which caused layers to stop sending their
+  node edits under certain conditions.
+  (`#3394 <https://github.com/vertexproject/synapse/pull/3394>`_)
+- Storm now raises a ``BadSyntaxError`` when attempting to filter by wildcard
+  tags or tagprops when a value is specified for the filter.
+  (`#3373 <https://github.com/vertexproject/synapse/pull/3373>`_)
+
 v2.152.0 - 2023-10-17
 =====================
 
@@ -228,7 +286,7 @@ v2.149.0 - 2023-09-14
 
 Model Changes
 -------------
-- Updates to the ``it``, ``meta``, and ``org`` models.
+- Updates to the ``it``, ``meta``, and ``ou`` models.
   (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
 
   **New Properties**
@@ -734,7 +792,7 @@ Automatic Migrations
 
 Model Changes
 -------------
-- Update to the ``it``, ``org``, and  ``risk`` models.
+- Update to the ``it``, ``ou``, and  ``risk`` models.
   (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
   (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
   (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
@@ -915,7 +973,7 @@ Synapse now only supports Python 3.11+.
 
 Model Changes
 -------------
-- Update to the ``inet``, ``file``, and ``org`` models.
+- Update to the ``inet``, ``file``, and ``ou`` models.
   (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
   (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
   (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
@@ -1073,7 +1131,7 @@ Automatic Migrations
 
 Model Changes
 -------------
-- Updates to the ``geospace``, ``inet``, ``infotech``, ``org``, ``risk``,
+- Updates to the ``geospace``, ``inet``, ``infotech``, ``ou``, ``risk``,
   and ``transport`` models.
   (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
 
@@ -1543,7 +1601,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
+- Updates to the ``dns``, ``inet``, ``it``, ``ou``, ``ps``, and ``risk``
   models.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
   (`#3108 <https://github.com/vertexproject/synapse/pull/3108>`_)
@@ -2461,7 +2519,7 @@ Automatic Migrations
 Features and Enhancements
 -------------------------
 
-- Updates to the  ``inet`` and  ``org`` models.
+- Updates to the  ``inet`` and  ``ou`` models.
   (`#2982 <https://github.com/vertexproject/synapse/pull/2982>`_)
   (`#2987 <https://github.com/vertexproject/synapse/pull/2987>`_)
 
@@ -2549,7 +2607,7 @@ v2.119.0 - 2023-01-09
 Features and Enhancements
 -------------------------
 
-- Updates to the  ``biz``, ``econ``, ``org``, and ``risk`` models.
+- Updates to the  ``biz``, ``econ``, ``ou``, and ``risk`` models.
   (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
 
   ``biz:listing``
@@ -2982,7 +3040,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``inet``, ``infotech``, ``media``, ``meta``, ``org``, and
+- Updates to the ``inet``, ``infotech``, ``media``, ``meta``, ``ou``, and
   ``risk`` models.
   (`#2897 <https://github.com/vertexproject/synapse/pull/2897>`_)
   (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
@@ -4284,7 +4342,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``crypto``, ``infotech``, ``org``, and ``person`` models.
+- Updates to the ``crypto``, ``infotech``, ``ou``, and ``person`` models.
   (`#2620 <https://github.com/vertexproject/synapse/pull/2620>`_)
   (`#2684 <https://github.com/vertexproject/synapse/pull/2684>`_)
 
