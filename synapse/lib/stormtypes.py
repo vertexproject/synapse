@@ -2082,9 +2082,6 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
         url = await tostr(url)
         method = await tostr(method)
 
@@ -2095,6 +2092,9 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
+
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         params = self.strify(params)
         headers = self.strify(headers)
@@ -2117,9 +2117,6 @@ class LibAxon(Lib):
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
         url = await tostr(url)
         sha256 = await tostr(sha256)
         method = await tostr(method)
@@ -2132,6 +2129,9 @@ class LibAxon(Lib):
 
         params = self.strify(params)
         headers = self.strify(headers)
+
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
