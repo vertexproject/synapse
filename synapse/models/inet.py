@@ -3309,6 +3309,9 @@ class InetModule(s_module.CoreModule):
                         ('name', ('inet:group', {}), {
                             'doc': 'The current name of the group.'}),
 
+                        ('platform', ('inet:service:platform', {}), {
+                            'doc': 'The platform which defines the account.'})
+
                         ('instance', ('inet:service:instance', {}), {
                             'doc': 'The instance which defines the group.'}),
 
@@ -3317,17 +3320,20 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:service:group:member', {}, (
+
                         ('account', ('inet:service:account', {}), {
                             'doc': 'The account that is a member of the group.'}),
+
                         ('group', ('inet:service:group', {}), {
                             'doc': 'The group that the account is a member of.'}),
+
                         ('period', ('ival', {}), {
                             'doc': 'The time period when the account was a member of the group.'}),
                     )),
 
                     ('inet:service:message', {}, (
 
-                        ('sender', ('inet:service:message', {}), {
+                        ('from', ('inet:service:message', {}), {
                             'doc': 'The account which sent the message.'}),
 
                         ('to:account', ('inet:service:account', {}), {
