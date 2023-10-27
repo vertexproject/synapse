@@ -251,7 +251,7 @@ class Triggers:
                 self.edgeaddcache[cachekey] = cached
 
             for trig in cached:
-                await trig.execute(n1, vars=vars, view=view)
+                await trig.execute(n1, vars=varz, view=view)
 
     async def runEdgeDel(self, n1, verb, n2, view=None):
         n1form = n1.form.name if n1 else None
@@ -301,7 +301,7 @@ class Triggers:
                 self.edgedelcache[cachekey] = cached
 
             for trig in cached:
-                await trig.execute(n1, vars=vars, view=view)
+                await trig.execute(n1, vars=varz, view=view)
 
     async def load(self, tdef):
 
