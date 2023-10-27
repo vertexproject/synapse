@@ -21,7 +21,7 @@ classifiers = [
     'Programming Language :: Python :: 3.11',
 ]
 dependencies = [
-    'pyOpenSSL>=23.0.0,<27.0.0',
+    'pyOpenSSL>=23.0.0,<23.3.0',
     'cryptography>=39.0.1,<42.0.0',
     'msgpack>=1.0.5,<1.1.0',
     'xxhash>=1.4.4,<3.3.0',
