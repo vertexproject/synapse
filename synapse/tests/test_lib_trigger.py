@@ -734,8 +734,6 @@ class TrigTest(s_t_utils.SynTest):
                     n2 += 1
             self.eq(n2, 3)
 
-            trigs = await core.nodes('syn:trigger', opts=opts)
-
             # make a pair of nodes in the base view, then the edge in the forked, and rip out one of the nodes
             await core.nodes('[test:int=21701 test:int=23209]')
             await core.nodes('test:int=21701 | [ <(refs)+ { test:int=23209 } ]', opts=opts)
@@ -743,6 +741,10 @@ class TrigTest(s_t_utils.SynTest):
 
             await core.nodes('test:int=23209 | edges.del *', opts=opts)
             node = await core.nodes('test:int=23209', opts=opts)
+            self.len(1, node)
+            self.isin('cookies', node[0].tags)
+            self.isin('cupcake', node[0].tags)
+            # the other two edge:del triggers cannot run because we can't get to n2 anymore
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
             self.len(0, await core.nodes('syn:trigger', opts=opts))
