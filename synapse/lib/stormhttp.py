@@ -251,7 +251,7 @@ class LibHttp(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'http')
     _storm_lib_perms = (
-        {'perm': ('inet', 'http', 'proxy'), 'gate': 'cortex',
+        {'perm': ('storm', 'lib', 'inet', 'http', 'proxy'), 'gate': 'cortex',
          'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
     )
 
@@ -315,7 +315,7 @@ class LibHttp(s_stormtypes.Lib):
         sock = await WebSocket.anit()
 
         if proxy is not None:
-            self.runt.confirm(('inet', 'http', 'proxy'))
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
@@ -379,7 +379,7 @@ class LibHttp(s_stormtypes.Lib):
         headers = self.strify(headers)
 
         if proxy is not None:
-            self.runt.confirm(('inet', 'http', 'proxy'))
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if fields:
             if any(['sha256' in field for field in fields]):
