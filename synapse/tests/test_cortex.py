@@ -7596,7 +7596,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'type': vtype1,
                 'scope': 'global',
                 'owner': None,
-                'data': {}
+                'configs': {},
+                'secrets': {},
             }
             giden = await core.addVault(gvault)
 
@@ -7605,7 +7606,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'type': vtype1,
                 'scope': 'role',
                 'owner': contributor.iden,
-                'data': {}
+                'configs': {},
+                'secrets': {},
             }
             riden = await core.addVault(rvault)
 
@@ -7614,7 +7616,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'type': vtype1,
                 'scope': 'user',
                 'owner': visi1.iden,
-                'data': {}
+                'configs': {},
+                'secrets': {},
             }
             uiden = await core.addVault(uvault)
 
@@ -7623,7 +7626,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'type': vtype1,
                 'scope': None,
                 'owner': visi1.iden,
-                'data': {}
+                'configs': {},
+                'secrets': {},
             }
             siden = await core.addVault(svault)
 
@@ -7652,7 +7656,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             vault = core.reqVaultByType(vtype1, visi1.iden, scope='global')
             self.eq(vault.get('iden'), giden)
 
-            self.true(await core.setVaultData(giden, 'apikey', 'foobar'))
+            self.true(await core.setVaultConfigs(giden, 'color', 'orange'))
+            self.true(await core.setVaultSecrets(giden, 'apikey', 'foobar'))
 
             vaults = list(core.listVaults())
             self.len(4, vaults)
@@ -7693,7 +7698,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'type': vtype1,
                 'scope': 'global',
                 'owner': None,
-                'data': {}
+                'configs': {},
+                'secrets': {},
             }
             giden = await core.addVault(gvault)
 
@@ -7702,7 +7708,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'type': vtype1,
                 'scope': 'role',
                 'owner': contributor.iden,
-                'data': {}
+                'configs': {},
+                'secrets': {},
             }
             riden = await core.addVault(rvault)
 
@@ -7768,16 +7775,30 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addVault(vault)
 
             with self.raises(s_exc.BadArg) as exc:
-                # data not msgpack safe
+                # configs not msgpack safe
                 vault = {
                     'name': 'unscoped1',
                     'type': vtype1,
                     'scope': None,
                     'owner': visi1.iden,
-                    'data': {'foo': self},
+                    'configs': {'foo': self},
+                    'secrets': {},
                 }
                 await core.addVault(vault)
-            self.eq('Vault data must be msgpack safe.', exc.exception.get('mesg'))
+            self.eq('Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # secrets not msgpack safe
+                vault = {
+                    'name': 'unscoped1',
+                    'type': vtype1,
+                    'scope': None,
+                    'owner': visi1.iden,
+                    'configs': {},
+                    'secrets': {'foo': self},
+                }
+                await core.addVault(vault)
+            self.eq('Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Iden == None, scope != 'global'
@@ -7794,7 +7815,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'type': 'type2',
                     'scope': 'user',
                     'owner': '0123456789abcdef0123456789abcdef',
-                    'data': {},
+                    'configs': {},
+                    'secrets': {},
                 }
                 await core.addVault(vault)
             self.eq('User with iden 0123456789abcdef0123456789abcdef not found.', exc.exception.get('mesg'))
@@ -7809,28 +7831,52 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(f'Role with iden {visi1.iden} not found.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
-                await core.setVaultData(giden, 'newp', s_common.novalu)
-            self.eq('Key newp not found in vault data.', exc.exception.get('mesg'))
+                await core.setVaultSecrets(giden, 'newp', s_common.novalu)
+            self.eq('Key newp not found in vault secrets.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setVaultConfigs(giden, 'newp', s_common.novalu)
+            self.eq('Key newp not found in vault configs.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # Invalid vault iden format
-                await core.setVaultData('1234', 'foo', 'bar')
+                await core.setVaultSecrets('1234', 'foo', 'bar')
+            self.eq('Iden is not a valid iden: 1234.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # Invalid vault iden format
+                await core.setVaultConfigs('1234', 'foo', 'bar')
             self.eq('Iden is not a valid iden: 1234.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchIden) as exc:
                 # vault with iden does not exist
-                await core.setVaultData(visi1.iden, 'foo', 'bar')
+                await core.setVaultSecrets(visi1.iden, 'foo', 'bar')
+            self.eq(f'Vault not found for iden: {visi1.iden}.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchIden) as exc:
+                # vault with iden does not exist
+                await core.setVaultConfigs(visi1.iden, 'foo', 'bar')
             self.eq(f'Vault not found for iden: {visi1.iden}.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # data not msgpack safe
-                await core.setVaultData(giden, 'foo', self)
-            self.eq(f'Vault data must be msgpack safe.', exc.exception.get('mesg'))
+                await core.setVaultSecrets(giden, 'foo', self)
+            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.BadArg) as exc:
                 # data not msgpack safe
-                await core.setVaultData(giden, self, 'bar')
-            self.eq(f'Vault data must be msgpack safe.', exc.exception.get('mesg'))
+                await core.setVaultConfigs(giden, 'foo', self)
+            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # data not msgpack safe
+                await core.setVaultSecrets(giden, self, 'bar')
+            self.eq(f'Vault secrets must be msgpack safe.', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.BadArg) as exc:
+                # data not msgpack safe
+                await core.setVaultConfigs(giden, self, 'bar')
+            self.eq(f'Vault configs must be msgpack safe.', exc.exception.get('mesg'))
 
             with self.raises(s_exc.NoSuchIden) as exc:
                 # iden not valid

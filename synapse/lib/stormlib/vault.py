@@ -27,7 +27,8 @@ stormcmds = (
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name.'}),
             ('type', {'type': 'str', 'help': 'The vault type.'}),
-            ('data', {'help': 'The data to store in the new vault.'}),
+            ('secrets', {'help': 'The secrets to store in the new vault.'}),
+            ('configs', {'help': 'The configs to store in the new vault.'}),
             ('--user', {'type': 'str',
                         'help': 'This vault is a user-scoped vault, for the specified user name.'}),
             ('--role', {'type': 'str',
@@ -69,34 +70,34 @@ stormcmds = (
                 $scope = global
             }
 
-            $iden = $lib.vault.add($cmdopts.name, $cmdopts.type, $scope, $owner, $cmdopts.data)
+            $iden = $lib.vault.add($cmdopts.name, $cmdopts.type, $scope, $owner, $cmdopts.secrets, $cmdopts.configs)
             $lib.print(`Vault created with iden: {$iden}.`)
             $vault = $lib.vault.get($iden)
             $lib.vault.print($vault)
         ''',
     },
     {
-        'name': 'vault.set',
+        'name': 'vault.set.secrets',
         'descr': '''
-            Set vault data.
+            Set vault secret data.
 
             Examples:
 
-                // Set data to visi's user vault
+                // Set data to visi's user vault secrets
                 vault.set "visi-user-vault" apikey --value foobar
 
-                // Set data to contributor's role vault
+                // Set data to contributor's role vault secrets
                 vault.set "contributor-role-vault" apikey --value barbaz
 
-                // Remove apikey from a global vault
+                // Remove apikey from a global vault secrets
                 vault.set "some-global-vault" apikey --delete
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
-            ('key', {'type': 'str', 'help': 'The key in the vault data to operate on.'}),
-            ('--value', {'help': 'The data value to store in the vault.'}),
+            ('key', {'type': 'str', 'help': 'The key for the secret value.'}),
+            ('--value', {'help': 'The secret value to store in the vault.'}),
             ('--delete', {'type': 'bool', 'action': 'store_true', 'default': False,
-                          'help': 'Specify this flag to remove the key/value from the vault data.'}),
+                          'help': 'Specify this flag to remove the secret from the vault.'}),
         ),
         'storm': '''
             if ((not $cmdopts.value and not $cmdopts.delete) or ($cmdopts.value and $cmdopts.delete)) {
@@ -111,11 +112,55 @@ stormcmds = (
             }
 
             if $cmdopts.value {
-                $vault.data.($cmdopts.key) = $cmdopts.value
-                $lib.print(`Set {$cmdopts.key}={$cmdopts.value} into vault {$cmdopts.name}.`)
+                $vault.secrets.($cmdopts.key) = $cmdopts.value
+                $lib.print(`Set {$cmdopts.key}={$cmdopts.value} into vault secrets: {$cmdopts.name}.`)
             } else {
-                $vault.data.($cmdopts.key) = $lib.undef
-                $lib.print(`Removed {$cmdopts.key} from vault {$cmdopts.name}.`)
+                $vault.secrets.($cmdopts.key) = $lib.undef
+                $lib.print(`Removed {$cmdopts.key} from vault secrets: {$cmdopts.name}.`)
+            }
+        ''',
+    },
+    {
+        'name': 'vault.set.configs',
+        'descr': '''
+            Set vault config data.
+
+            Examples:
+
+                // Set data to visi's user vault configs
+                vault.set "visi-user-vault" color --value orange
+
+                // Set data to contributor's role vault configs
+                vault.set "contributor-role-vault" color --value blue
+
+                // Remove apikey from a global vault configs
+                vault.set "some-global-vault" color --delete
+        ''',
+        'cmdargs': (
+            ('name', {'type': 'str', 'help': 'The vault name or iden.'}),
+            ('key', {'type': 'str', 'help': 'The key for the config value.'}),
+            ('--value', {'help': 'The config value to store in the vault.'}),
+            ('--delete', {'type': 'bool', 'action': 'store_true', 'default': False,
+                          'help': 'Specify this flag to remove the config from the vault.'}),
+        ),
+        'storm': '''
+            if ((not $cmdopts.value and not $cmdopts.delete) or ($cmdopts.value and $cmdopts.delete)) {
+                $lib.exit('One of `--value <value>` or `--delete` is required.')
+            }
+
+            // Try iden first then name
+            try {
+                $vault = $lib.vault.get($cmdopts.name)
+            } catch (BadArg, NoSuchIden) as exc {
+                $vault = $lib.vault.byname($cmdopts.name)
+            }
+
+            if $cmdopts.value {
+                $vault.configs.($cmdopts.key) = $cmdopts.value
+                $lib.print(`Set {$cmdopts.key}={$cmdopts.value} into vault configs: {$cmdopts.name}.`)
+            } else {
+                $vault.configs.($cmdopts.key) = $lib.undef
+                $lib.print(`Removed {$cmdopts.key} from vault configs: {$cmdopts.name}.`)
             }
         ''',
     },
@@ -155,7 +200,7 @@ stormcmds = (
         'cmdargs': (
             ('--name', {'type': 'str', 'help': 'Only list vaults with the specified name or iden.'}),
             ('--type', {'type': 'str', 'help': 'Only list vaults with the specified type.'}),
-            ('--showdata', {'type': 'bool', 'action': 'store_true', 'default': False, 'help': 'Print vault data.'}),
+            ('--showsecrets', {'type': 'bool', 'action': 'store_true', 'default': False, 'help': 'Print vault secrets.'}),
         ),
         'storm': '''
             $lib.print("Available Vaults")
@@ -174,7 +219,7 @@ stormcmds = (
                     }
                 }
 
-                $lib.vault.print($vault, $cmdopts.showdata)
+                $lib.vault.print($vault, $cmdopts.showsecrets)
                 $lib.print('')
             }
         ''',
@@ -279,8 +324,10 @@ class LibVault(s_stormtypes.Lib):
                        'desc': 'Scope for this vault. One of "user", "role", "global", or $lib.null for unscoped vaults.'},
                       {'name': 'owner', 'type': 'str',
                        'desc': 'User/role iden for this vault if scope is "user" or "role". None for "global" scope vaults.'},
-                      {'name': 'data', 'type': 'dict',
-                       'desc': 'The initial data to store in this vault.'},
+                      {'name': 'secrets', 'type': 'dict',
+                       'desc': 'The initial secret data to store in this vault.'},
+                      {'name': 'configs', 'type': 'dict',
+                       'desc': 'The initial config data to store in this vault.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'Iden of the newly created vault.'}}},
         {'name': 'byname', 'desc': 'Get a vault by name.',
@@ -289,8 +336,8 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str',
                        'desc': '''
                             The name of the vault to retrieve.  If user only has
-                            PERM_READ, the data will not be returned.  If the
-                            user has PERM_EDIT or higher, data will be included
+                            PERM_READ, the secrets data will not be returned.  If the
+                            user has PERM_EDIT or higher, secrets data will be included
                             in the vault.
                        '''},
                   ),
@@ -301,8 +348,8 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'str',
                        'desc': '''
                             The iden of the vault to retrieve.  If user only has
-                            PERM_READ, the data will not be returned.  If the
-                            user has PERM_EDIT or higher, data will be included
+                            PERM_READ, the secrets data will not be returned.  If the
+                            user has PERM_EDIT or higher, secrets data will be included
                             in the vault.
                        '''},
                   ),
@@ -314,7 +361,7 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'scope', 'type': 'str', 'default': None,
                        'desc': 'The scope for the specified type. If $lib.null, then getByType will search.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'Vault data or None if the vault could not be retrieved.'}}},
+                  'returns': {'type': 'vault', 'desc': 'Vault or $lib.null if the vault could not be retrieved.'}}},
         {'name': 'list', 'desc': 'List vaults accessible to the current user.',
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
@@ -328,7 +375,7 @@ class LibVault(s_stormtypes.Lib):
     )
     _storm_lib_path = ('vault',)
     _storm_query = '''
-        function print(vault, showdata=$lib.false) {
+        function print(vault, showsecrets=$lib.false) {
             $lvlnames = ({})
             for ($name, $level) in $lib.auth.easyperm.level {
                 $level = $lib.cast(str, $level)
@@ -363,16 +410,25 @@ class LibVault(s_stormtypes.Lib):
                 $lib.print('    Roles: None')
             }
 
-            if $showdata {
-                if ($vault.data = $lib.null) {
-                    $lib.print('  Data: Cannot display data - no edit permission to vault.')
-                } elif ($lib.len($vault.data) != (0)) {
-                    $lib.print('  Data:')
-                    for ($key, $valu) in $vault.data {
+            if $vault.configs {
+                $lib.print('  Configs:')
+                for ($key, $valu) in $vault.configs {
+                    $lib.print(`    {$key}: {$valu}`)
+                }
+            } else {
+                $lib.print('  Configs: None')
+            }
+
+            if $showsecrets {
+                if ($vault.secrets = $lib.null) {
+                    $lib.print('  Secrets: Cannot display secrets - no edit permission to vault.')
+                } elif ($lib.len($vault.secrets) != (0)) {
+                    $lib.print('  Secrets:')
+                    for ($key, $valu) in $vault.secrets {
                         $lib.print(`    {$key}: {$valu}`)
                     }
                 } else {
-                    $lib.print('  Data: None')
+                    $lib.print('  Secrets: None')
                 }
             }
         }
@@ -388,28 +444,25 @@ class LibVault(s_stormtypes.Lib):
         }
 
     def _reqEasyPerm(self, vault, perm):
-        check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
+        if not self.runt.isAdmin():
+            self.runt.snap.core._reqEasyPerm(vault, self.runt.user, perm)
 
-        if not check and not self.runt.asroot:
-            iden = vault.get('iden')
-            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {iden}.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.name)
-
-    async def _addVault(self, name, vtype, scope, owner, data):
+    async def _addVault(self, name, vtype, scope, owner, secrets, configs):
         name = await s_stormtypes.tostr(name)
         vtype = await s_stormtypes.tostr(vtype)
         scope = await s_stormtypes.tostr(scope, noneok=True)
         owner = await s_stormtypes.tostr(owner, noneok=True)
-        data = await s_stormtypes.toprim(data)
+        secrets = await s_stormtypes.toprim(secrets)
+        configs = await s_stormtypes.toprim(configs)
 
-        if not self.runt.asroot:
+        if not self.runt.isAdmin():
             user = self.runt.user
 
-            if scope in ('global', 'role') and not user.isAdmin():
+            if scope in ('global', 'role'):
                 mesg = f'User {user.name} cannot create {scope} vaults.'
                 raise s_exc.AuthDeny(mesg=mesg, user=user.name)
 
-            if scope == 'user' and user.iden != owner and not user.isAdmin():
+            if scope == 'user' and user.iden != owner:
                 mesg = f'User {user.name} cannot create vaults for user {owner}.'
                 raise s_exc.AuthDeny(mesg=mesg)
 
@@ -418,7 +471,8 @@ class LibVault(s_stormtypes.Lib):
             'type': vtype,
             'scope': scope,
             'owner': owner,
-            'data': data,
+            'secrets': secrets,
+            'configs': configs,
         }
 
         return await self.runt.snap.core.addVault(vault)
@@ -458,19 +512,22 @@ class LibVault(s_stormtypes.Lib):
             yield Vault(self.runt, vault.get('iden'))
 
 @s_stormtypes.registry.registerType
-class VaultData(s_stormtypes.Prim):
+class VaultConfigs(s_stormtypes.Prim):
     '''
-    Implements the Storm API for Vault data.
-
-    Callers (instantiation) of this class must have already checked that the user has at least
-    PERM_EDIT to the vault.
+    Implements the Storm API for Vault data. This is used for both vault configs and vault secrets.
     '''
     _storm_typename = 'vault:data'
     _ismutable = False
 
+    _vault_field_name = 'configs'
+    _vault_perm = s_cell.PERM_READ
+
     def __init__(self, runt, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
+
+        vault = self.runt.snap.core.reqVault(valu)
+        self.runt.snap.core._reqEasyPerm(vault, self.runt.user, self._vault_perm)
 
     @s_stormtypes.stormfunc(readonly=False)
     async def setitem(self, name, valu):
@@ -483,36 +540,53 @@ class VaultData(s_stormtypes.Prim):
         else:
             valu = await s_stormtypes.toprim(valu)
 
-        return await self.runt.snap.core.setVaultData(self.valu, name, valu)
+        return await self.runt.snap.core.setVaultConfigs(self.valu, name, valu)
 
     async def deref(self, name):
         vault = self.runt.snap.core.reqVault(self.valu)
 
         name = await s_stormtypes.tostr(name)
 
-        data = vault.get('data')
+        data = vault.get(self._vault_field_name)
         return data.get(name, None)
 
     async def iter(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        data = vault.get('data')
+        data = vault.get(self._vault_field_name)
 
         for item in data.items():
             yield item
 
     def __len__(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        data = vault.get('data')
+        data = vault.get(self._vault_field_name)
         return len(data)
 
     async def stormrepr(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        data = vault.get('data')
+        data = vault.get(self._vault_field_name)
         return repr(data)
 
     def value(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        return vault.get('data')
+        return vault.get(self._vault_field_name)
+
+class VaultSecrets(VaultConfigs):
+    _vault_field_name = 'secrets'
+    _vault_perm = s_cell.PERM_EDIT
+
+    @s_stormtypes.stormfunc(readonly=False)
+    async def setitem(self, name, valu):
+        vault = self.runt.snap.core.reqVault(self.valu)
+
+        name = await s_stormtypes.tostr(name)
+
+        if valu is s_stormtypes.undef:
+            valu = s_common.novalu
+        else:
+            valu = await s_stormtypes.toprim(valu)
+
+        return await self.runt.snap.core.setVaultSecrets(self.valu, name, valu)
 
 @s_stormtypes.registry.registerType
 class Vault(s_stormtypes.Prim):
@@ -533,11 +607,17 @@ class Vault(s_stormtypes.Prim):
              'type': ['gtor'],
              '_gtorfunc': '_gtorPermissions',
              'returns': {'type': 'dict'}}},
-        {'name': 'data',
-         'desc': 'The Vault data.',
+        {'name': 'configs',
+         'desc': 'The Vault configs data.',
          'type': {
              'type': ['gtor'],
-             '_gtorfunc': '_gtorData',
+             '_gtorfunc': '_gtorConfigs',
+             'returns': {'type': 'vault:data'}}},
+        {'name': 'secrets',
+         'desc': 'The Vault secrets data.',
+         'type': {
+             'type': ['gtor'],
+             '_gtorfunc': '_gtorSecrets',
              'returns': {'type': 'vault:data'}}},
 
         {'name': 'name',
@@ -583,7 +663,8 @@ class Vault(s_stormtypes.Prim):
 
         self.gtors.update({
             'name': self._gtorName,
-            'data': self._gtorData,
+            'configs': self._gtorConfigs,
+            'secrets': self._gtorSecrets,
             'permissions': self._gtorPermissions,
         })
 
@@ -597,11 +678,8 @@ class Vault(s_stormtypes.Prim):
         return hash((self._storm_typename, self.valu))
 
     def _reqEasyPerm(self, vault, perm):
-        check = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, perm)
-
-        if not check and not self.runt.asroot:
-            mesg = f'Insufficient permissions for user {self.runt.user.name} to vault {self.valu}.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.name)
+        if not self.runt.isAdmin():
+            self.runt.snap.core._reqEasyPerm(vault, self.runt.user, perm)
 
     async def _storName(self, name):
         vault = self.runt.snap.core.reqVault(self.valu)
@@ -615,14 +693,18 @@ class Vault(s_stormtypes.Prim):
         vault = self.runt.snap.core.reqVault(self.valu)
         return vault.get('name')
 
-    async def _gtorData(self):
+    async def _gtorConfigs(self):
         vault = self.runt.snap.core.reqVault(self.valu)
-        if not self.runt.asroot and not self.runt.user.isAdmin():
+        return VaultConfigs(self.runt, self.valu)
+
+    async def _gtorSecrets(self):
+        vault = self.runt.snap.core.reqVault(self.valu)
+        if not self.runt.isAdmin():
             edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
             if not edit:
                 return None
 
-        return VaultData(self.runt, self.valu)
+        return VaultSecrets(self.runt, self.valu)
 
     async def _gtorPermissions(self):
         vault = self.runt.snap.core.reqVault(self.valu)
@@ -649,9 +731,9 @@ class Vault(s_stormtypes.Prim):
     def value(self):
         vault = self.runt.snap.core.reqVault(self.valu)
 
-        if not self.runt.asroot and not self.runt.user.isAdmin():
+        if not self.runt.isAdmin():
             edit = self.runt.snap.core._hasEasyPerm(vault, self.runt.user, s_cell.PERM_EDIT)
             if not edit:
-                vault.pop('data')
+                vault.pop('secrets')
 
         return vault

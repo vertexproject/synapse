@@ -164,7 +164,8 @@ reqValidVault = s_config.getJsValidator({
         'scope': {'type': ['string', 'null'], 'enum': [None, 'user', 'role', 'global']},
         'owner': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'permissions': s_msgpack.deepcopy(s_cell.easyPermSchema),
-        'data': {'type': 'object'},
+        'secrets': {'type': 'object'},
+        'configs': {'type': 'object'},
     },
     'additionalProperties': False,
     'required': [
@@ -174,7 +175,8 @@ reqValidVault = s_config.getJsValidator({
         'scope',
         'owner',
         'permissions',
-        'data',
+        'secrets',
+        'configs',
     ],
 })
 
@@ -6534,7 +6536,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             synapse.exc.BadArg:
                 - Invalid vault definition provided.
                 - Owner required for unscoped, user, and role vaults.
-                - Vault data is not msgpack safe.
+                - Vault secrets is not msgpack safe.
+                - Vault configs is not msgpack safe.
 
         Returns: iden of new vault
         '''
@@ -6567,12 +6570,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.getVaultByName(name) is not None:
             raise s_exc.DupName(mesg=f'Vault {name} already exists.')
 
-        data = vault.get('data')
+        secrets = vault.get('secrets')
+        configs = vault.get('configs')
 
         try:
-            s_msgpack.en(data)
+            s_msgpack.en(secrets)
         except s_exc.NotMsgpackSafe as exc:
-            raise s_exc.BadArg(mesg=f'Vault data must be msgpack safe.') from None
+            raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
+
+        try:
+            s_msgpack.en(configs)
+        except s_exc.NotMsgpackSafe as exc:
+            raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
 
         if scope == 'global':
             # everyone gets read access
@@ -6625,16 +6634,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return iden
 
-    async def setVaultData(self, iden, key, valu):
+    async def setVaultSecrets(self, iden, key, valu):
         '''
-        Set vault data.
+        Set vault secrets.
 
         This function sets the `key`:`valu` into the vault.
 
         Args:
             iden (str): The iden of the vault to edit.
-            key (str): Vault data key.
-            valu (str): Vault data value. s_common.novalu to delete a key.
+            key (str): Vault secret key.
+            valu (str): Vault secret value. s_common.novalu to delete a key.
 
         Raises:
             synapse.exc.NoSuchIden: Vault with `iden` does not exist.
@@ -6643,13 +6652,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         vault = self.reqVault(iden)
 
-        data = vault.get('data')
+        secrets = vault.get('secrets')
 
         delete = False
 
         if valu is s_common.novalu:
-            if key not in data:
-                raise s_exc.BadArg(mesg=f'Key {key} not found in vault data.')
+            if key not in secrets:
+                raise s_exc.BadArg(mesg=f'Key {key} not found in vault secrets.')
 
             valu = None
             delete = True
@@ -6658,16 +6667,55 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 s_msgpack.en({key: valu})
             except s_exc.NotMsgpackSafe as exc:
-                raise s_exc.BadArg(mesg=f'Vault data must be msgpack safe.') from None
+                raise s_exc.BadArg(mesg=f'Vault secrets must be msgpack safe.') from None
 
-            data[key] = valu
+            secrets[key] = valu
 
-        return await self._push('vault:data:set', iden, key, valu, delete)
+        return await self._push('vault:data:set', iden, 'secrets', key, valu, delete)
+
+    async def setVaultConfigs(self, iden, key, valu):
+        '''
+        Set vault configs.
+
+        This function sets the `key`:`valu` into the vault.
+
+        Args:
+            iden (str): The iden of the vault to edit.
+            key (str): Vault secret key.
+            valu (str): Vault secret value. s_common.novalu to delete a key.
+
+        Raises:
+            synapse.exc.NoSuchIden: Vault with `iden` does not exist.
+
+        Returns: Updated vault.
+        '''
+        vault = self.reqVault(iden)
+
+        configs = vault.get('configs')
+
+        delete = False
+
+        if valu is s_common.novalu:
+            if key not in configs:
+                raise s_exc.BadArg(mesg=f'Key {key} not found in vault configs.')
+
+            valu = None
+            delete = True
+
+        else:
+            try:
+                s_msgpack.en({key: valu})
+            except s_exc.NotMsgpackSafe as exc:
+                raise s_exc.BadArg(mesg=f'Vault configs must be msgpack safe.') from None
+
+            configs[key] = valu
+
+        return await self._push('vault:data:set', iden, 'configs', key, valu, delete)
 
     @s_nexus.Pusher.onPush('vault:data:set')
-    async def _setVaultData(self, iden, key, valu, delete):
+    async def _setVaultSecrets(self, iden, obj, key, valu, delete):
         vault = self.reqVault(iden)
-        data = vault.get('data')
+        data = vault.get(obj)
 
         bidn = s_common.uhex(iden)
 
