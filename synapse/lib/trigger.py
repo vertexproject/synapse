@@ -206,7 +206,8 @@ class Triggers:
     async def runEdgeAdd(self, n1, verb, n2, view=None):
         n1form = n1.form.name if n1 else None
         n2form = n2.form.name if n2 else None
-        vars = {'auto': {'opts': {'verb': verb, 'n2': n2}}}
+        n2iden = n2.iden() if n2 else None
+        vars = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgeaddcache.get(cachekey)
@@ -255,7 +256,8 @@ class Triggers:
     async def runEdgeDel(self, n1, verb, n2, view=None):
         n1form = n1.form.name if n1 else None
         n2form = n2.form.name if n2 else None
-        vars = {'auto': {'opts': {'verb': verb, 'n2': n2}}}
+        n2iden = n2.iden() if n2 else None
+        vars = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
             cached = self.edgedelcache.get(cachekey)
