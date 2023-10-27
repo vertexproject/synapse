@@ -278,8 +278,14 @@ class AxonTest(s_t_utils.SynTest):
         (lsize, l256) = await axon.put(linesbuf)
         (jsize, j256) = await axon.put(jsonsbuf)
         (bsize, b256) = await axon.put(b'\n'.join((jsonsbuf, linesbuf)))
+        (binsize, bin256) = await axon.put(bin_buf)
+
         lines = [item async for item in axon.readlines(s_common.ehex(l256))]
         self.eq(('asdf', '', 'qwer'), lines)
+        lines = [item async for item in axon.readlines(s_common.ehex(bin256))]  # Default is errors=ignore
+        self.eq(lines, ['/$A\x00_v4\x1b'])
+        lines = [item async for item in axon.readlines(s_common.ehex(bin256), errors='replace')]
+        self.eq(lines, ['�/$�A�\x00_�v4��\x1b'])
         jsons = [item async for item in axon.jsonlines(s_common.ehex(j256))]
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
         jsons = []
@@ -288,11 +294,8 @@ class AxonTest(s_t_utils.SynTest):
                 jsons.append(item)
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
-        binsize, bin256 = await axon.put(bin_buf)
         with self.raises(s_exc.BadDataValu):
             lines = [item async for item in axon.readlines(s_common.ehex(bin256), errors=None)]
-
-        lines = [item async for item in axon.readlines(s_common.ehex(bin256), errors='ignore')]
 
         with self.raises(s_exc.NoSuchFile):
             lines = [item async for item in axon.readlines(s_common.ehex(newphash))]
