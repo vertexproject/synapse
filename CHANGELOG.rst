@@ -6,6 +6,227 @@
 Synapse Changelog
 *****************
 
+v2.153.0 - TBD
+=====================
+
+Model Changes
+-------------
+- Update to the ``inet`` and ``ou`` models.
+
+  (`#3393 <https://github.com/vertexproject/synapse/pull/3393>`_)
+  (`#3396 <https://github.com/vertexproject/synapse/pull/3396>`_)
+
+  **Deprecated Properties**
+
+  ``inet:web:acct``
+    The ``inet:web:acct`` form had the following properties marked as deprecated:
+
+    * ``name:en``
+    * ``realname:en``
+
+  ``inet:web:group``
+    The ``inet:web:group`` form had the following property marked as deprecated:
+
+    * ``name:en``
+
+  ``ou:industry``
+    The ``ou:industry`` form had the following property marked as deprecated:
+
+    * ``subs``
+
+Features and Enhancements
+-------------------------
+- Add a new Storm API, ``$lib.iters.zip()``, to iterate over sequences of
+  items together.
+  (`#3392 <https://github.com/vertexproject/synapse/pull/3392>`_)
+  (`#3398 <https://github.com/vertexproject/synapse/pull/3398>`_)
+- Add a Storm command ``stats.countby`` to tally occurrences of values and
+  display a barchart representing the values.
+  (`#3385 <https://github.com/vertexproject/synapse/pull/3385>`_)
+- Update the Storm command ``auth.user.mod`` to allow setting a user as admin
+  on a specific auth gate.
+  (`#3391 <https://github.com/vertexproject/synapse/pull/3391>`_)
+- Add an ``errors`` parameter to ``$lib.axon.readlines()``,
+  ``$lib.axon.csvrows()``, and ``$lib.axon.jsonlines()``. This parameter
+  defaults to ``ignore`` to ignore any decoding errors that are encountered
+  when decoding text.
+  (`#3395 <https://github.com/vertexproject/synapse/pull/3395>`_)
+- Lower the maximum allowed version of the ``pyopenssl`` library.
+  (`#3399 <https://github.com/vertexproject/synapse/pull/3399>`_)
+
+Bugfixes
+--------
+- Fix a bug in the ``Cortex.syncLayersEvents()`` and
+  ``Cortex.syncIndexEvents()`` APIs which caused layers to stop sending their
+  node edits under certain conditions.
+  (`#3394 <https://github.com/vertexproject/synapse/pull/3394>`_)
+- Storm now raises a ``BadSyntaxError`` when attempting to filter by wildcard
+  tags or tagprops when a value is specified for the filter.
+  (`#3373 <https://github.com/vertexproject/synapse/pull/3373>`_)
+
+v2.152.0 - 2023-10-17
+=====================
+
+Model Changes
+-------------
+- Update to the  ``biz``, ``crypto``, ``geo``, ``it``, ``mat``, ``media``,
+  and ``risk`` models.
+
+  (`#3341 <https://github.com/vertexproject/synapse/pull/3341>`_)
+  (`#3377 <https://github.com/vertexproject/synapse/pull/3377>`_)
+  (`#3376 <https://github.com/vertexproject/synapse/pull/3376>`_)
+  (`#3381 <https://github.com/vertexproject/synapse/pull/3381>`_)
+
+  **Updated Interfaces**
+
+  ``crypto:smart:effect``
+   Add a ``doc`` value to the interface.
+
+  ``it:host:activity``
+   Add a ``doc`` value to the interface.
+
+  ``taxonomy``
+   Add a ``doc`` value to the interface.
+
+  **Updated Types**
+
+  ``time``
+    The ``time`` type now recognizes RFC822 formatted time strings.
+
+  ``biz:service:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``geo:place:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``it:log:event:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``it:prod:soft:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``mat:type``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``media:news:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:alert:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:alert:verdict:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  ``risk:threat:type:taxonomy``
+    The ``taxonomy`` interface has been added to the type.
+
+  **New Forms**
+
+  ``it:dev:repo:label``
+    A developer selected label.
+
+  ``it:dev:repo:issue:label``
+    A label applied to a repository issue.
+
+Features and Enhancements
+-------------------------
+- Update the Storm string repr for ``$lib.null`` and ``$lib.undef`` values to
+  ``$lib.null`` and ``$lib.undef``. Previously these printed ``None`` and an
+  opaque Python object repr.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+- The ``synapse.tools.aha.list`` CLI tool now checks if it is connected to an
+  Aha server prior to enumerating Aha services.
+  (`#3371 <https://github.com/vertexproject/synapse/pull/3371>`_)
+
+Bugfixes
+--------
+- Update the ``file:path`` support for scrape related APIs to address an
+  issue when matching against Linux style paths.
+  (`#3378 <https://github.com/vertexproject/synapse/pull/3378>`_)
+- Update the ``hex`` type to ``zeropad`` strings prior to checking their
+  validity.
+  (`#3387 <https://github.com/vertexproject/synapse/pull/3387>`_)
+- Update the ``yaml.CSafeLoader`` check to not require the class to be
+  available.
+  (`#3386 <https://github.com/vertexproject/synapse/pull/3386>`_)
+
+Improved Documentation
+----------------------
+- Update the documentation for the Storm ``view.exec`` command to explain the
+  separation of events and nodes between the parent and sub-runtimes.
+  (`#3379 <https://github.com/vertexproject/synapse/pull/3379>`_)
+
+v2.151.0 - 2023-10-06
+=====================
+
+Model Changes
+-------------
+- Update to the ``it`` model.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+
+  **New Forms**
+
+  ``it:mitre:attack:flow``
+    A MITRE ATT&CK Flow diagram.
+
+Features and Enhancements
+-------------------------
+- Add a new Storm library ``$lib.infosec.mitre.attack.flow``. This can be used
+  to normalize and create ``it:mitre:attack:flow`` nodes from MITRE ATT&CK
+  Flow Diagrams.
+  (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
+  (`#3372 <https://github.com/vertexproject/synapse/pull/3372>`_)
+- Update the Storm ``note.add`` command to set the ``meta:note:created``
+  property on the note.
+  (`#3569 <https://github.com/vertexproject/synapse/pull/3569>`_)
+- Add the Axon HTTP APIs to the Cortex. These API endpoints use the Axon that
+  the Cortex is configured to use.
+  (`#3550 <https://github.com/vertexproject/synapse/pull/3550>`_)
+- Allow user defined functions in Storm to execute in a ``readonly`` Storm
+  runtime.
+  (`#3552 <https://github.com/vertexproject/synapse/pull/3552>`_)
+- Clarify the Nexus ``IsReadOnly`` exception to include the common cause for
+  the error, which is normally insufficent space on disk.
+  (`#3359 <https://github.com/vertexproject/synapse/pull/3359>`_)
+- Add a ``SYN_LOG_DATEFORMAT`` environment variable to allow specifying custom
+  timestamp formats for Synapse services.
+  (`#3362 <https://github.com/vertexproject/synapse/pull/3362>`_)
+- Add a ``status`` attribute to structured log events for user and role
+  related log events. This attribute indicates if the event was a ``CREATE``,
+  ``DELETE``, or ``MODIFY`` operation.
+  (`#3363 <https://github.com/vertexproject/synapse/pull/3363>`_)
+- Update ``Cell.getLogExtra()`` to prefer using the ``user`` key from the task
+  scope before using the ``sess`` key from the task scope. Cortex APIs which
+  execute Storm queries now set the ``user`` scope to the user the query is
+  running as. This increases the accuracy of log events caused by Storm
+  queries when the ``user`` is specified in the ``opts``.
+  (`#3356 <https://github.com/vertexproject/synapse/pull/3356>`_)
+- Update Storm setitem AST operator to check the readonly flag on functions
+  when operating in a ``readonly`` Storm runtime.
+  (`#3364 <https://github.com/vertexproject/synapse/pull/3364>`_)
+- Update the minimum required version of the ``fastjsonschema`` library.
+  (`#3358 <https://github.com/vertexproject/synapse/pull/3358>`_)
+- Update tests and remove the use of deprecated functions for improved
+  Python 3.12 compatibility.
+  (`#3355 <https://github.com/vertexproject/synapse/pull/3355>`_)
+  (`#3567 <https://github.com/vertexproject/synapse/pull/3567>`_)
+
+Bugfixes
+--------
+- Fixed a bug when parenting a View to another View where the bottom view has
+  more than one layer in it omitted non-write layers. The set of layers is now
+  properly computed.
+  (`#3354 <https://github.com/vertexproject/synapse/pull/3354>`_)
+
+Improved Documentation
+----------------------
+- Update the list of Cortex permissions in the Admin Guide.
+  (`#3331 <https://github.com/vertexproject/synapse/pull/3331>`_)
+- The Form documentation has been updated to project the secondary properties
+  and associated light edges as tables.
+  (`#3348 <https://github.com/vertexproject/synapse/pull/3348>`_)
+
+
 v2.150.0 - 2023-09-22
 =====================
 
@@ -65,7 +286,7 @@ v2.149.0 - 2023-09-14
 
 Model Changes
 -------------
-- Updates to the ``it``, ``meta``, and ``org`` models.
+- Updates to the ``it``, ``meta``, and ``ou`` models.
   (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
 
   **New Properties**
@@ -110,8 +331,8 @@ Features and Enhancements
   create a view which is readable by the ``all`` role. The ``$lib.view.add()``
   Storm API now also accepts an optional ``worldreadable`` argument as well.
   (`#3333 <https://github.com/vertexproject/synapse/pull/3333>`_)
-- Update the Storm ``node.add`` command to add a ``--yield`` flag which yields
-  the newly created node.
+- Update the Storm ``note.add`` command to add a ``--yield`` flag which yields
+  the newly created note.
   (`#3337 <https://github.com/vertexproject/synapse/pull/3337>`_)
 - Add Storm commands ``gen.ou.id.number`` and ``gen.ou.id.type`` to help
   generate ``ou:id:number`` and ``ou:id:type`` nodes.
@@ -571,7 +792,7 @@ Automatic Migrations
 
 Model Changes
 -------------
-- Update to the ``it``, ``org``, and  ``risk`` models.
+- Update to the ``it``, ``ou``, and  ``risk`` models.
   (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
   (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
   (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
@@ -752,7 +973,7 @@ Synapse now only supports Python 3.11+.
 
 Model Changes
 -------------
-- Update to the ``inet``, ``file``, and ``org`` models.
+- Update to the ``inet``, ``file``, and ``ou`` models.
   (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
   (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
   (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
@@ -910,7 +1131,7 @@ Automatic Migrations
 
 Model Changes
 -------------
-- Updates to the ``geospace``, ``inet``, ``infotech``, ``org``, ``risk``,
+- Updates to the ``geospace``, ``inet``, ``infotech``, ``ou``, ``risk``,
   and ``transport`` models.
   (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
 
@@ -1380,7 +1601,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``dns``, ``inet``, ``it``, ``org``, ``ps``, and ``risk``
+- Updates to the ``dns``, ``inet``, ``it``, ``ou``, ``ps``, and ``risk``
   models.
   (`#3082 <https://github.com/vertexproject/synapse/pull/3082>`_)
   (`#3108 <https://github.com/vertexproject/synapse/pull/3108>`_)
@@ -2298,7 +2519,7 @@ Automatic Migrations
 Features and Enhancements
 -------------------------
 
-- Updates to the  ``inet`` and  ``org`` models.
+- Updates to the  ``inet`` and  ``ou`` models.
   (`#2982 <https://github.com/vertexproject/synapse/pull/2982>`_)
   (`#2987 <https://github.com/vertexproject/synapse/pull/2987>`_)
 
@@ -2386,7 +2607,7 @@ v2.119.0 - 2023-01-09
 Features and Enhancements
 -------------------------
 
-- Updates to the  ``biz``, ``econ``, ``org``, and ``risk`` models.
+- Updates to the  ``biz``, ``econ``, ``ou``, and ``risk`` models.
   (`#2931 <https://github.com/vertexproject/synapse/pull/2931>`_)
 
   ``biz:listing``
@@ -2819,7 +3040,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``inet``, ``infotech``, ``media``, ``meta``, ``org``, and
+- Updates to the ``inet``, ``infotech``, ``media``, ``meta``, ``ou``, and
   ``risk`` models.
   (`#2897 <https://github.com/vertexproject/synapse/pull/2897>`_)
   (`#2900 <https://github.com/vertexproject/synapse/pull/2900>`_)
@@ -4121,7 +4342,7 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``crypto``, ``infotech``, ``org``, and ``person`` models.
+- Updates to the ``crypto``, ``infotech``, ``ou``, and ``person`` models.
   (`#2620 <https://github.com/vertexproject/synapse/pull/2620>`_)
   (`#2684 <https://github.com/vertexproject/synapse/pull/2684>`_)
 

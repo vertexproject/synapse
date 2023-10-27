@@ -1371,8 +1371,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if (disk.free / disk.total) <= self.minfree:
 
-                await self._setReadOnly(True)
-                nexsroot.readonly = True
+                reason = "Insufficient free space on disk."
+
+                await self._setReadOnly(True, reason=reason)
+                nexsroot.setReadOnly(True, reason=reason)
 
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
@@ -1381,7 +1383,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             elif nexsroot.readonly:
 
                 await self._setReadOnly(False)
-                nexsroot.readonly = False
+                nexsroot.setReadOnly(False)
+
                 await self.nexsroot.startup()
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
@@ -1390,7 +1393,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
 
-    async def _setReadOnly(self, valu):
+    async def _setReadOnly(self, valu, reason=None):
         # implement any behavior necessary to change the cell read-only status
         pass
 
@@ -2302,7 +2305,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
@@ -2310,21 +2313,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
         logger.info(f'Removing rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
         logger.info(f'Removing rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
@@ -2332,28 +2335,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.setRules(rules, gateiden=gateiden)
         logger.info(f'Set user rules = {rules} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rules=rules, gateiden=gateiden))
+                                                 rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
         logger.info(f'Set role rules = {rules} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rules=rules, gateiden=gateiden))
+                                                 rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
         oname = role.name
         await role.setName(name)
         logger.info(f'Set name={name} from {oname} on role iden={role.iden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
         logger.info(f'Set admin={admin} for {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 gateiden=gateiden))
+                                                 gateiden=gateiden, status='MODIFY'))
 
     async def addUserRole(self, useriden, roleiden, indx=None):
         user = await self.auth.reqUser(useriden)
@@ -2361,14 +2365,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.grant(roleiden, indx=indx)
         logger.info(f'Granted role {role.name} to user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 target_role=role.iden, target_rolename=role.name))
+                                                 target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
         logger.info(f'Set roleidens={roleidens} on user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 roleidens=roleidens))
+                                                 roleidens=roleidens, status='MODIFY'))
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
@@ -2376,12 +2381,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.revoke(roleiden)
         logger.info(f'Revoked role {role.name} from user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 target_role=role.iden, target_rolename=role.name))
+                                                 target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
         logger.info(f'Added user={name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 status='CREATE'))
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
@@ -2389,12 +2396,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = user.name
         await self.auth.delUser(iden)
         logger.info(f'Deleted user={name}',
-                   extra=await self.getLogExtra(target_user=iden, target_username=name))
+                   extra=await self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
         logger.info(f'Added role={name}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
         return role.pack()
 
     async def delRole(self, iden):
@@ -2402,26 +2409,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = role.name
         await self.auth.delRole(iden)
         logger.info(f'Deleted role={name}',
-                     extra=await self.getLogExtra(target_role=iden, target_rolename=name))
+                     extra=await self.getLogExtra(target_role=iden, target_rolename=name, status='DELETE'))
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
         user = await self.auth.reqUser(useriden)
         logger.info(f'Set email={email} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserName(self, useriden, name):
         user = await self.auth.reqUser(useriden)
         oname = user.name
         await user.setName(name)
         logger.info(f'Set name={name} from {oname} on user iden={user.iden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
         logger.info(f'Set password for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def genUserOnepass(self, iden, duration=600000):
         user = await self.auth.reqUser(iden)
@@ -2433,7 +2440,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.auth.setUserInfo(iden, 'onepass', onepass)
 
         logger.info(f'Issued one time password for {user.name}',
-                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
         return passwd
 
@@ -2441,13 +2448,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
         logger.info(f'Set lock={locked} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
         logger.info(f'Set archive={archived} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
@@ -3098,8 +3105,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A dictionary
         '''
         extra = {**kwargs}
-        sess = s_scope.get('sess')
-        if sess and sess.user:
+        sess = s_scope.get('sess')  # type: s_daemon.Sess
+        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        if user:
+            extra['user'] = user.iden
+            extra['username'] = user.name
+        elif sess and sess.user:
             extra['user'] = sess.user.iden
             extra['username'] = sess.user.name
         return {'synapse': extra}

@@ -61,8 +61,11 @@ novalu = NoValu()
 
 logger = logging.getLogger(__name__)
 
-if Loader != yaml.CSafeLoader:  # pragma: no cover
-    logger.warning('PyYAML is using the pure python fallback implementation. This will impact performance negatively.')
+if Loader == yaml.SafeLoader:  # pragma: no cover
+    logger.warning('*****************************************************************************************************')
+    logger.warning('* PyYAML is using the pure python fallback implementation. This will impact performance negatively. *')
+    logger.warning('* See PyYAML docs (https://pyyaml.org/wiki/PyYAMLDocumentation) for tips on resolving this issue.   *')
+    logger.warning('*****************************************************************************************************')
 
 def now():
     '''
@@ -755,14 +758,15 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def _getLogConfFromEnv(defval=None, structlog=None):
+def _getLogConfFromEnv(defval=None, structlog=None, datefmt=None):
     if structlog:
         structlog = 'true'
     else:
         structlog = 'false'
     defval = os.getenv('SYN_LOG_LEVEL', defval)
+    datefmt = os.getenv('SYN_LOG_DATEFORMAT', datefmt)
     structlog = envbool('SYN_LOG_STRUCT', structlog)
-    ret = {'defval': defval, 'structlog': structlog}
+    ret = {'defval': defval, 'structlog': structlog, 'datefmt': datefmt}
     return ret
 
 def normLogLevel(valu):
@@ -793,7 +797,7 @@ def normLogLevel(valu):
             return normLogLevel(valu)
     raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
 
-def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
+def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=None):
     '''
     Configure synapse logging.
 
@@ -801,6 +805,7 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
         structlog (bool): Enabled structured (jsonl) logging output.
+        datefmt (str): Optional strftime format string.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -808,8 +813,9 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
     Returns:
         None
     '''
-    ret = _getLogConfFromEnv(defval, structlog)
+    ret = _getLogConfFromEnv(defval, structlog, datefmt)
 
+    datefmt = ret.get('datefmt')
     log_level = ret.get('defval')
     log_struct = ret.get('structlog')
 
@@ -819,11 +825,11 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
 
         if log_struct:
             handler = logging.StreamHandler()
-            formatter = s_structlog.JsonFormatter()
+            formatter = s_structlog.JsonFormatter(datefmt=datefmt)
             handler.setFormatter(formatter)
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
-            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT, datefmt=datefmt)
         if log_setup:
             mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 

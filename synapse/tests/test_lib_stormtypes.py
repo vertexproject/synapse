@@ -24,6 +24,7 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
+import synapse.tests.files as s_test_files
 
 from synapse.tests.utils import alist
 
@@ -168,7 +169,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=opts)
             # We have a valid message that is the first item yielded
             # but it is not a "tell" format.
-            self.stormIsInPrint('None says None', msgs)
+            self.stormIsInPrint('$lib.null says $lib.null', msgs)
             self.stormIsInPrint('hello 4', msgs)
             self.stormIsInPrint('hello 3', msgs)
             self.stormNotInPrint('hello 2', msgs)
@@ -639,6 +640,13 @@ class StormTypesTest(s_test.SynTest):
             self.eq(None, await core.callStorm('return($lib.trycast(inet:ipv4, asdf).1)'))
             self.eq(0x01020304, await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).1)'))
 
+            # trycast/cast a property instead of a form/type
+            flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
+            opts = {'vars': {'flow': flow}}
+            self.true(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, $flow).0)', opts=opts))
+            self.false(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, {}).0)'))
+            self.eq(flow, await core.callStorm('return($lib.cast(it:mitre:attack:flow:data, $flow))', opts=opts))
+
             self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
             self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
@@ -920,6 +928,21 @@ class StormTypesTest(s_test.SynTest):
                        'refs',
                        '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
 
+            msgs = await core.stormlist('$lib.print($lib.null)')
+            self.stormIsInPrint('$lib.null', msgs)
+            self.stormNotInPrint('None', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.true)')
+            self.stormIsInPrint('true', msgs)
+            self.stormNotInPrint('True', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.false)')
+            self.stormIsInPrint('false', msgs)
+            self.stormNotInPrint('False', msgs)
+
+            msgs = await core.stormlist('$lib.print($lib.undef)')
+            self.stormIsInPrint('$lib.undef', msgs)
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
@@ -951,7 +974,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('xxx...', msgs)
             self.stormIsInPrint('name: storm', msgs)
             self.stormIsInPrint('user: root', msgs)
-            self.stormIsInPrint('status: None', msgs)
+            self.stormIsInPrint('status: $lib.null', msgs)
             self.stormIsInPrint('2 tasks found.', msgs)
             self.stormIsInPrint('start time: 2', msgs)
 
@@ -2862,7 +2885,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             prints = [x for x in msgs if x[0] == 'print']
             self.len(10, prints)
-            self.stormIsInPrint("#5 work status is None", msgs)
+            self.stormIsInPrint("#5 work status is $lib.null", msgs)
 
             # has
             q = '''
@@ -3241,74 +3264,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInWarn("BadTypeValu", msgs)
             errs = [m for m in msgs if m[0] == 'err']
             self.len(0, errs)
-
-    async def test_lib_stormtypes_stats(self):
-
-        async with self.getTestCore() as core:
-
-            q = '''
-                $tally = $lib.stats.tally()
-
-                $tally.inc(foo)
-                $tally.inc(foo)
-
-                $tally.inc(bar)
-                $tally.inc(bar, 3)
-
-                for ($name, $valu) in $tally {
-                    [ test:comp=($valu, $name) ]
-                }
-
-                $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
-                $lib.print('tally.len()={v}', v=$lib.len($tally))
-            '''
-            mesgs = await core.stormlist(q)
-            nodes = [m[1] for m in mesgs if m[0] == 'node']
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
-            self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
-            self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
-            self.stormIsInPrint('tally.len()=2', mesgs)
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted())
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('foo', 1), ('bar', 2), ('baz', 3)])
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted(reverse=$lib.true))
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('baz', 3), ('bar', 2), ('foo', 1)])
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted(byname=$lib.true))
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('bar', 2), ('baz', 3), ('foo', 1)])
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted(byname=$lib.true, reverse=$lib.true))
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
 
     async def test_storm_lib_layer(self):
 
@@ -6266,6 +6221,179 @@ words\tword\twrd'''
                 'size:bytes': 651,
             }, await core.callStorm('return($lib.axon.metrics())'))
 
+            bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'
+            binsize, bin256 = await core.axon.put(bin_buf)
+
+            opts = {'vars': {'sha256': s_common.ehex(bin256)}}
+            with self.raises(s_exc.BadDataValu):
+                self.eq('', await core.callStorm('''
+                    $items = $lib.list()
+                    for $item in $lib.axon.readlines($sha256, errors=$lib.null) {
+                        $items.append($item)
+                    }
+                    return($items)
+                ''', opts=opts))
+
+            self.eq(('/$A\x00_v4\x1b',), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256, errors=ignore) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
+    async def test_storm_lib_axon_perms(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            url = f'https://visi:secret@127.0.0.1:{port}/api/v0/test'
+
+            async def _addfile():
+                async with await core.axon.upload() as fd:
+                    await fd.write(b'{"foo": "bar"}')
+                    return await fd.save()
+
+            size, sha256 = await _addfile()
+
+            opts = {'user': visi.iden, 'vars': {'url': url, 'sha256': s_common.ehex(sha256)}}
+
+            # wget
+
+            scmd = 'return($lib.axon.wget($url, ssl=$lib.false).code)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
+
+            await visi.addRule((True, ('axon', 'wget')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wget')))
+
+            # wput
+
+            scmd = 'return($lib.axon.wput($sha256, $url, method=post, ssl=$lib.false).code)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'wput')))
+
+            await visi.addRule((True, ('axon', 'wput')))
+            self.eq(200, await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wput')))
+
+            # urlfile
+
+            scmd = 'yield $lib.axon.urlfile($url, ssl=$lib.false) return($node)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'wget')))
+
+            await visi.addRule((True, ('axon', 'wget')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'wget')))
+
+            # del
+
+            scmd = 'return($lib.axon.del($sha256))'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+            self.true(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'del')))
+            await _addfile()
+
+            await visi.addRule((True, ('axon', 'del')))
+            self.true(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'del')))
+            await _addfile()
+
+            # dels
+
+            scmd = 'return($lib.axon.dels(($sha256,)))'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+            self.eq([True], await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'del')))
+            await _addfile()
+
+            await visi.addRule((True, ('axon', 'del')))
+            self.eq([True], await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'del')))
+            await _addfile()
+
+            # list
+
+            scmd = '$x=$lib.null for $x in $lib.axon.list() { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'has')))
+
+            await visi.addRule((True, ('axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'has')))
+
+            # readlines
+
+            scmd = '$x=$lib.null for $x in $lib.axon.readlines($sha256) { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            await visi.addRule((True, ('axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'get')))
+
+            # jsonlines
+
+            scmd = '$x=$lib.null for $x in $lib.axon.jsonlines($sha256) { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            await visi.addRule((True, ('axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'get')))
+
+            # csvrows
+
+            scmd = '$x=$lib.null for $x in $lib.axon.csvrows($sha256) { } return($x)'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            await visi.addRule((True, ('axon', 'get')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'get')))
+
+            # metrics
+
+            scmd = 'return($lib.axon.metrics())'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'has')))
+
+            await visi.addRule((True, ('axon', 'has')))
+            self.nn(await core.callStorm(scmd, opts=opts))
+            await visi.delRule((True, ('axon', 'has')))
+
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:
@@ -6500,3 +6628,13 @@ words\tword\twrd'''
             debug = await core.callStorm(q, opts={'readonly': True,
                                                   'vars': {'iden': user}})
             self.true(debug)
+
+            await core.callStorm('[inet:fqdn=foo]')
+
+            q = '''
+                $user=$lib.auth.users.get($iden)
+                inet:fqdn=foo
+                $user.vars.foo = bar
+            '''
+            msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
+            self.stormIsInErr(mesg, msgs)

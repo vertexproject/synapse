@@ -39,7 +39,8 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
-    pass
+    async def stormrepr(self):
+        return '$lib.undef'
 
 undef = Undef()
 
@@ -437,6 +438,7 @@ class StormType:
         mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if not self.stors:
@@ -1458,8 +1460,14 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
+            propitem = self.runt.snap.core.model.prop(name)
+            if propitem is None:
+                mesg = f'No type or prop found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = propitem.type
 
         # TODO an eventual mapping between model types and storm prims
 
@@ -1473,8 +1481,14 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
+            propitem = self.runt.snap.core.model.prop(name)
+            if propitem is None:
+                mesg = f'No type or prop found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = propitem.type
 
         try:
             norm, info = typeitem.norm(valu)
@@ -1899,16 +1913,18 @@ class LibAxon(Lib):
         {'name': 'readlines', 'desc': '''
         Yields lines of text from a plain-text file stored in the Axon.
 
-        Example:
-            Get the lines for a given file::
+        Examples:
 
-                for $line in $lib.axon.readlines($sha256) {
-                    $dostuff($line)
-                }
+            // Get the lines for a given file.
+            for $line in $lib.axon.readlines($sha256) {
+                $dostuff($line)
+            }
         ''',
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
+                       'desc': 'Specify how encoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
                               'desc': 'A line of text from the file.'}}},
@@ -1926,6 +1942,8 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'jsonlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
+                       'desc': 'Specify how encoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
                               'desc': 'A JSON object parsed from a line of text.'}}},
@@ -1953,6 +1971,8 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                       {'name': 'dialect', 'type': 'str', 'desc': 'The default CSV dialect to use.',
                        'default': 'excel'},
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
+                       'desc': 'Specify how encoding errors should handled.'},
                       {'name': '**fmtparams', 'type': 'any', 'desc': 'Format arguments.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
@@ -2004,16 +2024,18 @@ class LibAxon(Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
-    async def readlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+    async def readlines(self, sha256, errors='ignore'):
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.readlines(sha256):
+        async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
             yield line
 
-    async def jsonlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+    async def jsonlines(self, sha256, errors='ignore'):
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2022,7 +2044,8 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -2038,7 +2061,9 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
@@ -2049,7 +2074,8 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        if not self.runt.allowed(('axon', 'wget')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2083,7 +2109,8 @@ class LibAxon(Lib):
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        if not self.runt.allowed(('axon', 'wput')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -2174,7 +2201,8 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2182,20 +2210,24 @@ class LibAxon(Lib):
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
         fmtparams = await toprim(fmtparams)
-        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
+        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect,
+                                                           errors=errors, **fmtparams):
             yield item
             await asyncio.sleep(0)
 
     async def metrics(self):
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
@@ -4305,6 +4337,7 @@ class Dict(Prim):
         for item in tuple(self.valu.items()):
             yield item
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if ismutable(name):
@@ -4347,6 +4380,7 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
@@ -4591,6 +4625,7 @@ class List(Prim):
             'extend': self.extend,
         }
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -5847,6 +5882,7 @@ class PathMeta(Prim):
         name = await tostr(name)
         return self.path.metadata.get(name)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -5880,6 +5916,7 @@ class PathVars(Prim):
         mesg = f'No var with name: {name}.'
         raise s_exc.StormRuntimeError(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         name = await tostr(name)
         if valu is undef:
@@ -5970,110 +6007,6 @@ class Text(Prim):
 
     async def _methTextStr(self):
         return self.valu
-
-@registry.registerLib
-class LibStats(Lib):
-    '''
-    A Storm Library for statistics related functionality.
-    '''
-    _storm_locals = (
-        {'name': 'tally', 'desc': 'Get a Tally object.',
-         'type': {'type': 'function', '_funcname': 'tally',
-                  'returns': {'type': 'stat:tally', 'desc': 'A new tally object.', }}},
-    )
-    _storm_lib_path = ('stats',)
-
-    def getObjLocals(self):
-        return {
-            'tally': self.tally,
-        }
-
-    async def tally(self):
-        return StatTally(path=self.path)
-
-@registry.registerType
-class StatTally(Prim):
-    '''
-    A tally object.
-
-    An example of using it::
-
-        $tally = $lib.stats.tally()
-
-        $tally.inc(foo)
-
-        for $name, $total in $tally {
-            $doStuff($name, $total)
-        }
-
-    '''
-    _storm_typename = 'stat:tally'
-    _storm_locals = (
-        {'name': 'inc', 'desc': 'Increment a given counter.',
-         'type': {'type': 'function', '_funcname': 'inc',
-                  'args': (
-                      {'name': 'name', 'desc': 'The name of the counter to increment.', 'type': 'str', },
-                      {'name': 'valu', 'desc': 'The value to increment the counter by.', 'type': 'int', 'default': 1, },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get the value of a given counter.',
-         'type': {'type': 'function', '_funcname': 'get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the counter to get.', },
-                  ),
-                  'returns': {'type': 'int',
-                              'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
-        {'name': 'sorted', 'desc': 'Get a list of (counter, value) tuples in sorted order.',
-         'type': {'type': 'function', '_funcname': 'sorted',
-                  'args': (
-                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
-                       'type': 'bool', 'default': False},
-                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
-                       'type': 'bool', 'default': False},
-                  ),
-                  'returns': {'type': 'list',
-                              'desc': 'List of (counter, value) tuples in sorted order.'}}},
-    )
-    _ismutable = True
-
-    def __init__(self, path=None):
-        Prim.__init__(self, {}, path=path)
-        self.counters = collections.defaultdict(int)
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'inc': self.inc,
-            'get': self.get,
-            'sorted': self.sorted,
-        }
-
-    async def __aiter__(self):
-        for name, valu in self.counters.items():
-            yield name, valu
-
-    def __len__(self):
-        return len(self.counters)
-
-    async def inc(self, name, valu=1):
-        valu = await toint(valu)
-        self.counters[name] += valu
-
-    async def get(self, name):
-        return self.counters.get(name, 0)
-
-    def value(self):
-        return dict(self.counters)
-
-    async def iter(self):
-        for item in tuple(self.counters.items()):
-            yield item
-
-    async def sorted(self, byname=False, reverse=False):
-        if byname:
-            return list(sorted(self.counters.items(), reverse=reverse))
-        else:
-            return list(sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse))
 
 @registry.registerLib
 class LibLayer(Lib):
@@ -8138,10 +8071,6 @@ class UserProfile(Prim):
     async def setitem(self, name, valu):
         name = await tostr(name)
 
-        if s_scope.get('runt').readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
-
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -8312,10 +8241,6 @@ class UserVars(Prim):
 
     async def setitem(self, name, valu):
         name = await tostr(name)
-
-        if s_scope.get('runt').readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         if valu is undef:
             await self.runt.snap.core.popUserVarValu(self.valu, name)
@@ -9481,9 +9406,7 @@ class CronJob(Prim):
 
     @staticmethod
     def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
@@ -9728,13 +9651,15 @@ async def toiter(valu, noneok=False):
         return
 
     if isinstance(valu, Prim):
-        async for item in valu.iter():
-            yield item
+        async with contextlib.aclosing(valu.iter()) as agen:
+            async for item in agen:
+                yield item
         return
 
     try:
-        async for item in s_coro.agen(valu):
-            yield item
+        async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+            async for item in agen:
+                yield item
     except TypeError as e:
         mesg = f'Value is not iterable: {valu!r}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
@@ -9745,6 +9670,9 @@ async def torepr(valu, usestr=False):
 
     if isinstance(valu, bool):
         return str(valu).lower()
+
+    if valu is None:
+        return '$lib.null'
 
     if usestr:
         return str(valu)

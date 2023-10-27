@@ -709,6 +709,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of alternative names for the industry.'}),
 
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'deprecated': True,
                         'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),
 
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {

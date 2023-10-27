@@ -2046,8 +2046,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('test:str +test:str@=2018')
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +test:str:tick*near=newp')
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#test*near=newp')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str +#test*in=newp')
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str -> # } limit 10')
             with self.raises(s_exc.BadSyntax):
@@ -6058,6 +6060,48 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ test:str=newlayr ]', opts=opts))
             self.len(0, await core.nodes('test:str=newlayr'))
 
+    async def test_view_set_parent(self):
+        async with self.getTestCore() as core:
+
+            layer1 = (await core.addLayer()).get('iden')
+            layer2 = (await core.addLayer()).get('iden')
+            layer3 = (await core.addLayer()).get('iden')
+            layer4 = (await core.addLayer()).get('iden')
+
+            videna = (await core.addView(
+                {'layers': (layer1,)}
+            )).get('iden')
+
+            videnb = (await core.addView(
+                {'layers': (layer2, layer3)}
+            )).get('iden')
+
+            videnc = (await core.addView(
+                {'layers': (layer4,)}
+            )).get('iden')
+
+            viewa = core.getView(videna)
+            viewb = core.getView(videnb)
+
+            self.len(1, viewa.layers)
+            self.len(2, viewb.layers)
+
+            await viewa.setViewInfo('parent', videnb)
+
+            # Make sure View A has all the layers we expect it to have - one
+            # from itself and two from View B. Also make sure they're in the
+            # order we expect.
+            self.len(3, viewa.layers)
+            self.eq(layer1, viewa.layers[0].iden)
+            self.eq(layer2, viewa.layers[1].iden)
+            self.eq(layer3, viewa.layers[2].iden)
+
+            self.len(2, viewb.layers)
+
+            # This fails because viewb has more than one layer
+            with self.raises(s_exc.BadArg):
+                await viewb.setViewInfo('parent', videnc)
+
     async def test_cortex_lockmemory(self):
         '''
         Verify that dedicated configuration setting impacts the layer
@@ -7122,6 +7166,66 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Avoid races in cleanup
             del genr
 
+    async def test_cortex_syncnodeedits(self):
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.getLayer().iden
+            layr01 = (await core.addLayer())['iden']
+            view01 = (await core.addView({'layers': (layr01,)}))['iden']
+
+            async def layrgenr(layr, startoff, endoff=None, newlayer=False):
+                wait = endoff is None
+                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
+                    if endoff is not None and ioff >= endoff:
+                        break
+                    yield ioff, item, meta
+
+            indx = await core.getNexsIndx()
+
+            offsdict = {
+                layr00: indx,
+                layr01: indx,
+            }
+
+            genr = None
+
+            try:
+
+                # test that a slow consumer can continue to stream edits
+                # even if a layer exceeds the window maxsize
+
+                oldv = s_layer.WINDOW_MAXSIZE
+                s_layer.WINDOW_MAXSIZE = 2
+
+                genr = core._syncNodeEdits(offsdict, layrgenr, wait=True)
+
+                nodes = await core.nodes('[ test:str=foo ]')
+                item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+
+                # we should now be in live sync
+                # and the empty layer will be pulling from the window
+
+                nodes = await core.nodes('[ test:str=bar ]')
+                item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+
+                # add more nodes than the window size without consuming from the genr
+
+                opts = {'view': view01}
+                nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
+                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
+                self.sorteq(
+                    [s_common.uhex(n.iden()) for n in nodes],
+                    [item[1][0][0] for item in items],
+                )
+
+            finally:
+                s_layer.WINDOW_MAXSIZE = oldv
+                if genr is not None:
+                    del genr
+
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:
             layr = core.getView().layers[0].iden
@@ -7530,3 +7634,44 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.ne(-1, mrevstart)
             self.ne(-1, dmonstart)
             self.lt(mrevstart, dmonstart)
+
+    async def test_cortex_user_scope(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            udef = await core.addUser('admin')
+            admin = udef.get('iden')
+            await core.setUserAdmin(admin, True)
+            async with core.getLocalProxy() as prox:
+
+                # Proxy our storm requests as the admin user
+                opts = {'user': admin}
+
+                self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
+
+                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
+                    (whoami, udef) = await prox.callStorm(q, opts=opts)
+                    self.eq('admin', whoami)
+                    self.eq('lowuser', udef.get('name'))
+
+                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
+                self.eq('Added user=lowuser', mesg.get('message'))
+                self.eq('admin', mesg.get('username'))
+                self.eq('lowuser', mesg.get('target_username'))
+
+                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    q = 'auth.user.mod lowuser --admin $lib.true'
+                    msgs = []
+                    async for mesg in prox.storm(q, opts=opts):
+                        msgs.append(mesg)
+                    self.stormHasNoWarnErr(msgs)
+
+                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
+                self.isin('Set admin=True for lowuser', mesg.get('message'))
+                self.eq('admin', mesg.get('username'))
+                self.eq('lowuser', mesg.get('target_username'))

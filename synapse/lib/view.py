@@ -13,6 +13,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
@@ -289,12 +290,75 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-        layers = [self.layers[0]]
 
-        view = self.parent
-        while view is not None:
+        '''
+        We spent a lot of time thinking/talking about this so some hefty
+        comments are in order:
+
+        For a given stack of views (example below), only the bottom view of
+        the stack may have more than one original layer. When adding a new view to the
+        top of the stack (via `<viewE>.setViewInfo('parent', <viewD>)`), we
+        grab the top layer of each of the views from View D to View B and then
+        all of the layers from View A. We know this is the right behavior
+        because all views above the bottom view only have one original layer
+        (but will include all of the layers of it's parents) which is enforced
+        by `setViewInfo()`.
+
+        View D
+        - Layer 6 (original to View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View C (parent of D)
+        - Layer 5 (original to View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View B (parent of C)
+        - Layer 4 (original to View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View A (parent of B)
+        - Layer 3
+        - Layer 2
+        - Layer 1
+
+        Continuing the exercise: when adding View E, it has it's own layer
+        (Layer 7). We then copy Layer 6 from View D, Layer 5 from View C, Layer
+        4 from View B, and Layers 3-1 from View A (the bottom view). This gives
+        us the new view which looks like this:
+
+        View E:
+        - Layer 7 (original to View E)
+        - Layer 6 (copied from View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View D (now parent of View E)
+        ... (everything from View D and below is the same as above)
+        '''
+
+        layers = []
+
+        # Add the top layer from each of the views that aren't the bottom view.
+        # This is the view's original layer.
+        view = self
+        while view.parent is not None:
             layers.append(view.layers[0])
             view = view.parent
+
+        # Add all of the bottom view's layers.
+        layers.extend(view.layers)
 
         self.layers = layers
         await self.info.set('layers', [layr.iden for layr in layers])
@@ -380,11 +444,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
-        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for node in snap.eval(text, opts=opts, user=user):
-                yield node
+        with s_scope.enter({'user': user}):
+
+            await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+            async with await self.snap(user=user) as snap:
+                async for node in snap.eval(text, opts=opts, user=user):
+                    yield node
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
@@ -472,27 +539,29 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                async with await self.snap(user=user) as snap:
+                with s_scope.enter({'user': user}):
 
-                    if keepalive:
-                        snap.schedCoro(snap.keepalive(keepalive))
+                    async with await self.snap(user=user) as snap:
 
-                    if not show:
-                        snap.link(chan.put)
+                        if keepalive:
+                            snap.schedCoro(snap.keepalive(keepalive))
 
-                    else:
-                        [snap.on(n, chan.put) for n in show]
+                        if not show:
+                            snap.link(chan.put)
 
-                    if shownode:
-                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                            await chan.put(('node', pode))
-                            count += 1
+                        else:
+                            [snap.on(n, chan.put) for n in show]
 
-                    else:
-                        self.core._logStormQuery(text, user,
-                                                 info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                        async for item in snap.storm(text, opts=opts, user=user):
-                            count += 1
+                        if shownode:
+                            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                                await chan.put(('node', pode))
+                                count += 1
+
+                        else:
+                            self.core._logStormQuery(text, user,
+                                                     info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            async for item in snap.storm(text, opts=opts, user=user):
+                                count += 1
 
             except s_stormctrl.StormExit:
                 pass
@@ -571,9 +640,10 @@ class View(s_nexus.Pusher):  # type: ignore
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                yield pode
+        with s_scope.enter({'user': user}):
+            async with await self.snap(user=user) as snap:
+                async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                    yield pode
 
     async def snap(self, user):
 

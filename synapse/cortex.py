@@ -26,6 +26,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.oauth as s_oauth
 import synapse.lib.queue as s_queue
+import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.config as s_config
@@ -74,6 +75,7 @@ import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
+import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.hashes as s_stormlib_hashes # NOQA
@@ -162,6 +164,33 @@ def cmprkey_buid(x):
 async def wrap_liftgenr(iden, genr):
     async for indx, buid, sode in genr:
         yield iden, (indx, buid), sode
+
+class CortexAxonMixin:
+
+    async def prepare(self):
+        await self.cell.axready.wait()
+        await s_coro.ornot(super().prepare)
+
+    def getAxon(self):
+        return self.cell.axon
+
+    async def getAxonInfo(self):
+        return self.cell.axoninfo
+
+class CortexAxonHttpHasV1(CortexAxonMixin, s_axon.AxonHttpHasV1):
+    pass
+
+class CortexAxonHttpDelV1(CortexAxonMixin, s_axon.AxonHttpDelV1):
+    pass
+
+class CortexAxonHttpUploadV1(CortexAxonMixin, s_axon.AxonHttpUploadV1):
+    pass
+
+class CortexAxonHttpBySha256V1(CortexAxonMixin, s_axon.AxonHttpBySha256V1):
+    pass
+
+class CortexAxonHttpBySha256InvalidV1(CortexAxonMixin, s_axon.AxonHttpBySha256InvalidV1):
+    pass
 
 class CoreApi(s_cell.CellApi):
     '''
@@ -1604,6 +1633,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to change view settings.',
              'ex': 'view.set.name'},
 
+            {'perm': ('axon', 'upload'), 'gate': 'cortex',
+             'desc': 'Controls the ability to upload a file to the Axon.'},
+            {'perm': ('axon', 'get'), 'gate': 'cortex',
+             'desc': 'Controls the ability to retrieve a file from the Axon.'},
+            {'perm': ('axon', 'has'), 'gate': 'cortex',
+             'desc': 'Controls the ability to check if the Axon contains a file.'},
+            {'perm': ('axon', 'del'), 'gate': 'cortex',
+             'desc': 'Controls the ability to remove a file from the Axon.'},
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
@@ -3813,11 +3850,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async with await s_base.Base.anit() as base:
 
-            def addlayr(layr, newlayer=False):
+            def addlayr(layr, newlayer=False, startoffs=topoffs):
                 '''
                 A new layer joins the live stream
                 '''
-                genr = genrfunc(layr, topoffs, newlayer=newlayer)
+                genr = genrfunc(layr, startoffs, newlayer=newlayer)
                 layrgenrs[layr.iden] = genr
                 task = base.schedCoro(genr.__anext__())
                 task.iden = layr.iden
@@ -3838,6 +3875,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # First, catch up to what was the current offset when we started, guaranteeing order
 
+            logger.debug(f'_syncNodeEdits() running catch-up sync to offs={topoffs}')
+
             genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
             async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
                 yield item
@@ -3848,6 +3887,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
             # After we've caught up, read on genrs from all the layers simultaneously
+
+            logger.debug('_syncNodeEdits() entering into live sync')
+
+            lastoffs = {}
 
             todo.clear()
 
@@ -3887,6 +3930,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         yield result
 
+                        lastoffs[layriden] = result[0]
+
                         # Re-add a task to wait on the next iteration of the generator
                         genr = layrgenrs[layriden]
                         task = base.schedCoro(genr.__anext__())
@@ -3894,8 +3939,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         todo.add(task)
 
                     except StopAsyncIteration:
+
                         # Help out the garbage collector
                         del layrgenrs[layriden]
+
+                        layr = self.getLayer(iden=layriden)
+                        if layr is None or not layr.logedits:
+                            logger.debug(f'_syncNodeEdits() removed {layriden=} from sync')
+                            continue
+
+                        startoffs = lastoffs[layriden] + 1 if layriden in lastoffs else topoffs
+                        logger.debug(f'_syncNodeEdits() restarting {layriden=} live sync from offs={startoffs}')
+                        addlayr(layr, startoffs=startoffs)
+
+                        await self.waitfini(1)
 
     async def spliceHistory(self, user):
         '''
@@ -4117,6 +4174,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
+        self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
 
         for cdef in s_stormsvc.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
@@ -4218,6 +4276,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/model/norm', s_httpapi.ModelNormV1, {'cell': self})
 
         self.addHttpApi('/api/v1/core/info', s_httpapi.CoreInfoV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/axon/files/del', CortexAxonHttpDelV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/put', CortexAxonHttpUploadV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpBySha256V1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', CortexAxonHttpBySha256InvalidV1, {'cell': self})
 
     async def getCellApi(self, link, user, path):
 
@@ -5451,29 +5515,31 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         taskiden = opts.get('task')
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
-            async with await self.snap(user=user, view=view) as snap:
+        with s_scope.enter({'user': user}):
 
-                async for pode in snap.iterStormPodes(text, opts=opts):
-                    await spooldict.set(pode[1]['iden'], pode)
-                    await asyncio.sleep(0)
+            async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+                async with await self.snap(user=user, view=view) as snap:
 
-                for iden, pode in spooldict.items():
-                    await asyncio.sleep(0)
-
-                    edges = []
-                    async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                    async for pode in snap.iterStormPodes(text, opts=opts):
+                        await spooldict.set(pode[1]['iden'], pode)
                         await asyncio.sleep(0)
 
-                        if not spooldict.has(n2iden):
-                            continue
+                    for iden, pode in spooldict.items():
+                        await asyncio.sleep(0)
 
-                        edges.append((verb, n2iden))
+                        edges = []
+                        async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+                            await asyncio.sleep(0)
 
-                    if edges:
-                        pode[1]['edges'] = edges
+                            if not spooldict.has(n2iden):
+                                continue
 
-                    yield pode
+                            edges.append((verb, n2iden))
+
+                        if edges:
+                            pode[1]['edges'] = edges
+
+                        yield pode
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
