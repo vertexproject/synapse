@@ -53,7 +53,7 @@ Features and Enhancements
   (`#3391 <https://github.com/vertexproject/synapse/pull/3391>`_)
 - The ``proxy`` argument to ``$lib.inet.http.*``, ``$lib.axon.wget()``,
   ``$lib.axon.urlfile()``, and ``$lib.axon.wput()`` APIs is now gated behind
-  the permission ``storm.lib.inet.httpapi.proxy``. Previously this required
+  the permission ``storm.lib.inet.http.proxy``. Previously this required
   admin permission to utilize.
   (`#3397 <https://github.com/vertexproject/synapse/pull/3397>`_)
 - Add an ``errors`` parameter to ``$lib.axon.readlines()``,
