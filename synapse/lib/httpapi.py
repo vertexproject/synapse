@@ -326,12 +326,13 @@ class HandlerBase:
         self.web_username = udef.get('name')
         return self.web_useriden
 
-    async def allowed(self, perm, gateiden=None):
+    async def allowed(self, perm, default=False, gateiden=None):
         '''
         Check if the authenticated user has the given permission.
 
         Args:
             perm (tuple): The permission tuple to check.
+            default (boolean): The default value for the permission.
             gateiden (str): The gateiden to check the permission against.
 
         Notes:
@@ -347,11 +348,16 @@ class HandlerBase:
             self.sendAuthRequired()
             return False
 
-        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden):
+        if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden, default=default):
             return True
 
         self.set_status(403)
+
         mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
+        if default:
+            mesg = f'User ({self.web_username}) is denied the permission {".".join(perm)}'
+        if gateiden:
+            mesg = f'{mesg} on object {gateiden}'
         self.sendRestErr('AuthDeny', mesg)
         return False
 
@@ -1240,3 +1246,193 @@ class CoreInfoV1(Handler):
 
         resp = await self.cell.getCoreInfoV2()
         return self.sendRestRetn(resp)
+
+class ExtApiHandler(StormHandler):
+    '''
+    /api/ext/.*
+    '''
+
+    storm_prefix = 'init { $request = $lib.cortex.httpapi.response($_http_request_info) }'
+
+    # Disables the etag header from being computed and set. It is too much magic for
+    # a user defined API to utilize.
+    def compute_etag(self):
+        return None
+
+    def set_default_headers(self):
+        self.clear_header('Server')
+
+    async def get(self, path):
+        return await self._runHttpExt('get', path)
+
+    async def head(self, path):
+        return await self._runHttpExt('head', path)
+
+    async def post(self, path):
+        return await self._runHttpExt('post', path)
+
+    async def put(self, path):
+        return await self._runHttpExt('put', path)
+
+    async def delete(self, path):
+        return await self._runHttpExt('delete', path)
+
+    async def patch(self, path):
+        return await self._runHttpExt('patch', path)
+
+    async def options(self, path):
+        return await self._runHttpExt('options', path)
+
+    async def _runHttpExt(self, meth, path):
+        core = self.getCore()
+        adef, args = await core.getHttpExtApiByPath(path)
+        if adef is None:
+            self.set_status(404)
+            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}')
+            return await self.finish()
+
+        requester = ''
+        iden = adef.get("iden")
+        useriden = adef.get('owner')
+
+        if adef.get('authenticated'):
+
+            requester = await self.useriden()
+
+            if requester is None:
+                await self.reqAuthUser()
+                return
+
+            for pdef in adef.get('perms'):
+                if not await self.allowed(pdef.get('perm'), default=pdef.get('default')):
+                    return
+
+            if adef.get('runas') == 'user':
+                useriden = requester
+
+        storm = adef['methods'].get(meth)
+        if storm is None:
+            self.set_status(405)
+            meths = [meth.upper() for meth in adef.get('methods')]
+            self.set_header('Allowed', ', '.join(meths))
+            mesg = f'Extended HTTP API {iden} has no method for {meth.upper()}.'
+            if meths:
+                mesg = f'{mesg} Supports {", ".join(meths)}.'
+            self.sendRestErr('NeedConfValu', mesg)
+            return await self.finish()
+
+        # We flatten the request headers and parameters into a flat key/valu map.
+        # The first instance of a given key wins.
+        request_headers = {}
+        for key, valu in self.request.headers.get_all():
+            request_headers.setdefault(key.lower(), valu)
+
+        params = {}
+        for key, valus in self.request.query_arguments.items():
+            for valu in valus:
+                params.setdefault(key, valu.decode())
+
+        info = {
+            'uri': self.request.uri,
+            'body': self.request.body,
+            'iden': iden,
+            'path': path,
+            'user': requester,
+            'method': self.request.method,
+            'params': params,
+            'headers': request_headers,
+            'args': args,
+            'client': self.request.remote_ip,
+        }
+
+        varz = adef.get('vars')
+        varz['_http_request_info'] = info
+
+        opts = {
+            'readonly': adef.get('readonly'),
+            'show': (
+                'http:resp:body',
+                'http:resp:code',
+                'http:resp:headers',
+            ),
+            'user': useriden,
+            'vars': varz,
+            'view': adef.get('view'),
+        }
+
+        query = '\n'.join((self.storm_prefix, storm))
+
+        rcode = False
+        rbody = False
+
+        try:
+            async for mtyp, info in core.storm(query, opts=opts):
+                if mtyp == 'http:resp:code':
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        mesg = f'Extended HTTP API {iden} tried to set code after sending body.'
+                        logger.error(mesg)
+                        continue
+
+                    rcode = True
+                    self.set_status(info['code'])
+
+                elif mtyp == 'http:resp:headers':
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        mesg = f'Extended HTTP API {iden} tried to set headers after sending body.'
+                        logger.error(mesg)
+                        continue
+                    for hkey, hval in info['headers'].items():
+                        self.set_header(hkey, hval)
+
+                elif mtyp == 'http:resp:body':
+                    if not rcode:
+                        self.clear()
+                        self.set_status(500)
+                        self.sendRestErr('StormRuntimeError',
+                                         f'Extended HTTP API {iden} must set status code before sending body.')
+                        return await self.finish()
+                    rbody = True
+                    body = info['body']
+                    self.write(body)
+                    await self.flush()
+
+                elif mtyp == 'err':
+                    errname, erfo = info
+                    mesg = f'Error executing Extended HTTP API {iden}: {errname} {erfo.get("mesg")}'
+                    logger.error(mesg)
+                    if rbody:
+                        # We've already flushed() the stream at this point, so we cannot
+                        # change the status code or the response headers. We just have to
+                        # log the error and move along.
+                        continue
+
+                    # Since we haven't flushed the body yet, we can clear the handler
+                    # and send the error the user.
+                    self.clear()
+                    self.set_status(500)
+                    self.sendRestErr(errname, erfo.get('mesg'))
+                    rcode = True
+                    rbody = True
+
+        except Exception as e:
+            rcode = True
+            enfo = s_common.err(e)
+            logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+            if rbody is False:
+                self.clear()
+                self.set_status(500)
+                self.sendRestErr(enfo[0],
+                                 f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+
+        if rcode is False:
+            self.clear()
+            self.set_status(500)
+            self.sendRestErr('StormRuntimeError', f'Extended HTTP API {iden} never set status code.')
+
+        await self.finish()

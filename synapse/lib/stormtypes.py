@@ -205,8 +205,13 @@ class StormTypesRegistry:
         for parameter, argdef in zip(callsig.parameters.values(), args):
             pdef = parameter.default  # defaults to inspect._empty for undefined default values.
             adef = argdef.get('default', inspect._empty)
-            assert pdef == adef, \
-                f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            # Allow $lib.undef as a defined default to represent the undef constant.
+            if pdef is undef:
+                assert adef == '$lib.undef', \
+                    f'Expected $lib.undef for default value {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            else:
+                assert pdef == adef, \
+                    f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
 
     def _validateStor(self, obj, info, name):
         rtype = info.get('type')
@@ -228,9 +233,9 @@ class StormTypesRegistry:
         args = rtype.get('args')
         assert args is None, f'ctors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
-        # Assert the callsig for a stor has one argument
+        # Assert the callsig for a ctor has one argument
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
-        assert len(callsig_args) == 1, f'stor funcs must only have one argument for {obj} {info.get("name")}'
+        assert len(callsig_args) == 1, f'ctor funcs must only have one argument for {obj} {info.get("name")}'
 
     def _validateGtor(self, obj, info, name):
         rtype = info.get('type')
@@ -4523,7 +4528,7 @@ class List(Prim):
     Implements the Storm API for a List instance.
     '''
     _storm_locals = (
-        {'name': 'has', 'desc': 'Check it a value is in the list.',
+        {'name': 'has', 'desc': 'Check if a value is in the list.',
          'type': {'type': 'function', '_funcname': '_methListHas',
                   'args': (
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },
@@ -4573,7 +4578,7 @@ class List(Prim):
 
                     $y=$x.slice(3)  // (b, a, r)
             ''',
-         'type': {'type': 'function', '_funcname': 'slice',
+         'type': {'type': 'function', '_funcname': '_methListSlice',
                   'args': (
                       {'name': 'start', 'type': 'int', 'desc': 'The starting index.'},
                       {'name': 'end', 'type': 'int', 'default': None,
@@ -4597,7 +4602,7 @@ class List(Prim):
 
                     // $list is now (f, o, o, b, a, r)
             ''',
-         'type': {'type': 'function', '_funcname': 'extend',
+         'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
                       {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
                   ),
@@ -4620,9 +4625,8 @@ class List(Prim):
             'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
-
-            'slice': self.slice,
-            'extend': self.extend,
+            'slice': self._methListSlice,
+            'extend': self._methListExtend,
         }
 
     @stormfunc(readonly=True)
@@ -4700,7 +4704,7 @@ class List(Prim):
     async def _methListSize(self):
         return len(self)
 
-    async def slice(self, start, end=None):
+    async def _methListSlice(self, start, end=None):
         start = await toint(start)
 
         if end is None:
@@ -4709,7 +4713,7 @@ class List(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
-    async def extend(self, valu):
+    async def _methListExtend(self, valu):
         async for item in toiter(valu):
             self.valu.append(item)
 
@@ -6755,10 +6759,9 @@ class LibView(Lib):
     async def _methViewGet(self, iden=None):
         if iden is None:
             iden = self.runt.snap.view.iden
-        todo = s_common.todo('getViewDef', iden)
-        vdef = await self.runt.dyncall('cortex', todo)
+        vdef = await self.runt.snap.core.getViewDef(iden)
         if vdef is None:
-            raise s_exc.NoSuchView(mesg=iden)
+            raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
 
         return View(self.runt, vdef, path=self.path)
 
@@ -7001,7 +7004,7 @@ class View(Prim):
             view = self.runt.snap.core.getView(self.valu.get('iden'))
             if view is None: # pragma: no cover
                 mesg = f'No view with iden: {self.valu.get("iden")}'
-                raise s_exc.NoSuchView(mesg=mesg)
+                raise s_exc.NoSuchView(mesg=mesg, iden=self.valu.get('iden'))
 
             layers = await toprim(valu)
             layers = tuple(str(x) for x in layers)
@@ -7430,7 +7433,7 @@ class Trigger(Prim):
         todo = s_common.todo('getViewDef', viewiden)
         vdef = await self.runt.dyncall('cortex', todo)
         if vdef is None:
-            raise s_exc.NoSuchView(mesg=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No view with iden={viewiden}', iden=viewiden)
 
         trigview = self.valu.get('view')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)

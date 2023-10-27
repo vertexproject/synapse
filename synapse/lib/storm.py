@@ -2162,7 +2162,7 @@ class Runtime(s_base.Base):
 
                 view = snap.core.views.get(viewiden)
                 if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
+                    raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
@@ -3464,7 +3464,7 @@ class CopyToCmd(Cmd):
 
         view = runt.snap.core.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
+            raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 

@@ -3026,7 +3026,8 @@ class VarDeref(Value):
         name = await self.kids[1].compute(runt, path)
 
         valu = s_stormtypes.fromprim(base, path=path)
-        return await valu.deref(name)
+        with s_scope.enter({'runt': runt}):
+            return await valu.deref(name)
 
 class FuncCall(Value):
 
