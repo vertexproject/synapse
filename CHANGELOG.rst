@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.153.0 - TBD
+v2.153.0 - 2023-10-27
 =====================
 
 Model Changes
@@ -36,6 +36,11 @@ Model Changes
 
 Features and Enhancements
 -------------------------
+- Add a new Storm API, ``$lib.cortex.httpapi``, for creating and managing
+  Extended HTTP API endpoints. These Cortex HTTP API endpoints allow a user to
+  create custom responses via Storm. Documentation for this feature can be
+  found at :ref:`devops-svc-cortex-ext-http`.
+  (`#3366 <https://github.com/vertexproject/synapse/pull/3366>`_)
 - Add a new Storm API, ``$lib.iters.zip()``, to iterate over sequences of
   items together.
   (`#3392 <https://github.com/vertexproject/synapse/pull/3392>`_)
@@ -46,6 +51,11 @@ Features and Enhancements
 - Update the Storm command ``auth.user.mod`` to allow setting a user as admin
   on a specific auth gate.
   (`#3391 <https://github.com/vertexproject/synapse/pull/3391>`_)
+- The ``proxy`` argument to ``$lib.inet.http.*``, ``$lib.axon.wget()``,
+  ``$lib.axon.urlfile()``, and ``$lib.axon.wput()`` APIs is now gated behind
+  the permission ``storm.lib.inet.http.proxy``. Previously this required
+  admin permission to utilize.
+  (`#3397 <https://github.com/vertexproject/synapse/pull/3397>`_)
 - Add an ``errors`` parameter to ``$lib.axon.readlines()``,
   ``$lib.axon.csvrows()``, and ``$lib.axon.jsonlines()``. This parameter
   defaults to ``ignore`` to ignore any decoding errors that are encountered
