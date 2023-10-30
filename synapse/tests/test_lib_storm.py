@@ -3641,7 +3641,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('help list')
             self.stormIsInPrint('***\nlist\n****\nImplements the Storm API for a List instance.', msgs)
             self.stormIsInPrint('append(valu)\nAppend a value to the list.', msgs)
-            self.stormIsInPrint('auth.user.list : List all users.', msgs)
+            self.stormIsInPrint('auth.user.list     : List all users.', msgs)
 
             # email stor / gettr has a multi value return type
             msgs = await core.stormlist('help -v auth:user')
