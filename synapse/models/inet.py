@@ -1417,9 +1417,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
                         'doc': 'A JARM hash sample taken from a server.'}),
 
-                    ('inet:service:platform', ('guid', {}), {
-                        'doc': 'A service provider platform such as twitter, Azure AD, or telegram.'})
-
                     ('inet:service:instance', ('guid', {}), {
                         'display': {'columns': (
                             {'type': 'embed', 'opts': {'embed': 'instance::type'}},
@@ -1427,7 +1424,7 @@ class InetModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'prop': 'id'}},
                             {'type': 'prop', 'opts': {'prop': 'name'}},
                         )},
-                        'doc': 'An instance of a service provider platform.'})
+                        'doc': 'An instance of a service, for example twitter or a specific slack instance.'})
 
                     ('inet:service:account', ('guid', {}), {
                         'display': {'columns': (
@@ -1436,7 +1433,7 @@ class InetModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'prop': 'id'}},
                             {'type': 'prop', 'opts': {'prop': 'name'}},
                         )},
-                        'doc': 'An account within a network service.'})
+                        'doc': 'An account within a service.'})
 
                     ('inet:service:group', ('guid', {}), {
                         'display': {'columns': (
@@ -1445,7 +1442,7 @@ class InetModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'prop': 'id'}},
                             {'type': 'prop', 'opts': {'prop': 'name'}},
                         )},
-                        'doc': 'An account group/role within a network service.'})
+                        'doc': 'An account group/role within a service.'})
 
                     ('inet:service:message', ('guid', {}), {
                         'display': {'columns': (
@@ -1478,9 +1475,8 @@ class InetModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'prop': 'name'}},
                             {'type': 'prop', 'opts': {'prop': 'created'}},
                             {'type': 'embed', 'opts': {'embed': 'instance::name'}},
-                            {'type': 'embed', 'opts': {'embed': 'instance::platform::name'}},
                         )},
-                        'doc': 'A message distribution channel within a service platform or instance.'}),
+                        'doc': 'A message distribution channel within a service.'}),
 
                     ('inet:service:channel:member', ('guid', {}), {
                         'display': {'columns': (
@@ -2033,6 +2029,9 @@ class InetModule(s_module.CoreModule):
                         ('response:body', ('file:bytes', {}), {}),
                         ('session', ('inet:http:session', {}), {
                             'doc': 'The HTTP session this request was part of.'}),
+
+                        ('login', ('inet:service:login', {}), {
+                            'doc': 'Set if the HTTP request represents a service login.'}),
                     )),
 
                     ('inet:http:session', {}, (
@@ -3248,18 +3247,6 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The server that was sampled to compute the JARM hash.'}),
                     )),
 
-                    ('inet:service:platform', {}, (
-
-                        ('name', ('str', {'onespace': True, 'lower': True}), {
-                            'ex': 'slack',
-                            'doc': 'A unique name for the service platform.'}),
-
-                        ('owner', ('ps:contact', {}), {
-                            'doc': 'The contact information of the platform owner.'}),
-
-                        ('created', ('time', {}), {
-                            'doc': 'The time that the platform was first created or went live.'}),
-                    )),
 
                     ('inet:service:instance', {}, (
 
@@ -3270,14 +3257,21 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The primary URL which identifies the service instance.'}),
 
                         ('name', ('str', {'onespace': True, 'lower': True}), {}),
-                        # ('provider', ('ps:contact', {}), {}),
-                        ('operator', ('ps:contact', {}), {
-                            'doc': 'The contact information of the intance operator.'}),
 
-                        ('platform', ('inet:service:platform', {}), {
-                            'doc': 'The platform that this is an instance of.'}),
+                        ('platform', ('it:prod:softver', {}), {
+                            'doc': 'The sofware version that the service is running.'}),
 
-                        ('admins?',
+                        ('platform:name', ('it:prod:softname', {}), {
+                            'doc': 'The name of the platform.'}),
+
+                        ('saas', ('bool', {}), {
+                            'doc': 'Set to true if the service is a SaaS offering.'}),
+
+                        ('saas:provider', ('ps:contact', {}), {
+                            'doc': 'The SaaS provider which provides the service.'}),
+
+                        ('owner', ('ps:contact', {}), {
+                            'doc': 'The contact who owns or subscribes to the service.'}),
                     )),
 
                     ('inet:service:account', {}, (
@@ -3285,14 +3279,18 @@ class InetModule(s_module.CoreModule):
                         ('id', ('str', {'strip': True}), {
                             'doc': 'The platform specific user ID.'}),
 
-                        ('name', ('inet:user', {}), {
+                        ('user', ('inet:user', {}), {
                             'doc': 'The current user name.'}),
+
+                        # TODO entity:name
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
+                            'doc': 'The display name for the account.'}),
+
+                        ('email', ('inet:email', {}, (
+                            'doc': 'The email address for the account.'}),
 
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The current contact details for the account.'}),
-
-                        ('platform', ('inet:service:platform', {}), {
-                            'doc': 'The platform which defines the account.'})
 
                         ('instance', ('inet:service:instance', {}), {
                             'doc': 'The service which defines the account.'})
@@ -3309,11 +3307,8 @@ class InetModule(s_module.CoreModule):
                         ('name', ('inet:group', {}), {
                             'doc': 'The current name of the group.'}),
 
-                        ('platform', ('inet:service:platform', {}), {
-                            'doc': 'The platform which defines the account.'})
-
                         ('instance', ('inet:service:instance', {}), {
-                            'doc': 'The instance which defines the group.'}),
+                            'doc': 'The service which defines the group.'}),
 
                         ('data', ('data', {}), {
                             'doc': 'Raw JSON group profile data to capture any platform specific values.'}),
@@ -3332,6 +3327,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:service:message', {}, (
+
+                        ('time', ('time', {}), {
+                            'doc': 'The time the message was sent.'}),
 
                         ('from', ('inet:service:message', {}), {
                             'doc': 'The account which sent the message.'}),
@@ -3382,16 +3380,33 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file which was attached to the message.'}),
                     )),
 
-                    # TODO track client (hosts?) access and access addresses.
-                    # ('inet:service:client', {}, ()),
-                    # ('inet:service:egress', {}, ()),
+                    ('inet:service:egress', {}, (
+
+                        ('instance', ('inet:service:instance', {}), {
+                            'doc': 'The service which the client accessed.'}),
+
+                        ('ipv4', ('inet:ipv4', {}), {
+                            'doc': 'The client IPv4 egress address from the server perspective.'}),
+
+                        ('ipv6', ('inet:ipv6', {}), {
+                            'doc': 'The client IPv6 egress address from the server perspective.'}),
+
+                        ('host', ('it:host', {}), {
+                            'doc': 'The host behind the egress address.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The network address that the client from the server perspective.'}),
+                    )),
 
                     ('inet:service:channel', {}, (
                         ('name', ('str', {'onespace': True, 'lower': True}), {
                             'doc': 'The current name of the channel.'}),
-                        # TODO history?
+
                         ('instance', ('inet:service:instance', {}), {
-                            'doc': 'The service instance which defines the channel.'}),
+                            'doc': 'The service which defines the channel.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The time period where the channel was available.'}),
                     )),
 
                     ('inet:service:channel:member', {}, (
@@ -3401,9 +3416,6 @@ class InetModule(s_module.CoreModule):
 
                         ('account', ('inet:service:account', {}), {
                             'doc': 'The account that was a member of the channel.'}),
-
-                        # ('invited', ('inet:service:account', {}), {
-                            # 'doc': 'The account which invited member account to the channel.'}),
 
                         ('period', ('ival', {}), {
                             'doc': 'The time period where the account was a member of the channel.'}),
@@ -3416,6 +3428,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the service resource.'}),
 
                         ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
                             'doc': 'A description of the service resource.'}),
 
                         ('url', ('inet:url', {}), {
@@ -3430,9 +3443,11 @@ class InetModule(s_module.CoreModule):
                         ('owner', ('inet:service:account', {}), {
                             'doc': 'The serivce account which owns the resource.'}),
 
-                        ('type', ('inet:service:resource:type:taxonomy', {}), {}),
+                        ('type', ('inet:service:resource:type:taxonomy', {}), {
+                            'doc': 'The resource type. For example "s3.bucket", "file", or "rpc.endpoint".'}),
                     )),
 
+                    ('inet:service:login:method:taxonomy', {}, (),
                     ('inet:service:login', {}, (
 
                         ('time', ('time', {}), {
@@ -3444,18 +3459,38 @@ class InetModule(s_module.CoreModule):
                         ('success', ('bool', {}), {
                             'doc': 'Set to true if the login was successful.'}),
 
+                        ('method', ('inet:service:login:method:taxonomy', {}), {
+                            'doc': 'The type of authentication used for the login. For example "password" or "multifactor.sms".'),
+
                         ('session', ('inet:service:session', {}), {
                             'doc': 'The session which was authenticated by the login.'}),
 
-                        # TODO record passwd/passwdhash/mfa/etc
-                        # TODO host / client / flow / request?
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The network address of the server which handled the login.'}),
 
+                        ('server:host', ('it:host', {}), {
+                            'doc': 'The server host which authenticated the login.'}),
+
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The network address of the client from the server perspective.'}),
+
+                        ('client:host', ('it:host', {}), {
+                            'doc': 'The client host which initiated the login.'}),
+
+                        ('client:creds:cert', ('crypto:x509:cert', {}), {
+                            'doc': 'The X.509 certificate sent by the client during the login.'}),
+
+                        ('client:creds:passwd', ('inet:passwd', {}), {
+                            'doc': 'The password sent by the client during the login.'}),
+
+                        ('client:creds:passwdhash', ('inet:passwdhash', {}), {
+                            'doc': 'The password hash sent by the client during the login.'}),
                     )),
 
                     ('inet:service:session', {}, (
 
                         ('id', ('str', {'strip': True}), {
-                            'doc': 'The platform specific session id.'}),
+                            'doc': 'The service specific session id.'}),
 
                         ('account', ('inet:service:account', {}), {
                             'doc': 'The account which authenticated to create the session.'}),
@@ -3470,17 +3505,32 @@ class InetModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The time the resource was accessed by the account.'}),
 
-                        ('type', ('inet:service:access:type:taxonomy', {}), {
-                            'doc': 'A taxonomy of resource access types.'}),
+                        ('type', ('str', {'enums': 'create,read,update,delete'}), {
+                            'doc': 'The type of operation the account performed on the resource.'}),
 
                         ('account', ('inet:service:account', {}), {
                             'doc': 'The account that accessed the resource.'}),
 
+                        ('session', ('inet:service:session', {}), {
+                            'doc': 'The session that the account used to access the resource.'}),
+
                         ('resource', ('inet:service:resource', {}), {
                             'doc': 'The resource that was accessed by the account.'}),
 
+                        ('client', ('inet:client', {}), {
+                            'doc': 'The network address of the client which accessed the resource.'}),
+
+                        ('client:host', ('it:host', {}), {
+                            'doc': 'The client host which accessed the resource.'}),
+
+                        ('server', ('inet:server', {}), {
+                            'doc': 'The network address of the server which provided access to the resource.'}),
+
+                        ('server:host', ('it:host', {}), {
+                            'doc': 'The server host which provided access to the resource.'}),
+
                         ('data', ('data', {}), {
-                            'doc': 'Raw JSON data to capture any platform specific values.'}),
+                            'doc': 'Raw JSON data to capture any service specific values.'}),
                     )),
 
                 ),
