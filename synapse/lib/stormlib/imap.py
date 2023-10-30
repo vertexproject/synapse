@@ -69,6 +69,7 @@ class ImapLib(s_stormtypes.Lib):
             'connect': self.connect,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def connect(self, host, port=993, timeout=30, ssl=True):
 
         self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
@@ -278,6 +279,7 @@ class ImapServer(s_stormtypes.StormType):
         self.imap_cli = imap_cli
         self.locls.update(self.getObjLocals())
 
+    # FIXME Discuss these
     def getObjLocals(self):
         return {
             'list': self.list,

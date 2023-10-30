@@ -47,6 +47,7 @@ class Bzip2Lib(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -55,6 +56,7 @@ class Bzip2Lib(s_stormtypes.Lib):
             mesg = f'Error during bzip2 compression - {str(e)}: {repr(valu)[:256]}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def un(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -103,6 +105,7 @@ class GzipLib(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -111,6 +114,7 @@ class GzipLib(s_stormtypes.Lib):
             mesg = f'Error during gzip compression - {str(e)}: {repr(valu)[:256]}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def un(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -159,6 +163,7 @@ class ZlibLib(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -167,6 +172,7 @@ class ZlibLib(s_stormtypes.Lib):
             mesg = f'Error during zlib compression - {str(e)}: {repr(valu)[:256]}'
             raise s_exc.StormRuntimeError(mesg=mesg) from None
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def un(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:

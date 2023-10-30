@@ -23,6 +23,8 @@ class LibStorm(s_stormtypes.Lib):
             'eval': self._evalStorm,
         }
 
+    # FIXME Add test for this
+    # @s_stormtypes.stormfunc(readonly=True)
     async def _evalStorm(self, text, cast=None):
 
         text = await s_stormtypes.tostr(text)

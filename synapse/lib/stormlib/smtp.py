@@ -31,6 +31,7 @@ class SmtpLib(s_stormtypes.Lib):
             'message': self.message,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def message(self):
         return SmtpMessage(self.runt)
 
@@ -155,6 +156,8 @@ class SmtpMessage(s_stormtypes.StormType):
     # TODO
     # async def attach(self, sha256, name, mime):
 
+    # @s_stormtypes.stormfunc(readonly=True)
+    # FIXME DISCUSS THIS SINCE IT SEEMS INTENTIONAL?
     async def send(self, host, port=25, user=None, passwd=None, usetls=False, starttls=False, timeout=60):
 
         self.runt.confirm(('storm', 'inet', 'smtp', 'send'))
