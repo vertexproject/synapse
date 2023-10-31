@@ -1500,7 +1500,7 @@ class InetModule(s_module.CoreModule):
                             {'type': 'prop', 'opts': {'prop': 'type'}},
                             {'type': 'prop', 'opts': {'prop': 'url'}},
                         )},
-                        'doc': 'A resource provided by the serivce such as an S3 bucket, google document, shared file.'}),
+                        'doc': 'A resource provided by the serivce such as an S3 bucket, google document, or shared file.'}),
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('taxonomy',),
