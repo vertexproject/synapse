@@ -842,19 +842,19 @@ class RiskModule(s_module.CoreModule):
                 ('risk:leak', {}, (
 
                     ('time', ('time', {}), {
-                        'doc': 'The time the leaked information was disclosed.'),
+                        'doc': 'The time the leaked information was disclosed.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A description of the leak event.'),
+                        'doc': 'A description of the leak event.'}),
 
                     ('owner', ('ps:contact', {}), {
-                        'doc': 'The owner of the leaked information.'})
+                        'doc': 'The owner of the leaked information.'}),
 
                     ('leaker', ('ps:contact', {}), {
                         'doc': 'The identity which leaked the information.'}),
 
-                    ('type', ('risk:leak:type:taxonomy', {
+                    ('type', ('risk:leak:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the leak.'}),
 
                     ('goal', ('ou:goal', {}), {
@@ -883,7 +883,7 @@ class RiskModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The goal of the leaker in disclosing the information.'}),
 
-                    ('type', ('risk:extortion:type:taxonomy', {
+                    ('type', ('risk:extortion:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the leak.'}),
 
                     ('attacker', ('ps:contact', {}), {
@@ -899,13 +899,13 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Set to true if attacker carried out the threat.'}),
 
                     ('public', ('bool', {}), {
-                        'doc': 'Set to true if the attacker publicly announced the extortion.'),
+                        'doc': 'Set to true if the attacker publicly announced the extortion.'}),
 
                     ('public:url', ('inet:url', {}), {
-                        'doc': 'The URL where the attacker publicly announced the extortion.'),
+                        'doc': 'The URL where the attacker publicly announced the extortion.'}),
 
                     ('compromise', ('risk:compromise', {}), {
-                        'doc': 'The compromise which allowed the attacker to extort the target.'),
+                        'doc': 'The compromise which allowed the attacker to extort the target.'}),
 
                     ('demanded:payment', ('econ:acct:payment', {}), {
                         'doc': 'The payment demanded by the attacker.'}),
