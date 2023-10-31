@@ -1161,12 +1161,31 @@ class Ival(Type):
         self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
 
         self.timetype = self.modl.type('time')
+        self.duratype = self.modl.type('duration')
 
         # Range stuff with ival's don't make sense
         # self.indxcmpr.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
+        self.setCmprCtor('min=', self._ctorCmprMinEq)
+        self.setCmprCtor('min<', self._ctorCmprMinLt)
+        self.setCmprCtor('min>', self._ctorCmprMinGt)
+        self.setCmprCtor('min<=', self._ctorCmprMinLe)
+        self.setCmprCtor('min>=', self._ctorCmprMinGe)
+        self.setCmprCtor('min@=', self._ctorCmprMinAt)
+        self.setCmprCtor('max=', self._ctorCmprMaxEq)
+        self.setCmprCtor('max<', self._ctorCmprMaxLt)
+        self.setCmprCtor('max>', self._ctorCmprMaxGt)
+        self.setCmprCtor('max<=', self._ctorCmprMaxLe)
+        self.setCmprCtor('max>=', self._ctorCmprMaxGe)
+        self.setCmprCtor('max@=', self._ctorCmprMaxAt)
+        self.setCmprCtor('duration=', self._ctorCmprDurationEq)
+        self.setCmprCtor('duration<', self._ctorCmprDurationLt)
+        self.setCmprCtor('duration>', self._ctorCmprDurationGt)
+        self.setCmprCtor('duration<=', self._ctorCmprDurationLe)
+        self.setCmprCtor('duration>=', self._ctorCmprDurationGe)
+
         # _ctorCmprAt implements its own custom norm-style resolution
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)
@@ -1176,6 +1195,13 @@ class Ival(Type):
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
+
+        for part in ('min', 'max'):
+            self.storlifts[f'{part}@='] = self._storLiftPartAt
+
+        for part in ('min', 'max', 'duration'):
+            for oper in ('=', '<', '>', '<=', '>='):
+                self.storlifts[f'{part}{oper}'] = self._storLiftPart
 
     def _storLiftAt(self, cmpr, valu):
 
@@ -1222,6 +1248,169 @@ class Ival(Type):
                 return False
 
             if othr[1] <= norm[0]:
+                return False
+
+            return True
+
+        return cmpr
+
+    def _storLiftPart(self, cmpr, valu):
+        norm, _ = self.timetype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
+    def _storLiftPartAt(self, cmpr, valu):
+
+        if type(valu) not in (list, tuple):
+            return self._storLiftNorm(cmpr, valu)
+
+        ticktock = self.timetype.getTickTock(valu)
+        return (
+            (cmpr, ticktock, self.stortype),
+        )
+
+    def _getMin(self, valu):
+        return valu[0]
+
+    def _getMax(self, valu):
+        return valu[1]
+
+    def _getDuration(self, valu):
+        return valu[1] - valu[0]
+
+    def _ctorCmprMinEq(self, text):
+        return self._ctorCmprPartEqCommon(text, self.timetype, self._getMin)
+
+    def _ctorCmprMaxEq(self, text):
+        return self._ctorCmprPartEqCommon(text, self.timetype, self._getMax)
+
+    def _ctorCmprDurationEq(self, text):
+        return self._ctorCmprPartEqCommon(text, self.duratype, self._getDuration)
+
+    def _ctorCmprPartEqCommon(self, text, normtype, getr):
+        norm, _ = normtype.norm(text)
+
+        def cmpr(valu):
+            if (part := getr(valu)) is None:
+                return False
+            return part == norm
+        return cmpr
+
+    def _ctorCmprMinGe(self, text):
+        return self._ctorCmprPartGeCommon(text, self.timetype, self._getMin)
+
+    def _ctorCmprMaxGe(self, text):
+        return self._ctorCmprPartGeCommon(text, self.timetype, self._getMax)
+
+    def _ctorCmprDurationGe(self, text):
+        return self._ctorCmprPartGeCommon(text, self.duratype, self._getDuration)
+
+    def _ctorCmprPartGeCommon(self, text, normtype, getr):
+        norm, _ = normtype.norm(text)
+
+        def cmpr(valu):
+            if (part := getr(valu)) is None:
+                return False
+            return part >= norm
+        return cmpr
+
+    def _ctorCmprMinLe(self, text):
+        return self._ctorCmprPartLeCommon(text, self.timetype, self._getMin)
+
+    def _ctorCmprMaxLe(self, text):
+        return self._ctorCmprPartLeCommon(text, self.timetype, self._getMax)
+
+    def _ctorCmprDurationLe(self, text):
+        return self._ctorCmprPartLeCommon(text, self.duratype, self._getDuration)
+
+    def _ctorCmprPartLeCommon(self, text, normtype, getr):
+        norm, _ = normtype.norm(text)
+
+        def cmpr(valu):
+            if (part := getr(valu)) is None:
+                return False
+            return part <= norm
+        return cmpr
+
+    def _ctorCmprMinGt(self, text):
+        return self._ctorCmprPartGtCommon(text, self.timetype, self._getMin)
+
+    def _ctorCmprMaxGt(self, text):
+        return self._ctorCmprPartGtCommon(text, self.timetype, self._getMax)
+
+    def _ctorCmprDurationGt(self, text):
+        return self._ctorCmprPartGtCommon(text, self.duratype, self._getDuration)
+
+    def _ctorCmprPartGtCommon(self, text, normtype, getr):
+        norm, _ = normtype.norm(text)
+
+        def cmpr(valu):
+            if (part := getr(valu)) is None:
+                return False
+            return part > norm
+        return cmpr
+
+    def _ctorCmprMinLt(self, text):
+        return self._ctorCmprPartLtCommon(text, self.timetype, self._getMin)
+
+    def _ctorCmprMaxLt(self, text):
+        return self._ctorCmprPartLtCommon(text, self.timetype, self._getMax)
+
+    def _ctorCmprDurationLt(self, text):
+        return self._ctorCmprPartLtCommon(text, self.duratype, self._getDuration)
+
+    def _ctorCmprPartLtCommon(self, text, normtype, getr):
+        norm, _ = normtype.norm(text)
+
+        def cmpr(valu):
+            if (part := getr(valu)) is None:
+                return False
+            return part < norm
+        return cmpr
+
+    def _ctorCmprMinAt(self, valu):
+        return self._ctorCmprPartAtCommon(valu, self._getMin)
+
+    def _ctorCmprMaxAt(self, valu):
+        return self._ctorCmprPartAtCommon(valu, self._getMax)
+
+    def _ctorCmprPartAtCommon(self, valu, getr):
+
+        if valu is None or valu == (None, None):
+            def cmpr(item):
+                return False
+            return cmpr
+
+        if isinstance(valu, (str, int)):
+            norm = self.norm(valu)[0]
+        elif isinstance(valu, (list, tuple)):
+            minv, maxv = self._normByTickTock(valu)[0]
+            # Use has input the nullset in a comparison operation.
+            if minv >= maxv:
+                def cmpr(item):
+                    return False
+                return cmpr
+            else:
+                norm = (minv, maxv)
+        else:
+            raise s_exc.NoSuchFunc(name=self.name,
+                                   mesg='no norm for @= operator: %r' % (type(valu),))
+
+        def cmpr(item):
+            if item is None:
+                return False
+
+            if item == (None, None):
+                return False
+
+            othr, info = self.norm(item)
+            othr = getr(othr)
+
+            if othr >= norm[1]:
+                return False
+
+            if othr <= norm[0]:
                 return False
 
             return True
