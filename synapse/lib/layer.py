@@ -106,8 +106,6 @@ reqValidLdef = s_config.getJsValidator({
     'required': ['iden', 'creator', 'lockmemory'],
 })
 
-WINDOW_MAXSIZE = 10_000
-
 class LayerApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, layr):
@@ -244,6 +242,10 @@ EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
 
 EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
+
+SPEC_INDX_MIN = 0
+SPEC_INDX_MAX = 1
+SPEC_INDX_DURATION = 2
 
 class IndxBy:
     '''
@@ -424,6 +426,48 @@ class IndxByPropArray(IndxBy):
         if self.form:
             return f'IndxByPropArray: {self.form}:{self.prop}'
         return f'IndxByPropArray: {self.prop}'
+
+class IndxByPropIvalMax(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.getPropAbrv(form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.bypropivalmax)
+
+        self.form = form
+        self.prop = prop
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+
+        valt = sode['props'].get(self.prop)
+        if valt is not None:
+            return valt[0][1]
+
+class IndxByPropIvalDuration(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.getPropAbrv(form, prop)
+        IndxBy.__init__(self, layr, abrv, db=layr.bypropivaldura)
+
+        self.form = form
+        self.prop = prop
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+
+        valt = sode['props'].get(self.prop)
+        if valt is not None:
+            return valt[0][1] - valt[0][0]
 
 class IndxByTag(IndxBy):
 
@@ -1288,7 +1332,38 @@ class StorTypeIval(StorType):
         self.lifters.update({
             '=': self._liftIvalEq,
             '@=': self._liftIvalAt,
+            'min=': self._liftIvalMinEq,
+            'min<': self._liftIvalMinLt,
+            'min>': self._liftIvalMinGt,
+            'min<=': self._liftIvalMinLe,
+            'min>=': self._liftIvalMinGe,
+            'min@=': self._liftIvalMinAt,
         })
+
+        self.ivalindx = {
+            'max=': IndxByPropIvalMax,
+            'max<': IndxByPropIvalMax,
+            'max>': IndxByPropIvalMax,
+            'max<=': IndxByPropIvalMax,
+            'max>=': IndxByPropIvalMax,
+            'max@=': IndxByPropIvalMax,
+            'duration=': IndxByPropIvalDuration,
+            'duration<': IndxByPropIvalDuration,
+            'duration>': IndxByPropIvalDuration,
+            'duration<=': IndxByPropIvalDuration,
+            'duration>=': IndxByPropIvalDuration,
+        }
+
+    async def indxByProp(self, form, prop, cmpr, valu, reverse=False):
+        try:
+            indxtype = self.ivalindx.get(cmpr, IndxByProp)
+            indxby = indxtype(self.layr, form, prop)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
 
     async def _liftIvalEq(self, liftby, valu, reverse=False):
         if reverse:
@@ -1322,6 +1397,61 @@ class StorTypeIval(StorType):
                 continue
 
             yield lkey, nid
+
+    async def _liftIvalMinEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
+        indx = self.timetype.getIntIndx(valu)
+        for item in scan(indx):
+            yield item
+
+    async def _liftIvalMinGt(self, liftby, valu, reverse=False):
+        async for item in self._liftIvalMinGe(liftby, valu + 1, reverse=reverse):
+            yield item
+
+    async def _liftIvalMinGe(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        minv = max(valu, 0)
+
+        pkeymin = self.timetype.getIntIndx(minv) + self.timetype.zerobyts
+        pkeymax = self.timetype.fullbyts + self.timetype.fullbyts
+        for lkey, byts in scan(pkeymin, pkeymax):
+            yield (lkey, byts)
+
+    async def _liftIvalMinLt(self, liftby, valu, reverse=False):
+        async for item in self._liftIvalMinLe(liftby, valu - 1, reverse=reverse):
+            yield item
+
+    async def _liftIvalMinLe(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        maxv = min(valu, self.timetype.maxval)
+
+        pkeymin = self.timetype.zerobyts + self.timetype.zerobyts
+        pkeymax = self.timetype.getIntIndx(maxv) + self.timetype.fullbyts
+        for item in scan(pkeymin, pkeymax):
+            yield item
+
+    async def _liftIvalMinAt(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        pkeymin = self.timetype.getIntIndx(valu[0]) + self.timetype.zerobyts
+        pkeymax = self.timetype.getIntIndx(valu[1]) + self.timetype.fullbyts
+        for item in scan(pkeymin, pkeymax):
+            yield item
 
     def indx(self, valu):
         return (self.timetype.getIntIndx(valu[0]) + self.timetype.getIntIndx(valu[1]),)
@@ -2245,6 +2375,10 @@ class Layer(s_nexus.Pusher):
         self.byarray = self.layrslab.initdb('byarray', dupsort=True)
         self.bytagprop = self.layrslab.initdb('bytagprop', dupsort=True)
 
+        self.bytagspec = self.layrslab.initdb('bytagspec', dupsort=True)
+        self.bypropspec = self.layrslab.initdb('bypropspec', dupsort=True)
+        self.bytagpropspec = self.layrslab.initdb('bytagpropspec', dupsort=True)
+
         self.countdb = self.layrslab.initdb('counters')
         self.nodedata = self.dataslab.initdb('nodedata')
         self.dataname = self.dataslab.initdb('dataname', dupsort=True)
@@ -2892,6 +3026,19 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.byprop)
 
+                if stortype == STOR_TYPE_IVAL:
+                    dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))
+
+                    self.layrslab.delete(abrv + dura, buid, db=self.bypropivaldura)
+                    if univabrv is not None:
+                        self.layrslab.delete(univabrv + dura, buid, db=self.bypropivaldura)
+
+                    if not oldv[1] == valu[1]:
+                        oldi = oldi[8:]
+                        self.layrslab.delete(abrv + oldi , buid, db=self.bypropivalmax)
+                        if univabrv is not None:
+                            self.layrslab.delete(univabrv + oldi, buid, db=self.bypropivalmax)
+
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(sode)
 
@@ -2913,6 +3060,19 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(abrv + indx, nid, db=self.byprop)
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, nid, db=self.byprop)
+
+            if stortype == STOR_TYPE_IVAL:
+                dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))
+
+                self.layrslab.put(abrv + dura, buid, db=self.bypropivaldura)
+                if univabrv is not None:
+                    self.layrslab.put(univabrv + dura, buid, db=self.bypropivaldura)
+
+                if not oldv[1] == valu[1]:
+                    indx = indx[8:]
+                    self.layrslab.put(abrv + indx , buid, db=self.bypropivalmax)
+                    if univabrv is not None:
+                        self.layrslab.put(univabrv + indx, buid, db=self.bypropivalmax)
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
@@ -3773,7 +3933,7 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             raise s_exc.BadConfValu(mesg='Layer logging must be enabled for getting nodeedits')
 
-        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
 
             async def fini():
                 self.windows.remove(wind)
