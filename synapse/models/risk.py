@@ -841,12 +841,15 @@ class RiskModule(s_module.CoreModule):
                 ('risk:leak:type:taxonomy', {}, ()),
                 ('risk:leak', {}, (
 
-                    ('time', ('time', {}), {
-                        'doc': 'The time the leaked information was disclosed.'}),
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A simple name for the leak event.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the leak event.'}),
+
+                    ('disclosed', ('time', {}), {
+                        'doc': 'The time the leaked information was disclosed.'}),
 
                     ('owner', ('ps:contact', {}), {
                         'doc': 'The owner of the leaked information.'}),
@@ -907,8 +910,12 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'The compromise which allowed the attacker to extort the target.'}),
 
-                    ('demanded:payment', ('econ:acct:payment', {}), {
-                        'doc': 'The payment demanded by the attacker.'}),
+                    ('demanded:payment:price', ('econ:price', {}), {
+                        'doc': 'The payment price which was demanded.'}),
+
+                    ('demanded:payment:currency', ('econ:currency', {}), {
+                        'doc': 'The currency in which payment was demanded.'}),
+
                 )),
             ),
         }
