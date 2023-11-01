@@ -1213,6 +1213,11 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'pluto\udcbaneptune'))
 
+            # test regular expressions are case insensitive by default
+            self.len(1, await core.nodes('test:str~=Pluto'))
+            self.len(1, await core.nodes('test:str +test:str~=Pluto'))
+            self.true(await core.callStorm('return(("Foo" ~= "foo"))'))
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:
