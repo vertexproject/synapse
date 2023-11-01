@@ -1217,6 +1217,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:str~=Pluto'))
             self.len(1, await core.nodes('test:str +test:str~=Pluto'))
             self.true(await core.callStorm('return(("Foo" ~= "foo"))'))
+            self.len(0, await core.nodes('test:str~="(?-i:Pluto)"'))
+            self.len(0, await core.nodes('test:str +test:str~="(?-i:Pluto)"'))
+            self.false(await core.callStorm('return(("Foo" ~= "(?-i:foo)"))'))
+            self.true(await core.callStorm('return(("Foo" ~= "(?-i:Foo)"))'))
 
     async def test_storm_diff_merge(self):
 
