@@ -1418,88 +1418,33 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A JARM hash sample taken from a server.'}),
 
                     ('inet:service:instance', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'instance::type'}},
-                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'id'}},
-                            {'type': 'prop', 'opts': {'prop': 'name'}},
-                        )},
                         'doc': 'An instance of a service, for example twitter or a specific slack instance.'}),
 
                     ('inet:service:account', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'instance::type'}},
-                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'id'}},
-                            {'type': 'prop', 'opts': {'prop': 'name'}},
-                        )},
                         'doc': 'An account within a service.'}),
 
                     ('inet:service:group', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'instance::type'}},
-                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'id'}},
-                            {'type': 'prop', 'opts': {'prop': 'name'}},
-                        )},
                         'doc': 'An account group/role within a service.'}),
 
                     ('inet:service:message', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'sender::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'time'}},
-                            {'type': 'prop', 'opts': {'prop': 'text'}},
-                        )},
                         'doc': 'A message or post sent by an account.'}),
 
                     ('inet:service:message:link', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'message::time'}},
-                            {'type': 'embed', 'opts': {'embed': 'message::sender::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'title'}},
-                            {'type': 'prop', 'opts': {'prop': 'url'}},
-                        )},
                         'doc': 'A URL attached to a message.'}),
 
                     ('inet:service:message:attachment', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'prop', 'opts': {'prop': 'name'}},
-                            {'type': 'prop', 'opts': {'prop': 'file'}},
-                            {'type': 'embed', 'opts': {'embed': 'message::time'}},
-                            {'type': 'embed', 'opts': {'embed': 'message::sender::name'}},
-                        )},
                         'doc': 'A file attached to a message.'}),
 
                     ('inet:service:channel', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'prop', 'opts': {'prop': 'name'}},
-                            {'type': 'prop', 'opts': {'prop': 'created'}},
-                            {'type': 'embed', 'opts': {'embed': 'instance::name'}},
-                        )},
                         'doc': 'A message distribution channel within a service.'}),
 
                     ('inet:service:channel:member', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'account::name'}},
-                            {'type': 'embed', 'opts': {'embed': 'channel::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'period'}},
-                        )},
                         'doc': 'An account which is a member of a channel.'}),
 
                     ('inet:service:group:member', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'embed', 'opts': {'embed': 'account::name'}},
-                            {'type': 'embed', 'opts': {'embed': 'group::name'}},
-                            {'type': 'prop', 'opts': {'prop': 'period'}},
-                        )},
                         'doc': 'An account which is a member of a group.'}),
 
                     ('inet:service:resource', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'prop', 'opts': {'prop': 'name'}},
-                            {'type': 'prop', 'opts': {'prop': 'type'}},
-                            {'type': 'prop', 'opts': {'prop': 'url'}},
-                        )},
                         'doc': 'A resource provided by the serivce such as an S3 bucket, google document, or shared file.'}),
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
@@ -1507,9 +1452,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A serivce login method taxonomy.'}),
 
                     ('inet:service:login', ('guid', {}), {
-                        'display': {'columns': (
-                            # TODO
-                        )},
                         'doc': 'A resource provided by the serivce such as an S3 bucket, google document, shared file.'}),
 
                     ('inet:service:session', ('guid', {}), {
@@ -1519,12 +1461,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A distinct egress address for a service client.'}),
 
                     ('inet:service:access', ('guid', {}), {
-                        'display': {'columns': (
-                            {'type': 'prop', 'opts': {'prop': 'time'}},
-                            {'type': 'prop', 'opts': {'prop': 'type'}},
-                            {'type': 'embed', 'opts': {'embed': 'account::name'}},
-                            {'type': 'embed', 'opts': {'embed': 'resource::name'}},
-                        )},
                         'doc': 'An event where an account accessed a resource provided by a service instance.'}),
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
