@@ -2667,7 +2667,7 @@ class Layer(s_nexus.Pusher):
 
         if refs <= 0:
             self.dirty.pop(nid, None)
-            self.weakcache.pop(nid, None)
+#            self.weakcache.pop(nid, None)
             self.nidcache.pop(nid, None)
             self.layrslab.delete(nid, db=self.bynid)
             self.core.incBuidNid(nid, inc=-1)
@@ -3174,6 +3174,9 @@ class Layer(s_nexus.Pusher):
         # inc the sode refs and mark them both dirty
         self._incSodeRefs(buid, sode)
         self._incSodeRefs(n2buid, n2sode)
+
+        if n1nid is None:
+            n1nid = sode.get('nid')
 
         n1n2nid = n1nid + n2nid
 
