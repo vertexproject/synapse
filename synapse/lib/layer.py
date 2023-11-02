@@ -555,7 +555,7 @@ class StorType:
 
     async def _liftRegx(self, liftby, valu, reverse=False):
 
-        regx = regex.compile(valu)
+        regx = regex.compile(valu, flags=regex.I)
 
         abrvlen = liftby.abrvlen
         isarray = isinstance(liftby, IndxByPropArray)
