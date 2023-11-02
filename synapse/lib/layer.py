@@ -428,15 +428,6 @@ class IndxByPropIvalMax(IndxBy):
         self.form = form
         self.prop = prop
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-
-        valt = sode['props'].get(self.prop)
-        if valt is not None:
-            return valt[0][1]
-
 class IndxByPropIvalDuration(IndxBy):
 
     def __init__(self, layr, form, prop):
@@ -448,15 +439,6 @@ class IndxByPropIvalDuration(IndxBy):
 
         self.form = form
         self.prop = prop
-
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-
-        valt = sode['props'].get(self.prop)
-        if valt is not None:
-            return valt[0][1] - valt[0][0]
 
 class IndxByTag(IndxBy):
 
@@ -499,14 +481,6 @@ class IndxByTagIvalMin(IndxBy):
         self.form = form
         self.tag = tag
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-        valu = sode['tags'].get(self.tag)
-        if valu is not None:
-            return valu[0]
-
 class IndxByTagIvalMax(IndxBy):
 
     def __init__(self, layr, form, tag):
@@ -523,14 +497,6 @@ class IndxByTagIvalMax(IndxBy):
         self.form = form
         self.tag = tag
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-        valu = sode['tags'].get(self.tag)
-        if valu is not None:
-            return valu[1]
-
 class IndxByTagIvalDuration(IndxBy):
 
     def __init__(self, layr, form, tag):
@@ -546,14 +512,6 @@ class IndxByTagIvalDuration(IndxBy):
 
         self.form = form
         self.tag = tag
-
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-        valu = sode['tags'].get(self.tag)
-        if valu is not None:
-            return valu[1] - valu[0]
 
 class IndxByTagProp(IndxBy):
 
@@ -605,18 +563,6 @@ class IndxByTagPropIvalMax(IndxBy):
         self.prop = prop
         self.tag = tag
 
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-        props = sode['tagprops'].get(self.tag)
-        if not props:
-            return
-
-        valu = props.get(self.prop)
-        if valu is not None:
-            return valu[0][1]
-
 class IndxByTagPropIvalDuration(IndxBy):
 
     def __init__(self, layr, form, prop):
@@ -629,18 +575,6 @@ class IndxByTagPropIvalDuration(IndxBy):
         self.form = form
         self.prop = prop
         self.tag = tag
-
-    def getNodeValu(self, buid):
-        sode = self.layr._getStorNode(buid)
-        if sode is None: # pragma: no cover
-            return None
-        props = sode['tagprops'].get(self.tag)
-        if not props:
-            return
-
-        valu = props.get(self.prop)
-        if valu is not None:
-            return valu[0][1] - valu[0][0]
 
 class StorType:
 
@@ -3379,14 +3313,14 @@ class Layer(s_nexus.Pusher):
         else:
             scan = self.layrslab.scanByPref
 
-        for indx, buid in scan(abrv, db=self.bytagprop):
+        for lkey, buid in scan(abrv, db=self.bytagprop):
 
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover
                 # logger.warning(f'TagPropIndex for {form}#{tag}:{prop} has {s_common.ehex(buid)} but no storage node.')
                 continue
 
-            yield indx, buid, deepcopy(sode)
+            yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
         '''
@@ -3416,12 +3350,12 @@ class Layer(s_nexus.Pusher):
         else:
             scan = self.layrslab.scanByPref
 
-        for indx, buid in scan(abrv, db=self.byprop):
+        for lkey, buid in scan(abrv, db=self.byprop):
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover
                 # logger.warning(f'PropIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
                 continue
-            yield indx, buid, deepcopy(sode)
+            yield lkey[8:], buid, deepcopy(sode)
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals, reverse=False):
@@ -4037,7 +3971,6 @@ class Layer(s_nexus.Pusher):
                         oldi = oldi[8:]
                         self.layrslab.delete(INDX_IVAL_MAX + tp_abrv + oldi, buid, db=self.bytagpropspec)
                         self.layrslab.delete(INDX_IVAL_MAX + ftp_abrv + oldi, buid, db=self.bytagpropspec)
-
 
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
