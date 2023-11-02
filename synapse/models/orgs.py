@@ -10,6 +10,12 @@ contracttypes = (
     'partnership',
 )
 
+reqlevels = (
+    (10, 'may'),
+    (20, 'should'),
+    (30, 'must'),
+)
+
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -202,6 +208,8 @@ class OuModule(s_module.CoreModule):
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
+                ('ou:requirement', ('guid', {}), {
+                    'doc': 'A specific requirement.'}),
             ),
             'edges': (
                 (('ou:campaign', 'uses', 'ou:technique'), {
@@ -219,6 +227,12 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The campaign made use of the target node.'}),
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
+
+                (('ou:requirement', 'depends', 'ou:requirement'), {
+                    'doc': 'The source requirement depends on the target requirement.'}),
+
+                ((None, 'meets', 'ou:requirement'), {
+                    'doc': 'The source node demonstrates that the requirement is met.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -634,8 +648,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The assessed goals of the organization.'
-                    }),
+                        'doc': 'The assessed goals of the organization.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A base tag used to encode assessments made by the organization.'}),
                 )),
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
@@ -1122,6 +1138,39 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The contest result website URL.',
                     }),
                     # TODO duration ('duration'
+                )),
+                ('ou:requirement', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the requirement.'}),
+
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The text of the stated requirement.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of the requirement.'}),
+
+                    ('level', ('int', {'enums': reqlevels}), {
+                        'doc': 'The level of requirement.'}),
+
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The goal that the requirement is designed to achieve.'}),
+
+                    ('active', ('bool', {}), {
+                        'doc': 'Set to true if the requirement is currently active.'}),
+
+                    ('issued', ('time', {}), {
+                        'doc': 'The time that the requirement was first issued.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time window where the goal must be met. Can be ongoing.'}),
+
+                    ('issuer', ('ps:contact', {}), {
+                        'doc': 'The contact information of the entity which issued the requirement.'}),
+
+                    ('assignee', ('ps:contact', {}), {
+                        'doc': 'The contact information of the entity which is assigned to meet the requirement.'}),
                 )),
             )
         }

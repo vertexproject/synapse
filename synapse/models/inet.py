@@ -924,6 +924,10 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
+            # allow MS specific wild card syntax
+            if host is None and part == '+':
+                host = '+'
+
         if host and local:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Host specified on local-only file URI') from None
@@ -950,10 +954,8 @@ class Url(s_types.Str):
             if port is not None:
                 hostparts = f'{hostparts}:{port}'
 
-        if proto != 'file':
-            if (not subs.get('fqdn')) and (subs.get('ipv4') is None) and (subs.get('ipv6') is None):
-                raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                        mesg='Missing address/url') from None
+        if proto != 'file' and host is None:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base

@@ -1440,6 +1440,12 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
+            nodes = await core.nodes('[ inet:url="https://+:80/woot" ]')
+            self.len(1, nodes)
+
+            self.none(nodes[0].get('ipv4'))
+            self.none(nodes[0].get('fqdn'))
+
     async def test_url_file(self):
 
         async with self.getTestCore() as core:
