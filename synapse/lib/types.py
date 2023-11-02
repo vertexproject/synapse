@@ -1208,9 +1208,12 @@ class Ival(Type):
         for part in ('min', 'max'):
             self.storlifts[f'{part}@='] = self._storLiftPartAt
 
-        for part in ('min', 'max', 'duration'):
+        for part in ('min', 'max'):
             for oper in ('=', '<', '>', '<=', '>='):
                 self.storlifts[f'{part}{oper}'] = self._storLiftPart
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.storlifts[f'duration{oper}'] = self._storLiftDuration
 
     def _storLiftAt(self, cmpr, valu):
 
@@ -1279,6 +1282,12 @@ class Ival(Type):
             (cmpr, ticktock, self.stortype),
         )
 
+    def _storLiftDuration(self, cmpr, valu):
+        norm, _ = self.duratype.norm(valu)
+        return (
+            (cmpr, norm, self.stortype),
+        )
+
     def _getMin(self, valu):
         return valu[0]
 
@@ -1301,7 +1310,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
+            if valu is None or (part := getr(valu)) is None:
                 return False
             return part == norm
         return cmpr
@@ -1319,7 +1328,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
+            if valu is None or (part := getr(valu)) is None:
                 return False
             return part >= norm
         return cmpr
@@ -1337,7 +1346,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
+            if valu is None or (part := getr(valu)) is None:
                 return False
             return part <= norm
         return cmpr
@@ -1355,7 +1364,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
+            if valu is None or (part := getr(valu)) is None:
                 return False
             return part > norm
         return cmpr
@@ -1373,7 +1382,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if (part := getr(valu)) is None:
+            if valu is None (part := getr(valu)) is None:
                 return False
             return part < norm
         return cmpr

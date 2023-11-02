@@ -458,6 +458,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
+                print(node)
                 valu = node.ndef[1]
                 self.gt(valu, last)
                 last = valu
