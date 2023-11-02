@@ -4861,7 +4861,7 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             raise s_exc.BadConfValu(mesg='Layer logging must be enabled for getting nodeedits')
 
-        async with await s_queue.Window.anit(maxsize=10000) as wind:
+        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
 
             async def fini():
                 self.windows.remove(wind)
