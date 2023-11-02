@@ -567,3 +567,8 @@ class NodeTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(1, nodes[0][1]['tags'])
             self.isin('ping', nodes[0][1]['tags'])
+
+            nodes = await core.nodes('test:int=12 | [ -#p ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].tags)
+            self.isin('ping', nodes[0].tags)
