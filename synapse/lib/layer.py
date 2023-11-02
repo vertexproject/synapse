@@ -106,6 +106,8 @@ reqValidLdef = s_config.getJsValidator({
     'required': ['iden', 'creator', 'lockmemory'],
 })
 
+WINDOW_MAXSIZE = 10_000
+
 class LayerApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, layr):
@@ -221,6 +223,8 @@ STOR_TYPE_HUGENUM = 23
 
 STOR_TYPE_MAXTIME = 24
 
+STOR_TYPE_TAG_IVAL = 25
+
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
 
@@ -243,9 +247,16 @@ EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
 
 EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
 
-SPEC_INDX_MIN = 0
-SPEC_INDX_MAX = 1
-SPEC_INDX_DURATION = 2
+INDX_NORM = b'\x00\x00'
+INDX_ARRAY = b'\x00\x01'
+
+INDX_IVAL_MIN = b'\x00\x02'
+INDX_IVAL_MAX = b'\x00\x03'
+INDX_IVAL_DURATION = b'\x00\x04'
+
+INDX_TAGFORM_MIN = b'\x00\x05'
+INDX_TAGFORM_MAX = b'\x00\x06'
+INDX_TAGFORM_DURATION = b'\x00\x07'
 
 class IndxBy:
     '''
@@ -427,6 +438,18 @@ class IndxByPropArray(IndxBy):
             return f'IndxByPropArray: {self.form}:{self.prop}'
         return f'IndxByPropArray: {self.prop}'
 
+class IndxByPropIvalMin(IndxByProp):
+
+    def keyBuidsByRange(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+
 class IndxByPropIvalMax(IndxBy):
 
     def __init__(self, layr, form, prop):
@@ -434,7 +457,7 @@ class IndxByPropIvalMax(IndxBy):
         Note:  may raise s_exc.NoSuchAbrv
         '''
         abrv = layr.getPropAbrv(form, prop)
-        IndxBy.__init__(self, layr, abrv, db=layr.bypropivalmax)
+        IndxBy.__init__(self, layr, INDX_IVAL_MAX + abrv, db=layr.bypropspec)
 
         self.form = form
         self.prop = prop
@@ -455,7 +478,7 @@ class IndxByPropIvalDuration(IndxBy):
         Note:  may raise s_exc.NoSuchAbrv
         '''
         abrv = layr.getPropAbrv(form, prop)
-        IndxBy.__init__(self, layr, abrv, db=layr.bypropivaldura)
+        IndxBy.__init__(self, layr, INDX_IVAL_DURATION + abrv, db=layr.bypropspec)
 
         self.form = form
         self.prop = prop
@@ -496,6 +519,78 @@ class IndxByTag(IndxBy):
             return valt[0], sode['form']
         return s_common.novalu
 
+class IndxByTagIvalMin(IndxBy):
+
+    def __init__(self, layr, form, tag):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.tagabrv.bytsToAbrv(tag.encode())
+        if form is not None:
+            abrv += layr.getPropAbrv(form, None)
+            IndxBy.__init__(self, layr, INDX_TAGFORM_MIN + abrv, db=layr.bytagspec)
+        else:
+            IndxBy.__init__(self, layr, INDX_IVAL_MIN + abrv, db=layr.bytagspec)
+
+        self.form = form
+        self.tag = tag
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+        valu = sode['tags'].get(self.tag)
+        if valu is not None:
+            return valu[0]
+
+class IndxByTagIvalMax(IndxBy):
+
+    def __init__(self, layr, form, tag):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.tagabrv.bytsToAbrv(tag.encode())
+        if form is not None:
+            abrv += layr.getPropAbrv(form, None)
+            IndxBy.__init__(self, layr, INDX_TAGFORM_MAX + abrv, db=layr.bytagspec)
+        else:
+            IndxBy.__init__(self, layr, INDX_IVAL_MAX + abrv, db=layr.bytagspec)
+
+        self.form = form
+        self.tag = tag
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+        valu = sode['tags'].get(self.tag)
+        if valu is not None:
+            return valu[1]
+
+class IndxByTagIvalDuration(IndxBy):
+
+    def __init__(self, layr, form, tag):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.tagabrv.bytsToAbrv(tag.encode())
+        if form is not None:
+            abrv += layr.getPropAbrv(form, None)
+            IndxBy.__init__(self, layr, INDX_TAGFORM_DURATION + abrv, db=layr.bytagspec)
+        else:
+            IndxBy.__init__(self, layr, INDX_IVAL_DURATION + abrv, db=layr.bytagspec)
+
+        self.form = form
+        self.tag = tag
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+        valu = sode['tags'].get(self.tag)
+        if valu is not None:
+            return valu[1] - valu[0]
+
 class IndxByTagProp(IndxBy):
 
     def __init__(self, layr, form, tag, prop):
@@ -529,6 +624,68 @@ class IndxByTagProp(IndxBy):
 
         return valt[0]
 
+class IndxByTagPropIvalMin(IndxByTagProp):
+
+    def keyBuidsByRange(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRange(strt, stop, db=self.db)
+
+    def keyBuidsByRangeBack(self, minindx, maxindx):
+        strt = self.abrv + minindx + self.layr.ivaltimetype.zerobyts
+        stop = self.abrv + maxindx + self.layr.ivaltimetype.fullbyts
+        yield from self.layr.layrslab.scanByRangeBack(stop, strt, db=self.db)
+
+class IndxByTagPropIvalMax(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.getTagPropAbrv(form, tag, prop)
+        IndxBy.__init__(self, layr, INDX_IVAL_MAX + abrv, db=layr.bytagpropspec)
+
+        self.form = form
+        self.prop = prop
+        self.tag = tag
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+        props = sode['tagprops'].get(self.tag)
+        if not props:
+            return
+
+        valu = props.get(self.prop)
+        if valu is not None:
+            return valu[0][1]
+
+class IndxByTagPropIvalDuration(IndxBy):
+
+    def __init__(self, layr, form, prop):
+        '''
+        Note:  may raise s_exc.NoSuchAbrv
+        '''
+        abrv = layr.getTagPropAbrv(form, tag, prop)
+        IndxBy.__init__(self, layr, INDX_IVAL_DURATION + abrv, db=layr.bytagpropspec)
+
+        self.form = form
+        self.prop = prop
+        self.tag = tag
+
+    def getNodeValu(self, buid):
+        sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+        props = sode['tagprops'].get(self.tag)
+        if not props:
+            return
+
+        valu = props.get(self.prop)
+        if valu is not None:
+            return valu[0][1] - valu[0][0]
+
 class StorType:
 
     def __init__(self, layr, stortype):
@@ -542,8 +699,9 @@ class StorType:
         if func is None:
             raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
-        async for item in func(liftby, valu, reverse=reverse):
-            yield item
+        abrvlen = liftby.abrvlen
+        async for lkey, buid in func(liftby, valu, reverse=reverse):
+            yield lkey[abrvlen:], buid
 
     async def indxByForm(self, form, cmpr, valu, reverse=False):
         try:
@@ -764,23 +922,8 @@ class StorTypeTag(StorTypeHier):
             return filt1
 
         if cmpr == '@=':
-
             def filt2(item):
-
-                if item is None:
-                    return False
-
-                if item == (None, None):
-                    return False
-
-                if item[0] >= valu[1]:
-                    return False
-
-                if item[1] <= valu[0]:
-                    return False
-
-                return True
-
+                return item[1] > valu[0]
             return filt2
 
 class StorTypeFqdn(StorTypeUtf8):
@@ -1326,38 +1469,67 @@ class StorTypeTime(StorTypeInt):
 
 class StorTypeIval(StorType):
 
-    def __init__(self, layr):
+    def __init__(self, layr, stortype):
         StorType.__init__(self, layr, STOR_TYPE_IVAL)
         self.timetype = StorTypeTime(layr)
         self.lifters.update({
             '=': self._liftIvalEq,
             '@=': self._liftIvalAt,
-            'min=': self._liftIvalMinEq,
-            'min<': self._liftIvalMinLt,
-            'min>': self._liftIvalMinGt,
-            'min<=': self._liftIvalMinLe,
-            'min>=': self._liftIvalMinGe,
-            'min@=': self._liftIvalMinAt,
+            'min=': self._liftIvalPartEq,
+            'min<': self._liftIvalPartLt,
+            'min>': self._liftIvalPartGt,
+            'min<=': self._liftIvalPartLe,
+            'min>=': self._liftIvalPartGe,
+            'min@=': self._liftIvalPartAt,
+            'max=': self._liftIvalPartEq,
+            'max<': self._liftIvalPartLt,
+            'max>': self._liftIvalPartGt,
+            'max<=': self._liftIvalPartLe,
+            'max>=': self._liftIvalPartGe,
+            'max@=': self._liftIvalPartAt,
+            'duration=': self._liftIvalPartEq,
+            'duration<': self._liftIvalPartLt,
+            'duration>': self._liftIvalPartGt,
+            'duration<=': self._liftIvalPartLe,
+            'duration>=': self._liftIvalPartGe,
         })
 
-        self.ivalindx = {
-            'max=': IndxByPropIvalMax,
-            'max<': IndxByPropIvalMax,
-            'max>': IndxByPropIvalMax,
-            'max<=': IndxByPropIvalMax,
-            'max>=': IndxByPropIvalMax,
+        self.propspecindx = {
+            '@=': IndxByPropIvalMin,
+            'min@=': IndxByPropIvalMin,
             'max@=': IndxByPropIvalMax,
-            'duration=': IndxByPropIvalDuration,
-            'duration<': IndxByPropIvalDuration,
-            'duration>': IndxByPropIvalDuration,
-            'duration<=': IndxByPropIvalDuration,
-            'duration>=': IndxByPropIvalDuration,
         }
+
+        self.tagpropspecindx = {
+            'min@=': IndxByTagPropIvalMin,
+            'max@=': IndxByTagPropIvalMax,
+        }
+
+        for cmpr in ('=', '<', '>', '<=', '>='):
+            self.propspecindx[f'min{cmpr}'] = IndxByPropIvalMin
+            self.tagpropspecindx[f'min{cmpr}'] = IndxByTagPropIvalMin
+
+            self.propspecindx[f'max{cmpr}'] = IndxByPropIvalMax
+            self.tagpropspecindx[f'max{cmpr}'] = IndxByTagPropIvalMax
+
+            self.propspecindx[f'duration{cmpr}'] = IndxByPropIvalDuration
+            self.tagpropspecindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False):
         try:
-            indxtype = self.ivalindx.get(cmpr, IndxByProp)
+            indxtype = self.propspecindx.get(cmpr, IndxByProp)
             indxby = indxtype(self.layr, form, prop)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
+    async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False):
+        try:
+            indxtype = self.tagpropspecindx.get(cmpr, IndxByTagProp)
+            indxby = indxtype(self.layr, form, tag, prop)
 
         except s_exc.NoSuchAbrv:
             return
@@ -1377,28 +1549,25 @@ class StorTypeIval(StorType):
 
     async def _liftIvalAt(self, liftby, valu, reverse=False):
         if reverse:
-            scan = liftby.scanByPrefBack
+            scan = liftby.keyBuidsByRangeBack
         else:
-            scan = liftby.scanByPref
+            scan = liftby.keyBuidsByRange
 
         minindx = self.timetype.getIntIndx(valu[0])
-        maxindx = self.timetype.getIntIndx(valu[1])
+        maxindx = self.timetype.getIntIndx(valu[1] - 1)
 
-        for lkey, nid in scan():
+        pkeymin = self.timetype.zerobyts + self.timetype.zerobyts
+        pkeymax = maxindx + self.timetype.fullbyts
 
-            tick = lkey[-16:-8]
-            tock = lkey[-8:]
+        for lkey, nid in scan(pkeymin, pkeymax):
 
-            # check for non-ovelap left and right
-            if tick >= maxindx:
-                continue
-
-            if tock <= minindx:
+            # check for non-overlap right
+            if lkey[-8:] <= minindx:
                 continue
 
             yield lkey, nid
 
-    async def _liftIvalMinEq(self, liftby, valu, reverse=False):
+    async def _liftIvalPartEq(self, liftby, valu, reverse=False):
         if reverse:
             scan = liftby.keyBuidsByPrefBack
         else:
@@ -1408,11 +1577,11 @@ class StorTypeIval(StorType):
         for item in scan(indx):
             yield item
 
-    async def _liftIvalMinGt(self, liftby, valu, reverse=False):
-        async for item in self._liftIvalMinGe(liftby, valu + 1, reverse=reverse):
+    async def _liftIvalPartGt(self, liftby, valu, reverse=False):
+        async for item in self._liftIvalPartGe(liftby, valu + 1, reverse=reverse):
             yield item
 
-    async def _liftIvalMinGe(self, liftby, valu, reverse=False):
+    async def _liftIvalPartGe(self, liftby, valu, reverse=False):
         if reverse:
             scan = liftby.keyBuidsByRangeBack
         else:
@@ -1420,16 +1589,16 @@ class StorTypeIval(StorType):
 
         minv = max(valu, 0)
 
-        pkeymin = self.timetype.getIntIndx(minv) + self.timetype.zerobyts
-        pkeymax = self.timetype.fullbyts + self.timetype.fullbyts
-        for lkey, byts in scan(pkeymin, pkeymax):
-            yield (lkey, byts)
-
-    async def _liftIvalMinLt(self, liftby, valu, reverse=False):
-        async for item in self._liftIvalMinLe(liftby, valu - 1, reverse=reverse):
+        pkeymin = self.timetype.getIntIndx(minv)
+        pkeymax = self.timetype.fullbyts
+        for item in scan(pkeymin, pkeymax):
             yield item
 
-    async def _liftIvalMinLe(self, liftby, valu, reverse=False):
+    async def _liftIvalPartLt(self, liftby, valu, reverse=False):
+        async for item in self._liftIvalPartLe(liftby, valu - 1, reverse=reverse):
+            yield item
+
+    async def _liftIvalPartLe(self, liftby, valu, reverse=False):
         if reverse:
             scan = liftby.keyBuidsByRangeBack
         else:
@@ -1437,19 +1606,19 @@ class StorTypeIval(StorType):
 
         maxv = min(valu, self.timetype.maxval)
 
-        pkeymin = self.timetype.zerobyts + self.timetype.zerobyts
-        pkeymax = self.timetype.getIntIndx(maxv) + self.timetype.fullbyts
+        pkeymin = self.timetype.zerobyts
+        pkeymax = self.timetype.getIntIndx(maxv)
         for item in scan(pkeymin, pkeymax):
             yield item
 
-    async def _liftIvalMinAt(self, liftby, valu, reverse=False):
+    async def _liftIvalPartAt(self, liftby, valu, reverse=False):
         if reverse:
             scan = liftby.keyBuidsByRangeBack
         else:
             scan = liftby.keyBuidsByRange
 
-        pkeymin = self.timetype.getIntIndx(valu[0]) + self.timetype.zerobyts
-        pkeymax = self.timetype.getIntIndx(valu[1]) + self.timetype.fullbyts
+        pkeymin = self.timetype.getIntIndx(valu[0])
+        pkeymax = self.timetype.getIntIndx(valu[1])
         for item in scan(pkeymin, pkeymax):
             yield item
 
@@ -1458,6 +1627,56 @@ class StorTypeIval(StorType):
 
     def decodeIndx(self, bytz):
         return (self.timetype.decodeIndx(bytz[:8]), self.timetype.decodeIndx(bytz[8:]))
+
+class StorTypeTagIval(StorTypeIval):
+
+    def __init__(self, layr):
+        StorTypeIval.__init__(self, layr, STOR_TYPE_TAG_IVAL)
+
+        self.lifters.update({
+            '=': self._liftTagIvalEq,
+            '@=': self._liftTagIvalAt,
+        })
+
+        self.tagspecindx = {
+            'max@=': IndxByTagIvalMax
+        }
+
+        for cmpr in ('=', '<', '>', '<=', '>='):
+            self.tagspecindx[f'max{cmpr}'] = IndxByTagIvalMax
+            self.tagspecindx[f'duration{cmpr}'] = IndxByTagIvalDuration
+
+    async def indxByTag(self, tag, cmpr, valu, form=None, reverse=False):
+        try:
+            indxtype = self.tagspecindx.get(cmpr, IndxByTagIvalMin)
+            indxby = indxtype(self.layr, form, tag)
+
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for item in self.indxBy(indxby, cmpr, valu, reverse=reverse):
+            yield item
+
+    async def _liftTagIvalEq(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByPrefBack
+        else:
+            scan = liftby.keyBuidsByPref
+
+        tick = self.timetype.getIntIndx(valu[0])
+        for item in scan(tick):
+            yield item
+
+    async def _liftTagIvalAt(self, liftby, valu, reverse=False):
+        if reverse:
+            scan = liftby.keyBuidsByRangeBack
+        else:
+            scan = liftby.keyBuidsByRange
+
+        pkeymin = self.timetype.zerobyts
+        pkeymax = self.timetype.getIntIndx(valu[1] - 1)
+        for item in scan(pkeymin, pkeymax):
+            yield item
 
 class StorTypeMsgp(StorType):
 
@@ -1630,7 +1849,7 @@ class Layer(s_nexus.Pusher):
 
             StorTypeGuid(self),
             StorTypeTime(self),
-            StorTypeIval(self),
+            StorTypeIval(self, STOR_TYPE_IVAL),
             StorTypeMsgp(self),
             StorTypeLatLon(self),
 
@@ -1648,7 +1867,11 @@ class Layer(s_nexus.Pusher):
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
 
             StorTypeTime(self),  # STOR_TYPE_MAXTIME
+
+            StorTypeTagIval(self),
         ]
+
+        self.ivaltimetype = self.stortypes[STOR_TYPE_IVAL].timetype
 
         await self._initLayerStorage()
 
@@ -2628,30 +2851,14 @@ class Layer(s_nexus.Pusher):
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
 
-        try:
-            abrv = self.tagabrv.bytsToAbrv(tag.encode())
-            if form is not None:
-                abrv += self.getPropAbrv(form, None)
-
-        except s_exc.NoSuchAbrv:
-            return
-
         filt = StorTypeTag.getTagFilt(cmpr, valu)
-        if filt is None:
-            raise s_exc.NoSuchCmpr(cmpr=cmpr)
 
-        if reverse:
-            scan = self.layrslab.scanByPrefBack
-        else:
-            scan = self.layrslab.scanByPref
+        async for indx, nid in self.stortypes[STOR_TYPE_TAG_IVAL].indxByTag(tag, cmpr, valu, form=form, reverse=reverse):
 
-        for lkey, nid in scan(abrv, db=self.bytag):
-            # filter based on the ival value before lifting the node...
             sref = self.genStorNodeRef(nid)
-            valu = sref.sode['tags'].get(tag)
 
-            if filt(valu):
-                yield nid, nid, sref
+            if filt is None or filt(sref.sode['tags'].get(tag)):
+                yield indx, nid, sref
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -2700,16 +2907,16 @@ class Layer(s_nexus.Pusher):
         else:
             scan = self.layrslab.scanByPref
 
-        for lkey, nid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-            yield lkey[8:], nid, self.genStorNodeRef(nid)
+        for indx, nid in scan(abrv, db=self.bytagprop):
+            yield nid, nid, self.genStorNodeRef(nid)
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
         '''
         Note:  form may be None
         '''
         for cmpr, valu, kind in cmprvals:
-            async for lkey, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse):
-                yield lkey[8:], nid, self.genStorNodeRef(nid)
+            async for indx, nid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu, reverse=reverse):
+                yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByProp(self, form, prop, reverse=False):
 
@@ -2723,7 +2930,7 @@ class Layer(s_nexus.Pusher):
         else:
             scan = self.layrslab.scanByPref
 
-        for lkey, nid in scan(abrv, db=self.byprop):
+        for indx, nid in scan(abrv, db=self.byprop):
             sref = self.genStorNodeRef(nid)
             yield nid, nid, sref
 
@@ -2734,8 +2941,8 @@ class Layer(s_nexus.Pusher):
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
-            async for lkey, nid in self.stortypes[kind].indxByForm(form, cmpr, valu, reverse=reverse):
-                yield lkey[8:], nid, self.genStorNodeRef(nid)
+            async for indx, nid in self.stortypes[kind].indxByForm(form, cmpr, valu, reverse=reverse):
+                yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
 
@@ -2744,13 +2951,13 @@ class Layer(s_nexus.Pusher):
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
 
-            async for lkey, nid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu, reverse=reverse):
-                yield lkey[8:], nid, self.genStorNodeRef(nid)
+            async for indx, nid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu, reverse=reverse):
+                yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
         for cmpr, valu, kind in cmprvals:
-            async for lkey, nid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu, reverse=reverse):
-                yield lkey[8:], nid, self.genStorNodeRef(nid)
+            async for indx, nid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu, reverse=reverse):
+                yield indx, nid, self.genStorNodeRef(nid)
 
     async def liftByDataName(self, name):
         try:
@@ -3026,18 +3233,21 @@ class Layer(s_nexus.Pusher):
                     if univabrv is not None:
                         self.layrslab.delete(univabrv + oldi, nid, db=self.byprop)
 
-                if stortype == STOR_TYPE_IVAL:
-                    dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))
+                if oldt == STOR_TYPE_IVAL:
+                    if oldv[1] == self.ivaltimetype.maxval:
+                        dura = self.ivaltimetype.maxval
+                    else:
+                        dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
 
-                    self.layrslab.delete(abrv + dura, buid, db=self.bypropivaldura)
+                    self.layrslab.delete(INDX_IVAL_DURATION + abrv + dura, nid, db=self.bypropspec)
                     if univabrv is not None:
-                        self.layrslab.delete(univabrv + dura, buid, db=self.bypropivaldura)
+                        self.layrslab.delete(INDX_IVAL_DURATION + abrv + dura, nid, db=self.bypropspec)
 
                     if not oldv[1] == valu[1]:
                         oldi = oldi[8:]
-                        self.layrslab.delete(abrv + oldi , buid, db=self.bypropivalmax)
+                        self.layrslab.delete(INDX_IVAL_MAX + abrv + oldi, nid, db=self.bypropspec)
                         if univabrv is not None:
-                            self.layrslab.delete(univabrv + oldi, buid, db=self.bypropivalmax)
+                            self.layrslab.delete(INDX_IVAL_MAX + univabrv + oldi, nid, db=self.bypropspec)
 
         sode['props'][prop] = (valu, stortype)
         self.setSodeDirty(sode)
@@ -3062,17 +3272,24 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.put(univabrv + indx, nid, db=self.byprop)
 
             if stortype == STOR_TYPE_IVAL:
-                dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))
+                kvpairs = []
 
-                self.layrslab.put(abrv + dura, buid, db=self.bypropivaldura)
+                if valu[1] == self.ivaltimetype.maxval:
+                    dura = self.ivaltimetype.maxval
+                else:
+                    dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+
+                kvpairs.append((INDX_IVAL_DURATION + abrv + dura, nid))
                 if univabrv is not None:
-                    self.layrslab.put(univabrv + dura, buid, db=self.bypropivaldura)
+                    kvpairs.append((INDX_IVAL_DURATION + univabrv + dura, nid))
 
-                if not oldv[1] == valu[1]:
+                if oldv is None or oldv[1] != valu[1]:
                     indx = indx[8:]
-                    self.layrslab.put(abrv + indx , buid, db=self.bypropivalmax)
+                    kvpairs.append((INDX_IVAL_MAX + abrv + indx, nid))
                     if univabrv is not None:
-                        self.layrslab.put(univabrv + indx, buid, db=self.bypropivalmax)
+                        kvpairs.append((INDX_IVAL_MAX + univabrv + indx, nid))
+
+                self.layrslab.putmulti(kvpairs, db=self.bypropspec)
 
         return (
             (EDIT_PROP_SET, (prop, valu, oldv, stortype), ()),
@@ -3119,6 +3336,20 @@ class Layer(s_nexus.Pusher):
                 if univabrv is not None:
                     self.layrslab.delete(univabrv + indx, nid, db=self.byprop)
 
+            if stortype == STOR_TYPE_IVAL:
+                if valu[1] == self.ivaltimetype.maxval:
+                    dura = self.ivaltimetype.maxval
+                else:
+                    dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+
+                indx = indx[8:]
+
+                self.layrslab.delete(INDX_IVAL_MAX + abrv + indx, nid, db=self.bypropspec)
+                self.layrslab.delete(INDX_IVAL_DURATION + abrv + dura, nid, db=self.bypropspec)
+                if univabrv is not None:
+                    self.layrslab.delete(INDX_IVAL_MAX + univabrv + indx, nid, db=self.bypropspec)
+                    self.layrslab.delete(INDX_IVAL_DURATION + univabrv + dura, nid, db=self.bypropspec)
+
         self._incSodeRefs(buid, sode, inc=-1)
 
         return (
@@ -3134,7 +3365,7 @@ class Layer(s_nexus.Pusher):
         tag, valu, oldv = edit[1]
 
         tagabrv = self.tagabrv.setBytsToAbrv(tag.encode())
-        formabrv = self.setPropAbrv(form, None)
+        tagformabrv = tagabrv + self.setPropAbrv(form, None)
 
         oldv = sode['tags'].get(tag)
         if oldv is None:
@@ -3144,16 +3375,58 @@ class Layer(s_nexus.Pusher):
         if oldv is not None:
 
             if oldv != (None, None) and valu != (None, None):
-
-                valu = (min(oldv[0], valu[0]), max(oldv[1], valu[1]))
+                allv = oldv + valu
+                valu = (min(allv), max(allv))
 
             if oldv == valu:
                 return ()
 
+            if oldv != (None, None):
+                if oldv[1] == self.ivaltimetype.maxval:
+                    dura = self.ivaltimetype.maxval
+                else:
+                    dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+
+                self.layrslab.delete(INDX_IVAL_DURATION + tagabrv + dura, nid, db=self.bytagspec)
+                self.layrslab.delete(INDX_TAGFORM_DURATION + tagformabrv + dura, nid, db=self.bytagspec)
+
+                if not oldv[0] == valu[0]:
+                    indx = self.ivaltimetype.getIntIndx(oldv[0])
+                    self.layrslab.delete(INDX_IVAL_MIN + tagabrv + indx, nid, db=self.bytagspec)
+                    self.layrslab.delete(INDX_TAGFORM_MIN + tagformabrv + indx, nid, db=self.bytagspec)
+
+                if not oldv[1] == valu[1]:
+                    indx = self.ivaltimetype.getIntIndx(oldv[1])
+                    self.layrslab.delete(INDX_IVAL_MAX + tagabrv + indx, nid, db=self.bytagspec)
+                    self.layrslab.delete(INDX_TAGFORM_MAX + tagformabrv + indx, nid, db=self.bytagspec)
+
         sode['tags'][tag] = valu
         self.setSodeDirty(sode)
 
-        self.layrslab.put(tagabrv + formabrv, nid, db=self.bytag)
+        self.layrslab.put(tagformabrv, nid, db=self.bytag)
+
+        if valu != (None, None):
+            kvpairs = []
+
+            if valu[1] == self.ivaltimetype.maxval:
+                dura = self.ivaltimetype.maxval
+            else:
+                dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+
+            kvpairs.append((INDX_IVAL_DURATION + tagabrv + dura, nid))
+            kvpairs.append((INDX_TAGFORM_DURATION + tagformabrv + dura, nid))
+
+            if oldv is None or oldv[0] != valu[0]:
+                indx = self.ivaltimetype.getIntIndx(valu[0])
+                kvpairs.append((INDX_IVAL_MIN + tagabrv + indx, nid))
+                kvpairs.append((INDX_TAGFORM_MIN + tagformabrv + indx, nid))
+
+            if oldv is None or oldv[1] != valu[1]:
+                indx = self.ivaltimetype.getIntIndx(valu[1])
+                kvpairs.append((INDX_IVAL_MAX + tagabrv + indx, nid))
+                kvpairs.append((INDX_TAGFORM_MAX + tagformabrv + indx, nid))
+
+            self.layrslab.putmulti(kvpairs, db=self.bytagspec)
 
         return (
             (EDIT_TAG_SET, (tag, valu, oldv), ()),
@@ -3162,7 +3435,9 @@ class Layer(s_nexus.Pusher):
     async def _editTagDel(self, buid, form, edit, sode, meta):
 
         tag, oldv = edit[1]
-        formabrv = self.setPropAbrv(form, None)
+
+        tagabrv = self.tagabrv.setBytsToAbrv(tag.encode())
+        tagformabrv = tagabrv + self.setPropAbrv(form, None)
 
         oldv = sode['tags'].pop(tag, None)
         if oldv is None:
@@ -3171,11 +3446,26 @@ class Layer(s_nexus.Pusher):
 
         nid = sode.get('nid')
 
-        tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+        if oldv != (None, None):
+            if oldv[1] == self.ivaltimetype.maxval:
+                dura = self.ivaltimetype.maxval
+            else:
+                dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
 
-        self.layrslab.delete(tagabrv + formabrv, nid, db=self.bytag)
+            self.layrslab.delete(INDX_IVAL_DURATION + tagabrv + dura, nid, db=self.bytagspec)
+            self.layrslab.delete(INDX_TAGFORM_DURATION + tagformabrv + dura, nid, db=self.bytagspec)
+
+            indx = self.ivaltimetype.getIntIndx(oldv[0])
+            self.layrslab.delete(INDX_IVAL_MIN + tagabrv + indx, nid, db=self.bytagspec)
+            self.layrslab.delete(INDX_TAGFORM_MIN + tagformabrv + indx, nid, db=self.bytagspec)
+
+            indx = self.ivaltimetype.getIntIndx(oldv[1])
+            self.layrslab.delete(INDX_IVAL_MAX + tagabrv + indx, nid, db=self.bytagspec)
+            self.layrslab.delete(INDX_TAGFORM_MAX + tagformabrv + indx, nid, db=self.bytagspec)
 
         self._incSodeRefs(buid, sode, inc=-1)
+
+        self.layrslab.delete(tagformabrv, nid, db=self.bytag)
 
         return (
             (EDIT_TAG_DEL, (tag, oldv), ()),
@@ -3201,7 +3491,8 @@ class Layer(s_nexus.Pusher):
             if oldv is not None:
 
                 if stortype == STOR_TYPE_IVAL:
-                    valu = (min(*oldv, *valu), max(*oldv, *valu))
+                    allv = oldv + valu
+                    valu = (min(allv), max(allv))
 
                 elif stortype == STOR_TYPE_MINTIME:
                     valu = min(valu, oldv)
@@ -3216,15 +3507,31 @@ class Layer(s_nexus.Pusher):
                     self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
                     self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
 
+                if oldt == STOR_TYPE_IVAL:
+                    if oldv[1] == self.ivaltimetype.maxval:
+                        dura = self.ivaltimetype.maxval
+                    else:
+                        dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+
+                    self.layrslab.delete(INDX_IVAL_DURATION + tp_abrv + dura, nid, db=self.bytagpropspec)
+                    self.layrslab.delete(INDX_IVAL_DURATION + ftp_abrv + dura, nid, db=self.bytagpropspec)
+
+                    if not oldv[1] == valu[1]:
+                        oldi = oldi[8:]
+                        self.layrslab.delete(INDX_IVAL_MAX + tp_abrv + oldi, nid, db=self.bytagpropspec)
+                        self.layrslab.delete(INDX_IVAL_MAX + ftp_abrv + oldi, nid, db=self.bytagpropspec)
+
         if oldv is None:
             self._incSodeRefs(buid, sode)
+        else:
+            self.setSodeDirty(sode)
 
         nid = sode.get('nid')
+
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
 
         sode['tagprops'][tag][prop] = (valu, stortype)
-        self.setSodeDirty(sode)
 
         kvpairs = []
         for indx in self.getStorIndx(stortype, valu):
@@ -3232,6 +3539,24 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((ftp_abrv + indx, nid))
 
         self.layrslab.putmulti(kvpairs, db=self.bytagprop)
+
+        if stortype == STOR_TYPE_IVAL:
+            kvpairs = []
+
+            if valu[1] == self.ivaltimetype.maxval:
+                dura = self.ivaltimetype.maxval
+            else:
+                dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+
+            kvpairs.append((INDX_IVAL_DURATION + tp_abrv + dura, nid))
+            kvpairs.append((INDX_IVAL_DURATION + ftp_abrv + dura, nid))
+
+            if oldv is None or oldv[1] != valu[1]:
+                indx = indx[8:]
+                kvpairs.append((INDX_IVAL_MAX + tp_abrv + indx, nid))
+                kvpairs.append((INDX_IVAL_MAX + ftp_abrv + indx, nid))
+
+            self.layrslab.putmulti(kvpairs, db=self.bytagpropspec)
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),
@@ -3259,6 +3584,19 @@ class Layer(s_nexus.Pusher):
         for oldi in self.getStorIndx(oldt, oldv):
             self.layrslab.delete(tp_abrv + oldi, nid, db=self.bytagprop)
             self.layrslab.delete(ftp_abrv + oldi, nid, db=self.bytagprop)
+
+        if oldt == STOR_TYPE_IVAL:
+            if oldv[1] == self.ivaltimetype.maxval:
+                dura = self.ivaltimetype.maxval
+            else:
+                dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+
+            indx = oldi[8:]
+
+            self.layrslab.delete(INDX_IVAL_MAX + tp_abrv + indx, nid, db=self.bytagpropspec)
+            self.layrslab.delete(INDX_IVAL_MAX + ftp_abrv + indx, nid, db=self.bytagpropspec)
+            self.layrslab.delete(INDX_IVAL_DURATION + tp_abrv + dura, nid, db=self.bytagpropspec)
+            self.layrslab.delete(INDX_IVAL_DURATION + ftp_abrv + dura, nid, db=self.bytagpropspec)
 
         return (
             (EDIT_TAGPROP_DEL, (tag, prop, oldv, oldt), ()),

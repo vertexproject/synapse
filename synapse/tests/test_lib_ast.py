@@ -2592,7 +2592,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes('test:str +#taga<(3+5)')
 
             with self.raises(s_exc.NoSuchCmpr):
-                await core.nodes('test:str +#taga*min>=2023')
+                await core.nodes('test:str +#taga*newp>=2023')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('$tag=taga* test:str +#$tag=2023')

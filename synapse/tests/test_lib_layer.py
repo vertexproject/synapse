@@ -664,7 +664,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_ival(self):
-        stor = s_layer.StorTypeIval(self)
+        stor = s_layer.StorTypeIval(self, None)
 
         vals = [(2000, 2020), (1960, 1970)]
 
