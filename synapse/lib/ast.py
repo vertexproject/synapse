@@ -3106,7 +3106,7 @@ async def expr_prefix(x, y):
     return x.startswith(y)
 
 async def expr_re(x, y):
-    if regex.search(await tostr(y), await tostr(x)):
+    if regex.search(await tostr(y), await tostr(x), flags=regex.I):
         return True
     return False
 
