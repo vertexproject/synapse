@@ -633,8 +633,8 @@ class CellApi(s_base.Base):
         return await self.cell.getRoleDefs()
 
     @adminapi()
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden, default=default)
 
     @adminapi()
     async def isRoleAllowed(self, iden, perm, gateiden=None):
@@ -2232,12 +2232,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = False
 
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        user = self.auth.user(iden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        user = self.auth.user(iden)  # type: s_hiveauth.HiveUser
         if user is None:
             return False
 
-        return user.allowed(perm, gateiden=gateiden)
+        return user.allowed(perm, default=default, gateiden=gateiden)
 
     async def isRoleAllowed(self, iden, perm, gateiden=None):
         role = self.auth.role(iden)
@@ -3094,8 +3094,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A dictionary
         '''
         extra = {**kwargs}
-        sess = s_scope.get('sess')
-        if sess and sess.user:
+        sess = s_scope.get('sess')  # type: s_daemon.Sess
+        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        if user:
+            extra['user'] = user.iden
+            extra['username'] = user.name
+        elif sess and sess.user:
             extra['user'] = sess.user.iden
             extra['username'] = sess.user.name
         return {'synapse': extra}

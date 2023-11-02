@@ -215,19 +215,18 @@ class Query(AstNode):
         if genr is None:
             genr = runt.getInput()
 
-        genr = self.run(runt, genr)
+        async with contextlib.aclosing(self.run(runt, genr)) as agen:
+            async for node, path in agen:
 
-        async for node, path in genr:
+                runt.tick()
 
-            runt.tick()
+                yield node, path
 
-            yield node, path
+                count += 1
 
-            count += 1
-
-            limit = runt.getOpt('limit')
-            if limit is not None and count >= limit:
-                break
+                limit = runt.getOpt('limit')
+                if limit is not None and count >= limit:
+                    break
 
 class Lookup(Query):
     '''
@@ -2719,6 +2718,10 @@ class TagValuCond(Cond):
         if isinstance(lnode, VarValue) or not lnode.isconst:
             async def cond(node, path):
                 name = await lnode.compute(runt, path)
+                if '*' in name:
+                    mesg = f'Wildcard tag names may not be used in conjunction with tag value comparison: {name}'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
+
                 valu = await rnode.compute(runt, path)
                 return cmprctor(valu)(node.getTag(name))
 
@@ -2804,6 +2807,10 @@ class TagPropCond(Cond):
 
             tag = await self.kids[0].compute(runt, path)
             name = await self.kids[1].compute(runt, path)
+
+            if '*' in tag:
+                mesg = f'Wildcard tag names may not be used in conjunction with tagprop value comparison: {tag}'
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=tag))
 
             prop = runt.model.getTagProp(name)
             if prop is None:
@@ -3028,7 +3035,8 @@ class VarDeref(Value):
         name = await self.kids[1].compute(runt, path)
 
         valu = s_stormtypes.fromprim(base, path=path)
-        return await valu.deref(name)
+        with s_scope.enter({'runt': runt}):
+            return await valu.deref(name)
 
 class FuncCall(Value):
 
@@ -3195,8 +3203,11 @@ class ExprAndNode(Value):
 class TagName(Value):
 
     def prepare(self):
-        self.isconst = not self.kids or (len(self.kids) == 1 and isinstance(self.kids[0], Const))
-        self.constval = self.kids[0].value() if self.isconst and self.kids else None
+        self.isconst = not self.kids or all(isinstance(k, Const) for k in self.kids)
+        if self.isconst and self.kids:
+            self.constval = '.'.join([k.value() for k in self.kids])
+        else:
+            self.constval = None
 
     async def compute(self, runt, path):
 
@@ -3602,8 +3613,9 @@ class EditNodeAdd(Edit):
             async for node, path in genr:
                 yield node, path
 
-        async for item in s_base.schedGenr(feedfunc()):
-            yield item
+        async with contextlib.aclosing(s_base.schedGenr(feedfunc())) as agen:
+            async for item in agen:
+                yield item
 
 class EditPropSet(Edit):
 
@@ -4390,11 +4402,13 @@ class Function(AstNode):
                 subr.funcscope = True
                 try:
                     if self.hasemit:
-                        async for item in await subr.emitter():
-                            yield item
+                        async with contextlib.aclosing(await subr.emitter()) as agen:
+                            async for item in agen:
+                                yield item
                     else:
-                        async for node, path in subr.execute():
-                            yield node, path
+                        async with contextlib.aclosing(subr.execute()) as agen:
+                            async for node, path in agen:
+                                yield node, path
                 except s_stormctrl.StormStop:
                     return
 

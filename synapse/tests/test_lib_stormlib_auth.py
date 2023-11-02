@@ -178,12 +178,21 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f.',
                 msgs, deguid=True)
 
-            q = '$lib.auth.users.byname(visi).setAdmin($admin, gateiden=$lib.view.get().layers.0.iden)'
-            await core.nodes(q, opts={'vars': {'admin': True}})
+            msgs = await core.stormlist('auth.user.mod visi --gate $lib.view.get().layers.0.iden')
+            self.stormIsInWarn('Granting/revoking admin status on an auth gate, requires the use of `--admin <true|false>` also.', msgs)
+
+            msgs = await core.stormlist('auth.user.mod visi --admin $lib.true --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('User (visi) admin status set to true for auth gate 741529fa80e3fb42f63c5320e4bf348f.',
+                                msgs, deguid=True)
             msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
             self.stormIsInPrint('allowed: true - The user is an admin of auth gate 741529fa80e3fb42f63c5320e4bf348f',
                                 msgs, deguid=True)
-            await core.nodes(q, opts={'vars': {'admin': False}})
+            msgs = await core.stormlist('auth.user.mod visi --admin $lib.false --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('User (visi) admin status set to false for auth gate 741529fa80e3fb42f63c5320e4bf348f.',
+                                msgs, deguid=True)
+            msgs = await core.stormlist('auth.user.allowed visi node.tag.del --gate $lib.view.get().layers.0.iden')
+            self.stormIsInPrint('allowed: true - Matched user rule (node) on gate 741529fa80e3fb42f63c5320e4bf348f',
+                                msgs, deguid=True)
 
             await core.nodes('auth.role.addrule ninjas beep.sys --gate $lib.view.get().layers.0.iden')
             msgs = await core.stormlist('auth.user.allowed visi beep.sys --gate $lib.view.get().layers.0.iden')

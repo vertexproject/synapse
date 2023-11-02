@@ -21,6 +21,8 @@ Conditions = set((
     'node:add',
     'node:del',
     'prop:set',
+    'edge:add',
+    'edge:del'
 ))
 
 RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
@@ -37,11 +39,13 @@ TrigSchema = {
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'form': {'type': 'string', 'pattern': _formre},
+        'n2form': {'type': 'string', 'pattern': _formre},
         'tag': {'type': 'string', 'pattern': _tagre},
         'prop': {'type': 'string', 'pattern': _propre},
+        'verb': {'type': 'string', },
         'name': {'type': 'string', },
         'doc': {'type': 'string', },
-        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
+        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set', 'edge:add', 'edge:del']},
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
@@ -69,6 +73,14 @@ TrigSchema = {
             'if': {'properties': {'cond': {'const': 'prop:set'}}},
             'then': {'required': ['prop']},
         },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:add'}}},
+            'then': {'required': ['verb']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:del'}}},
+            'then': {'required': ['verb']},
+        },
     ],
 }
 TrigSchemaValidator = s_config.getJsValidator(TrigSchema)
@@ -89,9 +101,9 @@ class Triggers:
         self.view = view
         self.triggers = {}
 
-        self.tagadd = collections.defaultdict(list)    # (form, tag): [ Triger ... ]
-        self.tagset = collections.defaultdict(list)    # (form, tag): [ Triger ... ]
-        self.tagdel = collections.defaultdict(list)    # (form, tag): [ Triger ... ]
+        self.tagadd = collections.defaultdict(list)    # (form, tag): [ Trigger ... ]
+        self.tagset = collections.defaultdict(list)    # (form, tag): [ Trigger ... ]
+        self.tagdel = collections.defaultdict(list)    # (form, tag): [ Trigger ... ]
 
         self.tagaddglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
         self.tagsetglobs = collections.defaultdict(s_cache.TagGlobs)    # form: TagGlobs
@@ -100,6 +112,15 @@ class Triggers:
         self.nodeadd = collections.defaultdict(list)   # form: [ Trigger ... ]
         self.nodedel = collections.defaultdict(list)   # form: [ Trigger ... ]
         self.propset = collections.defaultdict(list)   # prop: [ Trigger ... ]
+
+        self.edgeadd = collections.defaultdict(list)   # (n1form, verb, n2form: [ Trigger ... ]
+        self.edgedel = collections.defaultdict(list)   # (n1form, verb, n2form: [ Trigger ... ]
+
+        self.edgeaddglobs = collections.defaultdict(s_cache.EdgeGlobs)  # (n1form, n2form: [ EdgeGlobs ... ]
+        self.edgedelglobs = collections.defaultdict(s_cache.EdgeGlobs)  # (n1form, n2form: [ EdgeGlobs ... ]
+
+        self.edgeaddcache = s_cache.LruDict()
+        self.edgedelcache = s_cache.LruDict()
 
     @contextlib.contextmanager
     def _recursion_check(self):
@@ -182,6 +203,106 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars, view=view)
 
+    async def runEdgeAdd(self, n1, verb, n2, view=None):
+        n1form = n1.form.name if n1 else None
+        n2form = n2.form.name if n2 else None
+        n2iden = n2.iden() if n2 else None
+        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
+        with self._recursion_check():
+            cachekey = (n1form, verb, n2form)
+            cached = self.edgeaddcache.get(cachekey)
+            if cached is None:
+                cached = []
+                for trig in self.edgeadd.get((None, verb, None), ()):
+                    cached.append(trig)
+
+                globs = self.edgeaddglobs.get((None, None))
+                if globs:
+                    for _, trig in globs.get(verb):
+                        cached.append(trig)
+
+                if n1:
+                    for trig in self.edgeadd.get((n1form, verb, None), ()):
+                        cached.append(trig)
+
+                    globs = self.edgeaddglobs.get((n1form, None))
+                    if globs:
+                        for _, trig in globs.get(verb):
+                            cached.append(trig)
+
+                if n2:
+                    for trig in self.edgeadd.get((None, verb, n2form), ()):
+                        cached.append(trig)
+
+                    globs = self.edgeaddglobs.get((None, n2form))
+                    if globs:
+                        for _, trig in globs.get(verb):
+                            cached.append(trig)
+
+                if n1 and n2:
+                    for trig in self.edgeadd.get((n1form, verb, n2form), ()):
+                        cached.append(trig)
+
+                    globs = self.edgeaddglobs.get((n1form, n2form))
+                    if globs:
+                        for _, trig in globs.get(verb):
+                            cached.append(trig)
+
+                self.edgeaddcache[cachekey] = cached
+
+            for trig in cached:
+                await trig.execute(n1, vars=varz, view=view)
+
+    async def runEdgeDel(self, n1, verb, n2, view=None):
+        n1form = n1.form.name if n1 else None
+        n2form = n2.form.name if n2 else None
+        n2iden = n2.iden() if n2 else None
+        varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
+        with self._recursion_check():
+            cachekey = (n1form, verb, n2form)
+            cached = self.edgedelcache.get(cachekey)
+            if cached is None:
+                cached = []
+                for trig in self.edgedel.get((None, verb, None), ()):
+                    cached.append(trig)
+
+                globs = self.edgedelglobs.get((None, None))
+                if globs:
+                    for _, trig in globs.get(verb):
+                        cached.append(trig)
+
+                if n1:
+                    for trig in self.edgedel.get((n1form, verb, None), ()):
+                        cached.append(trig)
+
+                    globs = self.edgedelglobs.get((n1form, None))
+                    if globs:
+                        for _, trig in globs.get(verb):
+                            cached.append(trig)
+
+                if n2:
+                    for trig in self.edgedel.get((None, verb, n2form), ()):
+                        cached.append(trig)
+
+                    globs = self.edgedelglobs.get((None, n2form))
+                    if globs:
+                        for _, trig in globs.get(verb):
+                            cached.append(trig)
+
+                if n1 and n2:
+                    for trig in self.edgedel.get((n1form, verb, n2form), ()):
+                        cached.append(trig)
+
+                    globs = self.edgedelglobs.get((n1form, n2form))
+                    if globs:
+                        for _, trig in globs.get(verb):
+                            cached.append(trig)
+
+                self.edgedelcache[cachekey] = cached
+
+            for trig in cached:
+                await trig.execute(n1, vars=varz, view=view)
+
     async def load(self, tdef):
 
         trig = Trigger(self.view, tdef)
@@ -194,6 +315,8 @@ class Triggers:
         tag = trig.tdef.get('tag')
         form = trig.tdef.get('form')
         prop = trig.tdef.get('prop')
+        verb = trig.tdef.get('verb')
+        n2form = trig.tdef.get('n2form')
 
         if cond not in Conditions:
             raise s_exc.NoSuchCond(name=cond)
@@ -206,6 +329,9 @@ class Triggers:
             if tag is None:
                 raise s_exc.BadOptValu(mesg='missing tag')
             s_chop.validateTagMatch(tag)
+        if cond in ('edge:add', 'edge:del') and verb is None:
+            raise s_exc.BadOptValu(mesg='verb must be present for edge:add or edge:del')
+
         if prop is not None and cond != 'prop:set':
             raise s_exc.BadOptValu(mesg='prop parameter invalid')
 
@@ -236,6 +362,20 @@ class Triggers:
                 self.tagdel[(form, tag)].append(trig)
             else:
                 self.tagdelglobs[form].add(tag, trig)
+
+        elif cond == 'edge:add':
+            self.edgeaddcache.clear()
+            if '*' not in verb:
+                self.edgeadd[(form, verb, n2form)].append(trig)
+            else:
+                self.edgeaddglobs[(form, n2form)].add(verb, trig)
+
+        elif cond == 'edge:del':
+            self.edgedelcache.clear()
+            if '*' not in verb:
+                self.edgedel[(form, verb, n2form)].append(trig)
+            else:
+                self.edgedelglobs[(form, n2form)].add(verb, trig)
 
         self.triggers[trig.iden] = trig
         return trig
@@ -290,6 +430,34 @@ class Triggers:
 
             globs = self.tagdelglobs.get(form)
             globs.rem(tag, trig)
+            return trig
+
+        if cond == 'edge:add':
+            verb = trig.tdef['verb']
+            form = trig.tdef.get('form')
+            n2form = trig.tdef.get('n2form')
+
+            self.edgeaddcache.clear()
+            if '*' not in verb:
+                self.edgeadd[(form, verb, n2form)].remove(trig)
+                return trig
+
+            globs = self.edgeaddglobs.get((form, n2form))
+            globs.rem(verb, trig)
+            return trig
+
+        if cond == 'edge:del':
+            verb = trig.tdef['verb']
+            form = trig.tdef.get('form')
+            n2form = trig.tdef.get('n2form')
+
+            self.edgedelcache.clear()
+            if '*' not in verb:
+                self.edgedel[(form, verb, n2form)].remove(trig)
+                return trig
+
+            globs = self.edgedelglobs.get((form, n2form))
+            globs.rem(verb, trig)
             return trig
 
         raise AssertionError('trigger has invalid condition')
@@ -440,7 +608,21 @@ class Trigger:
         if prop is not None:
             props['prop'] = prop
 
+        verb = self.tdef.get('verb')
+        if verb is not None:
+            props['verb'] = verb
+
+        n2form = self.tdef.get('n2form')
+        if n2form is not None:
+            props['n2form'] = n2form
+
+        pnorms = {}
+        for prop, valu in props.items():
+            formprop = form.props.get(prop)
+            if formprop is not None and valu is not None:
+                pnorms[prop] = formprop.type.norm(valu)[0]
+
         return (ndef, {
             'iden': s_common.ehex(s_common.buid(ndef)),
-            'props': props,
+            'props': props
         })
