@@ -359,6 +359,12 @@ is a dictionary which contains the following keys:
         ``$auto.opts.valu``
             The value of the triggering node.
 
+        ``$auto.opts.verb``
+            The name of the light edge. Only present on ``edge:add`` and ``edge:del`` triggers.
+
+        ``$auto.opts.n2iden``
+            The iden of the node on the other end of the edge. Only present on ``edge:add`` and ``edge:del`` triggers.
+
 Syntax
 ~~~~~~
 
