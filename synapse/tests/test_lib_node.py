@@ -517,3 +517,53 @@ class NodeTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist(edgeq)
             self.len(1, [m for m in msgs if m[0] == 'print'])
+
+    async def test_node_remove_missing_basetag(self):
+
+        async with self.getTestCore() as core:
+
+            base = await core.callStorm('return($lib.view.get().iden)')
+            fork = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            await core.nodes('[test:str=neato +#foo.one]', opts={'view': base})
+            await core.nodes('test:str=neato | [ +#foo.two ]', opts={'view': fork})
+
+            await core.nodes('test:str=neato | [ -#foo ]', opts={'view': base})
+
+            othr = await core.nodes('test:str=neato', opts={'view': fork})
+            self.len(1, othr)
+            self.isin('foo.two', othr[0].tags)
+            self.notin('foo', othr[0].tags)
+
+            msgs = await core.stormlist('test:str=neato | [ -#foo ]', opts={'view': fork})
+            edits = [m[1] for m in msgs if m[0] == 'node:edits']
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, edits)
+            self.len(1, edits[0]['edits'][0][2])
+
+            self.len(1, nodes)
+            self.len(0, nodes[0][1]['tags'])
+
+            await core.nodes('[test:int=12 +#ping.pong.neato.burrito]', opts={'view': base})
+            await core.nodes('test:int=12 | [ +#ping.pong.awesome.possum ]', opts={'view': fork})
+
+            await core.nodes('test:int=12 | [ -#ping.pong]', opts={'view': base})
+
+            othr = await core.nodes('test:int=12', opts={'view': fork})
+            self.len(1, othr)
+            self.isin('ping', othr[0].tags)
+            self.isin('ping.pong.awesome', othr[0].tags)
+            self.isin('ping.pong.awesome.possum', othr[0].tags)
+
+            self.notin('ping.pong', othr[0].tags)
+
+            msgs = await core.stormlist('test:int=12 | [ -#ping.pong ]', opts={'view': fork})
+            edits = [m[1] for m in msgs if m[0] == 'node:edits']
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            self.len(1, edits)
+            self.len(2, edits[0]['edits'][0][2])
+
+            self.len(1, nodes)
+            self.len(1, nodes[0][1]['tags'])
+            self.isin('ping', nodes[0][1]['tags'])
