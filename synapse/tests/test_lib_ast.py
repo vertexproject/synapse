@@ -2601,6 +2601,38 @@ class AstTest(s_test.SynTest):
                     self.eq(edgedata['type'], 'edge')
                     self.false(edgedata.get('reverse', False))
 
+    async def test_ast_double_init_fini(self):
+        async with self.getTestCore() as core:
+            q = '''
+            init {$foo = bar $lib.print(`{$foo} {$wow}`) }
+            init {$baz = hehe $lib.print('second init!') }
+            $lib.print($baz)
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe'}})
+            pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe'])
+
+            q = '''
+            init {$foo = bar $lib.print(`{$foo} {$wow}`) }
+            init {$baz = hehe $lib.print('second init!') }
+            $lib.print($baz)
+            [test:str=stuff]
+            $stuff = $node.value()
+            fini { $lib.print(fini1) }
+            fini { $lib.print(`fini {$stuff}`) }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe', 'stuff': None}})
+            pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe', 'fini1', 'fini stuff'])
+
+            q = '''
+            init { $foo = bar }
+            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            $lib.print($baz)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo=bar', msgs)
+
     async def test_ast_tagfilters(self):
 
         async with self.getTestCore() as core:
