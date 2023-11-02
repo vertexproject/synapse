@@ -6117,55 +6117,70 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(layr.lockmemory)
 
     async def test_cortex_storm_lib_dmon(self):
-        async with self.getTestCoreAndProxy() as (core, prox):
-            nodes = await core.nodes('''
 
-                $lib.print(hi)
+        with self.getTestDir() as dirn:
 
-                $tx = $lib.queue.add(tx)
-                $rx = $lib.queue.add(rx)
+            async with self.getTestCoreAndProxy(dirn=dirn) as (core, prox):
+                nodes = await core.nodes('''
 
-                $ddef = $lib.dmon.add(${
+                    $lib.print(hi)
 
-                    $rx = $lib.queue.get(tx)
-                    $tx = $lib.queue.get(rx)
+                    $tx = $lib.queue.add(tx)
+                    $rx = $lib.queue.add(rx)
 
-                    $ipv4 = nope
-                    for ($offs, $ipv4) in $rx.gets(wait=1) {
-                        [ inet:ipv4=$ipv4 ]
-                        $rx.cull($offs)
-                        $tx.put($ipv4)
-                    }
-                })
+                    $ddef = $lib.dmon.add(${
 
-                $tx.put(1.2.3.4)
+                        $rx = $lib.queue.get(tx)
+                        $tx = $lib.queue.get(rx)
 
-                for ($xoff, $xpv4) in $rx.gets(size=1, wait=1) { }
+                        $ipv4 = nope
+                        for ($offs, $ipv4) in $rx.gets(wait=1) {
+                            [ inet:ipv4=$ipv4 ]
+                            $rx.cull($offs)
+                            $tx.put($ipv4)
+                        }
+                    })
 
-                $lib.print(xed)
+                    $tx.put(1.2.3.4)
 
-                inet:ipv4=$xpv4
+                    for ($xoff, $xpv4) in $rx.gets(size=1, wait=1) { }
 
-                $lib.dmon.del($ddef.iden)
+                    $lib.print(xed)
 
-                $lib.queue.del(tx)
-                $lib.queue.del(rx)
-            ''')
-            self.len(1, nodes)
-            self.len(0, await prox.getStormDmons())
+                    inet:ipv4=$xpv4
 
-            with self.raises(s_exc.NoSuchIden):
-                await core.nodes('$lib.dmon.del(newp)')
+                    $lib.dmon.del($ddef.iden)
 
-            await core.stormlist('auth.user.add user')
-            user = await core.auth.getUserByName('user')
-            asuser = {'user': user.iden}
+                    $lib.queue.del(tx)
+                    $lib.queue.del(rx)
+                ''')
+                self.len(1, nodes)
+                self.len(0, await prox.getStormDmons())
 
-            ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
-            iden = ddef.get('iden')
+                with self.raises(s_exc.NoSuchIden):
+                    await core.nodes('$lib.dmon.del(newp)')
 
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(f'$lib.dmon.del({iden})', opts=asuser)
+                await core.stormlist('auth.user.add user')
+                user = await core.auth.getUserByName('user')
+                asuser = {'user': user.iden}
+
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
+                iden = ddef.get('iden')
+                asuser['vars'] = {'iden': iden}
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(f'$lib.dmon.del($iden)', opts=asuser)
+
+                # remove the dmon without a nexus entry to verify recover works
+                await core._delStormDmon(iden)
+                self.none(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
+                self.eq('storm:dmon:add', (await core.nexsroot.nexslog.last())[1][1])
+
+            async with self.getTestCoreAndProxy(dirn=dirn) as (core, prox):
+
+                # recover previously failed on adding to the hive
+                self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
+                self.nn(core.stormdmonhive.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 
