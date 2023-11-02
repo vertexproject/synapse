@@ -596,7 +596,7 @@ class SubQuery(Oper):
     async def _compute(self, runt, path, limit):
         retn = []
 
-        opts = {'vars': path.vars.copy() }
+        opts = {'vars': path.vars.copy()}
         async with runt.getSubRuntime(self.kids[0], opts=opts) as runt:
             async for valunode, valupath in runt.execute():
 
