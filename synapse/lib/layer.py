@@ -1365,24 +1365,18 @@ class StorTypeIval(StorType):
         self.lifters.update({
             '=': self._liftIvalEq,
             '@=': self._liftIvalAt,
-            'min=': self._liftIvalPartEq,
-            'min<': self._liftIvalPartLt,
-            'min>': self._liftIvalPartGt,
-            'min<=': self._liftIvalPartLe,
-            'min>=': self._liftIvalPartGe,
             'min@=': self._liftIvalPartAt,
-            'max=': self._liftIvalPartEq,
-            'max<': self._liftIvalPartLt,
-            'max>': self._liftIvalPartGt,
-            'max<=': self._liftIvalPartLe,
-            'max>=': self._liftIvalPartGe,
             'max@=': self._liftIvalPartAt,
-            'duration=': self._liftIvalPartEq,
-            'duration<': self._liftIvalPartLt,
-            'duration>': self._liftIvalPartGt,
-            'duration<=': self._liftIvalPartLe,
-            'duration>=': self._liftIvalPartGe,
         })
+
+        for part in ('min', 'max', 'duration'):
+            self.lifters.update({
+                f'{part}=': self._liftIvalPartEq,
+                f'{part}<': self._liftIvalPartLt,
+                f'{part}>': self._liftIvalPartGt,
+                f'{part}<=': self._liftIvalPartLe,
+                f'{part}>=': self._liftIvalPartGe,
+            })
 
         self.propspecindx = {
             '@=': IndxByPropIvalMin,
