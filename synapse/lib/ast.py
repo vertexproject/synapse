@@ -594,9 +594,13 @@ class SubQuery(Oper):
             yield item
 
     async def _compute(self, runt, path, limit):
+
         retn = []
 
-        opts = {'vars': path.vars.copy()}
+        opts = {}
+        if path is not None:
+            opts['vars'] = path.vars.copy()
+
         async with runt.getSubRuntime(self.kids[0], opts=opts) as runt:
             async for valunode, valupath in runt.execute():
 
