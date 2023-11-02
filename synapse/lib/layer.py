@@ -1855,7 +1855,7 @@ class Layer(s_nexus.Pusher):
             (form, prop) = self.getAbrvProp(lkey[8:])
 
             sode = self._getStorNode(nid)
-            if sode is None: # pragma: no cover
+            if not sode:
                 await tryfix(lkey, nid, form)
                 yield ('NoNodeForTagIndex', {'nid': s_common.ehex(nid), 'form': form, 'tag': tag})
                 continue
@@ -1881,7 +1881,7 @@ class Layer(s_nexus.Pusher):
             indx = lkey[len(abrv):]
 
             sode = self._getStorNode(nid)
-            if sode is None:
+            if not sode:
                 await tryfix(lkey, nid)
                 yield ('NoNodeForPropIndex', {'nid': s_common.ehex(nid), 'form': form, 'prop': prop, 'indx': indx})
                 continue
@@ -1938,7 +1938,7 @@ class Layer(s_nexus.Pusher):
             indx = lkey[len(abrv):]
 
             sode = self._getStorNode(nid)
-            if sode is None:
+            if not sode:
                 await tryfix(lkey, nid)
                 yield ('NoNodeForPropArrayIndex', {'nid': s_common.ehex(nid), 'form': form,
                                                    'prop': prop, 'indx': indx})
@@ -1997,7 +1997,7 @@ class Layer(s_nexus.Pusher):
             indx = lkey[len(abrv):]
 
             sode = self._getStorNode(nid)
-            if sode is None:
+            if not sode:
                 await tryfix(lkey, nid)
                 yield ('NoNodeForTagPropIndex', {'nid': s_common.ehex(nid), 'form': form,
                                                  'tag': tag, 'prop': prop, 'indx': indx})
@@ -2667,10 +2667,14 @@ class Layer(s_nexus.Pusher):
 
         if refs <= 0:
             self.dirty.pop(nid, None)
-#            self.weakcache.pop(nid, None)
             self.nidcache.pop(nid, None)
             self.layrslab.delete(nid, db=self.bynid)
             self.core.incBuidNid(nid, inc=-1)
+
+            envl = self.weakcache.get(nid)
+            if envl is not None:
+                envl.sode.clear()
+
             return 0
 
         if nid is None:
