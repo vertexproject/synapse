@@ -1213,6 +1213,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'pluto\udcbaneptune'))
 
+            nodes = await core.nodes('[ media:news=* :publisher:name=woot ] $name=:publisher:name [ :publisher={ gen.ou.org $name } ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('publisher'))
+
             # test regular expressions are case insensitive by default
             self.len(1, await core.nodes('test:str~=Pluto'))
             self.len(1, await core.nodes('test:str +test:str~=Pluto'))
