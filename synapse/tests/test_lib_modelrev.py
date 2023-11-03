@@ -424,7 +424,7 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.22') as core:
             nodes = await core.nodes('inet:ipv4=100.64.0.0/10')
-            self.len(256, nodes)
+            self.len(257, nodes)
 
             for node in nodes:
                 self.eq(node.props.get('type'), 'shared')
