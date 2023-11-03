@@ -594,7 +594,7 @@ class CvssLib(s_stormtypes.Lib):
                                 environmental score, overall score, and normalized vector string.
                                 The normalized vector string will have metrics ordered in
                                 specification order and metrics with undefined values will be
-                                removed. Example:
+                                removed. Example::
 
                                     {
                                         'version': '3.1',
@@ -604,6 +604,7 @@ class CvssLib(s_stormtypes.Lib):
                                         'environmental': 4.3,
                                         'normalized': 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L'
                                     }
+
                               '''}
         }},
     )
