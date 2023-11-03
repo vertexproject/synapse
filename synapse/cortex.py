@@ -1260,10 +1260,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initOAuthManager()
 
+        stormdmonhive = await self.hive.open(('cortex', 'storm', 'dmons'))
+        self.stormdmonhive = await stormdmonhive.dict()
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
+
         await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
@@ -2221,10 +2225,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addRuntPropSet('syn:trigger:name', onSetTrigName)
 
     async def _initStormDmons(self):
-
-        node = await self.hive.open(('cortex', 'storm', 'dmons'))
-
-        self.stormdmonhive = await node.dict()
 
         for iden, ddef in self.stormdmonhive.items():
             try:

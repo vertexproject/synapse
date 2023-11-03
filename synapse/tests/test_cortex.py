@@ -6178,7 +6178,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCoreAndProxy(dirn=dirn) as (core, prox):
 
-                # recover previously failed on adding to the hive
+                # nexus recover() previously failed on adding to the hive
+                # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
                 self.nn(core.stormdmonhive.get(iden))
 
