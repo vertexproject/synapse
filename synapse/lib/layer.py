@@ -125,6 +125,7 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
+            await asyncio.sleep(0)
 
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
