@@ -103,7 +103,6 @@ Help for a specific Storm command can be displayed with ``<command> --help``.
 - `service`_
 - `sleep`_
 - `spin`_
-- `splice`_
 - `tag`_
 - `tee`_
 - `tree`_
@@ -2111,57 +2110,6 @@ query and view messages and results without displaying the associated nodes.
 
 .. storm-pre:: [inet:fqdn=firefoxupdata.com inet:fqdn=fakefirefox.net]
 .. storm-cli:: inet:fqdn~=firefox [+#int.research] | spin
-
-
-.. _storm-splice:
-
-splice
-------
-
-.. NOTE::
-  
-  The Synapse ``splice.*`` commands are deprecated. The use of views (:ref:`gloss-view`) and
-  layers (:ref:`gloss-layer`) - in particular, the ability to :ref:`gloss-fork` a view to create
-  a "scratch space" for changes which can then be merged or discarded - provides greater flexiblity
-  and granularity in managing data and discarding unwanted changes.
-
-Storm includes ``splice.*`` commands that allow you to work with splices (see :ref:`gloss-splice`).
-
-- `splice.list`_
-- `splice.undo`_
-
-Splices are represented as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form
-``syn:splice``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
-
-Help for individual ``splice.*`` commands can be displayed using:
-
-  ``<command> --help``
-
-.. _storm-splice-list:
-
-splice.list
-+++++++++++
-
-``splice.list`` is a **deprecated** command. ``splice.list`` allows you to list (view) splices in the
-splice log. By default, splices are displayed starting with the most recent and working backwards
-through the log.
-
-**Syntax:**
-
-.. storm-cli:: splice.list --help
-
-
-.. _storm-splice-undo:
-
-splice.undo
-+++++++++++
-
-``splice.undo`` is a **deprecated** command.. ``splice.undo`` allows a user with appropriate permissions
-to roll back or undo the specified set of splices (changes).
-
-**Syntax:**
-
-.. storm-cli:: splice.undo --help
 
 
 .. _storm-tag:

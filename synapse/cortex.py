@@ -687,49 +687,6 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    @s_cell.adminapi()
-    async def splices(self, offs=None, size=None, layriden=None):
-        '''
-        This API is deprecated.
-
-        Return the list of splices at the given offset.
-        '''
-        s_common.deprdate('Cortex.splices() telepath API', s_common._splicedepr)
-        layr = self.cell.getLayer(layriden)
-        count = 0
-        async for mesg in layr.splices(offs=offs, size=size):
-            count += 1
-            if not count % 1000:
-                await asyncio.sleep(0)
-            yield mesg
-
-    @s_cell.adminapi()
-    async def splicesBack(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Return the list of splices backwards from the given offset.
-        '''
-        s_common.deprdate('Cortex.splicesBack() telepath API', s_common._splicedepr)
-        count = 0
-        async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
-            count += 1
-            if not count % 1000:  # pragma: no cover
-                await asyncio.sleep(0)
-            yield mesg
-
-    async def spliceHistory(self):
-        '''
-        This API is deprecated.
-
-        Yield splices backwards from the end of the splice log.
-
-        Will only return the user's own splices unless they are an admin.
-        '''
-        s_common.deprdate('Cortex.spliceHistory() telepath API', s_common._splicedepr)
-        async for splice in self.cell.spliceHistory(self.user):
-            yield splice
-
     async def getPropNorm(self, prop, valu):
         '''
         Get the normalized property value based on the Cortex data model.
@@ -973,25 +930,20 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+    async def iterTagRows(self, layriden, tag, form=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (buid, (valu, form)) values that match a tag and optional form.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
-            form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
+            form (Optional[str]): if present, only yields buids of nodes that match the form.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
         '''
         self.user.confirm(('layer', 'lift', layriden))
-        async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
+        async for item in self.cell.iterTagRows(layriden, tag, form=form):
             yield item
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
@@ -1184,7 +1136,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.viewsbylayer = collections.defaultdict(list)
 
         self.modules = {}
-        self.splicers = {}
         self.feedfuncs = {}
         self.stormcmds = {}
 
@@ -1238,7 +1189,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self._onCoreFini)
 
         await self._initCoreHive()
-        self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
 
@@ -1280,6 +1230,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.onfini(self.agenda)
 
         await self._initStormGraphs()
+        await self._initLayerV3Stor()
 
         self.trigson = self.conf.get('trigger:enable')
 
@@ -2203,7 +2154,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             trig = node.snap.view.triggers.get(iden)
             node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
             await trig.set('doc', valu)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         async def onSetTrigName(node, prop, valu):
             valu = str(valu)
@@ -2211,7 +2162,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             trig = node.snap.view.triggers.get(iden)
             node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
             await trig.set('name', valu)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         async def onSetCronDoc(node, prop, valu):
             valu = str(valu)
@@ -2219,7 +2170,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
             await appt.setDoc(valu, nexs=True)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         async def onSetCronName(node, prop, valu):
             valu = str(valu)
@@ -2227,7 +2178,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             appt = await self.agenda.get(iden)
             node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
             await appt.setName(valu, nexs=True)
-            node.props[prop.name] = valu
+            node.pode[1]['props'][prop.name] = valu
 
         self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
         self.addRuntPropSet('syn:cron:name', onSetCronName)
@@ -2269,6 +2220,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
     async def _initStormGraphs(self):
+        # TODO we should probably just store this in the cell.slab to save a file handle :D
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
 
         slab = await s_lmdbslab.Slab.anit(path)
@@ -2276,6 +2228,76 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.pkggraphs = {}
         self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
+
+    async def _initLayerV3Stor(self):
+
+        path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
+        self.v3stor = await s_lmdbslab.Slab.anit(path)
+
+        self.onfini(self.v3stor.fini)
+
+        # TODO move sodes to being keyed by nid integerkey=True
+        self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
+        self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
+        self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
+        self.buid2nid = self.v3stor.initdb('buid2nid')
+
+        self.nextnid = 0
+        # TODO is it safe to potentially reuse nids if the last one is removed?
+        byts = self.v3stor.lastkey(db=self.nidrefs)
+        if byts is not None:
+            self.nextnid = int.from_bytes(byts) + 1
+
+    def getNidNdef(self, nid):
+        byts = self.v3stor.get(nid, db=self.nid2ndef)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    def setNidNdef(self, nid, ndef):
+        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+
+    def getBuidByNid(self, nid):
+        return self.v3stor.get(nid, db=self.nid2buid)
+
+    def getNidByBuid(self, buid):
+        return self.v3stor.get(buid, db=self.buid2nid)
+
+    def genBuidNid(self, buid, inc=1):
+
+        nid = self.v3stor.get(buid, db=self.buid2nid)
+        if nid is not None:
+            refsbyts = self.v3stor.get(nid, db=self.nidrefs)
+            refs = int.from_bytes(refsbyts) + inc
+            self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
+            return nid
+
+        nid = self.nextnid.to_bytes(8)
+        self.nextnid += 1
+
+        self.v3stor.put(nid, buid, db=self.nid2buid)
+        self.v3stor.put(nid, inc.to_bytes(8), db=self.nidrefs)
+
+        self.v3stor.put(buid, nid, db=self.buid2nid)
+
+        return nid
+
+    def incBuidNid(self, nid, inc=1):
+
+        refsbyts = self.v3stor.get(nid, db=self.nidrefs)
+        if refsbyts is None:
+            return 0
+
+        refs = int.from_bytes(refsbyts) + inc
+
+        if refs <= 0:
+            buid = self.v3stor.pop(nid, db=self.nid2buid)
+            self.v3stor.delete(nid, db=self.nidrefs)
+            self.v3stor.delete(nid, db=self.nid2ndef)
+            self.v3stor.delete(buid, db=self.buid2nid)
+            return 0
+
+        self.v3stor.put(nid, refs.to_bytes(8), db=self.nidrefs)
+        return refs
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2322,248 +2344,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.getStormQuery(cdef.get('storm'))
 
-    async def _getStorNodes(self, buid, layers):
-        # NOTE: This API lives here to make it easy to optimize
-        #       the cluster case to minimize round trips
-        return [await layr.getStorNode(buid) for layr in layers]
-
-    async def _genSodeList(self, buid, sodes, layers, filtercmpr=None):
-        sodelist = []
-
-        if filtercmpr is not None:
-            filt = True
-            for layr in layers[-1::-1]:
-                sode = sodes.get(layr.iden)
-                if sode is None:
-                    sode = await layr.getStorNode(buid)
-                    if filt and filtercmpr(sode):
-                        return
-                else:
-                    filt = False
-                sodelist.append((layr.iden, sode))
-
-            return (buid, sodelist[::-1])
-
-        for layr in layers:
-            sode = sodes.get(layr.iden)
-            if sode is None:
-                sode = await layr.getStorNode(buid)
-            sodelist.append((layr.iden, sode))
-
-        return (buid, sodelist)
-
-    async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None, reverse=False):
-        lastbuid = None
-        sodes = {}
-        async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
-            if not buid == lastbuid or layr in sodes:
-                if lastbuid is not None:
-                    sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-                    if sodelist is not None:
-                        yield sodelist
-                    sodes.clear()
-                lastbuid = buid
-            sodes[layr] = sode
-
-        if lastbuid is not None:
-            sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-            if sodelist is not None:
-                yield sodelist
-
-    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None, reverse=False):
-        lastbuid = None
-        sodes = {}
-        async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
-            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
-                if buid in uniqset:
-                    continue
-
-                if not buid == lastbuid or layr in sodes:
-                    if lastbuid is not None:
-                        sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-                        if sodelist is not None:
-                            yield sodelist
-                        sodes.clear()
-
-                    await uniqset.add(lastbuid)
-                    lastbuid = buid
-
-                sodes[layr] = sode
-
-            if lastbuid is not None:
-                sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-                if sodelist is not None:
-                    yield sodelist
-
-    async def _liftByDataName(self, name, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByDataName(name):
-                yield (buid, [(layr, sode)])
-            return
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
-            yield sodes
-
-    async def _liftByProp(self, form, prop, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByProp(form, prop, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop, reverse=reverse)))
-
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx, reverse=reverse):
-            yield sodes
-
-    async def _liftByPropValu(self, form, prop, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropValu(form, prop, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        def filtercmpr(sode):
-            props = sode.get('props')
-            if props is None:
-                return False
-            return props.get(prop) is not None
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-                yield sodes
-
-    async def _liftByPropArray(self, form, prop, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropArray(form, prop, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        if prop is None:
-            filtercmpr = None
-        else:
-            def filtercmpr(sode):
-                props = sode.get('props')
-                if props is None:
-                    return False
-                return props.get(prop) is not None
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-                yield sodes
-
-    async def _liftByFormValu(self, form, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByFormValu(form, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, reverse=reverse):
-                yield sodes
-
-    async def _liftByTag(self, tag, form, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTag(tag, form, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        if form is None:
-            def filtercmpr(sode):
-                tags = sode.get('tags')
-                if tags is None:
-                    return False
-                return tags.get(tag) is not None
-        else:
-            filtercmpr = None
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form, reverse=reverse)))
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr, reverse=reverse):
-            yield sodes
-
-    async def _liftByTagValu(self, tag, cmpr, valu, form, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        def filtercmpr(sode):
-            tags = sode.get('tags')
-            if tags is None:
-                return False
-            return tags.get(tag) is not None
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form, reverse=reverse)))
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr, reverse=reverse):
-            yield sodes
-
-    async def _liftByTagProp(self, form, tag, prop, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagProp(form, tag, prop, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop, reverse=reverse)))
-
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx, reverse=reverse):
-            yield sodes
-
-    async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        def filtercmpr(sode):
-            tagprops = sode.get('tagprops')
-            if tagprops is None:
-                return False
-            props = tagprops.get(tag)
-            if not props:
-                return False
-            return props.get(prop) is not None
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-                yield sodes
-
     async def _setStormCmd(self, cdef):
         '''
         Note:
@@ -2576,13 +2356,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def getCmdBrief():
             return cdef.get('descr', 'No description').strip().split('\n')[0]
 
+        # TODO this is super ugly...
         ctor.getCmdBrief = getCmdBrief
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form):
-            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
+        def getRuntPode():
+            ndef = ('syn:cmd', cdef.get('name'))
             buid = s_common.buid(ndef)
 
             props = {
@@ -2608,18 +2389,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
-            pnorms = {}
-            for prop, valu in props.items():
-                formprop = form.props.get(prop)
-                if formprop is not None and valu is not None:
-                    pnorms[prop] = formprop.type.norm(valu)[0]
-
-            return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
+            return (ndef, {
+                'iden': s_common.ehex(s_common.buid(ndef)),
+                'props': props,
             })
 
-        ctor.getStorNode = getStorNode
+        ctor.getRuntPode = getRuntPode
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
@@ -3584,7 +3359,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop}'
+                mesg = f'Nodes still exist with prop: {form}:{prop} in layer: {layr.iden}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
@@ -3964,23 +3739,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                         await self.waitfini(1)
 
-    async def spliceHistory(self, user):
-        '''
-        Yield splices backwards from the end of the nodeedit log.
-
-        Will only return user's own splices unless they are an admin.
-        '''
-        layr = self.view.layers[0]
-
-        count = 0
-        async for _, mesg in layr.splicesBack():
-            count += 1
-            if not count % 1000:  # pragma: no cover
-                await asyncio.sleep(0)
-
-            if user.iden == mesg[1]['user'] or user.isAdmin():
-                yield mesg
-
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
@@ -4181,8 +3939,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.IntersectCmd)
         self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
-        self.addStormCmd(s_storm.SpliceListCmd)
-        self.addStormCmd(s_storm.SpliceUndoCmd)
         self.addStormCmd(s_stormlib_macro.MacroExecCmd)
         self.addStormCmd(s_stormlib_stats.StatsCountByCmd)
 
@@ -4242,29 +3998,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if path:
                 self.addStormLib(path, ctor)
 
-    def _initSplicers(self):
-        '''
-        Registration for splice handlers.
-        '''
-        splicers = {
-            'tag:add': self._onFeedTagAdd,
-            'tag:del': self._onFeedTagDel,
-            'node:add': self._onFeedNodeAdd,
-            'node:del': self._onFeedNodeDel,
-            'prop:set': self._onFeedPropSet,
-            'prop:del': self._onFeedPropDel,
-            'tag:prop:set': self._onFeedTagPropSet,
-            'tag:prop:del': self._onFeedTagPropDel,
-        }
-        self.splicers.update(**splicers)
-
     def _initFeedFuncs(self):
         '''
         Registration for built-in Cortex feed functions.
         '''
         self.setFeedFunc('syn.nodes', self._addSynNodes)
-        self.setFeedFunc('syn.splice', self._addSynSplice)
-        self.setFeedFunc('syn.nodeedits', self._addSynNodeEdits)
 
     def _initCortexHttpApi(self):
         '''
@@ -4571,37 +4309,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except ValueError:
             pass
 
-    def addRuntLift(self, prop, func):
+    def addRuntLift(self, formname, func):
         '''
-        Register a runt lift helper for a given prop.
+        Register a runt lift helper for a given form.
 
         Args:
-            prop (str): Full property name for the prop to register the helper for.
-            func:
+            formname (str): The form name to register the callback for.
+            func: (function): A callback func(view) which yields packed nodes.
 
         Returns:
             None: None.
         '''
-        self._runtLiftFuncs[prop] = func
+        self._runtLiftFuncs[formname] = func
 
-    async def runRuntLift(self, full, valu=None, cmpr=None, view=None):
-        '''
-        Execute a runt lift function.
-
-        Args:
-            full (str): Property to lift by.
-            valu:
-            cmpr:
-
-        Returns:
-            bytes, list: Yields bytes, list tuples where the list contains a series of
-                key/value pairs which are used to construct a Node object.
-
-        '''
-        func = self._runtLiftFuncs.get(full)
-        if func is not None:
-            async for pode in func(full, valu, cmpr, view):
-                yield pode
+    def getRuntLift(self, formname):
+        return self._runtLiftFuncs.get(formname)
 
     def addRuntPropSet(self, full, func):
         '''
@@ -4612,10 +4334,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runRuntPropSet(self, node, prop, valu):
         func = self._runtPropSetFuncs.get(prop.full)
         if func is None:
-            raise s_exc.IsRuntForm(mesg='No prop:set func set for runt property.',
-                                   prop=prop.full, valu=valu, ndef=node.ndef)
-        ret = await s_coro.ornot(func, node, prop, valu)
-        return ret
+            mesg = f'Property {prop.full} may not be set on a runtime node.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+        return await s_coro.ornot(func, node, prop, valu)
 
     def addRuntPropDel(self, full, func):
         '''
@@ -4626,10 +4347,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runRuntPropDel(self, node, prop):
         func = self._runtPropDelFuncs.get(prop.full)
         if func is None:
-            raise s_exc.IsRuntForm(mesg='No prop:del func set for runt property.',
-                                   prop=prop.full, ndef=node.ndef)
-        ret = await s_coro.ornot(func, node, prop)
-        return ret
+            mesg = f'Property {prop.full} may not be deleted from a runtime node.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+        return await s_coro.ornot(func, node, prop)
 
     async def _checkLayerModels(self):
         mrev = s_modelrev.ModelRev(self)
@@ -5174,12 +4894,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
                     if len(alledits) > 1000:
-                        await layr1.storNodeEdits(alledits, meta)
+                        await layr1.saveNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
 
                 if alledits:
-                    await layr1.storNodeEdits(alledits, meta)
+                    await layr1.saveNodeEdits(alledits, meta)
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
@@ -5467,118 +5187,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Add nodes to the Cortex via the packed node format.
         '''
         async for node in snap.addNodes(items):
-            pass
-
-    async def _addSynSplice(self, snap, items):
-        s_common.deprdate('Cortex.addFeedData(syn.splice, ...) API', s_common._splicedepr)
-
-        for item in items:
-            func = self.splicers.get(item[0])
-
-            if func is None:
-                await snap.warn(f'no such splice: {item!r}')
-                continue
-
-            try:
-                await func(snap, item)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception as e:
-                logger.exception('splice error')
-                await snap.warn(f'splice error: {e}')
-
-    async def _onFeedNodeAdd(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-
-        if ndef is None:
-            await snap.warn(f'Invalid Splice: {mesg!r}')
-            return
-
-        await snap.addNode(*ndef)
-
-    async def _onFeedNodeDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.delete()
-
-    async def _onFeedPropSet(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        name = mesg[1].get('prop')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.set(name, valu)
-
-    async def _onFeedPropDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        name = mesg[1].get('prop')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.pop(name)
-
-    async def _onFeedTagAdd(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        tag = mesg[1].get('tag')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.addTag(tag, valu=valu)
-
-    async def _onFeedTagDel(self, snap, mesg):
-
-        ndef = mesg[1].get('ndef')
-        tag = mesg[1].get('tag')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is None:
-            return
-
-        await node.delTag(tag)
-
-    async def _onFeedTagPropSet(self, snap, mesg):
-
-        tag = mesg[1].get('tag')
-        prop = mesg[1].get('prop')
-        ndef = mesg[1].get('ndef')
-        valu = mesg[1].get('valu')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is not None:
-            await node.setTagProp(tag, prop, valu)
-
-    async def _onFeedTagPropDel(self, snap, mesg):
-
-        tag = mesg[1].get('tag')
-        prop = mesg[1].get('prop')
-        ndef = mesg[1].get('ndef')
-
-        node = await snap.getNodeByNdef(ndef)
-        if node is not None:
-            await node.delTagProp(tag, prop)
-
-    async def _addSynNodeEdits(self, snap, items):
-        s_common.deprdate('Cortex.addFeedData(syn.nodeedits, ...) API', s_common._splicedepr)
-        for item in items:
-            item = s_common.unjsonsafe_nodeedits(item)
-            await snap.saveNodeEdits(item, None)
+            await asyncio.sleep(0)
 
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
@@ -5678,30 +5287,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
         with s_scope.enter({'user': user}):
-
             async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
+
                 async with await self.snap(user=user, view=view) as snap:
 
-                    async for pode in snap.iterStormPodes(text, opts=opts):
-                        await spooldict.set(pode[1]['iden'], pode)
-                        await asyncio.sleep(0)
+                    async for node, path in snap.storm(text, opts=opts):
+                        await spooldict.set(node.nid, node.pack())
 
-                    for iden, pode in spooldict.items():
+                    for nid1, pode1 in spooldict.items():
                         await asyncio.sleep(0)
 
                         edges = []
-                        async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+
+                        for nid2, pode2 in spooldict.items():
                             await asyncio.sleep(0)
 
-                            if not spooldict.has(n2iden):
-                                continue
-
-                            edges.append((verb, n2iden))
+                            async for verb in snap.iterEdgeVerbs(nid1, nid2):
+                                n2buid = snap.core.getBuidByNid(nid2)
+                                edges.append((verb, s_common.ehex(n2buid)))
 
                         if edges:
-                            pode[1]['edges'] = edges
+                            pode1[1]['edges'] = edges
 
-                        yield pode
+                        yield pode1
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
@@ -5769,6 +5377,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self._viewFromOpts(opts)
         return await view.nodes(text, opts=opts)
+
+    async def podes(self, text, opts=None):
+        return [n.pack() for n in await self.nodes(text, opts=opts)]
 
     async def eval(self, text, opts=None):
         '''
@@ -6426,28 +6037,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+    async def iterTagRows(self, layriden, tag, form=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (buid, (valu, form)) values that match a tag and optional form.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
 
         Returns:
             AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
         '''
         layr = self.getLayer(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
+        async for item in layr.iterTagRows(tag, form=form):
             yield item
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):

@@ -114,9 +114,7 @@ class Type:
 
         return func(cmpr, valu)
 
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+    def getRuntPode(self):
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
         props = {
@@ -131,15 +129,8 @@ class Type:
         if self.subof is not None:
             props['subof'] = self.subof
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (('syn:type', self.name), {
+            'props': props,
         })
 
     def getCompOffs(self, name):

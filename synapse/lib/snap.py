@@ -22,37 +22,6 @@ import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
-class Scrubber:
-
-    def __init__(self, rules):
-        self.rules = rules
-        # TODO support props
-        # TODO support tagprops
-        # TODO support exclude rules
-        incs = rules.get('include', {})
-
-        self.hasinctags = incs.get('tags') is not None
-        self.inctags = set(incs.get('tags', ()))
-        self.inctagprefs = [f'{tag}.' for tag in incs.get('tags', ())]
-
-    def scrub(self, pode):
-
-        if self.hasinctags and pode[1].get('tags'):
-            pode[1]['tags'] = {k: v for (k, v) in pode[1]['tags'].items() if self._isTagInc(k)}
-
-            if pode[1].get('tagprops'):
-                pode[1]['tagprops'] = {k: v for (k, v) in pode[1]['tagprops'].items() if self._isTagInc(k)}
-
-        return pode
-
-    @s_cache.memoizemethod()
-    def _isTagInc(self, tag):
-        if tag in self.inctags:
-            return True
-        if any(tag.startswith(pref) for pref in self.inctagprefs):
-            return True
-        return False
-
 class ProtoNode:
     '''
     A prototype node used for staging node adds using a SnapEditor.
@@ -386,6 +355,11 @@ class SnapEditor:
         if node:
             return self.loadNode(node)
 
+    async def getNodeByNid(self, nid):
+        node = await self.snap.getNodeByNid(nid)
+        if node:
+            return self.loadNode(node)
+
     def getNodeEdits(self):
         nodeedits = []
         for protonode in self.protonodes.values():
@@ -466,15 +440,9 @@ class Snap(s_base.Base):
     The Snap object contains the bulk of the Cortex API to
     facilitate performance through careful use of transaction
     boundaries.
-
-    Transactions produce the following EventBus events:
-
-    (...any splice...)
-    ('log', {'level': 'mesg': })
-    ('print', {}),
     '''
     tagcachesize = 1000
-    buidcachesize = 100000
+    nodecachesize = 100000
 
     async def __anit__(self, view, user):
         '''
@@ -487,8 +455,6 @@ class Snap(s_base.Base):
         assert user is not None
 
         self.strict = True
-        self.elevated = False
-        self.canceled = False
 
         self.core = view.core
         self.view = view
@@ -499,28 +465,13 @@ class Snap(s_base.Base):
 
         self.readonly = self.wlyr.readonly
 
-        # variables used by the storm runtime
-        self.vars = {}
-
-        self.runt = {}
-
-        self.debug = False      # Set to true to enable debug output.
-        self.write = False      # True when the snap has a write lock on a layer.
-        self.cachebuids = True
-
         self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=self.tagcachesize)
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
+
         # Keeps alive the most recently accessed node objects
-        self.buidcache = collections.deque(maxlen=self.buidcachesize)
-        self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
+        self.nodecache = collections.deque(maxlen=self.nodecachesize)
+        self.livenodes = weakref.WeakValueDictionary()  # nid -> Node
         self._warnonce_keys = set()
-
-        self.changelog = []
-        self.tagtype = self.core.model.type('ival')
-        self.trigson = self.core.trigson
-
-    def disableTriggers(self):
-        self.trigson = False
 
     async def getSnapMeta(self):
         '''
@@ -574,11 +525,6 @@ class Snap(s_base.Base):
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
 
-        scrubber = None
-        # NOTE: This option is still experimental and subject to change.
-        if opts.get('scrub') is not None:
-            scrubber = Scrubber(opts.get('scrub'))
-
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
@@ -587,9 +533,6 @@ class Snap(s_base.Base):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
-
-            if scrubber is not None:
-                pode = scrubber.scrub(pode)
 
             if embeds is not None:
                 embdef = embeds.get(node.form.name)
@@ -641,7 +584,7 @@ class Snap(s_base.Base):
     async def clearCache(self):
         self.tagcache.clear()
         self.tagnorms.clear()
-        self.buidcache.clear()
+        self.nodecache.clear()
         self.livenodes.clear()
 
     def clearCachedNode(self, buid):
@@ -676,7 +619,14 @@ class Snap(s_base.Base):
             Optional[s_node.Node]: The node object or None.
 
         '''
-        return await self._joinStorNode(buid, {})
+        nid = self.core.getNidByBuid(buid)
+        if nid is None:
+            return None
+
+        return await self._joinStorNode(nid)
+
+    async def getNodeByNid(self, nid):
+        return await self._joinStorNode(nid)
 
     async def getNodeByNdef(self, ndef):
         '''
@@ -698,12 +648,13 @@ class Snap(s_base.Base):
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
-        async for (buid, sodes) in self.core._liftByTagProp(form, tag, name, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in self.view.liftByTagProp(form, tag, name, reverse=reverse):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByTagPropValu(self, form, tag, name, cmpr, valu, reverse=False):
+
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
@@ -714,108 +665,53 @@ class Snap(s_base.Base):
         if not cmprvals:
             return
 
-        async for (buid, sodes) in self.core._liftByTagPropValu(form, tag, name, cmprvals, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in self.view.liftByTagPropValu(form, tag, name, cmprvals, reverse=reverse):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def _joinStorNode(self, buid, cache):
+    async def _joinStorNode(self, nid):
 
-        node = self.livenodes.get(buid)
+        node = self.livenodes.get(nid)
         if node is not None:
             await asyncio.sleep(0)
             return node
 
-        layrs = [layr for layr in self.layers if layr.iden not in cache]
-        if layrs:
-            indx = 0
-            newsodes = await self.core._getStorNodes(buid, layrs)
+        # must do this in view layer order not our reversed order
+        soderefs = [layr.genStorNodeRef(nid) for layr in self.view.layers]
 
-        sodes = []
-        for layr in self.layers:
-            sode = cache.get(layr.iden)
-            if sode is None:
-                sode = newsodes[indx]
-                indx += 1
-            sodes.append((layr.iden, sode))
+        return await self._joinSodes(nid, soderefs)
 
-        return await self._joinSodes(buid, sodes)
+    async def _joinSodes(self, nid, soderefs):
 
-    async def _joinSodes(self, buid, sodes):
-
-        node = self.livenodes.get(buid)
+        node = self.livenodes.get(nid)
         if node is not None:
             await asyncio.sleep(0)
             return node
 
         ndef = None
-        tags = {}
-        props = {}
-        nodedata = {}
-        tagprops = {}
-
-        bylayer = {
-            'ndef': None,
-            'tags': {},
-            'props': {},
-            'tagprops': {},
-        }
-
-        for (layr, sode) in sodes:
-
-            form = sode.get('form')
-            valt = sode.get('valu')
+        # make sure at least one layer has the primary property
+        for envl in soderefs:
+            valt = envl.sode.get('valu')
             if valt is not None:
-                ndef = (form, valt[0])
-                bylayer['ndef'] = layr
-
-            storprops = sode.get('props')
-            if storprops is not None:
-                for prop, (valu, stype) in storprops.items():
-                    props[prop] = valu
-                    bylayer['props'][prop] = layr
-
-            stortags = sode.get('tags')
-            if stortags is not None:
-                tags.update(stortags)
-                bylayer['tags'].update({p: layr for p in stortags.keys()})
-
-            stortagprops = sode.get('tagprops')
-            if stortagprops is not None:
-                for tag, propdict in stortagprops.items():
-                    for tagprop, (valu, stype) in propdict.items():
-                        if tag not in tagprops:
-                            tagprops[tag] = {}
-                        tagprops[tag][tagprop] = valu
-                        bylayer['tagprops'][tagprop] = layr
-
-            stordata = sode.get('nodedata')
-            if stordata is not None:
-                nodedata.update(stordata)
+                ndef = (envl.sode.get('form'), valt[0])
+                break
 
         if ndef is None:
             await asyncio.sleep(0)
             return None
 
-        pode = (buid, {
-            'ndef': ndef,
-            'tags': tags,
-            'props': props,
-            'nodedata': nodedata,
-            'tagprops': tagprops,
-        })
+        node = s_node.Node(self, nid, ndef, soderefs)
 
-        node = s_node.Node(self, pode, bylayer=bylayer)
-        if self.cachebuids:
-            self.livenodes[buid] = node
-            self.buidcache.append(node)
+        self.livenodes[nid] = node
+        self.nodecache.append(node)
 
         await asyncio.sleep(0)
         return node
 
     async def nodesByDataName(self, name):
-        async for (buid, sodes) in self.core._liftByDataName(name, self.layers):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in self.view.liftByDataName(name):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -827,35 +723,26 @@ class Snap(s_base.Base):
             raise s_exc.NoSuchProp(mesg=mesg)
 
         if prop.isrunt:
-            async for node in self.getRuntNodes(prop.full):
+            async for node in self.getRuntNodes(prop):
                 yield node
             return
 
         if prop.isform:
-            async for (buid, sodes) in self.core._liftByProp(prop.name, None, self.layers, reverse=reverse):
-                node = await self._joinSodes(buid, sodes)
-                if node is not None:
-                    yield node
-            return
+            genr = self.view.liftByProp(prop.name, None, reverse=reverse)
 
-        if prop.isuniv:
-            async for (buid, sodes) in self.core._liftByProp(None, prop.name, self.layers, reverse=reverse):
-                node = await self._joinSodes(buid, sodes)
-                if node is not None:
-                    yield node
-            return
+        elif prop.isuniv:
+            genr = self.view.liftByProp(None, prop.name, reverse=reverse)
 
-        formname = None
-        if not prop.isuniv:
-            formname = prop.form.name
+        else:
+            genr = self.view.liftByProp(prop.form.name, prop.name)
 
-        # Prop is secondary prop
-        async for (buid, sodes) in self.core._liftByProp(formname, prop.name, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in genr:
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByPropValu(self, full, cmpr, valu, reverse=False):
+
         if cmpr == 'type=':
             if reverse:
                 async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
@@ -883,43 +770,35 @@ class Snap(s_base.Base):
 
         if prop.isrunt:
             for storcmpr, storvalu, _ in cmprvals:
-                async for node in self.getRuntNodes(prop.full, valu=storvalu, cmpr=storcmpr):
+                async for node in self.getRuntNodes(prop, cmprvalu=(storcmpr, storvalu)):
                     yield node
             return
 
         if prop.isform:
+            genr = self.view.liftByFormValu(prop.name, cmprvals, reverse=reverse)
 
-            found = 0
-            async for (buid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers, reverse=reverse):
-                node = await self._joinSodes(buid, sodes)
-                if node is not None:
-                    found += 1
-                    yield node
+        elif prop.isuniv:
+            genr = self.view.liftByPropValu(None, prop.name, cmprvals, reverse=reverse)
 
-            return
+        else:
+            genr = self.view.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse)
 
-        if prop.isuniv:
-            async for (buid, sodes) in self.core._liftByPropValu(None, prop.name, cmprvals, self.layers, reverse=reverse):
-                node = await self._joinSodes(buid, sodes)
-                if node is not None:
-                    yield node
-            return
-
-        async for (buid, sodes) in self.core._liftByPropValu(prop.form.name, prop.name, cmprvals, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in genr:
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByTag(self, tag, form=None, reverse=False):
-        async for (buid, sodes) in self.core._liftByTag(tag, form, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in self.view.liftByTag(tag, form=form, reverse=reverse):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+
         norm, info = self.core.model.type('ival').norm(valu)
-        async for (buid, sodes) in self.core._liftByTagValu(tag, cmpr, norm, form, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+        async for nid, srefs in self.view.liftByTagValu(tag, cmpr, norm, form, reverse=reverse):
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -951,18 +830,17 @@ class Snap(s_base.Base):
         cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
 
         if prop.isform:
-            async for (buid, sodes) in self.core._liftByPropArray(prop.name, None, cmprvals, self.layers, reverse=reverse):
-                node = await self._joinSodes(buid, sodes)
-                if node is not None:
-                    yield node
-            return
+            genr = self.view.liftByPropArray(prop.name, None, cmprvals, reverse=reverse)
 
-        formname = None
-        if prop.form is not None:
-            formname = prop.form.name
+        else:
+            formname = None
+            if prop.form is not None:
+                formname = prop.form.name
 
-        async for (buid, sodes) in self.core._liftByPropArray(formname, prop.name, cmprvals, self.layers, reverse=reverse):
-            node = await self._joinSodes(buid, sodes)
+            genr = self.view.liftByPropArray(formname, prop.name, cmprvals, reverse=reverse)
+
+        async for nid, srefs in genr:
+            node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
@@ -980,7 +858,7 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            await self.saveNodeEdits(nodeedits)
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
@@ -991,72 +869,46 @@ class Snap(s_base.Base):
 
         nodeedits = editor.getNodeEdits()
         if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+            await self.saveNodeEdits(nodeedits)
 
-    async def applyNodeEdit(self, edit):
-        nodes = await self.applyNodeEdits((edit,))
-        return nodes[0]
-
-    async def applyNodeEdits(self, edits):
+    async def saveNodeEdits(self, edits, meta=None):
         '''
-        Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
+        Save node edits and run triggers/callbacks.
         '''
-        meta = await self.getSnapMeta()
-        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
-        return nodes
-
-    async def saveNodeEdits(self, edits, meta):
-        if meta is None:
-            meta = await self.getSnapMeta()
-
-        saveoff = -1
-        changes = []
-
-        for edit in edits:
-            await self.getNodeByBuid(edit[0])
-            saveoff, changes_, _ = await self._applyNodeEdits((edit,), meta)
-            changes.extend(changes_)
-
-        return saveoff, changes
-
-    async def _applyNodeEdits(self, edits, meta):
 
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        wlyr = self.wlyr
-        nodes = []
-        callbacks = []
-        actualedits = []  # List[Tuple[buid, form, changes]]
+        if meta is None:
+            meta = await self.getSnapMeta()
 
-        saveoff, changes, results = await wlyr._realSaveNodeEdits(edits, meta)
+        wlyr = self.wlyr
+        callbacks = []
+
+        # hold a reference to  all the nodes about to be edited...
+        nodes = {e[0]: await self.getNodeByBuid(e[0]) for e in edits}
+
+        saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for buid, sode, postedits in results:
+        for buid, form, edits in nodeedits:
 
-            cache = {wlyr.iden: sode}
-
-            node = await self._joinStorNode(buid, cache)
+            node = nodes.get(buid)
+            if node is None:
+                node = await self.getNodeByBuid(buid)
 
             if node is None:
-                # We got part of a node but no ndef
                 continue
 
-            nodes.append(node)
-
-            if postedits:
-                actualedits.append((buid, node.form.name, postedits))
-
-            for edit in postedits:
+            for edit in edits:
 
                 etyp, parms, _ = edit
 
                 if etyp == s_layer.EDIT_NODE_ADD:
-                    node.bylayer['ndef'] = wlyr.iden
                     callbacks.append((node.form.wasAdded, (node,), {}))
                     callbacks.append((self.view.runNodeAdd, (node,), {}))
                     continue
@@ -1072,11 +924,8 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
-                        logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
+                        logger.warning(f'saveNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form.full}')
                         continue
-
-                    node.props[name] = valu
-                    node.bylayer['props'][name] = wlyr.iden
 
                     callbacks.append((prop.wasSet, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -1088,11 +937,8 @@ class Snap(s_base.Base):
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
-                        logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
+                        logger.warning(f'saveNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form.full}')
                         continue
-
-                    node.props.pop(name, None)
-                    node.bylayer['props'].pop(name, None)
 
                     callbacks.append((prop.wasDel, (node, oldv), {}))
                     callbacks.append((self.view.runPropSet, (node, prop, oldv), {}))
@@ -1102,9 +948,6 @@ class Snap(s_base.Base):
 
                     (tag, valu, oldv) = parms
 
-                    node.tags[tag] = valu
-                    node.bylayer['tags'][tag] = wlyr.iden
-
                     callbacks.append((self.view.runTagAdd, (node, tag, valu), {}))
                     callbacks.append((self.wlyr.fire, ('tag:add', ), {'tag': tag, 'node': node.iden()}))
                     continue
@@ -1113,28 +956,14 @@ class Snap(s_base.Base):
 
                     (tag, oldv) = parms
 
-                    node.tags.pop(tag, None)
-                    node.bylayer['tags'].pop(tag, None)
-
                     callbacks.append((self.view.runTagDel, (node, tag, oldv), {}))
                     callbacks.append((self.wlyr.fire, ('tag:del', ), {'tag': tag, 'node': node.iden()}))
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_SET:
-                    (tag, prop, valu, oldv, stype) = parms
-                    if tag not in node.tagprops:
-                        node.tagprops[tag] = {}
-                    node.tagprops[tag][prop] = valu
-                    node.bylayer['tags'][(tag, prop)] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
-                    (tag, prop, oldv, stype) = parms
-                    if tag in node.tagprops:
-                        node.tagprops[tag].pop(prop, None)
-                        if not node.tagprops[tag]:
-                            node.tagprops.pop(tag, None)
-                    node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
                 if etyp == s_layer.EDIT_NODEDATA_SET:
@@ -1159,10 +988,10 @@ class Snap(s_base.Base):
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
-        if actualedits:
-            await self.fire('node:edits', edits=actualedits)
+        if nodeedits:
+            await self.fire('node:edits', edits=nodeedits)
 
-        return saveoff, changes, nodes
+        return saveoff, nodeedits
 
     async def addNode(self, name, valu, props=None, norminfo=None):
         '''
@@ -1362,20 +1191,54 @@ class Snap(s_base.Base):
 
         return await self.getNodeByBuid(protonode.buid)
 
-    async def getRuntNodes(self, full, valu=None, cmpr=None):
+    async def getRuntNodes(self, prop, cmprvalu=None):
 
-        todo = s_common.todo('runRuntLift', full, valu, cmpr, self.view.iden)
-        async for sode in self.core.dyniter('cortex', todo):
+        now = s_common.now()
 
-            node = s_node.Node(self, sode)
-            node.isrunt = True
+        filt = None
+        if cmprvalu is not None:
 
-            yield node
+            cmpr, valu = cmprvalu
 
-    async def iterNodeEdgesN1(self, buid, verb=None):
+            ctor = prop.type.getCmprCtor(cmpr)
+            if ctor is None:
+                mesg = f'Bad comparison ({cmpr}) for type {prop.type.name}.'
+                raise s_exc.BadCmprType(mesg=mesg, cmpr=cmpr)
+
+            filt = ctor(valu)
+            if filt is None:
+                mesg = f'Bad value ({valu}) for comparison {cmpr} {prop.type.name}.'
+                raise s_exc.BadCmprValu(mesg=mesg, cmpr=cmpr)
+
+        async for pode in self.view.getRuntPodes(prop, cmprvalu=cmprvalu):
+
+            # for runt nodes without a .created time
+            pode[1]['props'].setdefault('.created', now)
+
+            # filter based on any specified prop / cmpr / valu
+            if filt is None:
+                if not prop.isform:
+                    pval = pode[1]['props'].get(prop.name, s_common.novalu)
+                    if pval == s_common.novalu:
+                        await asyncio.sleep(0)
+                        continue
+            else:
+
+                if prop.isform:
+                    nval = pode[0][1]
+                else:
+                    nval = pode[1]['props'].get(prop.name, s_common.novalu)
+
+                if nval is s_common.novalu or not filt(nval):
+                    await asyncio.sleep(0)
+                    continue
+
+            yield s_node.RuntNode(self, pode)
+
+    async def iterNodeEdgesN1(self, nid, verb=None):
 
         last = None
-        gens = [layr.iterNodeEdgesN1(buid, verb=verb) for layr in self.layers]
+        gens = [layr.iterNodeEdgesN1(nid, verb=verb) for layr in self.layers]
 
         async for edge in s_common.merggenr2(gens):
 
@@ -1386,10 +1249,10 @@ class Snap(s_base.Base):
             last = edge
             yield edge
 
-    async def iterNodeEdgesN2(self, buid, verb=None):
+    async def iterNodeEdgesN2(self, nid, verb=None):
 
         last = None
-        gens = [layr.iterNodeEdgesN2(buid, verb=verb) for layr in self.layers]
+        gens = [layr.iterNodeEdgesN2(nid, verb=verb) for layr in self.layers]
 
         async for edge in s_common.merggenr2(gens):
 
@@ -1400,16 +1263,16 @@ class Snap(s_base.Base):
             last = edge
             yield edge
 
-    async def hasNodeEdge(self, buid1, verb, buid2):
+    async def hasNodeEdge(self, n1nid, verb, n2nid):
         for layr in self.layers:
-            if await layr.hasNodeEdge(buid1, verb, buid2):
+            if await layr.hasNodeEdge(n1nid, verb, n2nid):
                 return True
         return False
 
-    async def iterEdgeVerbs(self, n1buid, n2buid):
+    async def iterEdgeVerbs(self, n1nid, n2nid):
 
         last = None
-        gens = [layr.iterEdgeVerbs(n1buid, n2buid) for layr in self.layers]
+        gens = [layr.iterEdgeVerbs(n1nid, n2nid) for layr in self.layers]
 
         async for verb in s_common.merggenr2(gens):
 
@@ -1440,7 +1303,7 @@ class Snap(s_base.Base):
                 return valu
         return defv
 
-    async def iterNodeData(self, buid):
+    async def iterNodeData(self, nid):
         '''
         Returns:  Iterable[Tuple[str, Any]]
         '''
@@ -1448,22 +1311,22 @@ class Snap(s_base.Base):
 
             for layr in reversed(self.layers):
 
-                async for name, valu in layr.iterNodeData(buid):
+                async for name, valu in layr.iterNodeData(nid):
                     if name in sset:
                         continue
 
                     await sset.add(name)
                     yield name, valu
 
-    async def iterNodeDataKeys(self, buid):
+    async def iterNodeDataKeys(self, nid):
         '''
-        Yield each data key from the given node by buid.
+        Yield each data key from the given node by nid.
         '''
         async with self.core.getSpooledSet() as sset:
 
             for layr in reversed(self.layers):
 
-                async for name in layr.iterNodeDataKeys(buid):
+                async for name in layr.iterNodeDataKeys(nid):
                     if name in sset:
                         continue
 

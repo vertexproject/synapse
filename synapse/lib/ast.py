@@ -368,12 +368,15 @@ class SubGraph:
         self.omits = {}
         self.rules = rules
 
+        self.graphnodes = set([s_common.uhex(b) for b in rules.get('graphnodes', ())])
+        self.maxsize = min(rules.get('maxsize', 100000), 100000)
+
         self.rules.setdefault('forms', {})
         self.rules.setdefault('pivots', ())
         self.rules.setdefault('filters', ())
         self.rules.setdefault('existing', ())
 
-        self.rules.setdefault('refs', False)
+        self.rules.setdefault('refs', True)
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
         self.rules.setdefault('maxsize', 100000)
@@ -539,13 +542,17 @@ class SubGraph:
 
                         await asyncio.sleep(0)
 
+                        nid01 = runt.snap.core.getNidByBuid(buid01)
+                        if nid01 is None:
+                            continue
+
                         iden01 = s_common.ehex(buid01)
-                        async for verb in node.iterEdgeVerbs(buid01):
+                        async for verb in node.iterEdgeVerbs(nid01):
                             await asyncio.sleep(0)
                             edges.append((iden01, {'type': 'edge', 'verb': verb}))
 
                         # for existing nodes, we need to add n2 -> n1 edges in reverse
-                        async for verb in runt.snap.iterEdgeVerbs(buid01, node.buid):
+                        async for verb in runt.snap.iterEdgeVerbs(nid01, node.nid):
                             await asyncio.sleep(0)
                             edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
@@ -1741,8 +1748,8 @@ class N1WalkNPivo(PivotOut):
             async for item in self.getPivsOut(runt, node, path):
                 yield item
 
-            async for (verb, iden) in node.iterEdgesN1():
-                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+            async for (verb, n2nid) in node.iterEdgesN1():
+                wnode = await runt.snap.getNodeByNid(n2nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
 
@@ -1860,8 +1867,8 @@ class N2WalkNPivo(PivotIn):
             async for item in self.getPivsIn(runt, node, path):
                 yield item
 
-            async for (verb, iden) in node.iterEdgesN2():
-                wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
+            async for (verb, n1nid) in node.iterEdgesN2():
+                wnode = await runt.snap.getNodeByNid(n1nid)
                 if wnode is not None:
                     yield wnode, path.fork(wnode)
 
@@ -2489,13 +2496,13 @@ class TagCond(Cond):
         async def cond(node, path):
             name = await self.kids[0].compute(runt, path)
             if name == '*':
-                return bool(node.tags)
+                return bool(node.getTagNames())
 
             if '*' in name:
                 reobj = s_cache.getTagGlobRegx(name)
-                return any(reobj.fullmatch(p) for p in node.tags)
+                return any(reobj.fullmatch(p) for p in node.getTagNames())
 
-            return node.tags.get(name) is not None
+            return node.getTag(name) is not None
 
         return cond
 
@@ -2586,11 +2593,13 @@ class HasTagPropCond(Cond):
             name = await self.kids[1].compute(runt, path)
 
             if tag == '*':
-                return any(name in props for props in node.tagprops.values())
+                tagprops = node._getTagPropsDict()
+                return any(name in props for props in tagprops.values())
 
             if '*' in tag:
                 reobj = s_cache.getTagGlobRegx(tag)
-                for tagname, props in node.tagprops.items():
+                tagprops = node._getTagPropsDict()
+                for tagname, props in tagprops.items():
                     if reobj.fullmatch(tagname) and name in props:
                         return True
 
@@ -2719,7 +2728,7 @@ class TagValuCond(Cond):
                     raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=name))
 
                 valu = await rnode.compute(runt, path)
-                return cmprctor(valu)(node.tags.get(name))
+                return cmprctor(valu)(node.getTag(name))
 
             return cond
 
@@ -2732,14 +2741,14 @@ class TagValuCond(Cond):
             cmpr = cmprctor(valu)
 
             async def cond(node, path):
-                return cmpr(node.tags.get(name))
+                return cmpr(node.getTag(name))
 
             return cond
 
         # it's a runtime value...
         async def cond(node, path):
             valu = await self.kids[2].compute(runt, path)
-            return cmprctor(valu)(node.tags.get(name))
+            return cmprctor(valu)(node.getTag(name))
 
         return cond
 
@@ -3635,7 +3644,7 @@ class EditPropSet(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                mesg = f'No property named {name}.'
+                mesg = f'No property named {name} on form {node.form.name}.'
                 exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
                 raise self.kids[0].addExcInfo(exc)
 
@@ -3767,9 +3776,8 @@ class EditUnivDel(Edit):
 class N1Walk(Oper):
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN1(verb=verb):
-            buid = s_common.uhex(iden)
-            walknode = await runt.snap.getNodeByBuid(buid)
+        async for _, nid in node.iterEdgesN1(verb=verb):
+            walknode = await runt.snap.getNodeByNid(nid)
             if walknode is not None:
                 yield walknode
 
@@ -3855,9 +3863,8 @@ class N1Walk(Oper):
 class N2Walk(N1Walk):
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN2(verb=verb):
-            buid = s_common.uhex(iden)
-            walknode = await runt.snap.getNodeByBuid(buid)
+        async for _, nid in node.iterEdgesN2(verb=verb):
+            walknode = await runt.snap.getNodeByNid(nid)
             if walknode is not None:
                 yield walknode
 
@@ -3922,7 +3929,7 @@ class EditEdgeAdd(Edit):
                             if len(proto.edges) >= 1000:
                                 nodeedits = editor.getNodeEdits()
                                 if nodeedits:
-                                    await node.snap.applyNodeEdits(nodeedits)
+                                    await node.snap.saveNodeEdits(nodeedits)
                                 proto.edges.clear()
 
             yield node, path
@@ -3985,7 +3992,7 @@ class EditEdgeDel(Edit):
                             if len(proto.edgedels) >= 1000:
                                 nodeedits = editor.getNodeEdits()
                                 if nodeedits:
-                                    await node.snap.applyNodeEdits(nodeedits)
+                                    await node.snap.saveNodeEdits(nodeedits)
                                 proto.edgedels.clear()
 
             yield node, path

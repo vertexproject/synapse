@@ -261,11 +261,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 finally:
                     await self.delTrigQueue(offs)
 
-    async def getStorNodes(self, buid):
+    async def getStorNodes(self, nid):
         '''
         Return a list of storage nodes for the given buid in layer order.
+        NOTE: This returns a COPY of the storage node and will not receive updates!
         '''
-        return await self.core._getStorNodes(buid, self.layers)
+        return [layr.getStorNode(nid) for layr in self.layers]
 
     def init2(self):
         '''
@@ -515,7 +516,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
-        if editformat not in ('nodeedits', 'splices', 'count', 'none'):
+        if editformat not in ('nodeedits', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
 
         if editformat == 'splices':
@@ -600,6 +601,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 continue
 
             if kind == 'node:edits':
+
                 if editformat == 'nodeedits':
 
                     nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
@@ -616,14 +618,6 @@ class View(s_nexus.Pusher):  # type: ignore
                     mesg = ('node:edits:count', {'count': count})
                     yield mesg
                     continue
-
-                assert editformat == 'splices'
-
-                nodeedits = mesg[1].get('edits', [()])
-                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
-                    if not show or splice[0] in show:
-                        yield splice
-                continue
 
             if kind == 'fini':
                 yield mesg
@@ -932,7 +926,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runTagDel(node, tag, view=view)
 
     async def runNodeAdd(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -941,7 +935,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runNodeAdd(node, view=view)
 
     async def runNodeDel(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -953,7 +947,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -962,7 +956,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runPropSet(node, prop, oldv, view=view)
 
     async def runEdgeAdd(self, n1, edge, n2, view=None):
-        if not n1.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -971,7 +965,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runEdgeAdd(n1, edge, n2, view=view)
 
     async def runEdgeDel(self, n1, edge, n2, view=None):
-        if not n1.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -1082,6 +1076,17 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.snap(user=user) as snap:
             return await snap.addNode(form, valu, props=props)
 
+    async def saveNodeEdits(self, edits, meta=None):
+
+        if meta is None:
+            mesg = 'view.saveNodeEdits() requires meta argument.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        user = await self.core.auth.reqUser(meta.get('user'))
+
+        async with await self.snap(user=user) as snap:
+            await snap.saveNodeEdits(edits, meta=meta)
+
     async def addNodeEdits(self, edits, meta):
         '''
         A telepath compatible way to apply node edits to a view.
@@ -1161,3 +1166,206 @@ class View(s_nexus.Pusher):  # type: ignore
                     # Yield a tuple of <form, normed valu, info>
                     yield form, valu, info
                     await asyncio.sleep(0)
+
+    async def getRuntPodes(self, prop, cmprvalu=None):
+        liftfunc = self.core.getRuntLift(prop.form.name)
+        if liftfunc is not None:
+            async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
+                yield pode
+
+    async def _genSrefList(self, nid, smap, filtercmpr=None):
+        srefs = []
+
+        if filtercmpr is not None:
+            filt = True
+            for layr in self.layers:
+                sref = smap.get(layr.iden)
+                if sref is None:
+                    sref = layr.genStorNodeRef(nid)
+                    if filt and filtercmpr(sref.sode):
+                        return
+                else:
+                    filt = False
+
+                srefs.append(sref)
+
+            return srefs
+
+        for layr in self.layers:
+            sref = smap.get(layr.iden)
+            if sref is None:
+                sref = layr.genStorNodeRef(nid)
+
+            srefs.append(sref)
+
+        return srefs
+
+    async def _mergeLiftRows(self, genrs, filtercmpr=None, reverse=False):
+        lastnid = None
+        smap = {}
+        async for indx, nid, sref in s_common.merggenr2(genrs, reverse=reverse):
+            if not nid == lastnid or sref.layriden in smap:
+                if lastnid is not None:
+                    srefs = await self._genSrefList(lastnid, smap, filtercmpr)
+                    if srefs is not None:
+                        yield lastnid, srefs
+
+                    smap.clear()
+
+                lastnid = nid
+
+            smap[sref.layriden] = sref
+
+        if lastnid is not None:
+            srefs = await self._genSrefList(lastnid, smap, filtercmpr)
+            if srefs is not None:
+                yield lastnid, srefs
+
+    # view "lift by" functions yield (nid, srefs) tuples for results.
+    async def liftByProp(self, form, prop, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByProp(form, prop, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
+
+        genrs = [layr.liftByProp(form, prop, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def liftByFormValu(self, form, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByFormValu(form, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        for cval in cmprvals:
+            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, reverse=reverse):
+                yield item
+
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByPropValu(form, prop, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
+    async def liftByTag(self, tag, form=None, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTag(tag, form=form, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        genrs = [layr.liftByTag(tag, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
+            yield item
+
+    async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            tags = sode.get('tags')
+            if tags is None:
+                return False
+            return tags.get(tag) is not None
+
+        genrs = [layr.liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def liftByTagProp(self, form, tag, prop, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTagProp(form, tag, prop, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
+                return False
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
+
+        genrs = [layr.liftByTagProp(form, tag, prop, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
+                return False
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByPropArray(form, prop, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        if prop is None:
+            filt = None
+        else:
+            def filt(sode):
+                props = sode.get('props')
+                if props is None:
+                    return False
+                return props.get(prop) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
+    async def liftByDataName(self, name):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByDataName(name):
+                yield nid, [sref]
+            return
+
+        genrs = [layr.liftByDataName(name) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item

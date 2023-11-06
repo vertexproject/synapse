@@ -1844,11 +1844,11 @@ class InetModelTest(s_t_utils.SynTest):
             url = await core.nodes('inet:url')
             self.len(1, url)
             url = url[0]
-            self.eq(443, url.props['port'])
-            self.eq('', url.props['params'])
-            self.eq('vertex.link', url.props['fqdn'])
-            self.eq('https', url.props['proto'])
-            self.eq('https://vertex.link/a_cool_program.exe', url.props['base'])
+            self.eq(443, url.get('port'))
+            self.eq('', url.get('params'))
+            self.eq('vertex.link', url.get('fqdn'))
+            self.eq('https', url.get('proto'))
+            self.eq('https://vertex.link/a_cool_program.exe', url.get('base'))
 
     async def test_url_mirror(self):
         url0 = 'http://vertex.link'

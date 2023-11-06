@@ -52,25 +52,13 @@ class TagProp:
     def getTagPropDef(self):
         return (self.name, self.tdef, self.info)
 
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-        }
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms
+    def getRuntPode(self):
+        ndef = ('syn:tagprop', self.name)
+        return (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
         })
 
 class Prop:
@@ -209,31 +197,26 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.full)[0])
+        ndef = ('syn:prop', self.full)
 
-        buid = s_common.buid(ndef)
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-            'relname': self.name,
-            'univ': self.isuniv,
-            'base': self.name.split(':')[-1],
-            'ro': int(self.info.get('ro', False)),
-            'extmodel': self.isext,
-        }
+        pode = (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+                'relname': self.name,
+                'univ': self.isuniv,
+                'base': self.name.split(':')[-1],
+                'ro': int(self.info.get('ro', False)),
+                'extmodel': self.isext,
+            },
+        })
 
         if self.form is not None:
-            props['form'] = self.form.name
+            pode[1]['props']['form'] = self.form.name
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {'props': pnorms, 'ndef': ndef})
+        return pode
 
 class Form:
     '''
@@ -246,6 +229,7 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        self.isext = name.startswith('_')
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
@@ -275,33 +259,26 @@ class Form:
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+        return (('syn:form', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'runt': self.isrunt,
+                'type': self.type.name,
+            },
+        })
 
-        props = {
-            'doc': self.info.get('doc', self.type.info.get('doc', '')),
-            'type': self.type.name,
-        }
+    def getRuntPropPode(self):
 
-        if form.name == 'syn:form':
-            props['runt'] = self.isrunt
-        elif form.name == 'syn:prop':
-            props['univ'] = False
-            props['extmodel'] = False
-            props['form'] = self.name
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
-                })
+        return (('syn:prop', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'type': self.type.name,
+                'extmodel': self.isext,
+                'form': self.name,
+            },
+        })
 
     def setProp(self, name, prop):
         self.refsout = None

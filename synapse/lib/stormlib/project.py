@@ -104,7 +104,7 @@ class ProjectEpics(s_stormtypes.Prim):
             )
             await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await epic.node.delete()
         return True
 
@@ -727,7 +727,7 @@ class ProjectSprints(s_stormtypes.Prim):
             )
             await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await sprint.node.delete()
         return True
 

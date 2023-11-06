@@ -834,7 +834,7 @@ class StormTest(s_t_utils.SynTest):
                     $list.append($item)
                 }
                 return($list)''', opts=opts)
-            self.len(2, sodes)
+            self.len(3, sodes)
 
             ipv4 = await core.callStorm('''
                 $list = $lib.list()
@@ -890,7 +890,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(100, await core.callStorm('inet:ipv4=11.22.33.44 return(#foo:score)'))
 
             sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            self.eq(sodes[0], {})
+            self.eq({}, sodes[0])
 
             with self.raises(s_exc.CantMergeView):
                 await core.callStorm('inet:ipv4=11.22.33.44 | merge')
@@ -1011,19 +1011,19 @@ class StormTest(s_t_utils.SynTest):
                 url = await subcore.nodes('inet:url')
                 self.len(1, url)
                 url = url[0]
-                self.eq('https', url.props['proto'])
-                self.eq('/api/v1/exptest/neat', url.props['path'])
-                self.eq('', url.props['params'])
-                self.eq(2130706433, url.props['ipv4'])
-                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.props['base'])
-                self.eq(port, url.props['port'])
+                self.eq('https', url.get('proto'))
+                self.eq('/api/v1/exptest/neat', url.get('path'))
+                self.eq('', url.get('params'))
+                self.eq(2130706433, url.get('ipv4'))
+                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.get('base'))
+                self.eq(port, url.get('port'))
 
                 # now test that param works
                 byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
                 self.len(count, byyield)
                 for node in byyield:
                     self.eq(node.form.name, 'test:guid')
-                    self.isin('foo.bar', node.tags)
+                    self.isin('foo.bar', node.getTagNames())
 
                 # bad response should give no nodes
                 msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/lolnope/')
@@ -1353,7 +1353,7 @@ class StormTest(s_t_utils.SynTest):
 
             oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
             newn = await core.nodes('[ ou:name=readonly ]')
-            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
@@ -1363,13 +1363,13 @@ class StormTest(s_t_utils.SynTest):
             self.notin("Property is read only: ou:name.created", buf)
 
             newn = await core.nodes('ou:name=readonly')
-            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
 
             oldn = await core.nodes('[ ou:name=readonly2 ]', opts=altview)
             newn = await core.nodes('[ ou:name=readonly2 ]')
-            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             altview2 = {'view': viewiden2}
             q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
@@ -1383,7 +1383,7 @@ class StormTest(s_t_utils.SynTest):
             self.notin("Property is read only: ou:name.created", buf)
 
             newn = await core.nodes('ou:name=readonly2', opts=altview)
-            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
             await core.nodes('[ test:ro=bad :readable=bar ]')
@@ -1422,39 +1422,39 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two'])
-            self.eq(nodes[0].tagprops['one']['score'], 1)
-            self.eq(nodes[0].tagprops['two']['score'], 2)
-            self.none(nodes[0].tagprops.get('three'))
+            self.sorteq(list(nodes[0].getTagNames()), ['one', 'two'])
+            self.eq(nodes[0].getTagProp('one', 'score'), 1)
+            self.eq(nodes[0].getTagProp('two', 'score'), 2)
+            self.len(0, nodes[0].getTagProps('three'))
             self.len(2, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --only-tags --exclude-tags three haha.four --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'haha', 'haha.five'])
-            self.none(nodes[0].tagprops.get('three'))
+            self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'haha', 'haha.five'])
+            self.len(0, nodes[0].getTagProps('three'))
             self.len(4, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
-            self.eq(nodes[0].props.get('name'), 'haha')
-            self.eq(nodes[0].props.get('desc'), 'cool')
-            self.none(nodes[0].props.get('url'))
-            self.none(nodes[0].props.get('founded'))
-            self.none(nodes[0].props.get('.seen'))
-            self.eq(nodes[0].tagprops['three']['score'], 3)
+            self.sorteq(list(nodes[0].getTagNames()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
+            self.eq(nodes[0].get('name'), 'haha')
+            self.eq(nodes[0].get('desc'), 'cool')
+            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('founded'))
+            self.none(nodes[0].get('.seen'))
+            self.eq(nodes[0].getTagProp('three', 'score'), 3)
             self.len(6, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].props.get('founded'), 1609459200000)
-            self.none(nodes[0].props.get('url'))
-            self.none(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].get('founded'), 1609459200000)
+            self.none(nodes[0].get('url'))
+            self.none(nodes[0].get('.seen'))
 
             await core.nodes('diff | merge --include-props ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.nn(nodes[0].props.get('.seen'))
-            self.none(nodes[0].props.get('url'))
+            self.nn(nodes[0].get('.seen'))
+            self.none(nodes[0].get('url'))
 
             await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
             await core.nodes('diff | merge --only-tags --apply', opts=altview)
@@ -1468,7 +1468,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
             nodes = await core.nodes('ou:org=(org3,)')
             exp = ['glob', 'more', 'more.glob', 'more.glob.tags', 'glob.tags']
-            self.sorteq(list(nodes[0].tags.keys()), exp)
+            self.sorteq(list(nodes[0].getTagNames()), exp)
 
             q = '''
             [ file:bytes=*
@@ -1527,10 +1527,11 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             [ ou:org=(foo,)
                 :desc=layr1
+                :name=foo
                 .seen=2022
                 +#hehe.haha=2022
                 +#one:score=1
-                +(bar)> {[ ou:org=(bar,) ]}
+                +(bar)> {[ ou:org=(bar,) :name=bar]}
             ]
             $node.data.set(foo, bar)
             '''
@@ -1571,11 +1572,12 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             [ ou:org=(foo,)
                 :desc=overwritten
+                :name=foo
                 .seen=2023
                 +#hehe.haha=2023
                 +#one:score=2
                 +#two:score=1
-                +(baz)> {[ ou:org=(baz,) ]}
+                +(baz)> {[ ou:org=(baz,) :name=baz ]}
             ]
             $node.data.set(foo, baz)
             $node.data.set(bar, baz)
@@ -1594,7 +1596,8 @@ class StormTest(s_t_utils.SynTest):
             self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
-            self.len(1, await core.nodes('ou:org=(foo,) -(bar)> *', opts=view3))
+
+            self.len(1, await core.nodes('ou:org=(foo,)', opts=view3))
             self.len(1, await core.nodes('ou:org=(foo,) -(baz)> *', opts=view3))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view3)
             self.eq(data, 'bar')
@@ -2105,10 +2108,10 @@ class StormTest(s_t_utils.SynTest):
                 self.eq(newt.get('title'), 'haha title')
 
                 node = await snap.getNodeByNdef(('test:str', 'foo'))
-                self.eq((20, 30), node.tags.get('woot.haha'))
+                self.eq((20, 30), node.get('#woot.haha'))
 
-                self.none(node.tags.get('hehe'))
-                self.none(node.tags.get('hehe.haha'))
+                self.none(node.get('#hehe'))
+                self.none(node.get('#hehe.haha'))
 
                 node = await snap.getNodeByNdef(('syn:tag', 'hehe'))
                 self.eq('woot', node.get('isnow'))
@@ -2121,11 +2124,11 @@ class StormTest(s_t_utils.SynTest):
                 # test isnow plumbing
                 await node.addTag('hehe.haha')
 
-                self.nn(node.tags.get('woot'))
-                self.nn(node.tags.get('woot.haha'))
+                self.nn(node.get('#woot'))
+                self.nn(node.get('#woot.haha'))
 
-                self.none(node.tags.get('hehe'))
-                self.none(node.tags.get('hehe.haha'))
+                self.none(node.get('#hehe'))
+                self.none(node.get('#hehe.haha'))
 
         async with self.getTestCore() as core:
 
@@ -2194,7 +2197,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {'woah': {'test': 1138},
+            self.eq(nodes[0]._getTagPropsDict(), {'woah': {'test': 1138},
                                         'woah.beep': {'test': 8080,
                                                       'note': 'oh my'}
                                        })
@@ -2206,7 +2209,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {'hehe': {'test': 1138},
+            self.eq(nodes[0]._getTagPropsDict(), {'hehe': {'test': 1138},
                                         'woah.beep': {'test': 8080,
                                                       'note': 'oh my'}
                                        })
@@ -2384,28 +2387,28 @@ class StormTest(s_t_utils.SynTest):
             q = 'test:str=foo | once tagger | [+#my.cool.tag]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.len(3, nodes[0].tags)
-            self.isin('my.cool.tag', nodes[0].tags)
+            self.len(3, nodes[0].getTagNames())
+            self.isin('my.cool.tag', nodes[0].getTagNames())
 
             # run it again and see all the things get swatted to the floor
             q = 'test:str=foo | once tagger | [+#less.cool.tag]'
             self.len(0, await core.nodes(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
-            self.notin('less.cool.tag', nodes[0].tags)
+            self.notin('less.cool.tag', nodes[0].getTagNames())
 
             # make a few more and see at least some of them make it through
             nodes = await core.nodes('test:str=neato test:str=burrito | once tagger | [+#my.cool.tag]')
             self.len(2, nodes)
             for node in nodes:
-                self.isin('my.cool.tag', node.tags)
+                self.isin('my.cool.tag', node.getTagNames())
 
             q = 'test:str | once tagger | [ +#yet.another.tag ]'
             nodes = await core.nodes(q)
             self.len(3, nodes)
             for node in nodes:
-                self.isin('yet.another.tag', node.tags)
-                self.notin('my.cool.tag', node.tags)
+                self.isin('yet.another.tag', node.getTagNames())
+                self.notin('my.cool.tag', node.getTagNames())
 
             q = 'test:str | once tagger'
             nodes = await core.nodes(q)
@@ -2416,30 +2419,30 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str=foo | once tagger --asof -30days | [+#another.tag]'))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
-            self.notin('less.cool.tag', nodes[0].tags)
+            self.notin('less.cool.tag', nodes[0].getTagNames())
 
             # but if it's super recent, we can override it
             nodes = await core.nodes('test:str | once tagger --asof now | [ +#tag.the.third ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('tag.the.third', node.tags)
+                self.isin('tag.the.third', node.getTagNames())
 
             # keys shouldn't interact
             nodes = await core.nodes('test:str | once ninja | [ +#lottastrings ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('lottastrings', node.tags)
+                self.isin('lottastrings', node.getTagNames())
 
             nodes = await core.nodes('test:str | once beep --asof -30days | [ +#boop ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('boop', node.tags)
+                self.isin('boop', node.getTagNames())
 
             # we update to the more recent timestamp, so providing now should update things
             nodes = await core.nodes('test:str | once beep --asof now | [ +#bbq ]')
             self.len(6, nodes)
             for node in nodes:
-                self.isin('bbq', node.tags)
+                self.isin('bbq', node.getTagNames())
 
             # but still, no time means if it's ever been done
             self.len(0, await core.nodes('test:str | once beep | [ +#metal]'))
@@ -2968,300 +2971,6 @@ class StormTest(s_t_utils.SynTest):
             q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | for $n in $x { yield $n.iden() }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
-
-    async def test_storm_splicelist(self):
-
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            mesgs = await core.stormlist('[ test:str=foo ]')
-            await asyncio.sleep(0.01)
-
-            mesgs = await core.stormlist('[ test:str=bar ]')
-
-            tick = mesgs[0][1]['tick']
-            tickdt = datetime.datetime.fromtimestamp(tick / 1000.0, datetime.UTC)
-            tickstr = tickdt.strftime('%Y/%m/%d %H:%M:%S.%f')
-
-            tock = mesgs[-1][1]['tock']
-            tockdt = datetime.datetime.fromtimestamp(tock / 1000.0, datetime.UTC)
-            tockstr = tockdt.strftime('%Y/%m/%d %H:%M:%S.%f')
-
-            await asyncio.sleep(0.01)
-            mesgs = await core.stormlist('[ test:str=baz ]')
-
-            nodes = await core.nodes(f'splice.list')
-            self.len(9, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintimestamp {tick}')
-            self.len(4, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintime "{tickstr}"')
-            self.len(4, nodes)
-
-            nodes = await core.nodes(f'splice.list --maxtimestamp {tock}')
-            self.len(7, nodes)
-
-            nodes = await core.nodes(f'splice.list --maxtime "{tockstr}"')
-            self.len(7, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintimestamp {tick} --maxtimestamp {tock}')
-            self.len(2, nodes)
-
-            nodes = await core.nodes(f'splice.list --mintime "{tickstr}" --maxtime "{tockstr}"')
-            self.len(2, nodes)
-
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --mintime badtime'))
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('splice.list --maxtime nope'))
-
-            visi = await prox.addUser('visi', passwd='secret')
-
-            await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-            await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-
-            async with core.getLocalProxy(user='visi') as asvisi:
-
-                # make sure a normal user only gets their own splices
-                nodes = await alist(asvisi.eval("[ test:str=hehe ]"))
-
-                nodes = await alist(asvisi.eval("splice.list"))
-                self.len(2, nodes)
-
-                # should get all splices now as an admin
-                await prox.setUserAdmin(visi['iden'], True)
-
-                nodes = await alist(asvisi.eval("splice.list"))
-                self.len(11, nodes)
-
-            msgs = await core.stormlist('splice.undo')
-            self.stormIsInWarn('deprecated', msgs)
-
-    async def test_storm_spliceundo(self):
-
-        self.skip('order is different and this is deprecated')
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
-
-            visi = await prox.addUser('visi', passwd='secret')
-
-            await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-            await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-            await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-            async with core.getLocalProxy(user='visi') as asvisi:
-
-                nodes = await alist(asvisi.eval("[ test:str=foo ]"))
-                await asyncio.sleep(0.01)
-
-                mesgs = await alist(asvisi.storm("[ test:str=bar ]"))
-                tick = mesgs[0][1]['tick']
-                tock = mesgs[-1][1]['tock']
-
-                mesgs = await alist(asvisi.storm("test:str=bar [ +#test.tag ]"))
-
-                # undo a node add
-
-                nodes = await alist(asvisi.eval("test:str=bar"))
-                self.len(1, nodes)
-
-                # undo adding a node fails without tag:del perms if is it tagged
-                q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
-
-                # undo adding a node fails without node:del perms
-                q = f'splice.list --mintimestamp {tick} --maxtimestamp {tock} | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'del')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=bar"))
-                self.len(0, nodes)
-
-                # undo a node delete
-
-                # undo deleting a node fails without node:add perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'add')))
-
-                q = 'splice.list | limit 2 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=bar"))
-                self.len(1, nodes)
-
-                # undo adding a prop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
-                self.nn(nodes[0][1]['props'].get('tick'))
-
-                # undo adding a prop fails without prop:del perms
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'del',)))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.none(nodes[0][1]['props'].get('tick'))
-
-                # undo updating a prop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=2000 ]"))
-                oldv = nodes[0][1]['props']['tick']
-                self.nn(oldv)
-
-                nodes = await alist(asvisi.eval("test:str=foo [ :tick=3000 ]"))
-                self.ne(oldv, nodes[0][1]['props']['tick'])
-
-                # undo updating a prop fails without prop:set perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set',)))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(oldv, nodes[0][1]['props']['tick'])
-
-                # undo deleting a prop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ -:tick ]"))
-                self.none(nodes[0][1]['props'].get('tick'))
-
-                # undo deleting a prop fails without prop:set perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'prop', 'set')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(oldv, nodes[0][1]['props']['tick'])
-
-                # undo adding a tag
-
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=2000 ]"))
-                tagv = nodes[0][1]['tags'].get('rep')
-                self.nn(tagv)
-
-                # undo adding a tag fails without tag:del perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del',)))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.none(nodes[0][1]['tags'].get('rep'))
-
-                # undo deleting a tag
-
-                # undo deleting a tag fails without tag:add perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(tagv, nodes[0][1]['tags'].get('rep'))
-
-                # undo updating a tag
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=2000 ]"))
-                oldv = nodes[0][1]['tags'].get('rep')
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep=3000 ]"))
-                self.ne(oldv, nodes[0][1]['tags'].get('rep'))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(oldv, nodes[0][1]['tags'].get('rep'))
-
-                # undo adding a tagprop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=50 ]"))
-                tagv = nodes[0][1]['tagprops']['rep'].get('risk')
-                self.nn(tagv)
-
-                # undo adding a tagprop fails without tag:del perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'del')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.none(nodes[0][1]['tagprops'].get('rep'))
-
-                # undo deleting a tagprop
-
-                # undo deleting a tagprop fails without tag:add perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
-
-                # undo updating a tagprop
-
-                nodes = await alist(asvisi.eval("test:str=foo [ +#rep:risk=0 ]"))
-                self.ne(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
-
-                # undo updating a tagprop fails without prop:set perms
-                await prox.delUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-
-                q = 'splice.list | limit 1 | splice.undo'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.addUserRule(visi['iden'], (True, ('node', 'tag', 'add')))
-                nodes = await alist(asvisi.eval(q))
-
-                nodes = await alist(asvisi.eval("test:str=foo"))
-                self.eq(tagv, nodes[0][1]['tagprops']['rep'].get('risk'))
-
-                # sending nodes of form other than syn:splice doesn't work
-                q = 'test:str | limit 1 | splice.undo'
-                await self.agenraises(s_exc.StormRuntimeError, asvisi.eval(q))
-
-                # must be admin to use --force for node deletion
-                await alist(asvisi.eval('[ test:cycle0=foo :cycle1=bar ]'))
-                await alist(asvisi.eval('[ test:cycle1=bar :cycle0=foo ]'))
-
-                nodes = await alist(asvisi.eval("test:cycle0"))
-                self.len(1, nodes)
-
-                q = 'splice.list | +:type="node:add" +:form="test:cycle0" | limit 1 | splice.undo'
-                await self.agenraises(s_exc.CantDelNode, asvisi.eval(q))
-
-                q = 'splice.list | +:type="node:add" +:form="test:cycle0" | limit 1 | splice.undo --force'
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval(q))
-
-                await prox.setUserAdmin(visi['iden'], True)
-
-                nodes = await alist(asvisi.eval(q))
-                nodes = await alist(asvisi.eval("test:cycle0"))
-                self.len(0, nodes)
 
     async def test_storm_argv_parser(self):
 
@@ -4095,7 +3804,7 @@ class StormTest(s_t_utils.SynTest):
                 class FastPush:
                     def __init__(self):
                         self.edits = []
-                    async def storNodeEdits(self, edits, meta):
+                    async def saveNodeEdits(self, edits, meta):
                         self.edits.extend(edits)
 
                 pull = FastPull()
@@ -4157,48 +3866,48 @@ class StormTest(s_t_utils.SynTest):
                 'parent.child',
                 'parent.child.grandchild'
             ]
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             node = (await core.nodes('test:str=bar'))[0]
             exp = [
                 'parent',
-                'parent.childtag',
                 'parent.child',
+                'parent.child.grandchild',
                 'parent.child.step',
-                'parent.child.grandchild'
+                'parent.childtag'
             ]
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             node = (await core.nodes('test:str=baz'))[0]
             exp = [
                 'parent',
                 'parent.child',
                 'parent.child.step',
-                'parent.child.step.two',
-                'parent.child.step.three'
+                'parent.child.step.three',
+                'parent.child.step.two'
             ]
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             await core.nodes('test:str | tag.prune parent.child.grandchild')
 
             # Should remove all tags
             node = (await core.nodes('test:str=foo'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             # Should only remove parent.child.grandchild
             node = (await core.nodes('test:str=bar'))[0]
-            exp = ['parent', 'parent.childtag', 'parent.child', 'parent.child.step']
-            self.eq(list(node.tags.keys()), exp)
+            exp = ['parent', 'parent.child', 'parent.child.step', 'parent.childtag']
+            self.eq(node.getTagNames(), exp)
 
             await core.nodes('test:str | tag.prune parent.child.step')
 
             # Should only remove parent.child.step and parent.child
             node = (await core.nodes('test:str=bar'))[0]
-            self.eq(list(node.tags.keys()), ['parent', 'parent.childtag'])
+            self.eq(node.getTagNames(), ['parent', 'parent.childtag'])
 
             # Should remove all tags
             node = (await core.nodes('test:str=baz'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'foo')
@@ -4223,11 +3932,11 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes(f'test:str | tag.prune {tags}')
 
             node = (await core.nodes('test:str=foo'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             node = (await core.nodes('test:str=baz'))[0]
             exp = ['tag', 'tag.that', 'tag.that.stays']
-            self.eq(list(node.tags.keys()), exp)
+            self.eq(node.getTagNames(), exp)
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'runtsafety')
@@ -4244,13 +3953,13 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('test:str | tag.prune $node.value()')
 
             node = (await core.nodes('test:str=runtsafety'))[0]
-            self.eq(list(node.tags.keys()), [])
+            self.eq(node.getTagNames(), [])
 
             node = (await core.nodes('test:str=foo'))[0]
-            self.eq(list(node.tags.keys()), ['runtsafety'])
+            self.eq(node.getTagNames(), ['runtsafety'])
 
             node = (await core.nodes('test:str=runt.safety.two'))[0]
-            self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+            self.eq(node.getTagNames(), ['runt', 'runt.child'])
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'foo')
@@ -4276,12 +3985,12 @@ class StormTest(s_t_utils.SynTest):
                 await asvisi.callStorm(f'test:str | tag.prune runt.need.perms')
 
                 node = (await core.nodes('test:str=foo'))[0]
-                self.eq(list(node.tags.keys()), ['runtsafety'])
+                self.eq(node.getTagNames(), ['runtsafety'])
 
                 await asvisi.callStorm(f'test:str=runt.safety.two | tag.prune $node.value()')
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
-                self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+                self.eq(node.getTagNames(), ['runt', 'runt.child'])
 
     async def test_storm_cmdscope(self):
 
@@ -4367,7 +4076,7 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(q)
             for node in nodes:
-                self.nn(node.tags.get('atag'))
+                self.nn(node.get('#atag'))
 
             async with core.getLocalProxy(user='visi') as asvisi:
                 await self.asyncraises(s_exc.AuthDeny, asvisi.callStorm(q))
@@ -4375,7 +4084,7 @@ class StormTest(s_t_utils.SynTest):
             q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
             await core.nodes(q)
             nodes = await core.nodes('inet:fqdn=foo.com')
-            self.nn(nodes[0].tags.get('btag'))
+            self.nn(nodes[0].get('#btag'))
 
             await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
 
@@ -4412,7 +4121,7 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
-                self.none(node.tags.get('btag'))
+                self.none(node.get('#btag'))
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:
@@ -4480,8 +4189,8 @@ class StormTest(s_t_utils.SynTest):
             ]'''
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].props.get('asn'), 1234)
-            self.nn(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].get('asn'), 1234)
+            self.nn(nodes[0].get('.seen'))
 
             case = [
                 ('+', 'plus'),
@@ -4742,13 +4451,13 @@ class StormTest(s_t_utils.SynTest):
             oldn = await core.nodes('[ inet:ipv4=2.2.2.2 ]', opts=opts)
             await asyncio.sleep(0.1)
             newn = await core.nodes('[ inet:ipv4=2.2.2.2 ]')
-            self.ne(oldn[0].props['.created'], newn[0].props['.created'])
+            self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             msgs = await core.stormlist('inet:ipv4=2.2.2.2 | copyto $view', opts={'vars': {'view': view}})
             self.stormHasNoWarnErr(msgs)
 
             oldn = await core.nodes('inet:ipv4=2.2.2.2', opts=opts)
-            self.eq(oldn[0].props['.created'], newn[0].props['.created'])
+            self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             await core.nodes('[ test:ro=bad :readable=foo ]', opts=opts)
             await core.nodes('[ test:ro=bad :readable=bar ]')
@@ -4757,7 +4466,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInWarn("Cannot overwrite read only property with conflicting value", msgs)
 
             nodes = await core.nodes('test:ro=bad', opts=opts)
-            self.eq(nodes[0].props.get('readable'), 'foo')
+            self.eq(nodes[0].get('readable'), 'foo')
 
     async def test_lib_storm_delnode(self):
         async with self.getTestCore() as core:

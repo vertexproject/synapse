@@ -5424,7 +5424,7 @@ class NodeProps(Prim):
 
     async def iter(self):
         # Make copies of property values since array types are mutable
-        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.getProps().items())
         for item in items:
             yield item
 
@@ -5437,11 +5437,11 @@ class NodeProps(Prim):
 
     @stormfunc(readonly=True)
     async def list(self):
-        return list(self.valu.props.items())
+        return list(self.valu.getProps().items())
 
     @stormfunc(readonly=True)
     def value(self):
-        return dict(self.valu.props)
+        return self.valu.getProps()
 
 @registry.registerType
 class NodeData(Prim):
@@ -5719,7 +5719,11 @@ class Node(Prim):
         }
 
     async def getStorNodes(self):
-        return await self.valu.getStorNodes()
+        sodes = await self.valu.getStorNodes()
+        for sode in sodes:
+            if (nid := sode.get('nid')) is not None:
+                sode['nid'] = s_common.ehex(nid)
+        return sodes
 
     def getByLayer(self):
         return self.valu.getByLayer()
@@ -5740,11 +5744,13 @@ class Node(Prim):
         reverse = await tobool(reverse)
 
         if reverse:
-            async for edge in self.valu.iterEdgesN2(verb=verb):
-                yield edge
+            async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
+                n1iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n1nid))
+                yield (verb, n1iden)
         else:
-            async for edge in self.valu.iterEdgesN1(verb=verb):
-                yield edge
+            async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
+                n2iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n2nid))
+                yield (verb, n2iden)
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
@@ -5773,7 +5779,7 @@ class Node(Prim):
         glob = await tostr(glob, noneok=True)
         leaf = await tobool(leaf)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         if leaf:
             _tags = []
             # brute force rather than build a tree.  faster in small sets.
@@ -5796,7 +5802,7 @@ class Node(Prim):
             mesg = f'Tag globs may not be adjacent: {glob}'
             raise s_exc.BadArg(mesg=mesg)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
         for tag in tags:
@@ -5822,13 +5828,13 @@ class Node(Prim):
 
             tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
             curtags = set()
-            for tag in list(self.valu.tags.keys()):
+            for tag in self.valu.getTagNames():
                 parts = tuple(tag.split('.'))
                 if parts[:plen] == prefix:
                     curtags.add(parts)
         else:
             tags = set([tuple(tag.split('.')) for tag in tags if tag])
-            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.getTagNames()])
 
         adds = set([tag for tag in tags if tag not in curtags])
         dels = set()
@@ -6407,8 +6413,8 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
-        async for _, buid, sode in layr.liftByTag(tagname, form=formname):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByTag(tagname, form=formname):
+            yield await self.runt.snap._joinStorNode(nid)
 
     async def liftByProp(self, propname, propvalu=None, propcmpr='='):
 
@@ -6437,14 +6443,14 @@ class Layer(Prim):
             liftprop = prop.name
 
         if propvalu is None:
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+            async for _, nid, _ in layr.liftByProp(liftform, liftprop):
+                yield await self.runt.snap._joinStorNode(nid)
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-        async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.snap._joinStorNode(nid)
 
     async def getMirrorStatus(self):
         iden = self.valu.get('iden')
@@ -6589,14 +6595,20 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+
+        nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        return layr.getStorNode(nid)
 
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getStorNodes():
-            yield item
+
+        async for nid, sode in layr.getStorNodes():
+            if (nid := sode.get('nid')) is not None:
+                sode['nid'] = s_common.ehex(nid)
+
+            yield (self.runt.snap.core.getBuidByNid(nid), sode)
 
     async def getEdges(self):
         layriden = self.valu.get('iden')
@@ -6607,19 +6619,27 @@ class Layer(Prim):
 
     async def getEdgesByN1(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
+
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN1(s_common.uhex(nodeid)):
-            yield item
+
+        n1nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for verb, n2nid in layr.iterNodeEdgesN1(n1nid):
+            yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid)))
 
     async def getEdgesByN2(self, nodeid):
         nodeid = await tostr(nodeid)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
+
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
-            yield item
+
+        n2nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for (verb, n1nid) in layr.iterNodeEdgesN2(n2nid):
+            yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid)))
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
@@ -9506,7 +9526,7 @@ def fromprim(valu, path=None, basetypes=True):
             return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
-    if isinstance(valu, s_node.Node):
+    if isinstance(valu, s_node.NodeBase):
         return Node(valu, path=path)
 
     if isinstance(valu, s_node.Path):

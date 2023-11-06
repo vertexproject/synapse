@@ -518,7 +518,7 @@ class StormV1(StormHandler):
         if opts is None:
             return
 
-        opts.setdefault('editformat', 'splices')
+        opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
             self.write(json.dumps(mesg))

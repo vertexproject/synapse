@@ -494,7 +494,6 @@ class DeprModule(s_module.CoreModule):
             ('depr', deprmodel),
         )
 
-
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
@@ -515,9 +514,6 @@ class TestModule(s_module.CoreModule):
         form = self.model.form('test:runt')
         self.core.addRuntLift(form.full, self._testRuntLift)
 
-        for prop in form.props.values():
-            self.core.addRuntLift(prop.full, self._testRuntLift)
-
         self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
         self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
@@ -533,53 +529,20 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
+    async def _testRuntLift(self, view, prop, cmprvalu=None):
 
         now = s_common.now()
-        modl = self.core.model
+        timetype = self.core.model.type('time')
 
-        runtdefs = [
-            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-            ('woah', {}),
+        podes = [
+            (('test:runt', 'beep'), {'props': {'tick': timetype.norm('2001')[0], 'lulz': 'beep.sys', '.created': now}}),
+            (('test:runt', 'boop'), {'props': {'tick': timetype.norm('2010')[0], '.created': now}}),
+            (('test:runt', 'blah'), {'props': {'tick': timetype.norm('2010')[0], 'lulz': 'blah.sys'}}),
+            (('test:runt', 'woah'), {'props': {}}),
         ]
 
-        runts = {}
-        for name, props in runtdefs:
-            runts[name] = TestRunt(name, **props)
-
-        genr = runts.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
-        else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
-
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
+        for p in podes:
+            yield p
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -589,14 +552,14 @@ class TestModule(s_module.CoreModule):
         if not valu.endswith('.sys'):
             raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
-        node.props[prop.name] = valu
+        node.pode[1]['props'][prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
         # storage of row data, so a re-lift of the node would not reflect the
         # change that a user made here.
         return True
 
     async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.props.pop(prop.name, s_common.novalu)
+        curv = node.pode[1]['props'].pop(prop.name, s_common.novalu)
         if curv is s_common.novalu:
             return False
 
@@ -937,7 +900,7 @@ class SynTest(unittest.TestCase):
         self.eq(node.ndef, ex_ndef)
         [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
-        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 

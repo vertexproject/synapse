@@ -2731,8 +2731,8 @@ class Cmd:
             yield item
 
     @classmethod
-    def getStorNode(cls, form):
-        ndef = (form.name, form.type.norm(cls.name)[0])
+    def getRuntPode(cls):
+        ndef = ('syn:cmd', cls.name)
         buid = s_common.buid(ndef)
 
         props = {
@@ -2758,15 +2758,9 @@ class Cmd:
         if cls.pkgname:
             props['package'] = cls.pkgname
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
+        return (ndef, {
+            'iden': s_common.ehex(s_common.buid(ndef)),
+            'props': props,
         })
 
 class PureCmd(Cmd):
@@ -3396,8 +3390,8 @@ class DiffCmd(Cmd):
             tagname = await s_stormtypes.tostr(self.opts.tag)
 
             layr = runt.snap.view.layers[0]
-            async for _, buid, sode in layr.liftByTag(tagname):
-                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+            async for _, nid, sode in layr.liftByTag(tagname):
+                node = await self.runt.snap._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
@@ -3423,15 +3417,15 @@ class DiffCmd(Cmd):
                 liftprop = prop.name
 
             layr = runt.snap.view.layers[0]
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+            async for _, nid, sode in layr.liftByProp(liftform, liftprop):
+                node = await self.runt.snap._joinStorNode(nid)
                 if node is not None:
                     yield node, runt.initPath(node)
 
             return
 
-        async for buid, sode in runt.snap.view.layers[0].getStorNodes():
-            node = await runt.snap.getNodeByBuid(buid)
+        async for nid, sode in runt.snap.view.layers[0].getStorNodes():
+            node = await runt.snap.getNodeByNid(nid)
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -3475,10 +3469,10 @@ class CopyToCmd(Cmd):
             async for node, path in genr:
 
                 runt.confirm(node.form.addperm, gateiden=layriden)
-                for name in node.props.keys():
+                for name in node.getPropNames():
                     runt.confirm(node.form.props[name].setperm, gateiden=layriden)
 
-                for tag in node.tags.keys():
+                for tag in node.getTagNames():
                     runt.confirm(('node', 'tag', 'add', *tag.split('.')), gateiden=layriden)
 
                 if not self.opts.no_data:
@@ -3489,7 +3483,7 @@ class CopyToCmd(Cmd):
 
                     proto = await editor.addNode(node.ndef[0], node.ndef[1])
 
-                    for name, valu in node.props.items():
+                    for name, valu in node.getProps().items():
 
                         prop = node.form.prop(name)
                         if prop.info.get('ro'):
@@ -3507,10 +3501,10 @@ class CopyToCmd(Cmd):
 
                         await proto.set(name, valu)
 
-                    for name, valu in node.tags.items():
+                    for name, valu in node.getTags():
                         await proto.addTag(name, valu=valu)
 
-                    for tagname, tagprops in node.tagprops.items():
+                    for tagname, tagprops in node._getTagPropsDict().items():
                         for propname, valu in tagprops.items():
                             await proto.setTagProp(tagname, propname, valu)
 
@@ -3519,26 +3513,26 @@ class CopyToCmd(Cmd):
                             await proto.setData(name, valu)
 
                     verbs = {}
-                    async for (verb, n2iden) in node.iterEdgesN1():
+                    async for verb, n2nid in node.iterEdgesN1():
 
                         if not verbs.get(verb):
                             runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
                             verbs[verb] = True
 
-                        n2node = await snap.getNodeByBuid(s_common.uhex(n2iden))
+                        n2node = await snap.getNodeByNid(n2nid)
                         if n2node is None:
                             continue
 
-                        await proto.addEdge(verb, n2iden)
+                        await proto.addEdge(verb, s_common.ehex(n2node.buid))
 
                     # for the reverse edges, we'll need to make edits to the n1 node
-                    async for (verb, n1iden) in node.iterEdgesN2():
+                    async for verb, n1nid in node.iterEdgesN2():
 
                         if not verbs.get(verb):
                             runt.confirm(('node', 'edge', 'add', verb), gateiden=layriden)
                             verbs[verb] = True
 
-                        n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+                        n1proto = await editor.getNodeByNid(n1nid)
                         if n1proto is not None:
                             await n1proto.addEdge(verb, s_common.ehex(node.buid))
 
@@ -3685,11 +3679,11 @@ class MergeCmd(Cmd):
                 runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
+        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.nid):
             runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
             runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.buid):
+        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.nid):
             verb = edge[0]
             runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
             runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
@@ -3715,8 +3709,8 @@ class MergeCmd(Cmd):
                 yield node, path
 
             async def diffgenr():
-                async for buid, sode in runt.snap.view.layers[0].getStorNodes():
-                    node = await runt.snap.getNodeByBuid(buid)
+                async for nid, sode in runt.snap.view.layers[0].getStorNodes():
+                    node = await runt.snap.getNodeByNid(nid)
                     if node is not None:
                         yield node, runt.initPath(node)
 
@@ -3747,11 +3741,11 @@ class MergeCmd(Cmd):
 
                     addedits = editor.getNodeEdits()
                     if addedits:
-                        await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
+                        await runt.snap.view.parent.saveNodeEdits(addedits, meta=meta)
 
                     if subs:
                         subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.view.storNodeEdits(subedits, meta=meta)
+                        await runt.snap.saveNodeEdits(subedits, meta=meta)
                         subs.clear()
 
                 # check all node perms first
@@ -3868,7 +3862,7 @@ class MergeCmd(Cmd):
                 if not onlytags or form == 'syn:tag':
 
                     layr = runt.snap.view.layers[0]
-                    async for name, valu in layr.iterNodeData(node.buid):
+                    async for name, valu in layr.iterNodeData(node.nid):
                         if not self.opts.apply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
@@ -3878,13 +3872,13 @@ class MergeCmd(Cmd):
                             if len(subs) >= 1000:
                                 await asyncio.sleep(0)
 
-                    async for edge in layr.iterNodeEdgesN1(node.buid):
-                        name, dest = edge
+                    async for name, n2nid in layr.iterNodeEdgesN1(node.nid):
+                        dest = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
                         if not self.opts.apply:
                             await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
                         else:
                             await protonode.addEdge(name, dest)
-                            subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                            subs.append((s_layer.EDIT_EDGE_DEL, (name, dest), ()))
                             if len(subs) >= 1000:
                                 await asyncio.sleep(0)
 
@@ -3977,7 +3971,7 @@ class MoveNodesCmd(Cmd):
                 self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
                 self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
-            async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
+            async for edge in self.lyrs[layr].iterNodeEdgesN1(node.nid):
                 verb = edge[0]
                 self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
                 self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
@@ -4053,9 +4047,9 @@ class MoveNodesCmd(Cmd):
             sodes = {}
             layrdata = {}
             for layr in self.lyrs.keys():
-                sodes[layr] = await self.lyrs[layr].getStorNode(node.buid)
+                sodes[layr] = self.lyrs[layr].getStorNode(node.nid)
                 layrkeys = set()
-                async for name in self.lyrs[layr].iterNodeDataKeys(node.buid):
+                async for name in self.lyrs[layr].iterNodeDataKeys(node.nid):
                     layrkeys.add(name)
                 layrdata[layr] = layrkeys
 
@@ -4086,10 +4080,10 @@ class MoveNodesCmd(Cmd):
 
             for layr, valu in delnodes:
                 edit = [(node.buid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
-                await self.lyrs[layr].storNodeEdits(edit, meta=meta)
+                await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
-            runt.snap.livenodes.pop(node.buid, None)
-            yield await runt.snap.getNodeByBuid(node.buid), path
+            # we may yield the same node because the edits are reflected in it now...
+            yield node, path
 
     async def _sync(self, node, meta):
 
@@ -4098,13 +4092,13 @@ class MoveNodesCmd(Cmd):
 
         if self.adds:
             addedits = [(node.buid, node.form.name, self.adds)]
-            await self.lyrs[self.destlayr].storNodeEdits(addedits, meta=meta)
+            await self.lyrs[self.destlayr].saveNodeEdits(addedits, meta=meta)
             self.adds.clear()
 
         for srclayr, edits in self.subs.items():
             if edits:
                 subedits = [(node.buid, node.form.name, edits)]
-                await self.lyrs[srclayr].storNodeEdits(subedits, meta=meta)
+                await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
 
     async def _moveProps(self, node, sodes, meta):
@@ -4250,7 +4244,11 @@ class MoveNodesCmd(Cmd):
 
         for iden, layr in self.lyrs.items():
             if not iden == self.destlayr:
-                async for edge in layr.iterNodeEdgesN1(node.buid):
+                async for (verb, nid) in layr.iterNodeEdgesN1(node.nid):
+                    # TODO local edits vs compat edits?
+                    edge = (verb, s_common.ehex(layr.core.getBuidByNid(nid)))
+                    n2node = await node.snap.getNodeByNid(nid)
+
                     if not self.opts.apply:
                         name, dest = edge
                         await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')
@@ -4494,13 +4492,13 @@ class DelNodeCmd(Cmd):
         async for node, path in genr:
 
             # make sure we can delete the tags...
-            for tag in node.tags.keys():
+            for tag in node.getTagNames():
                 runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
             runt.layerConfirm(('node', 'del', node.form.name))
 
             if delbytes and node.form.name == 'file:bytes':
-                sha256 = node.props.get('sha256')
+                sha256 = node.get('sha256')
                 if sha256:
                     sha256b = s_common.uhex(sha256)
                     await axon.del_(sha256b)
@@ -4643,7 +4641,7 @@ class MoveTagCmd(Cmd):
                 await newnode.set('title', oldtitle)
 
             # Copy any tags over to the newnode if any are present.
-            for k, v in node.tags.items():
+            for k, v in node.getTags():
                 await newnode.addTag(k, v)
                 await asyncio.sleep(0)
 
@@ -4656,7 +4654,7 @@ class MoveTagCmd(Cmd):
 
             count += 1
 
-            tags = list(node.tags.items())
+            tags = node.getTags()
             tags.sort(reverse=True)
 
             for name, valu in tags:
@@ -4844,7 +4842,11 @@ class GraphCmd(Cmd):
                           help='Specify a <form> <filter> form specific filter.')
 
         pars.add_argument('--refs', default=False, action='store_true',
-                          help='Do automatic in-model pivoting with node.getNodeRefs().')
+                          help='Deprecated. This is now enabled by default.')
+
+        pars.add_argument('--no-refs', default=False, action='store_true',
+                          help='Disable automatic in-model pivoting with node.getNodeRefs().')
+
         pars.add_argument('--yield-filtered', default=False, action='store_true', dest='yieldfiltered',
                           help='Yield nodes which would be filtered. This still performs pivots to collect edge data,'
                                'but does not yield pivoted nodes.')
@@ -4867,7 +4869,7 @@ class GraphCmd(Cmd):
 
             'forms': {},
 
-            'refs': self.opts.refs,
+            'refs': not self.opts.no_refs,
             'filterinput': self.opts.filterinput,
             'yieldfiltered': self.opts.yieldfiltered,
 
@@ -5351,7 +5353,7 @@ class ScrapeCmd(Cmd):
 
             # if a list of props haven't been specified, then default to ALL of them
             if not todo:
-                todo = list(node.props.values())
+                todo = list(node.getProps().values())
 
             for text in todo:
 
@@ -5397,327 +5399,6 @@ class ScrapeCmd(Cmd):
                     addnode = await runt.snap.addNode(form, valu)
                     if self.opts.doyield:
                         yield addnode, runt.initPath(addnode)
-
-class SpliceListCmd(Cmd):
-    '''
-    Deprecated command to retrieve a list of splices backwards from the end of the splicelog.
-
-    Examples:
-
-        # Show the last 10 splices.
-        splice.list | limit 10
-
-        # Show splices after a specific time.
-        splice.list --mintime "2020/01/06 15:38:10.991"
-
-        # Show splices from a specific timeframe.
-        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367
-
-    Notes:
-
-        If both a time string and timestamp value are provided for a min or max,
-        the timestamp will take precedence over the time string value.
-    '''
-
-    name = 'splice.list'
-    readonly = True
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-
-        pars.add_argument('--maxtimestamp', type='int', default=None,
-                          help='Only yield splices which occurred on or before this timestamp.')
-        pars.add_argument('--mintimestamp', type='int', default=None,
-                          help='Only yield splices which occurred on or after this timestamp.')
-        pars.add_argument('--maxtime', type='str', default=None,
-                          help='Only yield splices which occurred on or before this time.')
-        pars.add_argument('--mintime', type='str', default=None,
-                          help='Only yield splices which occurred on or after this time.')
-
-        return pars
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: splice.list', s_common._splicedepr)
-
-        mesg = f'splice.list is deprecated and will be removed on {s_common._splicedepr}'
-        await runt.snap.warn(mesg)
-
-        maxtime = None
-        if self.opts.maxtimestamp:
-            maxtime = self.opts.maxtimestamp
-        elif self.opts.maxtime:
-            try:
-                maxtime = s_time.parse(self.opts.maxtime, chop=True)
-            except s_exc.BadTypeValu as e:
-                mesg = f'Error during maxtime parsing - {str(e)}'
-
-                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.maxtime) from None
-
-        mintime = None
-        if self.opts.mintimestamp:
-            mintime = self.opts.mintimestamp
-        elif self.opts.mintime:
-            try:
-                mintime = s_time.parse(self.opts.mintime, chop=True)
-            except s_exc.BadTypeValu as e:
-                mesg = f'Error during mintime parsing - {str(e)}'
-
-                raise s_exc.StormRuntimeError(mesg=mesg, valu=self.opts.mintime) from None
-
-        i = 0
-
-        async for splice in runt.snap.core.spliceHistory(runt.user):
-
-            splicetime = splice[1].get('time')
-            if splicetime is None:
-                splicetime = 0
-
-            if maxtime and maxtime < splicetime:
-                continue
-
-            if mintime and mintime > splicetime:
-                return
-
-            guid = s_common.guid(splice)
-
-            buid = s_common.buid(splice[1]['ndef'])
-            iden = s_common.ehex(buid)
-
-            props = {'.created': s_common.now(),
-                     'splice': splice,
-                     'type': splice[0],
-                     'iden': iden,
-                     'form': splice[1]['ndef'][0],
-                     'time': splicetime,
-                     'user': splice[1].get('user'),
-                     'prov': splice[1].get('prov'),
-                     }
-
-            prop = splice[1].get('prop')
-            if prop:
-                props['prop'] = prop
-
-            tag = splice[1].get('tag')
-            if tag:
-                props['tag'] = tag
-
-            if 'valu' in splice[1]:
-                props['valu'] = splice[1]['valu']
-            elif splice[0] == 'node:del':
-                props['valu'] = splice[1]['ndef'][1]
-
-            if 'oldv' in splice[1]:
-                props['oldv'] = splice[1]['oldv']
-
-            fullnode = (buid, {
-                'ndef': ('syn:splice', guid),
-                'tags': {},
-                'props': props,
-                'tagprops': {},
-            })
-
-            node = s_node.Node(runt.snap, fullnode)
-
-            yield (node, runt.initPath(node))
-
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
-
-class SpliceUndoCmd(Cmd):
-    '''
-    Deprecated command to reverse the actions of syn:splice runt nodes.
-
-    Examples:
-
-        # Undo the last 5 splices.
-        splice.list | limit 5 | splice.undo
-
-        # Undo splices after a specific time.
-        splice.list --mintime "2020/01/06 15:38:10.991" | splice.undo
-
-        # Undo splices from a specific timeframe.
-        splice.list --mintimestamp 1578422719360 --maxtimestamp 1578422719367 | splice.undo
-    '''
-
-    name = 'splice.undo'
-
-    def __init__(self, runt, runtsafe):
-        self.undo = {
-            'prop:set': self.undoPropSet,
-            'prop:del': self.undoPropDel,
-            'node:add': self.undoNodeAdd,
-            'node:del': self.undoNodeDel,
-            'tag:add': self.undoTagAdd,
-            'tag:del': self.undoTagDel,
-            'tag:prop:set': self.undoTagPropSet,
-            'tag:prop:del': self.undoTagPropDel,
-        }
-        Cmd.__init__(self, runt, runtsafe)
-
-    def getArgParser(self):
-        pars = Cmd.getArgParser(self)
-        forcehelp = 'Force delete nodes even if it causes broken references (requires admin).'
-        pars.add_argument('--force', default=False, action='store_true', help=forcehelp)
-        return pars
-
-    async def undoPropSet(self, runt, splice, node):
-
-        name = splice.props.get('prop')
-        if name == '.created':
-            return
-
-        if node:
-            prop = node.form.props.get(name)
-            if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'prop', 'set', prop.full))
-                await node.set(name, oldv)
-            else:
-                runt.layerConfirm(('node', 'prop', 'del', prop.full))
-                await node.pop(name)
-
-    async def undoPropDel(self, runt, splice, node):
-
-        name = splice.props.get('prop')
-        if name == '.created':
-            return
-
-        if node:
-            prop = node.form.props.get(name)
-            if prop is None:  # pragma: no cover
-                mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
-
-            valu = splice.props.get('valu')
-
-            runt.layerConfirm(('node', 'prop', 'set', prop.full))
-            await node.set(name, valu)
-
-    async def undoNodeAdd(self, runt, splice, node):
-
-        if node:
-            for tag in node.tags.keys():
-                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
-
-            runt.layerConfirm(('node', 'del', node.form.name))
-            await node.delete(force=self.opts.force)
-
-    async def undoNodeDel(self, runt, splice, node):
-
-        if node is None:
-            form = splice.props.get('form')
-            valu = splice.props.get('valu')
-
-            if form and (valu is not None):
-                runt.layerConfirm(('node', 'add', form))
-                await runt.snap.addNode(form, valu)
-
-    async def undoTagAdd(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'del', *parts))
-
-            await node.delTag(tag)
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
-                await node.addTag(tag, valu=oldv)
-
-    async def undoTagDel(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-            valu = splice.props.get('valu')
-            if valu is not None:
-                await node.addTag(tag, valu=valu)
-
-    async def undoTagPropSet(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-
-            prop = splice.props.get('prop')
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
-                await node.setTagProp(tag, prop, oldv)
-            else:
-                runt.layerConfirm(('node', 'tag', 'del', *parts))
-                await node.delTagProp(tag, prop)
-
-    async def undoTagPropDel(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-            prop = splice.props.get('prop')
-
-            valu = splice.props.get('valu')
-            if valu is not None:
-                await node.setTagProp(tag, prop, valu)
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: splice.undo', s_common._splicedepr)
-
-        mesg = f'splice.undo is deprecated and will be removed on {s_common._splicedepr}'
-        await runt.snap.warn(mesg)
-
-        if self.opts.force:
-            if not runt.user.isAdmin():
-                mesg = '--force requires admin privs.'
-                raise s_exc.AuthDeny(mesg=mesg)
-
-        i = 0
-
-        async for node, path in genr:
-
-            if not node.form.name == 'syn:splice':
-                mesg = 'splice.undo only accepts syn:splice nodes'
-                raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
-
-            if False:  # make this method an async generator function
-                yield None
-
-            splicetype = node.props.get('type')
-
-            if splicetype in self.undo:
-
-                iden = node.props.get('iden')
-                if iden is None:
-                    continue
-
-                buid = s_common.uhex(iden)
-                if len(buid) != 32:
-                    raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
-
-                splicednode = await runt.snap.getNodeByBuid(buid)
-
-                await self.undo[splicetype](runt, node, splicednode)
-            else:
-                raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
-
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
 
 class LiftByVerb(Cmd):
     '''
@@ -5818,12 +5499,13 @@ class EdgesDelCmd(Cmd):
     async def delEdges(self, node, verb, n2=False):
         if n2:
             n2iden = node.iden()
-            async for (v, n1iden) in node.iterEdgesN2(verb):
-                n1 = await self.runt.snap.getNodeByBuid(s_common.uhex(n1iden))
+            async for (v, n1nid) in node.iterEdgesN2(verb):
+                n1 = await self.runt.snap.getNodeByNid(n1nid)
                 await n1.delEdge(v, n2iden)
         else:
-            async for (v, n2iden) in node.iterEdgesN1(verb):
-                await node.delEdge(v, n2iden)
+            async for (v, n2nid) in node.iterEdgesN1(verb):
+                n2buid = self.runt.snap.core.getBuidByNid(n2nid)
+                await node.delEdge(v, s_common.ehex(n2buid))
 
     async def execStormCmd(self, runt, genr):
 
@@ -5960,7 +5642,7 @@ class TagPruneCmd(Cmd):
 
     def hasChildTags(self, node, tag):
         pref = tag + '.'
-        for ntag in node.tags:
+        for ntag in node.getTagNames():
             if ntag.startswith(pref):
                 return True
         return False
