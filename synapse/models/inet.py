@@ -28,6 +28,8 @@ udots = regex.compile(r'[\u3002\uff0e\uff61]')
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 ipv4max = 2 ** 32 - 1
 
+rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -44,6 +46,9 @@ def getAddrType(ip):
 
     if ip.is_reserved:
         return 'reserved'
+
+    if ip in rfc6598:
+        return 'shared'
 
     return 'unicast'
 
