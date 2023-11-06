@@ -694,10 +694,12 @@ class OuModelTest(s_t_utils.SynTest):
                 :sic="1234,5678"
                 :isic=C1393
                 :desc="Moldy cheese"
+                :type=foo.bar
             ] '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].get('name'))
+            self.eq('foo.bar.', nodes[0].get('type'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.sorteq(('C1393', ), nodes[0].get('isic'))
@@ -707,6 +709,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
             self.len(3, await core.nodes('ou:industryname=baz -> ou:industry -> ou:industryname'))
+            self.len(1, await core.nodes('ou:industry:name="foo bar" -> ou:industry:type:taxonomy'))
 
     async def test_ou_opening(self):
 

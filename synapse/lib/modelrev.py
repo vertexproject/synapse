@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 21)
+maxvers = (0, 2, 22)
 
 class ModelRev:
 
@@ -35,6 +35,7 @@ class ModelRev:
             ((0, 2, 19), self.revModel_0_2_19),
             ((0, 2, 20), self.revModel_0_2_20),
             ((0, 2, 21), self.revModel_0_2_21),
+            ((0, 2, 22), self.revModel_0_2_22),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -724,6 +725,11 @@ class ModelRev:
 
         await self._normPropValu(layers, 'risk:vuln:name')
         await self._propToForm(layers, 'risk:vuln:name', 'risk:vulnname')
+
+    async def revModel_0_2_22(self, layers):
+        await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
+        await self._normPropValu(layers, 'inet:url:path')
+        await self._propToForm(layers, 'inet:url:path', 'file:path')
 
     async def runStorm(self, text, opts=None):
         '''

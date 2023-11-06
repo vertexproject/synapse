@@ -37,7 +37,8 @@ class FilePath(s_types.Str):
     def _normPyStr(self, valu):
 
         if len(valu) == 0:
-            return '', {}
+            mesg = 'File path cannot be 0 length.'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg)
 
         lead = ''
         if valu[0] == '/':
