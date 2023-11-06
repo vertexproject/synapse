@@ -2127,25 +2127,25 @@ class Runtime(s_base.Base):
         try:
             with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
 
-                nodegenr = self.query.iterNodePaths(self, genr=genr)
-                nodegenr, empty = await s_ast.pullone(nodegenr)
+                async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
+                    nodegenr, empty = await s_ast.pullone(nodegenr)
 
-                if empty:
-                    return
+                    if empty:
+                        return
 
-                rules = self.opts.get('graph')
-                if rules not in (False, None):
-                    if rules is True:
-                        rules = {'degrees': None, 'refs': True}
-                    elif isinstance(rules, str):
-                        rules = await self.snap.core.getStormGraph(rules)
+                    rules = self.opts.get('graph')
+                    if rules not in (False, None):
+                        if rules is True:
+                            rules = {'degrees': None, 'refs': True}
+                        elif isinstance(rules, str):
+                            rules = await self.snap.core.getStormGraph(rules)
 
-                    subgraph = s_ast.SubGraph(rules)
-                    nodegenr = subgraph.run(self, nodegenr)
+                        subgraph = s_ast.SubGraph(rules)
+                        nodegenr = subgraph.run(self, nodegenr)
 
-                async for item in nodegenr:
-                    self.tick()
-                    yield item
+                    async for item in nodegenr:
+                        self.tick()
+                        yield item
 
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
@@ -2162,7 +2162,7 @@ class Runtime(s_base.Base):
 
                 view = snap.core.views.get(viewiden)
                 if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
+                    raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
@@ -2453,8 +2453,7 @@ class Parser:
 
         if nargs == '?':
 
-            # ? will have an implicit default value of None
-            opts.setdefault(dest, None)
+            opts.setdefault(dest, argdef.get('default'))
 
             if todo and not self._is_opt(todo[0]):
 
@@ -3465,7 +3464,7 @@ class CopyToCmd(Cmd):
 
         view = runt.snap.core.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
+            raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 

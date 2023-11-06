@@ -250,6 +250,10 @@ class LibHttp(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
     )
     _storm_lib_path = ('inet', 'http')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'inet', 'http', 'proxy'), 'gate': 'cortex',
+         'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -310,8 +314,8 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
@@ -374,8 +378,8 @@ class LibHttp(s_stormtypes.Lib):
 
         headers = self.strify(headers)
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if fields:
             if any(['sha256' in field for field in fields]):

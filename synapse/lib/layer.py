@@ -105,6 +105,8 @@ reqValidLdef = s_config.getJsValidator({
     'required': ['iden', 'creator', 'lockmemory'],
 })
 
+WINDOW_MAXSIZE = 10_000
+
 class LayerApi(s_cell.CellApi):
 
     async def __anit__(self, core, link, user, layr):
@@ -123,6 +125,7 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.iterLayerNodeEdits():
             yield item
+            await asyncio.sleep(0)
 
     @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
@@ -509,7 +512,7 @@ class StorType:
 
     async def _liftRegx(self, liftby, valu, reverse=False):
 
-        regx = regex.compile(valu)
+        regx = regex.compile(valu, flags=regex.I)
 
         abrvlen = liftby.abrvlen
         isarray = isinstance(liftby, IndxByPropArray)
@@ -4425,7 +4428,7 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             raise s_exc.BadConfValu(mesg='Layer logging must be enabled for getting nodeedits')
 
-        async with await s_queue.Window.anit(maxsize=10000) as wind:
+        async with await s_queue.Window.anit(maxsize=WINDOW_MAXSIZE) as wind:
 
             async def fini():
                 self.windows.remove(wind)

@@ -580,7 +580,7 @@ class TrigTest(s_t_utils.SynTest):
             tdef = {
                 'cond': 'edge:add',
                 'verb': 'refs',
-                'storm': '[ +#neato ] | spin | yield $auto.opts.n2 | [ +#other ] | [ <(seen)+ { [ test:str=$auto.opts.verb ] } ]',
+                'storm': '[ +#neato ] | spin | iden $auto.opts.n2iden | [ +#other ] | [ <(seen)+ { [ test:str=$auto.opts.verb ] } ]',
                 'view': view,
             }
             await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}}) # only verb
@@ -675,7 +675,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('syn:trigger', opts=opts))
 
             # edge:del triggers
-            await core.nodes('trigger.add edge:del --verb refs  --query { [ +#cookies ] | spin | yield $auto.opts.n2 | [ +#milk ] }', opts=opts)  # only edge
+            await core.nodes('trigger.add edge:del --verb refs  --query { [ +#cookies ] | spin | iden $auto.opts.n2iden | [ +#milk ] }', opts=opts)  # only edge
             await core.nodes('trigger.add edge:del --verb refs --form test:int --query { [ +#cupcake ] }', opts=opts) # n1 form + edge
             await core.nodes('trigger.add edge:del --verb refs --n2form test:int --query { [ +#icecream ] }', opts=opts) # edge + n2 form
             await core.nodes('trigger.add edge:del --verb refs --form test:int --n2form test:int --query { [ +#croissant ] }', opts=opts) # n1 form + verb + n2 form
@@ -734,12 +734,24 @@ class TrigTest(s_t_utils.SynTest):
                     n2 += 1
             self.eq(n2, 3)
 
+            # make a pair of nodes in the base view, then the edge in the forked, and rip out one of the nodes
+            await core.nodes('[test:int=21701 test:int=23209]')
+            await core.nodes('test:int=21701 | [ <(refs)+ { test:int=23209 } ]', opts=opts)
+            await core.nodes('test:int=21701 | delnode')
+
+            await core.nodes('test:int=23209 | edges.del *', opts=opts)
+            node = await core.nodes('test:int=23209', opts=opts)
+            self.len(1, node)
+            self.isin('cookies', node[0].tags)
+            self.isin('cupcake', node[0].tags)
+            # the other two edge:del triggers cannot run because we can't get to n2 anymore
+
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
             self.len(0, await core.nodes('syn:trigger', opts=opts))
 
     async def test_trigger_edge_globs(self):
         async with self.getTestCore() as core:
-            await core.nodes('trigger.add edge:add --verb foo* --query { [ +#foo ] | spin | yield $auto.opts.n2 | [+#other] }')
+            await core.nodes('trigger.add edge:add --verb foo* --query { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
             await core.nodes('trigger.add edge:add --verb see* --form test:int --query { [ +#n1 ] }')
             await core.nodes('trigger.add edge:add --verb r* --n2form test:int --query { [ +#n2 ] }')
             await core.nodes('trigger.add edge:add --verb no** --form test:int --n2form test:str --query { [ +#both ] }')
@@ -799,7 +811,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.notin('foo', nodes[0].tags)
 
-            await core.nodes('trigger.add edge:del --verb foo* --query { [ +#del.none ] | spin | yield $auto.opts.n2 | [+#del.other] }')
+            await core.nodes('trigger.add edge:del --verb foo* --query { [ +#del.none ] | spin | iden $auto.opts.n2iden | [+#del.other] }')
             await core.nodes('trigger.add edge:del --verb see* --form test:int --query { [ +#del.one ] }')
             await core.nodes('trigger.add edge:del --verb r* --n2form test:int --query { [ +#del.two ] }')
             await core.nodes('trigger.add edge:del --verb no** --form test:int --n2form test:str --query { [ +#del.all ] }')
@@ -839,6 +851,19 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.isin('cleanup', nodes[0].tags)
             self.isin('del.all', nodes[0].tags)
+
+            view = await core.callStorm('return ($lib.view.get().fork().iden)')
+            opts = {'view': view}
+            await core.nodes('trigger.add edge:del --verb no** --form test:str --query { [ +#coffee ] }', opts=opts)
+            await core.nodes('trigger.add edge:del --verb no** --form test:str --n2form test:str --query { [ +#oeis.a000668 ] }', opts=opts)
+
+            await core.nodes('[test:str=mersenne test:str=prime]')
+            await core.nodes('test:str=mersenne [ +(notes)> { test:str=prime } ]', opts=opts)
+            await core.nodes('test:str=prime | delnode')
+            node = await core.nodes('test:str=mersenne | edges.del *', opts=opts)
+            self.len(1, node)
+            self.len(1, node[0].tags)
+            self.isin('coffee', node[0].tags)
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }')
             self.len(0, await core.nodes('syn:trigger'))

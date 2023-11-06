@@ -239,7 +239,7 @@ class Type:
         return cmpr
 
     def _ctorCmprRe(self, text):
-        regx = regex.compile(text)
+        regx = regex.compile(text, flags=regex.I)
 
         def cmpr(valu):
             vtxt = self.repr(valu)
@@ -687,11 +687,26 @@ class Hex(Type):
         )
 
     def _normPyStr(self, valu):
-        valu = s_chop.hexstr(valu)
+        valu = valu.strip().lower()
+        if valu.startswith('0x'):
+            valu = valu[2:]
+
+        valu = valu.replace(' ', '').replace(':', '')
+
+        if not valu:
+            raise s_exc.BadTypeValu(valu=valu, name='hex',
+                                    mesg='No string left after stripping')
 
         if self._zeropad and len(valu) < self._zeropad:
             padlen = self._zeropad - len(valu)
             valu = ('0' * padlen) + valu
+
+        try:
+            # checks for valid hex width and does character
+            # checking in C without using regex
+            s_common.uhex(valu)
+        except (binascii.Error, ValueError) as e:
+            raise s_exc.BadTypeValu(valu=valu, name='hex', mesg=str(e)) from None
 
         if self._size and len(valu) != self._size:
             raise s_exc.BadTypeValu(valu=valu, reqwidth=self._size, name=self.name,

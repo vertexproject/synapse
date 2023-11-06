@@ -3265,74 +3265,6 @@ class StormTypesTest(s_test.SynTest):
             errs = [m for m in msgs if m[0] == 'err']
             self.len(0, errs)
 
-    async def test_lib_stormtypes_stats(self):
-
-        async with self.getTestCore() as core:
-
-            q = '''
-                $tally = $lib.stats.tally()
-
-                $tally.inc(foo)
-                $tally.inc(foo)
-
-                $tally.inc(bar)
-                $tally.inc(bar, 3)
-
-                for ($name, $valu) in $tally {
-                    [ test:comp=($valu, $name) ]
-                }
-
-                $lib.print('tally: foo={foo} baz={baz}', foo=$tally.get(foo), baz=$tally.get(baz))
-                $lib.print('tally.len()={v}', v=$lib.len($tally))
-            '''
-            mesgs = await core.stormlist(q)
-            nodes = [m[1] for m in mesgs if m[0] == 'node']
-            self.len(2, nodes)
-            self.eq(nodes[0][0], ('test:comp', (2, 'foo')))
-            self.eq(nodes[1][0], ('test:comp', (4, 'bar')))
-            self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
-            self.stormIsInPrint('tally.len()=2', mesgs)
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted())
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('foo', 1), ('bar', 2), ('baz', 3)])
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted(reverse=$lib.true))
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('baz', 3), ('bar', 2), ('foo', 1)])
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted(byname=$lib.true))
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('bar', 2), ('baz', 3), ('foo', 1)])
-
-            q = '''
-                $tally = $lib.stats.tally()
-                $tally.inc(foo, 1)
-                $tally.inc(bar, 2)
-                $tally.inc(baz, 3)
-                return($tally.sorted(byname=$lib.true, reverse=$lib.true))
-            '''
-            vals = await core.callStorm(q)
-            self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
-
     async def test_storm_lib_layer(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -6288,6 +6220,25 @@ words\tword\twrd'''
                 'file:count': 9,
                 'size:bytes': 651,
             }, await core.callStorm('return($lib.axon.metrics())'))
+
+            bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'
+            binsize, bin256 = await core.axon.put(bin_buf)
+
+            opts = {'vars': {'sha256': s_common.ehex(bin256)}}
+            with self.raises(s_exc.BadDataValu):
+                self.eq('', await core.callStorm('''
+                    $items = $lib.list()
+                    for $item in $lib.axon.readlines($sha256, errors=$lib.null) {
+                        $items.append($item)
+                    }
+                    return($items)
+                ''', opts=opts))
+
+            self.eq(('/$A\x00_v4\x1b',), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256, errors=ignore) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
 
     async def test_storm_lib_axon_perms(self):
 

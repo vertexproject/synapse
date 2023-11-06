@@ -125,7 +125,7 @@ terminalEnglishMap = {
     '_LEFTPIVOT': '<-',
     '_LPARNOSPACE': '(',
     '_MATCHHASH': '#',
-    '_MATCHHASHSPACE': '#',
+    '_MATCHHASHWILD': '#',
     '_RETURN': 'return',
     '_REVERSE': 'reverse',
     '_RIGHTJOIN': '-+>',
