@@ -156,7 +156,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The mitigation addresses the technique.'}),
 
                 (('risk:leak', 'leaked', None), {
-                    'doc': 'The leak included the dislcosure of the target node.'}),
+                    'doc': 'The leak included the disclosure of the target node.'}),
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
