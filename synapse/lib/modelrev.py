@@ -921,7 +921,7 @@ class ModelRev:
                 cmprvals = form.type.getStorCmprs(cmpr, cmprvalu)
                 genr = layr.liftByFormValu(form.name, cmprvals)
 
-            elif liftprop is not None:
+            else: # liftprop is not None  # pragma: no cover
                 # This is for lifts such as:
                 #   <formname>:<liftprop><cmpr><cmprvalu>
                 # E.g.:
