@@ -290,11 +290,8 @@ class FileTest(s_t_utils.SynTest):
                 self.none(node.get('dir'))
                 self.eq(node.ndef[1], '')
 
-                node = await snap.addNode('file:path', '')
-                self.none(node.get('base'))
-                self.none(node.get('base:ext'))
-                self.none(node.get('dir'))
-                self.eq(node.ndef[1], '')
+                with self.raises(s_exc.BadTypeValu):
+                    await core.nodes('[ file:path="" ]')
 
                 node0 = await snap.addNode('file:bytes', 'hex:56565656')
                 node1 = await snap.addNode('file:bytes', 'base64:VlZWVg==')
