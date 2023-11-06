@@ -525,7 +525,7 @@ class Node:
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        if self.tags.get(name, s_common.novalu) is not s_common.novalu:
+        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
             edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         return edits
