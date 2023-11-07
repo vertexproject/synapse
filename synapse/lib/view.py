@@ -795,8 +795,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
             for child in byparent.get(view, ()):
 
-                layers = list(view.layers)
-                layers.append(child.layers[-1])
+                layers = [child.layers[0]]
+                layers.extend(view.layers)
 
                 child.layers = layers
                 await child.info.set('layers', [layr.iden for layr in layers])
