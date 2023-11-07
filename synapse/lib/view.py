@@ -799,7 +799,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 layers.append(child.layers[-1])
 
                 child.layers = layers
-                await child.info.set('layers', [l.iden for l in layers])
+                await child.info.set('layers', [layr.iden for layr in layers])
 
                 todo.append(child)
 
