@@ -783,6 +783,7 @@ class Path:
         nodes.append(node)
 
         path = Path(self.vars.copy(), nodes)
+        path.metadata.update(self.metadata)
 
         return path
 

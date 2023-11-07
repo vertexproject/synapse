@@ -66,6 +66,12 @@ class NodeTest(s_t_utils.SynTest):
                 self.none(reprs.get('.newp'))
                 self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
+                # test that metadata survives pivots
+                await core.stormlist('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
+                msgs = await core.stormlist('inet:fqdn=vertex.link $path.meta.foo=bar -> inet:dns:a -> inet:ipv4')
+                nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+                self.eq('bar', nodes[0][1]['path']['foo'])
+
     async def test_set(self):
         form = 'test:str'
         valu = 'cool'
