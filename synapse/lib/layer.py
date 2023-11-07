@@ -482,29 +482,6 @@ class IndxByPropIvalDuration(IndxBy):
         self.form = form
         self.prop = prop
 
-class IndxByTag(IndxBy):
-
-    def __init__(self, layr, form, tag):
-        '''
-        Note:  may raise s_exc.NoSuchAbrv
-        '''
-        abrv = layr.getIndxAbrv(INDX_TAG_MIN, form, tag)
-
-        IndxBy.__init__(self, layr, abrv, layr.indxdb)
-
-        self.form = form
-        self.tag = tag
-
-    def getStorType(self):
-        typeindx = self.layr.core.model.form('syn:tag').type.stortype
-        return self.layr.stortypes[typeindx]
-
-    def getSodeValu(self, sode):
-        valt = sode['tags'].get(self.tag)
-        if valt is not None:
-            return valt[0], sode['form']
-        return s_common.novalu
-
 class IndxByTagIvalMin(IndxBy):
 
     def __init__(self, layr, form, tag):
@@ -1418,29 +1395,29 @@ class StorTypeIval(StorType):
                 f'{part}>=': self._liftIvalPartGe,
             })
 
-        self.propspecindx = {
+        self.propindx = {
             'min@=': IndxByPropIvalMin,
             'max@=': IndxByPropIvalMax,
         }
 
-        self.tagpropspecindx = {
+        self.tagpropindx = {
             'min@=': IndxByTagPropIvalMin,
             'max@=': IndxByTagPropIvalMax,
         }
 
         for cmpr in ('=', '<', '>', '<=', '>='):
-            self.propspecindx[f'min{cmpr}'] = IndxByPropIvalMin
-            self.tagpropspecindx[f'min{cmpr}'] = IndxByTagPropIvalMin
+            self.propindx[f'min{cmpr}'] = IndxByPropIvalMin
+            self.tagpropindx[f'min{cmpr}'] = IndxByTagPropIvalMin
 
-            self.propspecindx[f'max{cmpr}'] = IndxByPropIvalMax
-            self.tagpropspecindx[f'max{cmpr}'] = IndxByTagPropIvalMax
+            self.propindx[f'max{cmpr}'] = IndxByPropIvalMax
+            self.tagpropindx[f'max{cmpr}'] = IndxByTagPropIvalMax
 
-            self.propspecindx[f'duration{cmpr}'] = IndxByPropIvalDuration
-            self.tagpropspecindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
+            self.propindx[f'duration{cmpr}'] = IndxByPropIvalDuration
+            self.tagpropindx[f'duration{cmpr}'] = IndxByTagPropIvalDuration
 
     async def indxByProp(self, form, prop, cmpr, valu, reverse=False):
         try:
-            indxtype = self.propspecindx.get(cmpr, IndxByProp)
+            indxtype = self.propindx.get(cmpr, IndxByProp)
             indxby = indxtype(self.layr, form, prop)
 
         except s_exc.NoSuchAbrv:
@@ -1451,7 +1428,7 @@ class StorTypeIval(StorType):
 
     async def indxByTagProp(self, form, tag, prop, cmpr, valu, reverse=False):
         try:
-            indxtype = self.tagpropspecindx.get(cmpr, IndxByTagProp)
+            indxtype = self.tagpropindx.get(cmpr, IndxByTagProp)
             indxby = indxtype(self.layr, form, tag, prop)
 
         except s_exc.NoSuchAbrv:
@@ -1479,7 +1456,7 @@ class StorTypeIval(StorType):
         minindx = self.timetype.getIntIndx(valu[0])
         maxindx = self.timetype.getIntIndx(valu[1] - 1)
 
-        pkeymin = self.timetype.zerobyts + self.timetype.zerobyts
+        pkeymin = self.timetype.zerobyts * 2
         pkeymax = maxindx + self.timetype.fullbyts
 
         for lkey, nid in scan(pkeymin, pkeymax):
@@ -1561,17 +1538,17 @@ class StorTypeTagIval(StorTypeIval):
             '@=': self._liftTagIvalAt,
         })
 
-        self.tagspecindx = {
+        self.tagindx = {
             'max@=': IndxByTagIvalMax
         }
 
         for cmpr in ('=', '<', '>', '<=', '>='):
-            self.tagspecindx[f'max{cmpr}'] = IndxByTagIvalMax
-            self.tagspecindx[f'duration{cmpr}'] = IndxByTagIvalDuration
+            self.tagindx[f'max{cmpr}'] = IndxByTagIvalMax
+            self.tagindx[f'duration{cmpr}'] = IndxByTagIvalDuration
 
     async def indxByTag(self, tag, cmpr, valu, form=None, reverse=False):
         try:
-            indxtype = self.tagspecindx.get(cmpr, IndxByTagIvalMin)
+            indxtype = self.tagindx.get(cmpr, IndxByTagIvalMin)
             indxby = indxtype(self.layr, form, tag)
 
         except s_exc.NoSuchAbrv:
@@ -2823,12 +2800,12 @@ class Layer(s_nexus.Pusher):
                 continue
 
             try:
-                abrv = self.getTagPropAbrv(None, tag, name)
+                abrv = self.getIndxAbrv(INDX_TAGPROP, None, tag, name)
 
             except s_exc.NoSuchAbrv:
                 continue
 
-            for _, nid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+            for _, nid in self.layrslab.scanByPref(abrv, db=self.indxdb):
                 yield nid
 
     async def liftByTagProp(self, form, tag, prop, reverse=False):
