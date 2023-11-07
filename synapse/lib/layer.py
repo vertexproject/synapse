@@ -489,7 +489,6 @@ class IndxByTagIvalMin(IndxBy):
         Note:  may raise s_exc.NoSuchAbrv
         '''
         abrv = layr.getIndxAbrv(INDX_TAG_MIN, form, tag)
-
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
 
         self.form = form
@@ -502,7 +501,6 @@ class IndxByTagIvalMax(IndxBy):
         Note:  may raise s_exc.NoSuchAbrv
         '''
         abrv = layr.getIndxAbrv(INDX_TAG_MAX, form, tag)
-
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
 
         self.form = form
@@ -515,7 +513,6 @@ class IndxByTagIvalDuration(IndxBy):
         Note:  may raise s_exc.NoSuchAbrv
         '''
         abrv = layr.getIndxAbrv(INDX_TAG_DURATION, form, tag)
-
         IndxBy.__init__(self, layr, abrv, db=layr.indxdb)
 
         self.form = form
@@ -528,7 +525,6 @@ class IndxByTagProp(IndxBy):
         Note:  may raise s_exc.NoSuchAbrv
         '''
         abrv = layr.getIndxAbrv(INDX_TAGPROP, form, tag, prop)
-
         IndxBy.__init__(self, layr, abrv, layr.indxdb)
 
         self.form = form
@@ -2496,18 +2492,16 @@ class Layer(s_nexus.Pusher):
 
         self.bynid = self.layrslab.initdb('bynid', integerkey=True)
 
+        self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True, integerdup=True)
+
         self.indxabrv = self.layrslab.getNameAbrv('indxabrv')
         self.verbabrv = self.layrslab.getNameAbrv('verbabrv')
-
-        self.indxdb = self.layrslab.initdb('indx', dupsort=True, dupfixed=True, integerdup=True)
-        self.indxcounts = await self.layrslab.getHotCount('indxcounts')
 
         self.edgen1abrv = self.setIndxAbrv(INDX_EDGE_N1)
         self.edgen2abrv = self.setIndxAbrv(INDX_EDGE_N2)
         self.edgen1n2abrv = self.setIndxAbrv(INDX_EDGE_N1N2)
         self.edgeverbabrv = self.setIndxAbrv(INDX_EDGE_VERB)
 
-        self.countdb = self.layrslab.initdb('counters')
         self.nodedata = self.dataslab.initdb('nodedata')
         self.dataname = self.dataslab.initdb('dataname', dupsort=True)
 

@@ -289,10 +289,6 @@ class HotKeyVal(s_base.Base):
     def pack(self):
         return {n.decode(): v for (n, v) in self.cache.items()}
 
-    def keys(self):
-        for byts in self.cache.keys():
-            yield byts.decode()
-
 class HotCount(HotKeyVal):
     '''
     Like HotKeyVal, but optimized for integer/count vals
