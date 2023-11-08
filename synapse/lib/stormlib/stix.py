@@ -1270,7 +1270,6 @@ class StixBundle(s_stormtypes.Prim):
     # async def addPropMap(self, formname, stixtype, propname, stormtext):
     # async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
 
-    # FIXME Add test for this
     @s_stormtypes.stormfunc(readonly=True)
     async def add(self, node, stixtype=None):
 
