@@ -9,5 +9,5 @@ modules:
         type:
           type: function
           returns:
-            type: newp
+            type: 42
             desc: A status dictionary.

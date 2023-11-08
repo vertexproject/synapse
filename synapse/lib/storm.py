@@ -393,7 +393,6 @@ reqValidPkgdef = s_config.getJsValidator({
         },
         'apitype': {
             'type': 'string',
-            'enum': list(s_stormtypes.registry.known_types ^ s_stormtypes.registry.undefined_types),
         },
         'command': {
             'type': 'object',
