@@ -4728,6 +4728,7 @@ class List(Prim):
         for item in self.valu:
             yield item
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methListUnique(self):
         ret = []
         checkret = []
