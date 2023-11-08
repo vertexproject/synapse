@@ -1181,6 +1181,24 @@ class StormTypesTest(s_test.SynTest):
             '''
             self.eq(2, await core.callStorm(q))
 
+            q = '''
+            $q=${ return( $lib.auth.users.byname(root).name ) }
+            return ( $q.exec() )
+            '''
+            self.eq('root', await core.callStorm(q, opts={'readonly': True}))
+
+            q = '''
+            $q=${ test:int=1 }
+            return ( $q.size() )
+            '''
+            self.eq(1, await core.callStorm(q, opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$foo=${ [test:str=readonly] } return ( $foo.exec() )', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$foo=${ [test:str=readonly] } return( $foo.size() )', opts={'readonly': True})
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')

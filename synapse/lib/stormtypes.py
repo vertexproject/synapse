@@ -5425,8 +5425,7 @@ class Query(Prim):
         async for node, path in self._getRuntGenr():
             yield Node(node)
 
-    # @stormfunc(readonly=True)
-    # FIXME - Add test for this?????
+    @stormfunc(readonly=True)
     async def _methQueryExec(self):
         logger.info(f'Executing storm query via exec() {{{self.text}}} as [{self.runt.user.name}]')
         try:
@@ -5437,7 +5436,6 @@ class Query(Prim):
         except asyncio.CancelledError:  # pragma: no cover
             raise
 
-    # FIXME Add test for this
     @stormfunc(readonly=True)
     async def _methQuerySize(self, limit=1000):
         limit = await toint(limit)
