@@ -279,7 +279,6 @@ class ImapServer(s_stormtypes.StormType):
         self.imap_cli = imap_cli
         self.locls.update(self.getObjLocals())
 
-    # FIXME Discuss these
     def getObjLocals(self):
         return {
             'list': self.list,
@@ -291,6 +290,7 @@ class ImapServer(s_stormtypes.StormType):
             'markSeen': self.markSeen,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def login(self, user, passwd):
         user = await s_stormtypes.tostr(user)
         passwd = await s_stormtypes.tostr(passwd)
@@ -300,6 +300,7 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, None
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def list(self, reference_name='""', pattern='*'):
         pattern = await s_stormtypes.tostr(pattern)
         reference_name = await s_stormtypes.tostr(reference_name)
@@ -315,6 +316,7 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, names
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def select(self, mailbox='INBOX'):
         mailbox = await s_stormtypes.tostr(mailbox)
 
@@ -323,6 +325,7 @@ class ImapServer(s_stormtypes.StormType):
 
         return True, None
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def search(self, *args, charset='utf-8'):
         args = [await s_stormtypes.tostr(arg) for arg in args]
         charset = await s_stormtypes.tostr(charset, noneok=True)
@@ -332,6 +335,7 @@ class ImapServer(s_stormtypes.StormType):
         uids = data[0].decode().split(' ') if data[0] else []
         return True, uids
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def fetch(self, uid):
         # IMAP fetch accepts a message set (e.g. "1", "1:*", "1,2,3"),
         # however this method forces fetching a single uid
