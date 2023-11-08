@@ -5087,7 +5087,6 @@ class LibUser(Lib):
             'allowed': self._libUserAllowed,
         }
 
-    # FIXME to ctors / gtors
     def addLibFuncs(self):
         super().addLibFuncs()
         self.locls.update({
