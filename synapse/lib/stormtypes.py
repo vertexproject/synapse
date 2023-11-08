@@ -1392,7 +1392,7 @@ class LibBase(Lib):
             'trycast': self.trycast,
         }
 
-    # FIXME - Check this for readonly safety....
+    @stormfunc(readonly=True)
     async def _libBaseImport(self, name, debug=False, reqvers=None):
 
         name = await tostr(name)

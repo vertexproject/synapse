@@ -613,6 +613,14 @@ class StormTypesTest(s_test.SynTest):
                     'name': 'test',
                     'storm': '$valu=$modconf.valu function getvalu() { return($valu) }',
                     'modconf': {'valu': 'foo'},
+                },
+                {
+                    'name': 'test.danger',
+                    'storm': '''
+                        init { $src=$lib.null }
+                        function genSrc() { if $src { return ($src) } [meta:source=(s1,)] $src=$node return ($node) }
+                        $genSrc()
+                        '''
                 }
             ],
             'commands': [
@@ -735,6 +743,10 @@ class StormTypesTest(s_test.SynTest):
 
             await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
+            self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())', opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('return($lib.import(test.danger).src)', opts={'readonly': True})
 
             mods = await core.getStormMods()
             self.len(1, mods)
