@@ -246,7 +246,7 @@ class ProtoNode:
 
     def getTagNames(self):
         alltags = set(self.tags.keys())
-        alltags.update(set(self.node.tags.keys()))
+        alltags.update(set(self.node.getTagNames()))
         return alltags - self.tagdels
 
     def _getTagTree(self):
@@ -1011,7 +1011,7 @@ class Snap(s_base.Base):
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        self.livenodes[node.buid] = protonode
+        self.livenodes[node.nid] = protonode
 
         try:
             yield protonode
@@ -1019,7 +1019,7 @@ class Snap(s_base.Base):
             errs = True
             raise
         finally:
-            self.livenodes[node.buid] = node
+            self.livenodes[node.nid] = node
             if not (errs and transaction):
                 nodeedits = editor.getNodeEdits()
                 if nodeedits:
