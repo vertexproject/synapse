@@ -10,6 +10,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.hive as s_hive
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
@@ -207,6 +208,12 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
+                # Require valid storm
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': ' | | | ',
+                        'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+                await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
+                await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
+
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': doit,
@@ -323,6 +330,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
+                self.eq(core.view.iden, appt.task.info.get('view'))
                 await appt.task.kill()
 
                 appt = await agenda.get(guid)
@@ -406,17 +414,13 @@ class AgendaTest(s_t_utils.SynTest):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
 
-            core = mock.Mock()
+            core = mock.AsyncMock()
 
-            def raiseOnBadStorm(q):
+            async def raiseOnBadStorm(q):
                 ''' Just enough storm parsing for this test '''
-                # TODO: Async this and use AsyncMock when Python 3.8+ only
-                f = asyncio.Future()
                 if (q[0] == '[') != (q[-1] == ']'):
-                    f.set_exception(s_exc.BadSyntax(mesg='mismatched braces'))
-                else:
-                    f.set_result('all good')
-                return f
+                    raise s_exc.BadSyntax(mesg='mismatched braces')
+                return 'all good'
 
             core.getStormQuery = raiseOnBadStorm
 
@@ -452,8 +456,7 @@ class AgendaTest(s_t_utils.SynTest):
                             'reqs': {s_tu.HOUR: (7, 8)},
                             'incunit': s_agenda.TimeUnit.MONTH,
                             'incvals': 1}
-                    adef = await agenda.add(cdef)
-                    badguid1 = adef.get('iden')
+                    await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
 
                     # Add an appt with a bad version in storage
                     cdef = {'creator': 'visi', 'iden': 'BAD2', 'storm': '[test:str=foo]',
@@ -486,13 +489,10 @@ class AgendaTest(s_t_utils.SynTest):
                     agenda.enabled = True
 
                     appts = agenda.list()
-                    self.len(3, appts)
+                    self.len(2, appts)
 
                     last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                     self.eq(last_appt.query, '#bahhumbug')
-
-                    bad_appt = [appt for (iden, appt) in appts if iden == badguid1][0]
-                    self.false(bad_appt.enabled)
 
                     self.len(0, [appt for (iden, appt) in appts if iden == badguid2])
 
@@ -563,7 +563,7 @@ class AgendaTest(s_t_utils.SynTest):
             # no existing view
             await core.callStorm('$lib.queue.add(testq)')
             defview = core.getView()
-            fakeiden = hashlib.md5(defview.iden.encode('utf-8')).hexdigest()
+            fakeiden = hashlib.md5(defview.iden.encode('utf-8'), usedforsecurity=False).hexdigest()
             opts = {'vars': {'fakeiden': fakeiden}}
             with self.raises(s_exc.NoSuchView):
                 await prox.callStorm('cron.add --view $fakeiden --minute +2 { $lib.queue.get(testq).put((43)) }', opts=opts)
@@ -722,3 +722,105 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('test:int=97', opts={'view': newview})
             self.len(0, nodes)
+
+    async def test_agenda_edit_creator(self):
+
+        async with self.getTestCore() as core:
+
+            derp = await core.auth.addUser('derp')
+
+            msgs = await core.stormlist('cron.add --hourly 32 { $lib.print(woot) }')
+            self.stormHasNoWarnErr(msgs)
+
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
+            self.eq(cdef['creator'], core.auth.rootuser.iden)
+
+            opts = {'vars': {'derp': derp.iden}}
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $derp)) }', opts=opts)
+
+            self.eq(cdef['creator'], derp.iden)
+
+            async with core.getLocalProxy(user='derp') as proxy:
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.editCronJob(cdef.get('iden'), 'creator', derp.iden)
+
+    async def test_agenda_fatal_run(self):
+
+        # Create a scenario where an agenda appointment is "correct"
+        # but encounters a fatal error when attempting to be created.
+        # This error is then logged, and corrected.
+
+        async with self.getTestCore() as core:
+
+            udef = await core.addUser('user')
+            user = udef.get('iden')
+
+            fork = await core.callStorm('$fork = $lib.view.get().fork().iden return ( $fork )')
+
+            q = '$lib.log.info(`I am a cron job run by {$lib.user.name()} in {$lib.view.get().iden}`)'
+            msgs = await core.stormlist('cron.add --minute +1 $q', opts={'vars': {'q': q}, 'view': fork})
+            self.stormHasNoWarnErr(msgs)
+
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $user)) }',
+                                        opts={'vars': {'user': user}})
+            self.eq(cdef['creator'], user)
+
+            # Force the cron to run.
+
+            with self.getAsyncLoggerStream('synapse.lib.agenda', 'Agenda error running appointment ') as stream:
+                core.agenda._addTickOff(55)
+                self.true(await stream.wait(timeout=12))
+
+            await core.addUserRule(user, (True, ('storm',)))
+            await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job') as stream:
+                core.agenda._addTickOff(60)
+                self.true(await stream.wait(timeout=12))
+
+    async def test_agenda_mirror_realtime(self):
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                await core00.callStorm('cron.add --minute +1 { $lib.time.sleep(5) }')
+
+                url = core00.getLocalUrl()
+
+                core01conf = {'mirror': url}
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+                    core00.agenda._addTickOff(55)
+
+                    mesgs = []
+                    async for mesg in core00.behold():
+                        mesgs.append(mesg)
+                        core00.agenda._addTickOff(30)
+                        if len(mesgs) == 2:
+                            break
+
+                    cron00 = await core00.callStorm('return($lib.cron.list())')
+                    cron01 = await core01.callStorm('return($lib.cron.list())')
+                    # both should have the job, but only one should have run
+                    self.len(1, cron00)
+                    self.eq(cron00[0]['lastresult'], 'finished successfully with 0 nodes')
+                    self.len(1, cron01)
+                    self.none(cron01[0]['lastresult'])
+
+                    start = mesgs[0]
+                    stop = mesgs[1]
+
+                    self.eq(start['event'], 'cron:start')
+                    self.eq(stop['event'], 'cron:stop')
+
+                    self.eq(start['info']['iden'], cron00[0]['iden'])
+                    self.eq(stop['info']['iden'], cron00[0]['iden'])

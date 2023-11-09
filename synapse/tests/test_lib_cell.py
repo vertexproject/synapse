@@ -1,14 +1,18 @@
 import os
+import ssl
 import sys
 import time
 import signal
+import socket
 import asyncio
 import tarfile
+import collections
 import multiprocessing
 
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
@@ -16,14 +20,20 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.crypto.passwd as s_passwd
 
+import synapse.tools.backup as s_tools_backup
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
+
+from OpenSSL import crypto
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -63,6 +73,27 @@ def lock_target(dirn, evt1):  # pragma: no cover
     async def main():
         cell = await s_cell.Cell.anit(dirn)
         await cell.addSignalHandlers()
+        evt1.set()
+        await cell.waitfini(timeout=60)
+
+    asyncio.run(main())
+    sys.exit(137)
+
+def reload_target(dirn, evt1, evt2):  # pragma: no cover
+    '''
+    Function to make a cell in a directory and wait to be shut down.
+    Used as a Process target for reload SIGHUP locking tests.
+
+    Args:
+        dirn (str): Cell directory.
+        evt1 (multiprocessing.Event): event to signal the cell is ready to receive sighup
+        evt2 (multiprocessing.Event): event to signal the cell has been reset
+    '''
+    async def main():
+        cell = await s_t_utils.ReloadCell.anit(dirn)
+        await cell.addSignalHandlers()
+        await cell.addTestReload()
+        cell._reloadevt = evt2
         evt1.set()
         await cell.waitfini(timeout=60)
 
@@ -164,6 +195,9 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(ratm.get('name'), 'testrole')
                     self.eq(ratm.get('iden'), testrole.iden)
 
+                    with self.raises(s_exc.NoSuchUser):
+                        await proxy.getUserInfo('newp')
+
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
                     await self.asyncraises(s_exc.AuthDeny, proxy.getUserInfo('root'))
@@ -205,6 +239,19 @@ class CellTest(s_t_utils.SynTest):
                     # cannot change a password for a non existent user
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
+
+                # onepass support in the cell
+                async with await s_telepath.openurl(root_url) as proxy:
+                    onep = await proxy.genUserOnepass(visi.iden)
+
+                onep_url = f'tcp://visi:{onep}@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                    udef = await proxy.getCellUser()
+                    self.eq(visi.iden, udef.get('iden'))
+
+                with self.raises(s_exc.AuthDeny):
+                    async with await s_telepath.openurl(onep_url) as proxy:  # type: EchoAuthApi
+                        pass
 
                 # setRoles() allows arbitrary role ordering
                 extra_role = await echo.auth.addRole('extrarole')
@@ -304,6 +351,11 @@ class CellTest(s_t_utils.SynTest):
                 user = await prox.getCellUser()
                 self.eq('root', user.get('name'))
                 self.true(await prox.isCellActive())
+
+            with self.raises(s_exc.NoSuchUser):
+                url = f'cell://{core.dirn}/?user=newp'
+                async with await s_telepath.openurl(url) as prox:
+                    pass
 
         # Explicit use of the unix:// handler
         async with self.getTestCore() as core:
@@ -416,8 +468,9 @@ class CellTest(s_t_utils.SynTest):
                     await prox.setCellUser(s_common.guid())
 
                 visi = await prox.addUser('visi')
+                visiiden = visi.get('iden')
 
-                self.true(await prox.setCellUser(visi['iden']))
+                self.true(await prox.setCellUser(visiiden))
                 self.eq('visi', (await prox.getCellUser())['name'])
 
                 # setCellUser propagates his change to the Daemon Sess object.
@@ -428,6 +481,12 @@ class CellTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     await prox.setCellUser(s_common.guid())
+
+            # Cannot change to a locked user
+            await cell.setUserLocked(visiiden, True)
+            async with cell.getLocalProxy() as prox:
+                with self.raises(s_exc.AuthDeny):
+                    await prox.setCellUser(visiiden)
 
     async def test_cell_hiveboot(self):
 
@@ -486,7 +545,10 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(cnfo.get('version'), (1, 2, 3))
                 self.eq(cnfo.get('verstring'), '1.2.3')
                 self.eq(cnfo.get('type'), 'cortex')
+                self.isin('nexsindx', cnfo)
+                self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
+                self.false(cnfo.get('uplink'))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -971,7 +1033,7 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeperProc'))
 
                     info = await proxy.getBackupInfo()
                     errinfo = info.get('lastexception')
@@ -982,7 +1044,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeper2Proc'))
 
                         info = await proxy.getBackupInfo()
                         laststart2 = info['laststart']
@@ -991,7 +1053,7 @@ class CellTest(s_t_utils.SynTest):
                         self.eq(errinfo['err'], 'SynErr')
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
+                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
                         info = await proxy.getBackupInfo()
                         laststart3 = info['laststart']
@@ -1007,6 +1069,10 @@ class CellTest(s_t_utils.SynTest):
                     slabpath = s_common.genpath(coredirn, 'randodirn', 'randoslab2')
                     async with await s_lmdbslab.Slab.anit(slabpath):
                         pass
+
+                    await proxy.delBackup('_sleeperProc')
+                    await proxy.delBackup('_sleeper2Proc')
+                    await proxy.delBackup('_exiterProc')
 
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
@@ -1049,6 +1115,44 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup(name='foo/bar')
 
+                    _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
+                    _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+                    def lowspace(dirn):
+                        cellsize = s_common.getDirSize(coredirn)
+                        return _ntuple_diskusage(1, cellsize, 1)
+
+                    realstat = os.stat
+                    def diffdev(dirn):
+                        real = realstat(dirn)
+                        if dirn == coredirn:
+                            return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
+                        elif dirn == backdirn:
+                            return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
+                        return real
+
+                    with mock.patch('shutil.disk_usage', lowspace):
+                        await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
+                        with mock.patch('os.stat', diffdev):
+                            await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
+            async def err(*args, **kwargs):
+                raise RuntimeError('boom')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    with mock.patch('synapse.lib.coro.executor', err):
+                        with self.raises(s_exc.SynErr) as cm:
+                            await proxy.runBackup('partial')
+                        self.eq(cm.exception.get('errx'), 'RuntimeError')
+
+                    self.isin('partial', await proxy.getBackups())
+
+                    await proxy.delBackup(name='partial')
+                    self.notin('partial', await proxy.getBackups())
+
     async def test_cell_tls_client(self):
 
         with self.getTestDir() as dirn:
@@ -1079,7 +1183,19 @@ class CellTest(s_t_utils.SynTest):
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
-                self.eq(cm.exception.get('user'), 'newp@localhost')
+                self.eq(cm.exception.get('username'), 'newp@localhost')
+
+                # add newp
+                unfo = await cryo.addUser('newp@localhost')
+                async with await s_telepath.openurl(f'ssl://newp@127.0.0.1:{port}?hostname=localhost') as proxy:
+                    self.eq(cryo.iden, await proxy.getCellIden())
+
+                # Lock newp
+                await cryo.setUserLocked(unfo.get('iden'), True)
+                with self.raises(s_exc.AuthDeny) as cm:
+                    url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
+                    async with await s_telepath.openurl(url) as proxy:
+                        pass
 
     async def test_cell_auth_ctor(self):
         conf = {
@@ -1092,6 +1208,66 @@ class CellTest(s_t_utils.SynTest):
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
                 await cell.auth.addUser('visi')
+
+    async def test_cell_auth_userlimit(self):
+        maxusers = 3
+        conf = {
+            'max:users': maxusers
+        }
+
+        async with self.getTestCell(s_cell.Cell, conf=conf) as cell:
+            await cell.auth.addUser('visi1')
+            await cell.auth.addUser('visi2')
+            await cell.auth.addUser('visi3')
+            with self.raises(s_exc.HitLimit) as exc:
+                await cell.auth.addUser('visi4')
+            self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
+
+            # Archive user and add new user
+            visi1 = await cell.auth.getUserByName('visi1')
+            await visi1.setArchived(True)
+
+            await cell.auth.addUser('visi4')
+
+            with self.raises(s_exc.HitLimit):
+                await cell.auth.addUser('visi5')
+
+            # Try to unarchive user while we're at the limit
+            with self.raises(s_exc.HitLimit):
+                await visi1.setArchived(False)
+
+            # Lock user and add new user
+            visi2 = await cell.auth.getUserByName('visi2')
+            await visi2.setLocked(True)
+
+            await cell.auth.addUser('visi5')
+
+            with self.raises(s_exc.HitLimit):
+                await cell.auth.addUser('visi6')
+
+            # Delete user and add new user
+            visi3 = await cell.auth.getUserByName('visi3')
+            await cell.auth.delUser(visi3.iden)
+
+            await cell.auth.addUser('visi6')
+
+            with self.raises(s_exc.HitLimit):
+                await cell.auth.addUser('visi7')
+
+        with self.setTstEnvars(SYN_CELL_MAX_USERS=str(maxusers)):
+            with self.getTestDir() as dirn:
+                async with await s_cell.Cell.initFromArgv([dirn, '--telepath', 'tcp://127.0.0.1:0', '--https', '0']) as cell:
+                    await cell.auth.addUser('visi1')
+                    await cell.auth.addUser('visi2')
+                    await cell.auth.addUser('visi3')
+                    with self.raises(s_exc.HitLimit) as exc:
+                        await cell.auth.addUser('visi4')
+                    self.eq(f'Cell at maximum number of users ({maxusers}).', exc.exception.get('mesg'))
+
+        with self.raises(s_exc.BadConfValu) as exc:
+            async with self.getTestCell(s_cell.Cell, conf={'max:users': -1}) as cell:
+                pass
+        self.eq('Invalid config for max:users, data must be bigger than or equal to 0', exc.exception.get('mesg'))
 
     async def test_cell_onepass(self):
 
@@ -1566,7 +1742,7 @@ class CellTest(s_t_utils.SynTest):
                         await stream.wait(timeout=2)
                         self.true(await cell01.waitfini(6))
 
-    async def test_backup_restore(self):
+    async def test_backup_restore_base(self):
 
         async with self.getTestAxon(conf={'auth:passwd': 'root'}) as axon:
             addr, port = await axon.addHttpsPort(0)
@@ -1599,14 +1775,16 @@ class CellTest(s_t_utils.SynTest):
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
 
                     # Turning the service back on with the restore URL is fine too.
                     with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
                             # Take a backup of the cell with the restore.done file in place
@@ -1634,7 +1812,8 @@ class CellTest(s_t_utils.SynTest):
                     os.unlink(rpath)
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Removing existing') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
@@ -1645,7 +1824,8 @@ class CellTest(s_t_utils.SynTest):
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
-                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                        argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                        async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
@@ -1654,6 +1834,187 @@ class CellTest(s_t_utils.SynTest):
                         second_doneiden = fd.read().decode().strip()
                         self.true(s_common.isguid(second_doneiden))
                     self.ne(doneiden, second_doneiden)
+
+    async def test_backup_restore_aha(self):
+        # do a mirror provisioning of a Cell
+        # promote the mirror to being a leader
+        # ensure the mirror has a
+        # backup the mirror
+        # restore the backup
+        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
+            root = await aha.auth.getUserByName('root')
+            self.true(await root.tryPasswd('secret'))
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'core00')
+                cdr1 = s_common.genpath(dirn, 'core01')
+                adr0 = s_common.genpath(dirn, 'axon00')
+                bdr0 = s_common.genpath(dirn, 'back00')
+                bdr1 = s_common.genpath(dirn, 'back01')
+
+                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, conf={'auth:passwd': 'root'},
+                                            dirn=adr0) as axon00:
+                    addr, port = await axon00.addHttpsPort(0)
+                    url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+
+                    async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
+                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
+                                                    provinfo={'mirror': 'core'}) as core01:
+                            self.len(1, await core00.nodes('[inet:asn=0]'))
+                            await core01.sync()
+                            self.len(1, await core01.nodes('inet:asn=0'))
+
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            await core01.promote(graceful=True)
+
+                            self.true(core01.isactive)
+                            self.false(core00.isactive)
+
+                            modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                            self.isin('01.core', modinfo.get('mirror', ''))
+                            modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                            self.none(modinfo.get('mirror'))
+
+                            async with await axon00.upload() as upfd:
+                                async with core00.getLocalProxy() as prox:
+                                    async for chunk in prox.iterNewBackupArchive():
+                                        await upfd.write(chunk)
+
+                                    size, sha256 = await upfd.save()
+                                    await asyncio.sleep(0)
+
+                    furl = f'{url}{s_common.ehex(sha256)}'
+                    purl = await aha.addAhaSvcProv('00.mynewcortex')
+
+                    with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
+                                           SYN_CORTEX_AHA_PROVISION=purl):
+                        # Restore works
+                        with self.getAsyncLoggerStream('synapse.lib.cell',
+                                                       'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                            argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                            async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
+                                self.true(await stream.wait(6))
+                                self.len(1, await bcree00.nodes('inet:asn=0'))
+                                self.len(1, await bcree00.nodes('[inet:asn=1234]'))
+
+                                rpath = s_common.genpath(bdr0, 'restore.done')
+                                with s_common.genfile(rpath) as fd:
+                                    doneiden = fd.read().decode().strip()
+                                    self.true(s_common.isguid(doneiden))
+
+                                # Restore the backup as a mirror of the mynewcortex
+                                purl = await aha.addAhaSvcProv('01.mynewcortex',
+                                                               provinfo={'mirror': 'mynewcortex'})
+                                stream.clear()
+                                with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
+                                                       SYN_CORTEX_AHA_PROVISION=purl):
+                                    argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                                    async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
+                                        self.true(await stream.wait(6))
+                                        self.true(bcree00.isactive)
+                                        self.false(bcree01.isactive)
+
+                                        await bcree01.sync()
+                                        self.len(1, await bcree01.nodes('[inet:asn=8675]'))
+                                        self.len(1, await bcree00.nodes('inet:asn=8675'))
+
+    async def test_backup_restore_double_promote_aha(self):
+        # do a mirror provisioning of a Cell
+        # promote the mirror to being a leader
+        # ensure the mirror has a
+        # backup the mirror
+        # restore the backup
+        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
+            root = await aha.auth.getUserByName('root')
+            self.true(await root.tryPasswd('secret'))
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'core00')
+                cdr1 = s_common.genpath(dirn, 'core01')
+                adr0 = s_common.genpath(dirn, 'axon00')
+                bdr0 = s_common.genpath(dirn, 'back00')
+                bdr1 = s_common.genpath(dirn, 'back01')
+
+                async with self.addSvcToAha(aha, '00.axon', s_axon.Axon, conf={'auth:passwd': 'root'},
+                                            dirn=adr0) as axon00:
+                    addr, port = await axon00.addHttpsPort(0)
+                    url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+
+                    async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
+                        async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
+                                                    provinfo={'mirror': 'core'}) as core01:
+                            self.len(1, await core00.nodes('[inet:asn=0]'))
+                            await core01.sync()
+                            self.len(1, await core01.nodes('inet:asn=0'))
+
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            await core01.promote(graceful=True)
+
+                            self.true(core01.isactive)
+                            self.false(core00.isactive)
+
+                            modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                            self.isin('01.core', modinfo.get('mirror', ''))
+                            modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                            self.none(modinfo.get('mirror'))
+
+                            # Promote core00 back to being the leader
+                            await core00.promote(graceful=True)
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            modinfo = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                            self.none(modinfo.get('mirror'))
+                            modinfo = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                            self.isin('00.core', modinfo.get('mirror', ''))
+
+                            # Backup the mirror (core01) which points to the core00
+                            async with await axon00.upload() as upfd:
+                                async with core01.getLocalProxy() as prox:
+                                    async for chunk in prox.iterNewBackupArchive():
+                                        await upfd.write(chunk)
+
+                                    size, sha256 = await upfd.save()
+                                    await asyncio.sleep(0)
+
+                    furl = f'{url}{s_common.ehex(sha256)}'
+                    purl = await aha.addAhaSvcProv('00.mynewcortex')
+
+                    with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
+                                           SYN_CORTEX_AHA_PROVISION=purl):
+                        # Restore works
+                        with self.getAsyncLoggerStream('synapse.lib.cell',
+                                                       'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
+                            argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                            async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
+                                self.true(await stream.wait(6))
+                                self.len(1, await bcree00.nodes('inet:asn=0'))
+                                self.len(1, await bcree00.nodes('[inet:asn=1234]'))
+
+                                rpath = s_common.genpath(bdr0, 'restore.done')
+                                with s_common.genfile(rpath) as fd:
+                                    doneiden = fd.read().decode().strip()
+                                    self.true(s_common.isguid(doneiden))
+
+                                # Restore the backup as a mirror of the mynewcortex
+                                purl = await aha.addAhaSvcProv('01.mynewcortex',
+                                                               provinfo={'mirror': 'mynewcortex'})
+                                stream.clear()
+                                with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl,
+                                                       SYN_CORTEX_AHA_PROVISION=purl):
+                                    argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
+                                    async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
+                                        self.true(await stream.wait(6))
+                                        self.true(bcree00.isactive)
+                                        self.false(bcree01.isactive)
+
+                                        await bcree01.sync()
+                                        self.len(1, await bcree01.nodes('[inet:asn=8675]'))
+                                        self.len(1, await bcree00.nodes('inet:asn=8675'))
 
     async def test_passwd_regression(self):
         # Backwards compatibility test for shadowv2
@@ -1704,3 +2065,345 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
                 self.false(await root.tryPasswd('root'))
                 self.true(await root.tryPasswd('supersecretpassword'))
+
+    async def test_cell_minspace(self):
+
+        with self.raises(s_exc.LowSpace):
+            conf = {'limit:disk:free': 100}
+            async with self.getTestCore(conf=conf) as core:
+                pass
+
+        _ntuple_diskusage = collections.namedtuple('usage', 'total used free')
+
+        def full_disk(dirn):
+            return _ntuple_diskusage(100, 96, 4)
+
+        revt = asyncio.Event()
+        orig = s_cortex.Cortex._setReadOnly
+        async def wrapReadOnly(self, valu, reason=None):
+            await orig(self, valu, reason=reason)
+            revt.set()
+
+        errmsg = 'Insufficient free space on disk.'
+
+        with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 0.1), \
+             mock.patch.object(s_cortex.Cortex, '_setReadOnly', wrapReadOnly):
+
+            async with self.getTestCore() as core:
+
+                self.len(1, await core.nodes('[inet:fqdn=vertex.link]'))
+
+                with mock.patch('shutil.disk_usage', full_disk):
+                    self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                    msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+                    self.stormIsInErr(errmsg, msgs)
+
+                    revt.clear()
+
+                self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                self.len(1, await core.nodes('[inet:fqdn=foo.com]'))
+
+            with self.getTestDir() as dirn:
+
+                path00 = s_common.gendir(dirn, 'core00')
+                path01 = s_common.gendir(dirn, 'core01')
+
+                conf = {'limit:disk:free': 0}
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+                s_tools_backup.backup(path00, path01)
+
+                async with self.getTestCore(dirn=path00, conf=conf) as core00:
+
+                    core01conf = {'mirror': core00.getLocalUrl()}
+
+                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                        await core01.sync()
+
+                        revt.clear()
+                        with mock.patch('shutil.disk_usage', full_disk):
+                            self.true(await asyncio.wait_for(revt.wait(), 1))
+
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr(errmsg, msgs)
+                            msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
+                            self.stormIsInErr(errmsg, msgs)
+                            self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
+
+                            offs = await core00.getNexsIndx()
+                            self.false(await core01.waitNexsOffs(offs, 1))
+
+                            self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+                            revt.clear()
+
+                        self.true(await asyncio.wait_for(revt.wait(), 1))
+                        await core01.sync()
+
+                        self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
+                        self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
+
+        with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 600):
+
+            async with self.getTestCore() as core:
+
+                with mock.patch.object(s_lmdbslab.Slab, 'DEFAULT_MAPSIZE', 100000):
+                    layr = await core.addLayer()
+                    layriden = layr.get('iden')
+                    view = await core.addView({'layers': (layriden,)})
+                    viewiden = view.get('iden')
+
+                    with mock.patch('shutil.disk_usage', full_disk):
+                        opts = {'view': viewiden}
+                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
+                        self.stormIsInErr(errmsg, msgs)
+                        nodes = await core.nodes('inet:ipv4', opts=opts)
+                        self.gt(len(nodes), 0)
+                        self.lt(len(nodes), 20000)
+
+            async with self.getTestCore() as core:
+
+                def spaceexc(self):
+                    raise Exception('foo')
+
+                with mock.patch.object(s_lmdbslab.Slab, 'DEFAULT_MAPSIZE', 100000), \
+                     mock.patch.object(s_cell.Cell, 'checkFreeSpace', spaceexc):
+                    layr = await core.addLayer()
+                    layriden = layr.get('iden')
+                    view = await core.addView({'layers': (layriden,)})
+                    viewiden = view.get('iden')
+
+                    opts = {'view': viewiden}
+                    with self.getLoggerStream('synapse.lib.lmdbslab',
+                                              'Error during slab resize callback - foo') as stream:
+                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
+                        self.true(stream.wait(1))
+
+        async with self.getTestCore() as core:
+
+            core.nexsroot.setReadOnly(True)
+
+            msgs = await core.stormlist('[inet:fqdn=newp.fail]')
+            self.stormIsInErr('Unable to issue Nexus events when readonly is set.', msgs)
+
+    async def test_cell_onboot_optimize(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+                layriden = await core.callStorm('return($lib.layer.get().iden)')
+
+                # to test run the tmp cleanup on boot logic
+                with s_common.genfile(dirn, 'tmp', 'junk.text') as fd:
+                    fd.write(b'asdf\n')
+
+                tmpd = s_common.gendir(dirn, 'tmp', 'hehe')
+                with s_common.genfile(tmpd, 'haha.text') as fd:
+                    fd.write(b'lolz\n')
+
+            lmdbfile = s_common.genpath(dirn, 'layers', layriden, 'layer_v2.lmdb', 'data.mdb')
+            stat00 = os.stat(lmdbfile)
+
+            with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                conf = {'onboot:optimize': True}
+                async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                    pass
+
+                stream.seek(0)
+                self.isin('onboot optimization complete!', stream.read())
+
+            stat01 = os.stat(lmdbfile)
+            self.ne(stat00.st_ino, stat01.st_ino)
+
+            _ntuple_stat = collections.namedtuple('stat', 'st_dev st_mode st_blocks st_size')
+            realstat = os.stat
+            def diffdev(path):
+                real = realstat(path)
+                if path.endswith('mdb'):
+                    return _ntuple_stat(1, real.st_mode, real.st_blocks, real.st_size)
+                elif path.endswith('tmp'):
+                    return _ntuple_stat(2, real.st_mode, real.st_blocks, real.st_size)
+                return real
+
+            with mock.patch('os.stat', diffdev):
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    conf = {'onboot:optimize': True}
+                    async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                        pass
+
+                    stream.seek(0)
+                    buf = stream.read()
+                    self.notin('onboot optimization complete!', buf)
+                    self.isin('not on the same volume', buf)
+
+    async def test_cell_gc(self):
+        async with self.getTestCore() as core:
+            async with core.getLocalProxy() as proxy:
+                self.nn(await proxy.runGcCollect())
+                info = await proxy.getGcInfo()
+                self.nn(info['stats'])
+                self.nn(info['threshold'])
+
+    async def test_cell_reload_api(self):
+        async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
+            async with cell.getLocalProxy() as prox:
+
+                # No registered reload functions yet
+                names = await prox.getReloadableSystems()
+                self.len(0, names)
+                # No functions to run yet
+                self.eq({}, await prox.reload())
+
+                # Add reload func and get its name
+                await cell.addTestReload()
+                names = await prox.getReloadableSystems()
+                self.len(1, names)
+                name = names[0]
+
+                # Reload by name
+                self.false(cell._reloaded)
+                self.eq({name: (True, True)}, await cell.reload(name))
+                self.true(cell._reloaded)
+
+                # Add a second function
+                await cell.addTestBadReload()
+
+                # Reload all registered functions
+                cell._reloaded = False
+                ret = await cell.reload()
+                self.eq(ret.get('testreload'), (True, True))
+                fail = ret.get('badreload')
+                self.false(fail[0])
+                self.eq('ZeroDivisionError', fail[1][0])
+                self.eq('division by zero', fail[1][1].get('mesg'))
+                self.true(cell._reloaded)
+
+                # Attempting to call a value by name that doesn't exist fails
+                with self.raises(s_exc.NoSuchName) as cm:
+                    await cell.reload(subsystem='newp')
+                self.eq('newp', cm.exception.get('name'))
+                self.isin('newp', cm.exception.get('mesg'))
+
+    async def test_cell_reload_sighup(self):
+
+        with self.getTestDir() as dirn:
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+            evt2 = ctx.Event()
+
+            proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
+            proc.start()
+
+            self.true(evt1.wait(timeout=10))
+
+            async with await s_telepath.openurl(f'cell://{dirn}') as prox:
+                cnfo = await prox.getCellInfo()
+                self.false(cnfo.get('cell', {}).get('reloaded'))
+
+                os.kill(proc.pid, signal.SIGHUP)
+                evt2.wait(timeout=10)
+
+                cnfo = await prox.getCellInfo()
+                self.true(cnfo.get('cell', {}).get('reloaded'))
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join(timeout=10)
+            self.eq(proc.exitcode, 137)
+
+    async def test_cell_reload_https(self):
+        async with self.getTestCell(s_t_utils.ReloadCell) as cell:  # type: s_t_utils.ReloadCell
+            async with cell.getLocalProxy() as prox:
+
+                await cell.auth.rootuser.setPasswd('root')
+                hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+
+                names = await prox.getReloadableSystems()
+                self.ge(len(names), 1)
+
+                bitems = []
+                bstrt = asyncio.Event()
+                bdone = asyncio.Event()
+
+                def get_pem_cert():
+                    # Only run this in a executor thread
+                    ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    conn = socket.create_connection((hhost, hport))
+                    sock = ctx.wrap_socket(conn)
+                    sock.settimeout(60)
+                    der_cert = sock.getpeercert(binary_form=True)
+                    sock.close()
+                    conn.close()
+                    return ssl.DER_cert_to_PEM_cert(der_cert)
+
+                original_cert = await s_coro.executor(get_pem_cert)
+                ocert = crypto.load_certificate(crypto.FILETYPE_PEM, original_cert)
+                self.eq(ocert.get_subject().CN, 'reloadcell')
+
+                # Start a beholder session that runs over TLS
+
+                async with self.getHttpSess(auth=('root', 'root'), port=hport) as bsess:
+
+                    async with bsess.ws_connect(f'wss://localhost:{hport}/api/v1/behold') as sock:
+
+                        async def beholdConsumer():
+                            await sock.send_json({'type': 'call:init'})
+                            bstrt.set()
+                            while not cell.isfini:
+                                mesg = await sock.receive_json()
+                                data = mesg.get('data')
+                                if data.get('event') == 'user:add':
+                                    bitems.append(data)
+                                if len(bitems) == 2:
+                                    bdone.set()
+                                    break
+
+                        fut = cell.schedCoro(beholdConsumer())
+                        self.true(await asyncio.wait_for(bstrt.wait(), timeout=12))
+
+                        async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            answ = await resp.json()
+                            self.eq('ok', answ['status'])
+
+                        await cell.addUser('alice')
+
+                        # Generate and save new SSL material....
+                        pkeypath = os.path.join(cell.dirn, 'sslkey.pem')
+                        certpath = os.path.join(cell.dirn, 'sslcert.pem')
+
+                        tdir = s_common.gendir(cell.dirn, 'tmp')
+                        with s_common.getTempDir(dirn=tdir) as dirn:
+                            cdir = s_certdir.CertDir(path=(dirn,))
+                            pkey, cert = cdir.genHostCert('SomeTestCertificate')
+                            cdir.savePkeyPem(pkey, pkeypath)
+                            cdir.saveCertPem(cert, certpath)
+
+                        # reload listeners
+                        await cell.reload()
+
+                        reloaded_cert = await s_coro.executor(get_pem_cert)
+                        rcert = crypto.load_certificate(crypto.FILETYPE_PEM, reloaded_cert)
+                        self.eq(rcert.get_subject().CN, 'SomeTestCertificate')
+
+                        async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                            resp = await sess.get(f'https://localhost:{hport}/api/v1/healthcheck')
+                            answ = await resp.json()
+                            self.eq('ok', answ['status'])
+
+                        await cell.addUser('bob')
+
+                        self.true(await asyncio.wait_for(bdone.wait(), timeout=12))
+                        await fut
+
+                        users = {m.get('info', {}).get('name') for m in bitems}
+                        self.eq(users, {'alice', 'bob'})

@@ -136,6 +136,9 @@ directory on the *host*. This will be necessary for some of the additional provi
 
     docker-compose exec aha /bin/bash
 
+
+.. _deploy_axon:
+
 Deploy Axon Service
 ===================
 
@@ -149,6 +152,19 @@ size, an Axon can be used to efficiently store and retrieve very large files as 
 Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.axon
+
+These one-time use URLs are used to connect to the Aha service, retrieve configuration data, and provision SSL
+certificates for the service. When this is done, the service records that the URL has been used in its persistent
+storage, and will not attempt to perform the provisioning process again unless the URL changes. If the provisioning URL
+is reused, services will encounter **NoSuchName** errors and fail to start up - this indicates a service has attempted
+to re-use the one-time use URL!
+
+.. note::
+
+    We strongly encourage you to use a numbered hierarchical naming convention for services where the
+    first part of the name is a 0 padded number and the second part is the service type. The above example
+    ``00.axon`` will allow you to deploy mirror instances in the future, such as ``01.axon``, where the AHA
+    name ``axon.<yournetwork>`` will automatically resolve to which ever one is the current leader.
 
 You should see output that looks similar to this::
 
@@ -335,6 +351,8 @@ Start the container::
 
     If you are deploying a mirror from an existing large Cortex, this startup may take a while to complete
     initialization.
+
+.. _enroll_cli_users:
 
 Enroll CLI Users
 ================

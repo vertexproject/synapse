@@ -20,11 +20,11 @@ reqver = '>=0.2.0,<3.0.0'
 async def runCsvExport(opts, outp, text, stormopts):
     if not opts.cortex:
         outp.printf('--export requires --cortex')
-        return -1
+        return 1
 
     if len(opts.csvfiles) != 1:
         outp.printf('--export requires exactly 1 csvfile')
-        return -1
+        return 1
 
     path = s_common.genpath(opts.csvfiles[0])
     outp.printf(f'Exporting CSV rows to: {path}')
@@ -91,7 +91,6 @@ async def runCsvImport(opts, outp, text, stormopts):
 
         nodecount = 0
 
-        stormopts['editformat'] = 'splices'
         vars = stormopts.setdefault('vars', {})
 
         for rows in rowgenr:
@@ -163,7 +162,7 @@ async def main(argv, outp=s_output.stdout):
     if opts.view:
         if not s_common.isguid(opts.view):
             outp.printf(f'View is not a guid {opts.view}')
-            return -1
+            return 1
         stormopts['view'] = opts.view
 
     async with s_telepath.withTeleEnv():

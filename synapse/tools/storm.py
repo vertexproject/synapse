@@ -12,7 +12,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.msgpack as s_msgpack
@@ -186,26 +185,18 @@ class ExportCmd(StormCliCmd):
         pars = StormCliCmd.getArgParser(self)
         pars.add_argument('filepath', help='The file path to save the export to.')
         pars.add_argument('query', help='The Storm query to export nodes from.')
-        pars.add_argument('--include-tags', nargs='*', help='Only include the specified tags in output.')
-        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not include any tags on exported nodes.')
         return pars
 
     async def runCmdOpts(self, opts):
 
         self.printf(f'exporting nodes')
 
-        queryopts = {}
-        if opts.include_tags:
-            queryopts['scrub'] = {'include': {'tags': opts.include_tags}}
-
-        if opts.no_tags:
-            queryopts['scrub'] = {'include': {'tags': []}}
+        queryopts = copy.deepcopy(self._cmd_cli.stormopts)
 
         try:
-            query = opts.query[1:-1]
             with s_common.genfile(opts.filepath) as fd:
                 cnt = 0
-                async for pode in self._cmd_cli.item.exportStorm(query, opts=queryopts):
+                async for pode in self._cmd_cli.item.exportStorm(opts.query, opts=queryopts):
                     byts = fd.write(s_msgpack.en(pode))
                     cnt += 1
 
@@ -229,6 +220,11 @@ class StormCli(s_cli.Cli):
         self.cmdprompt = 'storm> '
 
         self.stormopts = {'repr': True}
+
+        if opts is not None:
+            if opts.view:
+                self.stormopts['view'] = opts.view
+
         self.hidetags = False
         self.hideprops = False
         self._print_skips = []
@@ -248,6 +244,8 @@ class StormCli(s_cli.Cli):
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
     async def runCmdLine(self, line, opts=None):
+        if self.echoline:
+            self.outp.printf(f'{self.cmdprompt}{line}')
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
@@ -290,6 +288,8 @@ class StormCli(s_cli.Cli):
             realopts.update(opts)
 
         async for mesg in self.item.storm(text, opts=realopts):
+
+            await self.fire('storm:mesg', mesg=mesg)
 
             mtyp = mesg[0]
 
@@ -389,6 +389,7 @@ def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')
     pars.add_argument('cortex', help='A telepath URL for the Cortex.')
     pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
+    pars.add_argument('--view', default=None, help='The view iden to work in.')
     return pars
 
 async def main(argv, outp=s_output.stdout):

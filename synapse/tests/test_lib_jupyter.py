@@ -16,7 +16,8 @@ class TstsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
         {
             'name': 'testsvc',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'testsvc.magic',
@@ -49,7 +50,8 @@ class JupyterTest(s_t_utils.SynTest):
     async def test_tempcoreprox(self):
         prox = await s_jupyter.getTempCoreProx(self.testmods)
         self.false(prox.isfini)
-        nodes = await s_t_utils.alist(prox.eval('[test:str=beep]'))
+        msgs = await prox.storm('[test:str=beep]').list()
+        nodes = [m[1] for m in msgs if m[0] == 'node']
         self.len(1, nodes)
         self.eq(nodes[0][0], ('test:str', 'beep'))
         await prox.fini()
@@ -62,7 +64,7 @@ class JupyterTest(s_t_utils.SynTest):
         self.false(svcprox.isfini)
 
         mesgs = await cmdrcore.storm('service.list')
-        self.true(any(['True (testsvc)' in str(mesg) for mesg in mesgs]))
+        self.true(any(['true (testsvc)' in str(mesg) for mesg in mesgs]))
 
         nodes = await cmdrcore.eval('testsvc.magic')
         self.len(1, nodes)
@@ -192,3 +194,32 @@ class JupyterTest(s_t_utils.SynTest):
             self.raises(ValueError, s_jupyter.getDocData, 'newp.bin', root)
             self.raises(ValueError, s_jupyter.getDocData,
                         '../../../../../../etc/passwd', root)
+
+    async def test_stormcore(self):
+        outp = self.getTestOutp()
+        stormcore, svcprox = await s_jupyter.getTempCoreStormStormsvc('testsvc', Tstsvc.anit, outp=outp)
+
+        self.false(stormcore.isfini)
+        self.false(svcprox.isfini)
+
+        msgs = await stormcore.storm('service.list')
+        self.stormIsInPrint('true (testsvc)', msgs)
+
+        await stormcore.storm('testsvc.magic', num=1)
+
+        with self.raises(AssertionError):
+            await stormcore.storm('testsvc.magic', num=999)
+
+        outp.clear()
+        msgs = await stormcore.storm('$lib.print(hello)', cli=True)
+        self.stormIsInPrint('hello', msgs)
+        outp.expect('storm> $lib.print(hello)')
+        outp.expect('storm> $lib.print(hello)\nhello')
+
+        self.eq('shazam', await svcprox.testmeth())
+
+        await stormcore.fini()
+        self.true(stormcore.isfini)
+
+        await svcprox.fini()
+        self.true(svcprox.isfini)

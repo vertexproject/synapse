@@ -17,7 +17,7 @@ class ProjectEpic(s_stormtypes.Prim):
          'type': {'type': ['gtor', 'stor'], '_storfunc': '_setEpicName', '_gtorfunc': '_getName',
                           'returns': {'type': ['str', 'null'], }}},
     )
-    _storm_typename = 'storm:project:epic'
+    _storm_typename = 'proj:epic'
 
     def __init__(self, proj, node):
         s_stormtypes.Prim.__init__(self, None)
@@ -59,13 +59,13 @@ class ProjectEpics(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectEpic to get.'},
                   ),
-                  'returns': {'type': 'storm:project:epic', 'desc': 'The `storm:project:epic` object', }}},
+                  'returns': {'type': 'proj:epic', 'desc': 'The `proj:epic` object', }}},
         {'name': 'add', 'desc': 'Add an epic.',
          'type': {'type': 'function', '_funcname': '_addProjEpic',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectEpic.'},
                   ),
-                  'returns': {'type': 'storm:project:epic', 'desc': 'The newly created `storm:project:epic` object', }}},
+                  'returns': {'type': 'proj:epic', 'desc': 'The newly created `proj:epic` object', }}},
         {'name': 'del', 'desc': 'Delete an epic by name.',
          'type': {'type': 'function', '_funcname': '_delProjEpic',
                   'args': (
@@ -73,7 +73,7 @@ class ProjectEpics(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the ProjectEpic can be found and deleted, otherwise False', }}}
     )
-    _storm_typename = 'storm:project:epics'
+    _storm_typename = 'proj:epics'
 
     def __init__(self, proj):
         s_stormtypes.Prim.__init__(self, None)
@@ -104,7 +104,7 @@ class ProjectEpics(s_stormtypes.Prim):
             )
             await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await epic.node.delete()
         return True
 
@@ -139,7 +139,7 @@ class ProjectTicketComment(s_stormtypes.Prim):
                   'returns': {'type': 'boolean', 'desc': 'True if the ProjectTicketComment was deleted'}}},
     )
 
-    _storm_typename = 'storm:project:ticket:comment'
+    _storm_typename = 'proj:comment'
 
     def __init__(self, ticket, node):
         s_stormtypes.Prim.__init__(self, None)
@@ -210,18 +210,18 @@ class ProjectTicketComments(s_stormtypes.Prim):
                   'args': (
                       {'name': 'guid', 'type': 'str', 'desc': 'The guid of the ProjectTicketComment to get.'},
                   ),
-                  'returns': {'type': 'storm:project:ticket:comment',
-                              'desc': 'The `storm:project:ticket:comment` object', }}},
+                  'returns': {'type': 'proj:comment',
+                              'desc': 'The `proj:comment` object', }}},
         {'name': 'add', 'desc': 'Add a comment to the ticket.',
          'type': {'type': 'function', '_funcname': '_addTicketComment',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The text for the new ProjectTicketComment.'},
                   ),
-                  'returns': {'type': 'storm:project:ticket:comment',
-                              'desc': 'The newly created `storm:project:ticketcomment` object', }}},
+                  'returns': {'type': 'proj:comment',
+                              'desc': 'The newly created `proj:comment` object', }}},
     )
 
-    _storm_typename = 'storm:project:ticket:comments'
+    _storm_typename = 'proj:comments'
 
     def __init__(self, ticket):
         s_stormtypes.Prim.__init__(self, None)
@@ -298,12 +298,12 @@ class ProjectTicket(s_stormtypes.Prim):
          'type': {'type': ['gtor', 'stor'], '_storfunc': '_setPriority', '_gtorfunc': '_getTicketPriority',
                           'returns': {'type': ['int', 'null'], }}},
         {'name': 'comments',
-         'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
+         'desc': 'A ``proj:comments`` object that contains comments associated with the given ticket.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorTicketComments',
-                  'returns': {'type': 'storm:project:ticket:comments', }}},
+                  'returns': {'type': 'proj:comments', }}},
     )
 
-    _storm_typename = 'storm:project:ticket'
+    _storm_typename = 'proj:ticket'
 
     def __init__(self, proj, node):
         s_stormtypes.Prim.__init__(self, None)
@@ -437,7 +437,7 @@ class ProjectTicket(s_stormtypes.Prim):
         udef = await self.proj.runt.snap.core.getUserDefByName(strvalu)
         if udef is None:
             mesg = f'No user found by the name {strvalu}'
-            raise s_exc.NoSuchUser(mesg=mesg)
+            raise s_exc.NoSuchUser(mesg=mesg, username=strvalu)
         await self.node.set('assignee', udef['iden'])
         await self.node.set('updated', s_common.now())
 
@@ -470,21 +470,21 @@ class ProjectTickets(s_stormtypes.Prim):
     associated with a project
     '''
 
-    _storm_typename = 'storm:project:tickets'
+    _storm_typename = 'proj:tickets'
     _storm_locals = (
         {'name': 'get', 'desc': 'Get a ticket by name.',
          'type': {'type': 'function', '_funcname': '_getProjTicket',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectTicket to get.'},
                   ),
-                  'returns': {'type': 'storm:project:ticket', 'desc': 'The `storm:project:ticket` object', }}},
+                  'returns': {'type': 'proj:ticket', 'desc': 'The `proj:ticket` object', }}},
         {'name': 'add', 'desc': 'Add a ticket.',
          'type': {'type': 'function', '_funcname': '_addProjTicket',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectTicket.'},
                       {'name': 'desc', 'type': 'str', 'desc': 'A description of the new ticket', 'default': ''},
                   ),
-                  'returns': {'type': 'storm:project:ticket', 'desc': 'The newly created `storm:project:ticket` object', }}},
+                  'returns': {'type': 'proj:ticket', 'desc': 'The newly created `proj:ticket` object', }}},
         {'name': 'del', 'desc': 'Delete a sprint by name.',
          'type': {'type': 'function', '_funcname': '_delProjTicket',
                   'args': (
@@ -582,7 +582,7 @@ class ProjectSprint(s_stormtypes.Prim):
                   'returns': {'type': 'generator', }}},
     )
 
-    _storm_typename = 'storm:project:sprint'
+    _storm_typename = 'proj:sprint'
 
     def __init__(self, proj, node):
         s_stormtypes.Prim.__init__(self, None)
@@ -659,7 +659,7 @@ class ProjectSprints(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectSprint to get.'},
                   ),
-                  'returns': {'type': 'storm:project:sprint', 'desc': 'The `storm:project:sprint` object', }}},
+                  'returns': {'type': 'proj:sprint', 'desc': 'The `proj:sprint` object', }}},
         {'name': 'add', 'desc': 'Add a sprint.',
          'type': {'type': 'function', '_funcname': '_addProjSprint',
                   'args': (
@@ -667,7 +667,7 @@ class ProjectSprints(s_stormtypes.Prim):
                       {'name': 'period', 'type': 'ival', 'desc': 'The time interval the ProjectSprint runs for',
                        'default': None},
                   ),
-                  'returns': {'type': 'storm:project:sprint', 'desc': 'The newly created `storm:project:sprint` object', }}},
+                  'returns': {'type': 'proj:sprint', 'desc': 'The newly created `proj:sprint` object', }}},
         {'name': 'del', 'desc': 'Delete a sprint by name.',
          'type': {'type': 'function', '_funcname': '_delProjSprint',
                   'args': (
@@ -676,7 +676,7 @@ class ProjectSprints(s_stormtypes.Prim):
                   'returns': {'type': 'boolean', 'desc': 'True if the ProjectSprint can be found and deleted, otherwise False', }}}
     )
 
-    _storm_typename = 'storm:project:sprints'
+    _storm_typename = 'proj:sprints'
 
     def __init__(self, proj):
         s_stormtypes.Prim.__init__(self, None)
@@ -727,7 +727,7 @@ class ProjectSprints(s_stormtypes.Prim):
             )
             await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
+        await self.proj.runt.snap.saveNodeEdits(nodeedits)
         await sprint.node.delete()
         return True
 
@@ -746,18 +746,18 @@ class Project(s_stormtypes.Prim):
         {'name': 'name', 'desc': 'The name of the project. This can also be used to set the name of the project.',
          'type': {'type': ['gtor', 'stor'], '_storfunc': '_setName', '_gtorfunc': '_getName',
                   'returns': {'type': ['str', 'null'], }}},
-        {'name': 'epics', 'desc': 'A `storm:project:epics` object that contains the epics associated with the given project.',
+        {'name': 'epics', 'desc': 'A `proj:epics` object that contains the epics associated with the given project.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorProjEpics',
-                 'returns': {'type': 'storm:project:epics', }}},
-        {'name': 'sprints', 'desc': 'A `storm:project:sprints` object that contains the sprints associated with the given project.',
+                 'returns': {'type': 'proj:epics', }}},
+        {'name': 'sprints', 'desc': 'A `proj:sprints` object that contains the sprints associated with the given project.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorProjSprints',
-                  'returns': {'type': 'storm:project:sprints', }}},
-        {'name': 'tickets', 'desc': 'A `storm:project:tickets` object that contains the tickets associated with the given project.',
+                  'returns': {'type': 'proj:sprints', }}},
+        {'name': 'tickets', 'desc': 'A `proj:tickets` object that contains the tickets associated with the given project.',
          'type': {'type': 'ctor', '_ctorfunc': '_ctorProjTickets',
-                  'returns': {'type': 'storm:project:tickets', }}},
+                  'returns': {'type': 'proj:tickets', }}},
     )
 
-    _storm_typename = 'storm:project'
+    _storm_typename = 'proj:project'
 
     def __init__(self, runt, node, path=None):
         s_stormtypes.Prim.__init__(self, None)
@@ -846,8 +846,8 @@ class LibProjects(s_stormtypes.Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Project to get'},
                   ),
-                  'returns': {'type': 'storm:project',
-                              'desc': 'The `storm:project `object, if it exists, otherwise null'}}},
+                  'returns': {'type': 'proj:project',
+                              'desc': 'The `proj:project `object, if it exists, otherwise null'}}},
 
         {'name': 'add', 'desc': 'Add a new project',
          'type': {'type': 'function', '_funcname': '_funcProjAdd',
@@ -855,7 +855,7 @@ class LibProjects(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Project to add'},
                       {'name': 'desc', 'type': 'str', 'desc': 'A description of the overall project', 'default': ''},
                   ),
-                  'returns': {'type': 'storm:project', 'desc': 'The newly created `storm:project` object'}}},
+                  'returns': {'type': 'proj:project', 'desc': 'The newly created `proj:project` object'}}},
         {'name': 'del', 'desc': 'Delete an existing project',
          'type': {'type': 'function', '_funcname': '_funcProjDel',
                   'args': (

@@ -22,7 +22,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             await realcore.addTagProp('score', ('int', {}), {})
 
-            await self.agenlen(1, core.eval("[ test:str=abcd :tick=2015 +#cool]"))
+            self.eq(1, await core.count("[ test:str=abcd :tick=2015 +#cool]"))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -132,7 +132,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             s = str(outp)
             self.notin('node:add', s)
             self.notin('prop:set', s)
-            await self.agenlen(1, core.eval('[test:comp=(1234, 5678)]'))
+            self.eq(1, await core.count('[test:comp=(1234, 5678)]'))
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
@@ -143,16 +143,7 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             outp = self.getTestOutp()
             cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm --show-prov [ test:str=foo +#bar.baz=(2015,?) ]')
-            self.true(outp.expect('prov:new'))
-            self.true(outp.expect('....\ntest:str'))
-            self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
-            self.false(outp.expect('#bar ', throw=False))
-            outp.expect('complete. 1 nodes')
-
-            outp = self.getTestOutp()
-            cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
-            await cmdr.runCmdLine('storm [ test:str=foo +#bar:score=22 +#bar.baz:score=0 ]')
+            await cmdr.runCmdLine('storm [ test:str=foo +#bar:score=22 +#bar.baz=(2015,?) +#bar.baz:score=0 ]')
             self.true(outp.expect('#bar:score = 22', throw=False))
             self.true(outp.expect('#bar.baz = (2015/01/01 00:00:00.000, ?)', throw=False))
             self.true(outp.expect('#bar.baz:score = 0', throw=False))
@@ -161,8 +152,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             # Warning test
             guid = s_common.guid()
-            await alist(core.eval(f'[test:guid={guid}]'))
-            await alist(core.eval(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
+            self.eq(1, await core.count(f'[test:guid={guid}]'))
+            self.eq(1, await core.count(f'[test:edge=(("test:guid", {guid}), ("test:str", abcd))]'))
 
             q = 'storm test:str=abcd <- test:edge :n1:form -> *'
             outp = self.getTestOutp()
@@ -230,7 +221,8 @@ class CmdCoreTest(s_t_utils.SynTest):
 
             # Trying to print an \r doesn't assert (prompt_toolkit bug)
             # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915
-            await core.addNode('test:str', 'foo', props={'hehe': 'windows\r\nwindows\r\n'})
+            self.eq(1, await core.count('[test:str=foo :hehe=$str]',
+                                        opts={'vars': {'str': 'windows\r\nwindows\r\n'}}))
             await cmdr.runCmdLine('storm test:str=foo')
             self.true(1)
 
@@ -253,7 +245,6 @@ class CmdCoreTest(s_t_utils.SynTest):
                 cmdr = await s_cmdr.getItemCmdr(core, outp=outp)
                 await cmdr.runCmdLine('log --on --format jsonl')
                 fp = cmdr.locs.get('log:fp')
-                await cmdr.runCmdLine('storm --editformat splices [test:str=hi :tick=2018 +#haha.hehe]')
 
                 await cmdr.runCmdLine('storm --editformat nodeedits [test:str=hi2 :tick=2018 +#haha.hehe]')
                 await cmdr.runCmdLine('storm [test:comp=(42, bar)]')

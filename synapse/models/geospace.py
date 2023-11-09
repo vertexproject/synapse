@@ -410,7 +410,9 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A GUID for a geographic place.'}),
 
                     ('geo:place:taxonomy', ('taxonomy', {}), {
-                        'doc': 'A taxonomy of place types.'}),
+                        'doc': 'A taxonomy of place types.',
+                        'interfaces': ('taxonomy',),
+                    }),
 
                     ('geo:address', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A street/mailing address string.'}),
@@ -441,6 +443,8 @@ class GeoModule(s_module.CoreModule):
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
                         'doc': 'The source node was seen at the geo:telem node place and time.'}),
+                    (('geo:place', 'contains', 'geo:place'), {
+                        'doc': 'The source place completely contains the target place.'}),
                 ),
 
                 'forms': (
@@ -497,7 +501,8 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'An array of alternative place names.'}),
 
                         ('parent', ('geo:place', {}), {
-                            'doc': 'A parent place, possibly from reverse geocoding.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use a -(contains)> edge.'}),
 
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),

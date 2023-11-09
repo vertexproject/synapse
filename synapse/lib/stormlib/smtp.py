@@ -17,10 +17,14 @@ class SmtpLib(s_stormtypes.Lib):
     _storm_locals = (
         {'name': 'message', 'desc': 'Construct a new email message.',
          'type': {'type': 'function', '_funcname': 'message',
-                          'returns': {'type': 'storm:smtp:message',
-                                      'desc': 'The newly constructed storm:smtp:message.'}}},
+                          'returns': {'type': 'inet:smtp:message',
+                                      'desc': 'The newly constructed inet:smtp:message.'}}},
     )
     _storm_lib_path = ('inet', 'smtp',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'inet', 'smtp', 'send'), 'gate': 'cortex',
+         'desc': 'Controls sending SMTP messages to external servers.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -35,7 +39,7 @@ class SmtpMessage(s_stormtypes.StormType):
     '''
     An SMTP message to compose and send.
     '''
-    _storm_typename = 'storm:smtp:message'
+    _storm_typename = 'inet:smtp:message'
 
     _storm_locals = (
 
@@ -116,16 +120,17 @@ class SmtpMessage(s_stormtypes.StormType):
 
         self.gtors.update({
             'text': self._getEmailText,
-            'html': self._getEmailText,
+            'html': self._getEmailHtml,
             'sender': self._getSenderEmail,
         })
 
         self.stors.update({
             'text': self._setEmailText,
-            'html': self._setEmailText,
+            'html': self._setEmailHtml,
             'sender': self._setSenderEmail,
         })
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setSenderEmail(self, valu):
         # TODO handle inet:email and ps:contact Nodes
         self.sender = await s_stormtypes.tostr(valu)
@@ -133,9 +138,11 @@ class SmtpMessage(s_stormtypes.StormType):
     async def _getSenderEmail(self):
         return self.sender
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setEmailText(self, text):
         self.bodytext = await s_stormtypes.tostr(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _setEmailHtml(self, html):
         self.bodyhtml = await s_stormtypes.tostr(html)
 
@@ -154,13 +161,16 @@ class SmtpMessage(s_stormtypes.StormType):
 
         try:
             if self.bodytext is None and self.bodyhtml is None:
-                mesg = 'The storm:smtp:message has no HTML or text body.'
+                mesg = 'The inet:smtp:message has no HTML or text body.'
                 raise s_exc.StormRuntimeError(mesg=mesg)
 
             host = await s_stormtypes.tostr(host)
             port = await s_stormtypes.toint(port)
             usetls = await s_stormtypes.tobool(usetls)
             starttls = await s_stormtypes.tobool(starttls)
+
+            if usetls and starttls:
+                raise s_exc.BadArg(mesg='usetls and starttls are mutually exclusive arguments.')
 
             timeout = await s_stormtypes.toint(timeout)
 
@@ -181,16 +191,16 @@ class SmtpMessage(s_stormtypes.StormType):
             recipients = [await s_stormtypes.tostr(e) for e in self.recipients]
 
             futu = aiosmtplib.send(message,
-                    port=port,
-                    hostname=host,
-                    sender=self.sender,
-                    recipients=recipients,
-                    use_tls=usetls,
-                    start_tls=starttls,
-                    username=user,
-                    password=passwd)
+                                   port=port,
+                                   hostname=host,
+                                   sender=self.sender,
+                                   recipients=recipients,
+                                   use_tls=usetls,
+                                   start_tls=starttls,
+                                   username=user,
+                                   password=passwd)
 
-            await asyncio.wait_for(futu, timeout=timeout)
+            await s_common.wait_for(futu, timeout=timeout)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise

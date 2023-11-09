@@ -164,17 +164,14 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         form, tag, prop, query = None, None, None, None
         cond = opts.condition
 
-        for arg in opts.args:
+        query = opts.args[-1]
+
+        for arg in opts.args[:-1]:
             if arg.startswith('#'):
                 if tag is not None:
                     self.printf('Only a single tag is allowed')
                     return
                 tag = arg[1:]
-            elif arg.startswith('{'):
-                if query is not None:
-                    self.printf('Only a single query is allowed')
-                    return
-                query = arg
             else:
                 if cond.startswith('prop'):
                     if prop is not None:
@@ -186,10 +183,6 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
                         self.printf('Only a single form is allowed')
                         return
                     form = arg
-
-        if query is None:
-            self.printf('Missing query parameter')
-            return
 
         if cond.startswith('tag') and tag is None:
             self.printf('Missing tag parameter')
@@ -210,9 +203,6 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
             if tag is not None:
                 self.printf('prop:set does not support a tag')
                 return
-
-        # Remove the curly braces
-        query = query[1:-1]
 
         tdef = {'cond': cond, 'storm': query}
 
@@ -263,17 +253,11 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
     async def _handle_mod(self, core, opts):
         prefix = opts.prefix
-        query = opts.query
-        if not query.startswith('{'):
-            self.printf('Expected second argument to start with {')
-            return
-        # remove the curly braces
-        query = query[1:-1]
         iden = await self._match_idens(core, prefix, view=opts.view)
         if iden is None:
             return
 
-        opts = {'vars': {'iden': iden, 'storm': query}, 'view': opts.view}
+        opts = {'vars': {'iden': iden, 'storm': opts.query}, 'view': opts.view}
         await core.callStorm('$lib.trigger.get($iden).set(storm, $storm)', opts=opts)
 
         self.printf(f'Modified trigger {iden}')
@@ -309,7 +293,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
     async def runCmdOpts(self, opts):
 
-        s_common.deprecated('cmdr> trigger')
+        s_common.deprdate('cmdr> trigger', s_common._splicedepr)
 
         line = opts.get('line')
         if line is None:

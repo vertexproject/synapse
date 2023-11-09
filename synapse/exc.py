@@ -57,11 +57,16 @@ class SynErr(Exception):
         self._setExcMesg()
 
 class StormRaise(SynErr):
-    def __init__(self, name, mesg, info):
-        info['mesg'] = mesg
-        info['errname'] = name
-        SynErr.__init__(self, **info)
-        self.errname = name
+    '''
+    This represents a user provided exception inside of a Storm runtime. It requires a errname key.
+    '''
+    def __init__(self, *args, **info):
+        SynErr.__init__(self, *args, **info)
+        name = info.get('errname')
+        if name is not None:
+            self.errname = name
+        else:
+            raise BadArg(mesg='StormRaise must have a key errname provided')
 
 class AuthDeny(SynErr): pass
 
@@ -156,6 +161,12 @@ class BadEccExchange(CryptoErr):
     ''' Raised when there is an issue doing a ECC Key Exchange '''
     pass
 
+class BadCertBytes(SynErr):
+    '''Raised by certdir when the certificate fails to load.'''
+
+class BadCertVerify(SynErr):
+    '''Raised by certdir when there is a failure to verify a certificate context.'''
+
 class PathExists(SynErr): pass
 class DataAlreadyExists(SynErr):
     '''
@@ -194,6 +205,8 @@ class LinkErr(SynErr): pass
 class LinkBadCert(LinkErr): pass
 class LinkShutDown(LinkErr): pass
 
+class LowSpace(SynErr): pass
+
 class NoCertKey(SynErr):
     ''' Raised when a Cert object requires a RSA Private Key to perform an operation and the key is not present.  '''
     pass
@@ -203,6 +216,26 @@ class BadCertHost(SynErr): pass
 class ModAlreadyLoaded(SynErr): pass
 class MustBeJsonSafe(SynErr): pass
 class NotMsgpackSafe(SynErr): pass
+
+class NoSuchForm(SynErr):
+
+    # new convention where exceptions with an init() class
+    # method may be called to enforce normalization of message
+    # contents based on variables that are relevant to the
+    # exception type...
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No form named {name}'
+        return NoSuchForm(mesg=mesg, name=name)
+
+class NoSuchProp(SynErr):
+
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No property named {name}'
+        return NoSuchProp(mesg=mesg, name=name)
 
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass
@@ -217,7 +250,6 @@ class NoSuchDir(SynErr): pass
 class NoSuchDyn(SynErr): pass
 class NoSuchEncoder(SynErr): pass
 class NoSuchFile(SynErr): pass
-class NoSuchForm(SynErr): pass
 class NoSuchFunc(SynErr): pass
 class NoSuchIden(SynErr): pass
 class NoSuchImpl(SynErr): pass
@@ -230,7 +262,6 @@ class NoSuchObj(SynErr): pass
 class NoSuchOpt(SynErr): pass
 class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
-class NoSuchProp(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
 class NoSuchType(SynErr): pass
@@ -288,5 +319,3 @@ class FatalErr(SynErr):
     pass
 
 class LmdbLock(SynErr): pass
-
-proxy_admin_mesg = 'Specifying a proxy to the HTTP library requires admin privileges.'

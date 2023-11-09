@@ -1,5 +1,6 @@
 import shutil
 import asyncio
+import hashlib
 import logging
 import itertools
 import collections
@@ -12,6 +13,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
@@ -32,7 +34,9 @@ reqValidVdef = s_config.getJsValidator({
         'nomerge': {'type': 'boolean'},
         'layers': {
             'type': 'array',
-            'items': {'type': 'string', 'pattern': s_config.re_iden}
+            'items': {'type': 'string', 'pattern': s_config.re_iden},
+            'minItems': 1,
+            'uniqueItems': True
         },
     },
     'additionalProperties': True,
@@ -108,6 +112,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
         self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.viewslab.addResizeCallback(core.checkFreeSpace)
+
         self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
         trignode = await node.open(('triggers',))
@@ -255,11 +261,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 finally:
                     await self.delTrigQueue(offs)
 
-    async def getStorNodes(self, buid):
+    async def getStorNodes(self, nid):
         '''
         Return a list of storage nodes for the given buid in layer order.
+        NOTE: This returns a COPY of the storage node and will not receive updates!
         '''
-        return await self.core._getStorNodes(buid, self.layers)
+        return [layr.getStorNode(nid) for layr in self.layers]
 
     def init2(self):
         '''
@@ -284,12 +291,75 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-        layers = [self.layers[0]]
 
-        view = self.parent
-        while view is not None:
+        '''
+        We spent a lot of time thinking/talking about this so some hefty
+        comments are in order:
+
+        For a given stack of views (example below), only the bottom view of
+        the stack may have more than one original layer. When adding a new view to the
+        top of the stack (via `<viewE>.setViewInfo('parent', <viewD>)`), we
+        grab the top layer of each of the views from View D to View B and then
+        all of the layers from View A. We know this is the right behavior
+        because all views above the bottom view only have one original layer
+        (but will include all of the layers of it's parents) which is enforced
+        by `setViewInfo()`.
+
+        View D
+        - Layer 6 (original to View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View C (parent of D)
+        - Layer 5 (original to View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View B (parent of C)
+        - Layer 4 (original to View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View A (parent of B)
+        - Layer 3
+        - Layer 2
+        - Layer 1
+
+        Continuing the exercise: when adding View E, it has it's own layer
+        (Layer 7). We then copy Layer 6 from View D, Layer 5 from View C, Layer
+        4 from View B, and Layers 3-1 from View A (the bottom view). This gives
+        us the new view which looks like this:
+
+        View E:
+        - Layer 7 (original to View E)
+        - Layer 6 (copied from View D)
+        - Layer 5 (copied from View C)
+        - Layer 4 (copied from View B)
+        - Layer 3 (copied from View A)
+        - Layer 2 (copied from View A)
+        - Layer 1 (copied from View A)
+
+        View D (now parent of View E)
+        ... (everything from View D and below is the same as above)
+        '''
+
+        layers = []
+
+        # Add the top layer from each of the views that aren't the bottom view.
+        # This is the view's original layer.
+        view = self
+        while view.parent is not None:
             layers.append(view.layers[0])
             view = view.parent
+
+        # Add all of the bottom view's layers.
+        layers.extend(view.layers)
 
         self.layers = layers
         await self.info.set('layers', [layr.iden for layr in layers])
@@ -315,7 +385,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdgeVerbs(self):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as vset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
 
             for layr in self.layers:
 
@@ -331,7 +401,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def getEdges(self, verb=None):
 
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as eset:
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as eset:
 
             for layr in self.layers:
 
@@ -358,22 +428,31 @@ class View(s_nexus.Pusher):  # type: ignore
 
             self.layers.append(layr)
 
-    async def eval(self, text, opts=None):
+    async def eval(self, text, opts=None, log_info=None):
         '''
         Evaluate a storm query and yield Nodes only.
         '''
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
+        if log_info is None:
+            log_info = {}
+
+        log_info['mode'] = opts.get('mode', 'storm')
+        log_info['view'] = self.iden
+
+        self.core._logStormQuery(text, user, info=log_info)
 
         taskiden = opts.get('task')
-        taskinfo = {'query': text}
-        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+        taskinfo = {'query': text, 'view': self.iden}
 
-        async with await self.snap(user=user) as snap:
-            async for node in snap.eval(text, opts=opts, user=user):
-                yield node
+        with s_scope.enter({'user': user}):
+
+            await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+            async with await self.snap(user=user) as snap:
+                async for node in snap.eval(text, opts=opts, user=user):
+                    yield node
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
@@ -416,22 +495,34 @@ class View(s_nexus.Pusher):  # type: ignore
         Yields:
             ((str,dict)): Storm messages.
         '''
+        if not isinstance(text, str):
+            mesg = 'Storm query text must be a string'
+            raise s_exc.BadArg(mesg=mesg)
+
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
+        keepalive = opts.get('keepalive')
+        if keepalive is not None and keepalive <= 0:
+            raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
         synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
 
         mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
-        if editformat not in ('nodeedits', 'splices', 'count', 'none'):
+        if editformat not in ('nodeedits', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
+
+        if editformat == 'splices':
+            s_common.deprdate('storm option editformat=splices', s_common._splicedepr)
+
+        texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
         async def runStorm():
             cancelled = False
@@ -440,7 +531,8 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
 
                 # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text, 'task': synt.iden}))
+                await chan.put(('init', {'tick': tick, 'text': text,
+                                         'hash': texthash, 'task': synt.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
@@ -448,23 +540,29 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                async with await self.snap(user=user) as snap:
+                with s_scope.enter({'user': user}):
 
-                    if not show:
-                        snap.link(chan.put)
+                    async with await self.snap(user=user) as snap:
 
-                    else:
-                        [snap.on(n, chan.put) for n in show]
+                        if keepalive:
+                            snap.schedCoro(snap.keepalive(keepalive))
 
-                    if shownode:
-                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                            await chan.put(('node', pode))
-                            count += 1
+                        if not show:
+                            snap.link(chan.put)
 
-                    else:
-                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
-                        async for item in snap.storm(text, opts=opts, user=user):
-                            count += 1
+                        else:
+                            [snap.on(n, chan.put) for n in show]
+
+                        if shownode:
+                            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                                await chan.put(('node', pode))
+                                count += 1
+
+                        else:
+                            self.core._logStormQuery(text, user,
+                                                     info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            async for item in snap.storm(text, opts=opts, user=user):
+                                count += 1
 
             except s_stormctrl.StormExit:
                 pass
@@ -503,6 +601,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 continue
 
             if kind == 'node:edits':
+
                 if editformat == 'nodeedits':
 
                     nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
@@ -520,14 +619,6 @@ class View(s_nexus.Pusher):  # type: ignore
                     yield mesg
                     continue
 
-                assert editformat == 'splices'
-
-                nodeedits = mesg[1].get('edits', [()])
-                async for _, splice in self.layers[0].makeSplices(0, nodeedits, None):
-                    if not show or splice[0] in show:
-                        yield splice
-                continue
-
             if kind == 'fini':
                 yield mesg
                 break
@@ -539,13 +630,14 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        taskinfo = {'query': text}
+        taskinfo = {'query': text, 'view': self.iden}
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                yield pode
+        with s_scope.enter({'user': user}):
+            async with await self.snap(user=user) as snap:
+                async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                    yield pode
 
     async def snap(self, user):
 
@@ -588,6 +680,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise s_exc.BadArg(mesg=mesg)
 
             if self.parent is not None:
+                if self.parent.iden == parent.iden:
+                    return valu
                 mesg = 'You may not set parent on a view which already has one.'
                 raise s_exc.BadArg(mesg=mesg)
 
@@ -604,12 +698,16 @@ class View(s_nexus.Pusher):  # type: ignore
                 if view.isForkOf(self.iden):
                     await view._calcForkLayers()
 
-            await self.core._calcViewsByLayer()
+            self.core._calcViewsByLayer()
 
         else:
-            await self.info.set(name, valu)
+            if valu is None:
+                await self.info.pop(name)
+            else:
+                await self.info.set(name, valu)
 
-        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden, self.layers[0].iden])
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu},
+                                     gates=[self.iden, self.layers[0].iden])
         return valu
 
     async def addLayer(self, layriden, indx=None):
@@ -713,7 +811,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.mergeAllowed(user, force=force)
 
-        await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
+        taskinfo = {'merging': self.iden, 'view': self.iden}
+        await self.core.boss.promote('storm', user=user, info=taskinfo)
 
         async with await self.parent.snap(user=user) as snap:
 
@@ -746,8 +845,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         perm = '.'.join(perms)
-        mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
-        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
+        mesg = f'User ({user.name}) must have permission {perm} on write layer {layriden} of view {self.iden}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.iden, username=user.name)
 
     async def mergeAllowed(self, user=None, force=False):
         '''
@@ -827,7 +926,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runTagDel(node, tag, view=view)
 
     async def runNodeAdd(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -836,7 +935,7 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.triggers.runNodeAdd(node, view=view)
 
     async def runNodeDel(self, node, view=None):
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
@@ -848,13 +947,31 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Handle when a prop set trigger event fired
         '''
-        if not node.snap.trigson:
+        if not self.core.trigson:
             return
 
         if view is None:
             view = self.iden
 
         await self.triggers.runPropSet(node, prop, oldv, view=view)
+
+    async def runEdgeAdd(self, n1, edge, n2, view=None):
+        if not self.core.trigson:
+            return
+
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runEdgeAdd(n1, edge, n2, view=view)
+
+    async def runEdgeDel(self, n1, edge, n2, view=None):
+        if not self.core.trigson:
+            return
+
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runEdgeDel(n1, edge, n2, view=view)
 
     async def addTrigger(self, tdef):
         '''
@@ -898,6 +1015,8 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.core.auth.addAuthGate(trig.iden, 'trigger')
         await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
 
+        await self.core.feedBeholder('trigger:add', trig.pack(), gates=[trig.iden])
+
         return trig.pack()
 
     async def getTrigger(self, iden):
@@ -923,6 +1042,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             return
 
+        await self.core.feedBeholder('trigger:del', {'iden': trig.iden, 'view': trig.view.iden}, gates=[trig.iden])
         await self.trigdict.pop(trig.iden)
         await self.core.auth.delAuthGate(trig.iden)
 
@@ -932,6 +1052,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is None:
             raise s_exc.NoSuchIden("Trigger not found")
         await trig.set(name, valu)
+
+        await self.core.feedBeholder('trigger:set', {'iden': trig.iden, 'view': trig.view.iden, 'name': name, 'valu': valu}, gates=[trig.iden])
 
     async def listTriggers(self):
         '''
@@ -950,6 +1072,21 @@ class View(s_nexus.Pusher):  # type: ignore
         await self.node.pop()
         shutil.rmtree(self.dirn, ignore_errors=True)
 
+    async def addNode(self, form, valu, props=None, user=None):
+        async with await self.snap(user=user) as snap:
+            return await snap.addNode(form, valu, props=props)
+
+    async def saveNodeEdits(self, edits, meta=None):
+
+        if meta is None:
+            mesg = 'view.saveNodeEdits() requires meta argument.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        user = await self.core.auth.reqUser(meta.get('user'))
+
+        async with await self.snap(user=user) as snap:
+            await snap.saveNodeEdits(edits, meta=meta)
+
     async def addNodeEdits(self, edits, meta):
         '''
         A telepath compatible way to apply node edits to a view.
@@ -965,10 +1102,10 @@ class View(s_nexus.Pusher):  # type: ignore
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
 
-    async def scrapeIface(self, text, unique=False):
-        async with await s_spooled.Set.anit() as matches:  # type: s_spooled.Set
+    async def scrapeIface(self, text, unique=False, refang=True):
+        async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, refang=True, first=False):
+            async for item in s_scrape.contextScrapeAsync(text, refang=refang, first=False):
                 form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:
@@ -981,7 +1118,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     tobj = self.core.model.type(form)
                     valu, _ = tobj.norm(valu)
-                except s_exc.BadTypeValu:  # pragma: no cover
+                except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
 
@@ -1029,3 +1166,206 @@ class View(s_nexus.Pusher):  # type: ignore
                     # Yield a tuple of <form, normed valu, info>
                     yield form, valu, info
                     await asyncio.sleep(0)
+
+    async def getRuntPodes(self, prop, cmprvalu=None):
+        liftfunc = self.core.getRuntLift(prop.form.name)
+        if liftfunc is not None:
+            async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
+                yield pode
+
+    async def _genSrefList(self, nid, smap, filtercmpr=None):
+        srefs = []
+
+        if filtercmpr is not None:
+            filt = True
+            for layr in self.layers:
+                sref = smap.get(layr.iden)
+                if sref is None:
+                    sref = layr.genStorNodeRef(nid)
+                    if filt and filtercmpr(sref.sode):
+                        return
+                else:
+                    filt = False
+
+                srefs.append(sref)
+
+            return srefs
+
+        for layr in self.layers:
+            sref = smap.get(layr.iden)
+            if sref is None:
+                sref = layr.genStorNodeRef(nid)
+
+            srefs.append(sref)
+
+        return srefs
+
+    async def _mergeLiftRows(self, genrs, filtercmpr=None, reverse=False):
+        lastnid = None
+        smap = {}
+        async for indx, nid, sref in s_common.merggenr2(genrs, reverse=reverse):
+            if not nid == lastnid or sref.layriden in smap:
+                if lastnid is not None:
+                    srefs = await self._genSrefList(lastnid, smap, filtercmpr)
+                    if srefs is not None:
+                        yield lastnid, srefs
+
+                    smap.clear()
+
+                lastnid = nid
+
+            smap[sref.layriden] = sref
+
+        if lastnid is not None:
+            srefs = await self._genSrefList(lastnid, smap, filtercmpr)
+            if srefs is not None:
+                yield lastnid, srefs
+
+    # view "lift by" functions yield (nid, srefs) tuples for results.
+    async def liftByProp(self, form, prop, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByProp(form, prop, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
+
+        genrs = [layr.liftByProp(form, prop, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def liftByFormValu(self, form, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByFormValu(form, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        for cval in cmprvals:
+            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, reverse=reverse):
+                yield item
+
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByPropValu(form, prop, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            props = sode.get('props')
+            if props is None:
+                return False
+            return props.get(prop) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
+    async def liftByTag(self, tag, form=None, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTag(tag, form=form, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        genrs = [layr.liftByTag(tag, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, reverse=reverse):
+            yield item
+
+    async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            tags = sode.get('tags')
+            if tags is None:
+                return False
+            return tags.get(tag) is not None
+
+        genrs = [layr.liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def liftByTagProp(self, form, tag, prop, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTagProp(form, tag, prop, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
+                return False
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
+
+        genrs = [layr.liftByTagProp(form, tag, prop, reverse=reverse) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+            yield item
+
+    async def liftByTagPropValu(self, form, tag, prop, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        def filt(sode):
+            tagprops = sode.get('tagprops')
+            if tagprops is None:
+                return False
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByPropArray(form, prop, cmprvals, reverse=reverse):
+                yield nid, [sref]
+            return
+
+        if prop is None:
+            filt = None
+        else:
+            def filt(sode):
+                props = sode.get('props')
+                if props is None:
+                    return False
+                return props.get(prop) is not None
+
+        for cval in cmprvals:
+            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
+
+    async def liftByDataName(self, name):
+
+        if len(self.layers) == 1:
+            async for _, nid, sref in self.layers[0].liftByDataName(name):
+                yield nid, [sref]
+            return
+
+        genrs = [layr.liftByDataName(name) for layr in self.layers]
+        async for item in self._mergeLiftRows(genrs):
+            yield item

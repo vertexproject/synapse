@@ -3,14 +3,15 @@ import os
 import ssl
 import sys
 import json
+import http
 import stat
 import time
-import fcntl
 import heapq
 import types
 import base64
 import shutil
 import struct
+import asyncio
 import decimal
 import fnmatch
 import hashlib
@@ -34,6 +35,15 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
+import enum
+
+try:
+    from yaml import CSafeLoader as Loader
+    from yaml import CSafeDumper as Dumper
+except ImportError:  # pragma: no cover
+    from yaml import SafeLoader as Loader
+    from yaml import SafeDumper as Dumper
+
 class NoValu:
     pass
 
@@ -50,6 +60,12 @@ buidre = regex.compile('^[0-9a-f]{64}$')
 novalu = NoValu()
 
 logger = logging.getLogger(__name__)
+
+if Loader == yaml.SafeLoader:  # pragma: no cover
+    logger.warning('*****************************************************************************************************')
+    logger.warning('* PyYAML is using the pure python fallback implementation. This will impact performance negatively. *')
+    logger.warning('* See PyYAML docs (https://pyyaml.org/wiki/PyYAMLDocumentation) for tips on resolving this issue.   *')
+    logger.warning('*****************************************************************************************************')
 
 def now():
     '''
@@ -86,7 +102,7 @@ def guid(valu=None):
         return binascii.hexlify(os.urandom(16)).decode('utf8')
     # Generate a "stable" guid from the given item
     byts = s_msgpack.en(valu)
-    return hashlib.md5(byts).hexdigest()
+    return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
 def buid(valu=None):
     '''
@@ -108,6 +124,36 @@ def buid(valu=None):
 
     byts = s_msgpack.en(valu)
     return hashlib.sha256(byts).digest()
+
+def flatten(item):
+    '''
+    Normalize a primitive object for cryptographic signing.
+
+    Args:
+        item: The python primitive object to normalize.
+
+    Notes:
+        Only None, bool, int, bytes, strings, lists, tuples and dictionaries are acceptable input.
+        List objects will be converted to tuples.
+        Dictionary objects must have keys which can be sorted.
+
+    Returns:
+        A new copy of the object.
+    '''
+
+    if item is None:
+        return None
+
+    if isinstance(item, (str, int, bytes)):
+        return item
+
+    if isinstance(item, (tuple, list)):
+        return tuple([flatten(i) for i in item])
+
+    if isinstance(item, dict):
+        return {flatten(k): flatten(item[k]) for k in sorted(item.keys())}
+
+    raise s_exc.BadDataValu(mesg=f'Unknown type: {type(item)}')
 
 def ehex(byts):
     '''
@@ -355,43 +401,14 @@ def genfile(*paths):
     return io.open(path, 'r+b')
 
 @contextlib.contextmanager
-def getTempDir():
-    tempdir = tempfile.mkdtemp()
+def getTempDir(dirn=None):
+    tempdir = tempfile.mkdtemp(dir=dirn)
 
     try:
         yield tempdir
 
     finally:
         shutil.rmtree(tempdir, ignore_errors=True)
-
-@contextlib.contextmanager
-def lockfile(path):
-    '''
-    A file lock with-block helper.
-
-    Args:
-        path (str): A path to a lock file.
-
-    Examples:
-
-        Get the lock on a file and dostuff while having the lock::
-
-            path = '/hehe/haha.lock'
-            with lockfile(path):
-                dostuff()
-
-    Notes:
-        This is curently based on fcntl.lockf(), and as such, it is purely
-        advisory locking. If multiple processes are attempting to obtain a
-        lock on the same file, this will block until the process which has
-        the current lock releases it.
-
-    Yields:
-        None
-    '''
-    with genfile(path) as fd:
-        fcntl.lockf(fd, fcntl.LOCK_EX)
-        yield None
 
 def listdir(*paths, glob=None):
     '''
@@ -502,6 +519,9 @@ def jssave(js, *paths):
     with io.open(path, 'wb') as fd:
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
+def yamlloads(data):
+    return yaml.load(data, Loader)
+
 def yamlload(*paths):
 
     path = genpath(*paths)
@@ -509,18 +529,15 @@ def yamlload(*paths):
         return None
 
     with io.open(path, 'rb') as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-        return yaml.safe_load(byts.decode('utf8'))
+        return yamlloads(fd)
 
 def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
-        s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
-                           default_style='', explicit_start=True, explicit_end=True, sort_keys=True)
         fd.truncate(0)
-        fd.write(s.encode('utf8'))
+        yaml.dump(obj, allow_unicode=True, default_flow_style=False,
+                  default_style='', explicit_start=True, explicit_end=True,
+                  encoding='utf8', stream=fd, Dumper=Dumper)
 
 def yamlmod(obj, *paths):
     '''
@@ -741,14 +758,15 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def _getLogConfFromEnv(defval=None, structlog=None):
+def _getLogConfFromEnv(defval=None, structlog=None, datefmt=None):
     if structlog:
         structlog = 'true'
     else:
         structlog = 'false'
     defval = os.getenv('SYN_LOG_LEVEL', defval)
+    datefmt = os.getenv('SYN_LOG_DATEFORMAT', datefmt)
     structlog = envbool('SYN_LOG_STRUCT', structlog)
-    ret = {'defval': defval, 'structlog': structlog}
+    ret = {'defval': defval, 'structlog': structlog, 'datefmt': datefmt}
     return ret
 
 def normLogLevel(valu):
@@ -779,7 +797,7 @@ def normLogLevel(valu):
             return normLogLevel(valu)
     raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
 
-def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
+def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=None):
     '''
     Configure synapse logging.
 
@@ -787,6 +805,7 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
         structlog (bool): Enabled structured (jsonl) logging output.
+        datefmt (str): Optional strftime format string.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -794,8 +813,9 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
     Returns:
         None
     '''
-    ret = _getLogConfFromEnv(defval, structlog)
+    ret = _getLogConfFromEnv(defval, structlog, datefmt)
 
+    datefmt = ret.get('datefmt')
     log_level = ret.get('defval')
     log_struct = ret.get('structlog')
 
@@ -805,11 +825,11 @@ def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
 
         if log_struct:
             handler = logging.StreamHandler()
-            formatter = s_structlog.JsonFormatter()
+            formatter = s_structlog.JsonFormatter(datefmt=datefmt)
             handler.setFormatter(formatter)
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
-            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT, datefmt=datefmt)
         if log_setup:
             mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
@@ -909,16 +929,22 @@ def config(conf, confdefs):
 
 def deprecated(name, curv='2.x', eolv='3.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
-    warnings.warn(mesg, DeprecationWarning, source='synapse')
+    warnings.warn(mesg, DeprecationWarning)
+
+_splicedepr = '2023-10-01'
+def deprdate(name, date):
+    mesg = f'{name} is deprecated and will be removed on {date}.'
+    warnings.warn(mesg, DeprecationWarning)
 
 def reqjsonsafe(item):
     '''
-    Returns None if item is json serializable, otherwise raises an exception
+    Returns None if item is json serializable, otherwise raises an exception.
+    Uses default type coercion from built-in json.dumps.
     '''
     try:
         json.dumps(item)
     except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg={str(e)}) from None
+        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
 
 def jsonsafe_nodeedits(nodeedits):
     '''
@@ -942,6 +968,35 @@ def unjsonsafe_nodeedits(nodeedits):
         retn.append(newedit)
 
     return retn
+
+def reqJsonSafeStrict(item):
+    '''
+    Require the item to be safe to serialize to JSON without type coercion issues.
+
+    Args:
+        item: The python primitive to check.
+
+    Returns:
+        None
+
+    Raise:
+        s_exc.BadArg: If the item contains invalid data.
+    '''
+    if item is None:
+        return
+    if isinstance(item, (str, int,)):
+        return
+    if isinstance(item, (list, tuple)):
+        for valu in item:
+            reqJsonSafeStrict(valu)
+        return
+    if isinstance(item, dict):
+        for key, valu in item.items():
+            if not isinstance(key, str):
+                raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
+            reqJsonSafeStrict(valu)
+        return
+    raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
 
 async def merggenr(genrs, cmprkey):
     '''
@@ -1092,14 +1147,15 @@ def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
     sslctx = ssl.create_default_context(purpose=purpose)
     for name in os.listdir(cadir):
         certpath = os.path.join(cadir, name)
+        if not os.path.isfile(certpath):
+            continue
         try:
             sslctx.load_verify_locations(cafile=certpath)
         except Exception:  # pragma: no cover
             logger.exception(f'Error loading {certpath}')
     return sslctx
 
-# TODO:  Remove when this is added to contextlib in py 3.10
-class aclosing(contextlib.AbstractAsyncContextManager):
+class aclosing(contextlib.AbstractAsyncContextManager):  # pragma: no cover
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
@@ -1118,8 +1174,178 @@ class aclosing(contextlib.AbstractAsyncContextManager):
 
     """
     def __init__(self, thing):
+        deprecated('synapse.common.aclosing()', curv='2.145.0', eolv='v2.150.0')
         self.thing = thing
     async def __aenter__(self):
         return self.thing
     async def __aexit__(self, exc, cls, tb):
         await self.thing.aclose()
+
+def httpcodereason(code):
+    '''
+    Get the reason for an HTTP status code.
+
+    Args:
+        code (int): The code.
+
+    Note:
+        If the status code is unknown, a string indicating it is unknown is returned.
+
+    Returns:
+        str: A string describing the status code.
+    '''
+    try:
+        return http.HTTPStatus(code).phrase
+    except ValueError:
+        return f'Unknown HTTP status code {code}'
+
+# TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
+# This is a workaround for a race where asyncio.wait_for can end up
+# ignoring cancellation https://github.com/python/cpython/issues/86296
+async def wait_for(fut, timeout):
+
+    if timeout is not None and timeout <= 0:
+        fut = asyncio.ensure_future(fut)
+
+        if fut.done():
+            return fut.result()
+
+        await _cancel_and_wait(fut)
+        try:
+            return fut.result()
+        except asyncio.CancelledError as exc:
+            raise TimeoutError from exc
+
+    async with _timeout(timeout):
+        return await fut
+
+def _release_waiter(waiter, *args):
+    if not waiter.done():
+        waiter.set_result(None)
+
+async def _cancel_and_wait(fut):
+    """Cancel the *fut* future or task and wait until it completes."""
+
+    loop = asyncio.get_running_loop()
+    waiter = loop.create_future()
+    cb = functools.partial(_release_waiter, waiter)
+    fut.add_done_callback(cb)
+
+    try:
+        fut.cancel()
+        # We cannot wait on *fut* directly to make
+        # sure _cancel_and_wait itself is reliably cancellable.
+        await waiter
+    finally:
+        fut.remove_done_callback(cb)
+
+
+class _State(enum.Enum):
+    CREATED = "created"
+    ENTERED = "active"
+    EXPIRING = "expiring"
+    EXPIRED = "expired"
+    EXITED = "finished"
+
+class _Timeout:
+    """Asynchronous context manager for cancelling overdue coroutines.
+    Use `timeout()` or `timeout_at()` rather than instantiating this class directly.
+    """
+
+    def __init__(self, when):
+        """Schedule a timeout that will trigger at a given loop time.
+        - If `when` is `None`, the timeout will never trigger.
+        - If `when < loop.time()`, the timeout will trigger on the next
+          iteration of the event loop.
+        """
+        self._state = _State.CREATED
+        self._timeout_handler = None
+        self._task = None
+        self._when = when
+
+    def when(self):  # pragma: no cover
+        """Return the current deadline."""
+        return self._when
+
+    def reschedule(self, when):
+        """Reschedule the timeout."""
+        assert self._state is not _State.CREATED
+        if self._state is not _State.ENTERED:  # pragma: no cover
+            raise RuntimeError(
+                f"Cannot change state of {self._state.value} Timeout",
+            )
+        self._when = when
+        if self._timeout_handler is not None:  # pragma: no cover
+            self._timeout_handler.cancel()
+        if when is None:
+            self._timeout_handler = None
+        else:
+            loop = asyncio.get_running_loop()
+            if when <= loop.time():  # pragma: no cover
+                self._timeout_handler = loop.call_soon(self._on_timeout)
+            else:
+                self._timeout_handler = loop.call_at(when, self._on_timeout)
+
+    def expired(self):  # pragma: no cover
+        """Is timeout expired during execution?"""
+        return self._state in (_State.EXPIRING, _State.EXPIRED)
+
+    def __repr__(self):  # pragma: no cover
+        info = ['']
+        if self._state is _State.ENTERED:
+            when = round(self._when, 3) if self._when is not None else None
+            info.append(f"when={when}")
+        info_str = ' '.join(info)
+        return f"<Timeout [{self._state.value}]{info_str}>"
+
+    async def __aenter__(self):
+        self._state = _State.ENTERED
+        self._task = asyncio.current_task()
+        self._cancelling = self._task.cancelling()
+        if self._task is None:  # pragma: no cover
+            raise RuntimeError("Timeout should be used inside a task")
+        self.reschedule(self._when)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+
+            if self._task.uncancel() <= self._cancelling and exc_type is asyncio.CancelledError:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                raise TimeoutError from exc_val
+        elif self._state is _State.ENTERED:
+            self._state = _State.EXITED
+
+        return None
+
+    def _on_timeout(self):
+        assert self._state is _State.ENTERED
+        self._task.cancel()
+        self._state = _State.EXPIRING
+        # drop the reference early
+        self._timeout_handler = None
+
+def _timeout(delay):
+    """Timeout async context manager.
+
+    Useful in cases when you want to apply timeout logic around block
+    of code or in cases when asyncio.wait_for is not suitable. For example:
+
+    >>> async with asyncio.timeout(10):  # 10 seconds timeout
+    ...     await long_running_task()
+
+
+    delay - value in seconds or None to disable timeout logic
+
+    long_running_task() is interrupted by raising asyncio.CancelledError,
+    the top-most affected timeout() context manager converts CancelledError
+    into TimeoutError.
+    """
+    loop = asyncio.get_running_loop()
+    return _Timeout(loop.time() + delay if delay is not None else None)

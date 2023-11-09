@@ -1,3 +1,5 @@
+from unittest import mock
+
 import synapse.exc as s_exc
 
 import synapse.lib.scrape as s_scrape
@@ -32,9 +34,112 @@ and BOB@WOOT.COM is another
 
     aa:bb:cc:dd:ee:ff
 
+    # GOOD IPV4 ADDRESSES
     1.2.3.4
 
     5.6.7.8:16
+
+    The IP address is: 201.202.203.204.
+
+    Typo no space after sentence.211.212.213.214 is the address..
+
+    The IP address is:2.3.4.5.
+
+    # GOOD IPV6 ADDRESSES
+
+    fff0::1
+    ::1
+    ::1010
+    ff::
+    0::1
+    0:0::1
+    ff:fe:fd::1
+    ffff:ffe:fd:c::1
+    111::333:222
+    111:222::333
+
+    1:2:3:4:5:6:7:8
+
+    1:2:3:4:5:6::7
+    1:2:3:4:5::6
+    1:2:3:4::5
+    1:2:3::4
+    1:2::3
+
+    1::2
+    1::2:3:4:5:6:7
+    1::2:3:4:5:6
+    1::2:3:4:5
+    1::2:3:4
+    1::2:3
+
+    a:2::3:4:5:6:7
+    a:2::3:4:5:6
+    a:2::3:4:5
+    a:2::3:4
+    a:2::3
+
+    2001:db8:3333:4444:5555:6666:4.3.2.1
+
+    ::3.4.5.6
+    ::ffff:4.3.2.2
+    ::FFFF:4.3.2.3
+    ::ffff:0000:4.3.2.4
+    ::1:2:3:4:4.3.2.5
+    ::1:2:3:4.3.2.6
+    ::1:2:3:4:5:4.3.2.7
+    ::ffff:255.255.255.255
+    ::ffff:111.222.33.44
+    1:2::3:4.3.2.8
+
+    1:2:3:4:5:6:7:9%eth0
+    1:2:3:4:5:6:7:a%s10
+    1:2:3:4:5:6:7:b%lo
+    1::a%eth0
+    1::a:3%lo
+    1:a::3%eth1
+
+    The IP address is:a:b:c:d:e::6.
+
+    # BAD IPV6 ADDRESSES
+    ::
+    0::0::1
+    1:2:3:4
+    1:2:3:4:5
+    1:2:3:4:5:6
+    1:2:3:4:5:6:7
+    ::ffff:4.3.2.a.5
+    ::1.3.3.4.5:4.3.2.b
+    ::1:2:3:4:5:6:4.3.2.c
+    ::1:2:3:4:5:6:7:4.3.2.d
+
+    # Bad IPV4 addresses:
+    6.7.8.900
+    6.7.8.9750
+    1236.7.8.9
+    0126.7.8.9
+    6.7.8.9.6.7.8.9
+    6.7.8.9.6
+
+    # GOOD INET:SERVER
+    1.2.3.4:123
+    1.2.3.4:65535
+    1.2.3.4:12346.
+    1.2.3.4:12347:
+    [::1]:123
+    [1:2:3:4:5:6:7:8]:123
+
+    # BAD INET:SERVER
+    1.2.3.4:0
+    1.2.3.4:65536
+    1.2.3.4:1.2.3.5
+    1.2.3.4:123456
+    1.2.3.4:
+    0.1.2.3.4:12345
+    1.2.3:123
+    [::1].123
+    [::1]:123.1234
+    [1:2:3:4]:123
 
     faß.de
 
@@ -63,6 +168,14 @@ and BOB@WOOT.COM is another
     baz.com．
 
     bar.com．
+
+    fxp.com
+
+    CWE # no match
+    CWE-1
+    CWE-12345678
+    CWE-123456789 # no match
+
 '''
 
 data1 = '''
@@ -71,6 +184,8 @@ data1 = '''
     tcp://foo.bar.org:4665/.,.
     tcp://foo.bar.org:4665/,.,
     tcp://foo.bar.org:4665/,,..a
+    tcp://[1:2:3:4:5:6:7:8]:1234/
+    tcp://[1:2:3::4:5:6]:2345/
 '''
 
 data2 = '''
@@ -282,6 +397,8 @@ DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du
 # shelly era
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w
 addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4
+addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k
+addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve
 
 # Newp
 Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAX
@@ -290,7 +407,106 @@ Ae2tdPWUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi
 DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTX
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80X
 addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
+DdzFFzCqrht9wkicvUx4Hc4W9gjCbx1sjsWAie5zLHo2K2R42y2zvA7W9S9dM9bCHE7xtpNriy1EpE5xwv7
 '''
+
+linux_paths = '''
+# GOOD PATHS
+/bin/ls
+/bin/foo/bar
+/bin/foo\x00
+/bin/foo//
+/bin/foo//bar
+/home/foo/bar/baz.txt
+/tmp/foo/bar
+/var/run/foo/
+/var/run/foo/bar
+//var/run/bar
+The observed path is:/root/.aaa/bbb
+The observed paths are:
+ - /root/.aaa/ccc
+ - /root/.aaa/ddd
+ -/root/.aaa/eee
+
+# BAD PATHS
+/
+/foo/bar
+/foo/bin/ls
+foo/bin/ls
+bin/ls
+bin/foo/bar
+bin/foo\x00
+bin/foo//
+bin/foo//bar
+home/foo/bar/baz.txt
+tmp/foo/bar
+var/run/foo/
+var/run/foo/bar
+but they not have a open SDK :/.
+'''
+
+windows_paths = '''
+# GOOD PATHS
+c:\\temp
+c:\\temp.txt
+c:\\windows\\
+c:\\windows\\calc.exe
+c:\\windows\\system32\\
+c:\\windows\\system32\\drivers\\usb.sys
+d:\\foo\\bar.txt
+d:\\foo\\
+d:\\foo
+d:\\foo.txt
+c:\\\\foo\\bar
+The observed path is:c:\\aaa\\bbb
+The observed paths are:
+ - c:\\aaa\\ccc
+ - c:\\aaa\\ddd
+ -c:\\aaa\\eee
+
+# BAD PATHS
+c:\\windows\\system32\\foo.
+c:\\windows\\LPT1
+c:\\foo.
+dc:\\foo\\bar
+'''
+
+good_uncs = [
+    '\\\\foo\\bar\\baz',
+    '\\\\server\\share',
+    '\\\\server.domain.com\\share\\path\\to\\filename.txt',
+    '\\\\1.2.3.4\\share',
+    '\\\\1.2.3.4\\share\\dirn',
+    '\\\\1234-2345--3456.ipv6-literal.net\\share',
+    '\\\\1234-2345--3456.ipv6-literal.net\\share\\dirn',
+    '\\\\1-2-3-4-5-6-7-8.ipv6-literal.net\\share\\filename.txt',
+    '\\\\1-2-3-4-5-6-7-8seth0.ipv6-literal.net\\share\\filename.txt',
+    '\\\\server@SSL\\share\\foo.txt',
+    '\\\\server@1234\\share\\foo.txt',
+    '\\\\server@SSL@1234\\share\\foo.txt',
+    '\\\\0--1.ipv6-literal.net@SSL@1234\\share\\foo.txt',
+    ('\\\\server\\share\\' + ('A' * 250) + '.txt:sname:stype\n'),
+    'The UNC path is: \\\\server.domain.com\\share\\path\\to\\filename1.txt',
+    'The UNC path is:\\\\server.domain.com\\share\\path\\to\\filename2.txt',
+    'The UNC path is: "\\\\badserver\\share\\malicious file with spaces.txt" and the fqdn is badserver.domain.com.',
+    "The UNC path is: '\\\\badserver\\share\\malicious file with spaces.txt' and the fqdn is badserver.domain.com.",
+    'The UNC path is: \\\\badserver\\share\\filename and the fqdn is badserver.domain.com.',
+    '\\\\server@asdf\\share\\filename.txt',
+    '\\\\1:2:3:4:5:6:7:8\\share',
+    '\\\\[1:2:3:4:5:6:7:8]\\share',
+]
+
+bad_uncs = [
+    '\\\\server',
+    '\\\\server\\',
+    '\\\\hostname@SSL',
+    '\\\\server\\\\foobar.txt',
+    '\\\\server\\AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\\filename.txt',
+    ('\\\\server\\share\\' + ('A' * 256) + '\\filename.txt\n'),
+    ('\\\\server\\share\\' + ('A' * 256) + '.txt\n'),
+]
+
+unc_paths = '\n'.join(good_uncs + bad_uncs)
 
 class ScrapeTest(s_t_utils.SynTest):
 
@@ -311,10 +527,13 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(26, nodes)
+        self.len(83, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
+        nodes.remove(('inet:ipv4', '2.3.4.5'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
+        nodes.remove(('inet:ipv4', '201.202.203.204'))
+        nodes.remove(('inet:ipv4', '211.212.213.214'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
         nodes.remove(('inet:fqdn', 'foobar.com'))
@@ -335,9 +554,63 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', 'sign3.com'))
         nodes.remove(('inet:fqdn', 'sign4.com'))
         nodes.remove(('inet:fqdn', 'tilde.com'))
+        nodes.remove(('inet:fqdn', 'fxp.com'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
+        nodes.remove(('inet:server', '1.2.3.4:123'))
+        nodes.remove(('inet:server', '1.2.3.4:65535'))
+        nodes.remove(('inet:server', '1.2.3.4:12346'))
+        nodes.remove(('inet:server', '1.2.3.4:12347'))
+        nodes.remove(('inet:server', '[::1]:123'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:123'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
+        nodes.remove(('it:sec:cwe', 'CWE-1'))
+        nodes.remove(('it:sec:cwe', 'CWE-12345678'))
+        nodes.remove(('inet:ipv6', 'fff0::1'))
+        nodes.remove(('inet:ipv6', '::1'))
+        nodes.remove(('inet:ipv6', '::1010'))
+        nodes.remove(('inet:ipv6', 'ff::'))
+        nodes.remove(('inet:ipv6', '0::1'))
+        nodes.remove(('inet:ipv6', '0:0::1'))
+        nodes.remove(('inet:ipv6', 'ff:fe:fd::1'))
+        nodes.remove(('inet:ipv6', 'ffff:ffe:fd:c::1'))
+        nodes.remove(('inet:ipv6', '111::333:222'))
+        nodes.remove(('inet:ipv6', '111:222::333'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6::7'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5::6'))
+        nodes.remove(('inet:ipv6', '1:2:3:4::5'))
+        nodes.remove(('inet:ipv6', '1:2:3::4'))
+        nodes.remove(('inet:ipv6', '1:2::3'))
+        nodes.remove(('inet:ipv6', '1::2'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5:6'))
+        nodes.remove(('inet:ipv6', '1::2:3:4:5'))
+        nodes.remove(('inet:ipv6', '1::2:3:4'))
+        nodes.remove(('inet:ipv6', '1::2:3'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6:7'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4:5'))
+        nodes.remove(('inet:ipv6', 'a:2::3:4'))
+        nodes.remove(('inet:ipv6', 'a:2::3'))
+        nodes.remove(('inet:ipv6', '2001:db8:3333:4444:5555:6666:4.3.2.1'))
+        nodes.remove(('inet:ipv6', '::3.4.5.6'))
+        nodes.remove(('inet:ipv6', '::ffff:4.3.2.2'))
+        nodes.remove(('inet:ipv6', '::FFFF:4.3.2.3'))
+        nodes.remove(('inet:ipv6', '::ffff:0000:4.3.2.4'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4:4.3.2.5'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4.3.2.6'))
+        nodes.remove(('inet:ipv6', '::1:2:3:4:5:4.3.2.7'))
+        nodes.remove(('inet:ipv6', '::ffff:255.255.255.255'))
+        nodes.remove(('inet:ipv6', '::ffff:111.222.33.44'))
+        nodes.remove(('inet:ipv6', '1:2::3:4.3.2.8'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:9'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:a'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:b'))
+        nodes.remove(('inet:ipv6', '1::a'))
+        nodes.remove(('inet:ipv6', '1::a:3'))
+        nodes.remove(('inet:ipv6', '1:a::3'))
+        nodes.remove(('inet:ipv6', 'a:b:c:d:e::6'))
         self.len(0, nodes)
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))
@@ -347,7 +620,7 @@ class ScrapeTest(s_t_utils.SynTest):
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(data1))
-        self.len(10, nodes)
+        self.len(16, nodes)
         for _ in range(5):
             nodes.remove(('inet:fqdn', 'foo.bar.org'))
 
@@ -357,6 +630,13 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+
+        nodes.remove(('inet:url', 'tcp://[1:2:3:4:5:6:7:8]:1234/'))
+        nodes.remove(('inet:url', 'tcp://[1:2:3::4:5:6]:2345/'))
+        nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:1234'))
+        nodes.remove(('inet:server', '[1:2:3::4:5:6]:2345'))
+        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ipv6', '1:2:3::4:5:6'))
 
         nodes = list(s_scrape.scrape(data2))
         nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
@@ -450,7 +730,7 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
 
         nodes = list(s_scrape.scrape(cardano_addresses))
-        self.len(7, nodes)
+        self.len(9, nodes)
         nodes.remove(('crypto:currency:address',
                       ('ada', 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
         nodes.remove(('crypto:currency:address',
@@ -467,6 +747,85 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ada', 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
         nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
+        nodes.remove(('crypto:currency:address',
+                      ('ada', 'addr1gx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer5pnz75xxcrzqf96k')))
+        nodes.remove(('crypto:currency:address',
+                      ('ada', 'addr1yx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzerkr0vd4msrxnuwnccdxlhdjar77j6lg0wypcc9uar5d2shs2z78ve')))
+
+        nodes = list(s_scrape.scrape(linux_paths))
+        nodes = [k for k in nodes if k[0] == 'file:path']
+
+        self.len(13, nodes)
+        nodes.remove(('file:path', '/bin/ls'))
+        nodes.remove(('file:path', '/bin/foo/bar'))
+        nodes.remove(('file:path', '/bin/foo'))
+        nodes.remove(('file:path', '/bin/foo//'))
+        nodes.remove(('file:path', '/bin/foo//bar'))
+        nodes.remove(('file:path', '/home/foo/bar/baz.txt'))
+        nodes.remove(('file:path', '/tmp/foo/bar'))
+        nodes.remove(('file:path', '/var/run/foo/'))
+        nodes.remove(('file:path', '/var/run/foo/bar'))
+        nodes.remove(('file:path', '/root/.aaa/bbb'))
+        nodes.remove(('file:path', '/root/.aaa/ccc'))
+        nodes.remove(('file:path', '/root/.aaa/ddd'))
+        nodes.remove(('file:path', '/root/.aaa/eee'))
+
+        nodes = list(s_scrape.scrape(windows_paths))
+        nodes = [k for k in nodes if k[0] == 'file:path']
+
+        self.len(15, nodes)
+        nodes.remove(('file:path', 'c:\\temp'))
+        nodes.remove(('file:path', 'c:\\temp.txt'))
+        nodes.remove(('file:path', 'c:\\windows\\'))
+        nodes.remove(('file:path', 'c:\\windows\\calc.exe'))
+        nodes.remove(('file:path', 'c:\\windows\\system32\\'))
+        nodes.remove(('file:path', 'c:\\windows\\system32\\drivers\\usb.sys'))
+        nodes.remove(('file:path', 'd:\\foo\\bar.txt'))
+        nodes.remove(('file:path', 'd:\\foo\\'))
+        nodes.remove(('file:path', 'd:\\foo'))
+        nodes.remove(('file:path', 'd:\\foo.txt'))
+        nodes.remove(('file:path', 'c:\\\\foo\\bar'))
+        nodes.remove(('file:path', 'c:\\aaa\\bbb'))
+        nodes.remove(('file:path', 'c:\\aaa\\ccc'))
+        nodes.remove(('file:path', 'c:\\aaa\\ddd'))
+        nodes.remove(('file:path', 'c:\\aaa\\eee'))
+
+        nodes = list(s_scrape.scrape(unc_paths))
+        nodes = [k for k in nodes if k[0] == 'inet:url']
+
+        self.len(21, nodes)
+
+        nodes.remove(('inet:url', 'smb://foo/bar/baz'))
+        nodes.remove(('inet:url', 'smb://server/share'))
+        nodes.remove(('inet:url', 'smb://server.domain.com/share/path/to/filename.txt'))
+        nodes.remove(('inet:url', 'smb://1.2.3.4/share'))
+        nodes.remove(('inet:url', 'smb://1.2.3.4/share/dirn'))
+        nodes.remove(('inet:url', 'smb://1234:2345::345/share'))
+        nodes.remove(('inet:url', 'smb://1234:2345::345/share/dirn'))
+        nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share/filename.txt'))
+        nodes.remove(('inet:url', 'smb://server.domain.com/share/path/to/filename1.txt'))
+        nodes.remove(('inet:url', 'smb://server.domain.com/share/path/to/filename2.txt'))
+        nodes.remove(('inet:url', 'smb://badserver/share/malicious file with spaces.txt'))
+        nodes.remove(('inet:url', 'smb://badserver/share/malicious file with spaces.txt'))
+        nodes.remove(('inet:url', 'smb://badserver/share/filename'))
+        nodes.remove(('inet:url', 'https://server/share/foo.txt'))
+        nodes.remove(('inet:url', 'smb://server:1234/share/foo.txt'))
+        nodes.remove(('inet:url', 'https://server:1234/share/foo.txt'))
+        nodes.remove(('inet:url', 'https://[0::1]:1234/share/foo.txt'))
+        AAA = 'A' * 250
+        nodes.remove(('inet:url', f'smb://server/share/{AAA}.txt:sname:stype'))
+        nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
+        nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
+
+    async def test_scrape_async(self):
+
+        with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
+            ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
+            self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+
+            text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
+            infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
+            self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
@@ -530,8 +889,15 @@ class ScrapeTest(s_t_utils.SynTest):
         txt = f'hehe woot.onion woot.bit haha'
         self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
 
+        txt = f'hehe trickbot.bazar haha'
+        self.isin('trickbot.bazar', [n[1] for n in s_scrape.scrape(txt)])
+
     def test_refang(self):
         defanged = '10[.]0[.]0[.]1'
+        refanged = '10.0.0.1'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = '10.]0[.0[.]1'
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
 
@@ -545,6 +911,22 @@ class ScrapeTest(s_t_utils.SynTest):
 
         defanged = 'http[:]//foo.faz.com[:]12312/bam'
         refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'http[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'https[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxp[://foo.faz.com[:]12312/bam'
+        refanged = 'http://foo.faz.com:12312/bam'
+        self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'hxxps[://foo.faz.com[:]12312/bam'
+        refanged = 'https://foo.faz.com:12312/bam'
         self.eq({refanged, 'foo.faz.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
         defanged = 'hxxp://foo.faz.edu/'
@@ -570,6 +952,10 @@ class ScrapeTest(s_t_utils.SynTest):
         defanged = 'foo[@]bar.com'
         refanged = 'foo@bar.com'
         self.eq({refanged, 'bar.com'}, {n[1] for n in s_scrape.scrape(defanged)})
+
+        defanged = 'https://foo[dot]com/'
+        refanged = 'https://foo.com/'
+        self.eq({refanged, 'foo.com'}, {n[1] for n in s_scrape.scrape(defanged)})
 
         defanged = 'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]yowza(.)baz[.]edu/foofaz'
         exp = {
@@ -662,3 +1048,125 @@ class ScrapeTest(s_t_utils.SynTest):
             offs = r.get('offset')
             fv = data3[offs:offs + len(erv)]
             self.eq(erv, fv)
+
+    def test_scrape_cpe(self):
+        cpedata = r'''
+        GOOD DATA
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:tspace non matched word
+        cpe:2.3:a:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:h:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:o:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:-:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:*:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:-:na:*:*:*:*:*:*:*:*
+        cpe:2.3:*:.:dot:*:*:*:*:*:*:*:*
+        cpe:2.3:*:_:underscore:*:*:*:*:*:*:*:*
+
+        A few quoted characters
+        cpe:2.3:*:\!:quoted:*:*:*:*:*:*:*:*
+        cpe:2.3:*:\?:quoted:*:*:*:*:*:*:*:*
+        cpe:2.3:*:\*:quoted:*:*:*:*:*:*:*:*
+        cpe:2.3:*:\\:escapeescape:*:*:*:*:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:-:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:en:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-en:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-123:*:*:*:*
+
+        A few examples
+        cpe:2.3:a:ntp:ntp:4.2.8:p3:*:*:*:*:*:*
+        cpe:2.3:o:microsoft:windows_7:-:sp2:*:*:*:*:*:*
+        cpe:2.3:a:hp:insight:7.4.0.1570:-:*:*:online:win2003:x64:*
+        cpe:2.3:a:foo\\bar:big\$money_2010:*:*:*:*:special:ipod_touch:80gb:*
+        cpe:2.3:a:hp:openview_network_manager:7.51:*:*:*:*:linux:*:*
+        cpe:2.3:a:apple:swiftnio_http\/2:1.19.1:*:*:*:*:swift:*:*
+
+        Some quoted examples
+        cpe:2.3:a:fooo:bar_baz\:_beep_bpp_sys:1.1:*:*:*:*:ios:*:*
+        cpe:2.3:a:lemonldap-ng:apache\:\:session\:\:browsable:0.9:*:*:*:*:perl:*:*
+        cpe:2.3:a:daemon-ng:hurray\:\::0.x:*:*:*:*:*:*:*
+        cpe:2.3:a:microsoft:intern\^et_explorer:8.0.6001:beta:*:*:*:*:*:*
+
+        TEXT examples
+        Example double quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:dquotes".
+        Example double quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:MiXeDcAsE".
+        Example single quoted cpe value "cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:squotes".
+        A CPE at the end of a sentence like this captures the period... cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.
+        Some CPE are exciting! Like this cpe:2.3:a:*:*:*:*:*:*:*:*:*:noexclaim!
+        Some CPE are boring! Like this cpe:2.3:a:*:*:*:*:*:*:*:*:*:noslash\
+        Unicode endings are omitted cpe:2.3:a:*:*:*:*:*:*:*:*:*:unicodeend0ॐ
+        Unicode quotes “cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes”
+        cpe:2.3:*:?why??:*:*:*:*:*:*:*:*:*
+        cpe:2.3:*:*why*:*:*:*:*:*:*:*:*:*
+
+        EMBEDDED TEXT
+        wordscpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx:newp
+        wordscpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz:
+
+        BAD values
+        cpe:2.3:*:?:spec1:*:*:*:*:*:*:*:*
+        cpe:2.3:a:vertex:synapse:*:*:*:NEWP:*:*:*:*
+        cpe:2.3:a::::::::::
+        cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:ॐ:other
+        cpe:2.3:a:vendor:product:version:update:edition
+        cpe:2.3:a:opps:bad_quote\\/2:1.19.1:*:*:*:*:swift:*:*
+
+        # Bad languages
+        cpe:2.3:*:langtest:*:*:*:*:a:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:aaaa:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-o:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-omn:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-12:*:*:*:*
+        cpe:2.3:*:langtest:*:*:*:*:usa-1234:*:*:*:*
+        '''
+        nodes = sorted(set(s_scrape.scrape(cpedata, ptype='it:sec:cpe')))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:-:na:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:.:dot:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\!:quoted:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\*:quoted:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\?:quoted:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:\\\\:escapeescape:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:_:underscore:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:-:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:en:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:usa-123:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:usa-en:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:langtest:*:*:*:*:usa:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:-:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:apple:swiftnio_http\\/2:1.19.1:*:*:*:*:swift:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:daemon-ng:hurray\\:\\::0.x:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:foo\\\\bar:big\\$money_2010:*:*:*:*:special:ipod_touch:80gb:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:fooo:bar_baz\\:_beep_bpp_sys:1.1:*:*:*:*:ios:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:hp:insight:7.4.0.1570:-:*:*:online:win2003:x64:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:hp:openview_network_manager:7.51:*:*:*:*:linux:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:lemonldap-ng:apache\\:\\:session\\:\\:browsable:0.9:*:*:*:*:perl:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:microsoft:intern\\^et_explorer:8.0.6001:beta:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:ntp:ntp:4.2.8:p3:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:other'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:tspace'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:h:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:o:*:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:o:microsoft:windows_7:-:sp2:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:dquotes'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:MiXeDcAsE'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:squotes'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:hasperiod.'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherxxx'))
+        nodes.remove(('it:sec:cpe',
+                      'cpe:2.3:a:vendor:product:version:update:edition:lng:sw_edition:target_sw:target_hw:otherzzz'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:noexclaim'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:noslash'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:unicodeend0'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:a:*:*:*:*:*:*:*:*:*:smartquotes'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:?why??:*:*:*:*:*:*:*:*:*'))
+        nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*why*:*:*:*:*:*:*:*:*:*'))
+
+        self.len(0, nodes)

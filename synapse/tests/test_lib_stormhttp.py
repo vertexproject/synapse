@@ -42,6 +42,10 @@ class HttpNotJson(s_httpapi.Handler):
     async def get(self):
         self.write(b"{'not':'json!'}")
 
+class HttpBadJson(s_httpapi.Handler):
+    async def get(self):
+        self.write(b'{"foo": "bar\x80"}')
+
 class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_get(self):
@@ -54,6 +58,7 @@ class StormHttpTest(s_test.SynTest):
 
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
             core.addHttpApi('/api/v0/notjson', HttpNotJson, {'cell': core})
+            core.addHttpApi('/api/v0/badjson', HttpBadJson, {'cell': core})
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url}}
 
@@ -123,20 +128,23 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $params=(1138)
             $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( ($resp.code, $resp.err) )
+            return ( ($resp.code, $resp.reason, $resp.err) )
             '''
-            code, (errname, _) = await core.callStorm(q, opts=opts)
+            code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
+            self.isin('Exception occurred during request: ', reason)
+            self.isin('Invalid query type', reason)
             self.eq('TypeError', errname)
 
-            # SSL Verify enabled results in a aiohttp.ClientConnectorCertificateError
+            # SSL Verify enabled results in an aiohttp.ClientConnectorCertificateError
             q = '''
             $params=((foo, bar), (key, valu))
             $resp = $lib.inet.http.get($url, params=$params)
-            return ( ($resp.code, $resp.err) )
+            return ( ($resp.code, $resp.reason, $resp.err) )
             '''
-            code, (errname, _) = await core.callStorm(q, opts=opts)
+            code, reason, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
+            self.isin('certificate verify failed', reason)
             self.eq('ClientConnectorCertificateError', errname)
 
             retn = await core.callStorm('return($lib.inet.http.urlencode("http://go ogle.com"))')
@@ -144,6 +152,27 @@ class StormHttpTest(s_test.SynTest):
 
             retn = await core.callStorm('return($lib.inet.http.urldecode("http%3A%2F%2Fgo+ogle.com"))')
             self.eq('http://go ogle.com', retn)
+
+            badurl = f'https://root:root@127.0.0.1:{port}/api/v0/badjson'
+            badopts = {'vars': {'url': badurl}}
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                resp = await core.callStorm(q, opts=badopts)
+
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.json(encoding=utf8, errors=ignore) )
+            '''
+            self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+
+            retn = await core.callStorm('return($lib.inet.http.codereason(404))')
+            self.eq(retn, 'Not Found')
+
+            retn = await core.callStorm('return($lib.inet.http.codereason(123))')
+            self.eq(retn, 'Unknown HTTP status code 123')
 
     async def test_storm_http_inject_ca(self):
 
@@ -216,11 +245,12 @@ class StormHttpTest(s_test.SynTest):
                     ("User-Agent", "Storm HTTP Stuff"),
             )
             $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
-            return ( ($resp.code, $resp.headers, $resp.body) )
+            return ( ($resp.code, $resp.reason, $resp.headers, $resp.body) )
             '''
             resp = await core.callStorm(q, opts=opts)
-            code, headers, body = resp
+            code, reason, headers, body = resp
             self.eq(code, 200)
+            self.eq(reason, 'OK')
             self.eq(b'', body)
             self.eq('0', headers.get('Content-Length'))
             self.eq('1', headers.get('Head'))
@@ -392,6 +422,41 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'foo': ('bar', 'bar2'), 'baz': ('cool',)})
 
+            # We can send multipart/form-data directly
+            q = '''
+            $buf = $lib.hex.decode(deadb33f)
+            $fields = ([
+                {"filename": 'deadb33f.exe', "value": $buf, "name": "word"},
+            ])
+            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            request = json.loads(resp.get('body'))
+            request_headers = request.get('result').get('headers')
+            self.isin('multipart/form-data; boundary=', request_headers.get('Content-Type', ''))
+
+            q = '''
+            $fields = ([
+                {"forgot": "name", "sha256": "newp"},
+            ])
+            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(resp.get('code'), -1)
+            self.isin('BadArg: Each field requires a "name" key with a string value: None', resp.get('reason'))
+
+            q = '''
+            $buf = $lib.hex.decode(deadb33f)
+            $fields = ([
+                {"filename": 'deadbeef.exe', "value": $buf},
+            ])
+            return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            err = resp['err']
+            experr = 'Each field requires a "name" key with a string value when multipart fields are enabled: None'
+            self.eq(experr, err[1].get('mesg'))
+
     async def test_storm_http_post_file(self):
 
         async with self.getTestCore() as core:
@@ -430,7 +495,8 @@ class StormHttpTest(s_test.SynTest):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
-            self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+            self.false(resp.get('ok'))
+            self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
 
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
             code, (errname, _) = await core.callStorm(q)
@@ -443,13 +509,15 @@ class StormHttpTest(s_test.SynTest):
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
 
+            errmsg = f'User {visi.name!r} ({visi.iden}) must have permission {{perm}}'
+
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.eq('ProxyConnectionError', resp['err'][0])
@@ -457,24 +525,83 @@ class StormHttpTest(s_test.SynTest):
             # test $lib.axon proxy API
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wput(asdf, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+            self.false(resp.get('ok'))
+            self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
 
             size, sha256 = await core.axon.put(b'asdf')
 
             sha256 = s_common.ehex(sha256)
             resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
-            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+            self.false(resp.get('ok'))
+            self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
+
+        async with self.getTestCore(conf=conf) as core:
+            # Proxy permission tests in this section
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+
+            _, sha256 = await core.axon.put(b'asdf')
+            sha256 = s_common.ehex(sha256)
+
+            host, port = await core.addHttpsPort(0)
+
+            q1 = f'return($lib.inet.http.get(https://loop.vertex.link:{port}, ssl_verify=$lib.false, proxy=$proxy))'
+            q2 = f'return($lib.axon.wget(https://loop.vertex.link:{port}, ssl=$lib.false, proxy=$proxy))'
+            q3 = f'return($lib.axon.wput({sha256}, https://loop.vertex.link:{port}, ssl=$lib.false, proxy=$proxy))'
+
+            for proxy in ('socks5://user:pass@127.0.0.1:1', False):
+                opts = {'vars': {'proxy': proxy}, 'user': visi.iden}
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(q1, opts=opts)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(q2, opts=opts)
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(q3, opts=opts)
+
+            # Add permissions to use a proxy
+            await visi.addRule((True, ('storm', 'lib', 'inet', 'http', 'proxy')))
+
+            opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1'}, 'user': visi.iden}
+
+            resp = await core.callStorm(q1, opts=opts)
+            self.eq('ProxyConnectionError', resp['err'][0])
+
+            resp = await core.callStorm(q2, opts=opts)
+            self.eq('ProxyConnectionError', resp['err'][0])
+
+            resp = await core.callStorm(q3, opts=opts)
+            self.eq('ProxyConnectionError', resp['err'][0])
+
+            opts = {'vars': {'proxy': False}, 'user': visi.iden}
+
+            resp = await core.callStorm(q1, opts=opts)
+            self.eq(resp['code'], 404)
+            self.eq(resp['reason'], 'Not Found')
+
+            resp = await core.callStorm(q2, opts=opts)
+            self.eq(resp['code'], 404)
+            self.eq(resp['reason'], 'Not Found')
+
+            resp = await core.callStorm(q3, opts=opts)
+            self.eq(resp['code'], 404)
+            self.eq(resp['reason'], 'Not Found')
 
     async def test_storm_http_connect(self):
 
@@ -536,7 +663,7 @@ class StormHttpTest(s_test.SynTest):
             opts = {'user': visi.iden, 'vars': {'port': port, 'proxy': False}}
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.callStorm(query, opts=opts)
-            self.eq(cm.exception.get('mesg'), s_exc.proxy_admin_mesg)
+            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission storm.lib.inet.http.proxy')
 
             await visi.setAdmin(True)
 
@@ -544,4 +671,4 @@ class StormHttpTest(s_test.SynTest):
                     'vars': {'port': port, 'proxy': 'socks5://user:pass@127.0.0.1:1'}}
             with self.raises(s_stormctrl.StormExit) as cm:
                 await core.callStorm(query, opts=opts)
-            self.isin('Can not connect to proxy', str(cm.exception))
+            self.isin('connect to proxy 127.0.0.1:1', str(cm.exception))

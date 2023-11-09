@@ -25,12 +25,36 @@ Addition, Dependent
 
 See :ref:`gloss-depadd`.
 
+.. _gloss-adv-power:
+
+Advanced Power-Up
+-----------------
+
+See :ref:`gloss-power-adv`.
+
+.. _gloss-admin-tool:
+
+Admin Tool
+----------
+
+See :ref:`gloss-tool-admin`.
+
 .. _gloss-analytical-model:
 
 Analytical Model
 ----------------
 
 See :ref:`gloss-model-analytical`.
+
+.. _gloss-authgate:
+
+Auth Gate
+---------
+
+An auth gate (short for "authorization gate", informally a "gate") is an object within a :ref:`gloss-service`
+that may have its own set of permissions.
+
+Both a :ref:`gloss-layer` and a :ref:`gloss-view` are common examples of auth gates.
 
 .. _gloss-autoadd:
 
@@ -52,9 +76,9 @@ See also the related concept :ref:`gloss-depadd`.
 Axon
 ----
 
-The Axon is an interface for providing binary / blob storage inside of the Synapse ecosystem. This indexes binaries
-based on SHA-256 hash so we do not duplicate the storage of the same set of bytes twice. The default implemenation
-stores the blobs in an LMDB :ref:`gloss-slab`.
+The Axon is a :ref:`gloss-synapse-svc` that provides binary / blob ("file") storage within the Synapse ecosystem. An Axon indexes
+binaries based on their SHA-256 hash for deduplication. The default Axon implemenation stores the blobs in an LMDB
+:ref:`gloss-slab`.
 
 B
 =
@@ -85,41 +109,51 @@ digest of a node’s msgpack-encoded :ref:`gloss-ndef`.
 C
 =
 
+.. _gloss-callable-func:
+
+Callable Function
+-----------------
+
+See :ref:`gloss-func-callable`.
+
 .. _gloss-cell:
 
 Cell
 ----
 
-The Cell is a basic building block of Synapse services, including the Cortex. See :ref:`dev_architecture` for more
-information about what a Cell provides.
+The Cell is a basic building block of a :ref:`gloss-synapse-svc`, including the :ref:`gloss-cortex`. See :ref:`dev_architecture`
+for additional detail.
 
 .. _gloss-col-embed:
 
 Column, Embed
 -------------
 
-In :ref:`gloss-optic`, a column in Tabular display mode that displays a property value from an adjacent node.
+In :ref:`gloss-optic`, a column in Tabular display mode that displays a **property value from an adjacent or nearby
+node**.
 
 .. _gloss-col-prop:
 
 Column, Property
 ----------------
 
-In :ref:`gloss-optic`, a column in Tabular display mode that displays a property value from the specified form.
+In :ref:`gloss-optic`, a column in Tabular display mode that displays a **property value** from the specified form.
 
 .. _gloss-col-tag:
 
 Column, Tag
 -----------
 
-In :ref:`gloss-optic`, a column in Tabular display mode that displays the **timestamps** associated with the specified tag. (Technically, Optic displays two columns - one for each of the min / max timestamps, if present).
+In :ref:`gloss-optic`, a column in Tabular display mode that displays the **timestamps** associated with the
+specified tag. (Technically, Optic displays two columns - one for each of the min / max timestamps, if present).
 
 .. _gloss-col-tagglob:
 
 Column, Tag Glob
 ----------------
 
-In :ref:`gloss-optic`, a column in Tabular display mode that displays any **tags** that match the specified tag or tag glob pattern.
+In :ref:`gloss-optic`, a column in Tabular display mode that displays any **tags** that match the specified tag
+or tag glob pattern.
 
 .. _gloss-comparator:
 
@@ -161,6 +195,13 @@ Composite Form
 
 See :ref:`gloss-form-comp`.
 
+.. _gloss-console-tool:
+
+Console Tool
+------------
+
+See :ref:`gloss-tool-console`.
+
 .. _gloss-constant:
 
 Constant
@@ -185,15 +226,16 @@ Constructors support :ref:`gloss-type-norm` and :ref:`gloss-type-enforce`.
 Cortex
 ------
 
-A Cortex is Synapse's implementation of an individual :ref:`gloss-hypergraph`. Cortex features include scalability,
-key/value-based node properties, and a :ref:`gloss-data-model` which facilitates normalization.
+A Cortex is a :ref:`gloss-synapse-svc` that implements Synapse's primary data store (as an individual
+:ref:`gloss-hypergraph`). Cortex features include scalability, key/value-based node properties, and a
+:ref:`gloss-data-model` which facilitates normalization.
 
 .. _gloss-cron:
 
 Cron
 ----
 
-Within Synapse cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be
+Within Synapse, cron jobs are used to create scheduled tasks, similar to the Linux/Unix "cron" utility. The task to be
 executed by the cron job is specified using the :ref:`gloss-storm` query language.
 
 See the Storm command reference for the :ref:`storm-cron` command and the :ref:`storm-ref-automation` document for
@@ -219,12 +261,27 @@ runs continuously in the background. A dmon is typically implemented by a Storm 
 for tasks such as processing elements from a :ref:`gloss-queue`. A dmon allows for non-blocking background processing
 of non-critical tasks. Dmons are persistent and will restart if they exit.
 
+.. _gloss-emitter-func:
+
+Data Emitter Function
+---------------------
+
+See :ref:`gloss-func-emitter`.
+
 .. _gloss-data-model:
 
 Data Model
 ----------
 
 See :ref:`gloss-model-data`.
+
+.. _gloss-data-model-explorer:
+
+Data Model Explorer
+-------------------
+
+In :ref:`gloss-optic`, the Data Model Explorer (found in the :ref:`gloss-help-tool`) documents and cross-references
+the current forms and lightweight edges in the Synapse :ref:`gloss-data-model`.
 
 .. _gloss-deconflictable:
 
@@ -236,10 +293,9 @@ creation, Synapse can determine whether the node already exists within a Cortex 
 deconflicted against existing nodes). For example, on attempting to create the node ``inet:fqdn=woot.com`` Synapse can
 deconflict the node by checking whether a node of the same form with the same primary property already exists.
 
-Whether a node is deconflictable is often an issue with GUID forms. A :ref:`gloss-guid-form` whose primary property is
-an arbitrary GUID is not deconflictable. A GUID form whose primary property is generated from a defined or predictable
-set of strings (such as a subset of the form's secondary property values) may be deconflictable. See the
-:ref:`type-guid` section of the :ref:`storm-ref-type-specific` document for additional detail.
+Most primary properties are sufficiently unique to be readily deconflictable. GUID forms (see :ref:`gloss-form-guid`)
+require additional considerations for deconfliction. See the :ref:`type-guid` section of the :ref:`storm-ref-type-specific`
+document for additional detail.
 
 .. _gloss-depadd:
 
@@ -305,6 +361,24 @@ Short for :ref:`gloss-daemon`.
 E
 =
 
+.. _gloss-easy-perms:
+
+Easy Permissions
+----------------
+
+In Synapse, easy permissions ("easy perms" for short) are a simplified means to grant common sets of permissions
+for a particular object to users or roles. Easy perms specify four levels of access, each with a corresponding
+integer value:
+
+- Deny = 0
+- Read = 1
+- Edit = 2
+- Admin = 3
+
+
+As an example, the :ref:`stormlibs-lib-macro-grant` Storm library can be used to assign easy perms to a :ref:`gloss-macro`.
+Contrast with :ref:`gloss-permission`.
+
 .. _gloss-edge:
 
 Edge
@@ -338,12 +412,50 @@ Embed Column
 
 See :ref:`gloss-col-embed`.
 
+.. _gloss-entity-res:
+
+Entity Resolution
+-----------------
+
+Entity resolution is the process of determining whether different records or sets of data refer to the same
+real-world entity.
+
+A number of data model elements in Synapse are designed to support entity resolution. For example:
+
+- A ``ps:contact`` node can capture "a set of observed contact data" for a person (``ps:person``) or organization
+  (``ou:org``). You can link sets of contact data that you assess represent "the same" entity via their
+  ``ps:contact:person`` or ``ps:contact:org`` properties.
+
+- A ``risk:threat`` node can capture "a set of reported data about a threat". If you assess that multiple sources
+  are reporting on "the same" threat, you can link them to an authoritative threat organization via their
+  ``risk:threat:org`` property.
+  
+- An ``ou:industryname`` node can capture a term used to refer to a commercial industry. You can link variations
+  of a name (e.g., "finance", "financial", "financial services", "banking and finance") to a single ``ou:industry``
+  via the ``ou:industry:name`` and ``ou:industry:names`` properties.
+
+
 .. _gloss-extended-comp-op:
 
 Extended Comparison Operator
 ----------------------------
 
 See :ref:`gloss-comp-op-extended`.
+
+.. _gloss-extended-form:
+
+Extended Form
+-------------
+
+See :ref:`gloss-form-extended`.
+
+
+.. _gloss-extended-prop:
+
+Extended Property
+-----------------
+
+See :ref:`gloss-prop-extended`.
 
 F
 =
@@ -383,22 +495,24 @@ See :ref:`filter-subquery` for additional detail.
 Fork
 ----
 
-Within Synapse, forking refers to the process of creating a new, empty, writable :ref:`gloss-layer` on top of
-the fork's original :ref:`gloss-view`. The writable layer from the original view becomes read-only with
-respect to the fork. Any changes made within a forked view are made within the new writable layer. These
-changes can optionally be merged back into the original view, or discarded. (Note that any view-specific
-automation, such as triggers, dmons, or cron jobs, are **not** copied to the forked view. However, depending
-on the automation, it may be activated if / when data is merged down into the original view.
+Within Synapse, **fork** may refer to the process of forking a :ref:`gloss-view`, or to the forked view itself.
+
+When you fork a view, you create a new, empty, writable :ref:`gloss-layer` on top of the fork's original view.
+The writable layer from the original view becomes read-only with respect to the fork. Any changes made within a
+forked view are made within the new writable layer. These changes can optionally be merged back into the original
+view (in whole or in part), or discarded. (Note that any view-specific automation, such as triggers, dmons, or cron
+jobs, are **not** copied to the forked view. However, depending on the automation, it may be activated if / when 
+data is merged down into the original view.
 
 .. _gloss-form:
 
 Form
 ----
 
-Within Synapse, a form is the definition of an object in the Synapse data model. A form acts as a "template" that
-specifies how to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a
-:ref:`gloss-primary-prop` and its associated :ref:`gloss-type`. Depending on the form, it may also have various
-secondary properties with associated types.
+A form is the definition of an object in the Synapse data model. A form acts as a "template" that specifies how
+to create an object (:ref:`gloss-node`) within a Cortex. A form consists of (at minimum) a :ref:`gloss-primary-prop`
+and its associated :ref:`gloss-type`. Depending on the form, it may also have various secondary properties with
+associated types.
 
 See the :ref:`data-form` section in the :ref:`data-model-terms` document for additional detail.
 
@@ -408,23 +522,32 @@ See the :ref:`data-form` section in the :ref:`data-model-terms` document for add
 Form, Composite
 ---------------
 
-In the Synpase :ref:`gloss-data-model`, a category of form whose primary property is an ordered set of two or more
-comma-separated typed values. Examples include DNS A records (``inet:dns:a``) and web-based
-accounts (``inet:web:acct``).
+A category of form whose primary property is an ordered set of two or more comma-separated typed values. Examples
+include DNS A records (``inet:dns:a``) and web-based accounts (``inet:web:acct``).
 
 .. _gloss-form-digraph:
 
-See :ref:`gloss-form-edge`.
+See also :ref:`gloss-form-edge`.
 
 .. _gloss-form-edge:
 
 Form, Edge
 ----------
 
-In the Synapse :ref:`gloss-data-model`, a specialized **composite form** (:ref:`gloss-form-comp`) whose primary
-property consists of two :ref:`gloss-ndef` values. Edge forms can be used to link two arbitrary forms via a 
-generic relationship where additional information needs to be captured about that relationship (i.e., via secondary
-properpties and/or tags). Contrast with :ref:`gloss-edge-light`.
+A specialized **composite form** (:ref:`gloss-form-comp`) whose primary property consists of two :ref:`gloss-ndef`
+values. Edge forms can be used to link two arbitrary forms via a generic relationship where additional information
+needs to be captured about that relationship (i.e., via secondary properties and/or tags). Contrast with
+:ref:`gloss-edge-light`.
+
+.. _gloss-form-extended:
+
+Form, Extended
+--------------
+
+A custom form added outside of the base Synapse :ref:`gloss-data-model` to represent specialized data. Extended
+forms can be added with the :ref:`stormlibs-lib-model-ext` libraries. **Note** that whenever possible, it is
+preferable to expand the base Synapse data model to account for novel use cases instead of creating specialized
+extended forms.
 
 
 .. _gloss-form-guid:
@@ -433,10 +556,9 @@ Form, GUID
 ----------
 
 In the Synpase :ref:`gloss-data-model`, a specialized case of a :ref:`gloss-simple-form` whose primary property is a
-:ref:`gloss-guid`. The GUID can be either arbitrary (in which case it is **not** considered
-:ref:`gloss-deconflictable`) or constructed from a specified set of values (with the goal of being
-:ref:`gloss-deconflictable`). Examples include file execution data (e.g., ``inet:file:exec:read``) or
-articles (``media:news``).
+:ref:`gloss-guid`. The GUID can be either arbitrary or constructed from a specified set of values. GUID forms have
+additional considerations as to whether or not they are :ref:`gloss-deconflictable` in Synapse. Examples of GUID
+forms include file execution data (e.g., ``inet:file:exec:read``) or articles (``media:news``).
 
 .. _gloss-form-simple:
 
@@ -445,6 +567,30 @@ Form, Simple
 
 In the Synapse :ref:`gloss-data-model`, a category of form whose primary property is a single typed value. Examples
 include domains (``inet:fqdn``) or hashes (e.g., ``hash:md5``).
+
+.. _gloss-func-callable:
+
+Function, Callable
+------------------
+
+In Storm, a callable function is a "regular" function that is invoked (called) and returns exactly one value.
+A callable function must include a ``return()`` statement and must not include the ``emit`` keyword.
+
+.. _gloss-func-emitter:
+
+Function, Data Emitter
+----------------------
+
+In Storm, a data emitter function emits data. The function returns a generator object that can be iterated over.
+A data emitter function must include the ``emit`` keyword and must not include a ``return()`` statement.
+
+.. _gloss-func-yielder:
+
+Function, Node Yielder
+----------------------
+
+In Storm, a node yielder function yields nodes. The function returns a generator object that can be iterated
+over. A node yielder function must not include either the ``emit`` keyword or a ``return()`` statement.
 
 .. _gloss-fused-know:
 
@@ -455,6 +601,13 @@ See :ref:`gloss-know-fused`.
 
 G
 =
+
+.. _gloss-gate:
+
+Gate
+----
+
+See :ref:`gloss-authgate`.
 
 .. _gloss-global-workspace:
 
@@ -477,7 +630,7 @@ Graph
 
 A graph is a mathematical structure used to model pairwise relations between objects. Graphs consist of vertices
 (or nodes) that represent objects and edges that connect exactly two vertices in some type of relationship.
-Nodes and edges in a graph are typically represented by dots or circles conneted by lines.
+Nodes and edges in a graph are typically represented by dots or circles connected by lines.
 
 See :ref:`bkd-graphs-hypergraphs` for additional detail on graphs and hypergraphs.
 
@@ -500,8 +653,7 @@ GUID
 
 Short for Globally Unique Identifier. Within Synapse, a GUID is a :ref:`gloss-type` specified as a 128-bit value that
 is unique within a given :ref:`gloss-cortex`. GUIDs are used as primary properties for forms that cannot be uniquely
-represented by a specific value or set of values. Not to be confused with the Microsoft-specific definition of GUID,
-which is a 128-bit value with a specific format (see https://msdn.microsoft.com/en-us/library/aa373931.aspx).
+represented by a specific value or set of values.
 
 .. _gloss-guid-form:
 
@@ -512,6 +664,13 @@ See :ref:`gloss-form-guid`.
 
 H
 =
+
+.. _gloss-help-tool:
+
+Help Tool
+---------
+
+See :ref:`gloss-tool-help`.
 
 .. _gloss-hive:
 
@@ -563,6 +722,13 @@ Identifier
 
 See :ref:`gloss-iden`.
 
+.. _gloss-ingest-tool:
+
+Ingest Tool
+-----------
+
+See :ref:`gloss-tool-ingest`.
+
 .. _gloss-inst-know:
 
 Instance Knowledge
@@ -606,13 +772,17 @@ Layer
 -----
 
 Within Synapse, a layer is the substrate that contains node data and where permissions enforcement occurs. Viewed
-another way, a layer is a storage and write permission boundary. By default, a :ref:`gloss-cortex` has a single layer
-and a single :ref:`gloss-view`, meaning that by default all nodes are stored in one layer and all changes are written
-to that layer. However, multiple layers can be created for various purposes such as: separating data from different
-data sources (e.g., a read-only layer consisting of third-party data and associated tags can be created underneath
-a "working" layer, so that the third-party data is visible but cannot be modified); providing users with a personal
-"scratch space" where they can make changes in their layer without affecting the underlying main Cortex layer; or
-segregating data sets that should be visible/accessible to some users but not others.
+another way, a layer is a storage and write permission boundary.
+
+By default, a :ref:`gloss-cortex` has a single layer and a single :ref:`gloss-view`, meaning that by default all
+nodes are stored in one layer and all changes are written to that layer. However, multiple layers can be created
+for various purposes such as:
+
+- separating data from different data sources (e.g., a read-only layer consisting of third-party data and associated
+  tags can be created underneath a "working" layer, so that the third-party data is visible but cannot be modified);
+- providing users with a personal "scratch space" where they can make changes in their layer without affecting the
+  underlying main Cortex layer; or
+- segregating data sets that should be visible/accessible to some users but not others.
 
 Layers are closely related to views (see :ref:`gloss-view`). The order in which layers are instantiated within a view
 matters; in a multi-layer view, typically only the topmost layer is writeable by that view's users, with subsequent
@@ -716,7 +886,8 @@ See :ref:`data-node` in the :ref:`data-model-terms` document for additional deta
 Node Action
 -----------
 
-In :ref:`gloss-optic`, a saved, named Storm query or command (action) that can be executed via a right-click context menu option for specified forms (nodes).
+In :ref:`gloss-optic`, a saved, named Storm query or command (action) that can be executed via a right-click
+context menu option for specified forms (nodes).
 
 .. _gloss-node-data:
 
@@ -729,7 +900,7 @@ a third-party API along with the timestamp when the data was retrieved. If the s
 the same node within a specific time period, the Power-Up can use the cached node data instead of re-querying
 the API (helping to prevent using up any API query limits by re-querying the same data).
 
-Node data can be accessed using the storm:node:data_ type.
+Node data can be accessed using the `node:data`_ type.
 
 .. _gloss-node-def:
 
@@ -747,6 +918,21 @@ Short for "runtime node". A runt node is a node that does not persist within a C
 a Cortex is initiated. Runt nodes are commonly used to represent metadata associated with Synapse, such as data model
 elements like forms (``syn:form``) and properties (``syn:prop``) or automation elements like triggers (``syn:trigger``)
 or cron jobs (``syn:cron``).
+
+.. _gloss-node-storage:
+
+Node, Storage
+-------------
+
+A storage node ("sode") is a collection of data for a given node (i.e., the node's primary property,
+secondary / universal properties, tags, etc.) that is present in a specific :ref:`gloss-layer`.
+
+.. _gloss-yielder-func:
+
+Node Yielder Function
+---------------------
+
+See :ref:`gloss-func-yielder`.
 
 .. _gloss-non-runtime-safe:
 
@@ -776,7 +962,7 @@ O
 Optic
 -----
 
-The Synapse user interface (UI).
+The Synapse user interface (UI), available as part of the commercial Synapse offering.
 
 P
 =
@@ -786,10 +972,20 @@ P
 Package
 -------
 
-A package is a set of commands and library code used to implement a Storm :ref:`gloss-service`. When a new Storm
-service is loaded into a Cortex, the Cortex verifes that the service is legitimate and then requests the service's
+A package is a set of commands and library code used to implement a :ref:`gloss-storm-svc`. When a new Storm
+service is loaded into a Cortex, the Cortex verifies that the service is legitimate and then requests the service's
 packages in order to load any extended Storm commands associated with the service and any library code used to
 implement the service.
+
+.. _gloss-permission:
+
+Permission
+----------
+
+Within Synapse, a permission is a string (such as ``node.add``) used to control access. A permission is assigned
+(granted or revoked) using a :ref:`gloss-rule`.
+
+Access to some objects in Synapse may be controlled by :ref:`gloss-easy-perms`.
 
 .. _gloss-pivot:
 
@@ -807,9 +1003,39 @@ See :ref:`storm-ref-pivot` for additional detail.
 Power-Up
 --------
 
-Power-Ups provide specific add-on capabilities to Synapse via Storm Packages (:ref:`gloss-package`) and Services
-(:ref:`gloss-service`). For example, Power-Ups may provide connectivity to external databases or third-party data
-sources, or enable functionality such as the ability to manage YARA rules, scans, and matches.
+Power-Ups provide specific add-on capabilities to Synapse. For example, Power-Ups may provide connectivity to
+external databases or third-party data sources, or enable functionality such as the ability to manage YARA rules,
+scans, and matches.
+
+The term Power-Up is most commonly used to refer to Vertex-developed packages and services that are available as
+part of the commercial Synapse offering (only a few Power-Ups are available with open-source Synapse). However,
+many organizations write their own custom packages and services that may also be referred to as Power-Ups.
+
+Vertex distinguishes between an :ref:`gloss-adv-power` and a :ref:`gloss-rapid-power`.
+
+.. _gloss-power-adv:
+
+Power-Up, Advanced
+------------------
+
+Advanced Power-Ups are implemented as Storm services (see :ref:`gloss-svc-storm`). Vertex-developed Advanced
+Power-Ups are implemented as `Docker containers`_ and may require DevOps support and additional resources to
+deploy.
+
+.. _gloss-power-rapid:
+
+Power-Up, Rapid
+---------------
+
+Rapid Power-Ups are implemented as Storm packages (see :ref:`gloss-package`). Rapid Power-Ups are written
+entirely in Storm and can be loaded directly into a :ref:`gloss-cortex`.
+
+.. _gloss-power-ups-tool:
+
+Power-Ups Tool
+--------------
+
+See :ref:`gloss-tool-power-ups`.
 
 .. _gloss-primary-prop:
 
@@ -849,6 +1075,24 @@ Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties t
 primary property. Because derived properties are based on primary property values, derived
 secondary properties are always read-only (i.e., cannot be modified once set).
 
+
+.. _gloss-prop-extended:
+
+Property, Extended
+------------------
+
+Within Synapse, an extended property is a custom property added to an existing form to capture specialized data.
+For example, extended properties may be added to the data model by a :ref:`gloss-power-up` in order to record
+vendor-specific data (such as a "risk" score).
+
+Extended properties can be added with the :ref:`stormlibs-lib-model-ext` libraries. **Note** that we strongly
+recommend that any extended properties be added within a custom namespace; specifically, that property names
+begin with an underscore and include a vendor or source name (if appropriate) as the first namespace element.
+
+An example of an extended property is the ``:_virustotal:reputation`` score added to some forms to account
+for VirusTotal-specific data returned by that Power-Up (e.g., ``inet:fqdn:_virustotal:reputation``).
+
+
 .. _gloss-prop-primary:
 
 Property, Primary
@@ -876,9 +1120,9 @@ Property, Secondary
 Within Synapse, secondary properties are optional properties that provide additional detail about a :ref:`gloss-form`.
 Within the data model, secondary properties may be defined with optional constraints, such as:
 
-  - Whether the property is read-only once set.
-  - Any normalization (outside of type-specific normalization) that should occur for the property (such as converting
-    a string to all lowercase).
+- Whether the property is read-only once set.
+- Any normalization (outside of type-specific normalization) that should occur for the property (such as converting
+  a string to all lowercase).
 
 .. _gloss-prop-universal:
 
@@ -906,6 +1150,14 @@ in the queue are retained.
 R
 =
 
+.. _gloss-rapid-power:
+
+Rapid Power-Up
+--------------
+
+See :ref:`gloss-power-rapid`.
+
+
 .. _gloss-relative-prop:
 
 Relative Property
@@ -929,12 +1181,29 @@ Research Tool
 
 See :ref:`gloss-tool-research`.
 
+.. _gloss-role:
+
+Role
+----
+
+In Synapse, a role is used to group users with similar authorization needs. You can assign a set of rules (see
+:ref:`gloss-rule`) to a role, and grant the role to users who need to perform those actions.
+
 .. _gloss-root-tag:
 
 Root Tag
 --------
 
 See :ref:`gloss-tag-root`.
+
+.. _gloss-rule:
+
+Rule
+----
+
+Within Synapse, a rule is a structure used to assign (grant or prohibit) a specific :ref:`gloss-permission` (e.g.,
+``node.tag`` or ``!view.del``). A rule is assigned to a :ref:`gloss-user` or a :ref:`gloss-role`.
+
 
 .. _gloss-runt-node:
 
@@ -977,12 +1246,36 @@ See :ref:`gloss-prop-secondary`.
 Service
 -------
 
-A Storm service is a registerable remote component that can provide packages (:ref:`gloss-package`) and additional APIs
-to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside of the Cortex. When a
-service is loaded into a Cortex, the Cortex queries the endpoint to determine if the service is legitimate and, if so,
-loads the associated :ref:`gloss-package` to implement the service. An advantage of Storm services (over, say,
-additional Python modules) is that services can be restarted to reload their service definitions and packages while
-a Cortex is still running -- thus allowing a service to be updated without having to restart the entire Cortex.
+Synapse is designed as a modular set of services. Broadly speaking, a service can be thought of as a container
+used to run an application. We may informally differentiate between a :ref:`gloss-synapse-svc` and a
+:ref:`gloss-storm-svc`.
+
+.. _gloss-svc-storm:
+
+Service, Storm
+--------------
+
+A Storm service is a registerable remote component that can provide packages (:ref:`gloss-package`) and
+additional APIs to Storm and Storm commands. A service resides on a :ref:`gloss-telepath` API endpoint outside
+of the :ref:`gloss-cortex`.
+
+When the Cortex is connected to a service, the Cortex queries the endpoint to determine if the service is legitimate
+and, if so, loads the associated package to implement the service.
+
+An advantage of Storm services (over, say, additional Python modules) is that services can be restarted to reload
+their service definitions and packages while a Cortex is still running -- thus allowing a service to be updated
+without having to restart the entire Cortex.
+
+
+.. _gloss-svc-synapse:
+
+Service, Synapse
+----------------
+
+Synapse services make up the core Synapse architecture and include the :ref:`gloss-cortex` (data store),
+:ref:`gloss-axon` (file storage), and the commercial :ref:`gloss-optic` UI. Synapse services are built on the
+:ref:`gloss-cell` object.
+
 
 .. _gloss-simple-form:
 
@@ -1000,14 +1293,12 @@ A Slab is a core Synapse component which is used for persisting data on disk int
 interface offers an asyncio friendly interface to LMDB objects, while allowing users to largely avoid having to
 handle native transactions themselves.
 
-.. _gloss-splice:
+.. _gloss-sode:
 
-Splice
-------
+Sode
+----
 
-A splice is an atomic change made to data within a Cortex, such as node creation or deletion, adding or removing a tag,
-or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within
-the Cortex's splice log.
+Short for "storage node". See :ref:`gloss-node-storage`.
 
 .. _gloss-spotlight-tool:
 
@@ -1022,6 +1313,13 @@ Standard Comparison Operator
 ----------------------------
 
 See :ref:`gloss-comp-op-standard`.
+
+.. _gloss-storage-node:
+
+Storage Node
+------------
+
+See :ref:`gloss-node-storage`.
 
 .. _gloss-stories-tool:
 
@@ -1042,6 +1340,20 @@ is not required for normal use. Many of Synapse's **Power-Ups** (see :ref:`gloss
 
 See :ref:`storm-ref-intro` for additional detail.
 
+.. _gloss-storm-editor:
+
+Storm Editor
+------------
+
+Also "Storm Editor Tool". See :ref:`gloss-tool-storm-editor`.
+
+.. _gloss-storm-svc:
+
+Storm Service
+-------------
+
+See :ref:`gloss-svc-storm`.
+
 .. _gloss-subquery:
 
 Subquery
@@ -1058,6 +1370,13 @@ Subquery Filter
 ---------------
 
 See :ref:`gloss-filter-subquery`.
+
+.. _gloss-synapse-svc:
+
+Synapse Service
+---------------
+
+See :ref:`gloss-svc-synapse`.
 
 
 T
@@ -1104,6 +1423,15 @@ Tag Column
 
 See :ref:`gloss-col-tag`.
 
+.. _gloss-tag-explorer:
+
+Tag Explorer
+------------
+
+In :ref:`gloss-optic`, the Tag Explorer (found in the :ref:`gloss-help-tool`) provides an expandable,
+tree-based listing of all tags in your Synapse :ref:`gloss-cortex`, along with their definitions (if
+present).
+
 .. _gloss-tagglob-col:
 
 Tag Glob Column
@@ -1118,6 +1446,49 @@ Telepath
 
 Telepath is a lightweight remote procedure call (RPC) protocol used in Synapse. See :ref:`arch-telepath` in the
 :ref:`dev_architecture` guide for additional detail.
+
+.. _gloss-tool-admin:
+
+Tool, Admin
+-----------
+
+In :ref:`gloss-optic`, the Admin Tool provides a unified interface to perform basic management of
+users, roles, and permissions; views and layers; and triggers and cron jobs.
+
+.. _gloss-tool-console:
+
+Tool, Console
+-------------
+
+In :ref:`gloss-optic`, the Console Tool provides a CLI-like interface to Synapse. It can be used to run
+Storm queries in a manner similar to the Storm CLI (in the community version of Synapse). In Optic the
+Console Tool is more commonly used to display status, error, warning, and debug messages, or to view help
+for built-in Storm commands (see :ref:`storm-ref-cmd`) and / or Storm commands installed by Power-Ups.
+
+.. _gloss-tool-help:
+
+Tool, Help
+----------
+
+In :ref:`gloss-optic`, the central repository for Synapse documentation and assistance. The Help Tool
+includes the :ref:`gloss-data-model-explorer`, :ref:`gloss-tag-explorer`, documentation for any
+installed Power-Ups (see :ref:`gloss-power-up`), links to the public Synapse, Storm, and Optic
+documents, and version / changelog information.
+
+.. _gloss-tool-ingest:
+
+Tool, Ingest
+------------
+
+In :ref:`gloss-optic`, the primary tool used to load structured data in CSV, JSON, or JSONL format into
+Synapse using Storm. The Ingest Tool can also be used to prototype and test more formal ingest code.
+
+.. _gloss-tool-power-ups:
+
+Tool, Power-Ups
+---------------
+
+In :ref:`gloss-optic`, the tool used to view, install, update, and remove Power-Ups (see :ref:`gloss-power-up`).
 
 .. _gloss-tool-research:
 
@@ -1142,6 +1513,23 @@ Tool, Stories
 Also known as simply "Stories". In :ref:`gloss-optic`, a tool used to create, collaborate on, review, and publish
 finished reports. Stories allows you to integrate data directly from the :ref:`gloss-research-tool` into your
 report ("Story").
+
+.. _gloss-tool-storm-editor:
+
+Tool, Storm Editor
+------------------
+
+Also known as simply "Storm Editor". In :ref:`gloss-optic`, a tool used to compose, test, and store Storm
+queries (including macros - see :ref:`gloss-macro`). Storm Editor includes a number of integrated development
+environment (IDE) features, including syntax highlighting, auto-indenting, and auto-completion (via
+``ctrl-space``) for the names of forms, properties, tags, and libraries.
+
+.. _gloss-tool-workflows:
+
+Tool, Workflows
+---------------
+
+In :ref:`gloss-optic`, the tool used to access and work with Workflows (see :ref:`gloss-workflow`).
 
 .. _gloss-tool-workspaces:
 
@@ -1244,6 +1632,15 @@ Universal Property
 
 See :ref:`gloss-prop-universal`.
 
+.. _gloss-user:
+
+User
+----
+
+In Synapse, a user is represented by an account in the Cortex. An account is required to authenticate (log in)
+to the Cortex and is used for authorization (permissions) to access services and perform operations.
+
+
 V
 =
 
@@ -1267,8 +1664,8 @@ View
 Within Synapse, a view is a ordered set of layers (see :ref:`gloss-layer`) and associated permissions that are used to
 synthesize nodes from the :ref:`gloss-cortex`, determining both the nodes that are visible to users via that view and
 where (i.e., in what layer) any changes made by a view's users are recorded. A default Cortex consists of a single
-layer and a single view, meaning that by default all nodes are stored in one layer and all changes are written to that
-layer.
+layer and a single view, meaning that by default all nodes are stored in one layer, all changes are written to that
+layer, and all users have the same visibility (view) into Synapse's data.
 
 In multi-layer systems, a view consists of the set of layers that should be visible to users of that view, and the
 order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer
@@ -1277,6 +1674,23 @@ writes downward (merge) into lower layers.
 
 W
 =
+
+.. _gloss-workflow:
+
+Workflow
+--------
+
+In :ref:`gloss-optic`, a Workflow is a customized set of UI elements that provides an intuitive way to perform
+particular tasks. Workflows may be installed by Synapse Power-Ups (see :ref:`gloss-power-up`) and give users a
+more tailored means (compared to the :ref:`gloss-research-tool` or Storm query bar) to work with Power-Up Storm
+commands or associated analysis tasks.
+
+.. _gloss-workflows-tool:
+
+Workflows Tool
+--------------
+
+See :ref:`gloss-tool-workflows`.
 
 .. _gloss-workspace:
 
@@ -1300,4 +1714,6 @@ Workspaces Tool
 See :ref:`gloss-tool-workspaces`.
 
 
-.. _storm:node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#storm-node-data
+.. _node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#node-data
+
+.. _`Docker containers`: https://www.docker.com/resources/what-container/

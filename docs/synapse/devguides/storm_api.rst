@@ -69,11 +69,15 @@ tick
 text
     The Storm query text.
 
+hash
+    The md5sum of the Storm query text.
+
 Example::
 
     ('init',
      {'task': '8c90c67e37a30101a2f6a7dfb2fa0805',
       'text': '.created | limit 3',
+      'hash': '2d16e12e80be53e0e79e7c7af9bda12b',
       'tick': 1539221678859})
 
 
@@ -117,6 +121,12 @@ This example is very simple - it does not include repr information, or things re
                 'aka.beep': (None, None),}}))
 
 For path and repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
+
+ping
+----
+
+A keepalive message. This is sent periodically when the ``keepalive`` options is set. See :ref:`dev_storm_opts` for
+more information.
 
 print
 -----
@@ -431,6 +441,23 @@ Example:
                  'c5a67a095b71771d9663d691f0ab36b53ebdc14fbad18f23f95e923543156bd6',)
         opts = {'idens': idens}
 
+keepalive
+---------
+
+This is the period ( in seconds ) in which to send a ``ping`` message from a Storm query which is streamiing results,
+such as the Telepath ``.storm()`` API or the HTTP ``/v1/api/storm`` API endpoint. This may be used with long-running
+Storm queries when behind a network proxy or load balancer which may terminate idle connections.
+
+The keepalive value must be greater than zero.
+
+Example:
+
+    .. code:: python3
+
+
+        keepalive = 2  # Send a keepalive message every 2 seconds
+        opts = {'keepalive': keepalive}
+
 limit
 -----
 
@@ -522,7 +549,7 @@ Examples:
 
     .. code:: python3
 
-        opts = {'readonly': 'count'}
+        opts = {'readonly': True}
 
 repr
 ----

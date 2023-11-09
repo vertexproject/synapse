@@ -52,25 +52,13 @@ class TagProp:
     def getTagPropDef(self):
         return (self.name, self.tdef, self.info)
 
-    def getStorNode(self, form):
-
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-        }
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms
+    def getRuntPode(self):
+        ndef = ('syn:tagprop', self.name)
+        return (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+            },
         })
 
 class Prop:
@@ -105,6 +93,9 @@ class Prop:
             self.compoffs = None
             self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
+
+        self.setperm = ('node', 'prop', 'set', self.full)
+        self.delperm = ('node', 'prop', 'del', self.full)
 
         self.form = form
         self.type = None
@@ -195,6 +186,8 @@ class Prop:
 
     def pack(self):
         info = {
+            'name': self.name,
+            'full': self.full,
             'type': self.typedef,
             'stortype': self.type.stortype,
         }
@@ -204,31 +197,26 @@ class Prop:
     def getPropDef(self):
         return (self.name, self.typedef, self.info)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.full)[0])
+        ndef = ('syn:prop', self.full)
 
-        buid = s_common.buid(ndef)
-        props = {
-            'doc': self.info.get('doc', ''),
-            'type': self.type.name,
-            'relname': self.name,
-            'univ': self.isuniv,
-            'base': self.name.split(':')[-1],
-            'ro': int(self.info.get('ro', False)),
-            'extmodel': self.isext,
-        }
+        pode = (ndef, {
+            'props': {
+                'doc': self.info.get('doc', ''),
+                'type': self.type.name,
+                'relname': self.name,
+                'univ': self.isuniv,
+                'base': self.name.split(':')[-1],
+                'ro': int(self.info.get('ro', False)),
+                'extmodel': self.isext,
+            },
+        })
 
         if self.form is not None:
-            props['form'] = self.form.name
+            pode[1]['props']['form'] = self.form.name
 
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {'props': pnorms, 'ndef': ndef})
+        return pode
 
 class Form:
     '''
@@ -241,11 +229,15 @@ class Form:
         self.full = name    # so a Form() can act like a Prop().
         self.info = info
 
+        self.isext = name.startswith('_')
         self.isform = True
         self.isrunt = bool(info.get('runt', False))
 
         self.onadds = []
         self.ondels = []
+
+        self.addperm = ('node', 'add', self.name)
+        self.delperm = ('node', 'del', self.name)
 
         self.type = modl.types.get(name)
         if self.type is None:
@@ -267,33 +259,26 @@ class Form:
                 await node.snap.warnonce(mesg)
             self.onAdd(depfunc)
 
-    def getStorNode(self, form):
+    def getRuntPode(self):
 
-        ndef = (form.name, form.type.norm(self.name)[0])
-        buid = s_common.buid(ndef)
+        return (('syn:form', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'runt': self.isrunt,
+                'type': self.type.name,
+            },
+        })
 
-        props = {
-            'doc': self.info.get('doc', self.type.info.get('doc', '')),
-            'type': self.type.name,
-        }
+    def getRuntPropPode(self):
 
-        if form.name == 'syn:form':
-            props['runt'] = self.isrunt
-        elif form.name == 'syn:prop':
-            props['univ'] = False
-            props['extmodel'] = False
-            props['form'] = self.name
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
-                })
+        return (('syn:prop', self.full), {
+            'props': {
+                'doc': self.info.get('doc', self.type.info.get('doc', '')),
+                'type': self.type.name,
+                'extmodel': self.isext,
+                'form': self.name,
+            },
+        })
 
     def setProp(self, name, prop):
         self.refsout = None
@@ -402,6 +387,7 @@ class Form:
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
         info = {
+            'name': self.name,
             'props': props,
             'stortype': self.type.stortype,
         }
@@ -557,15 +543,20 @@ class Model:
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
         })
-        self.addUnivProp('created', ('time', {}), {
+        self.addUnivProp('created', ('time', {'ismin': True}), {
             'ro': True,
             'doc': 'The time the node was created in the cortex.',
         })
 
         self.addIface('taxonomy', {
+            'doc': 'Properties common to taxonomies.',
             'props': (
                 ('title', ('str', {}), {'doc': 'A brief title of the definition.'}),
-                ('summary', ('str', {}), {'doc': 'A summary of the definition.', 'disp': {'hint': 'text'}}),
+                ('summary', ('str', {}), {
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use title/desc.',
+                    'disp': {'hint': 'text'}}),
+                ('desc', ('str', {}), {'doc': 'A definition of the taxonomy entry.', 'disp': {'hint': 'text'}}),
                 ('sort', ('int', {}), {'doc': 'A display sort order for siblings.', }),
                 ('base', ('taxon', {}), {'ro': True, 'doc': 'The base taxon.', }),
                 ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
@@ -576,6 +567,10 @@ class Model:
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())
         # TODO order props based on score...
+        return props
+
+    def getArrayPropsByType(self, name):
+        props = self.arraysbytype.get(name, ())
         return props
 
     def getProps(self):
@@ -745,8 +740,7 @@ class Model:
     def _reqFormName(self, name):
         form = self.forms.get(name)
         if form is None:
-            mesg = f'No form named {name}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm.init(name)
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
@@ -758,7 +752,7 @@ class Model:
 
         if newtype.deprecated and typeinfo.get('custom'):
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
-                   f'which which will be removed in 3.0.0.'
+                   f'will be removed in 3.0.0.'
             logger.warning(mesg)
 
         self.types[typename] = newtype
@@ -805,6 +799,12 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             return
+
+        formprops = [p for p in form.props.values() if p.univ is None]
+        if formprops:
+            propnames = ', '.join(prop.name for prop in formprops)
+            mesg = f'Form has extended properties: {propnames}'
+            raise s_exc.CantDelForm(mesg=mesg)
 
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].remove(form)
@@ -859,7 +859,7 @@ class Model:
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
         return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
@@ -917,7 +917,7 @@ class Model:
 
         form = self.forms.get(formname)
         if form is None:
-            raise s_exc.NoSuchForm(name=formname)
+            raise s_exc.NoSuchForm.init(formname)
 
         prop = form.delProp(propname)
         if prop is None:

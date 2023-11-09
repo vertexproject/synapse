@@ -16,6 +16,7 @@ import binascii
 import datetime
 import calendar
 import functools
+import contextlib
 import collections
 from typing import Any
 
@@ -30,6 +31,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.trigger as s_trigger
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -37,7 +39,8 @@ import synapse.lib.provenance as s_provenance
 logger = logging.getLogger(__name__)
 
 class Undef:
-    pass
+    async def stormrepr(self):
+        return '$lib.undef'
 
 undef = Undef()
 
@@ -52,13 +55,12 @@ class StormTypesRegistry:
     base_undefined_types = (
         'any',
         'int',
+        'lib',  # lib.import
         'null',
         'time',
         'prim',
         'undef',
         'float',
-        'integer',
-        'storm:lib',  # lib.import
         'generator',
     )
     undefined_types = set(base_undefined_types)
@@ -186,7 +188,7 @@ class StormTypesRegistry:
 
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
-        funcname = rtype.pop('_funcname')
+        funcname = rtype.get('_funcname')
         if funcname == '_storm_query':
             # Sentinel used for future validation of pure storm
             # functions defined in _storm_query data.
@@ -203,8 +205,13 @@ class StormTypesRegistry:
         for parameter, argdef in zip(callsig.parameters.values(), args):
             pdef = parameter.default  # defaults to inspect._empty for undefined default values.
             adef = argdef.get('default', inspect._empty)
-            assert pdef == adef, \
-                f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            # Allow $lib.undef as a defined default to represent the undef constant.
+            if pdef is undef:
+                assert adef == '$lib.undef', \
+                    f'Expected $lib.undef for default value {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            else:
+                assert pdef == adef, \
+                    f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
 
     def _validateStor(self, obj, info, name):
         rtype = info.get('type')
@@ -226,9 +233,9 @@ class StormTypesRegistry:
         args = rtype.get('args')
         assert args is None, f'ctors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
-        # Assert the callsig for a stor has one argument
+        # Assert the callsig for a ctor has one argument
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
-        assert len(callsig_args) == 1, f'stor funcs must only have one argument for {obj} {info.get("name")}'
+        assert len(callsig_args) == 1, f'ctor funcs must only have one argument for {obj} {info.get("name")}'
 
     def _validateGtor(self, obj, info, name):
         rtype = info.get('type')
@@ -242,12 +249,16 @@ class StormTypesRegistry:
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
         assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
-    def getLibDocs(self):
+    def getLibDocs(self, lib=None):
         # Ensure type docs are loaded/verified.
         _ = self.getTypeDocs()
 
-        libs = self.iterLibs()
-        libs.sort(key=lambda x: x[0])
+        if lib is None:
+            libs = self.iterLibs()
+            libs.sort(key=lambda x: x[0])
+        else:
+            libs = ((lib._storm_lib_path, lib),)
+
         docs = []
         for (sname, slib) in libs:
             sname = slib.__class__.__name__
@@ -288,10 +299,12 @@ class StormTypesRegistry:
 
         return docs
 
-    def getTypeDocs(self):
-
-        types = self.iterTypes()
-        types.sort(key=lambda x: x[1]._storm_typename)
+    def getTypeDocs(self, styp: str =None):
+        if styp is None:
+            types = self.iterTypes()
+            types.sort(key=lambda x: x[1]._storm_typename)
+        else:
+            types = [(k, v) for (k, v) in self.iterTypes() if styp == v._storm_typename]
 
         docs = []
         for (sname, styp) in types:
@@ -395,9 +408,9 @@ class StormType:
     '''
     The base type for storm runtime value objects.
     '''
-    _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
+    _storm_locals = ()  # type: Any # To be overridden for deref constants that need documentation
     _ismutable = True
-    _storm_typename = 'storm:unknown'
+    _storm_typename = 'unknown'
 
     def __init__(self, path=None):
         self.path = path
@@ -430,6 +443,7 @@ class StormType:
         mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         if not self.stors:
@@ -438,14 +452,20 @@ class StormType:
 
         name = await tostr(name)
 
-        stor = self.stors.get(await tostr(name))
+        stor = self.stors.get(name)
         if stor is None:
             mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
+        if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
+            mesg = f'Function ({stor.__name__}) is not marked readonly safe.'
+            raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
+
         await s_coro.ornot(stor, valu)
 
     async def deref(self, name):
+        name = await tostr(name)
+
         locl = self.locls.get(name, s_common.novalu)
         if locl is not s_common.novalu:
             return locl
@@ -477,7 +497,8 @@ class Lib(StormType):
     '''
     _ismutable = False
     _storm_query = None
-    _storm_typename = 'storm:lib'
+    _storm_typename = 'lib'
+    _storm_lib_perms = ()
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -501,7 +522,14 @@ class Lib(StormType):
             async for item in self.modrunt.execute():
                 await asyncio.sleep(0)  # pragma: no cover
 
-            self.locls.update(self.modrunt.vars)
+            for k, v in self.modrunt.vars.items():
+                # Annotate the name and lib onto the callable
+                # so that it can be inspected later.
+                if callable(v) and v.__name__ == 'realfunc':
+                    v._storm_runtime_lib = self
+                    v._storm_runtime_lib_func = k
+
+                self.locls[k] = v
 
     async def stormrepr(self):
         if '__module__' in self.locls:
@@ -509,6 +537,12 @@ class Lib(StormType):
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
+
+        name = await tostr(name)
+
+        if name.startswith('__'):
+            raise s_exc.StormRuntimeError(mesg=f'Cannot dereference private value [{name}]', name=name)
+
         try:
             return await StormType.deref(self, name)
         except s_exc.NoSuchName:
@@ -544,6 +578,8 @@ class LibPkg(Lib):
          'type': {'type': 'function', '_funcname': '_libPkgAdd',
                   'args': (
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                      {'name': 'verify', 'type': 'boolean', 'default': False,
+                       'desc': 'Verify storm package signature.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
@@ -588,10 +624,11 @@ class LibPkg(Lib):
             'deps': self._libPkgDeps,
         }
 
-    async def _libPkgAdd(self, pkgdef):
+    async def _libPkgAdd(self, pkgdef, verify=False):
         self.runt.confirm(('pkg', 'add'), None)
         pkgdef = await toprim(pkgdef)
-        await self.runt.snap.core.addStormPkg(pkgdef)
+        verify = await tobool(verify)
+        await self.runt.snap.core.addStormPkg(pkgdef, verify=verify)
 
     async def _libPkgGet(self, name):
         name = await tostr(name)
@@ -637,53 +674,54 @@ class LibDmon(Lib):
          'type': {'type': 'function', '_funcname': '_libDmonAdd',
                   'args': (
                       {'name': 'text', 'type': ['str', 'storm:query'],
-                       'desc': 'The Storm query to execute in the Dmon loop.', },
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname', },
+                       'desc': 'The Storm query to execute in the Dmon loop.'},
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Dmon.', 'default': 'noname'},
+                      {'name': 'ddef', 'type': 'dict', 'desc': 'Additional daemon definition fields. ', 'default': None},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.', }}},
+                  'returns': {'type': 'str', 'desc': 'The iden of the newly created Storm Dmon.'}}},
         {'name': 'get', 'desc': 'Get a Storm Dmon definition by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonGet',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A Storm Dmon definition dict.', }}},
         {'name': 'del', 'desc': 'Delete a Storm Dmon by iden.',
          'type': {'type': 'function', '_funcname': '_libDmonDel',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to delete.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to delete.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'log', 'desc': 'Get the messages from a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonLog',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get logs for.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Storm Dmon to get logs for.'},
                   ),
-                  'returns': {'type': 'list', 'desc': 'A list of messages from the StormDmon.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of messages from the StormDmon.'}}},
         {'name': 'list', 'desc': 'Get a list of Storm Dmons.',
          'type': {
              'type': 'function', '_funcname': '_libDmonList',
-             'returns': {'type': 'list', 'desc': 'A list of Storm Dmon definitions.', }}},
+             'returns': {'type': 'list', 'desc': 'A list of Storm Dmon definitions.'}}},
         {'name': 'bump', 'desc': 'Restart the Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonBump',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to restart.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.', }}},
+                              'desc': 'True if the Dmon is restarted; False if the iden does not exist.'}}},
         {'name': 'stop', 'desc': 'Stop a Storm Dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStop',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '$lib.true unless the dmon does not exist or was already stopped.', }}},
+                              'desc': '$lib.true unless the dmon does not exist or was already stopped.'}}},
         {'name': 'start', 'desc': 'Start a storm dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStart',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '$lib.true unless the dmon does not exist or was already started.', }}},
+                              'desc': '$lib.true unless the dmon does not exist or was already started.'}}},
     )
     _storm_lib_path = ('dmon',)
 
@@ -720,25 +758,35 @@ class LibDmon(Lib):
         self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
-    async def _libDmonAdd(self, text, name='noname'):
+    async def _libDmonAdd(self, text, name='noname', ddef=None):
+
+        varz = {}
+
+        # closure style capture of runtime and query vars
+        if isinstance(text, Query):
+            varz.update(await toprim(text.varz))
+
+        varz.update(await toprim(self.runt.vars))
+
+        varz = s_msgpack.getvars(varz)
+
         text = await tostr(text)
-        varz = await toprim(self.runt.vars)
+        ddef = await toprim(ddef)
 
         viewiden = self.runt.snap.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        # closure style capture of runtime
-        varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
-
         opts = {'vars': varz, 'view': viewiden}
 
-        ddef = {
-            'name': name,
-            'user': self.runt.user.iden,
-            'storm': text,
-            'enabled': True,
-            'stormopts': opts,
-        }
+        if ddef is None:
+            ddef = {}
+
+        ddef['name'] = name
+        ddef['user'] = self.runt.user.iden
+        ddef['storm'] = text
+        ddef['stormopts'] = opts
+
+        ddef.setdefault('enabled', True)
 
         return await self.runt.snap.core.addStormDmon(ddef)
 
@@ -942,7 +990,6 @@ class LibTags(Lib):
             Normalize and prefix a list of syn:tag:part values so they can be applied.
 
             Examples:
-
                 Add tag prefixes and then use them to tag nodes::
 
                     $tags = $lib.tags.prefix($result.tags, vtx.visi)
@@ -953,6 +1000,8 @@ class LibTags(Lib):
                   'args': (
                       {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                      {'name': 'ispart', 'type': 'boolean', 'default': False,
+                       'desc': 'Whether the names have already been normalized. Normalization will be skipped if set to true.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
     )
@@ -962,18 +1011,22 @@ class LibTags(Lib):
             'prefix': self.prefix,
         }
 
-    async def prefix(self, names, prefix):
+    async def prefix(self, names, prefix, ispart=False):
 
         prefix = await tostr(prefix)
+        ispart = await tobool(ispart)
         tagpart = self.runt.snap.core.model.type('syn:tag:part')
 
         retn = []
         async for part in toiter(names):
-            try:
-                partnorm = tagpart.norm(part)[0]
-                retn.append(f'{prefix}.{partnorm}')
-            except s_exc.BadTypeValu:
-                pass
+            if not ispart:
+                try:
+                    partnorm = tagpart.norm(part)[0]
+                    retn.append(f'{prefix}.{partnorm}')
+                except s_exc.BadTypeValu:
+                    pass
+            else:
+                retn.append(f'{prefix}.{part}')
 
         return retn
 
@@ -1123,7 +1176,7 @@ class LibBase(Lib):
                        'desc': 'An initial set of values to place in the Text. '
                                'These values are joined together with an empty string.', },
                   ),
-                  'returns': {'type': 'storm:text', 'desc': 'The new Text object.', }}},
+                  'returns': {'type': 'text', 'desc': 'The new Text object.', }}},
         {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
          'type': {'type': 'function', '_funcname': '_cast',
                   'args': (
@@ -1174,7 +1227,7 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_print',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'String to print.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword argumetns to substitue into the mesg.', },
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Keyword arguments to substitute into the mesg.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'range', 'desc': '''
@@ -1198,7 +1251,7 @@ class LibBase(Lib):
                       {'name': 'start', 'type': 'int', 'desc': 'The value to start at.', 'default': None, },
                       {'name': 'step', 'type': 'int', 'desc': 'The range step size.', 'default': None, },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'integer', 'desc': 'The sequence of integers.'}}},
+                  'returns': {'name': 'Yields', 'type': 'int', 'desc': 'The sequence of integers.'}}},
         {'name': 'pprint', 'desc': 'The pprint API should not be considered a stable interface.',
          'type': {'type': 'function', '_funcname': '_pprint',
                   'args': (
@@ -1224,8 +1277,8 @@ class LibBase(Lib):
                       {'name': 'reqvers', 'type': 'str', 'default': None,
                        'desc': 'Version requirement for the imported module.', },
                   ),
-                  'returns': {'type': 'storm:lib',
-                              'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
+                  'returns': {'type': 'lib',
+                              'desc': 'A ``lib`` instance representing the imported package.', }}},
 
         {'name': 'trycast', 'desc': '''
             Attempt to normalize a value and return status and the normalized value.
@@ -1295,6 +1348,7 @@ class LibBase(Lib):
     async def _getRuntDebug(self):
         return self.runt.debug
 
+    @stormfunc(readonly=True)
     async def _setRuntDebug(self, debug):
         self.runt.debug = await tobool(debug)
 
@@ -1355,7 +1409,7 @@ class LibBase(Lib):
             if not asroot:
                 permtext = ' or '.join(('.'.join(p) for p in rootperms))
                 mesg = f'Module ({name}) requires permission: {permtext}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
             perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
@@ -1363,7 +1417,7 @@ class LibBase(Lib):
 
             if mdef.get('asroot', False) and not asroot:
                 mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-                raise s_exc.AuthDeny(mesg=mesg)
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1411,8 +1465,14 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
+            propitem = self.runt.snap.core.model.prop(name)
+            if propitem is None:
+                mesg = f'No type or prop found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = propitem.type
 
         # TODO an eventual mapping between model types and storm prims
 
@@ -1426,8 +1486,14 @@ class LibBase(Lib):
 
         typeitem = self.runt.snap.core.model.type(name)
         if typeitem is None:
-            mesg = f'No type found for name {name}.'
-            raise s_exc.NoSuchType(mesg=mesg)
+            # If a type cannot be found for the form, see if name is a property
+            # that has a type we can use
+            propitem = self.runt.snap.core.model.prop(name)
+            if propitem is None:
+                mesg = f'No type or prop found for name {name}.'
+                raise s_exc.NoSuchType(mesg=mesg)
+
+            typeitem = propitem.type
 
         try:
             norm, info = typeitem.norm(valu)
@@ -1489,6 +1555,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _min(self, *args):
+        args = await toprim(args)
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1502,6 +1569,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _max(self, *args):
+        args = await toprim(args)
         # allow passing in a list of ints
         vals = []
         for arg in args:
@@ -1531,10 +1599,15 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
+        s_common.reqjsonsafe(info)
+
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
             raise ctor(mesg=mesg, **info)
-        raise s_exc.StormRaise(name, mesg, info)
+
+        info['mesg'] = mesg
+        info['errname'] = name
+        raise s_exc.StormRaise(**info)
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
@@ -1783,7 +1856,7 @@ class LibAxon(Lib):
                       {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
                   ),
-                  'returns': {'type': ['storm:node', 'null'],
+                  'returns': {'type': ['node', 'null'],
                               'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.'}}},
         {'name': 'del', 'desc': '''
             Remove the bytes from the Cortex's Axon by sha256.
@@ -1845,16 +1918,18 @@ class LibAxon(Lib):
         {'name': 'readlines', 'desc': '''
         Yields lines of text from a plain-text file stored in the Axon.
 
-        Example:
-            Get the lines for a given file::
+        Examples:
 
-                for $line in $lib.axon.readlines($sha256) {
-                    $dostuff($line)
-                }
+            // Get the lines for a given file.
+            for $line in $lib.axon.readlines($sha256) {
+                $dostuff($line)
+            }
         ''',
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
+                       'desc': 'Specify how encoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
                               'desc': 'A line of text from the file.'}}},
@@ -1872,6 +1947,8 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'jsonlines',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
+                       'desc': 'Specify how encoding errors should handled.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
                               'desc': 'A JSON object parsed from a line of text.'}}},
@@ -1899,6 +1976,8 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                       {'name': 'dialect', 'type': 'str', 'desc': 'The default CSV dialect to use.',
                        'default': 'excel'},
+                      {'name': 'errors', 'type': 'str', 'default': 'ignore',
+                       'desc': 'Specify how encoding errors should handled.'},
                       {'name': '**fmtparams', 'type': 'any', 'desc': 'Format arguments.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
@@ -1916,6 +1995,18 @@ class LibAxon(Lib):
                  'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
     )
     _storm_lib_path = ('axon',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'axon', 'del'), 'gate': 'cortex',
+            'desc': 'Controls the ability to remove a file from the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'get'), 'gate': 'cortex',
+            'desc': 'Controls the ability to retrieve a file from the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'has'), 'gate': 'cortex',
+            'desc': 'Controls the ability to check if the Axon contains a file.'},
+        {'perm': ('storm', 'lib', 'axon', 'wget'), 'gate': 'cortex',
+            'desc': 'Controls the ability to retrieve a file from URL and store it in the Axon.'},
+        {'perm': ('storm', 'lib', 'axon', 'wput'), 'gate': 'cortex',
+            'desc': 'Controls the ability to push a file from the Axon to a URL.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -1938,16 +2029,18 @@ class LibAxon(Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
-    async def readlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+    async def readlines(self, sha256, errors='ignore'):
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
-        async for line in self.runt.snap.core.axon.readlines(sha256):
+        async for line in self.runt.snap.core.axon.readlines(sha256, errors=errors):
             yield line
 
-    async def jsonlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+    async def jsonlines(self, sha256, errors='ignore'):
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -1956,7 +2049,8 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -1972,7 +2066,9 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        if not self.runt.allowed(('axon', 'del')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
@@ -1983,10 +2079,8 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
-
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if not self.runt.allowed(('axon', 'wget')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         url = await tostr(url)
         method = await tostr(method)
@@ -1999,6 +2093,9 @@ class LibAxon(Lib):
         timeout = await toprim(timeout)
         proxy = await toprim(proxy)
 
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+
         params = self.strify(params)
         headers = self.strify(headers)
 
@@ -2010,15 +2107,15 @@ class LibAxon(Lib):
             kwargs['proxy'] = proxy
 
         axon = self.runt.snap.core.axon
-        return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
+        resp = await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout, **kwargs)
+        resp['original_url'] = url
+        return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
-
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if not self.runt.allowed(('axon', 'wput')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -2032,6 +2129,9 @@ class LibAxon(Lib):
 
         params = self.strify(params)
         headers = self.strify(headers)
+
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
@@ -2048,35 +2148,56 @@ class LibAxon(Lib):
         code = resp.get('code')
 
         if code != 200:
-            if code is None:
-                mesg = f'$lib.axon.urlfile(): {resp.get("mesg")}'
-            else:
-                mesg = f'$lib.axon.urlfile(): HTTP code {code} != 200'
-
+            mesg = f'$lib.axon.urlfile(): HTTP code {code}: {resp.get("reason")}'
             await self.runt.warn(mesg, log=False)
             return
 
-        url = resp.get('url')
+        now = self.runt.model.type('time').norm('now')[0]
+
+        original_url = resp.get('original_url')
         hashes = resp.get('hashes')
+        sha256 = hashes.get('sha256')
         props = {
             'size': resp.get('size'),
             'md5': hashes.get('md5'),
             'sha1': hashes.get('sha1'),
-            'sha256': hashes.get('sha256'),
-            '.seen': 'now',
+            'sha256': sha256,
+            '.seen': now,
         }
 
-        sha256 = hashes.get('sha256')
         filenode = await self.runt.snap.addNode('file:bytes', sha256, props=props)
 
         if not filenode.get('name'):
-            info = s_urlhelp.chopurl(url)
+            info = s_urlhelp.chopurl(original_url)
             base = info.get('path').strip('/').split('/')[-1]
             if base:
                 await filenode.set('name', base)
 
-        props = {'.seen': 'now'}
-        urlfile = await self.runt.snap.addNode('inet:urlfile', (url, sha256), props=props)
+        props = {'.seen': now}
+        urlfile = await self.runt.snap.addNode('inet:urlfile', (original_url, sha256), props=props)
+
+        history = resp.get('history')
+        if history is not None:
+            redirs = []
+            src = original_url
+
+            # We skip the first entry in history, since that URL is the original URL
+            # having been redirected. The second+ history item represents the
+            # requested URL. We then capture the last part of the chain in our list.
+            # The recorded URLs after the original_url are all the resolved URLS,
+            # since Location headers may be partial paths and this avoids needing to
+            # do url introspection that has already been done by the Axon.
+
+            for info in history[1:]:
+                url = info.get('url')
+                redirs.append((src, url))
+                src = url
+
+            redirs.append((src, resp.get('url')))
+
+            for valu in redirs:
+                props = {'.seen': now}
+                await self.runt.snap.addNode('inet:urlredir', valu, props=props)
 
         return urlfile
 
@@ -2085,7 +2206,8 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2093,20 +2215,24 @@ class LibAxon(Lib):
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
         fmtparams = await toprim(fmtparams)
-        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
+        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect,
+                                                           errors=errors, **fmtparams):
             yield item
             await asyncio.sleep(0)
 
     async def metrics(self):
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        if not self.runt.allowed(('axon', 'has')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
@@ -2212,12 +2338,17 @@ class LibBytes(Lib):
             return size, s_common.ehex(sha256)
 
     async def _libBytesHas(self, sha256):
+        sha256 = await tostr(sha256, noneok=True)
+        if sha256 is None:
+            return None
+
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('has', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
         return ret
 
     async def _libBytesSize(self, sha256):
+        sha256 = await tostr(sha256)
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('size', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2235,6 +2366,7 @@ class LibBytes(Lib):
         return (size, s_common.ehex(sha2))
 
     async def _libBytesHashset(self, sha256):
+        sha256 = await tostr(sha256)
         await self.runt.snap.core.getAxon()
         todo = s_common.todo('hashset', s_common.uhex(sha256))
         ret = await self.dyncall('axon', todo)
@@ -2251,7 +2383,7 @@ class LibLift(Lib):
                   'args': (
                       {'name': 'name', 'desc': 'The name to of the nodedata key to lift by.', 'type': 'str', },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                  'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes to the pipeline. '
                                       'This must be used in conjunction with the ``yield`` keyword.', }}},
     )
@@ -2308,7 +2440,7 @@ class LibTime(Lib):
                       {'name': 'errok', 'type': 'boolean', 'default': False,
                        'desc': 'If set, parsing errors will return ``$lib.null`` instead of raising an exception.'}
                   ),
-                  'returns': {'type': 'int', 'desc': 'The epoch timetsamp for the string.', }}},
+                  'returns': {'type': 'int', 'desc': 'The epoch timestamp for the string.', }}},
         {'name': 'format', 'desc': '''
             Format a Synapse timestamp into a string value using ``datetime.strftime()``.
 
@@ -2578,6 +2710,7 @@ class LibTime(Lib):
         return ret
 
     async def _parse(self, valu, format, errok=False):
+        valu = await tostr(valu)
         errok = await tobool(errok)
         try:
             dt = datetime.datetime.strptime(valu, format)
@@ -2859,7 +2992,7 @@ class LibFeed(Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the ingest function to send data too.', },
                       {'name': 'data', 'type': 'prim', 'desc': 'Data to send to the ingest function.', },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                  'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields Nodes as they are created by the ingest function.', }}},
         {'name': 'list', 'desc': 'Get a list of feed functions.',
          'type': {'type': 'function', '_funcname': '_libList',
@@ -2963,7 +3096,7 @@ class LibPipe(Lib):
                       {'name': 'size', 'type': 'int', 'default': 10000,
                        'desc': 'Maximum size of the pipe.', },
                   ),
-                  'returns': {'type': 'storm:pipe', 'desc': 'The pipe containing query results.', }}},
+                  'returns': {'type': 'pipe', 'desc': 'The pipe containing query results.', }}},
     )
 
     _storm_lib_path = ('pipe',)
@@ -2983,17 +3116,12 @@ class LibPipe(Lib):
 
         pipe = Pipe(self.runt, size)
 
-        varz = self.runt.vars.copy()
-        varz['pipe'] = pipe
-
-        opts = {'vars': varz}
-
+        opts = {'vars': {'pipe': pipe}}
         query = await self.runt.getStormQuery(text)
-        runt = await self.runt.getModRuntime(query, opts=opts)
 
         async def coro():
             try:
-                async with runt:
+                async with self.runt.getSubRuntime(query, opts=opts) as runt:
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
@@ -3062,7 +3190,7 @@ class Pipe(StormType):
          'type': {'type': 'function', '_funcname': '_methPipeSize',
                   'returns': {'type': 'int', 'desc': 'The number of items in the Pipe.', }}},
     )
-    _storm_typename = 'storm:pipe'
+    _storm_typename = 'pipe'
 
     def __init__(self, runt, size):
         StormType.__init__(self)
@@ -3131,13 +3259,13 @@ class LibQueue(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the queue to add.', },
                   ),
-                  'returns': {'type': 'storm:queue', }}},
+                  'returns': {'type': 'queue', }}},
         {'name': 'gen', 'desc': 'Add or get a Storm Queue in a single operation.',
          'type': {'type': 'function', '_funcname': '_methQueueGen',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to add or get.', },
                   ),
-                  'returns': {'type': 'storm:queue', }}},
+                  'returns': {'type': 'queue', }}},
         {'name': 'del', 'desc': 'Delete a given named Queue.',
          'type': {'type': 'function', '_funcname': '_methQueueDel',
                   'args': (
@@ -3149,7 +3277,7 @@ class LibQueue(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Queue to get.', },
                   ),
-                  'returns': {'type': 'storm:queue', 'desc': 'A ``storm:queue`` object.', }}},
+                  'returns': {'type': 'queue', 'desc': 'A ``queue`` object.', }}},
         {'name': 'list', 'desc': 'Get a list of the Queues in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methQueueList',
                   'returns': {'type': 'list',
@@ -3276,7 +3404,7 @@ class Queue(StormType):
          'type': {'type': 'function', '_funcname': '_methQueueSize',
                   'returns': {'type': 'int', 'desc': 'The number of items in the Queue.', }}},
     )
-    _storm_typename = 'storm:queue'
+    _storm_typename = 'queue'
     _ismutable = False
 
     def __init__(self, runt, name, info):
@@ -3383,9 +3511,15 @@ class LibTelepath(Lib):
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The Telepath URL to connect to.', },
                   ),
-                  'returns': {'type': 'storm:proxy', 'desc': 'A object representing a Telepath Proxy.', }}},
+                  'returns': {'type': 'telepath:proxy', 'desc': 'A object representing a Telepath Proxy.', }}},
     )
     _storm_lib_path = ('telepath',)
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
+         'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
+        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
+         'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -3395,7 +3529,8 @@ class LibTelepath(Lib):
     async def _methTeleOpen(self, url):
         url = await tostr(url)
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
         return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
@@ -3418,12 +3553,12 @@ class Proxy(StormType):
     An example of calling a method which is a generator::
 
         $prox = $lib.telepath.open($url)
-        for $item in = $prox.genrStuff($data) {
+        for $item in $prox.genrStuff($data) {
             $doStuff($item)
         }
 
     '''
-    _storm_typename = 'storm:proxy'
+    _storm_typename = 'telepath:proxy'
 
     def __init__(self, runt, proxy, path=None):
         StormType.__init__(self, path=path)
@@ -3431,6 +3566,8 @@ class Proxy(StormType):
         self.proxy = proxy
 
     async def deref(self, name):
+
+        name = await tostr(name)
 
         if name[0] == '_':
             mesg = f'No proxy method named {name}'
@@ -3447,10 +3584,19 @@ class Proxy(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyMethod(StormType):
+    '''
+    Implements the call methods for the telepath:proxy.
 
-    _storm_typename = 'storm:proxy:method'
+    An example of calling a method which returns data::
+
+        $prox = $lib.telepath.open($url)
+        $result = $prox.doWork($data)
+        $doStuff($result)
+    '''
+
+    _storm_typename = 'telepath:proxy:method'
 
     def __init__(self, runt, meth, path=None):
         StormType.__init__(self, path=path)
@@ -3470,10 +3616,19 @@ class ProxyMethod(StormType):
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
 
-# @registry.registerType
+@registry.registerType
 class ProxyGenrMethod(StormType):
+    '''
+    Implements the generator methods for the telepath:proxy.
 
-    _storm_typename = 'storm:proxy:genrmethod'
+    An example of calling a method which is a generator::
+
+        $prox = $lib.telepath.open($url)
+        for $item in $prox.genrStuff($data) {
+            $doStuff($item)
+        }
+    '''
+    _storm_typename = 'telepath:proxy:genrmethod'
 
     def __init__(self, meth, path=None):
         StormType.__init__(self, path=path)
@@ -3497,6 +3652,9 @@ class Service(Proxy):
         self.name = ssvc.name
 
     async def deref(self, name):
+
+        name = await tostr(name)
+
         try:
             await self.proxy.waitready()
             return await Proxy.deref(self, name)
@@ -3545,8 +3703,8 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64encode(valu).decode('ascii')
             return base64.b64encode(valu).decode('ascii')
         except TypeError as e:
-            mesg = f'Error during base64 encoding - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+            mesg = f'Error during base64 encoding - {str(e)}: {repr(valu)[:256]}'
+            raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
     async def _decode(self, valu, urlsafe=True):
         try:
@@ -3554,8 +3712,8 @@ class LibBase64(Lib):
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
         except binascii.Error as e:
-            mesg = f'Error during base64 decoding - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
+            mesg = f'Error during base64 decoding - {str(e)}: {repr(valu)[:256]}'
+            raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
 @functools.total_ordering
 class Prim(StormType):
@@ -3684,7 +3842,7 @@ class Str(Prim):
                   'args': (
                       {'name': 'oldv', 'type': 'str', 'desc': 'The value to replace.', },
                       {'name': 'newv', 'type': 'str', 'desc': 'The value to add into the string.', },
-                      {'name': 'maxv', 'type': 'int', 'desc': 'The maximum number of occurances to replace.',
+                      {'name': 'maxv', 'type': 'int', 'desc': 'The maximum number of occurrences to replace.',
                        'default': None, },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string with replaced instances.', }}},
@@ -3732,7 +3890,7 @@ class Str(Prim):
                   ),
                   'returns': {'type': 'str', 'desc': 'The stripped string.', }}},
         {'name': 'lower', 'desc': '''
-            Get a lowercased copy the of the string.
+            Get a lowercased copy of the string.
 
             Examples:
                 Printing a lowercased string::
@@ -3742,7 +3900,7 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrLower',
                   'returns': {'type': 'str', 'desc': 'The lowercased string.', }}},
         {'name': 'upper', 'desc': '''
-                Get a uppercased copy the of the string.
+                Get a uppercased copy of the string.
 
                 Examples:
                     Printing a uppercased string::
@@ -3751,6 +3909,17 @@ class Str(Prim):
                         $lib.print($foo.upper())''',
          'type': {'type': 'function', '_funcname': '_methStrUpper',
                   'returns': {'type': 'str', 'desc': 'The uppercased string.', }}},
+        {'name': 'title', 'desc': '''
+                Get a title cased copy of the string.
+
+                Examples:
+                    Printing a title cased string::
+
+                        $foo="Hello world."
+                        $lib.print($foo.title())''',
+         'type': {'type': 'function', '_funcname': '_methStrTitle',
+                  'returns': {'type': 'str', 'desc': 'The title cased string.', }}},
+
         {'name': 'slice', 'desc': '''
             Get a substring slice of the string.
 
@@ -3797,7 +3966,7 @@ class Str(Prim):
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The substring to find.'},
                   ),
-                  'returns': {'type': 'int', 'desc': 'The first offset of subsgring or null.'}}},
+                  'returns': {'type': 'int', 'desc': 'The first offset of substring or null.'}}},
         {'name': 'size', 'desc': 'Return the length of the string.',
          'type': {'type': 'function', '_funcname': '_methStrSize',
                   'returns': {'type': 'int', 'desc': 'The size of the string.', }}},
@@ -3841,6 +4010,7 @@ class Str(Prim):
             'rstrip': self._methStrRstrip,
             'lower': self._methStrLower,
             'upper': self._methStrUpper,
+            'title': self._methStrTitle,
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
@@ -3864,6 +4034,7 @@ class Str(Prim):
             return str(self) == str(othr)
         return False
 
+    @stormfunc(readonly=True)
     async def _methStrFind(self, valu):
         text = await tostr(valu)
         retn = self.valu.find(text)
@@ -3871,60 +4042,80 @@ class Str(Prim):
             retn = None
         return retn
 
+    @stormfunc(readonly=True)
     async def _methStrFormat(self, **kwargs):
         text = await kwarg_format(self.valu, **kwargs)
         return text
 
+    @stormfunc(readonly=True)
     async def _methStrSize(self):
         return len(self.valu)
 
+    @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
             return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
+    @stormfunc(readonly=True)
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
         return self.valu.split(text, maxsplit=maxsplit)
 
+    @stormfunc(readonly=True)
     async def _methStrRsplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
         return self.valu.rsplit(text, maxsplit=maxsplit)
 
+    @stormfunc(readonly=True)
     async def _methStrEndswith(self, text):
         return self.valu.endswith(text)
 
+    @stormfunc(readonly=True)
     async def _methStrStartswith(self, text):
         return self.valu.startswith(text)
 
+    @stormfunc(readonly=True)
     async def _methStrRjust(self, size, fillchar=' '):
         return self.valu.rjust(await toint(size), await tostr(fillchar))
 
+    @stormfunc(readonly=True)
     async def _methStrLjust(self, size, fillchar=' '):
         return self.valu.ljust(await toint(size), await tostr(fillchar))
 
+    @stormfunc(readonly=True)
     async def _methStrReplace(self, oldv, newv, maxv=None):
         if maxv is None:
             return self.valu.replace(oldv, newv)
         else:
             return self.valu.replace(oldv, newv, int(maxv))
 
+    @stormfunc(readonly=True)
     async def _methStrStrip(self, chars=None):
         return self.valu.strip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrLstrip(self, chars=None):
         return self.valu.lstrip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrRstrip(self, chars=None):
         return self.valu.rstrip(chars)
 
+    @stormfunc(readonly=True)
     async def _methStrLower(self):
         return self.valu.lower()
 
+    @stormfunc(readonly=True)
     async def _methStrUpper(self):
         return self.valu.upper()
 
+    @stormfunc(readonly=True)
+    async def _methStrTitle(self):
+        return self.valu.title()
+
+    @stormfunc(readonly=True)
     async def _methStrSlice(self, start, end=None):
         start = await toint(start)
 
@@ -3934,6 +4125,7 @@ class Str(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
+    @stormfunc(readonly=True)
     async def _methStrReverse(self):
         return self.valu[::-1]
 
@@ -3947,6 +4139,7 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
+                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -3981,6 +4174,7 @@ class Bytes(Prim):
 
             Example:
                 Compress bytes with gzip::
+
                     $foo = $mybytez.gzip()''',
          'type': {'type': 'function', '_funcname': '_methGzip',
                   'returns': {'type': 'bytes', 'desc': 'The gzip compressed bytes.', }}},
@@ -3992,8 +4186,14 @@ class Bytes(Prim):
 
             Example:
                 Load bytes to a object::
+
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
+                       'default': 'surrogatepass', },
+                  ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
         {'name': 'slice', 'desc': '''
@@ -4020,8 +4220,9 @@ class Bytes(Prim):
             Unpack structures from bytes using python struct.unpack syntax.
 
             Examples:
-                # unpack 3 unsigned 16 bit integers in little endian format
-                ($x, $y, $z) = $byts.unpack("<HHH")
+                Unpack 3 unsigned 16 bit integers in little endian format::
+
+                    ($x, $y, $z) = $byts.unpack("<HHH")
             ''',
          'type': {'type': 'function', '_funcname': 'unpack',
                   'args': (
@@ -4083,11 +4284,13 @@ class Bytes(Prim):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
-    async def _methDecode(self, encoding='utf8'):
+    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+        encoding = await tostr(encoding)
+        errors = await tostr(errors)
         try:
-            return self.valu.decode(encoding, 'surrogatepass')
+            return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -4101,8 +4304,24 @@ class Bytes(Prim):
     async def _methGzip(self):
         return gzip.compress(self.valu)
 
-    async def _methJsonLoad(self):
-        return json.loads(self.valu)
+    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+        try:
+            valu = self.valu
+            errors = await tostr(errors)
+
+            if encoding is None:
+                encoding = json.detect_encoding(valu)
+            else:
+                encoding = await tostr(encoding)
+
+            return json.loads(valu.decode(encoding, errors))
+
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
+
+        except json.JSONDecodeError as e:
+            mesg = f'Unable to decode bytes as json: {e.args[0]}'
+            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Dict(Prim):
@@ -4123,7 +4342,13 @@ class Dict(Prim):
         for item in tuple(self.valu.items()):
             yield item
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
+
+        if ismutable(name):
+            raise s_exc.BadArg(mesg='Mutable values are not allowed as dictionary keys', name=await torepr(name))
+
+        name = await toprim(name)
 
         if valu is undef:
             self.valu.pop(name, None)
@@ -4132,6 +4357,7 @@ class Dict(Prim):
         self.valu[name] = valu
 
     async def deref(self, name):
+        name = await toprim(name)
         return self.valu.get(name)
 
     async def value(self):
@@ -4148,7 +4374,7 @@ class CmdOpts(Dict):
     A dictionary like object that holds a reference to a command options namespace.
     ( This allows late-evaluation of command arguments rather than forcing capture )
     '''
-    _storm_typename = 'storm:cmdopts'
+    _storm_typename = 'cmdopts'
     _ismutable = False
 
     def __len__(self):
@@ -4159,13 +4385,16 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
         # we disallow setitem() to prevent confusion
+        name = await tostr(name)
         mesg = 'CmdOpts may not be modified by the runtime'
         raise s_exc.StormRuntimeError(mesg=mesg, name=name)
 
     async def deref(self, name):
+        name = await tostr(name)
         return getattr(self.valu.opts, name, None)
 
     async def value(self):
@@ -4299,7 +4528,7 @@ class List(Prim):
     Implements the Storm API for a List instance.
     '''
     _storm_locals = (
-        {'name': 'has', 'desc': 'Check it a value is in the list.',
+        {'name': 'has', 'desc': 'Check if a value is in the list.',
          'type': {'type': 'function', '_funcname': '_methListHas',
                   'args': (
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },
@@ -4349,7 +4578,7 @@ class List(Prim):
 
                     $y=$x.slice(3)  // (b, a, r)
             ''',
-         'type': {'type': 'function', '_funcname': 'slice',
+         'type': {'type': 'function', '_funcname': '_methListSlice',
                   'args': (
                       {'name': 'start', 'type': 'int', 'desc': 'The starting index.'},
                       {'name': 'end', 'type': 'int', 'default': None,
@@ -4373,7 +4602,7 @@ class List(Prim):
 
                     // $list is now (f, o, o, b, a, r)
             ''',
-         'type': {'type': 'function', '_funcname': 'extend',
+         'type': {'type': 'function', '_funcname': '_methListExtend',
                   'args': (
                       {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
                   ),
@@ -4396,11 +4625,11 @@ class List(Prim):
             'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
-
-            'slice': self.slice,
-            'extend': self.extend,
+            'slice': self._methListSlice,
+            'extend': self._methListExtend,
         }
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
 
         indx = await toint(name)
@@ -4459,6 +4688,9 @@ class List(Prim):
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('StormType List.length() is deprecated. Use the size() method.')
         return len(self)
 
     async def _methListSort(self, reverse=False):
@@ -4472,7 +4704,7 @@ class List(Prim):
     async def _methListSize(self):
         return len(self)
 
-    async def slice(self, start, end=None):
+    async def _methListSlice(self, start, end=None):
         start = await toint(start)
 
         if end is None:
@@ -4481,7 +4713,7 @@ class List(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
-    async def extend(self, valu):
+    async def _methListExtend(self, valu):
         async for item in toiter(valu):
             self.valu.append(item)
 
@@ -4517,7 +4749,10 @@ class Bool(Prim):
 @registry.registerType
 class Number(Prim):
     '''
-    Implements the Storm API for a number instance.
+    Implements the Storm API for a Number instance.
+
+    Storm Numbers are high precision fixed point decimals corresponding to the
+    the hugenum storage type.
     '''
     _storm_locals = (
         {'name': 'scaleb', 'desc': '''
@@ -4703,7 +4938,25 @@ class Number(Prim):
         mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
-    __rpow__ = __pow__
+    def __rpow__(self, othr):
+        othr = Number(othr)
+        return othr.__pow__(self)
+
+    def __mod__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugemod(self.value(), othr)[1])
+        elif isinstance(othr, Number):
+            return Number(s_common.hugemod(self.value(), othr.value())[1])
+
+        mesg = f"'%' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rmod__(self, othr):
+        othr = Number(othr)
+        return othr.__mod__(self)
 
     async def stormrepr(self):
         return str(self.value())
@@ -4726,10 +4979,10 @@ class LibUser(Lib):
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
-        {'name': 'vars', 'desc': 'Get a Hive dictionary representing the current users persistent variables.',
-         'type': 'storm:hive:dict', },
-        {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
-         'type': 'storm:hive:dict', },
+        {'name': 'vars', 'desc': "Get a Hive dictionary representing the current user's persistent variables.",
+         'type': 'hive:dict', },
+        {'name': 'profile', 'desc': "Get a Hive dictionary representing the current user's profile information.",
+         'type': 'hive:dict', },
         {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )
@@ -4795,6 +5048,25 @@ class LibGlobals(Lib):
                               'desc': 'A list of tuples with variable names and values that the user can access.', }}},
     )
     _storm_lib_path = ('globals', )
+    _storm_lib_perms = (
+        {'perm': ('globals',), 'gate': 'cortex',
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'), 'gate': 'cortex',
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'pop'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to a specific global variable.'},
+    )
 
     def __init__(self, runt, name):
         Lib.__init__(self, runt, name)
@@ -4879,7 +5151,7 @@ class StormHiveDict(Prim):
          'type': {'type': 'function', '_funcname': '_list',
                   'returns': {'type': 'list', 'desc': 'A list of tuples containing key, value pairs.', }}},
     )
-    _storm_typename = 'storm:hive:dict'
+    _storm_typename = 'hive:dict'
     _ismutable = True
 
     def __init__(self, runt, info):
@@ -4948,6 +5220,12 @@ class LibVars(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the variable too.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'type', 'desc': 'Get the type of the argument value.',
+         'type': {'type': 'function', '_funcname': '_libVarsType',
+                  'args': (
+                     {'name': 'valu', 'type': 'any', 'desc': 'Value to inspect.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The type of the argument.'}}},
         {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
          'type': {'type': 'function', '_funcname': '_libVarsList',
                   'returns': {'type': 'list',
@@ -4961,6 +5239,7 @@ class LibVars(Lib):
             'set': self._libVarsSet,
             'del': self._libVarsDel,
             'list': self._libVarsList,
+            'type': self._libVarsType,
         }
 
     async def _libVarsGet(self, name, defv=None):
@@ -4974,6 +5253,9 @@ class LibVars(Lib):
 
     async def _libVarsList(self):
         return list(self.runt.vars.items())
+
+    async def _libVarsType(self, valu):
+        return await totype(valu)
 
 @registry.registerType
 class Query(Prim):
@@ -5005,8 +5287,6 @@ class Query(Prim):
 
     def __init__(self, text, varz, runt, path=None):
 
-        text = text.strip()
-
         Prim.__init__(self, text, path=path)
 
         self.text = text
@@ -5032,7 +5312,7 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async with s_common.aclosing(self._getRuntGenr()) as genr:
+        async with contextlib.aclosing(self._getRuntGenr()) as genr:
             async for node, path in genr:
                 yield node
 
@@ -5095,7 +5375,7 @@ class NodeProps(Prim):
          'type': {'type': 'function', '_funcname': 'list',
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
     )
-    _storm_typename = 'storm:node:props'
+    _storm_typename = 'node:props'
     _ismutable = True
 
     def __init__(self, node, path=None):
@@ -5122,26 +5402,34 @@ class NodeProps(Prim):
 
         Raises:
             s_exc:NoSuchProp: If the property being set is not valid for the node.
-            s_exc.BadTypeValu: If the value of the proprerty fails to normalize.
+            s_exc.BadTypeValu: If the value of the property fails to normalize.
         '''
         name = await tostr(name)
+
+        formprop = self.valu.form.prop(name)
+        if formprop is None:
+            mesg = f'No prop {self.valu.form.name}:{name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.valu.form.name)
+
+        gateiden = self.valu.snap.wlyr.iden
+
+        if valu is undef:
+            confirm(('node', 'prop', 'del', formprop.full), gateiden=gateiden)
+            await self.valu.pop(name, None)
+            return
+
         valu = await toprim(valu)
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(name, valu)
 
     async def iter(self):
         # Make copies of property values since array types are mutable
-        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
+        items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.getProps().items())
         for item in items:
             yield item
 
     async def set(self, prop, valu):
-        formprop = self.valu.form.prop(prop)
-        if formprop is None:
-            mesg = f'No prop {self.valu.form.name}:{prop}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
-        gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
-        return await self.valu.set(prop, valu)
+        return await self.setitem(prop, valu)
 
     @stormfunc(readonly=True)
     async def get(self, name):
@@ -5149,11 +5437,11 @@ class NodeProps(Prim):
 
     @stormfunc(readonly=True)
     async def list(self):
-        return list(self.valu.props.items())
+        return list(self.valu.getProps().items())
 
     @stormfunc(readonly=True)
     def value(self):
-        return dict(self.valu.props)
+        return self.valu.getProps()
 
 @registry.registerType
 class NodeData(Prim):
@@ -5213,7 +5501,7 @@ class NodeData(Prim):
                   ),
                   'returns': {'type': 'null', }}},
     )
-    _storm_typename = 'storm:node:data'
+    _storm_typename = 'node:data'
     _ismutable = True
 
     def __init__(self, node, path=None):
@@ -5397,7 +5685,7 @@ class Node(Prim):
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'type': 'list', 'desc': 'List of storage node objects.', }}},
     )
-    _storm_typename = 'storm:node'
+    _storm_typename = 'node'
     _ismutable = False
 
     def __init__(self, node, path=None):
@@ -5431,7 +5719,11 @@ class Node(Prim):
         }
 
     async def getStorNodes(self):
-        return await self.valu.getStorNodes()
+        sodes = await self.valu.getStorNodes()
+        for sode in sodes:
+            if (nid := sode.get('nid')) is not None:
+                sode['nid'] = s_common.ehex(nid)
+        return sodes
 
     def getByLayer(self):
         return self.valu.getByLayer()
@@ -5452,11 +5744,13 @@ class Node(Prim):
         reverse = await tobool(reverse)
 
         if reverse:
-            async for edge in self.valu.iterEdgesN2(verb=verb):
-                yield edge
+            async for (verb, n1nid) in self.valu.iterEdgesN2(verb=verb):
+                n1iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n1nid))
+                yield (verb, n1iden)
         else:
-            async for edge in self.valu.iterEdgesN1(verb=verb):
-                yield edge
+            async for (verb, n2nid) in self.valu.iterEdgesN1(verb=verb):
+                n2iden = s_common.ehex(self.valu.snap.core.getBuidByNid(n2nid))
+                yield (verb, n2iden)
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
@@ -5485,7 +5779,7 @@ class Node(Prim):
         glob = await tostr(glob, noneok=True)
         leaf = await tobool(leaf)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         if leaf:
             _tags = []
             # brute force rather than build a tree.  faster in small sets.
@@ -5508,7 +5802,7 @@ class Node(Prim):
             mesg = f'Tag globs may not be adjacent: {glob}'
             raise s_exc.BadArg(mesg=mesg)
 
-        tags = list(self.valu.tags.keys())
+        tags = self.valu.getTagNames()
         regx = s_cache.getTagGlobRegx(glob)
         ret = []
         for tag in tags:
@@ -5534,13 +5828,13 @@ class Node(Prim):
 
             tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
             curtags = set()
-            for tag in list(self.valu.tags.keys()):
+            for tag in self.valu.getTagNames():
                 parts = tuple(tag.split('.'))
                 if parts[:plen] == prefix:
                     curtags.add(parts)
         else:
             tags = set([tuple(tag.split('.')) for tag in tags if tag])
-            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.getTagNames()])
 
         adds = set([tag for tag in tags if tag not in curtags])
         dels = set()
@@ -5588,16 +5882,19 @@ class PathMeta(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path meta information.
     '''
-    _storm_typename = 'storm:node:path:meta'
+    _storm_typename = 'node:path:meta'
     _ismutable = True
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
+        name = await tostr(name)
         return self.path.metadata.get(name)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
+        name = await tostr(name)
         if valu is undef:
             self.path.metadata.pop(name, None)
             return
@@ -5613,13 +5910,14 @@ class PathVars(Prim):
     '''
     Put the storm deref/setitem/iter convention on top of path variables.
     '''
-    _storm_typename = 'storm:node:path:vars'
+    _storm_typename = 'node:path:vars'
     _ismutable = True
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
+        name = await tostr(name)
 
         valu = self.path.getVar(name)
         if valu is not s_common.novalu:
@@ -5628,7 +5926,9 @@ class PathVars(Prim):
         mesg = f'No var with name: {name}.'
         raise s_exc.StormRuntimeError(mesg=mesg)
 
+    @stormfunc(readonly=True)
     async def setitem(self, name, valu):
+        name = await tostr(name)
         if valu is undef:
             await self.path.popVar(name)
             return
@@ -5645,8 +5945,8 @@ class Path(Prim):
     Implements the Storm API for the Path object.
     '''
     _storm_locals = (
-        {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'storm:node:path:vars', },
-        {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'storm:node:path:meta', },
+        {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'node:path:vars', },
+        {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'node:path:meta', },
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
@@ -5655,7 +5955,7 @@ class Path(Prim):
                   'returns': {'type': 'list',
                               'desc': 'List of tuples containing the name and value of path variables.', }}},
     )
-    _storm_typename = 'storm:path'
+    _storm_typename = 'node:path'
     _ismutable = True
 
     def __init__(self, node, path=None):
@@ -5695,7 +5995,7 @@ class Text(Prim):
          'type': {'type': 'function', '_funcname': '_methTextStr',
                   'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
     )
-    _storm_typename = 'storm:text'
+    _storm_typename = 'text'
     _ismutable = True
 
     def __init__(self, valu, path=None):
@@ -5719,110 +6019,6 @@ class Text(Prim):
         return self.valu
 
 @registry.registerLib
-class LibStats(Lib):
-    '''
-    A Storm Library for statistics related functionality.
-    '''
-    _storm_locals = (
-        {'name': 'tally', 'desc': 'Get a Tally object.',
-         'type': {'type': 'function', '_funcname': 'tally',
-                  'returns': {'type': 'storm:stat:tally', 'desc': 'A new tally object.', }}},
-    )
-    _storm_lib_path = ('stats',)
-
-    def getObjLocals(self):
-        return {
-            'tally': self.tally,
-        }
-
-    async def tally(self):
-        return StatTally(path=self.path)
-
-@registry.registerType
-class StatTally(Prim):
-    '''
-    A tally object.
-
-    An example of using it::
-
-        $tally = $lib.stats.tally()
-
-        $tally.inc(foo)
-
-        for $name, $total in $tally {
-            $doStuff($name, $total)
-        }
-
-    '''
-    _storm_typename = 'storm:stat:tally'
-    _storm_locals = (
-        {'name': 'inc', 'desc': 'Increment a given counter.',
-         'type': {'type': 'function', '_funcname': 'inc',
-                  'args': (
-                      {'name': 'name', 'desc': 'The name of the counter to increment.', 'type': 'str', },
-                      {'name': 'valu', 'desc': 'The value to increment the counter by.', 'type': 'int', 'default': 1, },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get the value of a given counter.',
-         'type': {'type': 'function', '_funcname': 'get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the counter to get.', },
-                  ),
-                  'returns': {'type': 'int',
-                              'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
-        {'name': 'sorted', 'desc': 'Get a list of (counter, value) tuples in sorted order.',
-         'type': {'type': 'function', '_funcname': 'sorted',
-                  'args': (
-                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
-                       'type': 'bool', 'default': False},
-                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
-                       'type': 'bool', 'default': False},
-                  ),
-                  'returns': {'type': 'list',
-                              'desc': 'List of (counter, value) tuples in sorted order.'}}},
-    )
-    _ismutable = True
-
-    def __init__(self, path=None):
-        Prim.__init__(self, {}, path=path)
-        self.counters = collections.defaultdict(int)
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'inc': self.inc,
-            'get': self.get,
-            'sorted': self.sorted,
-        }
-
-    async def __aiter__(self):
-        for name, valu in self.counters.items():
-            yield name, valu
-
-    def __len__(self):
-        return len(self.counters)
-
-    async def inc(self, name, valu=1):
-        valu = await toint(valu)
-        self.counters[name] += valu
-
-    async def get(self, name):
-        return self.counters.get(name, 0)
-
-    def value(self):
-        return dict(self.counters)
-
-    async def iter(self):
-        for item in tuple(self.counters.items()):
-            yield item
-
-    async def sorted(self, byname=False, reverse=False):
-        if byname:
-            return list(sorted(self.counters.items(), reverse=reverse))
-        else:
-            return list(sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse))
-
-@registry.registerLib
 class LibLayer(Lib):
     '''
     A Storm Library for interacting with Layers in the Cortex.
@@ -5834,8 +6030,8 @@ class LibLayer(Lib):
                   'args': (
                       {'name': 'ldef', 'type': 'dict', 'desc': 'The layer definition dictionary.', 'default': None, },
                   ),
-                  'returns': {'type': 'storm:layer',
-                              'desc': 'A ``storm:layer`` object representing the new layer.', }}},
+                  'returns': {'type': 'layer',
+                              'desc': 'A ``layer`` object representing the new layer.', }}},
         {'name': 'del', 'desc': 'Delete a layer from the Cortex.',
          'type': {'type': 'function', '_funcname': '_libLayerDel',
                   'args': (
@@ -5849,10 +6045,10 @@ class LibLayer(Lib):
                        'desc': 'The iden of the layer to get. '
                                'If not set, this defaults to the top layer of the current View.', },
                   ),
-                  'returns': {'type': 'storm:layer', 'desc': 'The storm layer object.', }}},
+                  'returns': {'type': 'layer', 'desc': 'The storm layer object.', }}},
         {'name': 'list', 'desc': 'List the layers in a Cortex',
          'type': {'type': 'function', '_funcname': '_libLayerList',
-                  'returns': {'type': 'list', 'desc': 'List of ``storm:layer`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'List of ``layer`` objects.', }}},
     )
 
     def getObjLocals(self):
@@ -5919,7 +6115,7 @@ class Layer(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the Layer definition.',
+        {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name to set.', },
@@ -6079,7 +6275,7 @@ class Layer(Prim):
                       {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
                       {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                  'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
         {'name': 'liftByTag', 'desc': '''
             Lift and yield nodes with the tag set within the layer.
@@ -6099,10 +6295,61 @@ class Layer(Prim):
                       {'name': 'tagname', 'type': 'str', 'desc': 'The tag name to lift by.'},
                       {'name': 'formname', 'type': 'str', 'desc': 'The optional form to lift.', 'default': None},
                   ),
-                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                  'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
+
+        {'name': 'getEdges', 'desc': '''
+            Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
+
+            Example:
+                Iterate the light edges in ``$layer``::
+
+                    for ($n1iden, $verb, $n2iden) in $layer.getEdges() {
+                        $lib.print(`{$n1iden} -({$verb})> {$n2iden}`)
+                    }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdges',
+                  'args': (),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
+
+        {'name': 'getEdgesByN1', 'desc': '''
+            Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
+
+            Example:
+                Iterate the N1 edges for ``$node``::
+
+                    for ($verb, $n2iden) in $layer.getEdgesByN1($node.iden()) {
+                        $lib.print(`-({$verb})> {$n2iden}`)
+                    }
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgesByN1',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
+
+        {'name': 'getEdgesByN2', 'desc': '''
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
+
+            Example:
+                Iterate the N2 edges for ``$node``::
+
+                    for ($verb, $n1iden) in $layer.getEdgesByN2($node.iden()) {
+                        $lib.print(`-({$verb})> {$n1iden}`)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'getEdgesByN2',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
     )
-    _storm_typename = 'storm:layer'
+    _storm_typename = 'layer'
     _ismutable = False
 
     def __init__(self, runt, ldef, path=None):
@@ -6142,6 +6389,7 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
@@ -6149,6 +6397,8 @@ class Layer(Prim):
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
+            'getEdgesByN1': self.getEdgesByN1,
+            'getEdgesByN2': self.getEdgesByN2,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -6157,15 +6407,14 @@ class Layer(Prim):
         formname = await tostr(formname, noneok=True)
 
         if formname is not None and self.runt.snap.core.model.form(formname) is None:
-            mesg = f'The form {formname} does not exist.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            raise s_exc.NoSuchForm.init(formname)
 
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
 
         await self.runt.reqUserCanReadLayer(iden)
-        async for _, buid, sode in layr.liftByTag(tagname, form=formname):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByTag(tagname, form=formname):
+            yield await self.runt.snap._joinStorNode(nid)
 
     async def liftByProp(self, propname, propvalu=None, propcmpr='='):
 
@@ -6194,14 +6443,14 @@ class Layer(Prim):
             liftprop = prop.name
 
         if propvalu is None:
-            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
-                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+            async for _, nid, _ in layr.liftByProp(liftform, liftprop):
+                yield await self.runt.snap._joinStorNode(nid)
             return
 
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
-        async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
-            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+        async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.snap._joinStorNode(nid)
 
     async def getMirrorStatus(self):
         iden = self.valu.get('iden')
@@ -6217,10 +6466,11 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layr.addPull() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -6242,7 +6492,7 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layr.delPull() requires admin privs on the top layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         todo = s_common.todo('delLayrPull', layriden, iden)
         await self.runt.dyncall('cortex', todo)
@@ -6256,10 +6506,12 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layer.addPush() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+
+        if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
+            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -6281,7 +6533,7 @@ class Layer(Prim):
 
         if not self.runt.isAdmin(gateiden=layriden):
             mesg = '$layer.delPush() requires admin privs on the layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         todo = s_common.todo('delLayrPush', layriden, iden)
         await self.runt.dyncall('cortex', todo)
@@ -6343,14 +6595,51 @@ class Layer(Prim):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        return await layr.getStorNode(s_common.uhex(nodeid))
+
+        nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        return layr.getStorNode(nid)
 
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-        async for item in layr.getStorNodes():
+
+        async for nid, sode in layr.getStorNodes():
+            if (nid := sode.get('nid')) is not None:
+                sode['nid'] = s_common.ehex(nid)
+
+            yield (self.runt.snap.core.getBuidByNid(nid), sode)
+
+    async def getEdges(self):
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getEdges():
             yield item
+
+    async def getEdgesByN1(self, nodeid):
+        nodeid = await tostr(nodeid)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        n1nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for verb, n2nid in layr.iterNodeEdgesN1(n1nid):
+            yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n2nid)))
+
+    async def getEdgesByN2(self, nodeid):
+        nodeid = await tostr(nodeid)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        n2nid = self.runt.snap.core.getNidByBuid(s_common.uhex(nodeid))
+        async for (verb, n1nid) in layr.iterNodeEdgesN2(n2nid):
+            yield (verb, s_common.ehex(self.runt.snap.core.getBuidByNid(n1nid)))
 
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
@@ -6358,11 +6647,14 @@ class Layer(Prim):
     async def _methLayerSet(self, name, valu):
         name = await tostr(name)
 
-        if name == 'name':
-            valu = await tostr(valu)
-        elif name == 'desc':
-            valu = await tostr(valu)
+        if name in ('name', 'desc'):
+            if valu is undef:
+                valu = None
+            else:
+                valu = await tostr(await toprim(valu), noneok=True)
         elif name == 'logedits':
+            valu = await tobool(valu)
+        elif name == 'readonly':
             valu = await tobool(valu)
         else:
             mesg = f'Layer does not support setting: {name}'
@@ -6418,9 +6710,10 @@ class LibView(Lib):
          'type': {'type': 'function', '_funcname': '_methViewAdd',
                   'args': (
                       {'name': 'layers', 'type': 'list', 'desc': 'A list of layer idens which make up the view.', },
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, }
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the view.', 'default': None, },
+                      {'name': 'worldreadable', 'type': 'boolean', 'desc': 'Grant read access to the `all` role.', 'default': False, },
                   ),
-                  'returns': {'type': 'storm:view', 'desc': 'A ``storm:view`` object representing the new View.', }}},
+                  'returns': {'type': 'view', 'desc': 'A ``view`` object representing the new View.', }}},
         {'name': 'del', 'desc': 'Delete a View from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewDel',
                   'args': (
@@ -6433,14 +6726,14 @@ class LibView(Lib):
                       {'name': 'iden', 'type': 'str', 'default': None,
                         'desc': 'The iden of the View to get. If not specified, returns the current View.', },
                   ),
-                  'returns': {'type': 'storm:view', 'desc': 'The storm view object.', }}},
+                  'returns': {'type': 'view', 'desc': 'The storm view object.', }}},
         {'name': 'list', 'desc': 'List the Views in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewList',
                   'args': (
                       {'name': 'deporder', 'type': 'bool', 'default': False,
                         'desc': 'Return the lists in bottom-up dependency order.', },
                   ),
-                  'returns': {'type': 'list', 'desc': 'List of ``storm:view`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'List of ``view`` objects.', }}},
     )
 
     def getObjLocals(self):
@@ -6451,13 +6744,15 @@ class LibView(Lib):
             'list': self._methViewList,
         }
 
-    async def _methViewAdd(self, layers, name=None):
+    async def _methViewAdd(self, layers, name=None, worldreadable=False):
         name = await tostr(name, noneok=True)
         layers = await toprim(layers)
+        worldreadable = await tobool(worldreadable)
 
         vdef = {
             'creator': self.runt.user.iden,
-            'layers': layers
+            'layers': layers,
+            'worldreadable': worldreadable,
         }
 
         if name is not None:
@@ -6484,10 +6779,9 @@ class LibView(Lib):
     async def _methViewGet(self, iden=None):
         if iden is None:
             iden = self.runt.snap.view.iden
-        todo = s_common.todo('getViewDef', iden)
-        vdef = await self.runt.dyncall('cortex', todo)
+        vdef = await self.runt.snap.core.getViewDef(iden)
         if vdef is None:
-            raise s_exc.NoSuchView(mesg=iden)
+            raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
 
         return View(self.runt, vdef, path=self.path)
 
@@ -6504,9 +6798,9 @@ class View(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
-        {'name': 'layers', 'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'layers', 'desc': 'The ``layer`` objects associated with the ``view``.', 'type': 'list', },
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
-        {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
+        {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
         {'name': 'set', 'desc': '''
             Set a view configuration option.
@@ -6554,10 +6848,10 @@ class View(Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new view.', 'default': None, },
                   ),
-                  'returns': {'type': 'storm:view', 'desc': 'The ``storm:view`` object for the new View.', }}},
+                  'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
         {'name': 'pack', 'desc': 'Get the View definition.',
          'type': {'type': 'function', '_funcname': '_methViewPack',
-                  'returns': {'type': 'dict', 'desc': 'Dictionary continaing the View definition.', }}},
+                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the View definition.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the View.',
          'type': {'type': 'function', '_funcname': '_methViewRepr',
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
@@ -6585,7 +6879,7 @@ class View(Prim):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
                       {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'The node which may have been just constructed.', }}},
+                  'returns': {'type': 'node', 'desc': 'The node if the view is the current view, otherwise null.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -6608,7 +6902,7 @@ class View(Prim):
                       {'type': 'dict',
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
     )
-    _storm_typename = 'storm:view'
+    _storm_typename = 'view'
     _ismutable = False
 
     def __init__(self, runt, vdef, path=None):
@@ -6649,14 +6943,22 @@ class View(Prim):
         viewiden = self.valu.get('iden')
 
         view = self.runt.snap.core.getView(viewiden)
+        layriden = view.layers[0].iden
 
-        self.runt.layerConfirm(('node', 'add', form))
+        # check that the user can read from the view
+        # ( to emulate perms check for being able to run storm at all )
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
 
-        for propname in props.keys():
-            fullname = f'{form}:{propname}'
-            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
+        self.runt.confirm(('node', 'add', form), gateiden=layriden)
+        if props is not None:
+            for propname in props.keys():
+                fullname = f'{form}:{propname}'
+                self.runt.confirm(('node', 'prop', 'set', fullname), gateiden=layriden)
 
-        return await self.runt.snap.addNode(form, valu, props=props)
+        if viewiden == self.runt.snap.view.iden:
+            return await self.runt.snap.addNode(form, valu, props=props)
+        else:
+            await view.addNode(form, valu, props=props, user=self.runt.user)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
@@ -6709,12 +7011,12 @@ class View(Prim):
 
         name = await tostr(name)
 
-        if name == 'name':
-            valu = await tostr(valu)
-        elif name == 'desc':
-            valu = await tostr(valu)
-        elif name == 'parent':
-            valu = await tostr(valu)
+        if name in ('name', 'desc', 'parent'):
+            if valu is undef:
+                valu = None
+            else:
+                valu = await tostr(await toprim(valu), noneok=True)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
         elif name == 'layers':
@@ -6722,7 +7024,7 @@ class View(Prim):
             view = self.runt.snap.core.getView(self.valu.get('iden'))
             if view is None: # pragma: no cover
                 mesg = f'No view with iden: {self.valu.get("iden")}'
-                raise s_exc.NoSuchView(mesg=mesg)
+                raise s_exc.NoSuchView(mesg=mesg, iden=self.valu.get('iden'))
 
             layers = await toprim(valu)
             layers = tuple(str(x) for x in layers)
@@ -6737,8 +7039,8 @@ class View(Prim):
                 self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
 
             if not self.runt.isAdmin(gateiden=view.iden):
-                mesg = 'You must be an admin of the view to set the layers.'
-                raise s_exc.AuthDeny(mesg=mesg)
+                mesg = 'User must be an admin of the view to set the layers.'
+                raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
             await view.setLayers(layers)
             self.valu['layers'] = layers
@@ -6827,7 +7129,7 @@ class LibTrigger(Lib):
                   'args': (
                       {'name': 'tdef', 'type': 'dict', 'desc': 'A Trigger definition.', },
                   ),
-                  'returns': {'type': 'storm:trigger', 'desc': 'The new trigger.', }}},
+                  'returns': {'type': 'trigger', 'desc': 'The new trigger.', }}},
         {'name': 'del', 'desc': 'Delete a Trigger from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerDel',
                   'args': (
@@ -6836,16 +7138,20 @@ class LibTrigger(Lib):
                                'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the deleted trigger which matched the prefix.', }}},
-        {'name': 'list', 'desc': 'Get a list of Triggers in the current view.',
+        {'name': 'list', 'desc': 'Get a list of Triggers in the current view or every view.',
          'type': {'type': 'function', '_funcname': '_methTriggerList',
+                  'args': (
+                      {'name': 'all', 'type': 'boolean', 'default': False,
+                       'desc': 'Get a list of all the readable Triggers in every readable View.'},
+                  ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.', }}},
+                              'desc': 'A list of ``trigger`` objects the user is allowed to access.', }}},
         {'name': 'get', 'desc': 'Get a Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Trigger to get.', },
                   ),
-                  'returns': {'type': 'storm:trigger', 'desc': 'The requested ``storm:trigger`` object.', }}},
+                  'returns': {'type': 'trigger', 'desc': 'The requested ``trigger`` object.', }}},
         {'name': 'enable', 'desc': 'Enable a Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerEnable',
                   'args': (
@@ -6874,6 +7180,24 @@ class LibTrigger(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
     _storm_lib_path = ('trigger',)
+    _storm_lib_perms = (
+        {'perm': ('trigger', 'add'), 'gate': 'cortex',
+         'desc': 'Controls adding triggers.'},
+        {'perm': ('trigger', 'del'), 'gate': 'view',
+         'desc': 'Controls deleting triggers.'},
+        {'perm': ('trigger', 'get'), 'gate': 'trigger',
+         'desc': 'Controls listing/retrieving triggers.'},
+        {'perm': ('trigger', 'set'), 'gate': 'view',
+         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
+        {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
+         'desc': 'Controls modifying the doc property of triggers.'},
+        {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
+         'desc': 'Controls modifying the name property of triggers.'},
+        {'perm': ('trigger', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Controls modifying the user property of triggers.'},
+        {'perm': ('trigger', 'set', '<property>'), 'gate': 'view',
+         'desc': 'Controls modifying specific trigger properties.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -6892,18 +7216,22 @@ class LibTrigger(Lib):
         exactly one.
         '''
         match = None
-        trigs = await self.runt.snap.view.listTriggers()
+        for view in self.runt.snap.core.listViews():
+            if not allowed(('view', 'read'), gateiden=view.iden):
+                continue
 
-        for iden, trig in trigs:
-            if iden.startswith(prefix):
-                if match is not None:
-                    mesg = 'Provided iden matches more than one trigger.'
-                    raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
+            trigs = await view.listTriggers()
 
-                if not allowed(('trigger', 'get'), gateiden=iden):
-                    continue
+            for iden, trig in trigs:
+                if iden.startswith(prefix):
+                    if match is not None:
+                        mesg = 'Provided iden matches more than one trigger.'
+                        raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                match = trig
+                    if not allowed(('trigger', 'get'), gateiden=iden):
+                        continue
+
+                    match = trig
 
         if match is None:
             mesg = 'Provided iden does not match any valid authorized triggers.'
@@ -6915,15 +7243,18 @@ class LibTrigger(Lib):
         tdef = await toprim(tdef)
 
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
 
         tdef['user'] = useriden
-        tdef['view'] = viewiden
 
+        viewiden = tdef.pop('view', None)
+        if viewiden is None:
+            viewiden = self.runt.snap.view.iden
+
+        tdef['view'] = viewiden
         # query is kept to keep this API backwards compatible.
         query = tdef.pop('query', None)
         if query is not None:  # pragma: no cover
-            s_common.deprecated('$lib.trigger.add() with query', curv='2.95.0')
+            s_common.deprecated('$lib.trigger.add() with "query" argument instead of "storm"', curv='2.95.0')
             await self.runt.warn('$lib.trigger.add() called with query argument, this is deprecated. Use storm instead.')
             tdef['storm'] = query
 
@@ -6946,6 +7277,14 @@ class LibTrigger(Lib):
         if prop is not None:
             tdef['prop'] = prop
 
+        verb = tdef.pop('verb', None)
+        if verb is not None:
+            tdef['verb'] = verb
+
+        n2form = tdef.pop('n2form', None)
+        if n2form is not None:
+            tdef['n2form'] = n2form
+
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
         tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
@@ -6954,43 +7293,58 @@ class LibTrigger(Lib):
 
     async def _methTriggerDel(self, prefix):
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         trig = await self._matchIdens(prefix)
         iden = trig.iden
 
         todo = s_common.todo('delTrigger', iden)
         gatekeys = ((useriden, ('trigger', 'del'), iden),)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
     async def _methTriggerMod(self, prefix, query):
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
-    async def _methTriggerList(self):
-        view = self.runt.snap.view
-        triggers = []
+    async def _methTriggerList(self, all=False):
+        if all:
+            views = self.runt.snap.core.listViews()
+        else:
+            views = [self.runt.snap.view]
 
-        for iden, trig in await view.listTriggers():
-            if not allowed(('trigger', 'get'), gateiden=iden):
+        triggers = []
+        for view in views:
+            if not allowed(('view', 'read'), gateiden=view.iden):
                 continue
-            triggers.append(Trigger(self.runt, trig.pack()))
+
+            for iden, trig in await view.listTriggers():
+                if not allowed(('trigger', 'get'), gateiden=iden):
+                    continue
+                triggers.append(Trigger(self.runt, trig.pack()))
 
         return triggers
 
     async def _methTriggerGet(self, iden):
-        trigger = await self.runt.snap.view.getTrigger(iden)
+        trigger = None
+        try:
+            # fast path to our current view
+            trigger = await self.runt.snap.view.getTrigger(iden)
+        except s_exc.NoSuchIden:
+            for view in self.runt.snap.core.listViews():
+                try:
+                    trigger = await view.getTrigger(iden)
+                except s_exc.NoSuchIden:
+                    pass
+
         if trigger is None:
-            return None
+            raise s_exc.NoSuchIden('Trigger not found')
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
@@ -7007,10 +7361,9 @@ class LibTrigger(Lib):
         iden = trig.iden
 
         useriden = self.runt.user.iden
-        viewiden = self.runt.snap.view.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
         todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
-        await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
 
@@ -7039,7 +7392,7 @@ class Trigger(Prim):
          'type': {'type': 'function', '_funcname': 'pack',
                   'returns': {'type': 'dict', 'desc': 'The definition.', }}},
     )
-    _storm_typename = 'storm:trigger'
+    _storm_typename = 'trigger'
     _ismutable = False
 
     def __init__(self, runt, tdef):
@@ -7064,6 +7417,8 @@ class Trigger(Prim):
         return copy.deepcopy(self.valu)
 
     async def deref(self, name):
+        name = await tostr(name)
+
         valu = self.valu.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
@@ -7072,20 +7427,24 @@ class Trigger(Prim):
 
     async def set(self, name, valu):
         trigiden = self.valu.get('iden')
-        useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
         if name in ('async', 'enabled', ):
             valu = await tobool(valu)
-        if name in ('doc', 'name', 'storm', ):
+        if name in ('user', 'doc', 'name', 'storm', ):
             valu = await tostr(valu)
 
-        gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
-        todo = ('setTriggerInfo', (trigiden, name, valu), {})
-        await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        if name == 'user':
+            self.runt.user.confirm(('trigger', 'set', 'user'))
+        else:
+            self.runt.user.confirm(('trigger', 'set', name), gateiden=viewiden)
+
+        await self.runt.snap.view.setTriggerInfo(trigiden, name, valu)
 
         self.valu[name] = valu
+
+        return self
 
     async def move(self, viewiden):
         trigiden = self.valu.get('iden')
@@ -7094,7 +7453,7 @@ class Trigger(Prim):
         todo = s_common.todo('getViewDef', viewiden)
         vdef = await self.runt.dyncall('cortex', todo)
         if vdef is None:
-            raise s_exc.NoSuchView(mesg=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No view with iden={viewiden}', iden=viewiden)
 
         trigview = self.valu.get('view')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -7105,6 +7464,12 @@ class Trigger(Prim):
         tdef = dict(self.valu)
         tdef['view'] = viewiden
         tdef['user'] = useriden
+
+        try:
+            s_trigger.reqValidTdef(tdef)
+            await self.runt.snap.core.reqValidStorm(tdef['storm'])
+        except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
+            raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
 
         gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
         todo = s_common.todo('delTrigger', trigiden)
@@ -7146,17 +7511,54 @@ class LibAuth(Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'The string to process.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A tuple containing a bool and a list of permission parts.', }}},
+        {'name': 'textFromRule', 'desc': 'Return a text string from a rule tuple.',
+         'type': {'type': 'function', '_funcname': 'textFromRule',
+                  'args': (
+                    {'name': 'rule', 'type': 'list', 'desc': 'A rule tuple.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The rule text.'}}},
+        {'name': 'getPermDefs', 'desc': 'Return a list of permission definitions.',
+         'type': {'type': 'function', '_funcname': 'getPermDefs',
+                  'args': (),
+                  'returns': {'type': 'list', 'desc': 'The list of permission definitions.'}}},
+        {'name': 'getPermDef', 'desc': 'Return a single permission definition.',
+         'type': {'type': 'function', '_funcname': 'getPermDef',
+                  'args': (
+                    {'name': 'perm', 'type': 'list', 'desc': 'A permission tuple.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A permission definition or null.'}}},
     )
     _storm_lib_path = ('auth',)
 
     def getObjLocals(self):
         return {
+            'getPermDef': self.getPermDef,
+            'getPermDefs': self.getPermDefs,
             'ruleFromText': self.ruleFromText,
+            'textFromRule': self.textFromRule,
         }
 
     @staticmethod
+    @stormfunc(readonly=True)
     def ruleFromText(text):
         return ruleFromText(text)
+
+    @stormfunc(readonly=True)
+    async def textFromRule(self, rule):
+        rule = await toprim(rule)
+        text = '.'.join(rule[1])
+        if not rule[0]:
+            text = '!' + text
+        return text
+
+    @stormfunc(readonly=True)
+    async def getPermDefs(self):
+        return self.runt.snap.core.getPermDefs()
+
+    @stormfunc(readonly=True)
+    async def getPermDef(self, perm):
+        perm = await toprim(perm)
+        return self.runt.snap.core.getPermDef(perm)
 
 @registry.registerLib
 class LibUsers(Lib):
@@ -7168,12 +7570,12 @@ class LibUsers(Lib):
          'type': {'type': 'function', '_funcname': '_methUsersAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user.', },
-                      {'name': 'passwd', 'type': 'str', 'desc': 'The users password.', 'default': None, },
-                      {'name': 'email', 'type': 'str', 'desc': 'The users email address.', 'default': None, },
+                      {'name': 'passwd', 'type': 'str', 'desc': "The user's password.", 'default': None, },
+                      {'name': 'email', 'type': 'str', 'desc': "The user's email address.", 'default': None, },
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the user.', 'default': None, }
                   ),
-                  'returns': {'type': 'storm:auth:user',
-                              'desc': 'The ``storm:auth:user`` object for the new user.', }}},
+                  'returns': {'type': 'auth:user',
+                              'desc': 'The ``auth:user`` object for the new user.', }}},
         {'name': 'del', 'desc': 'Delete a User from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methUsersDel',
                   'args': (
@@ -7182,23 +7584,70 @@ class LibUsers(Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Users in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methUsersList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:user`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``auth:user`` objects.', }}},
         {'name': 'get', 'desc': 'Get a specific User by iden.',
          'type': {'type': 'function', '_funcname': '_methUsersGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the user to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:user'],
-                              'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.', }}},
+                  'returns': {'type': ['null', 'auth:user'],
+                              'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific user by name.',
          'type': {'type': 'function', '_funcname': '_methUsersByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the user to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:user'],
-                              'desc': 'The ``storm:auth:user`` object, or none if the user does not exist.', }}},
+                  'returns': {'type': ['null', 'auth:user'],
+                              'desc': 'The ``auth:user`` object, or none if the user does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'users')
+    _storm_lib_perms = (
+        {'perm': ('auth', 'role', 'set', 'name'), 'gate': 'cortex',
+         'desc': 'Permits a user to change the name of a role.'},
+        {'perm': ('auth', 'role', 'set', 'rules'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify rules of a role.'},
+
+         {'perm': ('auth', 'self', 'set', 'email'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own email address.',
+         'default': True},
+        {'perm': ('auth', 'self', 'set', 'name'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own username.',
+         'default': True},
+        {'perm': ('auth', 'self', 'set', 'passwd'), 'gate': 'cortex',
+         'desc': 'Permits a user to change their own password.',
+         'default': True},
+
+        {'perm': ('auth', 'user', 'grant'), 'gate': 'cortex',
+         'desc': 'Controls granting roles to a user.'},
+        {'perm': ('auth', 'user', 'revoke'), 'gate': 'cortex',
+         'desc': 'Controls revoking roles from a user.'},
+
+        {'perm': ('auth', 'user', 'set', 'admin'), 'gate': 'cortex',
+         'desc': 'Controls setting/removing a user\'s admin status.'},
+        {'perm': ('auth', 'user', 'set', 'email'), 'gate': 'cortex',
+         'desc': 'Controls changing a user\'s email address.'},
+        {'perm': ('auth', 'user', 'set', 'locked'), 'gate': 'cortex',
+         'desc': 'Controls locking/unlocking a user account.'},
+        {'perm': ('auth', 'user', 'set', 'passwd'), 'gate': 'cortex',
+         'desc': 'Controls changing a user password.'},
+        {'perm': ('auth', 'user', 'set', 'rules'), 'gate': 'cortex',
+         'desc': 'Controls adding rules to a user.'},
+
+        {'perm': ('auth', 'user', 'get', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to retrieve their profile information.',
+         'ex': 'auth.user.get.profile.fullname'},
+        {'perm': ('auth', 'user', 'pop', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to remove profile information.',
+         'ex': 'auth.user.pop.profile.fullname'},
+        {'perm': ('auth', 'user', 'set', 'profile', '<name>'), 'gate': 'cortex',
+         'desc': 'Permits a user to set profile information.',
+         'ex': 'auth.user.set.profile.fullname'},
+
+        {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
+         'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
+        {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
+         'desc': 'Controls the ability to remove a user from the system. USE WITH CAUTION!'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7209,21 +7658,25 @@ class LibUsers(Lib):
             'byname': self._methUsersByName,
         }
 
+    @stormfunc(readonly=True)
     async def _methUsersList(self):
         return [User(self.runt, udef['iden']) for udef in await self.runt.snap.core.getUserDefs()]
 
+    @stormfunc(readonly=True)
     async def _methUsersGet(self, iden):
         udef = await self.runt.snap.core.getUserDef(iden)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
+    @stormfunc(readonly=True)
     async def _methUsersByName(self, name):
         udef = await self.runt.snap.core.getUserDefByName(name)
         if udef is not None:
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        self.runt.confirm(('auth', 'user', 'add'))
+        if not self.runt.allowed(('auth', 'user', 'add')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'add'))
         name = await tostr(name)
         iden = await tostr(iden, True)
         email = await tostr(email, True)
@@ -7232,7 +7685,8 @@ class LibUsers(Lib):
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        self.runt.confirm(('auth', 'user', 'del'))
+        if not self.runt.allowed(('auth', 'user', 'del')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'del'))
         await self.runt.snap.core.delUser(iden)
 
 @registry.registerLib
@@ -7246,7 +7700,7 @@ class LibRoles(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the role.', },
                   ),
-                  'returns': {'type': 'storm:auth:role', 'desc': 'The new role object.', }}},
+                  'returns': {'type': 'auth:role', 'desc': 'The new role object.', }}},
         {'name': 'del', 'desc': 'Delete a Role from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methRolesDel',
                   'args': (
@@ -7255,23 +7709,29 @@ class LibRoles(Lib):
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of Roles in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methRolesList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:role`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``auth:role`` objects.', }}},
         {'name': 'get', 'desc': 'Get a specific Role by iden.',
          'type': {'type': 'function', '_funcname': '_methRolesGet',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the role to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:role'],
-                              'desc': 'The ``storm:auth:role`` object; or null if the role does not exist.', }}},
+                  'returns': {'type': ['null', 'auth:role'],
+                              'desc': 'The ``auth:role`` object; or null if the role does not exist.', }}},
         {'name': 'byname', 'desc': 'Get a specific Role by name.',
          'type': {'type': 'function', '_funcname': '_methRolesByName',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the role to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:role'],
+                  'returns': {'type': ['null', 'auth:role'],
                               'desc': 'The role by name, or null if it does not exist.', }}},
     )
     _storm_lib_path = ('auth', 'roles')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'auth', 'roles', 'add'), 'gate': 'cortex',
+         'desc': 'Controls the ability to add a role to the system. USE WITH CAUTION!'},
+        {'perm': ('storm', 'lib', 'auth', 'roles', 'del'), 'gate': 'cortex',
+         'desc': 'Controls the ability to remove a role from the system. USE WITH CAUTION!'},
+    )
 
     def getObjLocals(self):
         return {
@@ -7282,26 +7742,31 @@ class LibRoles(Lib):
             'byname': self._methRolesByName,
         }
 
+    @stormfunc(readonly=True)
     async def _methRolesList(self):
         return [Role(self.runt, rdef['iden']) for rdef in await self.runt.snap.core.getRoleDefs()]
 
+    @stormfunc(readonly=True)
     async def _methRolesGet(self, iden):
         rdef = await self.runt.snap.core.getRoleDef(iden)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
+    @stormfunc(readonly=True)
     async def _methRolesByName(self, name):
         rdef = await self.runt.snap.core.getRoleDefByName(name)
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
-        self.runt.confirm(('auth', 'role', 'add'))
+        if not self.runt.allowed(('auth', 'role', 'add')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        self.runt.confirm(('auth', 'role', 'del'))
+        if not self.runt.allowed(('auth', 'role', 'del')):
+            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'del'))
         await self.runt.snap.core.delRole(iden)
 
 @registry.registerLib
@@ -7315,11 +7780,11 @@ class LibGates(Lib):
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the gate to retrieve.', },
                   ),
-                  'returns': {'type': ['null', 'storm:auth:gate'],
-                              'desc': 'The ``storm:auth:gate`` if it exists, otherwise null.', }}},
+                  'returns': {'type': ['null', 'auth:gate'],
+                              'desc': 'The ``auth:gate`` if it exists, otherwise null.', }}},
         {'name': 'list', 'desc': 'Get a list of Gates in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methGatesList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``storm:auth:gate`` objects.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``auth:gate`` objects.', }}},
     )
     _storm_lib_path = ('auth', 'gates')
 
@@ -7329,11 +7794,13 @@ class LibGates(Lib):
             'list': self._methGatesList,
         }
 
+    @stormfunc(readonly=True)
     async def _methGatesList(self):
         todo = s_common.todo('getAuthGates')
         gates = await self.runt.coreDynCall(todo)
         return [Gate(self.runt, g) for g in gates]
 
+    @stormfunc(readonly=True)
     async def _methGatesGet(self, iden):
         iden = await toprim(iden)
         todo = s_common.todo('getAuthGate', iden)
@@ -7352,7 +7819,7 @@ class Gate(Prim):
         {'name': 'roles', 'desc': 'The role idens which are a member of the Authgate.', 'type': 'list', },
         {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
-    _storm_typename = 'storm:auth:gate'
+    _storm_typename = 'auth:gate'
     _ismutable = False
 
     def __init__(self, runt, valu, path=None):
@@ -7426,6 +7893,14 @@ class LibJsonStor(Lib):
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The cached asof time and path.'}}},
+        {'name': 'cachedel',
+         'desc': 'Remove cached data set with cacheset.',
+         'type': {'type': 'function', '_funcname': 'cachedel',
+                  'args': (
+                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
     )
 
     def addLibFuncs(self):
@@ -7437,13 +7912,14 @@ class LibJsonStor(Lib):
             'iter': self.iter,
             'cacheget': self.cacheget,
             'cacheset': self.cacheset,
+            'cachedel': self.cachedel,
         })
 
     async def has(self, path):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.has() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         if isinstance(path, str):
@@ -7456,7 +7932,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.get() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         prop = await toprim(prop)
@@ -7475,7 +7951,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.set() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         valu = await toprim(valu)
@@ -7496,7 +7972,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.del() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
         prop = await toprim(prop)
@@ -7516,7 +7992,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.iter() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         path = await toprim(path)
 
@@ -7533,7 +8009,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheget() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         key = await toprim(key)
         path = await toprim(path)
@@ -7562,7 +8038,7 @@ class LibJsonStor(Lib):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheset() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         key = await toprim(key)
         path = await toprim(path)
@@ -7589,12 +8065,29 @@ class LibJsonStor(Lib):
             'path': cachepath,
         }
 
+    async def cachedel(self, path, key):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.cachedel() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        key = await toprim(key)
+        path = await toprim(path)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+
+        await self.runt.snap.core.delJsonObj(fullpath)
+        return True
+
 @registry.registerType
 class UserProfile(Prim):
     '''
     The Storm deref/setitem/iter convention on top of User profile information.
     '''
-    _storm_typename = 'storm:auth:user:profile'
+    _storm_typename = 'auth:user:profile'
     _ismutable = True
 
     def __init__(self, runt, valu, path=None):
@@ -7602,10 +8095,13 @@ class UserProfile(Prim):
         self.runt = runt
 
     async def deref(self, name):
+        name = await tostr(name)
         self.runt.confirm(('auth', 'user', 'get', 'profile', name))
         return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
 
     async def setitem(self, name, valu):
+        name = await tostr(name)
+
         if valu is undef:
             self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
@@ -7629,7 +8125,7 @@ class UserJson(Prim):
     '''
     Implements per-user JSON storage.
     '''
-    _storm_typename = 'storm:auth:user:json'
+    _storm_typename = 'auth:user:json'
     _ismutable = False
     _storm_locals = (
         {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
@@ -7759,6 +8255,37 @@ class UserJson(Prim):
             yield path, item
 
 @registry.registerType
+class UserVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of User vars information.
+    '''
+    _storm_typename = 'auth:user:vars'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    async def deref(self, name):
+        name = await tostr(name)
+        return copy.deepcopy(await self.runt.snap.core.getUserVarValu(self.valu, name))
+
+    async def setitem(self, name, valu):
+        name = await tostr(name)
+
+        if valu is undef:
+            await self.runt.snap.core.popUserVarValu(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        await self.runt.snap.core.setUserVarValu(self.valu, name, valu)
+
+    async def iter(self):
+        async for name, valu in self.runt.snap.core.iterUserVars(self.valu):
+            yield name, copy.deepcopy(valu)
+            await asyncio.sleep(0)
+
+@registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -7774,7 +8301,7 @@ class User(Prim):
         {'name': 'roles', 'desc': 'Get the Roles for the User.',
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
-                              'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
+                              'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
         {'name': 'pack', 'desc': 'Get the packed version of the User.',
          'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
@@ -7786,10 +8313,20 @@ class User(Prim):
                       {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the rule is allowed, False otherwise.', }}},
+        {'name': 'getAllowedReason', 'desc': 'Return an allowed status and reason for the given perm.',
+         'type': {'type': 'function', '_funcname': 'getAllowedReason',
+                  'args': (
+                      {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'An (allowed, reason) tuple.', }}},
         {'name': 'grant', 'desc': 'Grant a Role to the User.',
          'type': {'type': 'function', '_funcname': '_methUserGrant',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the Role as a 0 based index.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'setRoles', 'desc': '''
@@ -7819,7 +8356,7 @@ class User(Prim):
         {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
          'type': {'type': 'function', '_funcname': '_methUserNotify',
                   'args': (
-                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notfication type.', },
+                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
                       {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
                   ),
                   'returns': {'type': 'null', }}},
@@ -7827,7 +8364,10 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to add to the User.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
+                       'default': None, },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the rule as a 0 based index.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the User.',
@@ -7837,6 +8377,13 @@ class User(Prim):
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'popRule', 'desc': 'Remove a rule by index from the User.',
+         'type': {'type': 'function', '_funcname': '_methUserPopRule',
+                  'args': (
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The rule which was removed.'}}},
         {'name': 'setRules', 'desc': 'Replace the rules on the User with new rules.',
          'type': {'type': 'function', '_funcname': '_methUserSetRules',
                   'args': (
@@ -7845,6 +8392,13 @@ class User(Prim):
                        'desc': 'The gate iden used for the rules.', 'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'getRules', 'desc': 'Get the rules for the user and optional auth gate.',
+         'type': {'type': 'function', '_funcname': 'getRules',
+                  'args': (
+                      {'name': 'gateiden', 'type': 'str',
+                       'desc': 'The gate iden used for the rules.', 'default': None},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of rules.'}}},
         {'name': 'setAdmin', 'desc': 'Set the Admin flag for the user.',
          'type': {'type': 'function', '_funcname': '_methUserSetAdmin',
                   'args': (
@@ -7873,21 +8427,26 @@ class User(Prim):
                        'desc': 'The new password for the user. This is best passed into the runtime as a variable.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'gates', 'desc': 'Return a list of auth gates that the user has rules for.',
+         'type': {'type': 'function', '_funcname': 'gates',
+                  'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of ``auth:gates`` that the user has rules for.', }}},
         {'name': 'name', 'desc': '''
-        A users name. This can also be used to set a users name.
+        A user's name. This can also be used to set a user's name.
 
         Example:
-                Change a users name::
+                Change a user's name::
 
                     $user=$lib.auth.users.byname(bob) $user.name=robert
         ''',
          'type': {'type': 'stor', '_storfunc': '_storUserName',
                   'returns': {'type': 'str', }}},
         {'name': 'email', 'desc': '''
-        A users email. This can also be used to set the users email.
+        A user's email. This can also be used to set the user's email.
 
         Example:
-                Change a users email address::
+                Change a user's email address::
 
                     $user=$lib.auth.users.byname(bob) $user.email="robert@bobcorp.net"
         ''',
@@ -7906,9 +8465,13 @@ class User(Prim):
                 $user=$lib.auth.users.byname(bob) $value = $user.profile.somekey
         ''',
         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
-                  'returns': {'type': 'storm:auth:user:profile', }}},
+                 'returns': {'type': 'auth:user:profile', }}},
+        {'name': 'vars',
+         'desc': "Get a dictionary representing the user's persistent variables.",
+         'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserVars',
+                  'returns': {'type': 'auth:user:vars'}}},
     )
-    _storm_typename = 'storm:auth:user'
+    _storm_typename = 'auth:user'
     _ismutable = False
 
     def __init__(self, runt, valu, path=None):
@@ -7924,6 +8487,7 @@ class User(Prim):
         })
         self.ctors.update({
             'json': self._ctorUserJson,
+            'vars': self._ctorUserVars,
             'profile': self._ctorUserProfile,
         })
 
@@ -7936,11 +8500,18 @@ class User(Prim):
     def _ctorUserProfile(self, path=None):
         return UserProfile(self.runt, self.valu)
 
+    def _ctorUserVars(self, path=None):
+        if self.runt.user.iden != self.valu and not self.runt.isAdmin():
+            mesg = '$user.vars requires admin privs when $user is not the current user.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        return UserVars(self.runt, self.valu)
+
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
             'pack': self._methUserPack,
             'tell': self._methUserTell,
+            'gates': self.gates,
             'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
@@ -7948,31 +8519,34 @@ class User(Prim):
             'revoke': self._methUserRevoke,
             'addRule': self._methUserAddRule,
             'delRule': self._methUserDelRule,
+            'popRule': self._methUserPopRule,
             'setRoles': self._methUserSetRoles,
+            'getRules': self.getRules,
             'setRules': self._methUserSetRules,
             'setAdmin': self._methUserSetAdmin,
             'setEmail': self._methUserSetEmail,
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
+            'getAllowedReason': self.getAllowedReason,
         }
 
     async def _methUserPack(self):
         return await self.value()
 
     async def _methUserTell(self, text):
+        self.runt.confirm(('tell', self.valu), default=True)
         mesgdata = {
             'text': await tostr(text),
             'from': self.runt.user.iden,
         }
-        self.runt.confirm(('tell', self.valu), default=True)
         return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
 
     async def _methUserNotify(self, mesgtype, mesgdata):
-        mesgtype = await tostr(mesgtype)
-        mesgdata = await toprim(mesgdata)
         if not self.runt.isAdmin():
             mesg = '$user.notify() method requires admin privs.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+        mesgtype = await tostr(mesgtype)
+        mesgdata = await toprim(mesgdata)
         return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _storUserName(self, name):
@@ -7994,6 +8568,14 @@ class User(Prim):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return udef.get(name)
 
+    async def gates(self):
+        user = self.runt.snap.core.auth.user(self.valu)
+        retn = []
+        for gateiden in user.authgates.keys():
+            gate = await self.runt.snap.core.getAuthGate(gateiden)
+            retn.append(Gate(self.runt, gate))
+        return retn
+
     async def _methUserRoles(self):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
@@ -8007,9 +8589,19 @@ class User(Prim):
         user = await self.runt.snap.core.auth.reqUser(self.valu)
         return user.allowed(perm, gateiden=gateiden, default=default)
 
-    async def _methUserGrant(self, iden):
+    async def getAllowedReason(self, permname, gateiden=None, default=False):
+        permname = await tostr(permname)
+        gateiden = await tostr(gateiden)
+        default = await tobool(default)
+
+        perm = tuple(permname.split('.'))
+        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        return user.getAllowedReason(perm, gateiden=gateiden, default=default)
+
+    async def _methUserGrant(self, iden, indx=None):
         self.runt.confirm(('auth', 'user', 'grant'))
-        await self.runt.snap.core.addUserRole(self.valu, iden)
+        indx = await toint(indx, noneok=True)
+        await self.runt.snap.core.addUserRole(self.valu, iden, indx=indx)
 
     async def _methUserSetRoles(self, idens):
         self.runt.confirm(('auth', 'user', 'grant'))
@@ -8022,16 +8614,44 @@ class User(Prim):
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
-    async def _methUserAddRule(self, rule, gateiden=None):
+    async def getRules(self, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
+        user = self.runt.snap.core.auth.user(self.valu)
+        return user.getRules(gateiden=gateiden)
+
+    async def _methUserAddRule(self, rule, gateiden=None, indx=None):
+        rule = await toprim(rule)
+        indx = await toint(indx, noneok=True)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.snap.core.addUserRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
+
+    async def _methUserPopRule(self, indx, gateiden=None):
+
+        gateiden = await tostr(gateiden, noneok=True)
+        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+        rules = list(await self.getRules(gateiden=gateiden))
+
+        if len(rules) <= indx:
+            mesg = f'User {self.valu} only has {len(rules)} rules.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retn = rules.pop(indx)
+        await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
+        return retn
 
     async def _methUserSetEmail(self, email):
         email = await tostr(email)
@@ -8044,14 +8664,15 @@ class User(Prim):
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
 
     async def _methUserSetPasswd(self, passwd):
+        passwd = await tostr(passwd, noneok=True)
         if self.runt.user.iden == self.valu:
-            passwd = await tostr(passwd, noneok=True)
             self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
@@ -8084,12 +8705,19 @@ class Role(Prim):
         {'name': 'pack', 'desc': 'Get the packed version of the Role.',
          'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
+        {'name': 'gates', 'desc': 'Return a list of auth gates that the role has rules for.',
+         'type': {'type': 'function', '_funcname': 'gates',
+                  'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of ``auth:gates`` that the role has rules for.', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the Role',
          'type': {'type': 'function', '_funcname': '_methRoleAddRule',
                   'args': (
                       {'name': 'rule', 'type': 'list', 'desc': 'The rule tuple to added to the Role.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.',
                        'default': None, },
+                      {'name': 'indx', 'type': 'int', 'desc': 'The position of the rule as a 0 based index.',
+                       'default': None, }
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delRule', 'desc': 'Remove a rule from the Role.',
@@ -8101,26 +8729,40 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }
                   }},
+        {'name': 'popRule', 'desc': 'Remove a rule by index from the Role.',
+         'type': {'type': 'function', '_funcname': '_methRolePopRule',
+                  'args': (
+                      {'name': 'indx', 'type': 'int', 'desc': 'The index of the rule to remove.', },
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rule.', 'default': None, }
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The rule which was removed.'}}},
+        {'name': 'getRules', 'desc': 'Get the rules for the role and optional auth gate.',
+         'type': {'type': 'function', '_funcname': 'getRules',
+                  'args': (
+                      {'name': 'gateiden', 'type': 'str',
+                       'desc': 'The gate iden used for the rules.', 'default': None},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of rules.'}}},
         {'name': 'setRules', 'desc': 'Replace the rules on the Role with new rules.',
          'type': {'type': 'function', '_funcname': '_methRoleSetRules',
                   'args': (
                       {'name': 'rules', 'type': 'list', 'desc': 'A list of rules to set on the Role.', },
-                      {'name': 'gateiden', 'type': 'str', 'desc': 'Ahe gate iden used for the rules.',
+                      {'name': 'gateiden', 'type': 'str', 'desc': 'The gate iden used for the rules.',
                        'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'name', 'desc': '''
-            A roles name. This can also be used to set the role name.
+            A role's name. This can also be used to set the role name.
 
             Example:
-                    Change a roles name::
+                    Change a role's name::
 
                         $role=$lib.auth.roles.byname(analyst) $role.name=superheroes
             ''',
          'type': {'type': 'stor', '_storfunc': '_setRoleName',
                   'returns': {'type': 'str', }}},
     )
-    _storm_typename = 'storm:auth:role'
+    _storm_typename = 'auth:role'
     _ismutable = False
 
     def __init__(self, runt, valu, path=None):
@@ -8140,9 +8782,12 @@ class Role(Prim):
         return {
             'get': self._methRoleGet,
             'pack': self._methRolePack,
+            'gates': self.gates,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
+            'popRule': self._methRolePopRule,
             'setRules': self._methRoleSetRules,
+            'getRules': self.getRules,
         }
 
     async def _derefGet(self, name):
@@ -8150,9 +8795,8 @@ class Role(Prim):
         return rdef.get(name, s_common.novalu)
 
     async def _setRoleName(self, name):
-        name = await tostr(name)
-
         self.runt.confirm(('auth', 'role', 'set', 'name'))
+        name = await tostr(name)
         await self.runt.snap.core.setRoleName(self.valu, name)
 
     async def _methRoleGet(self, name):
@@ -8162,17 +8806,54 @@ class Role(Prim):
     async def _methRolePack(self):
         return await self.value()
 
+    async def gates(self):
+        role = self.runt.snap.core.auth.role(self.valu)
+        retn = []
+        for gateiden in role.authgates.keys():
+            gate = await self.runt.snap.core.getAuthGate(gateiden)
+            retn.append(Gate(self.runt, gate))
+        return retn
+
+    async def getRules(self, gateiden=None):
+        gateiden = await tostr(gateiden, noneok=True)
+        role = self.runt.snap.core.auth.role(self.valu)
+        return role.getRules(gateiden=gateiden)
+
     async def _methRoleSetRules(self, rules, gateiden=None):
+        rules = await toprim(rules)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
-    async def _methRoleAddRule(self, rule, gateiden=None):
+    async def _methRoleAddRule(self, rule, gateiden=None, indx=None):
+        rule = await toprim(rule)
+        indx = await toint(indx, noneok=True)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
-        await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
+        await self.runt.snap.core.addRoleRule(self.valu, rule, indx=indx, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
+        rule = await toprim(rule)
+        gateiden = await tostr(gateiden, noneok=True)
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
+
+    async def _methRolePopRule(self, indx, gateiden=None):
+
+        gateiden = await tostr(gateiden, noneok=True)
+        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+
+        indx = await toint(indx)
+
+        rules = list(await self.getRules(gateiden=gateiden))
+
+        if len(rules) <= indx:
+            mesg = f'Role {self.valu} only has {len(rules)} rules.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        retn = rules.pop(indx)
+        await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
+        return retn
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
@@ -8191,13 +8872,13 @@ class LibCron(Lib):
                   'args': (
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
                   ),
-                  'returns': {'type': 'storm:cronjob', 'desc': 'The new Cron Job.', }}},
+                  'returns': {'type': 'cronjob', 'desc': 'The new Cron Job.', }}},
         {'name': 'add', 'desc': 'Add a recurring Cron Job to the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronAdd',
                   'args': (
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters used to add the cron job.', },
                   ),
-                  'returns': {'type': 'storm:cronjob', 'desc': 'The new Cron Job.', }}},
+                  'returns': {'type': 'cronjob', 'desc': 'The new Cron Job.', }}},
         {'name': 'del', 'desc': 'Delete a CronJob from the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronDel',
                   'args': (
@@ -8213,14 +8894,14 @@ class LibCron(Lib):
                        'desc': 'A prefix to match in order to identify a cron job to get. '
                                'Only a single matching prefix will be retrieved.', },
                   ),
-                  'returns': {'type': 'storm:cronjob', 'desc': 'The requested cron job.', }}},
+                  'returns': {'type': 'cronjob', 'desc': 'The requested cron job.', }}},
         {'name': 'mod', 'desc': 'Modify the Storm query for a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a cron job to modify. '
                                'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'],
+                      {'name': 'query', 'type': ['str', 'query'],
                        'desc': 'The new Storm query for the Cron Job.', }
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
@@ -8236,7 +8917,7 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
-                  'returns': {'type': 'list', 'desc': 'A list of ``storm:cronjob`` objects..', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects..', }}},
         {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronEnable',
                   'args': (
@@ -8255,6 +8936,18 @@ class LibCron(Lib):
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
     _storm_lib_path = ('cron',)
+    _storm_lib_perms = (
+        {'perm': ('cron', 'add'), 'gate': 'view',
+         'desc': 'Permits a user to create a cron job.'},
+        {'perm': ('cron', 'del'), 'gate': 'cronjob',
+         'desc': 'Permits a user to remove a cron job.'},
+        {'perm': ('cron', 'get'), 'gate': 'cronjob',
+         'desc': 'Permits a user to list cron jobs.'},
+        {'perm': ('cron', 'set'), 'gate': 'cronjob',
+         'desc': 'Permits a user to modify/move a cron job.'},
+        {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the creator property of a cron job.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -8427,6 +9120,8 @@ class LibCron(Lib):
             mesg = 'Query parameter is required.'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
+        query = await tostr(query)
+
         try:
             alias_opts = self._parseAlias(kwargs)
         except ValueError as e:
@@ -8547,6 +9242,8 @@ class LibCron(Lib):
             mesg = 'Query parameter is required.'
             raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
 
+        query = await tostr(query)
+
         for optname in ('day', 'hour', 'minute'):
             opts = kwargs.get(optname)
 
@@ -8627,6 +9324,8 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
+        query = await tostr(query)
+
         todo = s_common.todo('updateCronJob', iden, query)
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -8688,7 +9387,7 @@ class CronJob(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the field being set', },
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to set on the definition.', },
                   ),
-                  'returns': {'type': 'storm:cronjob', 'desc': 'The ``storm:cronjob``', }}},
+                  'returns': {'type': 'cronjob', 'desc': 'The ``cronjob``', }}},
         {'name': 'pack', 'desc': 'Get the Cronjob definition.',
          'type': {'type': 'function', '_funcname': '_methCronJobPack',
                   'returns': {'type': 'dict', 'desc': 'The definition.', }}},
@@ -8698,7 +9397,7 @@ class CronJob(Prim):
                       {'type': 'dict',
                        'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
     )
-    _storm_typename = 'storm:cronjob'
+    _storm_typename = 'cronjob'
     _ismutable = False
 
     def __init__(self, runt, cdef, path=None):
@@ -8722,9 +9421,15 @@ class CronJob(Prim):
         valu = await toprim(valu)
         iden = self.valu.get('iden')
 
-        gatekeys = ((self.runt.user.iden, ('cron', 'set', name), iden),)
-        todo = s_common.todo('editCronJob', iden, name, valu)
-        self.valu = await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        if name == 'creator':
+            # this permission must be granted cortex wide
+            # to prevent abuse...
+            self.runt.user.confirm(('cron', 'set', 'creator'))
+        else:
+            self.runt.user.confirm(('cron', 'set', name), gateiden=iden)
+
+        self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
+
         return self
 
     async def _methCronJobPack(self):
@@ -8732,9 +9437,7 @@ class CronJob(Prim):
 
     @staticmethod
     def _formatTimestamp(ts):
-        # N.B. normally better to use fromtimestamp with UTC timezone,
-        # but we don't want timezone to print out
-        return datetime.datetime.utcfromtimestamp(ts).isoformat(timespec='minutes')
+        return datetime.datetime.fromtimestamp(ts, datetime.UTC).strftime('%Y-%m-%dT%H:%M')
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
@@ -8823,7 +9526,7 @@ def fromprim(valu, path=None, basetypes=True):
             return Str(valu, path=path)
 
     # TODO: make s_node.Node a storm type itself?
-    if isinstance(valu, s_node.Node):
+    if isinstance(valu, s_node.NodeBase):
         return Node(valu, path=path)
 
     if isinstance(valu, s_node.Path):
@@ -8851,8 +9554,9 @@ def fromprim(valu, path=None, basetypes=True):
         return valu
 
     if basetypes:
-        mesg = 'Unable to convert python primitive to StormType.'
-        raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+        ptyp = valu.__class__.__name__
+        mesg = f'Unable to convert python primitive to StormType ( {ptyp} )'
+        raise s_exc.NoSuchType(mesg=mesg, python_type=ptyp)
 
     return valu
 
@@ -8973,20 +9677,34 @@ async def toint(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
+
     if noneok and valu is None:
         return
 
     if isinstance(valu, Prim):
-        async for item in valu.iter():
-            yield item
+        async with contextlib.aclosing(valu.iter()) as agen:
+            async for item in agen:
+                yield item
         return
 
-    for item in valu:
-        yield item
+    try:
+        async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+            async for item in agen:
+                yield item
+    except TypeError as e:
+        mesg = f'Value is not iterable: {valu!r}'
+        raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 async def torepr(valu, usestr=False):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
         return await valu.stormrepr()
+
+    if isinstance(valu, bool):
+        return str(valu).lower()
+
+    if valu is None:
+        return '$lib.null'
+
     if usestr:
         return str(valu)
     return repr(valu)
@@ -9008,3 +9726,43 @@ async def tobuidhex(valu, noneok=False):
         raise s_exc.BadCast(mesg=mesg)
 
     return valu
+
+async def totype(valu, basetypes=False) -> str:
+    '''
+    Convert a value to its Storm type string.
+
+    Args:
+        valu: The object to check.
+        basetypes (bool): If True, return the base Python class name as a fallback.
+
+    Returns:
+        str: The type name.
+
+    Raises:
+        StormRuntimeError: If the valu does not resolve to a known type and basetypes=False.
+    '''
+    if valu is undef:
+        return 'undef'
+
+    if valu is None:
+        return 'null'
+
+    if isinstance(valu, bool):
+        return 'boolean'
+
+    if isinstance(valu, int):
+        return 'int'
+
+    if isinstance(valu, (types.AsyncGeneratorType, types.GeneratorType)):
+        return 'generator'
+
+    if isinstance(valu, (types.FunctionType, types.MethodType)):
+        return 'function'
+
+    # This may raise s_exc.NoSuchType
+    fp = fromprim(valu, basetypes=not basetypes)
+
+    if isinstance(fp, StormType):
+        return fp._storm_typename
+
+    return valu.__class__.__name__

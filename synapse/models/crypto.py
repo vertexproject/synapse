@@ -155,6 +155,7 @@ class CryptoModule(s_module.CoreModule):
 
             'interfaces': (
                 ('crypto:smart:effect', {
+                    'doc': 'Properties common to the effects of a crypto smart contract transaction.',
                     'props': (
                         ('index', ('int', {}), {
                             'doc': 'The order of the effect within the effects of one transaction.'}),
@@ -373,6 +374,10 @@ class CryptoModule(s_module.CoreModule):
                     ('algorithm', ('crypto:algorithm', {}), {
                         'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
+                    ('mode', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The algorithm specific mode in use.'}),
+                    ('iv', ('hex', {}), {
+                        'doc': 'The hex encoded initialization vector.'}),
                     ('public', ('hex', {}), {
                         'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
                     ('public:md5', ('hash:md5', {}), {
@@ -463,7 +468,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The certificate used by the issuer to sign this certificate.',
                     }),
 
-                    ('serial', ('hex', {'size': 40}), {
+                    ('serial', ('hex', {'zeropad': 40}), {
                         'doc': 'The certificate serial number as a big endian hex value.',
                     }),
 

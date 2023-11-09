@@ -157,19 +157,19 @@ class DnsModelTest(s_t_utils.SynTest):
             # allows for nearly anything to be asked about. This can lead to
             # pivots with non-normable data.
             q = '[inet:dns:query=(tcp://1.2.3.4, "", 1)]'
-            await self.agenlen(1, core.eval(q))
+            self.len(1, await core.nodes(q))
             q = '[inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1)]'
-            await self.agenlen(1, core.eval(q))
+            self.len(1, await core.nodes(q))
             q = 'inet:dns:query=(tcp://1.2.3.4, "", 1) :name -> inet:fqdn'
             with self.getLoggerStream('synapse.lib.ast',
                                       'Cannot generate fqdn index bytes for a empty string') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             q = 'inet:dns:query=(tcp://1.2.3.4, "foo*.haha.com", 1) :name -> inet:fqdn'
             with self.getLoggerStream('synapse.lib.ast',
                                       'Wild card may only appear at the beginning') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
     async def test_forms_dns_simple(self):
@@ -237,6 +237,14 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('email'), 'pennywise@vertex.link')
                 self.eq(node.get('ns'), 'ns1.vertex.link')
 
+                # inet:dns:soa properties which previously were RO are now writeable
+                await node.set('ns', 'ns2.vertex.link')
+                await node.set('fqdn', 'hehe.vertex.link')
+                await node.set('email', 'bobgrey@vertex.link')
+                self.eq(node.get('ns'), 'ns2.vertex.link')
+                self.eq(node.get('fqdn'), 'hehe.vertex.link')
+                self.eq(node.get('email'), 'bobgrey@vertex.link')
+
                 # inet:dns:txt
                 node = await snap.addNode('inet:dns:txt', ('clowns.vertex.link', 'we all float down here'))
                 self.eq(node.ndef[1], ('clowns.vertex.link', 'we all float down here'))
@@ -292,6 +300,11 @@ class DnsModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('inet:dns:answer', '*', props)
                 self.eq(node.get('txt'), (fqdn0, 'Oh my!'))
 
+                # Time prop
+                props = {'time': "2018"}
+                node = await snap.addNode('inet:dns:answer', '*', props)
+                self.eq(node.get('time'), 1514764800000)
+
     async def test_model_dns_wild(self):
 
         async with self.getTestCore() as core:
@@ -307,3 +320,28 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(wild.ndef, ('inet:dns:wild:aaaa', ('vertex.link', '2001:db8:85a3::8a2e:370:7334')))
                 self.eq(wild.get('ipv6'), '2001:db8:85a3::8a2e:370:7334')
                 self.eq(wild.get('fqdn'), 'vertex.link')
+
+    async def test_model_dyndns(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ inet:dns:dynreg=*
+                    :created=202202
+                    :fqdn=vertex.dyndns.com
+                    :contact={[ ps:contact=* :name=visi ]}
+                    :client=tcp://1.2.3.4
+                    :provider={[ ou:org=* :name=dyndns ]}
+                    :provider:name=dyndns
+                    :provider:fqdn=dyndns.com
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(1643673600000, nodes[0].get('created'))
+            self.eq('vertex.dyndns.com', nodes[0].get('fqdn'))
+            self.eq('tcp://1.2.3.4', nodes[0].get('client'))
+            self.eq(0x01020304, nodes[0].get('client:ipv4'))
+            self.nn(nodes[0].get('contact'))
+            self.nn(nodes[0].get('provider'))
+            self.eq('dyndns', nodes[0].get('provider:name'))
+            self.eq('dyndns.com', nodes[0].get('provider:fqdn'))

@@ -21,29 +21,38 @@ class OuModelTest(s_t_utils.SynTest):
                     :desc=Hehe
                     :tag=woot.woot
                     :mitre:attack:technique=T0001
+                    :sophistication=high
+                    :reporter=$lib.gen.orgByName(vertex)
+                    :reporter:name=vertex
                 ]
             ''')
             self.len(1, nodes)
+            self.nn('reporter')
             self.eq('woot', nodes[0].get('name'))
             self.eq('Hehe', nodes[0].get('desc'))
             self.eq('lol.woot.', nodes[0].get('type'))
             self.eq('woot.woot', nodes[0].get('tag'))
             self.eq('T0001', nodes[0].get('mitre:attack:technique'))
+            self.eq(40, nodes[0].get('sophistication'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
             self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
+            self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
 
             async with await core.snap() as snap:
 
                 props = {
                     'name': 'MyGoal',
-                    'type': 'MyType',
+                    'names': ['Foo Goal', 'Bar Goal', 'Bar Goal'],
+                    'type': 'foo.bar',
                     'desc': 'MyDesc',
                     'prev': goal,
                 }
                 node = await snap.addNode('ou:goal', goal, props=props)
-                self.eq(node.get('name'), 'MyGoal')
-                self.eq(node.get('type'), 'MyType')
+                self.eq(node.get('name'), 'mygoal')
+                self.eq(node.get('names'), ('bar goal', 'foo goal'))
+                self.eq(node.get('type'), 'foo.bar.')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('prev'), goal)
 
@@ -57,6 +66,8 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('stated'), True)
                 self.eq(node.get('window'), (1546300800000, 1577836800000))
 
+                timeline = s_common.guid()
+
                 props = {
                     'org': org0,
                     'goal': goal,
@@ -64,22 +75,35 @@ class OuModelTest(s_t_utils.SynTest):
                     'actors': (acto,),
                     'camptype': 'get.pizza',
                     'name': 'MyName',
+                    'names': ('foo', 'bar', 'Bar'),
                     'type': 'MyType',
                     'desc': 'MyDesc',
                     'success': 1,
                     'techniques': teqs,
+                    'sophistication': 'high',
+                    'tag': 'cno.camp.31337',
+                    'reporter': '*',
+                    'reporter:name': 'vertex',
+                    'timeline': timeline,
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
+                self.eq(node.get('tag'), 'cno.camp.31337')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('goal'), goal)
                 self.eq(node.get('goals'), (goal,))
                 self.eq(node.get('actors'), (acto,))
-                self.eq(node.get('name'), 'MyName')
+                self.eq(node.get('name'), 'myname')
+                self.eq(node.get('names'), ('bar', 'foo'))
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('success'), 1)
+                self.eq(node.get('sophistication'), 40)
                 self.eq(node.get('camptype'), 'get.pizza.')
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+                self.eq(node.get('timeline'), timeline)
+
+                self.nn(node.get('reporter'))
+                self.eq(node.get('reporter:name'), 'vertex')
 
             # type norming first
             # ou:name
@@ -92,8 +116,12 @@ class OuModelTest(s_t_utils.SynTest):
             norm, subs = t.norm(541715)
             self.eq(norm, '541715')
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
+            self.raises(s_exc.BadTypeValu, t.norm, '1')
             self.raises(s_exc.BadTypeValu, t.norm, 1000000)
-            self.raises(s_exc.BadTypeValu, t.norm, 1000)
+            self.eq('10', t.norm('10')[0])
+            self.eq('100', t.norm('  100  ')[0])
+            self.eq('1000', t.norm('1000')[0])
+            self.eq('10000', t.norm('10000')[0])
 
             # ou:sic
             t = core.model.type('ou:sic')
@@ -186,6 +214,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'founded': '2015',
                     'dissolved': '2019',
                     'techniques': teqs,
+                    'goals': (goal,),
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -203,12 +232,17 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
                 self.eq(node.get('techniques'), tuple(sorted(teqs)))
+                self.eq(node.get('goals'), (goal,))
 
                 self.nn(node.get('logo'))
+
+                await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
+                self.len(1, await core.nodes('ou:org:country:code=ua'))
+                self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')
-                self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
+                self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
 
                 nodes = await snap.nodes('ou:org:names*[=otheraltarrow]')
                 self.len(1, nodes)
@@ -608,8 +642,9 @@ class OuModelTest(s_t_utils.SynTest):
                 :type=foo.bar
                 :types="nda,grant"
                 :sponsor={iden0}
+                :currency=USD
                 :award:price=20.00
-                :budget:price=21.00
+                :budget:price=21.50
                 :parties=({iden1}, {iden2})
                 :document={file0}
                 :signed=202001
@@ -622,8 +657,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('Fullbright Scholarship', nodes[0].get('title'))
             self.eq(iden0, nodes[0].get('sponsor'))
-            self.eq('20.00', nodes[0].get('award:price'))
-            self.eq('21.00', nodes[0].get('budget:price'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq('20', nodes[0].get('award:price'))
+            self.eq('21.5', nodes[0].get('budget:price'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))
@@ -779,8 +815,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('World War III', nodes[0].get('name'))
             self.len(1, await core.nodes('ou:conflict -> meta:timeline'))
 
-            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :conflict={ou:conflict} ]')
+            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :names=("pacific campaign",) :conflict={ou:conflict} ]')
             self.len(1, await core.nodes('ou:campaign -> ou:conflict'))
+            self.len(1, await core.nodes('ou:campaign:names*[="pacific campaign"]'))
 
             nodes = await core.nodes('''
                 [ ou:contribution=*

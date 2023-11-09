@@ -1,3 +1,4 @@
+import json
 import collections
 
 import synapse.exc as s_exc
@@ -48,10 +49,10 @@ class NodeTest(s_t_utils.SynTest):
                 # This situation can be encountered in a multi-layer situation
                 # where one Cortex can have model knowledge and set props
                 # that another Cortex (sitting on top of the first one) lifts
-                # a node which has props the second cortex doens't know about.
-                node.props['.newp'] = 1
-                node.props['newp'] = (2, 3)
-                node.tagprops['foo']['valu'] = 10
+                # a node which has props the second cortex doesn't know about.
+                node.sodes[0]['props']['.newp'] = (1, 0)
+                node.sodes[0]['props']['newp'] = ((2, 3), 0)
+                node.sodes[0]['tagprops']['foo']['valu'] = (10, 0)
                 iden, info = node.pack(dorepr=True)
                 props, reprs = info.get('props'), info.get('reprs')
                 tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')
@@ -190,7 +191,51 @@ class NodeTest(s_t_utils.SynTest):
                 self.false(await node.pop('nope'))
                 snap.strict = True
 
-    async def test_helpers(self):
+    async def test_node_helpers(self):
+
+        def _test_pode(strpode, intpode):
+            self.eq(s_node.ndef(strpode), ('test:str', 'cool'))
+            self.eq(s_node.reprNdef(strpode), ('test:str', 'cool'))
+            self.eq(s_node.ndef(intpode), ('test:int', 1234))
+            self.eq(s_node.reprNdef(intpode), ('test:int', '1234'))
+
+            e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
+            self.eq(s_node.iden(strpode), e)
+
+            self.true(s_node.tagged(strpode, 'test'))
+            self.true(s_node.tagged(strpode, '#test.foo.bar'))
+            self.true(s_node.tagged(strpode, 'test.foo.bar.duck'))
+            self.false(s_node.tagged(strpode, 'test.foo.bar.newp'))
+
+            self.len(3, s_node.tags(strpode, leaf=True))
+            self.len(5, s_node.tagsnice(strpode))
+            self.len(6, s_node.tags(strpode))
+            self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
+            self.none(s_node.reprTag(strpode, 'test.foo.newp'))
+
+            self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
+            self.eq(s_node.prop(strpode, 'tick'), 12345)
+            self.eq(s_node.prop(strpode, ':tick'), 12345)
+            self.eq(s_node.prop(strpode, 'test:str:tick'), 12345)
+            self.none(s_node.prop(strpode, 'newp'))
+
+            self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
+            self.eq(s_node.reprProp(strpode, 'tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, ':tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970/01/01 00:00:12.345')
+            self.none(s_node.reprProp(strpode, 'newp'))
+
+            self.eq(s_node.reprTagProps(strpode, 'test'),
+                    [('note', 'words'), ('score', '0')])
+            self.eq(s_node.reprTagProps(strpode, 'newp'), [])
+            self.eq(s_node.reprTagProps(strpode, 'test.foo'), [])
+
+            props = s_node.props(strpode)
+            self.isin('.created', props)
+            self.isin('tick', props)
+            self.notin('newp', props)
+
         form = 'test:str'
         valu = 'cool'
         props = {'tick': 12345,
@@ -215,47 +260,45 @@ class NodeTest(s_t_utils.SynTest):
                 node2 = await snap.addNode('test:int', '1234')
                 pode2 = node2.pack(dorepr=True)
 
-        self.eq(s_node.ndef(pode), ('test:str', 'cool'))
-        self.eq(s_node.reprNdef(pode), ('test:str', 'cool'))
-        self.eq(s_node.ndef(pode2), ('test:int', 1234))
-        self.eq(s_node.reprNdef(pode2), ('test:int', '1234'))
+            _test_pode(strpode=pode, intpode=pode2)
 
-        e = 'bf1198c5f28dae61d595434b0788dd6f7206b1e62d06b0798e012685f1abc85d'
-        self.eq(s_node.iden(pode), e)
+            # Now get those packed nodes via Telepath
+            async with core.getLocalProxy() as prox:
+                telepath_nodes = []
+                async for m in prox.storm('test:str=cool test:int=1234',
+                                          opts={'repr': True}):
+                    if m[0] == 'node':
+                        telepath_nodes.append(m[1])
+                self.len(2, telepath_nodes)
+                telepath_pode = [n for n in telepath_nodes if n[0][0] == 'test:str'][0]
+                telepath_pode2 = [n for n in telepath_nodes if n[0][0] == 'test:int'][0]
+                _test_pode(strpode=telepath_pode, intpode=telepath_pode2)
 
-        self.true(s_node.tagged(pode, 'test'))
-        self.true(s_node.tagged(pode, '#test.foo.bar'))
-        self.true(s_node.tagged(pode, 'test.foo.bar.duck'))
-        self.false(s_node.tagged(pode, 'test.foo.bar.newp'))
+            # Now get those packed nodes via HTTPAPI
+            self.none(await core.callStorm('return($lib.auth.users.byname(root).setPasswd(root))'))
+            _, port = await core.addHttpsPort(0, host='127.0.0.1')
+            https_nodes = []
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login',
+                                     json={'user': 'root', 'passwd': 'root'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('root', retn['result']['name'])
 
-        self.len(3, s_node.tags(pode, leaf=True))
-        self.len(5, s_node.tagsnice(pode))
-        self.len(6, s_node.tags(pode))
-        self.eq(s_node.reprTag(pode, '#test.foo.bar'), '')
-        self.eq(s_node.reprTag(pode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
-        self.none(s_node.reprTag(pode, 'test.foo.newp'))
+                body = {'query': 'test:str=cool test:int=1234',
+                        'opts': {'repr': True}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+                    async for byts, x in resp.content.iter_chunks():
+                        if not byts:
+                            break
+                        mesg = json.loads(byts)
+                        if mesg[0] == 'node':
+                            https_nodes.append(mesg[1])
 
-        self.eq(s_node.prop(pode, 'hehe'), 'hehe')
-        self.eq(s_node.prop(pode, 'tick'), 12345)
-        self.eq(s_node.prop(pode, ':tick'), 12345)
-        self.eq(s_node.prop(pode, 'test:str:tick'), 12345)
-        self.none(s_node.prop(pode, 'newp'))
-
-        self.eq(s_node.reprProp(pode, 'hehe'), 'hehe')
-        self.eq(s_node.reprProp(pode, 'tick'), '1970/01/01 00:00:12.345')
-        self.eq(s_node.reprProp(pode, ':tick'), '1970/01/01 00:00:12.345')
-        self.eq(s_node.reprProp(pode, 'test:str:tick'), '1970/01/01 00:00:12.345')
-        self.none(s_node.reprProp(pode, 'newp'))
-
-        self.eq(s_node.reprTagProps(pode, 'test'),
-                [('note', 'words'), ('score', '0')])
-        self.eq(s_node.reprTagProps(pode, 'newp'), [])
-        self.eq(s_node.reprTagProps(pode, 'test.foo'), [])
-
-        props = s_node.props(pode)
-        self.isin('.created', props)
-        self.isin('tick', props)
-        self.notin('newp', props)
+            self.len(2, https_nodes)
+            http_pode = [n for n in https_nodes if n[0][0] == 'test:str'][0]
+            http_pode2 = [n for n in https_nodes if n[0][0] == 'test:int'][0]
+            _test_pode(strpode=http_pode, intpode=http_pode2)
 
     async def test_storm(self):
 
@@ -269,20 +312,20 @@ class NodeTest(s_t_utils.SynTest):
                     self.eq(nodepaths[0][0].ndef, ('test:int', 42))
 
                     nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
-                    self.eq(nodepaths[0][0].props.get('loc'), 'us')
+                    self.eq(nodepaths[0][0].get('loc'), 'us')
 
                     path = nodepaths[0][1].fork(node)  # type: s_node.Path
                     path.vars['zed'] = 'ca'
 
                     # Path present, opts not present
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
+                    self.eq(nodes[0][0].get('loc'), 'ca')
                     # path is not updated due to frame scope
                     self.none(path.vars.get('bar'), 'us')
 
                     # Path present, opts present but no opts['vars']
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
+                    self.eq(nodes[0][0].get('loc'), 'ca')
                     # path is not updated due to frame scope
                     self.none(path.vars.get('bar'))
 
@@ -290,7 +333,7 @@ class NodeTest(s_t_utils.SynTest):
                     nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
                                                    opts={'vars': {'baz': 'ru'}},
                                                    path=path))
-                    self.eq(nodes[0][0].props.get('loc'), 'ca')
+                    self.eq(nodes[0][0].get('loc'), 'ca')
                     # path is not updated due to frame scope
                     self.none(path.vars.get('bar'))
 
@@ -426,20 +469,18 @@ class NodeTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ test:int=10 ]')
             node = nodes[0]
 
-            self.eq(node.tagprops, {})
+            self.eq(node._getTagPropsDict(), {})
             await node.setTagProp('foo.test', 'score', 20)
             await node.setTagProp('foo.test', 'limit', 1000)
-            self.eq(node.tagprops, {'foo.test': {'score': 20, 'limit': 1000}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'score': 20, 'limit': 1000}})
 
             await node.delTagProp('foo.test', 'score')
-            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
 
-            await node.setTagProp('foo.test', 'score', 50)
-            node.tagprops['foo.test'].pop('score')
             await node.delTagProp('foo.test', 'score')
-            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
-            node.tagprops['foo.test'].pop('limit')
-            self.eq(node.tagprops, {'foo.test': {}})
+            self.eq(node._getTagPropsDict(), {'foo.test': {'limit': 1000}})
+            await node.delTagProp('foo.test', 'limit')
+            self.eq(node._getTagPropsDict(), {})
 
     async def test_node_edges(self):
 
@@ -449,3 +490,28 @@ class NodeTest(s_t_utils.SynTest):
                 await nodes[0].addEdge('foo', 'bar')
             with self.raises(s_exc.BadArg):
                 await nodes[0].delEdge('foo', 'bar')
+
+    async def test_node_delete(self):
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ test:str=foo +(baz)> { [test:str=baz] } ]')
+            await core.nodes('test:str=foo | delnode')
+            self.len(0, await core.nodes('test:str=foo'))
+
+            await core.nodes('[ test:str=foo <(bar)+ { test:str=foo } ]')
+            await core.nodes('test:str=foo | delnode')
+            self.len(0, await core.nodes('test:str=foo'))
+
+            edgeq = 'for $edge in $lib.layer.get().getEdges() { $lib.print($edge) }'
+
+            msgs = await core.stormlist(edgeq)
+            self.len(0, [m for m in msgs if m[0] == 'print'])
+
+            await core.nodes('[ test:str=foo <(baz)+ { [test:str=baz] } ]')
+            await self.asyncraises(s_exc.CantDelNode, core.nodes('test:str=foo | delnode'))
+
+            await core.nodes('test:str=foo | delnode --force')
+            self.len(0, await core.nodes('test:str=foo'))
+
+            msgs = await core.stormlist(edgeq)
+            self.len(1, [m for m in msgs if m[0] == 'print'])

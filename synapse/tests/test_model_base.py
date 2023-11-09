@@ -27,21 +27,36 @@ class BaseTest(s_t_utils.SynTest):
     async def test_model_base_note(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add --type hehe.haha "foo bar baz"')
             self.len(2, nodes)
             self.len(1, await core.nodes('meta:note'))
             self.len(1, await core.nodes('meta:note:created<=now'))
+            self.len(1, await core.nodes('meta:note:updated<=now'))
+            self.len(1, await core.nodes('meta:note:created +(:created = :updated)'))
             self.len(1, await core.nodes('meta:note:creator=$lib.user.iden'))
             self.len(1, await core.nodes('meta:note:text="foo bar baz"'))
             self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
             self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
+            self.len(1, await core.nodes('meta:note:type=hehe.haha -> meta:note:type:taxonomy'))
 
             # Notes are always unique when made by note.add
             nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
             self.len(2, await core.nodes('meta:note'))
             self.ne(nodes[0].ndef, nodes[1].ndef)
             self.eq(nodes[0].get('text'), nodes[1].get('text'))
+
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add --yield "yieldnote"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'yieldnote')
+
+            nodes = await core.nodes('note.add --yield "nonodes"')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('text'), 'nonodes')
+            self.nn(nodes[0].get('created'))
+            self.nn(nodes[0].get('updated'))
+
+            self.len(0, await core.nodes('meta:note:text=nonodes -(about)> *'))
 
     async def test_model_base_node(self):
 
@@ -154,20 +169,20 @@ class BaseTest(s_t_utils.SynTest):
 
             opts = {'vars': {'pers': pers}}
 
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> *', opts=opts))
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:has -> geo:place', opts=opts))
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:has -> *', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:has -> geo:place', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:has -> inet:ipv4', opts=opts))
 
-            await self.agenlen(1, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
+            self.eq(1, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
             q = 'ps:person=$pers -> edge:wentto +:time@=(2014,2017) -> geo:place'
-            await self.agenlen(1, core.eval(q, opts=opts))
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
+            self.eq(1, await core.count(q, opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> inet:ipv4', opts=opts))
 
             opts = {'vars': {'place': plac}}
 
-            await self.agenlen(1, core.eval('geo:place=$place <- edge:has <- *', opts=opts))
-            await self.agenlen(1, core.eval('geo:place=$place <- edge:has <- ps:person', opts=opts))
-            await self.agenlen(0, core.eval('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
+            self.eq(1, await core.count('geo:place=$place <- edge:has <- *', opts=opts))
+            self.eq(1, await core.count('geo:place=$place <- edge:has <- ps:person', opts=opts))
+            self.eq(0, await core.count('geo:place=$place <- edge:has <- inet:ipv4', opts=opts))
 
             # Make a restricted edge and validate that you can only form certain relationships
             copts = {'n1:forms': ('ps:person',), 'n2:forms': ('geo:place',)}
@@ -181,11 +196,11 @@ class BaseTest(s_t_utils.SynTest):
             node = await core.getNodeByNdef(n2def)
             await node.delete()
             opts = {'vars': {'pers': pers}}
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto -> *', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto -> *', opts=opts))
 
             # Make sure we don't return None nodes on a PropPivotOut
             opts = {'vars': {'pers': pers}}
-            await self.agenlen(0, core.eval('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
+            self.eq(0, await core.count('ps:person=$pers -> edge:wentto :n2 -> *', opts=opts))
 
     async def test_model_base_source(self):
 
@@ -196,12 +211,14 @@ class BaseTest(s_t_utils.SynTest):
                 props = {
                     'name': 'FOO BAR',
                     'type': 'osint',
+                    'url': 'https://foo.bar/index.html'
                 }
 
                 sorc = await snap.addNode('meta:source', '*', props=props)
 
                 self.eq(sorc.get('type'), 'osint')
                 self.eq(sorc.get('name'), 'foo bar')
+                self.eq(sorc.get('url'), 'https://foo.bar/index.html')
 
                 valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
 
@@ -251,6 +268,7 @@ class BaseTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401 :author=*
                     :name=" My  Rule" :desc="My cool rule"
                     :text="while TRUE { BAD }"
+                    :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
                     +(matches)> { [inet:ipv4=123.123.123] }
                 ]
@@ -263,7 +281,99 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'my rule')
             self.eq(nodes[0].get('desc'), 'My cool rule')
             self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
+            self.eq(nodes[0].get('url'), 'https://vertex.link/rules/WOOT-20')
+            self.eq(nodes[0].get('ext:id'), 'WOOT-20')
 
             self.len(1, await core.nodes('meta:rule -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -(has)> meta:rule -(matches)> *'))
+
+    async def test_model_doc_strings(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('syn:type:doc="" -:ctor^="synapse.tests"')
+            self.len(0, nodes)
+
+            SYN_6315 = [
+                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ipv4',
+                'inet:dns:query:name:ipv6', 'inet:dns:query:name:fqdn', 'inet:dns:query:type',
+                'inet:dns:request:time', 'inet:dns:request:query', 'inet:dns:request:query:name',
+                'inet:dns:request:query:name:ipv4', 'inet:dns:request:query:name:ipv6',
+                'inet:dns:request:query:name:fqdn', 'inet:dns:request:query:type',
+                'inet:dns:request:server', 'inet:dns:answer:ttl', 'inet:dns:answer:request',
+                'ou:team:org', 'ou:team:name', 'edge:has:n1', 'edge:has:n1:form', 'edge:has:n2',
+                'edge:has:n2:form', 'edge:refs:n1', 'edge:refs:n1:form', 'edge:refs:n2',
+                'edge:refs:n2:form', 'edge:wentto:n1', 'edge:wentto:n1:form', 'edge:wentto:n2',
+                'edge:wentto:n2:form', 'edge:wentto:time', 'graph:edge:n1', 'graph:edge:n1:form',
+                'graph:edge:n2', 'graph:edge:n2:form', 'graph:timeedge:time', 'graph:timeedge:n1',
+                'graph:timeedge:n1:form', 'graph:timeedge:n2', 'graph:timeedge:n2:form',
+                'ps:contact:asof', 'pol:country:iso2', 'pol:country:iso3', 'pol:country:isonum',
+                'pol:country:tld', 'tel:mob:carrier:mcc', 'tel:mob:carrier:mnc',
+                'tel:mob:telem:time', 'tel:mob:telem:latlong', 'tel:mob:telem:cell',
+                'tel:mob:telem:cell:carrier', 'tel:mob:telem:imsi', 'tel:mob:telem:imei',
+                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ipv4',
+                'tel:mob:telem:ipv6', 'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
+                'tel:mob:telem:wifi:bssid', 'tel:mob:telem:adid', 'tel:mob:telem:aaid',
+                'tel:mob:telem:idfa', 'tel:mob:telem:name', 'tel:mob:telem:email',
+                'tel:mob:telem:acct', 'tel:mob:telem:app', 'tel:mob:telem:data',
+                'inet:http:request:response:time', 'inet:http:request:response:code',
+                'inet:http:request:response:reason', 'inet:http:request:response:body',
+                'gov:us:cage:street', 'gov:us:cage:city', 'gov:us:cage:state', 'gov:us:cage:zip',
+                'gov:us:cage:cc', 'gov:us:cage:country', 'gov:us:cage:phone0', 'gov:us:cage:phone1',
+                'biz:rfp:requirements',
+            ]
+
+            nodes = await core.nodes('syn:prop:doc=""')
+            keep = []
+            skip = []
+            for node in nodes:
+                name = node.ndef[1]
+
+                if name in SYN_6315:
+                    skip.append(node)
+                    continue
+
+                if name.startswith('test:'):
+                    continue
+
+                keep.append(node)
+
+            self.len(0, keep)
+            self.len(len(SYN_6315), skip)
+
+            for edge in core.model.edges.values():
+                doc = edge.edgeinfo.get('doc')
+                self.nn(doc)
+                self.ge(len(doc), 3)
+
+            for ifdef in core.model.ifaces.values():
+                doc = ifdef.get('doc')
+                self.nn(doc)
+                self.ge(len(doc), 3)
+
+    async def test_model_doc_deprecated(self):
+
+        async with self.getTestCore() as core:
+
+            # Check properties that have "deprecated" in the doc string. Skip "isnow" because it's
+            # likely to have "deprecated" in the doc string due to what it does.
+            nodes = await core.nodes('syn:prop:doc~="(?i)deprecate"')
+            for node in nodes:
+                prop = core.model.prop(node.ndef[1])
+                if prop.name == 'isnow':
+                    continue
+
+                self.true(prop.deprecated, msg=prop)
+
+            # Check types that have "deprecated" in the doc string.
+            nodes = await core.nodes('syn:type:doc="(?i)deprecate"')
+            for node in nodes:
+                typo = core.model.type(node.ndef[1])
+                self.true(typo.deprecated, msg=typo)
+
+            # Check forms that have "deprecated" in the doc string.
+            nodes = await core.nodes('syn:form:doc="(?i)deprecate"')
+            for node in nodes:
+                form = core.model.form(node.ndef[1])
+                self.true(form.deprecated, msg=form)

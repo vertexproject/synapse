@@ -37,6 +37,7 @@ import collections
 import unittest.mock as mock
 
 import vcr
+import regex
 import aiohttp
 
 from prompt_toolkit.formatted_text import FormattedText
@@ -51,6 +52,8 @@ import synapse.cryotank as s_cryotank
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.base as s_base
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
@@ -90,6 +93,51 @@ def norm(z):
         return {norm(k): norm(v) for (k, v) in z.items()}
     return z
 
+def deguidify(x):
+    return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+@contextlib.asynccontextmanager
+async def matchContexts(testself):
+    origenter = s_base.Base.__aenter__
+    origexit = s_base.Base.__aexit__
+    origstorm = s_cortex.Cortex.storm
+    orignodes = s_cortex.Cortex.nodes
+
+    contexts = collections.defaultdict(int)
+
+    async def enter(self):
+        contexts[type(self)] += 1
+        return await origenter(self)
+
+    async def exit(self, exc, cls, tb):
+        contexts[type(self)] -= 1
+        await origexit(self, exc, cls, tb)
+
+    async def storm(self, text, opts=None):
+        async for mesg in origstorm(self, text, opts=opts):
+            yield mesg
+
+        for cont, refs in contexts.items():
+            testself.eq(0, refs)
+
+    async def nodes(self, text, opts=None):
+        nodes = await orignodes(self, text, opts=opts)
+
+        for cont, refs in contexts.items():
+            testself.eq(0, refs)
+
+        return nodes
+
+    with mock.patch('synapse.lib.base.Base.__aenter__', enter):
+        with mock.patch('synapse.lib.base.Base.__aexit__', exit):
+            with mock.patch('synapse.cortex.Cortex.nodes', nodes):
+                with mock.patch('synapse.cortex.Cortex.storm', storm):
+                    yield
+
+class PickleableMagicMock(mock.MagicMock):
+    def __reduce__(self):
+        return mock.MagicMock, ()
+
 class LibTst(s_stormtypes.Lib):
     '''
     LibTst for testing!
@@ -106,12 +154,22 @@ class LibTst(s_stormtypes.Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
+        {'name': 'someargs',
+         'desc': '''Example storm func with args.''',
+         'type': {'type': 'function', '_funcname': 'someargs',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
+                      {'name': 'bar', 'type': 'bool', 'desc': 'The value to beep.', 'default': True, },
+                      {'name': 'faz', 'type': 'str', 'desc': 'The value to beep.', 'default': None, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
     )
     _storm_lib_path = ('test',)
 
     def addLibFuncs(self):
         self.locls.update({
             'beep': self.beep,
+            'someargs': self.someargs,
         })
 
     async def beep(self, valu):
@@ -119,6 +177,13 @@ class LibTst(s_stormtypes.Lib):
         Example storm func
         '''
         ret = f'A {valu} beep!'
+        return ret
+
+    async def someargs(self, valu, bar=True, faz=None):
+        '''
+        Example storm func
+        '''
+        ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
 
 class TestType(s_types.Type):
@@ -193,6 +258,7 @@ testmodel = {
 
         ('test:ival', ('ival', {}), {}),
 
+        ('test:ro', ('str', {}), {}),
         ('test:int', ('int', {}), {}),
         ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
@@ -201,6 +267,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('taxonomy',)}),
         ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
@@ -220,6 +287,8 @@ testmodel = {
         )}), {'doc': 'A complex comp type.'}),
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
+        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
+        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
@@ -247,6 +316,7 @@ testmodel = {
         )),
         ('test:arrayform', {}, (
         )),
+        ('test:taxonomy', {}, ()),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {}),
@@ -332,6 +402,7 @@ testmodel = {
         ('test:auto', {}, ()),
         ('test:hexa', {}, ()),
         ('test:hex4', {}, ()),
+        ('test:zeropad', {}, ()),
         ('test:ival', {}, (
             ('interval', ('ival', {}), {}),
         )),
@@ -361,6 +432,11 @@ testmodel = {
             ('lulz', ('str', {}), {}),
             ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
         )),
+
+        ('test:ro', {}, (
+            ('writeable', ('str', {}), {'doc': 'writeable property'}),
+            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+        ))
 
     ),
 }
@@ -418,7 +494,6 @@ class DeprModule(s_module.CoreModule):
             ('depr', deprmodel),
         )
 
-
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
@@ -439,9 +514,6 @@ class TestModule(s_module.CoreModule):
         form = self.model.form('test:runt')
         self.core.addRuntLift(form.full, self._testRuntLift)
 
-        for prop in form.props.values():
-            self.core.addRuntLift(prop.full, self._testRuntLift)
-
         self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
         self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
 
@@ -457,53 +529,20 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
+    async def _testRuntLift(self, view, prop, cmprvalu=None):
 
         now = s_common.now()
-        modl = self.core.model
+        timetype = self.core.model.type('time')
 
-        runtdefs = [
-            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-            ('woah', {}),
+        podes = [
+            (('test:runt', 'beep'), {'props': {'tick': timetype.norm('2001')[0], 'lulz': 'beep.sys', '.created': now}}),
+            (('test:runt', 'boop'), {'props': {'tick': timetype.norm('2010')[0], '.created': now}}),
+            (('test:runt', 'blah'), {'props': {'tick': timetype.norm('2010')[0], 'lulz': 'blah.sys'}}),
+            (('test:runt', 'woah'), {'props': {}}),
         ]
 
-        runts = {}
-        for name, props in runtdefs:
-            runts[name] = TestRunt(name, **props)
-
-        genr = runts.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
-        else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
-
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
+        for p in podes:
+            yield p
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -513,14 +552,14 @@ class TestModule(s_module.CoreModule):
         if not valu.endswith('.sys'):
             raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
-        node.props[prop.name] = valu
+        node.pode[1]['props'][prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
         # storage of row data, so a re-lift of the node would not reflect the
         # change that a user made here.
         return True
 
     async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.props.pop(prop.name, s_common.novalu)
+        curv = node.pode[1]['props'].pop(prop.name, s_common.novalu)
         if curv is s_common.novalu:
             return False
 
@@ -702,6 +741,12 @@ class HttpReflector(s_httpapi.Handler):
             sleep = int(sleep[0])
             await asyncio.sleep(sleep)
 
+        redirect = params.get('redirect')
+        if redirect:
+            self.add_header('Redirected', '1')
+            self.redirect(redirect[0])
+            return
+
         self.sendRestRetn(resp)
 
     async def post(self):
@@ -807,6 +852,31 @@ test_schema = {
         'type': 'object',
     }
 
+class ReloadCell(s_cell.Cell):
+    async def postAnit(self):
+        self._reloaded = False
+        self._reloadevt = None
+
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['cell']['reloaded'] = self._reloaded
+        return info
+
+    async def addTestReload(self):
+        async def func():
+            self._reloaded = True
+            if self._reloadevt:
+                self._reloadevt.set()
+            return True
+
+        self.addReloadableSystem('testreload', func)
+
+    async def addTestBadReload(self):
+        async def func():
+            return 1 / 0
+
+        self.addReloadableSystem('badreload', func)
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
@@ -830,7 +900,7 @@ class SynTest(unittest.TestCase):
         self.eq(node.ndef, ex_ndef)
         [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
-        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 
@@ -911,6 +981,24 @@ class SynTest(unittest.TestCase):
         '''
         if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
             raise unittest.SkipTest('SYNDEV_NEXUS_REPLAY envar set')
+
+    def skipIfNoPath(self, path, mesg=None):
+        '''
+        Allows skipping a test if the test/files path does not exist.
+
+        Args:
+            path (str): Path to check.
+            mesg (str): Optional additional message.
+
+        Raises:
+            unittest.SkipTest if the path does not exist.
+        '''
+        path = self.getTestFilePath(path)
+        if not os.path.exists(path):
+            m = f'Path does not exist: {path}'
+            if mesg:
+                m = f'{m} mesg={mesg}'
+            raise unittest.SkipTest(m)
 
     def getTestOutp(self):
         '''
@@ -1024,14 +1112,10 @@ class SynTest(unittest.TestCase):
         Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
 
         Returns:
-            mock.MagicMock: Yields a mock.MagikMock object.
+            mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        # Since the setlogging routine is used in the forkserver initializer,
-        # we need to make sure we've initialized our worker prior to mocking
-        self.eq(1, await s_coro.forked(int, '1'))
-
         with mock.patch('synapse.common.setlogging',
-                        mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
+                        PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
     def getMagicPromptLines(self, patch):
@@ -1144,7 +1228,6 @@ class SynTest(unittest.TestCase):
         '''
         if conf is None:
             conf = {'layer:lmdb:map_async': True,
-                    'provenance:en': True,
                     'nexslog:en': True,
                     'layers:logedits': True,
                     }
@@ -1241,6 +1324,7 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestDmon(self):
+        self.skipIfNoPath(path='certdir', mesg='Missing files for test dmon!')
         with self.getTestDir(mirror='certdir') as certpath:
             certdir = s_certdir.CertDir(path=certpath)
             s_certdir.addCertPath(certpath)
@@ -1434,8 +1518,11 @@ class SynTest(unittest.TestCase):
         This destroys the directory afterwards.
 
         Args:
-            mirror (str): A directory to mirror into the test directory.
-            startdir (str): The directory under which to place the temporary kdirectory
+            mirror (str): A Synapse test directory to mirror into the test directory.
+            copyfrom (str): An arbitrary directory to copy into the test directory.
+            chdir (boolean): If true, chdir the current process to that directory. This is undone when the context
+                             manager exits.
+            startdir (str): The directory under which to place the temporary directory
 
         Notes:
             The mirror argument is normally used to mirror test directory
@@ -1987,7 +2074,7 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
-    def stormIsInPrint(self, mesg, mesgs):
+    def stormIsInPrint(self, mesg, mesgs, deguid=False):
         '''
         Check if a string is present in all of the print messages from a stream of storm messages.
 
@@ -1995,7 +2082,14 @@ class SynTest(unittest.TestCase):
             mesg (str): A string to check.
             mesgs (list): A list of storm messages.
         '''
+        if deguid:
+            mesg = deguidify(mesg)
+
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+
+        if deguid:
+            print_str = deguidify(print_str)
+
         self.isin(mesg, print_str)
 
     def stormNotInPrint(self, mesg, mesgs):
@@ -2019,6 +2113,17 @@ class SynTest(unittest.TestCase):
         '''
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
         self.isin(mesg, print_str)
+
+    def stormNotInWarn(self, mesg, mesgs):
+        '''
+        Assert a string is not present in all of the warn messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'warn'])
+        self.notin(mesg, print_str)
 
     def stormIsInErr(self, mesg, mesgs):
         '''
@@ -2173,7 +2278,7 @@ class SynTest(unittest.TestCase):
             return retn
 
         byts = s_msgpack.en(valu)
-        return hashlib.md5(byts).hexdigest()
+        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
     @contextlib.contextmanager
     def withStableUids(self):

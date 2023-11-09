@@ -94,7 +94,7 @@ class TestEasyCert(s_t_utils.SynTest):
             # Ensure that duplicate files won't be overwritten
             outp = self.getTestOutp()
             argv = ['--csr', '--certdir', path, 'user@test.com']
-            self.eq(s_easycert.main(argv, outp=outp), -1)
+            self.eq(s_easycert.main(argv, outp=outp), 1)
             self.true(outp.expect('file exists:'))
             self.true(outp.expect('user@test.com.key'))
 
@@ -119,13 +119,13 @@ class TestEasyCert(s_t_utils.SynTest):
             # test nonexistent csr
             outp = self.getTestOutp()
             argv = ['--certdir', path, '--signas', 'testca', '--sign-csr', 'lololol', ]
-            self.eq(s_easycert.main(argv, outp=outp), -1)
+            self.eq(s_easycert.main(argv, outp=outp), 1)
             self.true(outp.expect('csr not found: lololol'))
 
             # Test bad input
             outp = self.getTestOutp()
             argv = ['--certdir', path, '--sign-csr', 'lololol', ]
-            self.eq(s_easycert.main(argv, outp=outp), -1)
+            self.eq(s_easycert.main(argv, outp=outp), 1)
             self.true(outp.expect('--sign-csr requires --signas'))
 
     def test_easycert_importfile(self):
@@ -150,3 +150,35 @@ class TestEasyCert(s_t_utils.SynTest):
             outp = self.getTestOutp()
             argv = ['--importfile', 'cas', '--certdir', tstpath, 'nope']
             self.raises(s_exc.NoSuchFile, s_easycert.main, argv, outp=outp)
+
+    def test_easycert_revokeas(self):
+
+        with self.getTestDir() as dirn:
+            outp = self.getTestOutp()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'woot'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', 'newp@newp.newp'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'woot', '--server', 'newp.newp'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'newp@newp.newp'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', '--server', 'newp.newp'), outp=outp))
+
+            outp.clear()
+            self.eq(1, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'noexist'), outp=outp))
+            outp.expect('Certificate not found: noexist')
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--ca', 'dude'), outp=outp))
+
+            outp.clear()
+            self.eq(0, s_easycert.main(('--certdir', dirn, '--signas', 'dude', 'giggle@dude.dude'), outp=outp))
+
+            outp.clear()
+            self.eq(1, s_easycert.main(('--certdir', dirn, '--revokeas', 'woot', 'giggle@dude.dude'), outp=outp))
+            outp.expect('Failed to validate that certificate was signed by woot')

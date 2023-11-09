@@ -2,6 +2,9 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.data as s_data
+
+import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
@@ -110,9 +113,12 @@ class Cpe23Str(s_types.Str):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
             parts = cpesplit(text[8:])
-            if len(parts) != 11:
-                mesg = f'CPE 2.3 string has {len(parts)} fields, expected 11.'
+            if len(parts) > 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
                 raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
         elif text.startswith('cpe:/'):
             # automatically normalize CPE 2.2 format to CPE 2.3
             parts = chopCpe22(text)
@@ -167,9 +173,15 @@ class SemVer(s_types.Int):
 
         subs = s_version.parseSemver(valu)
         if subs is None:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Unable to parse string as a semver.')
+            subs = s_version.parseVersionParts(valu)
+            if subs is None:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Unable to parse string as a semver.')
+
+        subs.setdefault('minor', 0)
+        subs.setdefault('patch', 0)
         valu = s_version.packVersion(subs.get('major'), subs.get('minor'), subs.get('patch'))
+
         return valu, {'subs': subs}
 
     def _normPyInt(self, valu):
@@ -202,6 +214,25 @@ loglevels = (
     (80, 'emerg'),
 )
 
+tlplevels = (
+    (10, 'clear'),
+    (20, 'green'),
+    (30, 'amber'),
+    (40, 'amber-strict'),
+    (50, 'red'),
+)
+
+# The published Attack Flow json schema at the below URL is horribly
+# broken. It depends on some custom python scripting to validate each
+# object individually against the schema for each object's type instead
+# of validating the document as a whole. Instead, the
+# attack-flow-schema-2.0.0 file that is published in the synapse data
+# directory is a heavily modified version of the official schema that
+# actually works as a json schema should.
+# https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
+
+attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -213,6 +244,8 @@ class ItModule(s_module.CoreModule):
 
     def bruteVersionStr(self, valu):
         '''
+        This API is deprecated.
+
         Brute force the version out of a string.
 
         Args:
@@ -225,21 +258,11 @@ class ItModule(s_module.CoreModule):
         Returns:
             int, dict: The system normalized version integer and a subs dictionary.
         '''
-        try:
-            valu, info = self.core.model.type('it:semver').norm(valu)
-            subs = info.get('subs')
-            return valu, subs
-        except s_exc.BadTypeValu:
-            # Try doing version part extraction by noming through the string
-            subs = s_version.parseVersionParts(valu)
-            if subs is None:
-                raise s_exc.BadTypeValu(valu=valu, name='bruteVersionStr',
-                                        mesg='Unable to brute force version parts out of the string')
-            if subs:
-                valu = s_version.packVersion(subs.get('major'),
-                                             subs.get('minor', 0),
-                                             subs.get('patch', 0))
-                return valu, subs
+        s_common.deprecated('ItModule.bruteVersionStr')
+
+        valu, info = self.core.model.type('it:semver').norm(valu)
+        subs = info.get('subs')
+        return valu, subs
 
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
@@ -267,7 +290,8 @@ class ItModule(s_module.CoreModule):
 
         # form the semver properly or bruteforce parts
         try:
-            valu, subs = self.bruteVersionStr(prop)
+            valu, info = self.core.model.type('it:semver').norm(prop)
+            subs = info.get('subs')
             await node.set('semver', valu)
             for k, v in subs.items():
                 await node.set(f'semver:{k}', v)
@@ -295,6 +319,10 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
+                }),
+                ('it:log:event:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of log event types.',
+                    'interfaces': ('taxonomy',),
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -331,9 +359,27 @@ class ItModule(s_module.CoreModule):
                     'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
                     'ex': 'CWE-120',
                 }),
+
+                ('it:sec:tlp', ('int', {'enums': tlplevels}), {
+                    'doc': 'The US CISA Traffic-Light-Protocol used to designate information sharing boundaries.',
+                    'ex': 'green'}),
+
+                ('it:sec:metrics', ('guid', {}), {
+                    'doc': "A node used to track metrics of an organization's infosec program."}),
+
+                ('it:sec:vuln:scan', ('guid', {}), {
+                    'doc': "An instance of running a vulnerability scan."}),
+
+                ('it:sec:vuln:scan:result', ('guid', {}), {
+                    'doc': "A vulnerability scan result for an asset."}),
+
                 ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
                     'doc': 'A Mitre ATT&CK element status.',
                     'ex': 'current',
+                }),
+                ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
+                    'doc': 'An enumeration of ATT&CK matrix values.',
+                    'ex': 'enterprise',
                 }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
                     'doc': 'A Mitre ATT&CK Group ID.',
@@ -355,8 +401,11 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:flow', ('guid', {}), {
+                    'doc': 'A Mitre ATT&CK Flow diagram.',
+                }),
                 ('it:dev:str', ('str', {}), {
-                    'doc': 'A developer-selected string.'
+                    'doc': 'A developer selected string.'
                 }),
                 ('it:dev:pipe', ('str', {}), {
                     'doc': 'A string representing a named pipe.',
@@ -374,12 +423,53 @@ class ItModule(s_module.CoreModule):
                 ('it:dev:regval', ('guid', {}), {
                     'doc': 'A Windows registry key/value pair.',
                 }),
+                ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A version control system type taxonomy.',
+                    'interfaces': ('taxonomy',)
+                }),
+                ('it:dev:repo:label', ('guid', {}), {
+                    'doc': 'A developer selected label.',
+                }),
+                ('it:dev:repo', ('guid', {}), {
+                    'doc': 'A version control system instance.',
+                }),
+                ('it:dev:repo:remote', ('guid', {}), {
+                    'doc': 'A remote repo that is tracked for changes/branches/etc.',
+                }),
+                ('it:dev:repo:branch', ('guid', {}), {
+                    'doc': 'A branch in a version control system instance.',
+                }),
+                ('it:dev:repo:commit', ('guid', {}), {
+                    'doc': 'A commit to a repository.',
+                }),
+                ('it:dev:repo:diff', ('guid', {}), {
+                    'doc': 'A diff of a file being applied in a single commit.',
+                }),
+                ('it:dev:repo:issue:label', ('guid', {}), {
+                    'doc': 'A label applied to a repository issue.',
+                }),
+                ('it:dev:repo:issue', ('guid', {}), {
+                    'doc': 'An issue raised in a repository.',
+                }),
+                ('it:dev:repo:issue:comment', ('guid', {}), {
+                    'doc': 'A comment on an issue in a repository.',
+                }),
+                ('it:dev:repo:diff:comment', ('guid', {}), {
+                    'doc': 'A comment on a diff in a repository.',
+                }),
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A software product.',
                 }),
                 ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'A software product name.',
                 }),
+                ('it:prod:soft:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A software type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
+                ('it:prod:softid', ('guid', {}), {
+                    'doc': 'An identifier issued to a given host by a specific software application.'}),
+
                 ('it:prod:hardware', ('guid', {}), {
                     'doc': 'A specification for a piece of IT hardware.',
                 }),
@@ -433,6 +523,11 @@ class ItModule(s_module.CoreModule):
                                             ('soft', 'it:prod:softver'),
                                             ('file', 'file:bytes'))}), {
                     'doc': 'A file is distributed by a specific software version.'}),
+
+                ('it:prod:softreg', ('comp', {'fields': (
+                                            ('softver', 'it:prod:softver'),
+                                            ('regval', 'it:dev:regval'))}), {
+                    'doc': 'A registry entry is created by a specific software version.'}),
 
                 ('it:prod:softlib', ('comp', {'fields': (
                                             ('soft', 'it:prod:softver'),
@@ -537,7 +632,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
                 ('it:app:snort:rule', ('guid', {}), {
-                    'doc': 'A snort rule unique identifier.',
+                    'doc': 'A snort rule.',
                 }),
                 ('it:app:snort:hit', ('guid', {}), {
                     'doc': 'An instance of a snort rule hit.',
@@ -560,6 +655,7 @@ class ItModule(s_module.CoreModule):
             ),
             'interfaces': (
                 ('it:host:activity', {
+                    'doc': 'Properties common to instances of activity on a host.',
                     'props': (
                         ('exe', ('file:bytes', {}), {
                             'doc': 'The executable file which caused the activity.'}),
@@ -577,71 +673,97 @@ class ItModule(s_module.CoreModule):
                 }),
             ),
             'edges': (
+                (('it:prod:soft', 'uses', 'ou:technique'), {
+                    'doc': 'The software uses the technique.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
+                (('it:app:snort:rule', 'detects', None), {
+                    'doc': 'The snort rule is intended for use in detecting the target node.'}),
+                (('it:app:yara:rule', 'detects', None), {
+                    'doc': 'The YARA rule is intended for use in detecting the target node.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
 
                 ('it:host', {}, (
                     ('name', ('it:hostname', {}), {
-                        'doc': 'The name of the host or system.',
-                    }),
+                        'doc': 'The name of the host or system.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the host.',
-                    }),
+                        'doc': 'A free-form description of the host.'}),
+
                     ('domain', ('it:domain', {}), {
-                        'doc': 'The authentication domain that the host is a member of.',
-                    }),
+                        'doc': 'The authentication domain that the host is a member of.'}),
+
                     ('ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The last known ipv4 address for the host.'
-                    }),
+                        'doc': 'The last known ipv4 address for the host.'}),
+
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The last known location for the host.'
-                    }),
+                        'doc': 'The last known location for the host.'}),
+
                     ('place', ('geo:place', {}), {
-                        'doc': 'The place where the host resides.',
-                    }),
+                        'doc': 'The place where the host resides.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location string for the node.',
-                    }),
+                        'doc': 'The geo-political location string for the node.'}),
+
                     ('os', ('it:prod:softver', {}), {
-                        'doc': 'The operating system of the host.'
-                    }),
+                        'doc': 'The operating system of the host.'}),
+
                     ('os:name', ('it:prod:softname', {}), {
-                        'doc': 'A software product name for the host operating system. Used for entity resolution.',
-                    }),
+                        'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
+
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The hardware specification for this host.',
-                    }),
+                        'doc': 'The hardware specification for this host.'}),
+
                     ('manu', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:make.',
-                    }),
+                        'doc': 'Please use :hardware:make.'}),
+
                     ('model', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware:model.',
-                    }),
+                        'doc': 'Please use :hardware:model.'}),
+
                     ('serial', ('str', {}), {
-                        'doc': 'The serial number of the host.',
-                    }),
+                        'doc': 'The serial number of the host.'}),
+
                     ('operator', ('ps:contact', {}), {
-                        'doc': 'The operator of the host.',
-                    }),
+                        'doc': 'The operator of the host.'}),
+
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org that operates the given host.',
-                    }),
+                        'doc': 'The org that operates the given host.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external identifier for the host.'}),
+
+                    ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The primary keyboard layout configured on the host.'}),
+
+                    ('keyboard:language', ('lang:language', {}), {
+                        'doc': 'The primary keyboard input language configured on the host.'}),
                 )),
+                ('it:log:event:type:taxonomy', {}, ()),
                 ('it:log:event', {}, (
+
                     ('mesg', ('str', {}), {
-                        'doc': 'The log messsage text.',
-                    }),
+                        'doc': 'The log message text.'}),
+
+                    ('type', ('it:log:event:type:taxonomy', {}), {
+                        'ex': 'windows.eventlog.securitylog',
+                        'doc': 'A taxonometric type for the log event.'}),
+
                     ('severity', ('int', {'enums': loglevels}), {
-                        'doc': 'A log level integer that increases with severity.',
-                    }),
+                        'doc': 'A log level integer that increases with severity.'}),
+
                     ('data', ('data', {}), {
-                        'doc': 'A raw JSON record of the log event.',
-                    }),
+                        'doc': 'A raw JSON record of the log event.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external id that uniquely identifies this log entry.'}),
+
+                    ('product', ('it:prod:softver', {}), {
+                        'doc': 'The software which produced the log entry.'}),
+
                 )),
                 ('it:domain', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -789,16 +911,19 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:sec:cve', {}, (
+
                     ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the CVE vulnerability.',
-                        'disp': {'hint': 'text'},
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:vuln:cve:desc.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL linking this CVE to a full description.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:vuln:cve:url.'}),
+
                     ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of URLs that document the CVE ID.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
+
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -855,6 +980,115 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ChildOf CWE Relationships.'
                     }),
                 )),
+
+                ('it:sec:metrics', {}, (
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization whose security program is being measured.'}),
+
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The organization name. Used for entity resolution.'}),
+
+                    ('org:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The organization FQDN. Used for entity resolution.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period used to compute the metrics.'}),
+
+                    ('alerts:meantime:triage', ('duration', {}), {
+                        'doc': 'The mean time to triage alerts generated within the time period.'}),
+
+                    ('alerts:count', ('int', {}), {
+                        'doc': 'The total number of alerts generated within the time period.'}),
+
+                    ('alerts:falsepos', ('int', {}), {
+                        'doc': 'The number of alerts generated within the time period that were determined to be false positives.'}),
+
+                    ('assets:hosts', ('int', {}), {
+                        'doc': 'The total number of hosts within scope for the information security program.'}),
+
+                    ('assets:users', ('int', {}), {
+                        'doc': 'The total number of users within scope for the information security program.'}),
+
+                    ('assets:vulns:count', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the end of the time period.'}),
+
+                    ('assets:vulns:preexisting', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities being tracked at the beginning of the time period.'}),
+
+                    ('assets:vulns:discovered', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities discovered during the time period.'}),
+
+                    ('assets:vulns:mitigated', ('int', {}), {
+                        'doc': 'The number of asset vulnerabilities mitigated during the time period.'}),
+
+                    ('assets:vulns:meantime:mitigate', ('duration', {}), {
+                        'doc': 'The mean time to mitigate for vulnerable assets mitigated during the time period.'}),
+
+                )),
+
+                ('it:sec:vuln:scan', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan was started.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'Description of the scan and scope.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An externally generated ID for the scan.'}),
+
+                    ('ext:url', ('inet:url', {}), {
+                        'doc': 'An external URL which documents the scan.'}),
+
+                    ('software', ('it:prod:softver', {}), {
+                        'doc': 'The scanning software used.'}),
+
+                    ('software:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'Contact information for the scan operator.'}),
+
+                )),
+
+                ('it:sec:vuln:scan:result', {}, (
+
+                    ('scan', ('it:sec:vuln:scan', {}), {
+                        'doc': 'The scan that discovered the vulnerability in the asset.'}),
+
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability detected in the asset.'}),
+
+                    ('asset', ('ndef', {}), {
+                        'doc': 'The node which is vulnerable.'}),
+
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the vulnerability and how it was detected in the asset.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the scan result was produced.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An externally generated ID for the scan result.'}),
+
+                    ('ext:url', ('inet:url', {}), {
+                        'doc': 'An external URL which documents the scan result.'}),
+
+                    ('mitigation', ('risk:mitigation', {}), {
+                        'doc': 'The mitigation used to address this asset vulnerability.'}),
+
+                    ('mitigated', ('time', {}), {
+                        'doc': 'The time that the vulnerability in the asset was mitigated.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of mitigating the vulnerability.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'The severity of the vulnerability in the asset. Use "none" for no vulnerability discovered.'}),
+                )),
+
                 ('it:mitre:attack:group', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
@@ -868,6 +1102,9 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A description of the ATT&CK group.',
                         'disp': {'hint': 'text'},
+                    }),
+                    ('isnow', ('it:mitre:attack:group', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the group.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK group.',
@@ -892,6 +1129,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK tactic.',
                     }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the tactic.',
+                    }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the ATT&CK tactic.',
                         'disp': {'hint': 'text'},
@@ -910,6 +1150,9 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
+                    }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the technique.',
                     }),
                     ('status', ('it:mitre:attack:status', {}), {
                         'doc': 'The status of this ATT&CK technique.',
@@ -953,6 +1196,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
                     }),
+                    ('isnow', ('it:mitre:attack:software', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the software.',
+                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK software.',
                     }),
@@ -973,6 +1219,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK mitigation.',
                     }),
+                    ('matrix', ('it:mitre:attack:matrix', {}), {
+                        'doc': 'The ATT&CK matrix which defines the mitigation.',
+                    }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK mitigation.',
                         'disp': {'hint': 'text'},
@@ -992,6 +1241,20 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
                 )),
+                ('it:mitre:attack:flow', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the attack-flow diagram.'}),
+                    ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
+                        'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the diagram was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the diagram was last updated.'}),
+                    ('author:user', ('syn:user', {}), {
+                        'doc': 'The Synapse user that created the node.'}),
+                    ('author:contact', ('ps:contact', {}), {
+                        'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
+                )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
                 ('it:dev:mutex', {}, ()),
@@ -1010,6 +1273,215 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
+
+                # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
+                ('it:dev:repo:type:taxonomy', {}, ()),
+                ('it:dev:repo', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The name of the repository.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A free-form description of the repository.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'When the repository was created.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL where the repository is hosted.',
+                    }),
+                    ('type', ('it:dev:repo:type:taxonomy', {}), {
+                        'doc': 'The type of the version control system used.',
+                        'ex': 'svn'
+                    }),
+                    ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
+                    }),
+                )),
+
+                ('it:dev:repo:remote', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name the repo is using for the remote repo.',
+                        'ex': 'origin'
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL the repo is using to access the remote repo.',
+                    }),
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo that is tracking the remote repo.',
+                    }),
+                    ('remote', ('it:dev:repo', {}), {
+                        'doc': 'The instance of the remote repo.',
+                    }),
+                )),
+
+                ('it:dev:repo:branch', {}, (
+                    ('parent', ('it:dev:repo:branch', {}), {
+                        'doc': 'The branch this branch was branched from.',
+                    }),
+                    ('start', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit in the parent branch this branch was created at.'
+                    }),
+                    ('name', ('str', {'strip': True}), {
+                        'doc': 'The name of the branch.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the branch is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time this branch was created',
+                    }),
+                    ('merged', ('time', {}), {
+                        'doc': 'The time this branch was merged back into its parent.',
+                    }),
+                    ('deleted', ('time', {}), {
+                        'doc': 'The time this branch was deleted.',
+                    }),
+                )),
+
+                ('it:dev:repo:commit', {}, (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository the commit lives in.',
+                    }),
+                    ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
+                        'doc': 'The commit or commits this commit is immediately based on.',
+                    }),
+                    ('branch', ('it:dev:repo:branch', {}), {
+                        'doc': 'The name of the branch the commit was made to.',
+                    }),
+                    ('mesg', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The commit message describing the changes in the commit.',
+                    }),
+                    ('id', ('str', {}), {
+                        'doc': 'The version control system specific commit identifier.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the commit was made.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the commit is hosted.',
+                    }),
+                )),
+
+                ('it:dev:repo:diff', {}, (
+                    ('commit', ('it:dev:repo:commit', {}), {
+                        'doc': 'The commit that produced this diff.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file after the commit has been applied',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path to the file in the repo that the diff is being applied to.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the diff is hosted.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue', {}, (
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repo where the issue was logged.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The title of the issue.'
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The text describing the issue.'
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the issue was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the issue was updated.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the issue is hosted.',
+                    }),
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the issue in the repository system.',
+                    }),
+                )),
+
+                ('it:dev:repo:label', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the label.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The human friendly name of the label.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the label.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:label', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue the label was applied to.',
+                    }),
+                    ('label', ('it:dev:repo:label', {}), {
+                        'doc': 'The label that was applied to the issue.',
+                    }),
+                    ('applied', ('time', {}), {
+                        'doc': 'The time the label was applied.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The time the label was removed.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:comment', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue thread that the comment was made in.',
+                    }),
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The body of the comment.',
+                    }),
+                    ('replyto', ('it:dev:repo:issue:comment', {}), {
+                        'doc': 'The comment that this comment is replying to.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the comment is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the comment was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the comment was updated.',
+                    }),
+                )),
+
+                ('it:dev:repo:diff:comment', {}, (
+                    ('diff', ('it:dev:repo:diff', {}), {
+                        'doc': 'The diff the comment is being added to.',
+                    }),
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The body of the comment.',
+                    }),
+                    ('replyto', ('it:dev:repo:diff:comment', {}), {
+                        'doc': 'The comment that this comment is replying to.',
+                    }),
+                    ('line', ('int', {}), {
+                        'doc': 'The line in the file that is being commented on.',
+                    }),
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset in the line in the file that is being commented on.',
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL where the comment is hosted.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the comment was created.',
+                    }),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the comment was updated.',
+                    }),
+                )),
+
                 ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1030,7 +1502,7 @@ class ItModule(s_module.CoreModule):
                     ('released', ('time', {}), {
                         'doc': 'The initial release date for this hardware.'}),
                     ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
+                        'doc': 'An array of it:prod:hardware parts included in this hardware specification.'}),
                 )),
                 ('it:prod:component', {}, (
                     ('hardware', ('it:prod:hardware', {}), {
@@ -1040,10 +1512,13 @@ class ItModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The it:host which has this component installed.'}),
                 )),
+                ('it:prod:soft:taxonomy', {}, ()),
                 ('it:prod:soft', {}, (
                     ('name', ('it:prod:softname', {}), {
                         'doc': 'Name of the software.',
                     }),
+                    ('type', ('it:prod:soft:taxonomy', {}), {
+                        'doc': 'The software type.'}),
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software.',
                     }),
@@ -1062,20 +1537,20 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('author:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Organization which authored the software.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
                         'deprecated': True,
-                        'doc': 'Web account of the software author.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
                     ('author:email', ('inet:email', {}), {
                         'deprecated': True,
-                        'doc': 'Email address of the software author.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
 
                     ('author:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Person who authored the software.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'URL relevant for the software.',
@@ -1083,13 +1558,30 @@ class ItModule(s_module.CoreModule):
 
                     ('isos', ('bool', {}), {
                         'doc': 'Set to True if the software is an operating system.'}),
+
                     ('islib', ('bool', {}), {
                         'doc': 'Set to True if the software is a library.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed by the author of the software.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
 
                 ('it:prod:softname', {}, ()),
+                ('it:prod:softid', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The ID issued by the software to the host.'}),
+
+                    ('host', ('it:host', {}), {
+                        'doc': 'The host which was issued the ID by the software.'}),
+
+                    ('soft', ('it:prod:softver', {}), {
+                        'doc': 'The software which issued the ID to the host.'}),
+
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software which issued the ID to the host.'}),
+                )),
 
                 ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
@@ -1214,6 +1706,15 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The default installation path of the file.'}),
                 )),
 
+                ('it:prod:softreg', {}, (
+
+                    ('softver', ('it:prod:softver', {}), {'ro': True,
+                        'doc': 'The software which creates the registry entry.'}),
+
+                    ('regval', ('it:dev:regval', {}), {'ro': True,
+                        'doc': 'The registry entry created by the software.'}),
+                )),
+
                 ('it:hostsoft', {}, (
 
                     ('host', ('it:host', {}), {'ro': True,
@@ -1241,6 +1742,7 @@ class ItModule(s_module.CoreModule):
                     })
                 )),
                 ('it:av:signame', {}, ()),
+
                 ('it:av:filehit', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
@@ -1338,7 +1840,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file basename of the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
-                        'doc': 'The path to the executable which started the process.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Create :src:proc and set :path.',
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
@@ -1517,13 +2020,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
                     ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 of the client during the URL retrieval..'
+                        'doc': 'The IPv4 of the client during the URL retrieval.'
                     }),
                     ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 of the client during the URL retrieval..'
+                        'doc': 'The IPv6 of the client during the URL retrieval.'
                     }),
                     ('client:port', ('inet:port', {}), {
-                        'doc': 'The client port during the URL retrieval..'
+                        'doc': 'The client port during the URL retrieval.'
                     }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
@@ -1794,14 +2297,41 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:snort:rule', {}, (
+
+                    ('id', ('str', {}), {
+                        'doc': 'The snort rule id.'}),
+
                     ('text', ('str', {}), {
-                        'doc': 'The snort rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The snort rule text.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the snort rule.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the snort rule.'}),
+
+                    ('engine', ('int', {}), {
+                        'doc': 'The snort engine ID which can parse and evaluate the rule text.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'Contact info for the author of the rule.'}),
+
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was initially created.'}),
+
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The rule enabled status to be used for snort evaluation engines.'}),
+
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:snort:hit', {}, (
@@ -1854,22 +2384,35 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:app:yara:rule', {}, (
+
                     ('text', ('str', {}), {
-                        'doc': 'The YARA rule text.',
                         'disp': {'hint': 'text'},
-                    }),
+                        'doc': 'The YARA rule text.'}),
+
+                    ('ext:id', ('str', {}), {
+                        'doc': 'The YARA rule ID from an external system.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the YARA rule.'}),
+
                     ('name', ('str', {}), {
                         'doc': 'The name of the YARA rule.'}),
+
                     ('author', ('ps:contact', {}), {
                         'doc': 'Contact info for the author of the YARA rule.'}),
+
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+
                     ('created', ('time', {}), {
                         'doc': 'The time the YARA rule was initially created.'}),
+
                     ('updated', ('time', {}), {
                         'doc': 'The time the YARA rule was most recently modified.'}),
+
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
+
                     ('family', ('it:prod:softname', {}), {
                         'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
@@ -1943,6 +2486,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the software family which uses the config.'}),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the C2 config was extracted from.'}),
+                    ('decoys', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
                     ('servers', ('array', {'type': 'inet:url'}), {
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
                     ('proxies', ('array', {'type': 'inet:url'}), {

@@ -18,6 +18,7 @@ class StormCliTest(s_test.SynTest):
             pars = s_t_storm.getArgParser()
             opts = pars.parse_args(('woot',))
             self.eq('woot', opts.cortex)
+            self.none(opts.view)
 
             q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, $lib.dict()), $lib.dict())'
             await core.callStorm(q)
@@ -141,40 +142,30 @@ class StormCliTest(s_test.SynTest):
                     for pode in podes:
                         self.sorteq(('bar', 'baz', 'foo'), pode[1]['tags'])
 
-                path = os.path.join(dirn, 'export2.nodes')
-                q = f'!export {path} {{ test:str }} --include-tags foo bar'
-                await s_t_storm.main((lurl, q), outp=outp)
-                text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
-
-                with open(path, 'rb') as fd:
-                    byts = fd.read()
-                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
-                        self.sorteq(('bar', 'foo'), pode[1]['tags'])
-
-                path = os.path.join(dirn, 'export3.nodes')
-                q = f'!export {path} {{ test:str }} --no-tags'
-                await s_t_storm.main((lurl, q), outp=outp)
-                text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
-
-                with open(path, 'rb') as fd:
-                    byts = fd.read()
-                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
-                        self.eq({}, pode[1]['tags'])
-
                 await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
 
-                proc = subprocess.Popen(['python', '-m', 'synapse.tools.storm', lurl], stdout=subprocess.PIPE, shell=True)
-                try:
-                    stdout, _ = proc.communicate(timeout=1)
-                except subprocess.TimeoutExpired:
-                    proc.terminate()
-                    stdout, _ = proc.communicate()
-                    self.isin('Welcome to the Storm interpreter!', stdout.decode())
+    async def test_tools_storm_view(self):
+
+        async with self.getTestCore() as core:
+
+            url = core.getLocalUrl()
+
+            pars = s_t_storm.getArgParser()
+            opts = pars.parse_args(('woot', '--view', '246e7d5dab883eb28d345a33abcdb577'))
+            self.eq(opts.view, '246e7d5dab883eb28d345a33abcdb577')
+
+            view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
+
+            outp = s_output.OutPutStr()
+            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a"*64}]'), outp=outp)
+            self.len(0, await core.nodes('file:bytes'))
+            self.len(1, await core.nodes('file:bytes', opts={'view': view}))
+
+            with self.getTestDir() as dirn:
+                path = os.path.join(dirn, 'export.nodes')
+                q = f'!export {path} {{ file:bytes }}'
+                await s_t_storm.main(('--view', view, url, q), outp=outp)
+                text = str(outp)
+                self.isin(f'saved 1 nodes to: {path}', text)

@@ -8,6 +8,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.msgpack as s_msgpack
 
 descr = '''
 Use a one-time use key to initialize your AHA user enrivonment.
@@ -52,7 +53,7 @@ async def main(argv, outp=s_output.stdout):
 
             capath = certdir.getCaCertPath(ahanetw)
             if capath is not None:
-                os.path.unlink(capath)
+                os.unlink(capath)
 
             byts = await prov.getCaCert()
             capath = certdir.saveCaCertByts(byts)
@@ -60,24 +61,40 @@ async def main(argv, outp=s_output.stdout):
 
             keypath = certdir.getUserKeyPath(username)
             if keypath is not None:
-                os.path.unlink(keypath)
+                os.unlink(keypath)
 
             crtpath = certdir.getUserCertPath(username)
             if crtpath is not None:
-                os.path.unlink(keypath)
+                os.unlink(crtpath)
 
             xcsr = certdir.genUserCsr(username)
             byts = await prov.signUserCsr(xcsr)
             crtpath = certdir.saveUserCertByts(byts)
             outp.printf(f'Saved user certificate: {crtpath}')
 
-            ahaurls = s_telepath.modurl(ahaurls, user=ahauser)
-            if ahaurls not in teleyaml.get('aha:servers'):
-                outp.printf('Updating known AHA servers')
-                servers = list(teleyaml.get('aha:servers'))
-                servers.append(ahaurls)
-                teleyaml['aha:servers'] = servers
-                s_common.yamlsave(teleyaml, yamlpath)
+            if ahaurls is not None:
+                if isinstance(ahaurls, str):
+                    ahaurls = (ahaurls,)
+
+                ahaurls = set(s_telepath.modurl(ahaurls, user=ahauser))
+                servers = teleyaml.get('aha:servers')
+
+                # repack the servers so lists are tuplized like values
+                # we may get over telepath
+                servers = s_msgpack.deepcopy(servers)
+                if isinstance(servers, str):
+                    servers = [servers]
+                else:
+                    servers = list(servers)
+
+                newurls = ahaurls - set(servers)
+                if newurls:
+                    outp.printf('Updating known AHA servers')
+                    servers.extend(newurls)
+                    teleyaml['aha:servers'] = servers
+                    s_common.yamlsave(teleyaml, yamlpath)
+
+    return 0
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

@@ -23,15 +23,28 @@ async def _main(argv, outp):
             valu = s_version.fmtVersion(*e.get('valu'))
             outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
             return 1
+        classes = prox._getClasses()
+        if 'synapse.lib.aha.AhaApi' not in classes:
+            outp.printf(f'Service at {argv[0]} is not an Aha server')
+            return 1
+
         try:
             network = argv[1]
         except IndexError:
             network = None
 
-        mesg = f"{'Service':<20s} {'network':<30s} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
+        mesg = f"{'Service':<20s} {'network':<30s} {'leader':<6} {'online':<6} {'scheme':<6} {'host':<20} {'port':<5}  connection opts"
         outp.printf(mesg)
-        async for svc in prox.getAhaSvcs(network):
 
+        svcs = []
+        ldrs = set()
+        async for svc in prox.getAhaSvcs(network):
+            svcinfo = svc.get('svcinfo')
+            if svcinfo and svc.get('svcname') == svcinfo.get('leader'):
+                ldrs.add(svcinfo.get('run'))
+            svcs.append(svc)
+
+        for svc in svcs:
             svcname = svc.pop('svcname')
             svcnetw = svc.pop('svcnetw')
 
@@ -42,7 +55,14 @@ async def _main(argv, outp):
             port = str(urlinfo.pop('port'))
             scheme = urlinfo.pop('scheme')
 
-            mesg = f'{svcname:<20s} {svcnetw:<30s} {online:<6} {scheme:<6} {host:<20} {port:<5}'
+            leader = 'None'
+            if svcinfo.get('leader') is not None:
+                if svcinfo.get('run') in ldrs:
+                    leader = 'True'
+                else:
+                    leader = 'False'
+
+            mesg = f'{svcname:<20s} {svcnetw:<30s} {leader:<6} {online:<6} {scheme:<6} {host:<20} {port:<5}'
             if svc:
                 mesg = f'{mesg}  {svc}'
 

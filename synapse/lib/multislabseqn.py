@@ -32,7 +32,8 @@ class MultiSlabSeqn(s_base.Base):
     async def __anit__(self,  # type: ignore
                        dirn: str,
                        opts: Optional[Dict] = None,
-                       slabopts: Optional[Dict] = None):
+                       slabopts: Optional[Dict] = None,
+                       cell=None):
         '''
         Args:
             dirn (str):  directory where to store the slabs
@@ -49,6 +50,7 @@ class MultiSlabSeqn(s_base.Base):
         self.offsevents: List[Tuple[int, int, asyncio.Event]] = []  # as a heap
         self._waitcounter = 0
 
+        self.cell = cell
         self.dirn: str = dirn
         s_common.gendir(self.dirn)
         self.slabopts: Dict[str, Any] = {} if slabopts is None else slabopts
@@ -281,6 +283,9 @@ class MultiSlabSeqn(s_base.Base):
             fn = self.slabFilename(self.dirn, startidx)
 
             slab = await s_lmdbslab.Slab.anit(fn, **self.slabopts)
+            if self.cell is not None:
+                slab.addResizeCallback(self.cell.checkFreeSpace)
+
             seqn = slab.getSeqn('nexuslog')
 
             self._openslabs[startidx] = slab, seqn

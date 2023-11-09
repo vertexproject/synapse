@@ -172,11 +172,19 @@ def regexizeTagGlob(tag):
 
         The returned string does not contain a starting '^' or trailing '$'.
     '''
-    return ReRegex.sub(lambda m: r'([^.]+?)' if m.group(1) is None else r'(.+)', regex.escape(tag))
+    return ReRegex.sub(lambda m: r'([^.]*?)' if m.group(1) is None else r'(.*)', regex.escape(tag))
 
 @memoize()
 def getTagGlobRegx(name):
     regq = regexizeTagGlob(name)
+    return regex.compile(regq)
+
+def regexizeEdgeGlob(edge):
+    return ReRegex.sub(r'(.+)', regex.escape(edge))
+
+@memoize()
+def getEdgeGlobRegx(name):
+    regq = regexizeEdgeGlob(name)
     return regex.compile(regq)
 
 class TagGlobs:
@@ -191,7 +199,7 @@ class TagGlobs:
 
         self.cache.clear()
 
-        regx = getTagGlobRegx(name)
+        regx = self._getGlobRegex(name)
 
         glob = (regx, (name, valu))
 
@@ -213,5 +221,12 @@ class TagGlobs:
     def get(self, name):
         return self.cache.get(name)
 
+    def _getGlobRegex(self, name):
+        return getTagGlobRegx(name)
+
     def _getGlobMatches(self, name):
         return [g[1] for g in self.globs if g[0].fullmatch(name) is not None]
+
+class EdgeGlobs(TagGlobs):
+    def _getGlobRegex(self, name):
+        return getEdgeGlobRegx(name)

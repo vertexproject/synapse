@@ -8,31 +8,43 @@ class PolModule(s_module.CoreModule):
 
                 'types': (
 
-                    ('pol:country', ('guid', {}),
-                        {'doc': 'A GUID for a country.'}
-                    ),
-                    ('pol:vitals', ('guid', {}),
-                        {'doc': 'A set of vital statistics about a country.'}
-                    ),
-                    ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}),
-                        {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}),
+                    ('pol:country', ('guid', {}), {
+                        'doc': 'A GUID for a country.'}),
 
-                    ('pol:iso3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}),
-                        {'doc': 'The 3 digit ISO country code.', 'ex': 'usa'}),
+                    ('pol:immigration:status', ('guid', {}), {
+                        'doc': 'A node which tracks the immigration status of a contact.'}),
 
-                    ('pol:isonum', ('int', {}),
-                        {'doc': 'The ISO integer country code.', 'ex': '840'}),
+                    ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('taxonomy',),
+                        'doc': 'A taxonomy of immigration types.'}),
+
+                    ('pol:vitals', ('guid', {}), {
+                        'doc': 'A set of vital statistics about a country.'}),
+
+                    ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
+                        'doc': 'The 2 digit ISO 3166 country code.', 'ex': 'us'}),
+
+                    ('pol:iso3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}), {
+                        'doc': 'The 3 digit ISO 3166 country code.', 'ex': 'usa'}),
+
+                    ('pol:isonum', ('int', {}), {
+                        'doc': 'The ISO integer country code.', 'ex': '840'}),
 
                     ('pol:election', ('guid', {}), {
                         'doc': 'An election involving one or more races for office.'}),
+
                     ('pol:race', ('guid', {}), {
                         'doc': 'An individual race for office.'}),
+
                     ('pol:office', ('guid', {}), {
                         'doc': 'An elected or appointed office.'}),
+
                     ('pol:term', ('guid', {}), {
                         'doc': 'A term in office held by a specific individual.'}),
+
                     ('pol:candidate', ('guid', {}), {
                         'doc': 'A candidate for office in a specific race.'}),
+
                     ('pol:pollingplace', ('guid', {}), {
                         'doc': 'An official place where ballots may be cast for a specific election.'}),
                     # TODO districts
@@ -41,27 +53,64 @@ class PolModule(s_module.CoreModule):
                 'forms': (
 
                     ('pol:country', {}, (
-                        ('flag', ('file:bytes', {}), {}),
+                        ('flag', ('file:bytes', {}), {
+                            'doc': 'A thumbnail image of the flag of the country.'}),
+
                         ('iso2', ('pol:iso2', {}), {}),
+
                         ('iso3', ('pol:iso3', {}), {}),
+
                         ('isonum', ('pol:isonum', {}), {}),
+
                         ('pop', ('int', {}), {
                             'deprecated': True,
                             'doc': 'Deprecated. Please use :vitals::population.'}),
+
                         ('tld', ('inet:fqdn', {}), {}),
 
                         ('name', ('geo:name', {}), {
                             'doc': 'The name of the country.'}),
+
                         ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of alternate or localized names for the country.'}),
+
+                        ('government', ('ou:org', {}), {
+                            'doc': 'The ou:org node which represents the government of the country.'}),
+
                         ('place', ('geo:place', {}), {
                             'doc': 'A geo:place node representing the geospatial properties of the country.'}),
+
                         ('founded', ('time', {}), {
                             'doc': 'The date that the country was founded.'}),
+
                         ('dissolved', ('time', {}), {
                             'doc': 'The date that the country was dissolved.'}),
-                        ('vitals', ('ps:vitals', {}), {
+
+                        ('vitals', ('pol:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
+                    )),
+                    ('pol:immigration:status:type:taxonomy', {}, ()),
+                    ('pol:immigration:status', {}, (
+
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The contact information for the immigration status record.'}),
+
+                        ('country', ('pol:country', {}), {
+                            'doc': 'The country that the contact is/has immigrated to.'}),
+
+                        ('type', ('pol:immigration:status:type:taxonomy', {}), {
+                            'ex': 'citizen.naturalized',
+                            'doc': 'A taxonomy entry for the immigration status type.'}),
+
+                        ('state', ('str', {'enums': 'requested,active,rejected,revoked,renounced'}), {
+                            'doc': 'The state of the immigration status.'}),
+
+                        ('began', ('time', {}), {
+                            'doc': 'The time when the status was granted to the contact.'}),
+
+                        ('ended', ('time', {}), {
+                            'doc': 'The time when the status no longer applied to the contact.'}),
+
                     )),
                     ('pol:vitals', {}, (
                         ('country', ('pol:country', {}), {

@@ -12,8 +12,6 @@ import logging
 import contextlib
 import collections
 
-import aiohttp
-
 import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
@@ -160,15 +158,15 @@ async def getAhaProxy(urlinfo):
         try:
             proxy = await client.proxy(timeout=5)
 
-            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
+            cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
 
             if cellinfo['synapse']['version'] >= (2, 95, 0):
                 filters = {
-                    'mirror': bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
+                    'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false')))
                 }
-                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
-            else:
-                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
+                ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
+            else:  # pragma: no cover
+                ahasvc = await s_common.wait_for(proxy.getAhaSvc(host), timeout=5)
 
             if ahasvc is None:
                 continue
@@ -263,7 +261,8 @@ async def loadTeleCell(dirn):
     ahaurl = None
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
-        ahaurl = conf.get('aha:registry')
+        if conf is not None:
+            ahaurl = conf.get('aha:registry')
 
     if usecerts:
         s_certdir.addCertPath(certpath)
@@ -1118,7 +1117,7 @@ class Client(s_base.Base):
         raise s_exc.IsFini(mesg='Telepath Client isfini')
 
     async def waitready(self, timeout=10):
-        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
+        await s_common.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
         if self._t_methinfo is None:

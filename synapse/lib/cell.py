@@ -1,8 +1,10 @@
+import gc
 import os
 import copy
 import time
 import fcntl
 import shutil
+import signal
 import socket
 import asyncio
 import logging
@@ -16,9 +18,11 @@ import multiprocessing
 
 import aiohttp
 import tornado.web as t_web
+import tornado.log as t_log
 
 import synapse.exc as s_exc
 
+import synapse.data as s_data
 import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
@@ -38,11 +42,14 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
+
+import synapse.lib.crypto.passwd as s_passwd
 
 import synapse.tools.backup as s_t_backup
 
@@ -53,6 +60,33 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 '''
 Base classes for the synapse "cell" microservice architecture.
 '''
+
+PERM_DENY = 0
+PERM_READ = 1
+PERM_EDIT = 2
+PERM_ADMIN = 3
+
+permnames = {
+    PERM_DENY: 'deny',
+    PERM_READ: 'read',
+    PERM_EDIT: 'edit',
+    PERM_ADMIN: 'admin',
+}
+
+easyPermSchema = {
+    'type': 'object',
+    'properties': {
+        'users': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+        'roles': {
+            'type': 'object',
+            'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
+        },
+    },
+    'required': ['users', 'roles'],
+}
 
 def adminapi(log=False):
     '''
@@ -207,7 +241,7 @@ class CellApi(s_base.Base):
         if not await self.allowed(perm):
             perm = '.'.join(perm)
             mesg = f'User must have permission {perm}'
-            raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=self.user.name)
+            raise s_exc.AuthDeny(mesg=mesg, perm=perm, username=self.user.name, user=self.user.iden)
 
     def getCellType(self):
         return self.cell.getCellType()
@@ -224,17 +258,17 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
-    async def getPermDef(self, perm):
+    def getPermDef(self, perm):
         '''
-        Return a perm definition if it is present in getPermDefs() output, otherwise None.
+        Return a specific permission definition.
         '''
-        return await self.cell.getPermDef(perm)
+        return self.cell.getPermDef(perm)
 
-    async def getPermDefs(self):
+    def getPermDefs(self):
         '''
         Return a non-comprehensive list of perm definitions.
         '''
-        return await self.cell.getPermDefs()
+        return self.cell.getPermDefs()
 
     @adminapi()
     def getNexsIndx(self):
@@ -357,11 +391,14 @@ class CellApi(s_base.Base):
         '''
         if not self.user.isAdmin():
             mesg = 'setCellUser() caller must be admin.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
         user = self.cell.auth.user(iden)
         if user is None:
-            raise s_exc.NoSuchUser(iden=iden)
+            raise s_exc.NoSuchUser(mesg=f'Unable to set cell user iden to {iden}', user=iden)
+
+        if user.isLocked():
+            raise s_exc.AuthDeny(mesg=f'User ({user.name}) is locked.', user=user.iden, username=user.name)
 
         self.user = user
         self.link.get('sess').user = user
@@ -465,7 +502,8 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getAuthInfo(self, name):
-        s_common.deprecated('getAuthInfo')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.getAuthInfo')
         user = await self.cell.auth.getUserByName(name)
         if user is not None:
             info = user.pack()
@@ -480,7 +518,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def addAuthRule(self, name, rule, indx=None, gateiden=None):
-        s_common.deprecated('addAuthRule')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.addAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -488,7 +527,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def delAuthRule(self, name, rule, gateiden=None):
-        s_common.deprecated('delAuthRule')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.delAuthRule')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -496,7 +536,8 @@ class CellApi(s_base.Base):
 
     @adminapi(log=True)
     async def setAuthAdmin(self, name, isadmin):
-        s_common.deprecated('setAuthAdmin')
+        '''This API is deprecated.'''
+        s_common.deprecated('CellApi.setAuthAdmin')
         item = await self.cell.auth.getUserByName(name)
         if item is None:
             item = await self.cell.auth.getRoleByName(name)
@@ -513,6 +554,10 @@ class CellApi(s_base.Base):
         self.user.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.cell.setUserPasswd(iden, passwd)
 
+    @adminapi()
+    async def genUserOnepass(self, iden, duration=60000):
+        return await self.cell.genUserOnepass(iden, duration)
+
     @adminapi(log=True)
     async def setUserLocked(self, useriden, locked):
         return await self.cell.setUserLocked(useriden, locked)
@@ -526,8 +571,8 @@ class CellApi(s_base.Base):
         return await self.cell.setUserEmail(useriden, email)
 
     @adminapi(log=True)
-    async def addUserRole(self, useriden, roleiden):
-        return await self.cell.addUserRole(useriden, roleiden)
+    async def addUserRole(self, useriden, roleiden, indx=None):
+        return await self.cell.addUserRole(useriden, roleiden, indx=indx)
 
     @adminapi(log=True)
     async def setUserRoles(self, useriden, roleidens):
@@ -545,7 +590,7 @@ class CellApi(s_base.Base):
             return info
 
         mesg = 'getUserInfo denied for non-admin and non-self'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     async def getRoleInfo(self, name):
         role = await self.cell.auth.reqRoleByName(name)
@@ -553,11 +598,11 @@ class CellApi(s_base.Base):
             return role.pack()
 
         mesg = 'getRoleInfo denied for non-admin and non-member'
-        raise s_exc.AuthDeny(mesg=mesg)
+        raise s_exc.AuthDeny(mesg=mesg, user=self.user.iden, username=self.user.name)
 
     @adminapi()
-    async def getUserDef(self, iden):
-        return await self.cell.getUserDef(iden)
+    async def getUserDef(self, iden, packroles=True):
+        return await self.cell.getUserDef(iden, packroles=packroles)
 
     @adminapi()
     async def getAuthGate(self, iden):
@@ -588,8 +633,8 @@ class CellApi(s_base.Base):
         return await self.cell.getRoleDefs()
 
     @adminapi()
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden, default=default)
 
     @adminapi()
     async def isRoleAllowed(self, iden, perm, gateiden=None):
@@ -744,6 +789,35 @@ class CellApi(s_base.Base):
             'slabs': await s_lmdbslab.Slab.getSlabStats(),
         }
 
+    @adminapi()
+    async def runGcCollect(self, generation=2):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return gc.collect(generation=generation)
+
+    @adminapi()
+    async def getGcInfo(self):
+        '''
+        For diagnostic purposes only!
+
+        NOTE: This API is *not* supported and can be removed at any time!
+        '''
+        return {
+            'stats': gc.get_stats(),
+            'threshold': gc.get_threshold(),
+        }
+
+    @adminapi()
+    async def getReloadableSystems(self):
+        return self.cell.getReloadableSystems()
+
+    @adminapi(log=True)
+    async def reload(self, subsystem=None):
+        return await self.cell.reload(subsystem=subsystem)
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -794,14 +868,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
+        'max:users': {
+            'default': 0,
+            'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
+            'type': 'integer',
+            'minimum': 0
+        },
         'nexslog:en': {
             'default': False,
             'description': 'Record all changes to a stream file on disk.  Required for mirroring (on both sides).',
             'type': 'boolean',
         },
         'nexslog:async': {
-            'default': False,
-            'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
+            'default': True,
+            'description': 'Set to false to disable async memory mapping of the nexus change log.',
             'type': 'boolean',
             'hidedocs': True,
             'hidecmdl': True,
@@ -819,9 +899,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hidecmdl': True,
         },
+        'https:parse:proxy:remoteip': {
+            'description': 'Enable the HTTPS server to parse X-Forwarded-For and X-Real-IP headers to determine requester IP addresses.',
+            'type': 'boolean',
+            'default': False,
+        },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
+        },
+        'onboot:optimize': {
+            'default': False,
+            'description': 'Delay startup to optimize LMDB databases during boot to recover free space and increase performance. This may take a while.',
+            'type': 'boolean',
+        },
+        'limit:disk:free': {
+            'default': 5,
+            'description': 'Minimum disk free space percentage before setting the cell read-only.',
+            'type': ['integer', 'null'],
+            'minimum': 0,
+            'maximum': 100,
         },
         'aha:name': {
             'description': 'The name of the cell service in the aha service registry.',
@@ -942,6 +1039,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
+    FREE_SPACE_CHECK_FREQ = 60.0
 
     COMMIT = s_version.commit
     VERSION = s_version.version
@@ -966,8 +1064,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self.sockaddr = None  # Default value...
+        self.ahaclient = None
+        self._checkspace = s_coro.Event()
+        self._reloadfuncs = {}  # name -> func
 
         self.conf = self._initCellConf(conf)
+
+        self.minfree = self.conf.get('limit:disk:free')
+        if self.minfree is not None:
+            self.minfree = self.minfree / 100
+
+            disk = shutil.disk_usage(self.dirn)
+            if (disk.free / disk.total) <= self.minfree:
+                free = disk.free / disk.total * 100
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
+                raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
+
+        self._delTmpFiles()
+
+        if self.conf.get('onboot:optimize'):
+            await self._onBootOptimize()
 
         await self._initCellBoot()
 
@@ -1080,6 +1197,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # initServiceStorage
         self.cellupdaters = ()
 
+        self.permdefs = None
+        self.permlook = None
+
         # initialize web app and callback data structures
         self._health_funcs = []
         self.addHealthFunc(self._cellHealth)
@@ -1106,6 +1226,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 5 - service networking
         await self.initServiceNetwork()
 
+    def getPermDef(self, perm):
+        perm = tuple(perm)
+        if self.permlook is None:
+            self.permlook = {pdef['perm']: pdef for pdef in self.getPermDefs()}
+        return self.permlook.get(perm)
+
+    def getPermDefs(self):
+        if self.permdefs is None:
+            self.permdefs = self._getPermDefs()
+        return self.permdefs
+
+    def _getPermDefs(self):
+        return ()
+
+    def _clearPermDefs(self):
+        self.permdefs = None
+        self.permlook = None
+
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
         # we inherit from Pusher to make the Cell a Base subclass
@@ -1128,15 +1266,81 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = f'Cannot start the {ctyp}, another process is already running it.'
             raise s_exc.FatalErr(mesg=mesg) from None
 
+    async def _onBootOptimize(self):
+
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        tdev = os.stat(tdir).st_dev
+
+        lmdbs = []
+        for (root, dirs, files) in os.walk(self.dirn):
+            for dirname in dirs:
+                filepath = os.path.join(root, dirname, 'data.mdb')
+                if os.path.isfile(filepath):
+                    if os.stat(filepath).st_dev != tdev:
+                        logger.warning(f'Unable to run onboot:optimize, {filepath} is not on the same volume as {tdir}')
+                        return
+
+                    lmdbs.append(os.path.join(root, dirname))
+
+        if not lmdbs: # pragma: no cover
+            return
+
+        logger.warning('Beginning onboot optimization (this could take a while)...')
+
+        size = len(lmdbs)
+
+        try:
+
+            for i, lmdbpath in enumerate(lmdbs):
+
+                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+
+                with self.getTempDir() as backpath:
+
+                    async with await s_lmdbslab.LmdbBackup.anit(lmdbpath) as backup:
+                        await backup.saveto(backpath)
+
+                    srcpath = os.path.join(lmdbpath, 'data.mdb')
+                    dstpath = os.path.join(backpath, 'data.mdb')
+
+                    os.rename(dstpath, srcpath)
+
+            logger.warning('... onboot optimization complete!')
+
+        except Exception as e: # pragma: no cover
+            logger.exception('...aborting onboot optimization and resuming boot (everything is fine).')
+
+    def _delTmpFiles(self):
+
+        tdir = s_common.gendir(self.dirn, 'tmp')
+
+        names = os.listdir(tdir)
+        if not names:
+            return
+
+        logger.warning(f'Removing {len(names)} temporary files/folders in: {tdir}')
+
+        for name in names:
+
+            path = os.path.join(tdir, name)
+
+            if os.path.isfile(path):
+                os.unlink(path)
+                continue
+
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+                continue
+
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
         # ( and do so using _bumpCellVers )
         pass
 
-    async def _bumpCellVers(self, name, updates):
+    async def _bumpCellVers(self, name, updates, nexs=True):
 
         if self.inaugural:
-            await self.cellvers.set(name, updates[-1][0])
+            await self.cellvers.set(name, updates[-1][0], nexs=nexs)
             return
 
         curv = self.cellvers.get(name, 0)
@@ -1148,9 +1352,50 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await callback()
 
-            await self.cellvers.set(name, vers)
+            await self.cellvers.set(name, vers, nexs=nexs)
 
             curv = vers
+
+    def checkFreeSpace(self):
+        self._checkspace.set()
+
+    async def _runFreeSpaceLoop(self):
+
+        nexsroot = self.getCellNexsRoot()
+
+        while not self.isfini:
+
+            self._checkspace.clear()
+
+            disk = shutil.disk_usage(self.dirn)
+
+            if (disk.free / disk.total) <= self.minfree:
+
+                reason = "Insufficient free space on disk."
+
+                await self._setReadOnly(True, reason=reason)
+                nexsroot.setReadOnly(True, reason=reason)
+
+                mesg = f'Free space on {self.dirn} below minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
+                logger.warning(mesg)
+
+            elif nexsroot.readonly:
+
+                await self._setReadOnly(False)
+                nexsroot.setReadOnly(False)
+
+                await self.nexsroot.startup()
+
+                mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
+                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                logger.warning(mesg)
+
+            await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
+
+    async def _setReadOnly(self, valu, reason=None):
+        # implement any behavior necessary to change the cell read-only status
+        pass
 
     def _getAhaAdmin(self):
         name = self.conf.get('aha:admin')
@@ -1158,9 +1403,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return name
 
     async def _initAhaRegistry(self):
-
-        self.ahainfo = None
-        self.ahaclient = None
 
         ahaurl = self.conf.get('aha:registry')
         if ahaurl is not None:
@@ -1170,7 +1412,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
-                info['client'] = self.ahaclient
+                self.onfini(self.ahaclient)
 
             async def finiaha():
                 await s_telepath.delAhaUrl(ahaurl)
@@ -1211,6 +1453,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
 
+            if self.minfree is not None:
+                self.schedCoro(self._runFreeSpaceLoop())
+
     async def initServiceNetwork(self):
 
         # start a unix local socket daemon listener
@@ -1242,12 +1487,55 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
 
+    async def getAhaInfo(self):
+
+        # Default to static information
+        ahainfo = self.conf.get('aha:svcinfo')
+        if ahainfo is not None:
+            return ahainfo
+
+        # If we have not setup our dmon listener yet, do not generate ahainfo
+        if self.sockaddr is None:
+            return None
+
+        turl = self.conf.get('dmon:listen')
+
+        # Dynamically generate the aha info based on config and runtime data.
+        urlinfo = s_telepath.chopurl(turl)
+
+        urlinfo.pop('host', None)
+        if isinstance(self.sockaddr, tuple):
+            urlinfo['port'] = self.sockaddr[1]
+
+        celliden = self.getCellIden()
+        runiden = await self.getCellRunId()
+        ahalead = self.conf.get('aha:leader')
+
+        # If we are active, then we are ready by definition.
+        # If we are not active, then we have to check the nexsroot
+        # and see if the nexsroot is marked as ready or not. This
+        # status is set on mirrors when they have entered into the
+        # real-time change window.
+        if self.isactive:
+            ready = True
+        else:
+            ready = await self.nexsroot.isNexsReady()
+
+        ahainfo = {
+            'run': runiden,
+            'iden': celliden,
+            'leader': ahalead,
+            'urlinfo': urlinfo,
+            'ready': ready,
+        }
+
+        return ahainfo
+
     async def _initAhaService(self):
 
         if self.ahaclient is None:
             return
 
-        turl = self.conf.get('dmon:listen')
         ahaname = self.conf.get('aha:name')
         if ahaname is None:
             return
@@ -1255,40 +1543,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
-        runiden = await self.getCellRunId()
-        celliden = self.getCellIden()
-
-        ahainfo = self.conf.get('aha:svcinfo')
-        if ahainfo is None and turl is not None:
-
-            urlinfo = s_telepath.chopurl(turl)
-
-            urlinfo.pop('host', None)
-            urlinfo['port'] = self.sockaddr[1]
-
-            ahainfo = {
-                'run': runiden,
-                'iden': celliden,
-                'leader': ahalead,
-                'urlinfo': urlinfo,
-                # if we are not active, then we are not ready
-                # until we confirm we are in the real-time window.
-                'ready': self.isactive,
-            }
-
+        ahainfo = await self.getAhaInfo()
         if ahainfo is None:
             return
 
-        self.ahainfo = ahainfo
         self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         async def onlink(proxy):
             while not proxy.isfini:
-
+                info = await self.getAhaInfo()
                 try:
-                    await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
+                    await proxy.addAhaSvc(ahaname, info, network=ahanetw)
                     if self.isactive and ahalead is not None:
-                        await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
+                        await proxy.addAhaSvc(ahalead, info, network=ahanetw)
 
                     return
 
@@ -1449,7 +1716,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.ahaclient is None:
             return
 
-        if self.ahainfo is None:
+        ahainfo = await self.getAhaInfo()
+        if ahainfo is None:
             return
 
         ahalead = self.conf.get('aha:leader')
@@ -1470,7 +1738,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ahanetw = self.conf.get('aha:network')
         try:
-            await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
+            await proxy.addAhaSvc(ahalead, ahainfo, network=ahanetw)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:  # pragma: no cover
@@ -1599,6 +1867,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return path
 
+    def _reqBackupSpace(self):
+
+        disk = shutil.disk_usage(self.backdirn)
+        cellsize, _ = s_common.getDirSize(self.dirn)
+
+        if os.stat(self.dirn).st_dev == os.stat(self.backdirn).st_dev:
+            reqspace = self.minfree * disk.total + cellsize
+        else:
+            reqspace = cellsize
+
+        if reqspace > disk.free:
+            mesg = f'Insufficient free space on {self.backdirn} to run a backup ' \
+                    f'({disk.free} bytes free, {reqspace} required)'
+            raise s_exc.LowSpace(mesg=mesg, dirn=self.backdirn)
+
     async def runBackup(self, name=None, wait=True):
 
         if self.backuprunning:
@@ -1616,6 +1899,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isdir(path):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
+
+            self._reqBackupSpace()
 
             self.backuprunning = True
             self.backlastexc = None
@@ -1712,6 +1997,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         break
 
                 logger.debug('Starting backup process')
+
+                # Copy cell.guid first to ensure the backup can be deleted
+                dstdir = s_common.gendir(dirn)
+                shutil.copy(os.path.join(self.dirn, 'cell.guid'), os.path.join(dstdir, 'cell.guid'))
 
                 args = (child_pipe, self.dirn, dirn, paths, logconf)
 
@@ -1943,12 +2232,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = False
 
-    async def isUserAllowed(self, iden, perm, gateiden=None):
-        user = self.auth.user(iden)
+    async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
+        user = self.auth.user(iden)  # type: s_hiveauth.HiveUser
         if user is None:
             return False
 
-        return user.allowed(perm, gateiden=gateiden)
+        return user.allowed(perm, default=default, gateiden=gateiden)
 
     async def isRoleAllowed(self, iden, perm, gateiden=None):
         role = self.auth.role(iden)
@@ -1983,12 +2272,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         return await user.profile.pop(name, default=default)
 
+    async def iterUserVars(self, iden):
+        user = await self.auth.reqUser(iden)
+        for item in user.vars.items():
+            yield item
+
+    async def getUserVarValu(self, iden, name):
+        user = await self.auth.reqUser(iden)
+        return user.vars.get(name)
+
+    async def setUserVarValu(self, iden, name, valu):
+        user = await self.auth.reqUser(iden)
+        return await user.vars.set(name, valu)
+
+    async def popUserVarValu(self, iden, name, default=None):
+        user = await self.auth.reqUser(iden)
+        return await user.vars.pop(name, default=default)
+
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
@@ -1996,21 +2302,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
         logger.info(f'Removing rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
         logger.info(f'Removing rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule, gateiden=gateiden))
+                                                 rule=rule, gateiden=gateiden, status='MODIFY'))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
@@ -2018,43 +2324,45 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.setRules(rules, gateiden=gateiden)
         logger.info(f'Set user rules = {rules} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rules=rules, gateiden=gateiden))
+                                                 rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
         logger.info(f'Set role rules = {rules} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rules=rules, gateiden=gateiden))
+                                                 rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
         oname = role.name
         await role.setName(name)
         logger.info(f'Set name={name} from {oname} on role iden={role.iden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
         logger.info(f'Set admin={admin} for {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 gateiden=gateiden))
+                                                 gateiden=gateiden, status='MODIFY'))
 
-    async def addUserRole(self, useriden, roleiden):
+    async def addUserRole(self, useriden, roleiden, indx=None):
         user = await self.auth.reqUser(useriden)
         role = await self.auth.reqRole(roleiden)
-        await user.grant(roleiden)
+        await user.grant(roleiden, indx=indx)
         logger.info(f'Granted role {role.name} to user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 target_role=role.iden, target_rolename=role.name))
+                                                 target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
         logger.info(f'Set roleidens={roleidens} on user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 roleidens=roleidens))
+                                                 roleidens=roleidens, status='MODIFY'))
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
@@ -2062,12 +2370,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.revoke(roleiden)
         logger.info(f'Revoked role {role.name} from user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 target_role=role.iden, target_rolename=role.name))
+                                                 target_role=role.iden, target_rolename=role.name,
+                                                 status='MODIFY'))
 
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
         logger.info(f'Added user={name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 status='CREATE'))
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
@@ -2075,12 +2385,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = user.name
         await self.auth.delUser(iden)
         logger.info(f'Deleted user={name}',
-                   extra=await self.getLogExtra(target_user=iden, target_username=name))
+                   extra=await self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
         logger.info(f'Added role={name}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
         return role.pack()
 
     async def delRole(self, iden):
@@ -2088,43 +2398,57 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = role.name
         await self.auth.delRole(iden)
         logger.info(f'Deleted role={name}',
-                     extra=await self.getLogExtra(target_role=iden, target_rolename=name))
+                     extra=await self.getLogExtra(target_role=iden, target_rolename=name, status='DELETE'))
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
         user = await self.auth.reqUser(useriden)
         logger.info(f'Set email={email} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserName(self, useriden, name):
         user = await self.auth.reqUser(useriden)
         oname = user.name
         await user.setName(name)
         logger.info(f'Set name={name} from {oname} on user iden={user.iden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
         logger.info(f'Set password for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+
+    async def genUserOnepass(self, iden, duration=600000):
+        user = await self.auth.reqUser(iden)
+        passwd = s_common.guid()
+        shadow = await s_passwd.getShadowV2(passwd=passwd)
+        now = s_common.now()
+        onepass = {'create': now, 'expires': s_common.now() + duration,
+                   'shadow': shadow}
+        await self.auth.setUserInfo(iden, 'onepass', onepass)
+
+        logger.info(f'Issued one time password for {user.name}',
+                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+
+        return passwd
 
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
         logger.info(f'Set lock={locked} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
         logger.info(f'Set archive={archived} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
-    async def getUserDef(self, iden):
+    async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
         if user is not None:
-            return user.pack(packroles=True)
+            return user.pack(packroles=packroles)
 
     async def getAuthGate(self, iden):
         gate = self.auth.getAuthGate(iden)
@@ -2166,12 +2490,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
-    async def getPermDef(self, perm): # pragma: no cover
-        return
-
-    async def getPermDefs(self): # pragma: no cover
-        return []
-
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
         Feed a named event onto the ``cell:beholder`` message bus that will sent to any listeners.
@@ -2201,7 +2519,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if perms:
             p = []
             for perm in perms:
-                permdef = await self.getPermDef(perm)
+                permdef = self.getPermDef(perm)
                 if permdef is not None:
                     p.append(permdef)
             kwargs['perms'] = p
@@ -2304,18 +2622,42 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             sess.info[name] = valu
 
+    @contextlib.contextmanager
+    def getTempDir(self):
+        tdir = s_common.gendir(self.dirn, 'tmp')
+        with s_common.getTempDir(dirn=tdir) as dirn:
+            yield dirn
+
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
+        '''
+        Add a HTTPS listener to the Cell.
+
+        Args:
+            port (int): The listening port to bind.
+            host (str): The listening host.
+            sslctx (ssl.SSLContext): An externally managed SSL Context.
+
+        Note:
+            If the SSL context is not provided, the Cell will assume it
+            manages the SSL context it creates for a given listener and will
+            add a reload handler named https:certs to enabled reloading the
+            SSL certificates from disk.
+        '''
 
         addr = socket.gethostbyname(host)
 
+        managed_ctx = False
         if sslctx is None:
 
+            managed_ctx = True
             pkeypath = os.path.join(self.dirn, 'sslkey.pem')
             certpath = os.path.join(self.dirn, 'sslcert.pem')
 
             if not os.path.isfile(certpath):
                 logger.warning('NO CERTIFICATE FOUND! generating self-signed certificate.')
-                with s_common.getTempDir() as dirn:
+
+                tdir = s_common.gendir(self.dirn, 'tmp')
+                with s_common.getTempDir(dirn=tdir) as dirn:
                     cdir = s_certdir.CertDir(path=(dirn,))
                     pkey, cert = cdir.genHostCert(self.getCellType())
                     cdir.savePkeyPem(pkey, pkeypath)
@@ -2323,9 +2665,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             sslctx = self.initSslCtx(certpath, pkeypath)
 
-        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx)
+        kwargs = {
+            'xheaders': self.conf.reqConfValu('https:parse:proxy:remoteip')
+        }
+        serv = self.wapp.listen(port, address=addr, ssl_options=sslctx, **kwargs)
         self.httpds.append(serv)
-        return list(serv._sockets.values())[0].getsockname()
+
+        lhost, lport = list(serv._sockets.values())[0].getsockname()
+
+        if managed_ctx:
+            # If the Cell is managing the SSLCtx, then we register a reload handler
+            # for it which reloads the pkey / cert.
+            def reload():
+                sslctx.load_cert_chain(certpath, pkeypath)
+                return True
+
+            self.addReloadableSystem('https:certs', reload)
+
+        return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
 
@@ -2339,6 +2696,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
+
+    def _log_web_request(self, handler: s_httpapi.Handler) -> None:
+        # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
+        status = handler.get_status()
+        if status < 400:
+            log_method = t_log.access_log.info
+        elif status < 500:
+            log_method = t_log.access_log.warning
+        else:
+            log_method = t_log.access_log.error
+
+        request_time = 1000.0 * handler.request.request_time()
+
+        user = None
+        username = None
+
+        uri = handler.request.uri
+        remote_ip = handler.request.remote_ip
+        enfo = {'http_status': status,
+                'uri': uri,
+                'remoteip': remote_ip,
+                }
+
+        extra = {'synapse': enfo}
+
+        # It is possible that a Cell implementor may register handlers which
+        # do not derive from our Handler class, so we have to handle that.
+        if hasattr(handler, 'web_useriden') and handler.web_useriden:
+            user = handler.web_useriden
+            enfo['user'] = user
+        if hasattr(handler, 'web_username') and handler.web_username:
+            username = handler.web_username
+            enfo['username'] = username
+
+        if user:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
+        else:
+            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
+
+        log_method(mesg, extra=extra)
 
     async def _initCellHttp(self):
 
@@ -2363,6 +2760,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = {
             'cookie_secret': secret,
+            'log_function': self._log_web_request,
             'websocket_ping_interval': 10
         }
 
@@ -2402,8 +2800,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # add our cert path to the global resolver
         s_certdir.addCertPath(self.certpath)
 
-        # our certdir is *only* the cell certs dir
-        self.certdir = s_certdir.CertDir(path=(self.certpath,))
+        syncerts = s_data.path('certs')
+        self.certdir = s_certdir.CertDir(path=(self.certpath, syncerts))
 
         def fini():
             s_certdir.delCertPath(self.certpath)
@@ -2449,6 +2847,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await _slab.fini()
 
         self.slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
+        self.slab.addResizeCallback(self.checkFreeSpace)
+
         self.onfini(self.slab.fini)
 
     async def _initCellAuth(self):
@@ -2468,10 +2868,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellHiveAuth(self):
 
+        maxusers = self.conf.get('max:users')
+
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
+        auth = await s_hiveauth.Auth.anit(
+            node,
+            seed=seed,
+            nexsroot=self.getCellNexsRoot(),
+            maxusers=maxusers
+        )
 
         auth.link(self.dist)
 
@@ -2559,6 +2966,86 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return {}
 
+    def _hasEasyPerm(self, item, user, level):
+
+        if level > PERM_ADMIN or level < PERM_DENY:
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0)')
+
+        if user.isAdmin():
+            return True
+
+        userlevel = item['permissions']['users'].get(user.iden)
+        if userlevel is not None:
+            if userlevel == 0:
+                return False
+            elif userlevel >= level:
+                return True
+
+        roleperms = item['permissions']['roles']
+        for role in user.getRoles():
+            rolelevel = roleperms.get(role.iden)
+            if rolelevel is not None:
+                if rolelevel == 0:
+                    return False
+                elif rolelevel >= level:
+                    return True
+
+        # allow read by default unless explicitly set
+        if level <= PERM_READ:
+            return True
+
+        return False
+
+    def _reqEasyPerm(self, item, user, level, mesg=None):
+        '''
+        Require the user (or an assigned role) to have the given permission
+        level on the specified item. The item must implement the "easy perm"
+        convention by having a key named "permissions" which adheres to the
+        easyPermSchema definition.
+
+        NOTE: By default a user will only be denied read access if they
+              (or an assigned role) has PERM_DENY assigned.
+        '''
+        if self._hasEasyPerm(item, user, level):
+            return
+
+        if mesg is None:
+            permname = permnames.get(level)
+            mesg = f'User ({user.name}) has insufficient permissions (requires: {permname}).'
+
+        raise s_exc.AuthDeny(mesg=mesg, user=user.iden, username=user.name)
+
+    async def _setEasyPerm(self, item, scope, iden, level):
+        '''
+        Set a user or role permission level within an object that uses the "easy perm"
+        convention. If level is None, permissions are removed.
+        '''
+        if scope not in ('users', 'roles'):
+            raise s_exc.BadArg(mesg=f'Invalid permissions scope: {scope} (must be "users" or "roles")')
+
+        if level is not None and (level > PERM_ADMIN or level < PERM_DENY):
+            raise s_exc.BadArg(mesg=f'Invalid permission level: {level} (must be <= 3 and >= 0, or None)')
+
+        if scope == 'users':
+            await self.auth.reqUser(iden)
+
+        elif scope == 'roles':
+            await self.auth.reqRole(iden)
+
+        perms = item['permissions'].get(scope)
+        if level is None:
+            perms.pop(iden, None)
+        else:
+            perms[iden] = level
+
+    def _initEasyPerm(self, item):
+        '''
+        Ensure that the given object has populated the "easy perm" convention.
+        '''
+        item.setdefault('permissions', {})
+        item['permissions'].setdefault('users', {})
+        item['permissions'].setdefault('roles', {})
+
     async def getTeleApi(self, link, mesg, path):
 
         # if auth is disabled or it's a unix socket, they're root.
@@ -2568,9 +3055,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if auth is not None:
                 name, info = auth
 
+            # By design, unix sockets can auth as any user.
             user = await self.auth.getUserByName(name)
             if user is None:
-                raise s_exc.NoSuchUser(name=name)
+                raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         else:
             user = await self._getCellUser(link, mesg)
@@ -2578,6 +3066,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.getCellApi(link, user, path)
 
     async def getCellApi(self, link, user, path):
+        '''
+        Get an instance of the telepath Client object for a given user, link and path.
+
+        Args:
+            link (s_link.Link): The link object.
+            user (s_hive.HiveUser): The heavy user object.
+            path (str): The path requested.
+
+        Notes:
+           This defaults to the self.cellapi class. Implementors may override the
+           default class attribute for cellapi to share a different interface.
+
+        Returns:
+            object: The shared object for this cell.
+        '''
         return await self.cellapi.anit(self, link, user)
 
     async def getLogExtra(self, **kwargs):
@@ -2591,8 +3094,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             Dict: A dictionary
         '''
         extra = {**kwargs}
-        sess = s_scope.get('sess')
-        if sess and sess.user:
+        sess = s_scope.get('sess')  # type: s_daemon.Sess
+        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        if user:
+            extra['user'] = user.iden
+            extra['username'] = user.name
+        elif sess and sess.user:
             extra['user'] = sess.user.iden
             extra['username'] = sess.user.name
         return {'synapse': extra}
@@ -2816,7 +3323,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_common.genfile(tarpath) as fd:
-                async with aiohttp.client.ClientSession() as sess:
+                # Leave a 60 second timeout check for the connection and reads.
+                # Disable total timeout
+                timeout = aiohttp.client.ClientTimeout(
+                    total=None,
+                    connect=60,
+                    sock_read=60,
+                    sock_connect=60,
+                )
+                async with aiohttp.client.ClientSession(timeout=timeout) as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
 
@@ -2933,7 +3448,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             provconf (dict): A dictionary containing provisioning config data from AHA.
 
         Notes:
+            The cell.yaml will have the "mirror" key removed from it.
             The cell.yaml will be modified with data from provconf.
+            The cell.mods.yaml will have the "mirror" key removed from it.
             The cell.mods.yaml will have any keys in the prov conf removed from it.
             This sets the runtime configuration as well.
 
@@ -2952,16 +3469,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # Validate provconf, and insert it into cell.yaml
         for name, valu in provconf.items():
             new_conf.reqKeyValid(name, valu)
-        path = s_common.genpath(self.dirn, 'cell.yaml')
-        s_common.yamlmod(provconf, path)
+
+        cell_path = s_common.genpath(self.dirn, 'cell.yaml')
+
+        # Slice the mirror option out of the cell.yaml file. This avoids
+        # a situation where restoring a backup from a cell which was provisioned
+        # as a mirror is then provisioned as a leader and then has an extra
+        # cell config value which conflicts with the new provconf.
+        s_common.yamlpop('mirror', cell_path)
+
+        # Inject the provconf value into the cell configuration
+        s_common.yamlmod(provconf, cell_path)
+
         # load cell.yaml, still preferring actual config data from opts/envs.
-        new_conf.setConfFromFile(path)
+        new_conf.setConfFromFile(cell_path)
 
         # Remove any keys from overrides that were set from provconf
         # then load the file
         mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
         for key in provconf:
             s_common.yamlpop(key, mods_path)
+
+        # Slice the mirror option out of the cell.mods.yaml file. This avoids
+        # a situation where restoring a backup from a cell which was demoted
+        # from a leader to a follower has a config value which conflicts with
+        # the new provconf.
+        s_common.yamlpop('mirror', mods_path)
+
         new_conf.setConfFromFile(mods_path, force=True)
 
         # Ensure defaults are set
@@ -3016,6 +3550,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
+
+        # Remove aha:provision from cell.yaml if it exists and the iden differs.
+        mnfo = s_common.yamlload(self.dirn, 'cell.yaml')
+        if mnfo:
+            provurl = mnfo.get('aha:provision', None)
+            if provurl:
+                murlinfo = s_telepath.chopurl(provurl)
+                miden = murlinfo.get('path').strip('/')
+                if miden != providen:
+                    s_common.yamlpop('aha:provision', self.dirn, 'cell.yaml')
+                    logger.debug('Removed aha:provision from cell.yaml')
 
         await self._bootProvConf(provconf)
 
@@ -3160,27 +3705,32 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 if hostpart == self.conf.get('aha:network'):
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
+                        if user.isLocked():
+                            raise s_exc.AuthDeny(mesg=f'User ({userpart}) is locked.', user=user.iden, username=userpart)
                         return user
 
             user = await self.auth.getUserByName(username)
             if user is not None:
+                if user.isLocked():
+                    raise s_exc.AuthDeny(mesg=f'User ({username}) is locked.', user=user.iden, username=username)
                 return user
 
-            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
+            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', username=username)
 
         auth = mesg[1].get('auth')
         if auth is None:
 
             anonuser = self.conf.get('auth:anon')
             if anonuser is None:
-                raise s_exc.AuthDeny(mesg='Unable to find cell user')
+                raise s_exc.AuthDeny(mesg=f'Unable to find cell user ({anonuser})')
 
             user = await self.auth.getUserByName(anonuser)
             if user is None:
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is not found.', username=anonuser)
 
             if user.isLocked():
-                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.')
+                raise s_exc.AuthDeny(mesg=f'Anon user ({anonuser}) is locked.', username=anonuser,
+                                     user=user.iden)
 
             return user
 
@@ -3188,13 +3738,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         user = await self.auth.getUserByName(name)
         if user is None:
-            raise s_exc.NoSuchUser(name=name, mesg=f'No such user: {name}.')
+            raise s_exc.NoSuchUser(username=name, mesg=f'No such user: {name}.')
 
         # passwd None always fails...
         passwd = info.get('passwd')
 
         if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.name)
+            raise s_exc.AuthDeny(mesg='Invalid password', username=user.name, user=user.iden)
 
         return user
 
@@ -3302,8 +3852,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return True
 
         perm = '.'.join(perm)
-        raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
-                             task=iden, user=str(user), perm=perm)
+        raise s_exc.AuthDeny(mesg=f'User ({user.name}) must have permission {perm} or own the task',
+                             task=iden, user=user.iden, username=user.name, perm=perm)
 
     async def getCellInfo(self):
         '''
@@ -3339,6 +3889,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
+                'nexsindx': await self.getNexsIndx(),
+                'uplink': self.nexsroot.miruplink.is_set(),
             },
             'features': {
                 'tellready': True,
@@ -3381,6 +3933,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         availmem = s_thisplat.getAvailableMemory()
         pyversion = platform.python_version()
         cpucount = multiprocessing.cpu_count()
+        sysctls = s_thisplat.getSysctls()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -3396,6 +3949,68 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
             'cpucount': cpucount,              # Number of CPUs on system
+            'sysctls': sysctls                 # Performance related sysctls
         }
 
         return retn
+
+    @contextlib.asynccontextmanager
+    async def getSpooledSet(self):
+        async with await s_spooled.Set.anit(dirn=self.dirn, cell=self) as sset:
+            yield sset
+
+    async def addSignalHandlers(self):
+        await s_base.Base.addSignalHandlers(self)
+
+        def sighup():
+            asyncio.create_task(self.reload())
+
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGHUP, sighup)
+
+    def addReloadableSystem(self, name: str, func: callable):
+        '''
+        Add a reloadable system. This may be dynamically called at at time.
+
+        Args:
+            name (str): Name of the system.
+            func: The callable for reloading a given system.
+
+        Note:
+            Reload functions take no arguments when they are executed.
+            Values returned by the reload function must be msgpack friendly.
+
+        Returns:
+            None
+        '''
+        self._reloadfuncs[name] = func
+
+    def getReloadableSystems(self):
+        return tuple(self._reloadfuncs.keys())
+
+    async def reload(self, subsystem=None):
+        ret = {}
+        if subsystem:
+            func = self._reloadfuncs.get(subsystem)
+            if func is None:
+                raise s_exc.NoSuchName(mesg=f'No reload system named {subsystem}',
+                                       name=subsystem)
+            ret[subsystem] = await self._runReloadFunc(subsystem, func)
+        else:
+            # Run all funcs
+            for (rname, func) in self._reloadfuncs.items():
+                ret[rname] = await self._runReloadFunc(rname, func)
+        return ret
+
+    async def _runReloadFunc(self, name, func):
+        try:
+            logger.debug(f'Running cell reload system {name}')
+            ret = await s_coro.ornot(func)
+            await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.exception(f'Error running reload system {name}')
+            return s_common.retnexc(e)
+        logger.debug(f'Completed cell reload system {name}')
+        return (True, ret)

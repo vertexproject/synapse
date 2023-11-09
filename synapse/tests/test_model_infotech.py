@@ -1,3 +1,5 @@
+import hashlib
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -31,7 +33,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[it:sec:cpe=asdf]')
 
             with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:asdf]')
+                nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:vertex:synapse ]')
+            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:vertex:synapse:*:*:*:*:*:*:*:*:*'))
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
@@ -54,6 +59,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.g0100
                     :references=(https://foo.com,https://bar.com)
                     :software=(S0200,S0100,S0100)
+                    :isnow=G0110
                     :techniques=(T0200,T0100,T0100)
             ]''')
             self.len(1, nodes)
@@ -67,6 +73,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('software'), ('S0100', 'S0200'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('isnow'), 'G0110')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:tactic=TA0100
@@ -75,6 +82,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :url=https://archer.link
                     :tag=cno.mitre.ta0100
                     :references=(https://foo.com,https://bar.com)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:tactic', 'TA0100'))
@@ -83,6 +91,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tag'), 'cno.mitre.ta0100')
             self.eq(nodes[0].get('url'), 'https://archer.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:technique=T0100
@@ -95,6 +104,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :status=deprecated
                     :isnow=T1110
                     :tactics=(TA0200,TA0100,TA0100)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:technique', 'T0100'))
@@ -107,6 +117,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
             self.eq(nodes[0].get('status'), 'deprecated')
             self.eq(nodes[0].get('isnow'), 'T1110')
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100
@@ -118,6 +129,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.s0100
                     :references=(https://foo.com,https://bar.com)
                     :techniques=(T0200,T0100,T0100)
+                    :isnow=S0110
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
@@ -129,6 +141,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://redtree.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('isnow'), 'S0110')
             self.len(3, await core.nodes('it:prod:softname=redtree -> it:mitre:attack:software -> it:prod:softname'))
 
             nodes = await core.nodes('''[
@@ -139,6 +152,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.m0100
                     :references=(https://foo.com,https://bar.com)
                     :addresses=(T0200,T0100,T0100)
+                    :matrix=enterprise
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:mitigation', 'M0100'))
@@ -148,6 +162,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://wsus.com')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('matrix'), 'enterprise')
 
             nodes = await core.nodes('''[
                 it:exec:thread=*
@@ -331,6 +346,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'loc': 'us.hehe.haha',
                     'operator': cont0,
                     'org': org0,
+                    'ext:id': 'foo123'
                 }
                 node = await snap.addNode('it:host', host0, hprops)
                 self.eq(node.ndef[1], host0)
@@ -343,6 +359,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('loc'), 'us.hehe.haha')
                 self.eq(node.get('org'), org0)
                 self.eq(node.get('operator'), cont0)
+                self.eq(node.get('ext:id'), 'foo123')
 
                 node = await snap.addNode('it:hosturl', (host0, 'http://vertex.ninja/cool.php'))
                 self.eq(node.ndef[1], (host0, 'http://vertex.ninja/cool.php'))
@@ -446,6 +463,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
 
+            nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('keyboard:language'))
+            self.len(1, await core.nodes('it:host:keyboard:layout=QWERTY'))
+            self.len(1, await core.nodes('lang:language:code=en.us -> it:host'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
@@ -460,6 +483,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 url0 = 'https://vertex.link/products/balloonmaker'
                 sprops = {
                     'name': 'Balloon Maker',
+                    'type': 'hehe.haha',
                     'names': ('clowns inc',),
                     'desc': "Pennywise's patented balloon blower upper",
                     'desc:short': 'Balloon blower',
@@ -489,6 +513,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 self.eq(node.get('url'), url0)
 
+                self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
                 self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
 
                 # it:prod:softver - this does test a bunch of property related callbacks
@@ -540,6 +565,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(softfile.get('file'), f'sha256:{file0}')
                 self.eq('/path/to/nowhere', softfile.get('path'))
                 self.len(1, await core.nodes('it:prod:softfile -> file:path'))
+                nodes = await core.nodes('''
+                    [ it:prod:softreg=(*, *) ]
+                    { -> it:prod:softver [ :name=woot ] }
+                    { -> it:dev:regval [ :key=HKEY_LOCAL_MACHINE/visi :int=31337 ] }
+                ''')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('regval'))
+                self.nn(nodes[0].get('softver'))
+                self.len(1, await core.nodes('it:prod:softver:name=woot -> it:prod:softreg -> it:dev:regval +:int=31337'))
 
                 ver1 = s_common.guid()
                 softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
@@ -587,6 +621,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     ('0.18rc2', 0, {'major': 0, 'minor': 0, 'patch': 0}),
                     ('OpenSSL_1_0_2l', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
                 ]
+                itmod = core.getCoreMod('synapse.models.infotech.ItModule')
+
                 for tv, te, subs in testvectors:
                     props = {
                         'vers': tv
@@ -597,13 +633,15 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.eq(node.get('semver:minor'), subs.get('minor'))
                     self.eq(node.get('semver:patch'), subs.get('patch'))
 
+                    self.eq(itmod.bruteVersionStr(tv), (te, subs))
+
                 node = await snap.addNode('it:prod:softver', '*', {'vers': ''})
                 self.eq(node.get('vers'), '')
                 self.none(node.get('vers:norm'))
                 self.none(node.get('semver'))
 
                 with self.getLoggerStream('synapse.models.infotech',
-                                          'Unable to brute force version parts out of the string') as stream:
+                                          'Unable to parse string as a semver') as stream:
 
                     node = await snap.addNode('it:prod:softver', '*', {'vers': 'Alpha'})
                     self.none(node.get('semver'))
@@ -710,7 +748,23 @@ class InfotechModelTest(s_t_utils.SynTest):
                 (0xFFFFF, (0xFFFFF, {'major': 0, 'minor': 0, 'patch': 0xFFFFF})),
                 (0xFFFFF + 1, (0xFFFFF + 1, {'major': 0, 'minor': 1, 'patch': 0})),
                 (0xdeadb33f1337133, (0xdeadb33f1337133, {'major': 0xdeadb, 'minor': 0x33f13, 'patch': 0x37133})),
-                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF}))
+                (0xFFFFFFFFFFFFFFF, (0xFFFFFFFFFFFFFFF, {'major': 0xFFFFF, 'minor': 0xFFFFF, 'patch': 0xFFFFF})),
+                # Brute forced strings
+                ('1', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('1.2', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
+                ('2.0A1', (2199023255552, {'major': 2, 'minor': 0, 'patch': 0})),
+                ('0.18rc2', (0, {'major': 0, 'minor': 0, 'patch': 0})),
+                ('0.0.00001', (1, {'major': 0, 'minor': 0, 'patch': 1})),
+                ('2016-03-01', (2216615444742145, {'major': 2016, 'minor': 3, 'patch': 1})),
+                ('v2.4.0.0-1', (2199027449856, {'major': 2, 'minor': 4, 'patch': 0})),
+                ('1.3a2.dev12', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('OpenSSL_1_0_2l', (1099511627776, {'major': 1, 'minor': 0, 'patch': 0})),
+                ('1.2.windows-RC1', (1099513724928, {'major': 1, 'minor': 2, 'patch': 0})),
+                ('v2.4.1.0-0.3.rc1', (2199027449857, {'major': 2, 'minor': 4, 'patch': 1})),
+                ('1.2.3-alpha.foo..+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha.foo.001+001', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah...', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3})),
+                ('1.2.3-alpha+001.blahblahblah.*iggy', (1099513724931, {'major': 1, 'minor': 2, 'patch': 3}))
             )
 
             for v, e in testvectors:
@@ -721,26 +775,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(subs, es)
 
             testvectors_bad = (
-                # Invalid strings
-                '1',
-                '1.2',
-                '2.0A1',
-                '0.18rc2',
-                '0.0.00001',
-                '2016-03-01',
-                'v2.4.0.0-1',
-                '1.3a2.dev12',
-                'OpenSSL_1_0_2l',
-                '1.2.windows-RC1',
-                'v2.4.1.0-0.3.rc1',
                 # invalid ints
                 -1,
                 0xFFFFFFFFFFFFFFFFFFFFFFFF + 1,
-                # Invalid build and prerelease values
-                '1.2.3-alpha.foo..+001',
-                '1.2.3-alpha.foo.001+001',
-                '1.2.3-alpha+001.blahblahblah...',
-                '1.2.3-alpha+001.blahblahblah.*iggy',
                 # Just bad input
                 '   ',
                 ' alpha ',
@@ -768,7 +805,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('it:screenshot', nodes[0].ndef[0])
-            self.eq('WootWoot', nodes[0].props['desc'])
+            self.eq('WootWoot', nodes[0].get('desc'))
 
             self.len(1, await core.nodes('it:screenshot :host -> it:host'))
             self.len(1, await core.nodes('it:screenshot :image -> file:bytes'))
@@ -787,12 +824,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :cpe=cpe:2.3:h:dell:xps13::::::::
                     :parts = (*, *)
             ]''')
-            self.eq('WootWoot', nodes[0].props['desc'])
-            self.eq('dell', nodes[0].props['make'])
-            self.eq('xps13', nodes[0].props['model'])
-            self.eq('alpha', nodes[0].props['version'])
-            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].props['cpe'])
-            self.eq(1643760000000, nodes[0].props['released'])
+            self.eq('WootWoot', nodes[0].get('desc'))
+            self.eq('dell', nodes[0].get('make'))
+            self.eq('xps13', nodes[0].get('model'))
+            self.eq('alpha', nodes[0].get('version'))
+            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].get('cpe'))
+            self.eq(1643760000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
             self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
@@ -803,8 +840,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :serial=asdf1234
                     :host=*
             ]''')
-            self.nn(nodes[0].props['host'])
-            self.eq('asdf1234', nodes[0].props['serial'])
+            self.nn(nodes[0].get('host'))
+            self.eq('asdf1234', nodes[0].get('serial'))
             self.len(1, await core.nodes('it:prod:component -> it:host'))
             self.len(1, await core.nodes('it:prod:component -> it:prod:hardware +:make=dell'))
 
@@ -1101,6 +1138,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:app:yara:rule=$rule
+                    :ext:id=V-31337
+                    :url=https://vertex.link/yara-lolz/V-31337
                     :family=Beacon
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk :author=* :name=foo :version=1.2.3 ]
@@ -1108,6 +1147,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
+            self.eq('V-31337', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/yara-lolz/V-31337', nodes[0].get('url'))
             self.eq(True, nodes[0].get('enabled'))
             self.eq(1580601600000, nodes[0].get('created'))
             self.eq(1648771200000, nodes[0].get('updated'))
@@ -1133,12 +1174,31 @@ class InfotechModelTest(s_t_utils.SynTest):
             host = s_common.guid()
             opts = {'vars': {'rule': rule, 'flow': flow, 'host': host, 'hit': hit}}
 
-            nodes = await core.nodes('[ it:app:snort:rule=$rule :text=gronk :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''
+            [ it:app:snort:rule=$rule
+                :id=999
+                :engine=1
+                :text=gronk
+                :name=foo
+                :author = {[ ps:contact=* :name=visi ]}
+                :created = 20120101
+                :updated = 20220101
+                :enabled=1
+                :family=redtree
+                :version=1.2.3 ]
+            ''', opts=opts)
 
             self.len(1, nodes)
+            self.eq('999', nodes[0].get('id'))
+            self.eq(1, nodes[0].get('engine'))
             self.eq('foo', nodes[0].get('name'))
             self.eq('gronk', nodes[0].get('text'))
+            self.eq('redtree', nodes[0].get('family'))
+            self.eq(True, nodes[0].get('enabled'))
             self.eq(0x10000200003, nodes[0].get('version'))
+            self.eq(1325376000000, nodes[0].get('created'))
+            self.eq(1640995200000, nodes[0].get('updated'))
+            self.nn(nodes[0].get('author'))
 
             nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
@@ -1235,9 +1295,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
 
-            with self.raises(s_exc.BadTypeValu):
-                cpe23.norm('cpe:2.3:a:vertex:synapse')
-
             # test cast 2.2 -> 2.3 upsample
             norm, info = cpe23.norm('cpe:/a:vertex:synapse')
             self.eq(norm, 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
@@ -1247,7 +1304,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(norm, 'cpe:/a:vertex:synapse')
 
             nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:* ]')
-            self.eq('cpe:/a:vertex:synapse', nodes[0].props['v2_2'])
+            self.eq('cpe:/a:vertex:synapse', nodes[0].get('v2_2'))
 
             # test lift by either via upsample and downsample
             self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse +:v2_2=cpe:/a:vertex:synapse'))
@@ -1262,6 +1319,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :file=*
                     :family=Beacon
                     :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
+                    :decoys=(https://woot.com, https://foo.bar)
                     :listens=(https://0.0.0.0:443,)
                     :proxies=(socks5://visi:secret@1.2.3.4:1234,)
                     :dns:resolvers=(udp://8.8.8.8:53,)
@@ -1289,6 +1347,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(('https://0.0.0.0:443',), node.get('listens'))
             self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
             self.eq(('udp://8.8.8.8:53',), node.get('dns:resolvers'))
+            self.eq(('https://woot.com', 'https://foo.bar',), node.get('decoys'))
 
     async def test_infotech_query(self):
 
@@ -1309,3 +1368,272 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+    async def test_infotech_softid(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:prod:softid=*
+                    :id=Woot
+                    :host=*
+                    :soft={[ it:prod:softver=* :name=beacon ]}
+                    :soft:name=beacon
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('Woot', nodes[0].get('id'))
+            self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('soft'))
+            self.len(1, await core.nodes('it:host -> it:prod:softid'))
+            self.len(1, await core.nodes('it:prod:softver:name=beacon -> it:prod:softid'))
+
+    async def test_infotech_repo(self):
+
+        async with self.getTestCore() as core:
+            diff = s_common.guid()
+            repo = s_common.guid()
+            issue = s_common.guid()
+            commit = s_common.guid()
+            branch = s_common.guid()
+            icom = s_common.guid()
+            dcom = s_common.guid()
+            origin = s_common.guid()
+            label = s_common.guid()
+            issuelabel = s_common.guid()
+            file = f"sha256:{hashlib.sha256(b'foobarbaz').hexdigest()}"
+
+            props = {
+                ('it:dev:repo', repo): {
+                    'name': 'synapse',
+                    'desc': 'Synapse Central Intelligence System',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse',
+                    'type': 'svn.',
+                    'submodules': (s_common.guid(),),
+                },
+
+                ('it:dev:repo:remote', s_common.guid()): {
+                    'name': 'origin',
+                    'repo': repo,
+                    'url': 'git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging',
+                    'remote': origin,
+                },
+
+                ('it:dev:repo:commit', commit): {
+                    'repo': repo,
+                    'branch': branch,
+                    'parents': (s_common.guid(),),
+                    'mesg': 'fancy new release',
+                    'id': 'r12345',
+                    'created': 0,
+                    'url': 'https://github.com/vertexproject/synapse/commit/03c71e723bceedb38ef8fc14543c30b9e82e64cf',
+                },
+
+                ('it:dev:repo:diff', diff): {
+                    'commit': commit,
+                    'file': file,
+                    'path': 'synapse/tests/test_model_infotech.py',
+                    'url': 'https://github.com/vertexproject/synapse/compare/it_dev_repo_models?expand=1',
+                },
+
+                ('it:dev:repo:issue', issue): {
+                    'repo': repo,
+                    'title': 'a fancy new release',
+                    'desc': 'Gonna be a big release friday',
+                    'created': 1,
+                    'updated': 1,
+                    'id': '1234',
+                    'url': 'https://github.com/vertexproject/synapse/issues/2821',
+                },
+
+                ('it:dev:repo:label', label): {
+                    'id': '123456789',
+                    'title': 'new feature',
+                    'desc': 'a super cool new feature'
+                },
+
+                ('it:dev:repo:issue:label', issuelabel): {
+                    'issue': issue,
+                    'label': label,
+                    'applied': 97,
+                    'removed': 98
+                },
+
+                ('it:dev:repo:issue:comment', icom): {
+                    'issue': issue,
+                    'text': 'a comment on an issue',
+                    'replyto': s_common.guid(),
+                    'url': 'https://github.com/vertexproject/synapse/issues/2821#issuecomment-1557053758',
+                    'created': 12,
+                    'updated': 93
+                },
+
+                ('it:dev:repo:diff:comment', dcom): {
+                    'diff': diff,
+                    'text': 'types types types types types',
+                    'replyto': s_common.guid(),
+                    'line': 100,
+                    'offset': 100,
+                    'url': 'https://github.com/vertexproject/synapse/pull/3257#discussion_r1273368069',
+                    'created': 1,
+                    'updated': 3
+                },
+
+                ('it:dev:repo:branch', branch): {
+                    'parent': s_common.guid(),
+                    'start': commit,
+                    'name': 'IT_dev_repo_models',
+                    'url': 'https://github.com/vertexproject/synapse/tree/it_dev_repo_models',
+                    'created': 0,
+                    'merged': 1,
+                    'deleted': 2
+                }
+            }
+
+            async with await core.snap() as snap:
+                for (form, valu), props in props.items():
+                    node = await snap.addNode(form, valu, props=props)
+                    self.checkNode(node, ((form, valu), props))
+
+            nodes = await core.nodes('it:dev:repo')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo <- *')
+            self.len(4, nodes)
+
+            nodes = await core.nodes('it:dev:repo:commit')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:dev:repo:type:taxonomy')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:issue:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:remote :repo -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', repo))
+
+            nodes = await core.nodes('it:dev:repo:remote :remote -> it:dev:repo')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('it:dev:repo', origin))
+
+            nodes = await core.nodes('it:dev:repo:issue:comment=$guid :replyto -> *', {'vars': {'guid': icom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:diff:comment=$guid :replyto -> *', {'vars': {'guid': dcom}})
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:repo:branch=$guid :parent -> *', {'vars': {'guid': branch}})
+            self.len(1, nodes)
+
+    async def test_infotech_vulnscan(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan=*
+                    :time=202308180819
+                    :desc="Woot Woot"
+                    :ext:id=FOO-10
+                    :ext:url=https://vertex.link/scans/FOO-10
+                    :software:name=nessus
+                    :software={[ it:prod:softver=* :name=nessus ]}
+                    :operator={[ ps:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.eq(1692346740000, nodes[0].get('time'))
+            self.eq('nessus', nodes[0].get('software:name'))
+            self.eq('Woot Woot', nodes[0].get('desc'))
+            self.eq('FOO-10', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10', nodes[0].get('ext:url'))
+
+            self.nn(nodes[0].get('operator'))
+            self.nn(nodes[0].get('software'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('it:sec:vuln:scan -> it:prod:softver +:name=nessus'))
+
+            nodes = await core.nodes('''
+                [ it:sec:vuln:scan:result=*
+                    :scan={it:sec:vuln:scan}
+                    :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
+                    :desc="Network service is vulnerable to nucsploit9k"
+                    :ext:id=FOO-10.0
+                    :ext:url=https://vertex.link/scans/FOO-10/0
+                    :time=2023081808190828
+                    :mitigated=2023081808190930
+                    :mitigation={[ risk:mitigation=* :name="mitigate this" ]}
+                    :asset=(inet:server, tcp://1.2.3.4:443)
+                    :priority=high
+                    :severity=highest
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(40, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('severity'))
+            self.eq(1692346748280, nodes[0].get('time'))
+            self.eq(1692346749300, nodes[0].get('mitigated'))
+            self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
+            self.eq('FOO-10.0', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
+
+            self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:vuln +:name=nucsploit9k'))
+            self.len(1, await core.nodes('it:sec:vuln:scan:result -> risk:mitigation +:name="mitigate this"'))
+
+    async def test_infotech_it_sec_metrics(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:metrics=*
+
+                    :org={ gen.ou.org vertex }
+                    :org:name=vertex
+                    :org:fqdn=vertex.link
+
+                    :period=(202307, 202308)
+
+                    :alerts:count=100
+                    :alerts:falsepos=90
+                    :alerts:meantime:triage=2:00:00
+
+                    :assets:users=13
+                    :assets:hosts=123
+
+                    :assets:vulns:count=4
+                    :assets:vulns:mitigated=2
+                    :assets:vulns:discovered=4
+                    :assets:vulns:preexisting=2
+
+                    :assets:vulns:meantime:mitigate="1D 2:37:00"
+
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.eq('vertex', nodes[0].get('org:name'))
+            self.eq('vertex.link', nodes[0].get('org:fqdn'))
+            self.eq((1688169600000, 1690848000000), nodes[0].get('period'))
+
+            self.eq(100, nodes[0].get('alerts:count'))
+            self.eq(90, nodes[0].get('alerts:falsepos'))
+            self.eq(7200000, nodes[0].get('alerts:meantime:triage'))
+
+            self.eq(13, nodes[0].get('assets:users'))
+            self.eq(123, nodes[0].get('assets:hosts'))
+
+            self.eq(4, nodes[0].get('assets:vulns:count'))
+            self.eq(2, nodes[0].get('assets:vulns:mitigated'))
+            self.eq(4, nodes[0].get('assets:vulns:discovered'))
+            self.eq(2, nodes[0].get('assets:vulns:preexisting'))
+
+            self.len(1, await core.nodes('it:sec:metrics -> ou:org +:name=vertex'))

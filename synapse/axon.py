@@ -33,7 +33,14 @@ CHUNK_SIZE = 16 * s_const.mebibyte
 MAX_SPOOL_SIZE = CHUNK_SIZE * 32  # 512 mebibytes
 MAX_HTTP_UPLOAD_SIZE = 4 * s_const.tebibyte
 
-class AxonHttpUploadV1(s_httpapi.StreamHandler):
+class AxonHandlerMixin:
+    def getAxon(self):
+        '''
+        Get a reference to the Axon interface used by the handler.
+        '''
+        return self.cell
+
+class AxonHttpUploadV1(AxonHandlerMixin, s_httpapi.StreamHandler):
 
     async def prepare(self):
         self.upfd = None
@@ -44,7 +51,7 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         # max_body_size defaults to 100MB and requires a value
         self.request.connection.set_max_body_size(MAX_HTTP_UPLOAD_SIZE)
 
-        self.upfd = await self.cell.upload()
+        self.upfd = await self.getAxon().upload()
         self.hashset = s_hashset.HashSet()
 
     async def data_received(self, chunk):
@@ -55,7 +62,7 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
 
     def on_finish(self):
         if self.upfd is not None and not self.upfd.isfini:
-            self.cell.schedCoroSafe(self.upfd.fini())
+            self.getAxon().schedCoroSafe(self.upfd.fini())
 
     def on_connection_close(self):
         self.on_finish()
@@ -83,12 +90,12 @@ class AxonHttpUploadV1(s_httpapi.StreamHandler):
         await self._save()
         return
 
-class AxonHttpHasV1(s_httpapi.Handler):
+class AxonHttpHasV1(AxonHandlerMixin, s_httpapi.Handler):
 
     async def get(self, sha256):
         if not await self.allowed(('axon', 'has')):
             return
-        resp = await self.cell.has(s_common.uhex(sha256))
+        resp = await self.getAxon().has(s_common.uhex(sha256))
         return self.sendRestRetn(resp)
 
 reqValidAxonDel = s_config.getJsValidator({
@@ -103,7 +110,7 @@ reqValidAxonDel = s_config.getJsValidator({
     'required': ['sha256s'],
 })
 
-class AxonHttpDelV1(s_httpapi.Handler):
+class AxonHttpDelV1(AxonHandlerMixin, s_httpapi.Handler):
 
     async def post(self):
 
@@ -116,22 +123,19 @@ class AxonHttpDelV1(s_httpapi.Handler):
 
         sha256s = body.get('sha256s')
         hashes = [s_common.uhex(s) for s in sha256s]
-        resp = await self.cell.dels(hashes)
+        resp = await self.getAxon().dels(hashes)
         return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
-class AxonFileHandler(s_httpapi.Handler):
-
-    def axon(self):
-        return self.cell
+class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
 
     async def getAxonInfo(self):
-        return await self.axon().getCellInfo()
+        return await self.getAxon().getCellInfo()
 
     async def _setSha256Headers(self, sha256b):
 
         self.ranges = []
 
-        self.blobsize = await self.axon().size(sha256b)
+        self.blobsize = await self.getAxon().size(sha256b)
         if self.blobsize is None:
             self.set_status(404)
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}')
@@ -203,14 +207,14 @@ class AxonFileHandler(s_httpapi.Handler):
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
             size = eoff - soff
-            async for byts in self.axon().get(sha256b, soff, size):
+            async for byts in self.getAxon().get(sha256b, soff, size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
             return
 
         # standard file return
-        async for byts in self.axon().get(sha256b):
+        async for byts in self.getAxon().get(sha256b):
             self.write(byts)
             await self.flush()
             await asyncio.sleep(0)
@@ -254,12 +258,12 @@ class AxonHttpBySha256V1(AxonFileHandler):
             return
 
         sha256b = s_common.uhex(sha256)
-        if not await self.cell.has(sha256b):
+        if not await self.getAxon().has(sha256b):
             self.set_status(404)
             self.sendRestErr('NoSuchFile', f'SHA-256 not found: {sha256}')
             return
 
-        resp = await self.cell.del_(sha256b)
+        resp = await self.getAxon().del_(sha256b)
         return self.sendRestRetn(resp)
 
 class AxonHttpBySha256InvalidV1(AxonFileHandler):
@@ -290,7 +294,8 @@ class UpLoad(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.axon = axon
-        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+        dirn = s_common.gendir(axon.dirn, 'tmp')
+        self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, dir=dirn)
         self.size = 0
         self.sha256 = hashlib.sha256()
         self.onfini(self._uploadFini)
@@ -301,7 +306,8 @@ class UpLoad(s_base.Base):
     def _reset(self):
         if self.fd._rolled or self.fd.closed:
             self.fd.close()
-            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE)
+            dirn = s_common.gendir(self.axon.dirn, 'tmp')
+            self.fd = tempfile.SpooledTemporaryFile(max_size=MAX_SPOOL_SIZE, dir=dirn)
         else:
             # If we haven't rolled over, this skips allocating new objects
             self.fd.truncate(0)
@@ -356,7 +362,7 @@ class UpLoad(s_base.Base):
 
                 yield byts
 
-        await self.axon.save(sha256, genr())
+        await self.axon.save(sha256, genr(), rsize)
 
         self._reset()
         return rsize, sha256
@@ -609,9 +615,11 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
+                    'reason': <str> - The reason phrase for the HTTP status code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - An error tuple if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
                     'size': <int> - The size in bytes of the response body.
                     'hashes': {
@@ -619,7 +627,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                         'sha1': <str> - The SHA1 hash of the response body.
                         'sha256': <str> - The SHA256 hash of the response body.
                         'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
                     }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
                 }
 
         Returns:
@@ -663,27 +677,29 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors='ignore'):
         '''
         Yield lines from a multi-line text file in the axon.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
 
         Yields:
             str: Lines of text
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.readlines(sha256):
+        async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         '''
         Yield CSV rows from a CSV file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
             dialect (str): The CSV dialect to use.
+            errors (str): Specify how encoding errors should handled.
             **fmtparams: The CSV dialect format parameters.
 
         Notes:
@@ -705,21 +721,22 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             list: Decoded CSV rows.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.csvrows(sha256, dialect, **fmtparams):
+        async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
             yield item
 
-    async def jsonlines(self, sha256):
+    async def jsonlines(self, sha256, errors='ignore'):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file.
+            errors (str): Specify how encoding errors should handled.
 
         Yields:
             object: Decoded JSON objects.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for item in self.cell.jsonlines(sha256):
+        async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
 
@@ -802,13 +819,15 @@ class Axon(s_cell.Cell):
             self.hashlocks[hashbyts] = item = [0, asyncio.Lock()]
 
         item[0] += 1
-        async with item[1]:
-            yield
+        try:
+            async with item[1]:
+                yield
 
-        item[0] -= 1
+        finally:
+            item[0] -= 1
 
-        if item[0] == 0:
-            self.hashlocks.pop(hashbyts, None)
+            if item[0] == 0:
+                self.hashlocks.pop(hashbyts, None)
 
     def _reqBelowLimit(self):
 
@@ -1122,7 +1141,7 @@ class Axon(s_cell.Cell):
         '''
         return dict(self.axonmetrics.items())
 
-    async def save(self, sha256, genr):
+    async def save(self, sha256, genr, size):
         '''
         Save a generator of bytes to the Axon.
 
@@ -1133,14 +1152,14 @@ class Axon(s_cell.Cell):
         Returns:
             int: The size of the bytes saved.
         '''
-        assert genr is not None
-        return await self._populate(sha256, genr)
+        assert genr is not None and isinstance(size, int)
+        return await self._populate(sha256, genr, size)
 
-    async def _populate(self, sha256, genr, size=None):
+    async def _populate(self, sha256, genr, size):
         '''
         Populates the metadata and save the data itself if genr is not None
         '''
-        assert genr is not None or size is not None
+        assert genr is not None and isinstance(size, int)
 
         self._reqBelowLimit()
 
@@ -1153,8 +1172,7 @@ class Axon(s_cell.Cell):
             fhash = s_common.ehex(sha256)
             logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
-            if genr is not None:
-                size = await self._saveFileGenr(sha256, genr)
+            size = await self._saveFileGenr(sha256, genr, size)
 
             await self._axonFileAdd(sha256, size, {'tick': s_common.now()})
 
@@ -1176,7 +1194,7 @@ class Axon(s_cell.Cell):
         self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
-    async def _saveFileGenr(self, sha256, genr):
+    async def _saveFileGenr(self, sha256, genr, size):
 
         size = 0
 
@@ -1335,20 +1353,21 @@ class Axon(s_cell.Cell):
         finally:
             link.txfini()
 
-    async def readlines(self, sha256):
+    async def readlines(self, sha256, errors='ignore'):
 
         sha256 = s_common.uhex(sha256)
         await self._reqHas(sha256)
 
-        link00, sock00 = await s_link.linksock()
+        link00, sock00 = await s_link.linksock(forceclose=True)
 
-        todo = s_common.todo(_spawn_readlines, sock00)
-        async with await s_base.Base.anit() as scope:
+        feedtask = None
 
-            scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
-            scope.schedCoro(self._sha256ToLink(sha256, link00))
+        try:
+            todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
+            async with await s_base.Base.anit() as scope:
 
-            try:
+                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
 
@@ -1362,24 +1381,27 @@ class Axon(s_cell.Cell):
 
                     yield line.rstrip('\n')
 
-            finally:
-                sock00.close()
-                await link00.fini()
+        finally:
+            sock00.close()
+            await link00.fini()
+            if feedtask is not None:
+                await feedtask
 
-    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
         await self._reqHas(sha256)
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
 
-        link00, sock00 = await s_link.linksock()
+        link00, sock00 = await s_link.linksock(forceclose=True)
 
-        todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
-        async with await s_base.Base.anit() as scope:
+        feedtask = None
 
-            scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
-            scope.schedCoro(self._sha256ToLink(sha256, link00))
+        try:
+            todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
+            async with await s_base.Base.anit() as scope:
 
-            try:
+                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
 
@@ -1393,12 +1415,14 @@ class Axon(s_cell.Cell):
 
                     yield row
 
-            finally:
-                sock00.close()
-                await link00.fini()
+        finally:
+            sock00.close()
+            await link00.fini()
+            if feedtask is not None:
+                await feedtask
 
-    async def jsonlines(self, sha256):
-        async for line in self.readlines(sha256):
+    async def jsonlines(self, sha256, errors='ignore'):
+        async for line in self.readlines(sha256, errors=errors):
             line = line.strip()
             if not line:
                 continue
@@ -1440,10 +1464,11 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'err': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - Tuple of the error type and information if an exception occurred.
                     'url': <str> - The URL retrieved (which could have been redirected)
                     'code': <int> - The response code.
                     'body': <bytes> - The response body.
+                    'reason': <str> - The reason phrase for the HTTP status code.
                     'headers': <dict> - The response headers as a dictionary.
                 }
 
@@ -1476,6 +1501,12 @@ class Axon(s_cell.Cell):
                 data._is_multipart = True
 
                 for field in fields:
+
+                    name = field.get('name')
+                    if not isinstance(name, str):
+                        mesg = f'Each field requires a "name" key with a string value: {name}'
+                        raise s_exc.BadArg(mesg=mesg, name=name)
+
                     sha256 = field.get('sha256')
                     if sha256:
                         valu = self.get(s_common.uhex(sha256))
@@ -1484,7 +1515,7 @@ class Axon(s_cell.Cell):
                         if not isinstance(valu, (bytes, str)):
                             valu = json.dumps(valu)
 
-                    data.add_field(field.get('name'),
+                    data.add_field(name,
                                    valu,
                                    content_type=field.get('content_type'),
                                    filename=field.get('filename'),
@@ -1497,6 +1528,7 @@ class Axon(s_cell.Cell):
                         'url': str(resp.url),
                         'code': resp.status,
                         'body': await resp.read(),
+                        'reason': s_common.httpcodereason(resp.status),
                         'headers': dict(resp.headers),
                     }
                     return info
@@ -1506,17 +1538,20 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
-                exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
-                    mesg = exc.get('err')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    reason = f'Exception occurred during request: {err[0]}'
 
                 return {
                     'ok': False,
-                    'err': mesg,
+                    'err': err,
                     'url': url,
                     'body': b'',
                     'code': -1,
+                    'reason': reason,
                     'headers': dict(),
                 }
 
@@ -1555,6 +1590,7 @@ class Axon(s_cell.Cell):
                         'ok': True,
                         'url': str(resp.url),
                         'code': resp.status,
+                        'reason': s_common.httpcodereason(resp.status),
                         'headers': dict(resp.headers),
                     }
                     return info
@@ -1564,15 +1600,43 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
-                exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
-                    mesg = exc.get('err')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    mesg = f"{err[0]}: {errmsg}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    mesg = err[0]
+                    reason = f'Exception occurred during request: {err[0]}'
 
                 return {
                     'ok': False,
                     'mesg': mesg,
+                    'code': -1,
+                    'reason': reason,
+                    'err': err,
                 }
+
+    def _flatten_clientresponse(self,
+                                resp: aiohttp.ClientResponse,
+                                ) -> dict:
+        info = {
+            'ok': True,
+            'url': str(resp.real_url),
+            'code': resp.status,
+            'headers': dict(resp.headers),
+            'reason': s_common.httpcodereason(resp.status),
+            'request': {
+                'url': str(resp.request_info.real_url),
+                'headers': dict(resp.request_info.headers),
+                'method': str(resp.request_info.method),
+            }
+        }
+
+        if resp.history:
+            info['history'] = [self._flatten_clientresponse(hist) for hist in resp.history]
+
+        return info
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
         '''
@@ -1597,9 +1661,11 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
-                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'url': <str> - The URL retrieved (which could have been redirected). This is a url-decoded string.
                     'code': <int> - The response code.
+                    'reason': <str> - The reason phrase for the HTTP status code.
                     'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'err': <tuple> - An error tuple if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
                     'size': <int> - The size in bytes of the response body.
                     'hashes': {
@@ -1607,7 +1673,13 @@ class Axon(s_cell.Cell):
                         'sha1': <str> - The SHA1 hash of the response body.
                         'sha256': <str> - The SHA256 hash of the response body.
                         'sha512': <str> - The SHA512 hash of the response body.
+                    },
+                    'request': {
+                        'url': The request URL. This is a url-decoded string.
+                        'headers': The request headers.
+                        'method': The request method.
                     }
+                    'history': A sequence of response bodies to track any redirects, not including hashes.
                 }
 
         Returns:
@@ -1637,20 +1709,13 @@ class Axon(s_cell.Cell):
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
             try:
-
                 async with sess.request(method, url, headers=headers, params=params, json=json, data=body, ssl=ssl) as resp:
 
-                    info = {
-                        'ok': True,
-                        'url': str(resp.url),
-                        'code': resp.status,
-                        'headers': dict(resp.headers),
-                    }
+                    info = self._flatten_clientresponse(resp)
 
                     hashset = s_hashset.HashSet()
 
                     async with await self.upload() as upload:
-
                         async for byts in resp.content.iter_chunked(CHUNK_SIZE):
                             await upload.write(byts)
                             hashset.update(byts)
@@ -1659,7 +1724,6 @@ class Axon(s_cell.Cell):
 
                     info['size'] = size
                     info['hashes'] = dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
-
                     return info
 
             except asyncio.CancelledError:
@@ -1667,19 +1731,26 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
-                exc = s_common.excinfo(e)
-                mesg = exc.get('errmsg')
-                if not mesg:
-                    mesg = exc.get('err')
+                err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    mesg = f"{err[0]}: {errmsg}"
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    mesg = err[0]
+                    reason = f'Exception occurred during request: {err[0]}'
 
                 return {
                     'ok': False,
                     'mesg': mesg,
+                    'code': -1,
+                    'reason': reason,
+                    'err': err,
                 }
 
-def _spawn_readlines(sock): # pragma: no cover
+def _spawn_readlines(sock, errors='ignore'): # pragma: no cover
     try:
-        with sock.makefile('r') as fd:
+        with sock.makefile('r', errors=errors) as fd:
 
             try:
 
@@ -1695,11 +1766,11 @@ def _spawn_readlines(sock): # pragma: no cover
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
 
-def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
+def _spawn_readrows(sock, dialect, fmtparams, errors='ignore'): # pragma: no cover
     try:
 
         # Assume utf8 encoding and ignore errors.
-        with sock.makefile('r', errors='ignore') as fd:
+        with sock.makefile('r', errors=errors) as fd:
 
             try:
 

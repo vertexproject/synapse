@@ -20,7 +20,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     '''
     Implements the Storm API for a Websocket.
     '''
-    _storm_typename = 'storm:http:socket'
+    _storm_typename = 'inet:http:socket'
 
     _storm_locals = (
 
@@ -67,7 +67,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            _type, data, extra = await asyncio.wait_for(self.resp.receive(), timeout=timeout)
+            _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
             if _type == aiohttp.WSMsgType.BINARY:
                 return (True, json.loads(data))
             if _type == aiohttp.WSMsgType.TEXT:
@@ -106,7 +106,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}}},
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
          'type': {'type': 'function', '_funcname': '_httpPost',
                   'args': (
@@ -135,7 +135,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}}},
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
          'type': {'type': 'function', '_funcname': '_httpEasyHead',
                   'args': (
@@ -154,7 +154,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}}},
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
          'type': {'type': 'function', '_funcname': '_httpRequest',
                    'args': (
@@ -184,7 +184,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                    ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}
+                  'returns': {'type': 'inet:http:resp', 'desc': 'The response object.'}
                   }
          },
         {'name': 'connect', 'desc': 'Connect a web socket to tx/rx JSON messages.',
@@ -202,7 +202,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'proxy', 'type': ['bool', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:socket', 'desc': 'A websocket object.'}}},
+                  'returns': {'type': 'inet:http:socket', 'desc': 'A websocket object.'}}},
         {'name': 'urlencode', 'desc': '''
             Urlencode a text string.
 
@@ -212,7 +212,7 @@ class LibHttp(s_stormtypes.Lib):
             Examples:
                 Urlencode a string::
 
-                    $str=$lib.inet.http.urlencode("http://go ogle.com")
+                    $str=$lib.inet.http.urlencode("http://google.com")
          ''',
          'type': {'type': 'function', '_funcname': 'urlencode',
                   'args': (
@@ -235,8 +235,25 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'The text string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The urldecoded string.', }}},
+        {'name': 'codereason', 'desc': '''
+            Get the reason phrase for an HTTP status code.
+
+            Examples:
+                Get the reason for a 404 status code::
+
+                    $str=$lib.inet.http.codereason(404)
+         ''',
+         'type': {'type': 'function', '_funcname': 'codereason',
+                  'args': (
+                      {'name': 'code', 'type': 'int', 'desc': 'The HTTP status code.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
     )
     _storm_lib_path = ('inet', 'http')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'inet', 'http', 'proxy'), 'gate': 'cortex',
+         'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -247,6 +264,7 @@ class LibHttp(s_stormtypes.Lib):
             'connect': self.inetHttpConnect,
             'urlencode': self.urlencode,
             'urldecode': self.urldecode,
+            'codereason': self.codereason,
         }
 
     def strify(self, item):
@@ -263,6 +281,10 @@ class LibHttp(s_stormtypes.Lib):
     async def urldecode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.unquote_plus(text)
+
+    async def codereason(self, code):
+        code = await s_stormtypes.toint(code)
+        return s_common.httpcodereason(code)
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
                             allow_redirects=False, proxy=None):
@@ -292,8 +314,8 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
@@ -324,11 +346,15 @@ class LibHttp(s_stormtypes.Lib):
     def _buildFormData(self, fields):
         data = aiohttp.FormData()
         for field in fields:
-            data.add_field(field.get('name'),
+            name = field.get('name')
+            data.add_field(name,
                            field.get('value'),
                            content_type=field.get('content_type'),
                            filename=field.get('filename'),
                            content_transfer_encoding=field.get('content_transfer_encoding'))
+            if data.is_multipart and not isinstance(name, str):
+                mesg = f'Each field requires a "name" key with a string value when multipart fields are enabled: {name}'
+                raise s_exc.BadArg(mesg=mesg, name=name)
         return data
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
@@ -352,22 +378,18 @@ class LibHttp(s_stormtypes.Lib):
 
         headers = self.strify(headers)
 
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+
         if fields:
             if any(['sha256' in field for field in fields]):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
                 axon = self.runt.snap.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params,
-                                            method=meth, ssl=ssl_verify, timeout=timeout)
+                                            method=meth, ssl=ssl_verify, timeout=timeout, proxy=proxy)
                 return HttpResp(info)
-            else:
-                data = self._buildFormData(fields)
-        else:
-            data = body
 
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
-
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
@@ -388,9 +410,14 @@ class LibHttp(s_stormtypes.Lib):
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
             try:
+                if fields:
+                    data = self._buildFormData(fields)
+                else:
+                    data = body
                 async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
                     info = {
                         'code': resp.status,
+                        'reason': await self.codereason(resp.status),
                         'headers': dict(resp.headers),
                         'url': str(resp.url),
                         'body': await resp.read(),
@@ -402,8 +429,15 @@ class LibHttp(s_stormtypes.Lib):
             except Exception as e:
                 logger.exception(f'Error during http {meth} @ {url}')
                 err = s_common.err(e)
+                errmsg = err[1].get('mesg')
+                if errmsg:
+                    reason = f'Exception occurred during request: {err[0]}: {errmsg}'
+                else:
+                    reason = f'Exception occurred during request: {err[0]}'
+
                 info = {
                     'code': -1,
+                    'reason': reason,
                     'headers': dict(),
                     'url': url,
                     'body': b'',
@@ -419,13 +453,18 @@ class HttpResp(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'code', 'desc': 'The HTTP status code. It is -1 if an exception occurred.',
             'type': 'int', },
+        {'name': 'reason', 'desc': 'The reason phrase for the HTTP status code.', 'type': 'str'},
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
-        {'name': 'err', 'type': 'list', 'desc': 'Tufo of the error type and information if an exception occurred.'},
+        {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
-            'type': {'type': 'function', '_funcname': '_httpRespJson',
-                     'returns': {'type': 'prim'}
-                     }
+         'type': {'type': 'function', '_funcname': '_httpRespJson',
+                  'args': (
+                      {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'surrogatepass', },
+                   ),
+                   'returns': {'type': 'prim'}
+                 }
         },
         {'name': 'msgpack', 'desc': 'Yield the msgpack deserialized objects.',
             'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
@@ -433,11 +472,12 @@ class HttpResp(s_stormtypes.Prim):
                      }
         },
     )
-    _storm_typename = 'storm:http:resp'
+    _storm_typename = 'inet:http:resp'
     def __init__(self, valu, path=None):
         super().__init__(valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls['code'] = self.valu.get('code')
+        self.locls['reason'] = self.valu.get('reason')
         self.locls['body'] = self.valu.get('body')
         self.locls['headers'] = self.valu.get('headers')
         self.locls['err'] = self.valu.get('err', ())
@@ -448,9 +488,21 @@ class HttpResp(s_stormtypes.Prim):
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def _httpRespJson(self):
+    async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
         try:
-            return json.loads(self.valu.get('body'))
+            valu = self.valu.get('body')
+            errors = await s_stormtypes.tostr(errors)
+
+            if encoding is None:
+                encoding = json.detect_encoding(valu)
+            else:
+                encoding = await s_stormtypes.tostr(encoding)
+
+            return json.loads(valu.decode(encoding, errors))
+
+        except UnicodeDecodeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(valu)[:256]}') from None
+
         except json.JSONDecodeError as e:
             mesg = f'Unable to decode HTTP response as json: {e.args[0]}'
             raise s_exc.BadJsonText(mesg=mesg)

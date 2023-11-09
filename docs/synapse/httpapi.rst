@@ -7,6 +7,8 @@ Many components within the Synapse ecosystem provide HTTP/REST APIs to
 provide a portable interface.  Some of these APIs are RESTful, while other
 (streaming data) APIs are technically not.
 
+.. _http-api-conventions:
+
 HTTP/REST API Conventions
 -------------------------
 
@@ -35,13 +37,14 @@ modules. They should be enough to understand the basic operation of the APIs.
 
 For additional examples, see the code examples at `HTTPAPI Examples`_.
 
+.. _http-api-authentication:
+
 Authentication
 --------------
 
-While not in "insecure" mode, most Synapse HTTP APIs require an authenticated user.
-HTTP API endpoints requiring authentication may be accessed using either HTTP Basic
-authentication via the HTTP "Authorization" header or as part of an authenticated
-session.
+Most Synapse HTTP APIs require an authenticated user. HTTP API endpoints requiring
+authentication may be accessed using either HTTP Basic authentication via the HTTP
+"Authorization" header or as part of an authenticated session.
 
 To create and use an authenticated session, the HTTP client library must support
 cookies.
@@ -86,8 +89,8 @@ Both of the Python examples use session managers which manage the session cookie
 
         url = 'https://localhost:4443/api/v1/login'
         info = {'user': 'visi', 'passwd': 'secret'}
-        resp = sess.post(url, json=data)
-        item = resp.json
+        resp = sess.post(url, json=info, verify=ssl)
+        item = resp.json()
 
         if item.get('status') != 'ok':
             code = item.get('code')
@@ -284,6 +287,9 @@ A Synapse Cortex implements an HTTP API for interacting with the hypergraph and 
 of the provided APIs are pure REST APIs for simple data model operations and single/simple node
 modification.  However, many of the HTTP APIs provided by the Cortex are streaming APIs which use
 HTTP chunked encoding to deliver a stream of results as they become available.
+
+The Cortex also implements the `Axon`_ HTTP API. Permissions are checked within the Cortex, and then
+the request is executed on the Axon.
 
 /api/v1/feed
 ~~~~~~~~~~~~
@@ -638,7 +644,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
             
     *Returns*
-        The API returns `true` using using the REST API convention described earlier.
+        The API returns `true` using the REST API convention described earlier.
         
 /api/v1/storm/vars/pop
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -657,7 +663,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
             
     *Returns*
-        The API returns the the current value of the variable or default using using the REST API convention described earlier.
+        The API returns the the current value of the variable or default using the REST API convention described earlier.
 
 
 /api/v1/core/info
@@ -690,16 +696,25 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                 }
             }
 
+/api/ext/*
+----------
+
+This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
+:ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
+
+
 Aha
 ---
 
-A Synapse Aha service implements an HTTP for assisting with provisioning.
+A Synapse Aha service implements an HTTP API for assisting with devops.
 
 /api/v1/aha/provision/service
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Method*
     POST
+
+    This API allows the caller to generate an AHA provisioning URL.
     
     *Input*
         The API expects the following JSON body::
@@ -717,11 +732,53 @@ A Synapse Aha service implements an HTTP for assisting with provisioning.
             }
     
     *Returns*
-        The API returns the following provisioning information.  The data is returned using using the REST API convention described earlier::
+        The API returns the following provisioning information.  The data is returned using the REST API convention described earlier::
         
             {
                 "url": "< the AHA provisioning URL >",
             }
+
+
+/api/v1/aha/services
+~~~~~~~~~~~~~~~~~~~~
+
+*Method*
+    GET
+
+    This API allows the caller to get a list of all the registered services.
+
+    *Input*
+        The API accepts the following  **optional** JSON body::
+
+            {
+                "network": " ... name of the aha network to list",
+            }
+
+    *Returns*
+        The API returns the following provisioning information.  The data is returned using the REST API
+        convention described earlier::
+
+            [
+                {
+                    "name": "< the full service name >",
+                    "svcname": "< service name part >",
+                    "svcnetw": "< service network part >",
+                    "svcinfo": {
+                        "run": "< runtime service identifier >",
+                        "iden": "< persistent service identifier >",
+                        "leader": "< service leader name >",
+                        "urlinfo": {
+                            "scheme": "< listening scheme >",
+                            "port": listening port,
+                            "path": "< listening path >",
+                            "host": "< listening IP address >"
+                        },
+                        "ready": < boolean indicating the service is either an active leader or in the realtime change event window >,
+                        "online": < runtime aha identifier if the service is connected >
+                    }
+                },
+                ...
+            ]
 
 Axon
 ----
@@ -745,7 +802,7 @@ This API allows the caller to delete multiple files from the Axon by the SHA-256
             }
             
     *Returns*
-        The API returns an array of SHA-256 and boolean values representing whether each was found in the Axon and deleted. The array is returned using using the REST API convention described earlier.
+        The API returns an array of SHA-256 and boolean values representing whether each was found in the Axon and deleted. The array is returned using the REST API convention described earlier.
         
 
 /api/v1/axon/files/put

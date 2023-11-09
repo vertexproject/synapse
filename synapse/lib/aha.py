@@ -80,6 +80,43 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn({'url': url})
 
+_getAhaSvcSchema = {
+    'type': 'object',
+    'properties': {
+        'network': {
+            'type': 'string',
+            'minLength': 1,
+            'default': None,
+        },
+    },
+    'additionalProperties': False,
+}
+getAhaScvSchema = s_config.getJsValidator(_getAhaSvcSchema)
+
+class AhaServicesV1(s_httpapi.Handler):
+    async def get(self):
+        if not await self.reqAuthAdmin():
+            return
+
+        network = None
+        if self.request.body:
+            body = self.getJsonBody(validator=getAhaScvSchema)
+            if body is None:
+                return
+            network = body.get('network')
+
+        ret = []
+
+        try:
+            async for info in self.cell.getAhaSvcs(network=network):
+                ret.append(info)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:  # pragma: no cover
+            logger.exception(f'Error getting Aha services.')
+            return self.sendRestErr(e.__class__.__name__, str(e))
+        return self.sendRestRetn(ret)
+
 class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self):
@@ -273,6 +310,10 @@ class ProvDmon(s_daemon.Daemon):
             await self.aha.delAhaUserEnroll(name)
             return EnrollApi(self.aha, userinfo)
 
+        mesg = f'Invalid provisioning identifier name={name}. This could be' \
+               f' caused by the re-use of a provisioning URL.'
+        raise s_exc.NoSuchName(mesg=mesg, name=name)
+
 class EnrollApi:
 
     def __init__(self, aha, userinfo):
@@ -377,6 +418,8 @@ class AhaCell(s_cell.Cell):
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
+        slab.addResizeCallback(self.checkFreeSpace)
+
         self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():
@@ -390,6 +433,7 @@ class AhaCell(s_cell.Cell):
 
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
+        self.addHttpApi('/api/v1/aha/services', AhaServicesV1, {'cell': self})
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
     async def initServiceRuntime(self):
@@ -726,6 +770,8 @@ class AhaCell(s_cell.Cell):
     def _getAhaUrls(self):
         urls = self.conf.get('aha:urls')
         if urls is not None:
+            if isinstance(urls, str):
+                return (urls,)
             return urls
 
         ahaname = self.conf.get('aha:name')
@@ -736,8 +782,11 @@ class AhaCell(s_cell.Cell):
         if ahanetw is None:
             return None
 
+        if self.sockaddr is None or not isinstance(self.sockaddr, tuple):
+            return None
+
         # TODO this could eventually enumerate others via itself
-        return f'ssl://{ahaname}.{ahanetw}'
+        return (f'ssl://{ahaname}.{ahanetw}:{self.sockaddr[1]}',)
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -794,9 +843,6 @@ class AhaCell(s_cell.Cell):
 
         if peer:
             conf.setdefault('aha:leader', leader)
-
-        if isinstance(ahaurls, str):
-            ahaurls = (ahaurls,)
 
         # allow user to win over leader
         ahauser = conf.get('aha:user')

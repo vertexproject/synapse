@@ -11,7 +11,8 @@ class TestService(s_stormsvc.StormSvc):
         {
             'name': 'foo',
             'version': (0, 0, 1),
-            'synapse_minversion': (2, 8, 0),
+            'synapse_minversion': [2, 144, 0],
+            'synapse_version': '>=2.8.0,<3.0.0',
             'commands': (
                 {
                     'name': 'foobar',
@@ -64,9 +65,6 @@ class SynModelTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('syn:tag', 'foo'))
                 self.nn(node)
 
-            # We can safely do a pivot in from a syn:tag node
-            # which will attempt a syn:splice lift which will
-            # yield no nodes.
             self.len(0, await core.nodes('syn:tag=foo.bar.baz <- *'))
             nodes = await core.nodes('syn:tag=foo.bar.baz [ :doc:url="http://vertex.link" ]')
             self.eq('http://vertex.link', nodes[0].get('doc:url'))
@@ -291,11 +289,6 @@ class SynModelTest(s_t_utils.SynTest):
             q = core.nodes('test:str [ +(newp)> { syn:form } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
 
-            # Syn:splice uses a null lift handler
-            self.len(1, await core.nodes('[test:str=test]'))
-            self.len(0, await core.nodes('syn:splice'))
-            self.len(0, await core.nodes('syn:splice:tag'))
-
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
 
@@ -437,8 +430,8 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'help'))
-                self.eq(nodes[0].get('doc'), 'List available commands and '
-                                             'a brief description for each.')
+                self.eq(nodes[0].get('doc'), 'List available information about Storm and'
+                                             ' brief descriptions of different items.')
 
                 self.none(nodes[0].get('input'))
                 self.none(nodes[0].get('output'))
