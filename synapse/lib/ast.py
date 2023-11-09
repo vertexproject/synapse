@@ -3964,11 +3964,11 @@ class EditEdgeAdd(Edit):
                 else:
                     await node.addEdge(verb, subn.iden())
 
-                    if len(proto.edges) >= 1000:
-                        nodeedits = editor.getNodeEdits()
+                    if len(node.edges) >= 1000:
+                        nodeedits = node.getNodeEdit()
                         if nodeedits:
-                            await node.snap.saveNodeEdits(nodeedits)
-                            proto.edges.clear()
+                            await runt.snap.saveNodeEdits([nodeedits])
+                            node.edges.clear()
 
         return node, path
 
@@ -4018,10 +4018,10 @@ class EditEdgeDel(Edit):
                     await node.delEdge(verb, subn.iden())
 
                     if len(node.edgedels) >= 1000:
-                        nodeedits = editor.getNodeEdits()
+                        nodeedits = node.getNodeEdit()
                         if nodeedits:
-                            await node.snap.applyNodeEdits(nodeedits)
-                        proto.edgedels.clear()
+                            await runt.snap.saveNodeEdits([nodeedits])
+                        node.edgedels.clear()
 
         return node, path
 
@@ -4043,7 +4043,7 @@ class EditTagAdd(Edit):
         valu = (None, None)
 
         try:
-            names = await self.kids[oper_offset].computeTagArray(runt, path, excignore=self.excignore)
+            names = await self.kids[self.oper_offset].computeTagArray(runt, path, excignore=self.excignore)
         except self.excignore:
             return node, path
 
@@ -4054,11 +4054,11 @@ class EditTagAdd(Edit):
 
                 runt.layerConfirm(('node', 'tag', 'add', *parts))
 
-                if hasval:
-                    valu = await self.kids[2 + oper_offset].compute(runt, path)
+                if self.hasval:
+                    valu = await self.kids[2 + self.oper_offset].compute(runt, path)
                     valu = await s_stormtypes.toprim(valu)
                 await node.addTag(name, valu=valu)
-            except excignore:
+            except self.excignore:
                 pass
 
         return node, path

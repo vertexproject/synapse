@@ -2398,12 +2398,12 @@ class AstTest(s_test.SynTest):
             self.stormHasNoErr(msgs)
 
             nodes = await core.nodes('inet:ipv4')
-            self.len(20, nodes[0].tags)
-            self.len(10, nodes[1].tags)
+            self.len(20, nodes[0].getTags())
+            self.len(10, nodes[1].getTags())
             self.eq(8, await core.getNexsIndx())
 
             nodes = await core.nodes('[ou:org=(testorg,) :desc=test :subs={ou:org:desc=test}]')
-            self.eq(nodes[0].props.get('subs'), [nodes[0].ndef[1]])
+            self.eq(nodes[0].get('subs'), [nodes[0].ndef[1]])
 
     async def test_ast_maxdepth(self):
 
