@@ -36,6 +36,7 @@ class ProtoNode:
         self.valu = valu
         self.buid = buid
         self.node = node
+        self.ndef = (form, valu)
 
         self.tags = {}
         self.props = {}
