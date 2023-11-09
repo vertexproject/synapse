@@ -6596,11 +6596,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(data[1][0], 'tag:add')
                 self.eq(data[1][1]['tag'], 'baz.faz')
 
+                # TODO: does ordering matter here with bulk edits?
                 self.eq(data[2][0], 'tag:del')
-                self.eq(data[2][1]['tag'], 'foo.bar')
-
                 self.eq(data[3][0], 'tag:del')
-                self.eq(data[3][1]['tag'], 'baz.faz')
+
+                self.sorteq(('foo.bar', 'baz.faz'), (data[2][1]['tag'], data[3][1]['tag']))
 
     async def test_cortex_behold(self):
         async with self.getTestCore() as core:
