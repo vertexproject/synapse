@@ -581,7 +581,7 @@ class SubQuery(Oper):
         self.text = ''
         if len(kids):
             self.text = kids[0].getAstText()
-            
+
     def isSafeEdit(self):
         return False
 
@@ -3507,30 +3507,24 @@ class Edit(Oper):
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        if len(self.gops) > 1:
-            async for node, path in genr:
-                if not node.form.isrunt:
-                    async with runt.snap.getNodeEditor(node) as pnode:
-                        path.node = pnode
-                        for gopr in self.gops:
-                            pnode, path = await gopr.runEdit(runt, pnode, path)
-                            await asyncio.sleep(0)
-
-                    path.node = node
-
-                    yield node, path
-                    await asyncio.sleep(0)
-                else:
+        async for node, path in genr:
+            if not node.form.isrunt:
+                async with runt.snap.getNodeEditor(node) as pnode:
+                    path.node = pnode
                     for gopr in self.gops:
-                        node, path = await gopr.runEdit(runt, node, path)
+                        pnode, path = await gopr.runEdit(runt, pnode, path)
                         await asyncio.sleep(0)
 
-                    yield node, path
+                path.node = node
+
+                yield node, path
+                await asyncio.sleep(0)
+            else:
+                for gopr in self.gops:
+                    node, path = await gopr.runEdit(runt, node, path)
                     await asyncio.sleep(0)
 
-        else:
-            async for node, path in genr:
-                yield await self.runEdit(runt, node, path)
+                yield node, path
                 await asyncio.sleep(0)
 
 class EditParens(Edit):
@@ -3695,7 +3689,7 @@ class EditNodeAdd(Edit):
 class EditPropSet(Edit):
 
     def prepare(self):
-            
+
         self.oper = self.kids[1].value()
         self.excignore = (s_exc.BadTypeValu,) if self.oper in ('?=', '?+=', '?-=') else ()
 
@@ -3732,7 +3726,7 @@ class EditPropSet(Edit):
             if self.isadd or self.issub:
 
                 if not isarray:
-                    mesg = f'Property set using ({self.oper}) is only valid on arrays.'                    
+                    mesg = f'Property set using ({self.oper}) is only valid on arrays.'
                     exc = s_exc.StormRuntimeError(mesg)
                     raise self.kids[0].addExcInfo(exc)
 
@@ -3783,7 +3777,7 @@ class EditPropDel(Edit):
 
         prop = node.form.props.get(name)
         if prop is None:
-            mesg = f'No property named {name}.'            
+            mesg = f'No property named {name}.'
             exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
             raise self.kids[0].addExcInfo(exc)
 
@@ -3969,7 +3963,7 @@ class EditEdgeAdd(Edit):
                     await subn.addEdge(verb, iden)
                 else:
                     await node.addEdge(verb, subn.iden())
-            
+
                     if len(proto.edges) >= 1000:
                         nodeedits = editor.getNodeEdits()
                         if nodeedits:
@@ -4017,12 +4011,12 @@ class EditEdgeDel(Edit):
                 if subn.form.isrunt:
                     mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                     raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-                  
+
                 if self.n2:
                     await subn.delEdge(verb, iden)
                 else:
                     await node.delEdge(verb, subn.iden())
-                    
+
                     if len(node.edgedels) >= 1000:
                         nodeedits = editor.getNodeEdits()
                         if nodeedits:
@@ -4090,7 +4084,7 @@ class EditTagPropSet(Edit):
     [ #foo.bar:baz=10 ]
     '''
     def prepare(self):
-      
+
         oper = self.kids[1].value()
         self.excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
