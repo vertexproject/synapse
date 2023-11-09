@@ -222,6 +222,14 @@ class SlabAbrv:
         for byts in self.slab.scanKeys(db=self.name2abrv):
             yield byts
 
+    def keysByPref(self, pref):
+        for byts in self.slab.scanKeysByPref(pref, db=self.name2abrv):
+            yield byts
+
+    def items(self):
+        for byts, abrv in self.slab.scanByFull(db=self.name2abrv):
+            yield byts, abrv
+
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
 
@@ -1079,7 +1087,7 @@ class Slab(s_base.Base):
         self.locking_memory = False
         logger.debug('memory locking thread ended')
 
-    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False):
+    def initdb(self, name, dupsort=False, integerkey=False, dupfixed=False, integerdup=False):
 
         if name in self.dbnames:
             return name
@@ -1090,10 +1098,10 @@ class Slab(s_base.Base):
                     # In a readonly environment, we can't make our own write transaction, but we
                     # can have the lmdb module create one for us by not specifying the transaction
                     db = self.lenv.open_db(name.encode('utf8'), create=False, dupsort=dupsort, integerkey=integerkey,
-                                           dupfixed=dupfixed)
+                                           dupfixed=dupfixed, integerdup=integerdup)
                 else:
                     db = self.lenv.open_db(name.encode('utf8'), txn=self.xact, dupsort=dupsort, integerkey=integerkey,
-                                           dupfixed=dupfixed)
+                                           dupfixed=dupfixed, integerdup=integerdup)
                     self.dirty = True
                     self.forcecommit()
 

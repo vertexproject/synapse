@@ -45,9 +45,10 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testDelPropIndx(nid, 'inet:ipv4', 'asn')
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoTagIndex')
-            self.eq(errors[1][0], 'NoPropIndex')
+            self.eq(errors[1][0], 'NoTagIndex')
+            self.eq(errors[2][0], 'NoPropIndex')
 
             errors = await core.callStorm('''
                 $retn = $lib.list()
@@ -57,9 +58,10 @@ class LayerTest(s_t_utils.SynTest):
                 return($retn)
             ''')
 
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoTagIndex')
-            self.eq(errors[1][0], 'NoPropIndex')
+            self.eq(errors[1][0], 'NoTagIndex')
+            self.eq(errors[2][0], 'NoPropIndex')
 
         async with self.getTestCore() as core:
 
@@ -194,10 +196,10 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in core.getLayer().verify()]
             self.len(6, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
-            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
-            self.eq(errors[3][0], 'NoValuForPropIndex')
-            self.eq(errors[4][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropIndex')
+            self.eq(errors[2][0], 'NoValuForPropIndex')
+            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[4][0], 'NoValuForPropArrayIndex')
             self.eq(errors[5][0], 'InvalidRefCount')
 
             await core.nodes('ps:contact | delnode --force')
@@ -363,18 +365,19 @@ class LayerTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             layr = core.getLayer()
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.setPropAbrv('visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+                    layr.setIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
             # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x04', layr.getPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x05', layr.setPropAbrv('whip', None))
-            self.eq(('visi', 'foo'), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x04'))
-            self.eq(('whip', None), layr.getAbrvProp(b'\x00\x00\x00\x00\x00\x00\x00\x05'))
-            self.raises(s_exc.NoSuchAbrv, layr.getAbrvProp, b'\x00\x00\x00\x00\x00\x00\x00\x06')
-
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.setTagPropAbrv('visi', 'foo'))
-            # another to check the cache...
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
-            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.setTagPropAbrv('whip', None))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x08',
+                    layr.getIndxAbrv(s_layer.INDX_PROP, 'visi', 'foo'))
+            self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x09',
+                    layr.setIndxAbrv(s_layer.INDX_PROP, 'whip', None))
+            self.eq(('visi', 'foo'),
+                    layr.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x08'))
+            self.eq(('whip', None),
+                    layr.getAbrvIndx(b'\x00\x00\x00\x00\x00\x00\x00\x09'))
+            self.raises(s_exc.NoSuchAbrv,
+                        layr.getAbrvIndx, b'\x00\x00\x00\x00\x00\x00\x00\x0a')
 
     async def test_layer_upstream(self):
 
@@ -664,7 +667,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_ival(self):
-        stor = s_layer.StorTypeIval(self)
+        stor = s_layer.StorTypeIval(self, None)
 
         vals = [(2000, 2020), (1960, 1970)]
 

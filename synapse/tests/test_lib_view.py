@@ -588,13 +588,7 @@ class ViewTest(s_t_utils.SynTest):
             }, await layr.getFormCounts())
 
             self.eq(0, layr.layrslab.stat(db=layr.bynid)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byverb)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.edgesn1)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.edgesn2)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.bytag)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byprop)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.byarray)['entries'])
-            self.eq(0, layr.layrslab.stat(db=layr.bytagprop)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.indxdb)['entries'])
 
             self.eq(0, layr.dataslab.stat(db=layr.nodedata)['entries'])
             self.eq(0, layr.dataslab.stat(db=layr.dataname)['entries'])

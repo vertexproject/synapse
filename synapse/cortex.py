@@ -2236,7 +2236,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.onfini(self.v3stor.fini)
 
-        # TODO move sodes to being keyed by nid integerkey=True
         self.nidrefs = self.v3stor.initdb('nidrefs', integerkey=True)
         self.nid2ndef = self.v3stor.initdb('nid2ndef', integerkey=True)
         self.nid2buid = self.v3stor.initdb('nid2buid', integerkey=True)
