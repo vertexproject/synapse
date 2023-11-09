@@ -749,7 +749,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('return($lib.import(test.danger).src)', opts={'readonly': True})
 
             mods = await core.getStormMods()
-            self.len(1, mods)
+            self.len(2, mods)
             mods['test']['modconf']['valu'] = 'bar'
             mods = await core.getStormMods()
             self.eq('foo', mods['test']['modconf']['valu'])
