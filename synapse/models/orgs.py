@@ -634,8 +634,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The assessed goals of the organization.'
-                    }),
+                        'doc': 'The assessed goals of the organization.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A base tag used to encode assessments made by the organization.'}),
                 )),
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),

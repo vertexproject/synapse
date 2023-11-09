@@ -280,6 +280,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :url=https://vertex.link/alerts/WOOT-20
                     :ext:id=WOOT-20
                     :engine={[ it:prod:softver=* :name=visiware ]}
+                    :host=*
                 ]
             ''')
             self.len(1, nodes)
@@ -289,6 +290,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(2554848000000, nodes[0].get('detected'))
             self.eq('WOOT-20', nodes[0].get('ext:id'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
+            self.nn(nodes[0].get('host'))
+            self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
             self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
