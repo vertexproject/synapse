@@ -8767,7 +8767,7 @@ class User(Prim):
         self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
 
         indx = await toint(indx)
-        rules = list(await self.getRules(gateiden=gateiden))
+        rules = list(await self._methGetRules(gateiden=gateiden))
 
         if len(rules) <= indx:
             mesg = f'User {self.valu} only has {len(rules)} rules.'
@@ -8973,7 +8973,7 @@ class Role(Prim):
 
         indx = await toint(indx)
 
-        rules = list(await self.getRules(gateiden=gateiden))
+        rules = list(await self._methGetRules(gateiden=gateiden))
 
         if len(rules) <= indx:
             mesg = f'Role {self.valu} only has {len(rules)} rules.'
