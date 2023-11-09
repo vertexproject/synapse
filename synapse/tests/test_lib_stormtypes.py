@@ -1531,6 +1531,10 @@ class StormTypesTest(s_test.SynTest):
             return ( $l3 )'''
             self.eq(['lowuser1', 'root', 'lowuser2'], await core.callStorm(q))
 
+            q = '$l=(1, 2, 3, 3, $lib.queue) return ( $l.unique() )'
+            with self.raises(s_exc.NoSuchType):
+                await core.callStorm(q)
+
             # Python Tuples can be treated like a List object for accessing via data inside of.
             q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
             nodes = await core.nodes(q)
