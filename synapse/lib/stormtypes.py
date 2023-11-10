@@ -4733,12 +4733,15 @@ class List(Prim):
         ret = []
         checkret = []
 
-        for k in self.valu:
-            _prim = await toprim(k)
-            if _prim in checkret:
+        for val in self.valu:
+            try:
+                _cval = await toprim(val)
+            except s_exc.NoSuchType:
+                _cval = val
+            if _cval in checkret:
                 continue
-            checkret.append(_prim)
-            ret.append(k)
+            checkret.append(_cval)
+            ret.append(val)
         return ret
 
     async def stormrepr(self):

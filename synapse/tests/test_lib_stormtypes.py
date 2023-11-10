@@ -1531,9 +1531,54 @@ class StormTypesTest(s_test.SynTest):
             return ( $l3 )'''
             self.eq(['lowuser1', 'root', 'lowuser2'], await core.callStorm(q))
 
-            q = '$l=(1, 2, 3, 3, $lib.queue) return ( $l.unique() )'
-            with self.raises(s_exc.NoSuchType):
-                await core.callStorm(q)
+            q = '$l=(1, 2, 3, 3, $lib.queue) return ( $lib.len($l.unique()) )'
+            self.eq(4, await core.callStorm(q))
+
+            # funcs are different class instances here
+            q = '$l = (1, 2, 2, $lib.inet.http.get, $lib.inet.http.get) return ($lib.len($l.unique()))'
+            self.eq(4, await core.callStorm(q))
+
+            # funcs are the same class instance
+            q = '$hehe = $lib.inet.http $l = (1, 2, 2, $hehe.get, $hehe.get) return ($lib.len($l.unique()))'
+            self.eq(3, await core.callStorm(q))
+
+            q = '''
+            function foo() {}
+            function bar() {}
+            $l = ($foo, $bar)
+            return ($lib.len($l.unique()))
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            function foo() {}
+            function bar() {}
+            $l = ($bar, $foo, $bar)
+            return ($lib.len($l.unique()))
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q1 = $lib.queue.gen(hehe)
+            $q2 = $lib.queue.get(hehe)
+            $l = ($q1, $q2)
+            return ( $lib.len($l.unique()) ) '''
+            self.eq(1, await core.callStorm(q))
+
+            q = '''
+            $q1 = $lib.queue.gen(hehe)
+            $q2 = $lib.queue.get(hehe)
+            $l = ($q1, $q2, $q2)
+            return ( $lib.len($l.unique()) ) '''
+            self.eq(1, await core.callStorm(q))
+
+            q = '''
+            $q1 = $lib.queue.gen(hehe)
+            $q2 = $lib.queue.get(hehe)
+            $q3 = $lib.queue.get(hehe)
+            $l = ($q1, $q2, $q3)
+            return ( $lib.len($l.unique()) ) '''
+            self.eq(1, await core.callStorm(q))
 
             # Python Tuples can be treated like a List object for accessing via data inside of.
             q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
