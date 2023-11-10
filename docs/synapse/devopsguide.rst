@@ -1546,7 +1546,7 @@ run after the variable  ``$number`` was removed, the code would generate the fol
 Custom error handling of issues that arise inside of the Storm query execution can be handled with the
 :ref:`flow-try-catch`. This allows a user to have finer control over their error codes, headers and error body content.
 
-** note::
+.. note::
 
     The HTTP 500 response will not be sent if there has already been body data send by the endpoint.
 
