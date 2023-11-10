@@ -1373,7 +1373,7 @@ class Ival(Type):
         norm, _ = normtype.norm(text)
 
         def cmpr(valu):
-            if valu is None (part := getr(valu)) is None:
+            if (part := getr(valu)) is None:
                 return False
             return part < norm
         return cmpr
