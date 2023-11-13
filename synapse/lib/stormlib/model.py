@@ -557,7 +557,7 @@ class LibModelEdge(s_stormtypes.Lib):
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
     # very bad cognitive overload with the cortex extended properties, but we
-    # dont' want to change underlying data. epiphyte 20200703
+    # don't want to change underlying data. epiphyte 20200703
 
     # restrict list of keys which we allow to be set/del through this API.
     validedgekeys = (
@@ -591,6 +591,7 @@ class LibModelEdge(s_stormtypes.Lib):
             raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
                                    name=key)
 
+    @s_stormtypes.stormfunc(readonly=True)
     def _methValidKeys(self):
         return self.validedgekeys
 
@@ -617,7 +618,6 @@ class LibModelEdge(s_stormtypes.Lib):
         kvdict[key] = valu
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
-    @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeDel(self, verb, key):
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)

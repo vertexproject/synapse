@@ -3663,8 +3663,6 @@ class ProxyMethod(StormType):
         self.runt = runt
         self.meth = meth
 
-    # FIXME - Fix telepath calls in readonly mode
-    # @stormfunc(readonly=True)
     async def __call__(self, *args, **kwargs):
         args = await toprim(args)
         kwargs = await toprim(kwargs)
@@ -3696,8 +3694,6 @@ class ProxyGenrMethod(StormType):
         StormType.__init__(self, path=path)
         self.meth = meth
 
-    # FIXME - Fix telepath calls in readonly mode
-    # @stormfunc(readonly=True)
     async def __call__(self, *args, **kwargs):
         args = await toprim(args)
         kwargs = await toprim(kwargs)
