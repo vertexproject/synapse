@@ -4355,7 +4355,6 @@ class Bytes(Prim):
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {repr(self.valu)[:256]}') from None
 
-    @stormfunc(readonly=True)
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
 
@@ -4363,7 +4362,6 @@ class Bytes(Prim):
     async def _methBzip(self):
         return bz2.compress(self.valu)
 
-    @stormfunc(readonly=True)
     async def _methGunzip(self):
         return gzip.decompress(self.valu)
 
