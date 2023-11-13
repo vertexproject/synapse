@@ -697,7 +697,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
 
 /api/ext/*
-----------
+~~~~~~~~~~
 
 This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
 :ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
