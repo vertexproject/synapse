@@ -144,6 +144,106 @@ class View(s_nexus.Pusher):  # type: ignore
         self.trigtask = None
         await self.initTrigTask()
 
+    async def isUserMergeApprover(self, user):
+
+        if user.isAdmin():
+            return True
+
+        aprvroles = set(self.getMergeApproverRoles())
+        userroles = set([role.iden for role in user.getRoles()])
+
+        return bool(userroles & aprvroles)
+
+    async def addApproval(self, user):
+
+        if self.parent is None:
+            mesg = 'View has not parent for a merge approval.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        async with self.core.viewmetalock:
+
+            reqmin = self.core.getViewMeta(self.parent.iden, 'merge:min')
+            if reqmin is None:
+                raise s_exc.BadArg(mesg='The parent view is not configured to allow merge requests.')
+
+            request = self.core.getViewMeta(self.iden, 'merge:request')
+            if request is None:
+                raise s_exc.BadArg(mesg='The view has no pending merge request.')
+
+            approvals = self.core.getViewMeta('merge:approvals')
+            if approvals is None:
+                approvals = []
+
+            aprv = {
+                'user': user.iden,
+                'time': s_common.now(),
+                'editoffs': self.layers[0].getEditOffs(),
+            }
+
+            approvals = [aprv for aprv in approvals if aprv['user'] != user.iden]
+
+        allowed = False
+        if user.isAdmin():
+            allowed = True
+
+        if not allowed:
+            for role in user.getRoles():
+                if self.isApproverRole(role):
+                    allowed = True
+                    break
+
+    async def setMergeRequest(self, user):
+
+        mreq = {
+            'user': user.iden,
+            'time': s_common.now(),
+            'editoffs': self.layers[0].getEditOffs(),
+        }
+        await self.core.setViewMeta(self.iden, 'merge:request', mreq)
+
+    async def delMergeRequest(self, iden):
+
+    async def getMergeRequest(self):
+        return self.core.getViewMeta(self.iden, 'merge:request')
+
+    async def delMergeApproverMin(self):
+        await self.core.delViewMeta(self.iden, 'merge:min')
+
+    async def setMergeApproverMin(self, count):
+        await self.core.setViewMeta(self.iden, 'merge:min', int(count))
+
+    async def getMergeApproverRoles(self):
+        return(self.core.getViewMeta(self.iden, 'merge:approver:roles', defval=()))
+
+    async def setMergeApproverRoles(self, roles):
+        return(self.core.setViewMeta(self.iden, 'merge:approver:roles', roles)
+
+    async def addMergeApproverRole(self, roleiden):
+
+        async with self.core.viewmetalock:
+
+            roles = self.core.getViewMeta(self.iden, 'merge:approver:roles', defval=())
+            if roleiden in roles:
+                return roles
+
+            roles += (roleiden,)
+
+            await self.core.setViewMeta(self.iden, 'merge:approver:roles', roles)
+            return roles
+
+    async def delMergeApproverRole(self, role):
+
+        async with self.core.viewmetalock:
+
+            roles = self.core.getViewMeta(self.iden, 'merge:approver:roles', defval=())
+            if role.iden not in roles:
+                return roles
+
+            roles = tuple([iden for iden in roles if iden != role.iden])
+
+            await self.core.setViewMeta(self.iden, 'merge:approver:roles', roles)
+            return roles
+
     async def mergeStormIface(self, name, todo):
         '''
         Allow an interface which specifies a generator use case to yield

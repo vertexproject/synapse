@@ -1179,6 +1179,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
                              mesg='cortex version in storage is incompatible with running software')
 
+        self.viewmeta = self.slab.initdb('view:meta')
+        # avoid check/set locks. May not be acquired within a nexus handler.
+        self.viewmetalock = asyncio.Lock()
+
         self.views = {}
         self.layers = {}
         self.viewsbylayer = collections.defaultdict(list)
@@ -4813,6 +4817,33 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         layr.deloffs = nexsitem[0]
 
+    @s_nexus.Pusher.onPushAuto('view:meta:set')
+    async def setViewMeta(self, iden, name, valu):
+
+        if len(name) > 512:
+            mesg = 'View metadata names must be shorter than 512 characters.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        view = self.reqView(iden)
+
+        lkey = s_common.uhex(iden) + name.encode()
+        self.slab.put(lkey, s_msgpack.en(valu)
+
+    #async def addViewComment(
+    #async def modViewComment(
+    #async def getViewComments(self, )
+    async def addViewMergeApprove(self, iden, user, comment=''):
+        name = f'comment:{s_common.guid()}'
+
+    #async def addViewApprove(self, viewiden, useriden):
+    #async def addViewApprover(self, viewiden, roleiden)
+    #async def delViewApprover(self, viewiden, roleiden)
+
+    async def _setViewMeta(self, iden, name, valu):
+        view = self.getView(iden)
+        if view is None:
+            raise s_
+
     async def setViewLayers(self, layers, iden=None):
         '''
         Args:
@@ -4885,6 +4916,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if user is not None:
             user.confirm(('view', 'read'), gateiden=iden)
+
+        return view
+
+    def reqView(self, iden):
+        view = self.getView(iden)
+        if view is None:
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         return view
 
