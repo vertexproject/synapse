@@ -319,5 +319,3 @@ class FatalErr(SynErr):
     pass
 
 class LmdbLock(SynErr): pass
-
-proxy_admin_mesg = 'Specifying a proxy to the HTTP library requires admin privileges.'

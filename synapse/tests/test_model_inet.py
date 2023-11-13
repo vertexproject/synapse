@@ -875,6 +875,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(2851995905, norm)
             self.eq(info.get('subs').get('type'), 'linklocal')
 
+            norm, info = t.norm('100.63.255.255')
+            self.eq(info.get('subs').get('type'), 'unicast')
+
+            norm, info = t.norm('100.64.0.0')
+            self.eq(info.get('subs').get('type'), 'shared')
+
+            norm, info = t.norm('100.127.255.255')
+            self.eq(info.get('subs').get('type'), 'shared')
+
+            norm, info = t.norm('100.128.0.0')
+            self.eq(info.get('subs').get('type'), 'unicast')
+
             # Don't allow invalid values
             with self.raises(s_exc.BadTypeValu):
                 t.norm(0x00000000 - 1)

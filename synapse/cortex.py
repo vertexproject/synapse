@@ -36,6 +36,7 @@ import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.urlhelp as s_urlhelp
@@ -78,9 +79,10 @@ import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
-import synapse.lib.stormlib.hashes as s_stormlib_hashes # NOQA
-import synapse.lib.stormlib.random as s_stormlib_random # NOQA
-import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
+import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
+import synapse.lib.stormlib.hashes as s_stormlib_hashes  # NOQA
+import synapse.lib.stormlib.random as s_stormlib_random  # NOQA
+import synapse.lib.stormlib.scrape as s_stormlib_scrape   # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
@@ -601,7 +603,7 @@ class CoreApi(s_cell.CellApi):
 
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
         wlyr = view.layers[0]
         parts = name.split('.')
@@ -1072,6 +1074,10 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
+    @s_cell.adminapi()
+    async def getHttpExtApiByPath(self, path):
+        return await self.cell.getHttpExtApiByPath(path)
+
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1190,6 +1196,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         # NOTE: we may not make *any* nexus actions in this method
         self.macrodb = self.slab.initdb('storm:macros')
+        self.httpextapidb = self.slab.initdb('http:ext:apis')
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
@@ -1266,6 +1273,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
+        self._exthttpapis = {}  # iden -> adef; relies on cpython ordered dictionary behavior.
+        self._exthttpapiorder = b'exthttpapiorder'
+        self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
+        self._initCortexExtHttpApi()
 
         self.model = s_datamodel.Model()
 
@@ -1286,10 +1297,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initOAuthManager()
 
+        stormdmonhive = await self.hive.open(('cortex', 'storm', 'dmons'))
+        self.stormdmonhive = await stormdmonhive.dict()
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
+
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
+
         await self._initStormGraphs()
 
         self.trigson = self.conf.get('trigger:enable')
@@ -2249,10 +2264,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addRuntPropSet('syn:trigger:name', onSetTrigName)
 
     async def _initStormDmons(self):
-
-        node = await self.hive.open(('cortex', 'storm', 'dmons'))
-
-        self.stormdmonhive = await node.dict()
 
         for iden, ddef in self.stormdmonhive.items():
             try:
@@ -3320,7 +3331,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self.views.get(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         async with await s_queue.Window.anit(maxsize=10000) as wind:
 
@@ -4221,6 +4232,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_model.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_cortex.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
         for cdef in s_stormlib_vault.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
@@ -4309,6 +4323,158 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpHasV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', CortexAxonHttpBySha256V1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', CortexAxonHttpBySha256InvalidV1, {'cell': self})
+
+        self.addHttpApi('/api/ext/(.*)', s_httpapi.ExtApiHandler, {'cell': self})
+
+    def _initCortexExtHttpApi(self):
+        self._exthttpapis.clear()
+        self._exthttpapicache.clear()
+
+        byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
+        if byts is None:
+            return
+
+        order = s_msgpack.un(byts)
+
+        for iden in order:
+            byts = self.slab.get(s_common.uhex(iden), self.httpextapidb)
+            if byts is None:  # pragma: no cover
+                logger.error(f'Missing HTTP API definition for iden={iden}')
+                continue
+            adef = s_msgpack.un(byts)
+            self._exthttpapis[adef.get('iden')] = adef
+
+    async def addHttpExtApi(self, adef):
+        path = adef.get('path')
+        try:
+            _ = regex.compile(path)
+        except Exception as e:
+            mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{path}] : {e}'
+            raise s_exc.BadArg(mesg=mesg) from None
+        adef['iden'] = s_common.guid()
+        adef['created'] = s_common.now()
+        adef['updated'] = adef['created']
+        adef = s_schemas.reqValidHttpExtAPIConf(adef)
+        return await self._push('http:api:add', adef)
+
+    @s_nexus.Pusher.onPush('http:api:add')
+    async def _addHttpExtApi(self, adef):
+        iden = adef.get('iden')
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+
+        order = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
+        if order is None:
+            self.slab.put(self._exthttpapiorder, s_msgpack.en([iden]), db=self.httpextapidb)
+        else:
+            order = s_msgpack.un(order)  # type: tuple
+            if iden not in order:
+                # Replay safety
+                order = order + (iden, )  # New handlers go to the end of the list of handlers
+                self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+
+        # Re-initialize the HTTP API list from the index order
+        self._initCortexExtHttpApi()
+        return adef
+
+    @s_nexus.Pusher.onPushAuto('http:api:del')
+    async def delHttpExtApi(self, iden):
+        if s_common.isguid(iden) is False:
+            raise s_exc.BadArg(mesg=f'Must provide an iden. Got {iden}')
+
+        self.slab.pop(s_common.uhex(iden), db=self.httpextapidb)
+
+        byts = self.slab.get(self._exthttpapiorder, self.httpextapidb)
+        order = list(s_msgpack.un(byts))
+        if iden in order:
+            order.remove(iden)
+            self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+
+        self._initCortexExtHttpApi()
+
+        return
+
+    @s_nexus.Pusher.onPushAuto('http:api:mod')
+    async def modHttpExtApi(self, iden, name, valu):
+        # Created, Creator, Updated are not mutable
+        if name in ('name', 'desc', 'runas', 'methods', 'authenticated', 'perms', 'readonly', 'vars'):
+            # Schema takes care of these values
+            pass
+        elif name == 'owner':
+            _obj = await self.getUserDef(valu, packroles=False)
+            if _obj is None:
+                raise s_exc.NoSuchUser(mesg=f'Cannot set owner={valu} on extended httpapi, it does not exist.')
+        elif name == 'view':
+            _obj = self.getView(valu)
+            if _obj is None:
+                raise s_exc.NoSuchView(mesg=f'Cannot set view={valu} on extended httpapi, it does not exist.')
+        elif name == 'path':
+            try:
+                _ = regex.compile(valu)
+            except Exception as e:
+                mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{valu}] : {e}'
+                raise s_exc.BadArg(mesg=mesg) from None
+        else:
+            raise s_exc.BadArg(mesg=f'Cannot set {name=} on extended httpapi')
+
+        byts = self.slab.get(s_common.uhex(iden), db=self.httpextapidb)
+        if byts is None:
+            raise s_exc.NoSuchIden(mesg=f'No http api for {iden=}', iden=iden)
+
+        adef = s_msgpack.un(byts)
+        adef[name] = valu
+        adef['updated'] = s_common.now()
+        adef = s_schemas.reqValidHttpExtAPIConf(adef)
+        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+
+        self._initCortexExtHttpApi()
+
+        return adef
+
+    @s_nexus.Pusher.onPushAuto('http:api:indx')
+    async def setHttpApiIndx(self, iden, indx):
+        if indx < 0:
+            raise s_exc.BadArg(mesg=f'indx must be greater than or equal to 0; got {indx}')
+        byts = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
+        if byts is None:
+            raise s_exc.SynErr(mesg='No Extended HTTP handlers registered. Cannot set order.')
+
+        order = list(s_msgpack.un(byts))
+
+        if iden not in order:
+            raise s_exc.NoSuchIden(mesg=f'Extended HTTP API is not set: {iden}')
+
+        if order.index(iden) == indx:
+            return indx
+        order.remove(iden)
+        # indx values > length of the list end up at the end of the list.
+        order.insert(indx, iden)
+        self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+        self._initCortexExtHttpApi()
+        return order.index(iden)
+
+    async def getHttpExtApis(self):
+        return copy.deepcopy(list(self._exthttpapis.values()))
+
+    async def getHttpExtApi(self, iden):
+        adef = self._exthttpapis.get(iden)
+        if adef is None:
+            raise s_exc.NoSuchIden(mesg=f'No extended http api for {iden=}', iden=iden)
+        return copy.deepcopy(adef)
+
+    async def getHttpExtApiByPath(self, path):
+        iden, args = self._exthttpapicache.get(path)
+        adef = copy.deepcopy(self._exthttpapis.get(iden))
+        return adef, args
+
+    def _getHttpExtApiByPath(self, key):
+        # Cache callback.
+        # Returns (iden, args) or (None, ()) for caching.
+        for iden, adef in self._exthttpapis.items():
+            match = regex.fullmatch(adef.get('path'), key)
+            if match is None:
+                continue
+            return iden, match.groups()
+        return None, ()
 
     async def getCellApi(self, link, user, path):
 
@@ -4613,7 +4779,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def delView(self, iden):
         view = self.views.get(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         return await self._push('view:del', iden)
 
@@ -4686,7 +4852,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         view = self.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(iden=iden)
+            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
 
         await view.setLayers(layers)
         self._calcViewsByLayer()
@@ -5485,7 +5651,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self.views.get(viewiden)
         if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
         user.confirm(('view', 'read'), gateiden=viewiden)
 
@@ -5803,7 +5969,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         view = self.getView(viewiden)
         if view is None:
-            raise s_exc.NoSuchView(iden=viewiden)
+            raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
         async with await self.snap(view=view) as snap:
             snap.strict = False

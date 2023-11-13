@@ -593,10 +593,15 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
-    async def _compute(self, runt, limit):
+    async def _compute(self, runt, path, limit):
+
         retn = []
 
-        async with runt.getSubRuntime(self.kids[0]) as runt:
+        opts = {}
+        if path is not None:
+            opts['vars'] = path.vars.copy()
+
+        async with runt.getSubRuntime(self.kids[0], opts=opts) as runt:
             async for valunode, valupath in runt.execute():
 
                 retn.append(valunode.ndef[1])
@@ -615,7 +620,7 @@ class SubQuery(Oper):
         Its value is the primary property of the node yielded, or the returned value.
         '''
         try:
-            retn = await self._compute(runt, 1)
+            retn = await self._compute(runt, path, 1)
 
         except s_stormctrl.StormReturn as e:
             # a subquery assignment with a return; just use the returned value
@@ -631,7 +636,7 @@ class SubQuery(Oper):
         Use subquery as an array.
         '''
         try:
-            return await self._compute(runt, 128)
+            return await self._compute(runt, path, 128)
         except s_stormctrl.StormReturn as e:
             # a subquery assignment with a return; just use the returned value
             return e.item
@@ -3026,7 +3031,8 @@ class VarDeref(Value):
         name = await self.kids[1].compute(runt, path)
 
         valu = s_stormtypes.fromprim(base, path=path)
-        return await valu.deref(name)
+        with s_scope.enter({'runt': runt}):
+            return await valu.deref(name)
 
 class FuncCall(Value):
 
@@ -3104,7 +3110,7 @@ async def expr_prefix(x, y):
     return x.startswith(y)
 
 async def expr_re(x, y):
-    if regex.search(await tostr(y), await tostr(x)):
+    if regex.search(await tostr(y), await tostr(x), flags=regex.I):
         return True
     return False
 

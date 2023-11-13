@@ -7,6 +7,8 @@ Many components within the Synapse ecosystem provide HTTP/REST APIs to
 provide a portable interface.  Some of these APIs are RESTful, while other
 (streaming data) APIs are technically not.
 
+.. _http-api-conventions:
+
 HTTP/REST API Conventions
 -------------------------
 
@@ -34,6 +36,8 @@ The client example code in these docs is given with the Python "aiohttp" and "re
 modules. They should be enough to understand the basic operation of the APIs.
 
 For additional examples, see the code examples at `HTTPAPI Examples`_.
+
+.. _http-api-authentication:
 
 Authentication
 --------------
@@ -691,6 +695,13 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                     ]
                 }
             }
+
+/api/ext/*
+~~~~~~~~~~
+
+This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
+:ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
+
 
 Aha
 ---
