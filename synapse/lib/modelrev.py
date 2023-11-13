@@ -884,7 +884,7 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    async def _normFormSubs(self, layers, formname, liftprop=None, cmprvalu=None, cmpr='='):
+    async def _normFormSubs(self, layers, formname, liftprop=None, cmprvalu=s_common.novalu, cmpr='='):
 
         # NOTE: this API may be used to re-normalize subs but *not* to change their storage types
         # and will *not* auto-populate linked forms from subs which are form types.
@@ -902,7 +902,7 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            if cmprvalu is None:
+            if cmprvalu is s_common.novalu:
                 # This is for lifts such as:
                 #   <formname>
                 #   <formname>:<liftprop>
