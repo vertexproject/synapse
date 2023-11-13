@@ -934,7 +934,6 @@ class LibService(Lib):
         self.runt.confirm(('service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
-    @stormfunc(readonly=True)
     async def _libSvcGet(self, name):
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
@@ -3585,7 +3584,6 @@ class LibTelepath(Lib):
             'open': self._methTeleOpen,
         }
 
-    @stormfunc(readonly=True)
     async def _methTeleOpen(self, url):
         url = await tostr(url)
         scheme = url.split('://')[0]
