@@ -227,7 +227,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The campaign made use of the target node.'}),
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
-                ((None, 'metby', 'ou:requirement'), {
+                ((None, 'meets', 'ou:requirement'), {
                     'doc': 'The requirement is met by the target node.'}),
             ),
             'forms': (
