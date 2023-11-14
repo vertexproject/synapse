@@ -249,6 +249,7 @@ testmodel = {
     ),
     'interfaces': (
         ('test:interface', {
+            'doc': 'test interface',
             'props': (
                 ('size', ('int', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
