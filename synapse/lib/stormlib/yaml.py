@@ -34,11 +34,13 @@ class LibYaml(s_stormtypes.Lib):
             'load': self.load,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def save(self, valu, sort_keys=True):
         valu = await s_stormtypes.toprim(valu)
         sort_keys = await s_stormtypes.tobool(sort_keys)
         return yaml.dump(valu, sort_keys=sort_keys, Dumper=s_common.Dumper)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def load(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:
