@@ -47,6 +47,7 @@ class Bzip2Lib(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -103,6 +104,7 @@ class GzipLib(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:
@@ -159,6 +161,7 @@ class ZlibLib(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, valu):
         valu = await s_stormtypes.toprim(valu)
         try:

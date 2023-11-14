@@ -613,6 +613,14 @@ class StormTypesTest(s_test.SynTest):
                     'name': 'test',
                     'storm': '$valu=$modconf.valu function getvalu() { return($valu) }',
                     'modconf': {'valu': 'foo'},
+                },
+                {
+                    'name': 'test.danger',
+                    'storm': '''
+                        init { $src=$lib.null }
+                        function genSrc() { if $src { return ($src) } [meta:source=(s1,)] $src=$node return ($node) }
+                        $genSrc()
+                        '''
                 }
             ],
             'commands': [
@@ -735,9 +743,13 @@ class StormTypesTest(s_test.SynTest):
 
             await core.callStorm('$test = $lib.import(test) $test.modconf.valu=bar')
             self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())'))
+            self.eq('foo', await core.callStorm('return($lib.import(test).getvalu())', opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('return($lib.import(test.danger).src)', opts={'readonly': True})
 
             mods = await core.getStormMods()
-            self.len(1, mods)
+            self.len(2, mods)
             mods['test']['modconf']['valu'] = 'bar'
             mods = await core.getStormMods()
             self.eq('foo', mods['test']['modconf']['valu'])
@@ -1180,6 +1192,24 @@ class StormTypesTest(s_test.SynTest):
             return($q.size(limit=2))
             '''
             self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q=${ return( $lib.auth.users.byname(root).name ) }
+            return ( $q.exec() )
+            '''
+            self.eq('root', await core.callStorm(q, opts={'readonly': True}))
+
+            q = '''
+            $q=${ test:int=1 }
+            return ( $q.size() )
+            '''
+            self.eq(1, await core.callStorm(q, opts={'readonly': True}))
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$foo=${ [test:str=readonly] } return ( $foo.exec() )', opts={'readonly': True})
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$foo=${ [test:str=readonly] } return( $foo.size() )', opts={'readonly': True})
 
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
