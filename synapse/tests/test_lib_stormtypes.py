@@ -3561,9 +3561,17 @@ class StormTypesTest(s_test.SynTest):
             layrs0 = (layr0.iden, ldef1.get('iden'))
             layrs1 = (ldef1.get('iden'), layr0.iden)
 
+            # fork the default view to test editing the root view layers
+            fork00 = await core.callStorm('return($lib.view.get().fork().iden)')
+            self.eq(2, await core.callStorm('return($lib.view.get().layers.size())', opts={'view': fork00}))
+
             await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs0}})
             ldefs = await core.callStorm('return($lib.view.get().get(layers))')
             self.eq(layrs0, [x.get('iden') for x in ldefs])
+
+            layers = await core.callStorm('return($lib.view.get().layers)', opts={'view': fork00})
+            self.eq(layrs0, [layr['iden'] for layr in layers][-2:])
+            self.len(3, layers)
 
             await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs1}})
             ldefs = await core.callStorm('return($lib.view.get().get(layers))')
