@@ -574,7 +574,7 @@ class IndxByTagPropIvalMin(IndxByTagProp):
 
 class IndxByTagPropIvalMax(IndxBy):
 
-    def __init__(self, layr, form, prop):
+    def __init__(self, layr, form, tag, prop):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
@@ -587,7 +587,7 @@ class IndxByTagPropIvalMax(IndxBy):
 
 class IndxByTagPropIvalDuration(IndxBy):
 
-    def __init__(self, layr, form, prop):
+    def __init__(self, layr, form, tag, prop):
         '''
         Note:  may raise s_exc.NoSuchAbrv
         '''
@@ -2719,10 +2719,11 @@ class Layer(s_nexus.Pusher):
             # yield <sortkey>, <nid>, <SodeEnvl>
             yield nid, nid, self.genStorNodeRef(nid)
 
-    async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+    async def liftByTagValu(self, tag, cmprvals, form=None, reverse=False):
 
-        async for indx, nid in self.stortypes[STOR_TYPE_IVAL].indxByTag(tag, cmpr, valu, form=form, reverse=reverse):
-            yield indx, nid, self.genStorNodeRef(nid)
+        for cmpr, valu, kind in cmprvals:
+            async for indx, nid in self.stortypes[kind].indxByTag(tag, cmpr, valu, form=form, reverse=reverse):
+                yield indx, nid, self.genStorNodeRef(nid)
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -3131,7 +3132,7 @@ class Layer(s_nexus.Pusher):
                     if oldv[1] == self.ivaltimetype.maxval:
                         dura = self.ivaltimetype.maxval
                     else:
-                        dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+                        dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
                     duraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                     self.layrslab.delete(duraabrv + dura, nid, db=self.indxdb)
@@ -3181,7 +3182,7 @@ class Layer(s_nexus.Pusher):
                 if valu[1] == self.ivaltimetype.maxval:
                     dura = self.ivaltimetype.maxval
                 else:
-                    dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
                 duraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, prop)
                 kvpairs.append((duraabrv + dura, nid))
@@ -3252,7 +3253,7 @@ class Layer(s_nexus.Pusher):
                 if valu[1] == self.ivaltimetype.maxval:
                     dura = self.ivaltimetype.maxval
                 else:
-                    dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+                    dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
                 indx = indx[8:]
 
@@ -3306,7 +3307,7 @@ class Layer(s_nexus.Pusher):
                 if oldv[1] == self.ivaltimetype.maxval:
                     dura = self.ivaltimetype.maxval
                 else:
-                    dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+                    dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
                 duraabrv = self.setIndxAbrv(INDX_TAG_DURATION, None, tag)
                 duraformabrv = self.setIndxAbrv(INDX_TAG_DURATION, form, tag)
@@ -3342,7 +3343,7 @@ class Layer(s_nexus.Pusher):
             if valu[1] == self.ivaltimetype.maxval:
                 dura = self.ivaltimetype.maxval
             else:
-                dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+                dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
             duraabrv = self.setIndxAbrv(INDX_TAG_DURATION, None, tag)
             duraformabrv = self.setIndxAbrv(INDX_TAG_DURATION, form, tag)
@@ -3388,7 +3389,7 @@ class Layer(s_nexus.Pusher):
             if oldv[1] == self.ivaltimetype.maxval:
                 dura = self.ivaltimetype.maxval
             else:
-                dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+                dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
             duraabrv = self.setIndxAbrv(INDX_TAG_DURATION, None, tag)
             duraformabrv = self.setIndxAbrv(INDX_TAG_DURATION, form, tag)
@@ -3454,7 +3455,7 @@ class Layer(s_nexus.Pusher):
                     if oldv[1] == self.ivaltimetype.maxval:
                         dura = self.ivaltimetype.maxval
                     else:
-                        dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+                        dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
                     duraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
                     duraformabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
@@ -3491,7 +3492,7 @@ class Layer(s_nexus.Pusher):
             if valu[1] == self.ivaltimetype.maxval:
                 dura = self.ivaltimetype.maxval
             else:
-                dura = self.getStorIndx(STOR_TYPE_U64, (valu[1] - valu[0]))[0]
+                dura = self.ivaltimetype.getIntIndx(valu[1] - valu[0])
 
             duraabrv = self.setIndxAbrv(INDX_IVAL_DURATION, None, tag, prop)
             duraformabrv = self.setIndxAbrv(INDX_IVAL_DURATION, form, tag, prop)
@@ -3536,7 +3537,7 @@ class Layer(s_nexus.Pusher):
             if oldv[1] == self.ivaltimetype.maxval:
                 dura = self.ivaltimetype.maxval
             else:
-                dura = self.getStorIndx(STOR_TYPE_U64, (oldv[1] - oldv[0]))[0]
+                dura = self.ivaltimetype.getIntIndx(oldv[1] - oldv[0])
 
             indx = oldi[8:]
 

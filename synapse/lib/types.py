@@ -1416,10 +1416,10 @@ class Ival(Type):
             othr, info = self.norm(item)
             othr = getr(othr)
 
-            if othr >= norm[1]:
+            if othr > norm[1]:
                 return False
 
-            if othr <= norm[0]:
+            if othr < norm[0]:
                 return False
 
             return True

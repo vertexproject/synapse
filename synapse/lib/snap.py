@@ -796,8 +796,8 @@ class Snap(s_base.Base):
 
     async def nodesByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
 
-        norm, info = self.core.model.type('ival').norm(valu)
-        async for nid, srefs in self.view.liftByTagValu(tag, cmpr, norm, form, reverse=reverse):
+        cmprvals = self.core.model.type('ival').getStorCmprs(cmpr, valu)
+        async for nid, srefs in self.view.liftByTagValu(tag, cmprvals, form, reverse=reverse):
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node

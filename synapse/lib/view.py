@@ -1280,10 +1280,10 @@ class View(s_nexus.Pusher):  # type: ignore
         async for item in self._mergeLiftRows(genrs, reverse=reverse):
             yield item
 
-    async def liftByTagValu(self, tag, cmpr, valu, form=None, reverse=False):
+    async def liftByTagValu(self, tag, cmprvals, form=None, reverse=False):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.layers[0].liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse):
+            async for _, nid, sref in self.layers[0].liftByTagValu(tag, cmprvals, form=form, reverse=reverse):
                 yield nid, [sref]
             return
 
@@ -1293,9 +1293,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 return False
             return tags.get(tag) is not None
 
-        genrs = [layr.liftByTagValu(tag, cmpr, valu, form=form, reverse=reverse) for layr in self.layers]
-        async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
-            yield item
+        for cval in cmprvals:
+            genrs = [layr.liftByTagValu(tag, (cval,), form=form, reverse=reverse) for layr in self.layers]
+            async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
+                yield item
 
     async def liftByTagProp(self, form, tag, prop, reverse=False):
 
