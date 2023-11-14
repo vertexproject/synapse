@@ -131,6 +131,7 @@ class LibStats(s_stormtypes.Lib):
             'tally': self.tally,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def tally(self):
         return StatTally(path=self.path)
 
@@ -198,10 +199,12 @@ class StatTally(s_stormtypes.Prim):
     def __len__(self):
         return len(self.counters)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def inc(self, name, valu=1):
         valu = await s_stormtypes.toint(valu)
         self.counters[name] += valu
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def get(self, name):
         return self.counters.get(name, 0)
 
@@ -212,6 +215,7 @@ class StatTally(s_stormtypes.Prim):
         for item in tuple(self.counters.items()):
             yield item
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def sorted(self, byname=False, reverse=False):
         if byname:
             return list(sorted(self.counters.items(), reverse=reverse))

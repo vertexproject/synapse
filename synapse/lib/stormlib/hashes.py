@@ -46,15 +46,19 @@ class LibHashes(s_stormtypes.Lib):
             'sha512': self._sha512,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _md5(self, byts):
         return hashlib.md5(byts, usedforsecurity=False).hexdigest()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _sha1(self, byts):
         return hashlib.sha1(byts, usedforsecurity=False).hexdigest()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _sha256(self, byts):
         return hashlib.sha256(byts).hexdigest()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _sha512(self, byts):
         return hashlib.sha512(byts).hexdigest()
 
@@ -88,6 +92,7 @@ class LibHmac(s_stormtypes.Lib):
             'digest': self._digest,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _digest(self, key, mesg, alg='sha256') -> bytes:
         key = await s_stormtypes.toprim(key)
         if not isinstance(key, bytes):
