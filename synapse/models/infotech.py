@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.data as s_data
 
 import synapse.common as s_common
 
@@ -221,6 +222,17 @@ tlplevels = (
     (50, 'red'),
 )
 
+# The published Attack Flow json schema at the below URL is horribly
+# broken. It depends on some custom python scripting to validate each
+# object individually against the schema for each object's type instead
+# of validating the document as a whole. Instead, the
+# attack-flow-schema-2.0.0 file that is published in the synapse data
+# directory is a heavily modified version of the official schema that
+# actually works as a json schema should.
+# https://raw.githubusercontent.com/center-for-threat-informed-defense/attack-flow/main/stix/attack-flow-schema-2.0.0.json
+
+attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0')
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -310,6 +322,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of log event types.',
+                    'interfaces': ('taxonomy',),
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -388,8 +401,11 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:flow', ('guid', {}), {
+                    'doc': 'A Mitre ATT&CK Flow diagram.',
+                }),
                 ('it:dev:str', ('str', {}), {
-                    'doc': 'A developer-selected string.'
+                    'doc': 'A developer selected string.'
                 }),
                 ('it:dev:pipe', ('str', {}), {
                     'doc': 'A string representing a named pipe.',
@@ -411,6 +427,9 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A version control system type taxonomy.',
                     'interfaces': ('meta:taxonomy',)
                 }),
+                ('it:dev:repo:label', ('guid', {}), {
+                    'doc': 'A developer selected label.',
+                }),
                 ('it:dev:repo', ('guid', {}), {
                     'doc': 'A version control system instance.',
                 }),
@@ -425,6 +444,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
+                }),
+                ('it:dev:repo:issue:label', ('guid', {}), {
+                    'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'doc': 'An issue raised in a repository.',
@@ -443,6 +465,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
+                    'interfaces': ('taxonomy',),
                 }),
                 ('it:prod:softid', ('guid', {}), {
                     'doc': 'An identifier issued to a given host by a specific software application.'}),
@@ -632,6 +655,7 @@ class ItModule(s_module.CoreModule):
             ),
             'interfaces': (
                 ('it:host:activity', {
+                    'doc': 'Properties common to instances of activity on a host.',
                     'props': (
                         ('exe', ('file:bytes', {}), {
                             'doc': 'The executable file which caused the activity.'}),
@@ -1217,6 +1241,20 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
                     }),
                 )),
+                ('it:mitre:attack:flow', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the attack-flow diagram.'}),
+                    ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
+                        'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the diagram was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the diagram was last updated.'}),
+                    ('author:user', ('syn:user', {}), {
+                        'doc': 'The Synapse user that created the node.'}),
+                    ('author:contact', ('ps:contact', {}), {
+                        'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
+                )),
                 ('it:dev:int', {}, ()),
                 ('it:dev:pipe', {}, ()),
                 ('it:dev:mutex', {}, ()),
@@ -1363,6 +1401,34 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the issue in the repository system.',
+                    }),
+                )),
+
+                ('it:dev:repo:label', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the label.',
+                    }),
+                    ('title', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The human friendly name of the label.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The description of the label.',
+                    }),
+                )),
+
+                ('it:dev:repo:issue:label', {}, (
+                    ('issue', ('it:dev:repo:issue', {}), {
+                        'doc': 'The issue the label was applied to.',
+                    }),
+                    ('label', ('it:dev:repo:label', {}), {
+                        'doc': 'The label that was applied to the issue.',
+                    }),
+                    ('applied', ('time', {}), {
+                        'doc': 'The time the label was applied.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The time the label was removed.',
                     }),
                 )),
 

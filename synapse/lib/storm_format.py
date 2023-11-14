@@ -106,7 +106,7 @@ TerminalPygMap = {
     '_LEFTPIVOT': p_t.Punctuation,
     '_LPARNOSPACE': p_t.Punctuation,
     '_MATCHHASH': p_t.Punctuation,
-    '_MATCHHASHSPACE': p_t.Punctuation,
+    '_MATCHHASHWILD': p_t.Punctuation,
     '_RETURN': p_t.Keyword,
     '_REVERSE': p_t.Keyword,
     '_RIGHTJOIN': p_t.Punctuation,

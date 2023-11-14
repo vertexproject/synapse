@@ -484,8 +484,6 @@ class Snap(s_base.Base):
         '''
         await s_base.Base.__anit__(self)
 
-        self.stack = contextlib.ExitStack()
-
         assert user is not None
 
         self.strict = True
@@ -517,7 +515,6 @@ class Snap(s_base.Base):
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
         self._warnonce_keys = set()
 
-        self.onfini(self.stack.close)
         self.changelog = []
         self.tagtype = self.core.model.type('ival')
         self.trigson = self.core.trigson
@@ -1146,6 +1143,16 @@ class Snap(s_base.Base):
                     name, oldv = parms
                     node.nodedata.pop(name, None)
                     continue
+
+                if etyp == s_layer.EDIT_EDGE_ADD:
+                    verb, n2iden = parms
+                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    callbacks.append((self.view.runEdgeAdd, (node, verb, n2), {}))
+
+                if etyp == s_layer.EDIT_EDGE_DEL:
+                    verb, n2iden = parms
+                    n2 = await self.getNodeByBuid(s_common.uhex(n2iden))
+                    callbacks.append((self.view.runEdgeDel, (node, verb, n2), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 

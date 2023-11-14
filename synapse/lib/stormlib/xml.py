@@ -49,6 +49,7 @@ class XmlElement(s_stormtypes.Prim):
         for elem in self.elem:
             yield XmlElement(self.runt, elem)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def find(self, name, nested=True):
         name = await s_stormtypes.tostr(name)
         nested = await s_stormtypes.tobool(nested)
@@ -60,6 +61,7 @@ class XmlElement(s_stormtypes.Prim):
             for elem in self.elem.findall(name):
                 yield XmlElement(self.runt, elem)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def get(self, name):
         name = await s_stormtypes.tostr(name)
         elem = self.elem.find(name)
@@ -87,6 +89,7 @@ class LibXml(s_stormtypes.Lib):
             'parse': self.parse,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def parse(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:

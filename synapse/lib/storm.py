@@ -45,6 +45,8 @@ Notes:
         * node:add
         * node:del
         * prop:set
+        * edge:add
+        * edge:del
 
 When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
@@ -56,6 +58,10 @@ Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
 supported.
 
+When the condition is edge:add or edge:del, you may optionally provide a
+form name or a destination form name to only fire on edges added or deleted
+from nodes of those forms.
+
 Examples:
     # Adds a tag to every inet:ipv4 added
     trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
@@ -65,6 +71,13 @@ Examples:
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
     trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every refs edge add
+    trigger.add edge:add --verb refs --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    # both nodes are of form file:bytes
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -307,6 +320,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'apidefs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/apidef'},
+                },
                 'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
@@ -315,6 +332,67 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'apidef': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'type': 'object',
+                    'properties': {
+                        'type': {
+                            'type': 'string',
+                            'enum': ['function']
+                        },
+                        'args': {
+                            'type': 'array',
+                            'items': {'$ref': '#/definitions/apiarg'},
+                        },
+                        'returns': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                    'enum': ['yields'],
+                                },
+                                'desc': {'type': 'string'},
+                                'type': {
+                                    'oneOf': [
+                                        {'$ref': '#/definitions/apitype'},
+                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                                    ],
+                                },
+                            },
+                            'additionalProperties': False,
+                            'required': ['type', 'desc']
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'returns'],
+                },
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apiarg': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/apitype'},
+                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                    ],
+                },
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apitype': {
+            'type': 'string',
         },
         'command': {
             'type': 'object',
@@ -999,6 +1077,8 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
+            ('--verb', {'help': 'Edge verb to fire on.'}),
+            ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
@@ -1495,7 +1575,7 @@ stormcmds = (
             init {
                 function addNoteNode(text, type) {
                     if $type { $type = $lib.cast(meta:note:type:taxonomy, $type) }
-                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                    [ meta:note=* :text=$text :creator=$lib.user.iden :created=.created :updated=.created ]
                     if $type {[ :type=$type ]}
                     return($node)
                 }
@@ -1662,6 +1742,7 @@ class StormDmon(s_base.Base):
 
         logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
+        s_scope.set('user', self.user)
         s_scope.set('storm:dmon', self.iden)
 
         text = self.ddef.get('storm')
@@ -2111,25 +2192,25 @@ class Runtime(s_base.Base):
         try:
             with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
 
-                nodegenr = self.query.iterNodePaths(self, genr=genr)
-                nodegenr, empty = await s_ast.pullone(nodegenr)
+                async with contextlib.aclosing(self.query.iterNodePaths(self, genr=genr)) as nodegenr:
+                    nodegenr, empty = await s_ast.pullone(nodegenr)
 
-                if empty:
-                    return
+                    if empty:
+                        return
 
-                rules = self.opts.get('graph')
-                if rules not in (False, None):
-                    if rules is True:
-                        rules = {'degrees': None, 'refs': True}
-                    elif isinstance(rules, str):
-                        rules = await self.snap.core.getStormGraph(rules)
+                    rules = self.opts.get('graph')
+                    if rules not in (False, None):
+                        if rules is True:
+                            rules = {'degrees': None, 'refs': True}
+                        elif isinstance(rules, str):
+                            rules = await self.snap.core.getStormGraph(rules)
 
-                    subgraph = s_ast.SubGraph(rules)
-                    nodegenr = subgraph.run(self, nodegenr)
+                        subgraph = s_ast.SubGraph(rules)
+                        nodegenr = subgraph.run(self, nodegenr)
 
-                async for item in nodegenr:
-                    self.tick()
-                    yield item
+                    async for item in nodegenr:
+                        self.tick()
+                        yield item
 
         except RecursionError:
             mesg = 'Maximum Storm pipeline depth exceeded.'
@@ -2146,7 +2227,7 @@ class Runtime(s_base.Base):
 
                 view = snap.core.views.get(viewiden)
                 if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
+                    raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
@@ -2437,8 +2518,7 @@ class Parser:
 
         if nargs == '?':
 
-            # ? will have an implicit default value of None
-            opts.setdefault(dest, None)
+            opts.setdefault(dest, argdef.get('default'))
 
             if todo and not self._is_opt(todo[0]):
 
@@ -3449,7 +3529,7 @@ class CopyToCmd(Cmd):
 
         view = runt.snap.core.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
+            raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 
@@ -4894,7 +4974,10 @@ class ViewExecCmd(Cmd):
     '''
     Execute a storm query in a different view.
 
-    NOTE: Variables are passed through but nodes are not
+    NOTE: Variables are passed through but nodes are not. The behavior of this command may be
+    non-intuitive in relation to the way storm normally operates. For further information on
+    behavior and limitations when using `view.exec`, reference the `view.exec` section of the
+    Synapse User Guide: https://v.vtx.lk/view-exec.
 
     Examples:
 

@@ -13,6 +13,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
+import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
@@ -443,11 +444,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
-        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for node in snap.eval(text, opts=opts, user=user):
-                yield node
+        with s_scope.enter({'user': user}):
+
+            await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+            async with await self.snap(user=user) as snap:
+                async for node in snap.eval(text, opts=opts, user=user):
+                    yield node
 
     async def callStorm(self, text, opts=None):
         user = self.core._userFromOpts(opts)
@@ -535,27 +539,29 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 shownode = (not show or 'node' in show)
 
-                async with await self.snap(user=user) as snap:
+                with s_scope.enter({'user': user}):
 
-                    if keepalive:
-                        snap.schedCoro(snap.keepalive(keepalive))
+                    async with await self.snap(user=user) as snap:
 
-                    if not show:
-                        snap.link(chan.put)
+                        if keepalive:
+                            snap.schedCoro(snap.keepalive(keepalive))
 
-                    else:
-                        [snap.on(n, chan.put) for n in show]
+                        if not show:
+                            snap.link(chan.put)
 
-                    if shownode:
-                        async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                            await chan.put(('node', pode))
-                            count += 1
+                        else:
+                            [snap.on(n, chan.put) for n in show]
 
-                    else:
-                        self.core._logStormQuery(text, user,
-                                                 info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                        async for item in snap.storm(text, opts=opts, user=user):
-                            count += 1
+                        if shownode:
+                            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                                await chan.put(('node', pode))
+                                count += 1
+
+                        else:
+                            self.core._logStormQuery(text, user,
+                                                     info={'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            async for item in snap.storm(text, opts=opts, user=user):
+                                count += 1
 
             except s_stormctrl.StormExit:
                 pass
@@ -634,9 +640,10 @@ class View(s_nexus.Pusher):  # type: ignore
         taskiden = opts.get('task')
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
-        async with await self.snap(user=user) as snap:
-            async for pode in snap.iterStormPodes(text, opts=opts, user=user):
-                yield pode
+        with s_scope.enter({'user': user}):
+            async with await self.snap(user=user) as snap:
+                async for pode in snap.iterStormPodes(text, opts=opts, user=user):
+                    yield pode
 
     async def snap(self, user):
 
@@ -739,6 +746,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
+        self.core._calcViewsByLayer()
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -746,14 +754,11 @@ class View(s_nexus.Pusher):  # type: ignore
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
-        for view in self.core.views.values():
-            if view.parent is self:
-                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
+        layrs = []
 
         if self.parent is not None:
-            raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
-
-        layrs = []
+            mesg = 'You cannot set the layers of a forked view.'
+            raise s_exc.BadArg(mesg=mesg)
 
         for iden in layers:
             layr = self.core.layers.get(iden)
@@ -769,6 +774,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', layers)
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
+
+        await self._calcChildViews()
+        self.core._calcViewsByLayer()
+
+    async def _calcChildViews(self):
+
+        todo = collections.deque([self])
+
+        byparent = collections.defaultdict(list)
+        for view in self.core.views.values():
+            if view.parent is None:
+                continue
+
+            byparent[view.parent].append(view)
+
+        while todo:
+
+            view = todo.pop()
+
+            for child in byparent.get(view, ()):
+
+                layers = [child.layers[0]]
+                layers.extend(view.layers)
+
+                child.layers = layers
+
+                # convert layers to a list of idens...
+                lids = [layr.iden for layr in layers]
+                await child.info.set('layers', lids)
+
+                await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
+
+                todo.append(child)
 
     async def fork(self, ldef=None, vdef=None):
         '''
@@ -953,6 +991,24 @@ class View(s_nexus.Pusher):  # type: ignore
             view = self.iden
 
         await self.triggers.runPropSet(node, prop, oldv, view=view)
+
+    async def runEdgeAdd(self, n1, edge, n2, view=None):
+        if not n1.snap.trigson:
+            return
+
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runEdgeAdd(n1, edge, n2, view=view)
+
+    async def runEdgeDel(self, n1, edge, n2, view=None):
+        if not n1.snap.trigson:
+            return
+
+        if view is None:
+            view = self.iden
+
+        await self.triggers.runEdgeDel(n1, edge, n2, view=view)
 
     async def addTrigger(self, tdef):
         '''

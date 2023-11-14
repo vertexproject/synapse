@@ -2046,8 +2046,10 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('test:str +test:str@=2018')
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +test:str:tick*near=newp')
-            with self.raises(s_exc.BadTypeValu):
+            with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:str +#test*near=newp')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:str +#test*in=newp')
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('test:str -> # } limit 10')
             with self.raises(s_exc.BadSyntax):
@@ -6115,55 +6117,71 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(layr.lockmemory)
 
     async def test_cortex_storm_lib_dmon(self):
-        async with self.getTestCoreAndProxy() as (core, prox):
-            nodes = await core.nodes('''
 
-                $lib.print(hi)
+        with self.getTestDir() as dirn:
 
-                $tx = $lib.queue.add(tx)
-                $rx = $lib.queue.add(rx)
+            async with self.getTestCoreAndProxy(dirn=dirn) as (core, prox):
+                nodes = await core.nodes('''
 
-                $ddef = $lib.dmon.add(${
+                    $lib.print(hi)
 
-                    $rx = $lib.queue.get(tx)
-                    $tx = $lib.queue.get(rx)
+                    $tx = $lib.queue.add(tx)
+                    $rx = $lib.queue.add(rx)
 
-                    $ipv4 = nope
-                    for ($offs, $ipv4) in $rx.gets(wait=1) {
-                        [ inet:ipv4=$ipv4 ]
-                        $rx.cull($offs)
-                        $tx.put($ipv4)
-                    }
-                })
+                    $ddef = $lib.dmon.add(${
 
-                $tx.put(1.2.3.4)
+                        $rx = $lib.queue.get(tx)
+                        $tx = $lib.queue.get(rx)
 
-                for ($xoff, $xpv4) in $rx.gets(size=1, wait=1) { }
+                        $ipv4 = nope
+                        for ($offs, $ipv4) in $rx.gets(wait=1) {
+                            [ inet:ipv4=$ipv4 ]
+                            $rx.cull($offs)
+                            $tx.put($ipv4)
+                        }
+                    })
 
-                $lib.print(xed)
+                    $tx.put(1.2.3.4)
 
-                inet:ipv4=$xpv4
+                    for ($xoff, $xpv4) in $rx.gets(size=1, wait=1) { }
 
-                $lib.dmon.del($ddef.iden)
+                    $lib.print(xed)
 
-                $lib.queue.del(tx)
-                $lib.queue.del(rx)
-            ''')
-            self.len(1, nodes)
-            self.len(0, await prox.getStormDmons())
+                    inet:ipv4=$xpv4
 
-            with self.raises(s_exc.NoSuchIden):
-                await core.nodes('$lib.dmon.del(newp)')
+                    $lib.dmon.del($ddef.iden)
 
-            await core.stormlist('auth.user.add user')
-            user = await core.auth.getUserByName('user')
-            asuser = {'user': user.iden}
+                    $lib.queue.del(tx)
+                    $lib.queue.del(rx)
+                ''')
+                self.len(1, nodes)
+                self.len(0, await prox.getStormDmons())
 
-            ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
-            iden = ddef.get('iden')
+                with self.raises(s_exc.NoSuchIden):
+                    await core.nodes('$lib.dmon.del(newp)')
 
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm(f'$lib.dmon.del({iden})', opts=asuser)
+                await core.stormlist('auth.user.add user')
+                user = await core.auth.getUserByName('user')
+                asuser = {'user': user.iden}
+
+                ddef = await core.callStorm('return($lib.dmon.add(${$lib.print(foo)}))')
+                iden = ddef.get('iden')
+                asuser['vars'] = {'iden': iden}
+
+                with self.raises(s_exc.AuthDeny):
+                    await core.callStorm(f'$lib.dmon.del($iden)', opts=asuser)
+
+                # remove the dmon without a nexus entry to verify recover works
+                await core._delStormDmon(iden)
+                self.none(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
+                self.eq('storm:dmon:add', (await core.nexsroot.nexslog.last())[1][1])
+
+            async with self.getTestCoreAndProxy(dirn=dirn) as (core, prox):
+
+                # nexus recover() previously failed on adding to the hive
+                # although the dmon would get successfully started
+                self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
+                self.nn(core.stormdmonhive.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -7164,6 +7182,66 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Avoid races in cleanup
             del genr
 
+    async def test_cortex_syncnodeedits(self):
+
+        async with self.getTestCore() as core:
+
+            layr00 = core.getLayer().iden
+            layr01 = (await core.addLayer())['iden']
+            view01 = (await core.addView({'layers': (layr01,)}))['iden']
+
+            async def layrgenr(layr, startoff, endoff=None, newlayer=False):
+                wait = endoff is None
+                async for ioff, item, meta in layr.syncNodeEdits2(startoff, wait=wait):
+                    if endoff is not None and ioff >= endoff:
+                        break
+                    yield ioff, item, meta
+
+            indx = await core.getNexsIndx()
+
+            offsdict = {
+                layr00: indx,
+                layr01: indx,
+            }
+
+            genr = None
+
+            try:
+
+                # test that a slow consumer can continue to stream edits
+                # even if a layer exceeds the window maxsize
+
+                oldv = s_layer.WINDOW_MAXSIZE
+                s_layer.WINDOW_MAXSIZE = 2
+
+                genr = core._syncNodeEdits(offsdict, layrgenr, wait=True)
+
+                nodes = await core.nodes('[ test:str=foo ]')
+                item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+
+                # we should now be in live sync
+                # and the empty layer will be pulling from the window
+
+                nodes = await core.nodes('[ test:str=bar ]')
+                item = await asyncio.wait_for(genr.__anext__(), timeout=2)
+                self.eq(s_common.uhex(nodes[0].iden()), item[1][0][0])
+
+                # add more nodes than the window size without consuming from the genr
+
+                opts = {'view': view01}
+                nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
+                items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
+                self.sorteq(
+                    [s_common.uhex(n.iden()) for n in nodes],
+                    [item[1][0][0] for item in items],
+                )
+
+            finally:
+                s_layer.WINDOW_MAXSIZE = oldv
+                if genr is not None:
+                    del genr
+
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:
             layr = core.getView().layers[0].iden
@@ -7601,3 +7679,162 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(core.model.ifaces.get('taxonomy'))
             self.none(core.model.formsbyiface.get('taxonomy'))
             self.isin('_auto:taxonomy', core.model.formsbyiface.get('meta:taxonomy'))
+
+    async def test_cortex_user_scope(self):
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            udef = await core.addUser('admin')
+            admin = udef.get('iden')
+            await core.setUserAdmin(admin, True)
+            async with core.getLocalProxy() as prox:
+
+                # Proxy our storm requests as the admin user
+                opts = {'user': admin}
+
+                self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
+
+                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
+                    (whoami, udef) = await prox.callStorm(q, opts=opts)
+                    self.eq('admin', whoami)
+                    self.eq('lowuser', udef.get('name'))
+
+                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
+                self.eq('Added user=lowuser', mesg.get('message'))
+                self.eq('admin', mesg.get('username'))
+                self.eq('lowuser', mesg.get('target_username'))
+
+                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+
+                    q = 'auth.user.mod lowuser --admin $lib.true'
+                    msgs = []
+                    async for mesg in prox.storm(q, opts=opts):
+                        msgs.append(mesg)
+                    self.stormHasNoWarnErr(msgs)
+
+                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
+                self.isin('Set admin=True for lowuser', mesg.get('message'))
+                self.eq('admin', mesg.get('username'))
+                self.eq('lowuser', mesg.get('target_username'))
+
+    async def test_cortex_ext_httpapi(self):
+        # Cortex API tests for Extended HttpAPI
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            newp = s_common.guid()
+            with self.raises(s_exc.SynErr):
+                await core.setHttpApiIndx(newp, 0)
+
+            unfo = await core.getUserDefByName('root')
+            view = core.getView()
+            info = await core.addHttpExtApi({
+                'path': 'test/path/(hehe|haha)/(.*)',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
+            info2 = await core.addHttpExtApi({
+                'path': 'something/else',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
+            info3 = await core.addHttpExtApi({
+                'path': 'something/else/goes/here',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
+            info4 = await core.addHttpExtApi({
+                'path': 'another/item',
+                'owner': unfo.get('iden'),
+                'view': view.iden,
+            })
+
+            iden = info.get('iden')
+
+            adef = await core.getHttpExtApi(iden)
+            self.eq(adef, info)
+
+            adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
+            self.eq(adef, info)
+            self.eq(args, ('hehe', 'wow'))
+
+            adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow/more/')
+            self.eq(adef, info)
+            self.eq(args, ('hehe', 'wow/more/'))
+
+            adef, args = await core.getHttpExtApiByPath('test/path/HeHe/wow')
+            self.none(adef)
+            self.eq(args, ())
+
+            async with core.getLocalProxy() as prox:
+                adef, args = await prox.getHttpExtApiByPath('test/path/haha/words')
+                self.eq(adef, info)
+                self.eq(args, ('haha', 'words'))
+
+            self.len(4, core._exthttpapicache)
+
+            # Reordering / safety
+            self.eq(1, await core.setHttpApiIndx(info4.get('iden'), 1))
+
+            # Cache is cleared when reloading
+            self.len(0, core._exthttpapicache)
+            adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
+            self.eq(adef, info)
+            self.len(1, core._exthttpapicache)
+
+            self.eq([adef.get('iden') for adef in await core.getHttpExtApis()],
+                    [info.get('iden'), info4.get('iden'), info2.get('iden'), info3.get('iden')])
+
+            items = await core.getHttpExtApis()
+            self.eq(items, (info, info4, info2, info3))
+
+            # Tiny sleep to ensure that updated ticks forward when modified
+            created = adef.get('created')
+            updated = adef.get('updated')
+            await asyncio.sleep(0.005)
+            adef = await core.modHttpExtApi(iden, 'name', 'wow')
+            self.eq(adef.get('created'), created)
+            self.gt(adef.get('updated'), updated)
+
+            # Sad path
+
+            with self.raises(s_exc.SynErr):
+                await core.setHttpApiIndx(newp, 0)
+
+            with self.raises(s_exc.BadArg):
+                await core.setHttpApiIndx(newp, -1)
+
+            with self.raises(s_exc.NoSuchUser):
+                await core.modHttpExtApi(iden, 'owner', newp)
+
+            with self.raises(s_exc.NoSuchView):
+                await core.modHttpExtApi(iden, 'view', newp)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'created', 1234)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'updated', 1234)
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'creator', s_common.guid())
+
+            with self.raises(s_exc.BadArg):
+                await core.modHttpExtApi(iden, 'newp', newp)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.modHttpExtApi(newp, 'path', 'a/new/path/')
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.getHttpExtApi(newp)
+
+            self.none(await core.delHttpExtApi(newp))
+
+            with self.raises(s_exc.BadArg):
+                await core.delHttpExtApi('notAGuid')
