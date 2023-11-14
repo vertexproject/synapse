@@ -90,7 +90,7 @@ Features and Enhancements
   (`#3403 <https://github.com/vertexproject/synapse/pull/3403>`_)
 - Add a ``unique()`` method to the Storm ``list`` object. This returns a new
   list with only unique elements in it.
-  (`#3417 <https://github.com/vertexproject/synapse/pull/3417>`_)
+  (`#3415 <https://github.com/vertexproject/synapse/pull/3415>`_)
 - Add support for ``synapse.tools.autodoc`` to generate documentation for
   API definitions declared in Storm packages.
   (`#3382 <https://github.com/vertexproject/synapse/pull/3382>`_)
