@@ -960,6 +960,10 @@ class Url(s_types.Str):
                 raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                         mesg='Missing address/url') from None
 
+        if not hostparts and not pathpart:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Missing address/url') from None
+
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
         norm = f'{base}{parampart}'
