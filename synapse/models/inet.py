@@ -929,7 +929,8 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
-            # allow MS specific wild card syntax
+            # allow MSFT specific wild card syntax
+            # https://learn.microsoft.com/en-us/windows/win32/http/urlprefix-strings
             if host is None and part == '+':
                 host = '+'
 
