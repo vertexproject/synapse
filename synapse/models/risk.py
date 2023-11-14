@@ -848,6 +848,12 @@ class RiskModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the leak event.'}),
 
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the leak event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the leak event.'}),
+
                     ('disclosed', ('time', {}), {
                         'doc': 'The time the leaked information was disclosed.'}),
 
@@ -872,11 +878,6 @@ class RiskModule(s_module.CoreModule):
                     ('public:url', ('inet:url', {}), {
                         'doc': 'The URL where the leaked information was made publicly available.'}),
 
-                    ('reporter', ('ou:org', {}), {
-                        'doc': 'The organization reporting on the leak event.'}),
-
-                    ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the leak event.'}),
                 )),
 
                 ('risk:extortion:type:taxonomy', {}, ()),
@@ -889,6 +890,12 @@ class RiskModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the extortion event.'}),
 
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the extortion event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the extortion event.'}),
+
                     ('demanded', ('time', {}), {
                         'doc': 'The time that the attacker made their demands.'}),
 
@@ -896,7 +903,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The goal of the leaker in disclosing the information.'}),
 
                     ('type', ('risk:extortion:type:taxonomy', {}), {
-                        'doc': 'A type taxonomy for the leak.'}),
+                        'doc': 'A type taxonomy for the extortion event.'}),
 
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'The extortion attacker identity.'}),
@@ -924,12 +931,6 @@ class RiskModule(s_module.CoreModule):
 
                     ('demanded:payment:currency', ('econ:currency', {}), {
                         'doc': 'The currency in which payment was demanded.'}),
-
-                    ('reporter', ('ou:org', {}), {
-                        'doc': 'The organization reporting on the extortion event.'}),
-
-                    ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the extortion event.'}),
 
                 )),
             ),

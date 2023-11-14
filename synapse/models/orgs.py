@@ -11,9 +11,9 @@ contracttypes = (
 )
 
 reqlevels = (
-    (10, 'may'),
+    (10, 'desired'),
     (20, 'should'),
-    (30, 'must'),
+    (30, 'shall'),
 )
 
 class OuModule(s_module.CoreModule):
@@ -227,12 +227,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The campaign made use of the target node.'}),
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
-
-                (('ou:requirement', 'depends', 'ou:requirement'), {
-                    'doc': 'The source requirement depends on the target requirement.'}),
-
-                ((None, 'meets', 'ou:requirement'), {
-                    'doc': 'The source node demonstrates that the requirement is met.'}),
+                ((None, 'metby', 'ou:requirement'), {
+                    'doc': 'The requirement is met by the target node.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -1171,6 +1167,12 @@ class OuModule(s_module.CoreModule):
 
                     ('assignee', ('ps:contact', {}), {
                         'doc': 'The contact information of the entity which is assigned to meet the requirement.'}),
+
+                    ('deps', ('array', {'type': 'ou:requirement', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of sub-requirements which must be met to complete the requirement.'}),
+
+                    ('deps:min', ('int', {'min': 0}), {
+                        'doc': 'The minimum number dependant requirements which must be met. If unset, assume all must be met.'}),
                 )),
             )
         }

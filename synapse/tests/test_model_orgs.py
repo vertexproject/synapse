@@ -586,29 +586,33 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(1, nodes[0].get('industries'))
 
-            nodes = await core.nodes('''[ ou:requirement=*
+            nodes = await core.nodes('''[ ou:requirement=50b757fafe4a839ec499023ebcffe7c0
                 :name="acquire pizza toppings"
                 :text="The team must acquire ANSI standard pizza toppings."
                 :goal={[ ou:goal=* :name=pizza ]}
                 :issuer={[ ps:contact=* :name=visi ]}
                 :assignee={ gen.ou.org.hq ledos }
-                :level=must
+                :level=shall
                 :priority=highest
                 :issued=20120202
                 :period=(2023, ?)
                 :active=(true)
+                :deps=(*, *)
+                :deps:min=1
             ]''')
             self.len(1, nodes)
             self.eq('acquire pizza toppings', nodes[0].get('name'))
             self.eq('The team must acquire ANSI standard pizza toppings.', nodes[0].get('text'))
+            self.eq(1, nodes[0].get('deps:min'))
             self.eq(30, nodes[0].get('level'))
             self.eq(50, nodes[0].get('priority'))
             self.eq(1328140800000, nodes[0].get('issued'))
             self.eq((1672531200000, 9223372036854775807), nodes[0].get('period'))
 
-            self.len(1, await core.nodes('ou:requirement -> ou:goal +:name=pizza'))
-            self.len(1, await core.nodes('ou:requirement :issuer -> ps:contact +:name=visi'))
-            self.len(1, await core.nodes('ou:requirement :assignee -> ps:contact +:orgname=ledos'))
+            self.len(2, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:requirement'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:goal +:name=pizza'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :issuer -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :assignee -> ps:contact +:orgname=ledos'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()

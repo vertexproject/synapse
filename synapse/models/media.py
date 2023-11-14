@@ -69,9 +69,6 @@ class MediaModule(s_module.CoreModule):
 
                 ('topics', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of relevant topics discussed in the report.'}),
-
-                ('tlp', ('it:sec:tlp', {}), {
-                    'doc': 'The CISA TLP classification of the report.'}),
             )),
 
             ('media:topic', {}, (
