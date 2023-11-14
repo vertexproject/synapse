@@ -2656,3 +2656,24 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
+
+    # TODO: names are hard
+    async def test_ast_optimizer_bug(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''[
+                (test:type10=one :intprop=21 :int2=21)
+                (test:type10=two :intprop=21 :int2=29)
+            ]''')
+            # nodes = await core.nodes('test:type10 +(:intprop = :int2)')
+
+            '''
+            query = 'test:type10:intprop +(:intprop = :int2)'
+            nodes = await core.nodes(query)
+            breakpoint()
+            '''
+
+            try:
+                nodes = await core.nodes('test:type10 +(:intprop = :int2)')
+            except:
+                import pdb, sys
+                pdb.post_mortem(sys.exc_info()[2])
