@@ -634,6 +634,12 @@ class RiskModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the compromise.'}),
 
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external unique ID for the compromise.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the compromise.'}),
+
                     ('type', ('risk:compromisetype', {}), {
                         'ex': 'cno.breach',
                         'doc': 'A type for the compromise, as a taxonomy entry.'}),
