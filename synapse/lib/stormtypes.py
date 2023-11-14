@@ -4607,6 +4607,9 @@ class List(Prim):
                       {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
                   ),
                   'returns': {'type': 'null'}}},
+        {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
+         'type': {'type': 'function', '_funcname': '_methListUnique',
+                  'returns': {'type': 'list'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -4627,6 +4630,7 @@ class List(Prim):
             'reverse': self._methListReverse,
             'slice': self._methListSlice,
             'extend': self._methListExtend,
+            'unique': self._methListUnique,
         }
 
     @stormfunc(readonly=True)
@@ -4723,6 +4727,22 @@ class List(Prim):
     async def iter(self):
         for item in self.valu:
             yield item
+
+    @stormfunc(readonly=True)
+    async def _methListUnique(self):
+        ret = []
+        checkret = []
+
+        for val in self.valu:
+            try:
+                _cval = await toprim(val)
+            except s_exc.NoSuchType:
+                _cval = val
+            if _cval in checkret:
+                continue
+            checkret.append(_cval)
+            ret.append(val)
+        return ret
 
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]
