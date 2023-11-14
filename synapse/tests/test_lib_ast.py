@@ -2534,7 +2534,7 @@ class AstTest(s_test.SynTest):
             neato = await core.nodes('''[
                 test:str=neato +(refs)> { inet:ipv4 }
             ]''')
-            await core.nodes('[test:str=neato +(refs)> { test:str=neato }]')
+            await core.nodes('[test:str=neato +(selfrefs)> { test:str=neato }]')
             self.len(1, neato)
 
             iden = neato[0].iden()
@@ -2556,10 +2556,7 @@ class AstTest(s_test.SynTest):
                         continue
                     node = m[1]
                     edges = node[1]['path']['edges']
-                    try:
-                        self.len(1, edges)
-                    except:
-                        breakpoint()
+                    self.len(1, edges)
                     edgeiden, edgedata = edges[0]
                     self.eq(edgeiden, iden)
                     self.true(edgedata.get('reverse', False))
@@ -2614,11 +2611,14 @@ class AstTest(s_test.SynTest):
                 for edge in edges:
                     edgeiden, edgedata = edge
                     self.isin(edgeiden, ipidens)
-                    self.eq(edgedata['verb'], 'refs')
                     self.eq(edgedata['type'], 'edge')
-                    self.false(edgedata.get('reverse', False))
+                    if edgedata['verb'] == 'selfrefs':
+                        self.eq(edgeiden, neato[0].iden())
+                    else:
+                        self.eq(edgedata['verb'], 'refs')
+                        self.false(edgedata.get('reverse', False))
 
-    async def test_ast_subgraph_existing_edges(self):
+    async def test_ast_subgraph_existing_prop_edges(self):
 
         async with self.getTestCore() as core:
             (fn,) = await core.nodes('[ file:bytes=(woot,) :md5=e5a23e8a2c0f98850b1a43b595c08e63 ]')

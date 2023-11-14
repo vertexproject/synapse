@@ -657,18 +657,17 @@ class SubGraph:
                                     await asyncio.sleep(0)
                                     edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
-                        elif n2delayed.has(nodeiden):
+                        if n2delayed.has(nodeiden):
                             async for buid01 in results:
                                 async for verb in runt.snap.iterEdgeVerbs(buid01, buid):
                                     await asyncio.sleep(0)
                                     edges.append((s_common.ehex(buid01), {'type': 'edge', 'verb': verb, 'reverse': True}))
-                        else:
-                            for n2iden, verbs in cache.items():
-                                if s_common.uhex(n2iden) not in results:
-                                    continue
-                                for v in verbs:
-                                    await asyncio.sleep(0)
-                                    edges.append((n2iden, {'type': 'edge', 'verb': v}))
+                        for n2iden, verbs in cache.items():
+                            if s_common.uhex(n2iden) not in results:
+                                continue
+                            for v in verbs:
+                                await asyncio.sleep(0)
+                                edges.append((n2iden, {'type': 'edge', 'verb': v}))
 
                         async for n1iden in n1delayed:
                             n1buid = s_common.uhex(n1iden)
