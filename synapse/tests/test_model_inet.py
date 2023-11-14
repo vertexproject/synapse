@@ -1344,6 +1344,10 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+            self.raises(s_exc.BadTypeValu, t.norm, "file://''")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://#")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://$")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')

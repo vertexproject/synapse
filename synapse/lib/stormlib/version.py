@@ -45,12 +45,15 @@ class VersionLib(s_stormtypes.Lib):
             'synapse': self._getSynVersion,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getSynVersion(self):
         return s_version.version
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getSynCommit(self):
         return s_version.commit
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def matches(self, vertup, reqstr):
         reqstr = await s_stormtypes.tostr(reqstr)
         vertup = tuple(await s_stormtypes.toprim(vertup))
