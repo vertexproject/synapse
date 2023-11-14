@@ -280,6 +280,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :url=https://vertex.link/alerts/WOOT-20
                     :ext:id=WOOT-20
                     :engine={[ it:prod:softver=* :name=visiware ]}
+                    :host=*
                 ]
             ''')
             self.len(1, nodes)
@@ -289,6 +290,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(2554848000000, nodes[0].get('detected'))
             self.eq('WOOT-20', nodes[0].get('ext:id'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
+            self.nn(nodes[0].get('host'))
+            self.len(1, await core.nodes('risk:alert -> it:host'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
             self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
@@ -393,6 +396,72 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
+
+            nodes = await core.nodes('''[ risk:leak=*
+                :name="WikiLeaks ACME      Leak"
+                :desc="WikiLeaks leaked ACME stuff."
+                :disclosed=20231102
+                :owner={ gen.ou.org.hq acme }
+                :leaker={ gen.ou.org.hq wikileaks }
+                :type=public
+                :goal={[ ou:goal=* :name=publicity ]}
+                :compromise={[ risk:compromise=* :target={ gen.ou.org.hq acme } ]}
+                :public=(true)
+                :public:url=https://wikileaks.org/acme
+                :reporter={ gen.ou.org vertex }
+                :reporter:name=vertex
+            ]''')
+            self.len(1, nodes)
+            self.eq('wikileaks acme leak', nodes[0].get('name'))
+            self.eq('WikiLeaks leaked ACME stuff.', nodes[0].get('desc'))
+            self.eq(1698883200000, nodes[0].get('disclosed'))
+            self.eq('public.', nodes[0].get('type'))
+            self.eq(1, nodes[0].get('public'))
+            self.eq('https://wikileaks.org/acme', nodes[0].get('public:url'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
+
+            self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
+            self.len(1, await core.nodes('risk:leak :owner -> ps:contact +:orgname=acme'))
+            self.len(1, await core.nodes('risk:leak :leaker -> ps:contact +:orgname=wikileaks'))
+            self.len(1, await core.nodes('risk:leak -> ou:goal +:name=publicity'))
+            self.len(1, await core.nodes('risk:leak -> risk:compromise :target -> ps:contact +:orgname=acme'))
+            self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))
+
+            nodes = await core.nodes('''[ risk:extortion=*
+                :demanded=20231102
+                :name="APT99 Extorted     ACME"
+                :desc="APT99 extorted ACME for a zillion vertex coins."
+                :type=fingain
+                :attacker={[ ps:contact=* :name=agent99 ]}
+                :target={ gen.ou.org.hq acme }
+                :success=(true)
+                :enacted=(true)
+                :public=(true)
+                :public:url=https://apt99.com/acme
+                :compromise={[ risk:compromise=* :target={ gen.ou.org.hq acme } ]}
+                :demanded:payment:price=99.99
+                :demanded:payment:currency=VTC
+                :reporter={ gen.ou.org vertex }
+                :reporter:name=vertex
+            ]''')
+
+            self.len(1, nodes)
+            self.eq('apt99 extorted acme', nodes[0].get('name'))
+            self.eq('APT99 extorted ACME for a zillion vertex coins.', nodes[0].get('desc'))
+            self.eq(1698883200000, nodes[0].get('demanded'))
+            self.eq('fingain.', nodes[0].get('type'))
+            self.eq(1, nodes[0].get('public'))
+            self.eq(1, nodes[0].get('success'))
+            self.eq(1, nodes[0].get('enacted'))
+            self.eq('https://apt99.com/acme', nodes[0].get('public:url'))
+            self.eq('99.99', nodes[0].get('demanded:payment:price'))
+            self.eq('vtc', nodes[0].get('demanded:payment:currency'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
+
+            self.len(1, await core.nodes('risk:extortion :target -> ps:contact +:orgname=acme'))
+            self.len(1, await core.nodes('risk:extortion :attacker -> ps:contact +:name=agent99'))
+            self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ps:contact +:orgname=acme'))
+            self.len(1, await core.nodes('risk:extortion :reporter -> ou:org +:name=vertex'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:

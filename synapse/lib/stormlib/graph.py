@@ -181,6 +181,7 @@ class GraphLib(s_stormtypes.Lib):
         gdef = await s_stormtypes.toprim(gdef)
         return await self.runt.snap.core.addStormGraph(gdef, user=self.runt.user)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphGet(self, iden=None):
         iden = await s_stormtypes.tostr(iden, noneok=True)
         if iden is None:
@@ -202,6 +203,7 @@ class GraphLib(s_stormtypes.Lib):
 
         await self.runt.snap.core.modStormGraph(iden, info, user=self.runt.user)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphList(self):
         projs = []
         async for proj in self.runt.snap.core.getStormGraphs(user=self.runt.user):

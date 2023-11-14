@@ -419,3 +419,12 @@ class ModelRevTest(s_tests.SynTest):
 
             self.len(1, await core.nodes('risk:vulnname="woot woot"'))
             self.len(1, await core.nodes('risk:vuln:name="woot woot"'))
+
+    async def test_modelrev_0_2_22(self):
+
+        async with self.getRegrCore('model-0.2.22') as core:
+            nodes = await core.nodes('inet:ipv4=100.64.0.0/10')
+            self.len(257, nodes)
+
+            for node in nodes:
+                self.eq(node.props.get('type'), 'shared')

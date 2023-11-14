@@ -192,6 +192,7 @@ class CellLib(s_stormtypes.Lib):
 
         return curv
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _hotFixesCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
@@ -210,30 +211,35 @@ class CellLib(s_stormtypes.Lib):
 
         return dowork
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getCellInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getCellInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getCellInfo()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getSystemInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getSystemInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getSystemInfo()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getBackupInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getBackupInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getBackupInfo()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getHealthCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
         return await self.runt.snap.core.getHealthCheck()
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getMirrorUrls(self, name=None):
 
         if not self.runt.isAdmin():
@@ -265,6 +271,7 @@ class CellLib(s_stormtypes.Lib):
 
         return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _uptime(self, name=None):
 
         name = await s_stormtypes.tostr(name, noneok=True)

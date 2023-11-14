@@ -485,10 +485,6 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        curv = self.tags.get(name, s_common.novalu)
-        if curv is s_common.novalu:
-            return ()
-
         pref = name + '.'
 
         todel = [(len(t), t) for t in self.tags.keys() if t.startswith(pref)]
@@ -529,7 +525,8 @@ class Node:
             edits.append((s_layer.EDIT_TAG_DEL, (subtag, None), ()))
 
         edits.extend(self._getTagPropDel(name))
-        edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
+        if self.getTag(name, defval=s_common.novalu) is not s_common.novalu:
+            edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         return edits
 

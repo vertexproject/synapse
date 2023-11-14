@@ -587,6 +587,44 @@ async def processStormCmds(rst, pkgname, commands):
 
         rst.addLines(*lines)
 
+async def processStormModules(rst, pkgname, modules):
+
+    rst.addHead('Storm Modules', lvl=2)
+
+    hasapi = False
+    modules = sorted(modules, key=lambda x: x.get('name'))
+
+    for mdef in modules:
+
+        apidefs = mdef.get('apidefs')
+        if not apidefs:
+            continue
+
+        if not hasapi:
+            rst.addLines('This package implements the following Storm Modules.\n')
+            hasapi = True
+
+        mname = mdef['name']
+
+        mref = f'.. _stormmod-{pkgname.replace(":", "-")}-{mname.replace(".", "-")}:'
+        rst.addHead(mname, lvl=3, link=mref)
+
+        for apidef in apidefs:
+
+            apiname = apidef['name']
+            apidesc = apidef['desc']
+            apitype = apidef['type']
+
+            callsig = s_autodoc.genCallsig(apitype)
+            rst.addHead(f'{apiname}{callsig}', lvl=4)
+
+            rst.addLines(*s_autodoc.prepareRstLines(apidesc))
+            rst.addLines(*s_autodoc.getArgLines(apitype))
+            rst.addLines(*s_autodoc.getReturnLines(apitype))
+
+    if not hasapi:
+        rst.addLines('This package does not export any Storm APIs.\n')
+
 def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
     ret = collections.defaultdict(list)
 
@@ -833,7 +871,8 @@ async def docStormsvc(ctor):
         if commands:
             await processStormCmds(rst, pname, commands)
 
-        # TODO: Modules are not currently documented.
+        if modules := pkg.get('modules'):
+            await processStormModules(rst, pname, modules)
 
     return rst, clsname
 
@@ -861,7 +900,8 @@ async def docStormpkg(pkgpath):
     if commands:
         await processStormCmds(rst, pkgname, commands)
 
-    # TODO: Modules are not currently documented.
+    if modules := pkgdef.get('modules'):
+        await processStormModules(rst, pkgname, modules)
 
     return rst, pkgname
 
