@@ -2534,7 +2534,7 @@ class AstTest(s_test.SynTest):
             neato = await core.nodes('''[
                 test:str=neato +(refs)> { inet:ipv4 }
             ]''')
-            await core.nodes('[test:str=neato +(selfref)> { test:str=neato }]')
+            await core.nodes('[test:str=neato +(refs)> { test:str=neato }]')
             self.len(1, neato)
 
             iden = neato[0].iden()
@@ -2556,7 +2556,10 @@ class AstTest(s_test.SynTest):
                         continue
                     node = m[1]
                     edges = node[1]['path']['edges']
-                    self.len(1, edges)
+                    try:
+                        self.len(1, edges)
+                    except:
+                        breakpoint()
                     edgeiden, edgedata = edges[0]
                     self.eq(edgeiden, iden)
                     self.true(edgedata.get('reverse', False))
@@ -2565,10 +2568,7 @@ class AstTest(s_test.SynTest):
                 selfref = msgs[-2]
                 node = selfref[1]
                 edges = node[1]['path']['edges']
-                try:
-                    self.len(258, edges) # TODO
-                except:
-                    breakpoint()
+                self.len(258, edges)
                 self.len(2, [edge for edge in edges if edge[0] == iden])
 
             for limit in limits:
@@ -2589,6 +2589,7 @@ class AstTest(s_test.SynTest):
             opts['graph']['existing'] = idens
             opts['idens'] = [ipv4s[0].iden(),]
             ipidens = [n.iden() for n in ipv4s]
+            ipidens.append(neato[0].iden())
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
