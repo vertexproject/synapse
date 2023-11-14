@@ -31,7 +31,7 @@ class BizModule(s_module.CoreModule):
                 }),
                 ('biz:service:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of service offering types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('biz:dealstatus', ('taxonomy', {}), {
                     'doc': 'A deal/rfp status taxonomy.',

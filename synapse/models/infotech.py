@@ -322,7 +322,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of log event types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -465,7 +465,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
                     'doc': 'A software type taxonomy.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('it:prod:softid', ('guid', {}), {
                     'doc': 'An identifier issued to a given host by a specific software application.'}),

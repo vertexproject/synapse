@@ -61,7 +61,7 @@ class RiskModule(s_module.CoreModule):
                 }),
                 ('risk:alert:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of alert types.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -95,25 +95,25 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
                     'doc': 'A taxonomy of verdicts for the origin and validity of the alert.',
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                 }),
 
                 ('risk:threat:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of threat types.'}),
 
                 ('risk:leak', ('guid', {}), {
                     'doc': 'An event where information was disclosed without permission.'}),
 
                 ('risk:leak:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of leak event types.'}),
 
                 ('risk:extortion', ('guid', {}), {
                     'doc': 'An event where an attacker attempted to extort a victim.'}),
 
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
             ),
             'edges': (
