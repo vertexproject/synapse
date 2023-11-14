@@ -799,7 +799,12 @@ class View(s_nexus.Pusher):  # type: ignore
                 layers.extend(view.layers)
 
                 child.layers = layers
-                await child.info.set('layers', [layr.iden for layr in layers])
+
+                # convert layers to a list of idens...
+                lids = [layr.iden for layr in layers]
+                await child.info.set('layers', lids)
+
+                await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
 
                 todo.append(child)
 
