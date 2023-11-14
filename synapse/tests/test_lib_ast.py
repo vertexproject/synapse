@@ -2662,6 +2662,7 @@ class AstTest(s_test.SynTest):
             await core.nodes('''[
                 (test:type10=one :intprop=21 :int2=21)
                 (test:type10=two :intprop=21 :int2=29)
+                (test:float=13.4 :closed=14.0 :open=14.0)
                 (test:float=14.5 :closed=12.0 :open=13.0)
                 (test:float=15.6 :closed=12.0)
                 (test:float=16.7)
@@ -2673,15 +2674,18 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('test:float +(:closed = 12.0 and :open)')
             self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 14.5))
 
             nodes = await core.nodes('test:float +(:open = $lib.null)')
             self.len(0, nodes)
 
             nodes = await core.nodes('test:float +(:closed = :open)')
-            self.len(0, nodes)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 13.4))
 
             nodes = await core.nodes('test:float $foobar=:open +(:closed = $foobar)')
-            self.len(0, nodes)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 13.4))
 
             nodes = await core.nodes('test:type10 $foobar=:int2 +(:intprop = $foobar)')
             self.len(1, nodes)
