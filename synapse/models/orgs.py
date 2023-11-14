@@ -10,12 +10,6 @@ contracttypes = (
     'partnership',
 )
 
-reqlevels = (
-    (10, 'desired'),
-    (20, 'should'),
-    (30, 'shall'),
-)
-
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -1144,11 +1138,11 @@ class OuModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'The text of the stated requirement.'}),
 
+                    ('optional', ('bool', {}), {
+                        'doc': 'Set to true if the requirement is optional.'}),
+
                     ('priority', ('meta:priority', {}), {
                         'doc': 'The priority of the requirement.'}),
-
-                    ('level', ('int', {'enums': reqlevels}), {
-                        'doc': 'The level of requirement.'}),
 
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The goal that the requirement is designed to achieve.'}),

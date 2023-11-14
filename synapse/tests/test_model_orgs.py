@@ -592,7 +592,7 @@ class OuModelTest(s_t_utils.SynTest):
                 :goal={[ ou:goal=* :name=pizza ]}
                 :issuer={[ ps:contact=* :name=visi ]}
                 :assignee={ gen.ou.org.hq ledos }
-                :level=shall
+                :optional=(true)
                 :priority=highest
                 :issued=20120202
                 :period=(2023, ?)
@@ -604,8 +604,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('acquire pizza toppings', nodes[0].get('name'))
             self.eq('The team must acquire ANSI standard pizza toppings.', nodes[0].get('text'))
             self.eq(1, nodes[0].get('deps:min'))
-            self.eq(30, nodes[0].get('level'))
             self.eq(50, nodes[0].get('priority'))
+            self.eq(True, nodes[0].get('optional'))
             self.eq(1328140800000, nodes[0].get('issued'))
             self.eq((1672531200000, 9223372036854775807), nodes[0].get('period'))
 
