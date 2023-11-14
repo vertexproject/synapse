@@ -2527,6 +2527,7 @@ class AstTest(s_test.SynTest):
             neato = await core.nodes('''[
                 test:str=neato +(refs)> { inet:ipv4 }
             ]''')
+            await core.nodes('[test:str=neato +(selfref)> { test:str=neato }]')
             self.len(1, neato)
 
             iden = neato[0].iden()
@@ -2542,8 +2543,8 @@ class AstTest(s_test.SynTest):
             }
 
             def testedges(msgs):
-                self.len(258, msgs)
-                for m in msgs:
+                self.len(259, msgs)
+                for m in msgs[:-2]:
                     if m[0] != 'node':
                         continue
                     node = m[1]
@@ -2554,6 +2555,14 @@ class AstTest(s_test.SynTest):
                     self.true(edgedata.get('reverse', False))
                     self.eq(edgedata['verb'], 'refs')
                     self.eq(edgedata['type'], 'edge')
+                selfref = msgs[-2]
+                node = selfref[1]
+                edges = node[1]['path']['edges']
+                try:
+                    self.len(258, edges) # TODO
+                except:
+                    breakpoint()
+                self.len(2, [edge for edge in edges if edge[0] == iden])
 
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
@@ -2600,6 +2609,39 @@ class AstTest(s_test.SynTest):
                     self.eq(edgedata['verb'], 'refs')
                     self.eq(edgedata['type'], 'edge')
                     self.false(edgedata.get('reverse', False))
+
+    async def test_ast_subgraph_existing_edges(self):
+
+        async with self.getTestCore() as core:
+            (fn,) = await core.nodes('[ file:bytes=(woot,) :md5=e5a23e8a2c0f98850b1a43b595c08e63 ]')
+            fiden = fn.iden()
+
+            rules = {
+                'degrees': None,
+                'edges': True,
+                'refs': True,
+                'existing': [fiden]
+            }
+
+            nodes = []
+
+            async with await core.snap() as snap:
+                async for node, path in snap.storm(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
+                    nodes.append(node)
+
+                    edges = path.metadata.get('edges')
+                    self.len(1, edges)
+                    self.eq(edges, [
+                        [fn.iden(), {
+                            "type": "prop",
+                            "prop": "md5",
+                            "reverse": True
+                        }]
+                    ])
+
+                    self.true(path.metadata.get('graph:seed'))
+
+            self.len(1, nodes)
 
     async def test_ast_double_init_fini(self):
         async with self.getTestCore() as core:

@@ -410,7 +410,7 @@ class SubGraph:
         self.omits[node.buid] = False
         return False
 
-    async def pivots(self, runt, node, path):
+    async def pivots(self, runt, node, path, existing):
 
         if self.rules.get('refs'):
 
@@ -421,6 +421,14 @@ class SubGraph:
                     continue
 
                 yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
+
+            for iden in existing:
+                buid = s_common.uhex(iden)
+                othr = await node.snap.getNodeByBuid(buid)
+                for propname, ndef in othr.getNodeRefs():
+                    pivonode = await othr.snap.getNodeByNdef(ndef)
+                    if pivonode.iden() == node.iden():
+                        yield (othr, path, {'type': 'prop', 'prop': propname, 'reverse': True})
 
         for pivq in self.rules.get('pivots'):
             indx = 0
@@ -495,9 +503,6 @@ class SubGraph:
                     ecnt = 0
                     cache = collections.defaultdict(list)
                     async for verb, n2iden in runt.snap.iterNodeEdgesN1(s_common.uhex(b)):
-                        if b == n2iden:
-                            continue
-
                         if s_common.uhex(n2iden) in results:
                             continue
 
@@ -573,7 +578,7 @@ class SubGraph:
 
                 nodeiden = node.iden()
                 edges = list(revpivs.get(buid, defv=()))
-                async for pivn, pivp, pinfo in self.pivots(runt, node, path):
+                async for pivn, pivp, pinfo in self.pivots(runt, node, path, existing):
 
                     await asyncio.sleep(0)
 
@@ -596,6 +601,10 @@ class SubGraph:
                     if pivn.buid in intodo:
                         continue
 
+                    # no need to pivot to existing nodes
+                    if pivn.iden() in existing:
+                        continue
+
                     # do we have room to go another degree out?
                     if degrees is None or dist < degrees:
                         todo.append((pivn, pivp, dist + 1))
@@ -608,9 +617,6 @@ class SubGraph:
                     # seeing n2 later, we won't have to go back and check for it
                     async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
                         await asyncio.sleep(0)
-                        if nodeiden == n2iden:
-                            continue
-
                         if ecnt < edgelimit:
                             ecnt += 1
                             cache[n2iden].append(verb)
@@ -666,8 +672,6 @@ class SubGraph:
 
                         async for n1iden in n1delayed:
                             n1buid = s_common.uhex(n1iden)
-                            if n1iden == nodeiden:
-                                continue
                             async for verb in runt.snap.iterEdgeVerbs(n1buid, buid):
                                 await asyncio.sleep(0)
                                 edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
