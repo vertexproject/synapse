@@ -28,3 +28,11 @@ class LibStormTest(s_test.SynTest):
 
             # for coverage of forked call...
             self.nn(s_parser.parseEval('woot'))
+
+            # Readonly functionality is sane
+            msgs = await core.stormlist('$lib.print($lib.storm.eval( "{$lib.print(wow)}" ))')
+            self.stormIsInPrint('wow', msgs)
+            self.stormIsInPrint('$lib.null', msgs)
+
+            with self.raises(s_exc.IsReadOnly):
+                await core.callStorm('$lib.storm.eval( "{$lib.auth.users.add(readonly)}" )', opts={'readonly': True})
