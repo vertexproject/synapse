@@ -34,6 +34,7 @@ class LibPack(s_stormtypes.Lib):
             'un': self.un,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def en(self, fmt, items):
         fmt = await s_stormtypes.tostr(fmt)
         items = await s_stormtypes.toprim(items)
@@ -47,6 +48,7 @@ class LibPack(s_stormtypes.Lib):
         except struct.error as e:
             raise s_exc.BadArg(mesg=str(e))
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def un(self, fmt, byts, offs=0):
 
         fmt = await s_stormtypes.tostr(fmt)

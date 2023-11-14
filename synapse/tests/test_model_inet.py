@@ -875,6 +875,18 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(2851995905, norm)
             self.eq(info.get('subs').get('type'), 'linklocal')
 
+            norm, info = t.norm('100.63.255.255')
+            self.eq(info.get('subs').get('type'), 'unicast')
+
+            norm, info = t.norm('100.64.0.0')
+            self.eq(info.get('subs').get('type'), 'shared')
+
+            norm, info = t.norm('100.127.255.255')
+            self.eq(info.get('subs').get('type'), 'shared')
+
+            norm, info = t.norm('100.128.0.0')
+            self.eq(info.get('subs').get('type'), 'unicast')
+
             # Don't allow invalid values
             with self.raises(s_exc.BadTypeValu):
                 t.norm(0x00000000 - 1)
@@ -1332,6 +1344,10 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+            self.raises(s_exc.BadTypeValu, t.norm, "file://''")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://#")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://$")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
@@ -1439,6 +1455,12 @@ class InetModelTest(s_t_utils.SynTest):
             q = 'inet:url +inet:url=""'
             nodes = await core.nodes(q)
             self.len(0, nodes)
+
+            nodes = await core.nodes('[ inet:url="https://+:80/woot" ]')
+            self.len(1, nodes)
+
+            self.none(nodes[0].get('ipv4'))
+            self.none(nodes[0].get('fqdn'))
 
     async def test_url_file(self):
 

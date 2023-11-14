@@ -2057,6 +2057,13 @@ class AstTest(s_test.SynTest):
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data ~= "(?-i:brown)") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
             q = '''test:str $data=$node.value()
