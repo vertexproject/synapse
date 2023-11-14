@@ -2758,11 +2758,7 @@ class RelPropCond(Cond):
             if valu is None:
                 return False
 
-            if isinstance(valukid, RelPropValue):
-                xprop, xval = await valukid.getPropAndValu(runt, path)
-            else:
-                xval = await valukid.compute(runt, path)
-
+            xval = await valukid.compute(runt, path)
             if not isinstance(xval, s_node.Node):
                 xval = await s_stormtypes.tostor(xval)
 
