@@ -2758,9 +2758,16 @@ class RelPropCond(Cond):
             if valu is None:
                 return False
 
-            xval = await valukid.compute(runt, path)
+            if isinstance(valukid, RelPropValue):
+                xprop, xval = await valukid.getPropAndValu(runt, path)
+            else:
+                xval = await valukid.compute(runt, path)
+
             if not isinstance(xval, s_node.Node):
                 xval = await s_stormtypes.tostor(xval)
+
+            if xval is None:
+                return False
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
@@ -2881,6 +2888,8 @@ class PropValue(Value):
         return False
 
     async def getPropAndValu(self, runt, path):
+        if not path:
+            return None, None
 
         name = await self.kids[0].compute(runt, path)
 
