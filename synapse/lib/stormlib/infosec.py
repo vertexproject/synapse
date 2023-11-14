@@ -494,6 +494,7 @@ class MitreAttackFlowLib(s_stormtypes.Lib):
             'norm': self._norm,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _norm(self, flow):
         flow = await s_stormtypes.toprim(flow)
 
@@ -619,6 +620,7 @@ class CvssLib(s_stormtypes.Lib):
             'calculateFromProps': self.calculateFromProps,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def vectToProps(self, text):
         s_common.deprecated('$lib.infosec.cvss.vectToProps()', '2.137.0', '3.0.0')
         await self.runt.snap.warnonce('$lib.infosec.cvss.vectToProps() is deprecated.')
@@ -690,6 +692,7 @@ class CvssLib(s_stormtypes.Lib):
 
         return rval
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def calculateFromProps(self, props, vers='3.1'):
 
         vers = await s_stormtypes.tostr(vers)
@@ -815,6 +818,7 @@ class CvssLib(s_stormtypes.Lib):
 
         return rval
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def vectToScore(self, vect, vers=None):
         vers = await s_stormtypes.tostr(vers, noneok=True)
 
