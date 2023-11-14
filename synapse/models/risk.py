@@ -900,7 +900,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The time that the attacker made their demands.'}),
 
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal of the leaker in disclosing the information.'}),
+                        'doc': 'The goal of the attacker in extorting the victim.'}),
 
                     ('type', ('risk:extortion:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the extortion event.'}),
