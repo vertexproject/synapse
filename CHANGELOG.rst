@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.154.0 - 2023-11-14
+v2.154.0 - 2023-11-15
 =====================
 
 Automatic Migrations
@@ -42,6 +42,15 @@ Model Changes
 
     ``tag``
       A base tag used to encode assessments made by the organization.
+
+  ``risk:compromise``
+    The form had the following properties added to it:
+
+    ``ext:id``
+      An external unique ID for the compromise.
+
+    ``url``
+      A URL which documents the compromise.
 
   ``risk:alert``
     The form had the following property added to it:
