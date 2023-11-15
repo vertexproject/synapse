@@ -97,7 +97,7 @@ Features and Enhancements
 - A review of Storm library functions was performed and all ``readonly`` safe
   functions have been marked for execution in a ``readonly`` Storm runtime.
   (`#3402 <https://github.com/vertexproject/synapse/pull/3402>`_)
-- Allow setting the root layers on a View with forks.
+- Allow setting the layers on a root View with forks.
   (`#3413 <https://github.com/vertexproject/synapse/pull/3413>`_)
 
 Bugfixes
