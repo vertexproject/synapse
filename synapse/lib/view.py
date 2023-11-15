@@ -740,6 +740,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
+        self.core._calcViewsByLayer()
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -747,14 +748,11 @@ class View(s_nexus.Pusher):  # type: ignore
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
-        for view in self.core.views.values():
-            if view.parent is self:
-                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
+        layrs = []
 
         if self.parent is not None:
-            raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
-
-        layrs = []
+            mesg = 'You cannot set the layers of a forked view.'
+            raise s_exc.BadArg(mesg=mesg)
 
         for iden in layers:
             layr = self.core.layers.get(iden)
@@ -770,6 +768,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', layers)
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
+
+        await self._calcChildViews()
+        self.core._calcViewsByLayer()
+
+    async def _calcChildViews(self):
+
+        todo = collections.deque([self])
+
+        byparent = collections.defaultdict(list)
+        for view in self.core.views.values():
+            if view.parent is None:
+                continue
+
+            byparent[view.parent].append(view)
+
+        while todo:
+
+            view = todo.pop()
+
+            for child in byparent.get(view, ()):
+
+                layers = [child.layers[0]]
+                layers.extend(view.layers)
+
+                child.layers = layers
+
+                # convert layers to a list of idens...
+                lids = [layr.iden for layr in layers]
+                await child.info.set('layers', lids)
+
+                await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
+
+                todo.append(child)
 
     async def fork(self, ldef=None, vdef=None):
         '''

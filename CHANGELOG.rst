@@ -6,6 +6,121 @@
 Synapse Changelog
 *****************
 
+v2.154.0 - 2023-11-15
+=====================
+
+Automatic Migrations
+--------------------
+- Update the ``inet:ipv4:type`` value for RFC6598 addresses to ``shared``.
+  (`#3410 <https://github.com/vertexproject/synapse/pull/3410>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``inet`` and ``ou`` models.
+
+  (`#3406 <https://github.com/vertexproject/synapse/pull/3406>`_)
+  (`#3407 <https://github.com/vertexproject/synapse/pull/3407>`_)
+  (`#3410 <https://github.com/vertexproject/synapse/pull/3410>`_)
+  (`#3416 <https://github.com/vertexproject/synapse/pull/3416>`_)
+
+  **Updated Types**
+
+  ``inet:ipv4``
+    RFC6598 addresses now have a ``:type`` property value of ``shared``.
+
+  ``inet:url``
+    Accept Microsoft URLPrefix strings with a strong wildcard host value.
+
+    Add a check to prevent creating ``inet:url`` nodes with an empty host
+    and path part, such as ``inet:url=file://''``.
+
+  **New Properties**
+
+  ``ou:org``
+    The form had the following property added to it:
+
+    ``tag``
+      A base tag used to encode assessments made by the organization.
+
+  ``risk:compromise``
+    The form had the following properties added to it:
+
+    ``ext:id``
+      An external unique ID for the compromise.
+
+    ``url``
+      A URL which documents the compromise.
+
+  ``risk:alert``
+    The form had the following property added to it:
+
+    ``host``
+      The host which generated the alert.
+
+  **New Forms**
+
+  ``ou:requirement``
+    A specific requirement.
+
+  ``risk:leak``
+    An event where information was disclosed without permission.
+
+  ``risk:leak:type:taxonomy``
+    A taxonomy of leak event types
+
+  ``risk:extortion``
+    An event where an attacker attempted to extort a victim.
+
+  ``risk:extortion:type:taxonomy``
+    A taxonomy of extortion event types.
+
+  **Light Edges**
+
+  ``leaked``
+    When used with a ``risk:leak`` node, the edge indicates the leak included
+    the disclosure of the target node.
+
+  ``leveraged``
+    When used with a ``risk:extortion`` node, the edge indicates the extortion
+    event was based on attacker access to the target node.
+
+  ``meets``
+    When used with a ``ou:requirement`` node, the edge indicates the
+    requirement was met by the source node.
+
+Features and Enhancements
+-------------------------
+- Add ``edge:add`` and ``edge:del`` as trigger conditions. These trigger when
+  light edges are added or removed from a node.
+  (`#3389 <https://github.com/vertexproject/synapse/pull/3389>`_)
+- Storm lift and filter operations using regular expressions (``~=``) are now
+  case insensitive by default.
+  (`#3403 <https://github.com/vertexproject/synapse/pull/3403>`_)
+- Add a ``unique()`` method to the Storm ``list`` object. This returns a new
+  list with only unique elements in it.
+  (`#3415 <https://github.com/vertexproject/synapse/pull/3415>`_)
+- Add support for ``synapse.tools.autodoc`` to generate documentation for
+  API definitions declared in Storm packages.
+  (`#3382 <https://github.com/vertexproject/synapse/pull/3382>`_)
+- A review of Storm library functions was performed and all ``readonly`` safe
+  functions have been marked for execution in a ``readonly`` Storm runtime.
+  (`#3402 <https://github.com/vertexproject/synapse/pull/3402>`_)
+- Allow setting the layers on a root View with forks.
+  (`#3413 <https://github.com/vertexproject/synapse/pull/3413>`_)
+
+Bugfixes
+--------
+- Per-node Storm variables are now passed into subquery assignment
+  expressions.
+  (`#3405 <https://github.com/vertexproject/synapse/pull/3405>`_)
+- Fix an issue with Storm Dmon hive storage being opened too late in the
+  Cortex startup sequence.
+  (`#3411 <https://github.com/vertexproject/synapse/pull/3411>`_)
+- Remove a check when deleting tags from a node which prevented tag deletion
+  from a node when the root tag was deleted in a parent view.
+  (`#3408 <https://github.com/vertexproject/synapse/pull/3408>`_)
+
 v2.153.0 - 2023-10-27
 =====================
 
@@ -305,7 +420,7 @@ Model Changes
     The interface had the following property added to it:
 
     ``description``
-      'A definition of the taxonomy entry.
+      A definition of the taxonomy entry.
 
   ``inet:email:message``
     The form had the following property added to it:
