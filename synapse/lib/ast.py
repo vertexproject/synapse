@@ -454,8 +454,6 @@ class SubGraph:
 
     async def _edgefallback(self, runt, results, node):
         async for buid01 in results:
-            if node.buid == buid01:
-                continue
             await asyncio.sleep(0)
 
             iden01 = s_common.ehex(buid01)
@@ -619,8 +617,6 @@ class SubGraph:
                     # Try to lift and cache the potential edges for a node so that if we end up
                     # seeing n2 later, we won't have to go back and check for it
                     async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
-                        if n2iden == nodeiden:
-                            continue
                         await asyncio.sleep(0)
                         if ecnt < edgelimit:
                             ecnt += 1
@@ -637,8 +633,6 @@ class SubGraph:
                     else:
                         for n2iden, verbs in cache.items():
                             await asyncio.sleep(0)
-                            if n2iden == nodeiden:
-                                continue
 
                             if n2delayed.has(n2iden):
                                 continue

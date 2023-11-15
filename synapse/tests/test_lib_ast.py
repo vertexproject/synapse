@@ -2565,7 +2565,7 @@ class AstTest(s_test.SynTest):
                 selfref = msgs[-2]
                 node = selfref[1]
                 edges = node[1]['path']['edges']
-                self.len(256, edges)
+                self.len(258, edges)
 
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
@@ -2631,7 +2631,7 @@ class AstTest(s_test.SynTest):
                     if form == 'inet:ipv4':
                         self.len(0, edges)
                     elif form == 'test:str':
-                        self.len(256, edges)
+                        self.len(258, edges)
                         for e in edges:
                             self.isin(e[0], ipidens)
                             self.eq('edge', e[1]['type'])
