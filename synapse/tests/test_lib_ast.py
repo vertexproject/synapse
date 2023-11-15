@@ -2618,6 +2618,12 @@ class AstTest(s_test.SynTest):
                         self.eq(edgedata['verb'], 'refs')
                         self.false(edgedata.get('reverse', False))
 
+            opts['graph'].pop('existing', None)
+            opts['idens'] = [neato[0].iden(),]
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+
     async def test_ast_subgraph_existing_prop_edges(self):
 
         async with self.getTestCore() as core:
