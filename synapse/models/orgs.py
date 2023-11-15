@@ -222,7 +222,7 @@ class OuModule(s_module.CoreModule):
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
                 ((None, 'meets', 'ou:requirement'), {
-                    'doc': 'The requirement is met by the target node.'}),
+                    'doc': 'The requirement is met by the source node.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
