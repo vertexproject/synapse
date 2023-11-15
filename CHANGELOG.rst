@@ -27,13 +27,13 @@ Model Changes
   **Updated Types**
 
   ``inet:ipv4``
-    RFC6598 addresses now have a ``:type`` property of ``shared``.
+    RFC6598 addresses now have a ``:type`` property value of ``shared``.
 
   ``inet:url``
     Accept Microsoft URLPrefix strings with a strong wildcard host value.
 
     Add a check to prevent creating ``inet:url`` nodes with an empty host
-    and path part, such a ``inet:url=file://''``.
+    and path part, such as ``inet:url=file://''``.
 
   **New Properties**
 
