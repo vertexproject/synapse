@@ -302,6 +302,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name = "Visi Wants Pizza"
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
+                    :url=https://vertex.link/pwned
+                    :ext:id=PWN-00
                     :reporter = *
                     :reporter:name = vertex
                     :severity = 10
@@ -327,6 +329,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('Visi wants a pepperoni and mushroom pizza', nodes[0].get('desc'))
             self.eq('when.noms.attack.', nodes[0].get('type'))
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('PWN-00', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/pwned', nodes[0].get('url'))
             self.nn(nodes[0].get('target'))
             self.nn(nodes[0].get('attacker'))
             self.nn(nodes[0].get('campaign'))
