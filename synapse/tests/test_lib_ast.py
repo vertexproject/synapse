@@ -2565,8 +2565,7 @@ class AstTest(s_test.SynTest):
                 selfref = msgs[-2]
                 node = selfref[1]
                 edges = node[1]['path']['edges']
-                self.len(258, edges)
-                self.len(2, [edge for edge in edges if edge[0] == iden])
+                self.len(256, edges)
 
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
@@ -2623,6 +2622,20 @@ class AstTest(s_test.SynTest):
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                for m in msgs:
+                    if m[0] != 'node':
+                        continue
+                    node = m[1]
+                    form = node[0][0]
+                    edges = node[1]['path'].get('edges', ())
+                    if form == 'inet:ipv4':
+                        self.len(0, edges)
+                    elif form == 'test:str':
+                        self.len(256, edges)
+                        for e in edges:
+                            self.isin(e[0], ipidens)
+                            self.eq('edge', e[1]['type'])
+                            self.eq('refs', e[1]['verb'])
 
     async def test_ast_subgraph_existing_prop_edges(self):
 
