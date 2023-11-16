@@ -157,6 +157,9 @@ class View(s_nexus.Pusher):  # type: ignore
         self.parent = None
         await self.info.pop('parent')
 
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
+                                     gates=[self.iden, self.layers[0].iden])
+
     async def mergeStormIface(self, name, todo):
         '''
         Allow an interface which specifies a generator use case to yield
