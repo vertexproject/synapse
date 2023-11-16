@@ -552,7 +552,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
                     'deprecated': True,
-                    'doc': 'This '
+                    'doc': 'Deprecated. Please use it:av:scan:result.'
                 }),
                 ('it:av:signame', ('str', {'lower': True}), {
                     'doc': 'An antivirus signature name.'}),
