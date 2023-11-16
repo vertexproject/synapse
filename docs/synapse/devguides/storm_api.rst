@@ -224,7 +224,7 @@ tock
 
 took
     The amount of time it took for the query to execute (in milliseconds). This value is computed from the ``abstick``
-    and ``abstook`` values.
+    and ``abstock`` values.
 
 abstock
     The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
