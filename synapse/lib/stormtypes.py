@@ -7091,7 +7091,7 @@ class View(Prim):
         view = self._reqView()
         if not self.runt.isAdmin(gateiden=view.iden):
             mesg = 'You must be an admin of the view to detach.'
-            raise s_exc.AuthDeny(mesg=mesg)
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         await view.detach()
 
