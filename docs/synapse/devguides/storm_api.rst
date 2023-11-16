@@ -64,7 +64,12 @@ task
     The task identifier (which can be used for task cancellation).
 
 tick
-    The epoch time the query execution started (in milliseconds).
+    The epoch time the query execution started (in milliseconds). This value is computed from the host time and may
+    be affected by any any changes in the host clock.
+
+abstick
+    A relative time in which the query execution started (in milliseconds). This value is computed from a monotonic
+    clock and can be used as a reference time.
 
 text
     The Storm query text.
@@ -214,10 +219,16 @@ any sort of rollup of messages.
 It includes the following keys:
 
 tock
-    The epoch time the query execution finished (in milliseconds).
+    The epoch time the query execution finished (in milliseconds). This value is computed from adding the ``took``
+    value to the ``tick`` value from the ``init`` message.
 
 took
-    The amount of time it took for the query to execute (in milliseconds).
+    The amount of time it took for the query to execute (in milliseconds). This value is computed from the ``abstick``
+    and ``abstook`` values.
+
+abstock
+    The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
+    clock and should always be equal or greater than the ``abstick`` value from the ``init`` message.
 
 count
     The number of nodes yielded by the runtime.
