@@ -173,7 +173,7 @@ def getArgLines(rtype):
             for obj in atyp:
                 assert isinstance(obj, str)
             tdata = ', '.join([f'``{obj}``' for obj in atyp])
-            rline = f'The input type may one one of the following: {tdata}.'
+            rline = f'The input type may be one of the following: {tdata}.'
             line = f'    {name}: {desc} {rline}'
         elif isinstance(atyp, dict):
             logger.warning('Fully declarative input types are not yet supported.')
@@ -287,7 +287,7 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None, isst
     elif isinstance(rtype, dict):
         returns = rtype.get('returns')
         assert returns is not None, f'Invalid returns for {rtype}'
-        name = returns.get('name', 'Returns')
+        name = returns.get('name', 'Returns').title()
 
         desc = returns.get('desc')
         rettype = returns.get('type')

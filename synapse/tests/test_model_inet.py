@@ -1344,6 +1344,10 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type(formname)
             self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
+            self.raises(s_exc.BadTypeValu, t.norm, "file://''")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://#")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://$")  # Missing address/url
+            self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
             valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
@@ -1451,6 +1455,12 @@ class InetModelTest(s_t_utils.SynTest):
             q = 'inet:url +inet:url=""'
             nodes = await core.nodes(q)
             self.len(0, nodes)
+
+            nodes = await core.nodes('[ inet:url="https://+:80/woot" ]')
+            self.len(1, nodes)
+
+            self.none(nodes[0].get('ipv4'))
+            self.none(nodes[0].get('fqdn'))
 
     async def test_url_file(self):
 

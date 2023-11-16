@@ -274,14 +274,17 @@ class LibHttp(s_stormtypes.Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def urlencode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.quote_plus(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def urldecode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.unquote_plus(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def codereason(self, code):
         code = await s_stormtypes.toint(code)
         return s_common.httpcodereason(code)

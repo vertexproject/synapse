@@ -62,7 +62,7 @@ shave'''
         self.eq(s_autodoc.getArgLines({}), [])
         lines = s_autodoc.getArgLines(rtype)
         self.eq(lines, ['\n', 'Args:', '    foo (str): The foos!', '\n',
-                        '    bar: The bar. The input type may one one of the following: ``str``, ``int``.',
+                        '    bar: The bar. The input type may be one of the following: ``str``, ``int``.',
                         '\n', '    \\*\\*kwargs (any): Extra foobars.', '\n'])
 
         lines = s_autodoc.getArgLines({'args': [{'name': 'cmplx', 'type': {}, 'desc': 'unsupported'}]})

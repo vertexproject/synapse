@@ -182,8 +182,7 @@ class ViewTest(s_t_utils.SynTest):
             tmpiden = tmplayr['iden']
             await self.asyncraises(s_exc.ReadOnlyLayer, core.view.addLayer(tmpiden))
             await self.asyncraises(s_exc.ReadOnlyLayer, view2.addLayer(tmpiden))
-            await self.asyncraises(s_exc.ReadOnlyLayer, core.view.setLayers([tmpiden]))
-            await self.asyncraises(s_exc.ReadOnlyLayer, view2.setLayers([tmpiden]))
+            await self.asyncraises(s_exc.BadArg, view2.setLayers([tmpiden]))
 
             # You can't merge a non-forked view
             await self.asyncraises(s_exc.SynErr, view2.core.view.merge())
