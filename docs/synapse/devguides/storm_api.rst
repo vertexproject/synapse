@@ -228,7 +228,7 @@ took
 
 abstock
     The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
-    clock and should always be equal or greater than the ``abstick`` value from the ``init`` message.
+    clock and should always be equal to or greater than the ``abstick`` value from the ``init`` message.
 
 count
     The number of nodes yielded by the runtime.
