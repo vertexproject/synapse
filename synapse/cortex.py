@@ -4891,8 +4891,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def reqView(self, iden):
         view = self.getView(iden)
         if view is None: # pragma: no cover
-            mesg = f'No view with iden: {self.valu.get("iden")}'
-            raise s_exc.NoSuchView(mesg=mesg, iden=self.valu.get('iden'))
+            mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchView(mesg=mesg, iden=iden)
         return view
 
     def listViews(self):
