@@ -2474,6 +2474,13 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm) as cm:
                 await core.nodes('.created <- test:newp')
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('test:str <- test:str')
+
+            mesg = 'Pivot in to a specific form cannot be used with nodes of type test:str'
+            self.eq(cm.exception.get('mesg'), mesg)
+            self.eq(cm.exception.get('name'), 'test:str')
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await wcore.nodes('[ test:comp=(127,newp) ] [test:comp=(127,127)]')
