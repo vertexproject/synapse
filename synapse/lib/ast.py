@@ -680,7 +680,6 @@ class SubGraph:
                                 await asyncio.sleep(0)
                                 edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
-
                 path.metadata['edges'] = edges
                 yield node, path
 
