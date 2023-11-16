@@ -955,6 +955,28 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.print($lib.undef)')
             self.stormIsInPrint('$lib.undef', msgs)
 
+            msgs = await core.stormlist('auth.user.add visi')
+            self.stormHasNoWarnErr(msgs)
+            msgs = await core.stormlist('auth.user.addrule visi view.read')
+            self.stormHasNoWarnErr(msgs)
+
+            fork00 = await core.callStorm('return($lib.view.get().fork())')
+            iden = fork00.get('iden')
+
+            visi = await core.auth.getUserByName('visi')
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.view.get().detach()', opts={'user': visi.iden, 'view': iden})
+
+            await core.stormlist('$lib.view.get().detach()', opts={'view': iden})
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.view.get().detach()', opts={'view': iden})
+
+            view = core.reqView(iden)
+
+            self.none(view.parent)
+            self.none(view.info.get('parent'))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:

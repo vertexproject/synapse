@@ -7040,6 +7040,11 @@ class View(Prim):
                   'returns':
                       {'type': 'dict',
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
+
+        {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
+         'type': {'type': 'function', '_funcname': 'detach',
+                  'args': (),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'view'
     _ismutable = False
@@ -7066,6 +7071,7 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'detach': self.detach,
             'addNode': self.addNode,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
@@ -7098,6 +7104,15 @@ class View(Prim):
             return await self.runt.snap.addNode(form, valu, props=props)
         else:
             await view.addNode(form, valu, props=props, user=self.runt.user)
+
+    async def detach(self):
+
+        view = self._reqView()
+        if not self.runt.isAdmin(gateiden=view.iden):
+            mesg = 'You must be an admin of the view to detach.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        await view.detach()
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
@@ -7146,6 +7161,9 @@ class View(Prim):
     async def _methViewGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
+    def _reqView(self):
+        return self.runt.snap.core.reqView(self.valu.get('iden'))
+
     async def _methViewSet(self, name, valu):
 
         name = await tostr(name)
@@ -7160,10 +7178,7 @@ class View(Prim):
             valu = await tobool(valu)
         elif name == 'layers':
 
-            view = self.runt.snap.core.getView(self.valu.get('iden'))
-            if view is None: # pragma: no cover
-                mesg = f'No view with iden: {self.valu.get("iden")}'
-                raise s_exc.NoSuchView(mesg=mesg, iden=self.valu.get('iden'))
+            view = self._reqView()
 
             layers = await toprim(valu)
             layers = tuple(str(x) for x in layers)
