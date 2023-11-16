@@ -2622,22 +2622,27 @@ class AstTest(s_test.SynTest):
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                selfrefs = 0
                 for m in msgs:
                     if m[0] != 'node':
                         continue
-                    '''
+
                     node = m[1]
                     form = node[0][0]
                     edges = node[1]['path'].get('edges', ())
                     if form == 'inet:ipv4':
                         self.len(0, edges)
                     elif form == 'test:str':
-                        self.len(256, edges)
+                        self.len(258, edges)
                         for e in edges:
                             self.isin(e[0], ipidens)
                             self.eq('edge', e[1]['type'])
-                            self.eq('refs', e[1]['verb'])
-                    '''
+                            if e[0] == neato[0].iden():
+                                selfrefs += 1
+                                self.eq('selfrefs', e[1]['verb'])
+                            else:
+                                self.eq('refs', e[1]['verb'])
+                self.eq(selfrefs, 2)
 
             boop = await core.nodes('[test:str=boop +(refs)> {[inet:ipv4=5.6.7.0/24]}]')
             await core.nodes('[test:str=boop <(refs)+ {[inet:ipv4=4.5.6.0/24]}]')
@@ -2646,9 +2651,8 @@ class AstTest(s_test.SynTest):
             opts['idens'] = [boopiden,]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
-                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
-                breakpoint()
-                print(len(msgs))
+                msgs = await core.stormlist('tee --join { --> * } { <-- * }', opts=opts)
+                self.len(515, msgs)
 
     async def test_ast_subgraph_existing_prop_edges(self):
 

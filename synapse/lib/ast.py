@@ -503,6 +503,7 @@ class SubGraph:
                     ecnt = 0
                     cache = collections.defaultdict(list)
                     async for verb, n2iden in runt.snap.iterNodeEdgesN1(s_common.uhex(b)):
+                        await asyncio.sleep(0)
 
                         if s_common.uhex(n2iden) in results:
                             continue
@@ -512,7 +513,6 @@ class SubGraph:
                             break
 
                         cache[n2iden].append(verb)
-                        await asyncio.sleep(0)
 
                     if ecnt > edgelimit:
                         # don't let it into the cache.
@@ -521,6 +521,7 @@ class SubGraph:
                         continue
 
                     for n2iden, verbs in cache.items():
+                        await asyncio.sleep(0)
                         if n2delayed.has(n2iden):
                             continue
 
@@ -614,17 +615,18 @@ class SubGraph:
                 if doedges:
                     ecnt = 0
                     cache = collections.defaultdict(list)
+                    await results.add(buid)
                     # Try to lift and cache the potential edges for a node so that if we end up
                     # seeing n2 later, we won't have to go back and check for it
                     async for verb, n2iden in runt.snap.iterNodeEdgesN1(buid):
                         await asyncio.sleep(0)
-                        if ecnt < edgelimit:
-                            ecnt += 1
-                            cache[n2iden].append(verb)
-                        else:
+                        if ecnt > edgelimit:
                             break
 
-                    if ecnt >= edgelimit:
+                        ecnt += 1
+                        cache[n2iden].append(verb)
+
+                    if ecnt > edgelimit:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
                         await n1delayed.add(nodeiden)
@@ -665,9 +667,9 @@ class SubGraph:
                                     await asyncio.sleep(0)
                                     edges.append((s_common.ehex(buid01), {'type': 'edge', 'verb': verb, 'reverse': True}))
                         for n2iden, verbs in cache.items():
-
                             if s_common.uhex(n2iden) not in results:
                                 continue
+
                             for v in verbs:
                                 await asyncio.sleep(0)
                                 edges.append((n2iden, {'type': 'edge', 'verb': v}))
@@ -678,7 +680,6 @@ class SubGraph:
                                 await asyncio.sleep(0)
                                 edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
-                    await results.add(buid)
 
                 path.metadata['edges'] = edges
                 yield node, path
