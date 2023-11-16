@@ -3772,7 +3772,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 'degrees': 2,
 
-                'pivots': ['<- meta:seen <- meta:source'],
+                'pivots': [],
 
                 'filters': ['-#nope'],
 
@@ -3892,7 +3892,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 inet:fqdn | graph
                                 --degrees 2
                                 --filter { -#nope }
-                                --pivot { <- meta:seen <- meta:source }
+                                --pivot {}
                                 --form-pivot inet:fqdn {<- * | limit 20}
                                 --form-pivot inet:fqdn {-> * | limit 20}
                                 --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
