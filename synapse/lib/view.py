@@ -144,6 +144,22 @@ class View(s_nexus.Pusher):  # type: ignore
         self.trigtask = None
         await self.initTrigTask()
 
+    @s_nexus.Pusher.onPushAuto('view:detach')
+    async def detach(self):
+        '''
+        Detach the view from its parent but do not change the layers.
+        ( this is not reversible! )
+        '''
+        if not self.parent:
+            mesg = 'A view with no parent is already detached.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.parent = None
+        await self.info.pop('parent')
+
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
+                                     gates=[self.iden, self.layers[0].iden])
+
     async def mergeStormIface(self, name, todo):
         '''
         Allow an interface which specifies a generator use case to yield
