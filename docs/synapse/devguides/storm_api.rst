@@ -65,7 +65,7 @@ task
 
 tick
     The epoch time the query execution started (in milliseconds). This value is computed from the host time and may
-    be affected by any any changes in the host clock.
+    be affected by any changes in the host clock.
 
 abstick
     A relative time in which the query execution started (in milliseconds). This value is computed from a monotonic
