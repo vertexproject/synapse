@@ -222,6 +222,13 @@ tlplevels = (
     (50, 'red'),
 )
 
+suslevels = (
+    (10, 'benign'),
+    (20, 'unknown'),
+    (30, 'suspicious'),
+    (40, 'malicious'),
+)
+
 # The published Attack Flow json schema at the below URL is horribly
 # broken. It depends on some custom python scripting to validate each
 # object individually against the schema for each object's type instead
@@ -542,18 +549,25 @@ class ItModule(s_module.CoreModule):
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
+
                 ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
-                   'doc': 'A signature name within the namespace of an antivirus engine name.'
+                    'deprecated': True,
+                    'doc': 'This '
                 }),
                 ('it:av:signame', ('str', {'lower': True}), {
-                    'doc': 'An antivirus signature name.',
-                }),
+                    'doc': 'An antivirus signature name.'}),
+
+                ('it:av:scan:result', ('guid', {}), {
+                    'doc': 'The result of running an antivirus scanner.'}),
+
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
-                    'doc': 'A file that triggered an alert on a specific antivirus signature.',
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'})
+
                 ('it:av:prochit', ('guid', {}), {
-                    'doc': 'An instance of a process triggering an alert on a specific antivirus signature.'
-                }),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
+
                 ('it:auth:passwdhash', ('guid', {}), {
                     'doc': 'An instance of a password hash.',
                 }),
@@ -1742,6 +1756,57 @@ class ItModule(s_module.CoreModule):
                     })
                 )),
                 ('it:av:signame', {}, ()),
+
+                ('it:av:scan:result', {}, (
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the scan was run.'}),
+
+                    ('verdict', ('int', {'enums': suslevels}), {
+                        'doc': 'The scanner provided verdict for the scan.'}),
+
+                    ('scanner', ('it:prod:softver', {}), {
+                        'doc': 'The scanner software used to produce the result.'}),
+
+                    ('scanner:name', ('it:prod:softname', {}), {
+                        'doc': 'The name of the scanner software.'}),
+
+                    ('signame', ('it:av:signame', {}), {
+                        'doc': 'The name of the signature returned by the scanner.'}),
+
+                    ('target:file', ('file:bytes', {}), {
+                        'doc': 'The file that was scanned to produce the result.'}),
+
+                    ('target:proc', ('it:exec:proc', {}), {
+                        'doc': 'The process that was scanned to produce the result.'}),
+
+                    ('target:host', ('it:host', {}), {
+                        'doc': 'The host where the scan was run.'}),
+
+                    ('target:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN that was scanned to produce the result.'}),
+
+                    ('target:url', ('inet:url', {}), {
+                        'doc': 'The URL that was scanned to produce the result.'}),
+
+                    ('multi:scan', ('it:av:scan:result', {}), {
+                        'doc': 'Set if this result was part of running multiple scanners.'}),
+
+                    ('multi:count', ('int', {'min': 0}), {
+                        'doc': 'The total number of scanners which were run by a multi-scanner'}),
+
+                    ('multi:count:benign', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a benign verdict.'}),
+
+                    ('multi:count:unknown', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a unknown/unsupported verdict.'}),
+
+                    ('multi:count:suspicious', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a suspicious verdict.'}),
+
+                    ('multi:count:malicious', ('int', {'min': 0}), {
+                        'doc': 'The number of scanners which returned a malicious verdict.'}),
+                )),
 
                 ('it:av:filehit', {}, (
                     ('file', ('file:bytes', {}), {
