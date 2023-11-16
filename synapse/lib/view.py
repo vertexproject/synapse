@@ -147,7 +147,7 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPushAuto('view:detach')
     async def detach(self):
         '''
-        Detach the view from it's parent but do not change the layers.
+        Detach the view from its parent but do not change the layers.
         ( this is not reversible! )
         '''
         if not self.parent:
