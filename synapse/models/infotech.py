@@ -562,7 +562,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
                     'deprecated': True,
-                    'doc': 'Deprecated. Please use it:av:scan:result.'})
+                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
 
                 ('it:av:prochit', ('guid', {}), {
                     'deprecated': True,
