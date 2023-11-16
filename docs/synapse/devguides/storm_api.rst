@@ -68,7 +68,7 @@ tick
     be affected by any changes in the host clock.
 
 abstick
-    A relative time in which the query execution started (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution started (in milliseconds). This value is computed from a monotonic
     clock and can be used as a reference time.
 
 text
