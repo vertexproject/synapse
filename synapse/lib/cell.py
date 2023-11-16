@@ -2771,6 +2771,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.addHttpApi('/robots.txt', s_httpapi.RobotHandler, {'cell': self})
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
+        self.addHttpApi('/api/v1/logout', s_httpapi.LogoutV1, {'cell': self})
+
         self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
         self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
 
