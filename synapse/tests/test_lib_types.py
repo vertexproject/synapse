@@ -168,44 +168,45 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('depth'), 2)
             self.eq(node.get('parent'), 'foo.bar.')
 
-            # fixme: prefix filter
-            #        cmpr(val1, ^=, val2) -> val1=indx, val2=valu
-            #        both get normed (foo -> foo.)
-            #        ctor(val2)(val1) -> _ctorCmprPref(val2)cmpr(val1) -> repr(val1).startswith(val2) where repr=rstrip('.')
-            #        e.g. "foo".startswith("foo.") or "foo.bar".startswith("foo.")
-            #        ^^this is only for Type.cmpr() otherwise AST calls don't norm val2 -> that's why it works
-            # fixme: prefix lift
-            #        ultimately calls _liftUtf8Prefix on valu
-            #        valu is normed via _normForLift -> probably just add rstrip(.) here
-            #        _normForLift also impacts range lookups
-            #        taxon (e.g. test:taxonomy:base) should not be impacted by any of this
-
-            # fixme: note -> we've got foo.bar and foo.bar.baz in here
+            self.sorteq(
+                ['foo.', 'foo.bar.', 'foo.bar.baz.'],
+                [n.ndef[1] for n in await core.nodes('test:taxonomy')]
+            )
 
             self.len(0, await core.nodes('test:taxonomy=foo.bar.ba'))
             self.len(1, await core.nodes('test:taxonomy=foo.bar.baz'))
             self.len(1, await core.nodes('test:taxonomy=foo.bar.baz.'))
 
-            # self.len(2, await core.nodes('test:taxonomy^=f'))
+            self.len(0, await core.nodes('test:taxonomy=(foo, bar, ba)'))
+            self.len(1, await core.nodes('test:taxonomy=(foo, bar, baz)'))
+
+            self.len(3, await core.nodes('test:taxonomy^=f'))
             self.len(0, await core.nodes('test:taxonomy^=f.'))
-            # self.len(2, await core.nodes('test:taxonomy^=foo.b'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.b'))
             self.len(0, await core.nodes('test:taxonomy^=foo.b.'))
             self.len(2, await core.nodes('test:taxonomy^=foo.bar'))
             self.len(2, await core.nodes('test:taxonomy^=foo.bar.'))
-            # self.len(1, await core.nodes('test:taxonomy^=foo.bar.b'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.b'))
             self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz'))
-            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz.'))  # fixme: should this work? see relpropcond
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy^=(foo, b)'))
+            self.len(2, await core.nodes('test:taxonomy^=(foo, bar)'))
+            self.len(1, await core.nodes('test:taxonomy^=(foo, bar, baz)'))
 
             # just test one conditional since RelPropCond and
-            # AbsPropCond (for form and prop) use the same non-norming logic
+            # AbsPropCond (for form and prop) use the same logic
             self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=f'))
             self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=f.'))
             self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b'))
             self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b.'))
             self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar'))
-            # self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar.'))  # fixme: inconsistent - indx valu gets reprd and removes dot
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar.'))
 
-            # todo: range filters
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, b)'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
 
     def test_duration(self):
         model = s_datamodel.Model()

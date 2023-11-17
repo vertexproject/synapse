@@ -1761,8 +1761,19 @@ class Taxonomy(Str):
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
 
+    def _ctorCmprPref(self, valu):
+        norm = self._normForLift(valu)
+
+        def cmpr(valu):
+            return valu.startswith(norm)
+
+        return cmpr
+
     def _normForLift(self, valu):
-        return self.norm(valu)[0]
+        norm = self.norm(valu)[0]
+        if isinstance(valu, str) and not valu.strip().endswith('.'):
+            return norm.rstrip('.')
+        return norm
 
     def _normPyList(self, valu):
 
