@@ -79,22 +79,22 @@ Features and Enhancements
 -------------------------
 - Add a ``detach()`` method to the Storm ``view`` object. This will detach a
   forked View from its parent.
-  (`#3323 <https://github.com/vertexproject/synapse/pull/3323>`_)
+  (`#3423 <https://github.com/vertexproject/synapse/pull/3423>`_)
 - Change the method used to generate the ``took`` value in the Storm ``fini``
   message to use a monotonic clock.
-  (`#3325 <https://github.com/vertexproject/synapse/pull/3325>`_)
+  (`#3425 <https://github.com/vertexproject/synapse/pull/3425>`_)
 - Performing an invalid "pivot in" operation with a form target
   (``<- some:form``) now raises a ``StormRuntimeError`` instead of silently
   doing nothing.
-  (`#3326 <https://github.com/vertexproject/synapse/pull/3326>`_)
+  (`#3426 <https://github.com/vertexproject/synapse/pull/3426>`_)
 - Allow relative properties on the right hand side of a filter operation
   when using Storm expression syntax.
-  (`#3324 <https://github.com/vertexproject/synapse/pull/3324>`_)
+  (`#3424 <https://github.com/vertexproject/synapse/pull/3424>`_)
 - Add an ``/api/v1/logout`` method on the Cell to allow HTTPS users to logout
   of their sessions.
   (`#3430 <https://github.com/vertexproject/synapse/pull/3430>`_)
 - Allow taxonomy prefix lift and filter operations to work with taxon parts.
-  (`#3329 <https://github.com/vertexproject/synapse/pull/3329>`_)
+  (`#3429 <https://github.com/vertexproject/synapse/pull/3429>`_)
 - Update the allowed versions of the ``cbor2``, ``pycryptodome``,
   ``pygments``, ``vcrpy``, and ``xxhash`` libraries. Update the pinned version
   of the ``lark`` library.
