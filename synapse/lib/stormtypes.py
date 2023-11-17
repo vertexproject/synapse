@@ -6275,6 +6275,10 @@ class Layer(Prim):
                       {'name': 'url', 'type': 'str', 'desc': 'A telepath URL of the target layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The local layer offset to begin pushing from',
                        'default': 0, },
+                      {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the pusher.',
+                       'default': 10_000},
+                      {'name': 'chunk_size', 'type': 'int', 'desc': 'The chunk size of the pusher.',
+                       'default': 1_000}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the push definition.', }}},
         {'name': 'delPush', 'desc': 'Remove a push config from the layer.',
@@ -6288,6 +6292,10 @@ class Layer(Prim):
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The telepath URL to a layer/feed.', },
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to begin from.', 'default': 0, },
+                      {'name': 'queue_size', 'type': 'int', 'desc': 'The queue size of the puller.',
+                       'default': 10_000},
+                      {'name': 'chunk_size', 'type': 'int', 'desc': 'The chunk size of the puller.',
+                       'default': 1_000}
                   ),
                   'returns': {'type': 'dict', 'desc': 'Dictionary containing the pull definition.', }}},
         {'name': 'delPull', 'desc': 'Remove a pull config from the layer.',
@@ -6580,9 +6588,11 @@ class Layer(Prim):
         layr = self.runt.snap.core.getLayer(iden)
         return await layr.getMirrorStatus()
 
-    async def _addPull(self, url, offs=0):
+    async def _addPull(self, url, offs=0, queue_size=10_000, chunk_size=1_000):
         url = await tostr(url)
         offs = await toint(offs)
+        queue_size = await toint(queue_size)
+        chunk_size = await toint(chunk_size)
 
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
@@ -6604,6 +6614,8 @@ class Layer(Prim):
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
+            'queue:size': queue_size,
+            'chunk:size': chunk_size,
         }
         todo = s_common.todo('addLayrPull', layriden, pdef)
         await self.runt.dyncall('cortex', todo)
@@ -6620,9 +6632,11 @@ class Layer(Prim):
         todo = s_common.todo('delLayrPull', layriden, iden)
         await self.runt.dyncall('cortex', todo)
 
-    async def _addPush(self, url, offs=0):
+    async def _addPush(self, url, offs=0, queue_size=10_000, chunk_size=1_000):
         url = await tostr(url)
         offs = await toint(offs)
+        queue_size = await toint(queue_size)
+        chunk_size = await toint(chunk_size)
 
         useriden = self.runt.user.iden
         layriden = self.valu.get('iden')
@@ -6645,6 +6659,8 @@ class Layer(Prim):
             'user': useriden,
             'time': s_common.now(),
             'iden': s_common.guid(),
+            'queue:size': queue_size,
+            'chunk:size': chunk_size,
         }
         todo = s_common.todo('addLayrPush', layriden, pdef)
         await self.runt.dyncall('cortex', todo)

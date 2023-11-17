@@ -106,20 +106,6 @@ SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
 
-# push/pull def
-reqValidPush = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'url': {'type': 'string'},
-        'time': {'type': 'number'},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'url', 'user', 'time'],
-})
-reqValidPull = reqValidPush
-
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
@@ -5039,7 +5025,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:push:add')
     async def addLayrPush(self, layriden, pdef):
 
-        reqValidPush(pdef)
+        s_schemas.reqValidPush(pdef)
 
         iden = pdef.get('iden')
 
@@ -5081,7 +5067,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('layer:pull:add')
     async def addLayrPull(self, layriden, pdef):
 
-        reqValidPull(pdef)
+        s_schemas.reqValidPull(pdef)
 
         iden = pdef.get('iden')
 
@@ -5148,12 +5134,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         iden = pdef.get('iden')
         user = pdef.get('user')
-
         gvar = f'push:{iden}'
+        # FIXME Make a cortex storage migration that sets
+        # these default values.
+        csize = pdef.get('chunk:size', 1_000)
+        qsize = pdef.get('queue:size', 10_000)
 
         async with await s_base.Base.anit() as base:
 
-            queue = s_queue.Queue(maxsize=10000)
+            queue = s_queue.Queue(maxsize=qsize)
 
             async def fill():
 
@@ -5180,7 +5169,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 for offs, edits in chunk:
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
-                    if len(alledits) > 1000:
+                    if len(alledits) > csize:
                         await layr1.storNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
