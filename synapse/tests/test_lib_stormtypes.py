@@ -1302,6 +1302,42 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="hehe {haha} {newp}" return ( $foo.format(haha=yup, baz=faz) )'
             self.eq('hehe yup {newp}', await core.callStorm(q))
 
+            q = '$foo="aca123" return ( $foo.isalnum() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="aca" return ( $foo.isalpha() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="aca123!" return ( $foo.isascii() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="123" return ( $foo.isdecimal() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="123" return ( $foo.isdigit() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="aca_123" return ( $foo.isidentifier() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="aca" return ( $foo.islower() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="123" return ( $foo.isnumeric() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="aca" return ( $foo.isprintable() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="      " return ( $foo.isspace() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="Hello" return ( $foo.istitle() )'
+            self.eq(True, await core.callStorm(q))
+
+            q = '$foo="ACA" return ( $foo.isupper() )'
+            self.eq(True, await core.callStorm(q))
+
             # tuck the regx tests in with str
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
