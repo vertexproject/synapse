@@ -36,7 +36,6 @@ Model Changes
 
   **New Forms**
 
-
   ``it:av:scan:result``
     The result of running an antivirus scanner.
 
