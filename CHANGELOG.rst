@@ -6,6 +6,12 @@
 Synapse Changelog
 *****************
 
+v2.154.1 - 2023-11-15
+=====================
+
+This release is for updating the version of the ``cryptography`` package in
+Synapse containers to ``41.0.5``.
+
 v2.154.0 - 2023-11-15
 =====================
 
