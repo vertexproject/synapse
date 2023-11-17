@@ -9,11 +9,9 @@ Synapse Changelog
 v2.155.0 - 2023-11-17
 =====================
 
-
 Model Changes
 -------------
 - Updates to the ``infotech``, ``proj``,  and ``risk`` models.
-
   (`#3422 <https://github.com/vertexproject/synapse/pull/3422>`_)
 
   **New Properties**
