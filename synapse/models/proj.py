@@ -185,6 +185,9 @@ class ProjectModule(s_module.CoreModule):
                         ('ext:creator', ('ps:contact', {}), {
                             'doc': 'Ticket creator contact information from an external system.'}),
 
+                        ('ext:assignee', ('ps:contact', {}), {
+                            'doc': 'Ticket assignee contact information from an external system.'}),
+
                         ('epic', ('proj:epic', {}), {
                             'doc': 'The epic that includes the ticket.'}),
 

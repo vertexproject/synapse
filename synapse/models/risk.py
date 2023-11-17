@@ -591,8 +591,11 @@ class RiskModule(s_module.CoreModule):
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                    ('priority', ('int', {}), {
-                        'doc': 'A numeric value used to rank alerts by priority.'}),
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'A priority rank for the alert.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the alert.'}),
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
@@ -695,8 +698,8 @@ class RiskModule(s_module.CoreModule):
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'An integer based relative severity score for the compromise.'}),
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the compromise.'}),
 
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the attacker for the compromise.'}),
@@ -748,8 +751,8 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'An integer based relative severity score for the attack.'}),
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the attack.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the attack.'}),
