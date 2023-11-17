@@ -26,6 +26,7 @@ class LibRandom(s_stormtypes.Lib):
             'int': self._int,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _int(self, maxval, minval=0):
         maxval = await s_stormtypes.toint(maxval)
         minval = await s_stormtypes.toint(minval)

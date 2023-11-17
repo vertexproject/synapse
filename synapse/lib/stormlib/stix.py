@@ -653,10 +653,12 @@ class LibStix(s_stormtypes.Lib):
             'validate': self.validateBundle,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
         return await s_coro.semafork(validateStix, bundle)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
 
@@ -861,6 +863,7 @@ class LibStixImport(s_stormtypes.Lib):
             'ingest': self.ingest,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def config(self):
         return s_msgpack.deepcopy(stixingest, use_list=True)
 
@@ -1129,10 +1132,12 @@ class LibStixExport(s_stormtypes.Lib):
             'timestamp': self.timestamp,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def config(self):
         # make a new mutable config
         return json.loads(json.dumps(_DefaultConfig))
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def bundle(self, config=None):
 
         if config is None:
@@ -1265,6 +1270,7 @@ class StixBundle(s_stormtypes.Prim):
     # async def addPropMap(self, formname, stixtype, propname, stormtext):
     # async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def add(self, node, stixtype=None):
 
         if len(self.objs) >= self.maxsize:
@@ -1380,6 +1386,7 @@ class StixBundle(s_stormtypes.Prim):
         }
         return ret
 
+    @s_stormtypes.stormfunc(readonly=True)
     def pack(self):
         objects = list(self.objs.values())
         if self.synextension:
@@ -1391,6 +1398,7 @@ class StixBundle(s_stormtypes.Prim):
         }
         return bundle
 
+    @s_stormtypes.stormfunc(readonly=True)
     def size(self):
         return len(self.objs)
 

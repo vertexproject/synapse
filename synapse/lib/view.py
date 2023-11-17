@@ -144,6 +144,22 @@ class View(s_nexus.Pusher):  # type: ignore
         self.trigtask = None
         await self.initTrigTask()
 
+    @s_nexus.Pusher.onPushAuto('view:detach')
+    async def detach(self):
+        '''
+        Detach the view from its parent but do not change the layers.
+        ( this is not reversible! )
+        '''
+        if not self.parent:
+            mesg = 'A view with no parent is already detached.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.parent = None
+        await self.info.pop('parent')
+
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': 'parent', 'valu': None},
+                                     gates=[self.iden, self.layers[0].iden])
+
     async def mergeStormIface(self, name, todo):
         '''
         Allow an interface which specifies a generator use case to yield
@@ -526,11 +542,12 @@ class View(s_nexus.Pusher):  # type: ignore
         async def runStorm():
             cancelled = False
             tick = s_common.now()
+            abstick = s_common.mononow()
             count = 0
             try:
 
                 # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text,
+                await chan.put(('init', {'tick': tick, 'text': text, 'abstick': abstick,
                                          'hash': texthash, 'task': synt.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
@@ -582,9 +599,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
             finally:
                 if not cancelled:
-                    tock = s_common.now()
-                    took = tock - tick
-                    await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
+                    abstock = s_common.mononow()
+                    abstook = abstock - abstick
+                    tock = tick + abstook
+                    await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
         await synt.worker(runStorm(), name='runstorm')
 
@@ -746,6 +764,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
         await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
+        self.core._calcViewsByLayer()
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -753,14 +772,11 @@ class View(s_nexus.Pusher):  # type: ignore
         Set the view layers from a list of idens.
         NOTE: view layers are stored "top down" (the write layer is self.layers[0])
         '''
-        for view in self.core.views.values():
-            if view.parent is self:
-                raise s_exc.ReadOnlyLayer(mesg='May not change layers that have been forked from')
+        layrs = []
 
         if self.parent is not None:
-            raise s_exc.ReadOnlyLayer(mesg='May not change layers of forked view')
-
-        layrs = []
+            mesg = 'You cannot set the layers of a forked view.'
+            raise s_exc.BadArg(mesg=mesg)
 
         for iden in layers:
             layr = self.core.layers.get(iden)
@@ -776,6 +792,39 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.info.set('layers', layers)
         await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
+
+        await self._calcChildViews()
+        self.core._calcViewsByLayer()
+
+    async def _calcChildViews(self):
+
+        todo = collections.deque([self])
+
+        byparent = collections.defaultdict(list)
+        for view in self.core.views.values():
+            if view.parent is None:
+                continue
+
+            byparent[view.parent].append(view)
+
+        while todo:
+
+            view = todo.pop()
+
+            for child in byparent.get(view, ()):
+
+                layers = [child.layers[0]]
+                layers.extend(view.layers)
+
+                child.layers = layers
+
+                # convert layers to a list of idens...
+                lids = [layr.iden for layr in layers]
+                await child.info.set('layers', lids)
+
+                await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
+
+                todo.append(child)
 
     async def fork(self, ldef=None, vdef=None):
         '''
