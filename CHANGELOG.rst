@@ -83,7 +83,7 @@ Features and Enhancements
 - Change the method used to generate the ``took`` value in the Storm ``fini``
   message to use a monotonic clock.
   (`#3325 <https://github.com/vertexproject/synapse/pull/3325>`_)
-- Performing a invalid pivot in operation with a form target
+- Performing an invalid "pivot in" operation with a form target
   (``<- some:form``) now raises a ``StormRuntimeError`` instead of silently
   doing nothing.
   (`#3326 <https://github.com/vertexproject/synapse/pull/3326>`_)
