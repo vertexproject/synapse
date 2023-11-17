@@ -71,19 +71,23 @@ def now():
     '''
     Get the current epoch time in milliseconds.
 
-    This relies on time.time(), which is system-dependent in terms of resolution.
-
-    Examples:
-        Get the current time and make a row for a Cortex::
-
-            tick = now()
-            row = (someiden, 'foo:prop', 1, tick)
-            core.addRows([row])
+    This relies on time.time_ns(), which is system-dependent in terms of resolution.
 
     Returns:
         int: Epoch time in milliseconds.
     '''
     return time.time_ns() // 1000000
+
+def mononow():
+    '''
+    Get the current monotonic clock time in milliseconds.
+
+    This relies on time.monotonic_ns(), which is a relative time.
+
+    Returns:
+        int: Monotonic clock time in milliseconds.
+    '''
+    return time.monotonic_ns() // 1000000
 
 def guid(valu=None):
     '''

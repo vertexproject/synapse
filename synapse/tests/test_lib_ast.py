@@ -2656,3 +2656,37 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
+
+    async def test_ast_righthand_relprop(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''[
+                (test:type10=one :intprop=21 :int2=21)
+                (test:type10=two :intprop=21 :int2=29)
+                (test:float=13.4 :closed=14.0 :open=14.0)
+                (test:float=14.5 :closed=12.0 :open=13.0)
+                (test:float=15.6 :closed=12.0)
+                (test:float=16.7)
+            ]''')
+
+            nodes = await core.nodes('test:type10 +(:intprop = :int2)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:type10', 'one'))
+
+            nodes = await core.nodes('test:float +(:closed = 12.0 and :open)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 14.5))
+
+            nodes = await core.nodes('test:float +(:open = $lib.null)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:float +(:closed = :open)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 13.4))
+
+            nodes = await core.nodes('test:float $foobar=:open +(:closed = $foobar)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 13.4))
+
+            nodes = await core.nodes('test:type10 $foobar=:int2 +(:intprop = $foobar)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:type10', 'one'))
