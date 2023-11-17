@@ -426,8 +426,7 @@ class SubGraph:
                 buid = s_common.uhex(iden)
                 othr = await node.snap.getNodeByBuid(buid)
                 for propname, ndef in othr.getNodeRefs():
-                    pivonode = await othr.snap.getNodeByNdef(ndef)
-                    if pivonode.iden() == node.iden():
+                    if ndef == node.ndef:
                         yield (othr, path, {'type': 'prop', 'prop': propname, 'reverse': True})
 
         for pivq in self.rules.get('pivots'):
