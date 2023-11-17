@@ -530,8 +530,8 @@ class NodeTest(s_t_utils.SynTest):
 
             othr = await core.nodes('test:str=neato', opts={'view': fork})
             self.len(1, othr)
-            self.isin('foo.two', othr[0].tags)
-            self.notin('foo', othr[0].tags)
+            self.nn(othr[0].getTag('foo.two'))
+            self.none(othr[0].getTag('foo'))
 
             msgs = await core.stormlist('test:str=neato | [ -#foo ]', opts={'view': fork})
             edits = [m[1] for m in msgs if m[0] == 'node:edits']
@@ -549,11 +549,11 @@ class NodeTest(s_t_utils.SynTest):
 
             othr = await core.nodes('test:int=12', opts={'view': fork})
             self.len(1, othr)
-            self.isin('ping', othr[0].tags)
-            self.isin('ping.pong.awesome', othr[0].tags)
-            self.isin('ping.pong.awesome.possum', othr[0].tags)
+            self.nn(othr[0].getTag('ping'))
+            self.nn(othr[0].getTag('ping.pong.awesome'))
+            self.nn(othr[0].getTag('ping.pong.awesome.possum'))
 
-            self.notin('ping.pong', othr[0].tags)
+            self.none(othr[0].getTag('ping.pong'))
 
             msgs = await core.stormlist('test:int=12 | [ -#ping.pong ]', opts={'view': fork})
             edits = [m[1] for m in msgs if m[0] == 'node:edits']
@@ -568,5 +568,5 @@ class NodeTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int=12 | [ -#p ]')
             self.len(1, nodes)
-            self.len(1, nodes[0].tags)
-            self.isin('ping', nodes[0].tags)
+            self.len(1, nodes[0].getTags())
+            self.nn(nodes[0].getTag('ping'))
