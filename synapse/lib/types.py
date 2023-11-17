@@ -929,6 +929,7 @@ class Int(IntBase):
     _opt_defs = (
         ('size', 8),  # type: ignore # Set the storage size of the integer type in bytes.
         ('signed', True),
+        ('enums:strict', True),
 
         # Note: currently unused
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
@@ -951,6 +952,8 @@ class Int(IntBase):
 
         self.enumnorm = {}
         self.enumrepr = {}
+
+        self.enumstrict = self.opts.get('enums:strict')
 
         enums = self.opts.get('enums')
         if enums is not None:
@@ -1031,7 +1034,7 @@ class Int(IntBase):
             mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
-        if self.enumrepr and valu not in self.enumrepr:
+        if self.enumrepr and self.enumstrict and valu not in self.enumrepr:
             mesg = 'Value is not a valid enum value.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
