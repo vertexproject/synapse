@@ -1781,7 +1781,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The process that was scanned to produce the result.'}),
 
                     ('target:host', ('it:host', {}), {
-                        'doc': 'The host where the scan was run.'}),
+                        'doc': 'The host that was scanned to produce the result.'}),
 
                     ('target:fqdn', ('inet:fqdn', {}), {
                         'doc': 'The FQDN that was scanned to produce the result.'}),
