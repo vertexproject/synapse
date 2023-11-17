@@ -2477,7 +2477,7 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError) as cm:
                 await core.nodes('test:str <- test:str')
 
-            mesg = 'Pivot in to a specific form cannot be used with nodes of type test:str'
+            mesg = 'Pivot in from a specific form cannot be used with nodes of type test:str'
             self.eq(cm.exception.get('mesg'), mesg)
             self.eq(cm.exception.get('name'), 'test:str')
 
