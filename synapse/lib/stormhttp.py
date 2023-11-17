@@ -417,7 +417,9 @@ class LibHttp(s_stormtypes.Lib):
                     data = self._buildFormData(fields)
                 else:
                     data = body
-                async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
+                if data is not None:
+                    kwargs['data'] = data
+                async with sess.request(meth, url, headers=headers, json=json, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'reason': await self.codereason(resp.status),
