@@ -1928,6 +1928,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL of the API endpoint the query was sent to.'}),
                     ('language', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the language that the query is expressed in.'}),
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset of the last record consumed from the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {

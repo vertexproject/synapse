@@ -1408,10 +1408,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :opts=({"foo": "bar"})
                     :api:url=https://vertex.link/api/v1.
                     :time=20220720
+                    :offset=99
                     // we can assume the rest of the interface props work
                 ]
             ''')
             self.eq(1658275200000, nodes[0].get('time'))
+            self.eq(99, nodes[0].get('offset'))
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
