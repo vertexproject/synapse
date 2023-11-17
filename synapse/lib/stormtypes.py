@@ -5836,7 +5836,8 @@ class Node(Prim):
             'getStorNodes': self._methGetStorNodes,
         }
 
-    async def getStorNodes(self):
+    @stormfunc(readonly=True)
+    async def _methGetStorNodes(self):
         sodes = await self.valu.getStorNodes()
         for sode in sodes:
             if (nid := sode.get('nid')) is not None:
