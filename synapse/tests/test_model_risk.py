@@ -281,9 +281,13 @@ class RiskModelTest(s_t_utils.SynTest):
                     :ext:id=WOOT-20
                     :engine={[ it:prod:softver=* :name=visiware ]}
                     :host=*
+                    :priority=high
+                    :severity=highest
                 ]
             ''')
             self.len(1, nodes)
+            self.eq(40, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('severity'))
             self.eq('bazfaz.', nodes[0].get('type'))
             self.eq('FooBar', nodes[0].get('name'))
             self.eq('BlahBlah', nodes[0].get('desc'))
