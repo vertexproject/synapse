@@ -1900,7 +1900,7 @@ class PivotInFrom(PivotOper):
                 yield node, path
 
             if not isinstance(node.form.type, s_types.Edge):
-                mesg = f'Pivot in to a specific form cannot be used with nodes of type {node.form.type.name}'
+                mesg = f'Pivot in from a specific form cannot be used with nodes of type {node.form.type.name}'
                 raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=node.form.type.name))
 
             # dont bother traversing edges to the wrong form
