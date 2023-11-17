@@ -105,7 +105,7 @@ Bugfixes
 - Fix a performance regression in graph projection for computing large graphs
   in Storm.
   (`#3375 <https://github.com/vertexproject/synapse/pull/3375>`_)
-- Fix a conflict between Storm ``$lib.inet.http`` fucnctions and ``vcrpy``
+- Fix a conflict between Storm ``$lib.inet.http`` functions and ``vcrpy``
   where ``json`` and ``data`` args shouldn't be passed together.
   (`#3428 <https://github.com/vertexproject/synapse/pull/3428>`_)
 
