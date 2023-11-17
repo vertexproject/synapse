@@ -77,7 +77,6 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-
 - Add a ``detach()`` method to the Storm ``view`` object. This will detach a
   forked View from its parent.
   (`#3323 <https://github.com/vertexproject/synapse/pull/3323>`_)
@@ -103,7 +102,8 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix a regression in graph projection for computing large graphs in Storm.
+- Fix a performance regression in graph projection for computing large graphs
+  in Storm.
   (`#3375 <https://github.com/vertexproject/synapse/pull/3375>`_)
 - Fix a conflict between Storm ``$lib.inet.http`` fucnctions and ``vcrpy``
   where ``json`` and ``data`` args shouldn't be passed together.
