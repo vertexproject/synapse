@@ -2474,6 +2474,13 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm) as cm:
                 await core.nodes('.created <- test:newp')
 
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('test:str <- test:str')
+
+            mesg = 'Pivot in from a specific form cannot be used with nodes of type test:str'
+            self.eq(cm.exception.get('mesg'), mesg)
+            self.eq(cm.exception.get('name'), 'test:str')
+
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
             await wcore.nodes('[ test:comp=(127,newp) ] [test:comp=(127,127)]')
@@ -3765,7 +3772,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 'degrees': 2,
 
-                'pivots': ['<- meta:seen <- meta:source'],
+                'pivots': [],
 
                 'filters': ['-#nope'],
 
@@ -3885,7 +3892,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 inet:fqdn | graph
                                 --degrees 2
                                 --filter { -#nope }
-                                --pivot { <- meta:seen <- meta:source }
+                                --pivot {}
                                 --form-pivot inet:fqdn {<- * | limit 20}
                                 --form-pivot inet:fqdn {-> * | limit 20}
                                 --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
