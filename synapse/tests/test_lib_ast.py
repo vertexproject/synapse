@@ -1738,6 +1738,217 @@ class AstTest(s_test.SynTest):
             evnt = firs[0]
             self.eq(evnt[1].get('data'), {'total': 3})
 
+    async def test_ast_emptyblock(self):
+
+        async with self.getTestCore() as core:
+            q = '''
+            empty {
+                $lib.print("a fancy but empty block")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('a fancy but empty block', msgs)
+
+            q = '''
+            empty {
+                [test:str=neato]
+            }
+            [ :hehe=stuff ]
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node' ]
+            self.len(1, nodes)
+            props = nodes[0][1]['props']
+            self.eq('stuff', props.get('hehe'))
+
+            q = '''
+                empty {
+                    $lib.print("some empty block")
+                }
+                [test:str=synapse]
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node' ]
+            self.len(1, nodes)
+            self.stormIsInPrint('some empty block', msgs)
+
+            q = '''
+                for $i in $lib.range(10) {
+                    if ($i > 5) {
+                        [test:int=$i]
+                    }
+                } | empty { $lib.print(`count is {$i}`) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormNotInPrint('count is', msgs)
+
+            q = '''
+                for $i in $lib.range(10) {
+                    $lib.print(`count is {$i}`)
+                } | empty { $lib.print(`pipeline is empty`) }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('count is', msgs)
+            self.stormIsInPrint('pipeline is empty', msgs)
+
+            q = '''
+            [test:str=burrito]
+            empty {
+                [test:str=awesome]
+            }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:str', 'burrito'), nodes[0][0])
+
+            q = '''
+            $lib.print("OH YEA")
+            empty {
+                [test:str=possum]
+            }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:str', 'possum'), nodes[0][0])
+            self.stormIsInPrint('OH YEA', msgs)
+
+            q = '''
+            empty {
+                [test:str=foo]
+            }
+
+            empty {
+                [test:bstr=bar]
+            }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:str', 'foo'), nodes[0][0])
+
+            q = '''
+            empty {
+                $lib.print('call me')
+            }
+
+            $lib.print('ishmael')
+
+            empty {
+                $lib.print('some years ago')
+            }
+
+            [test:str="moby dick"]
+
+            empty {
+                $lib.print('never mind')
+            }
+
+            empty {
+                $lib.print('how long')
+            }
+
+            [ :hehe=haha ]
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('call me', msgs)
+            self.stormIsInPrint('ishmael', msgs)
+            self.stormIsInPrint('some years ago', msgs)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:str', 'moby dick'), nodes[0][0])
+            self.eq('haha', nodes[0][1]['props']['hehe'])
+            self.stormNotInPrint('never mind', msgs)
+            self.stormNotInPrint('how long', msgs)
+
+            q = '''
+            function foo(x) {
+                empty {
+                    $lib.print($x)
+                }
+
+                return()
+            }
+
+            [test:str=biz :hehe=baz]
+            $foo(:hehe)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("baz", msgs)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:str', 'biz'), nodes[0][0])
+
+            q = '''
+            [test:str=coffee :hehe=pourover] $beep=:hehe | spin | empty { $lib.print("blorp") }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+            self.stormIsInPrint('blorp', msgs)
+
+            q = '''
+            [test:str=latte :hehe=milk] $beep=:hehe | spin | empty { $lib.print($beep) }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+            self.stormIsInErr('Empty block query must be runtsafe', msgs)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(10) {
+                    emit $x
+                }
+            }
+
+            for $data in $foo() {
+                if ($data > 10000) {
+                    [test:int=$data]
+                }
+            }
+
+            empty {
+                [test:int=1000]
+            }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:int', 1000), nodes[0][0])
+
+            q = '''
+            empty {
+                [test:int=12345]
+            }
+            '''
+            idens = [nodes[0][1]['iden'],]
+            msgs = await core.stormlist(q, opts={'idens': idens})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:int', 1000), nodes[0][0])
+
+            q = '''
+            function foo() {
+                empty {
+                    $lib.print('foobarbaz')
+                }
+                [test:int=12]
+            }
+
+            yield $foo()
+            empty {
+                $lib.print('neato')
+            }
+            '''
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            self.eq(('test:int', 12), nodes[0][0])
+            self.stormIsInPrint('foobarbaz', msgs)
+            self.stormNotInPrint('neato', msgs)
+
     async def test_ast_cmdargs(self):
 
         async with self.getTestCore() as core:

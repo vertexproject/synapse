@@ -804,6 +804,37 @@ class InitBlock(AstNode):
             async for innr in subq.run(runt, s_common.agen()):
                 yield innr
 
+class EmptyBlock(AstNode):
+    '''
+    An AST node that only runs if there are not inbound nodes in the pipeline. It is
+    capable of yielding nodes into the pipeline.
+
+    Example:
+        Using an empty block::
+
+            empty {
+                // the pipeline is empty so this block will execute
+            }
+
+            [foo:bar=*]
+            empty {
+                // there is a node in the pipeline so this block will not run
+            }
+    '''
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+        self.reqRuntSafe(runt, 'Empty block query must be runtsafe')
+
+        run = True
+        async for item in genr:
+            run = False
+            yield item
+
+        if run:
+            async for innr in subq.run(runt, s_common.agen()):
+                yield innr
+
 class FiniBlock(AstNode):
     '''
     An AST node that runs only once after all nodes have been consumed.
