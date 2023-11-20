@@ -2778,3 +2778,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+    async def test_model_inet_onset_depth(self):
+
+        async with self.getTestCore() as core:
+            q = '[ inet:fqdn="i__--_a.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.ll.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.foo.cfd"]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('zone'), 'foo.cfd')

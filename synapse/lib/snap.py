@@ -301,11 +301,7 @@ class ProtoNode:
         if self.node is not None:
             return self.node.get(name)
 
-    async def set(self, name, valu, norminfo=None):
-
-        prop = self.form.props.get(name)
-        if prop is None:
-            return False
+    async def _set(self, prop, valu, norminfo=None):
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
@@ -339,7 +335,7 @@ class ProtoNode:
                 await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
                 return False
 
-        curv = self.get(name)
+        curv = self.get(prop.name)
         if curv == valu:
             return False
 
@@ -351,7 +347,20 @@ class ProtoNode:
         if self.node is not None:
             await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
 
-        self.props[name] = valu
+        self.props[prop.name] = valu
+
+        return valu, norminfo
+
+    async def set(self, name, valu, norminfo=None):
+        prop = self.form.props.get(name)
+        if prop is None:
+            return False
+
+        retn = await self._set(prop, valu, norminfo=norminfo)
+        if retn is False:
+            return False
+
+        (valu, norminfo) = retn
 
         propform = self.ctx.snap.core.model.form(prop.type.name)
         if propform is not None:
@@ -371,6 +380,37 @@ class ProtoNode:
                 await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
 
         return True
+
+    async def getSetOps(self, name, valu, norminfo=None):
+        prop = self.form.props.get(name)
+        if prop is None:
+            return ()
+
+        retn = await self._set(prop, valu, norminfo=norminfo)
+        if retn is False:
+            return ()
+
+        (valu, norminfo) = retn
+        ops = []
+
+        propform = self.ctx.snap.core.model.form(prop.type.name)
+        if propform is not None:
+            ops.append(self.ctx.getAddNodeOps(propform.name, valu, norminfo=norminfo))
+
+        # TODO can we mandate any subs are returned pre-normalized?
+        propsubs = norminfo.get('subs')
+        if propsubs is not None:
+            for subname, subvalu in propsubs.items():
+                full = f'{prop.name}:{subname}'
+                if self.form.props.get(full) is not None:
+                    ops.append(self.getSetOps(full, subvalu))
+
+        propadds = norminfo.get('adds')
+        if propadds is not None:
+            for addname, addvalu, addinfo in propadds:
+                ops.append(self.ctx.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+
+        return ops
 
 class SnapEditor:
     '''
@@ -394,17 +434,12 @@ class SnapEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
-    async def addNode(self, formname, valu, props=None, norminfo=None):
+    async def _addNode(self, form, valu, props=None, norminfo=None):
 
         self.snap.core._checkMaxNodes()
 
-        form = self.snap.core.model.form(formname)
-        if form is None:
-            mesg = f'No form named {formname} for valu={valu}.'
-            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
-
         if form.isrunt:
-            mesg = f'Cannot make runt nodes: {formname}.'
+            mesg = f'Cannot make runt nodes: {form.name}.'
             return await self.snap._raiseOnStrict(s_exc.IsRuntForm, mesg)
 
         if form.locked:
@@ -417,14 +452,71 @@ class SnapEditor:
             except s_exc.BadTypeValu as e:
                 e.errinfo['form'] = form.name
                 if self.snap.strict: raise e
-                await self.snap.warn(f'addNode() BadTypeValu {formname}={valu} {e}')
+                await self.snap.warn(f'addNode() BadTypeValu {form.name}={valu} {e}')
                 return None
+
+        return valu, norminfo
+
+    async def addNode(self, formname, valu, props=None, norminfo=None):
+
+        form = self.snap.core.model.form(formname)
+        if form is None:
+            mesg = f'No form named {formname} for valu={valu}.'
+            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+
+        retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
+        if retn is None:
+            return None
+
+        valu, norminfo = retn
 
         protonode = await self._initProtoNode(form, valu, norminfo)
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
 
         return protonode
+
+    async def getAddNodeOps(self, formname, valu, props=None, norminfo=None):
+
+        form = self.snap.core.model.form(formname)
+        if form is None:
+            mesg = f'No form named {formname} for valu={valu}.'
+            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+
+        retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
+        if retn is None:
+            return ()
+
+        norm, norminfo = retn
+
+        ndef = (form.name, norm)
+
+        protonode = self.protonodes.get(ndef)
+        if protonode is not None:
+            return ()
+
+        buid = s_common.buid(ndef)
+        node = await self.snap.getNodeByBuid(buid)
+        if node is not None:
+            return ()
+
+        protonode = ProtoNode(self, buid, form, norm, node)
+
+        self.protonodes[ndef] = protonode
+
+        ops = []
+
+        subs = norminfo.get('subs')
+        if subs is not None:
+            for prop, valu in subs.items():
+                ops.append(protonode.getSetOps(prop, valu))
+
+        adds = norminfo.get('adds')
+        if adds is not None:
+            for addname, addvalu, addinfo in adds:
+                ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+
+        return ops
 
     def loadNode(self, node):
         protonode = self.protonodes.get(node.ndef)
@@ -448,14 +540,25 @@ class SnapEditor:
 
         self.protonodes[ndef] = protonode
 
+        ops = collections.deque()
+
         subs = norminfo.get('subs')
         if subs is not None:
-            [await protonode.set(p, v) for (p, v) in subs.items()]
+            for prop, valu in subs.items():
+                ops.append(protonode.getSetOps(prop, valu))
+
+            while ops:
+                oset = ops.popleft()
+                ops.extend(await oset)
 
         adds = norminfo.get('adds')
         if adds is not None:
             for addname, addvalu, addinfo in adds:
-                await self.addNode(addname, addvalu, norminfo=addinfo)
+                ops.append(self.getAddNodeOps(addname, addvalu, norminfo=addinfo))
+
+            while ops:
+                oset = ops.popleft()
+                ops.extend(await oset)
 
         return protonode
 
