@@ -1756,7 +1756,7 @@ class AstTest(s_test.SynTest):
             [ :hehe=stuff ]
             '''
             msgs = await core.stormlist(q)
-            nodes = [m[1] for m in msgs if m[0] == 'node' ]
+            nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
             props = nodes[0][1]['props']
             self.eq('stuff', props.get('hehe'))
@@ -1768,7 +1768,7 @@ class AstTest(s_test.SynTest):
                 [test:str=synapse]
             '''
             msgs = await core.stormlist(q)
-            nodes = [m[1] for m in msgs if m[0] == 'node' ]
+            nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
             self.stormIsInPrint('some empty block', msgs)
 
