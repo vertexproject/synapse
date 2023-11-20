@@ -1949,6 +1949,32 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('foobarbaz', msgs)
             self.stormNotInPrint('neato', msgs)
 
+            q = '''
+            function foo() {
+                for $x in $lib.range(2) {
+                    emit $x
+                    empty {
+                        $lib.print(`count is {$x}`)
+                    }
+                }
+            }
+            for $x in $foo() {
+                [test:int=$x]
+            }
+            '''
+            msgs = await core.stormlist(q)
+            order = [m[0] for m in msgs]
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            ndefs = [n[0] for n in nodes]
+
+            self.len(2, nodes)
+            self.eq(order, ['init', 'node:edits', 'node', 'print', 'node:edits', 'node', 'print', 'fini'])
+            self.isin(('test:int', 0), ndefs)
+            self.isin(('test:int', 1), ndefs)
+
+            self.stormIsInPrint('count is 0', msgs)
+            self.stormIsInPrint('count is 1', msgs)
+
     async def test_ast_cmdargs(self):
 
         async with self.getTestCore() as core:

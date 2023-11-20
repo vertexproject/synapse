@@ -810,6 +810,7 @@ class EmptyBlock(AstNode):
     capable of yielding nodes into the pipeline.
 
     Example:
+
         Using an empty block::
 
             empty {
@@ -826,14 +827,14 @@ class EmptyBlock(AstNode):
         subq = self.kids[0]
         self.reqRuntSafe(runt, 'Empty block query must be runtsafe')
 
-        run = True
+        empty = True
         async for item in genr:
-            run = False
+            empty = False
             yield item
 
-        if run:
-            async for innr in subq.run(runt, s_common.agen()):
-                yield innr
+        if empty:
+            async for subn in subq.run(runt, s_common.agen()):
+                yield subn
 
 class FiniBlock(AstNode):
     '''
