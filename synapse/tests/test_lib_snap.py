@@ -627,6 +627,7 @@ class SnapTest(s_t_utils.SynTest):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
 
     async def test_snap_subs_depth(self):
+
         async with self.getTestCore() as core:
             fqdn = '.'.join(['x' for x in range(300)]) + '.foo.com'
             q = f'[ inet:fqdn="{fqdn}"]'

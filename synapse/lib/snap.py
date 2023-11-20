@@ -481,7 +481,8 @@ class SnapEditor:
         form = self.snap.core.model.form(formname)
         if form is None:
             mesg = f'No form named {formname} for valu={valu}.'
-            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+            await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+            return()
 
         retn = await self._addNode(form, valu, props=props, norminfo=norminfo)
         if retn is None:
