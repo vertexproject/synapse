@@ -45,6 +45,8 @@ Notes:
         * node:add
         * node:del
         * prop:set
+        * edge:add
+        * edge:del
 
 When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
@@ -56,6 +58,10 @@ Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
 supported.
 
+When the condition is edge:add or edge:del, you may optionally provide a
+form name or a destination form name to only fire on edges added or deleted
+from nodes of those forms.
+
 Examples:
     # Adds a tag to every inet:ipv4 added
     trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
@@ -65,6 +71,13 @@ Examples:
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
     trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every refs edge add
+    trigger.add edge:add --verb refs --query {[ +#todo ]}
+
+    # Adds a tag #todo to the N1 node of every seen edge delete, provided that
+    # both nodes are of form file:bytes
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
 '''
 
 addcrondescr = '''
@@ -307,6 +320,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'apidefs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/apidef'},
+                },
                 'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
@@ -315,6 +332,67 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'apidef': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'type': 'object',
+                    'properties': {
+                        'type': {
+                            'type': 'string',
+                            'enum': ['function']
+                        },
+                        'args': {
+                            'type': 'array',
+                            'items': {'$ref': '#/definitions/apiarg'},
+                        },
+                        'returns': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                    'enum': ['yields'],
+                                },
+                                'desc': {'type': 'string'},
+                                'type': {
+                                    'oneOf': [
+                                        {'$ref': '#/definitions/apitype'},
+                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                                    ],
+                                },
+                            },
+                            'additionalProperties': False,
+                            'required': ['type', 'desc']
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'returns'],
+                },
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apiarg': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/apitype'},
+                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                    ],
+                },
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apitype': {
+            'type': 'string',
         },
         'command': {
             'type': 'object',
@@ -999,6 +1077,8 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
+            ('--verb', {'help': 'Edge verb to fire on.'}),
+            ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
@@ -2151,7 +2231,7 @@ class Runtime(s_base.Base):
 
                 view = snap.core.views.get(viewiden)
                 if view is None:
-                    raise s_exc.NoSuchView(iden=viewiden)
+                    raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
@@ -3453,7 +3533,7 @@ class CopyToCmd(Cmd):
 
         view = runt.snap.core.getView(iden)
         if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view: {iden}')
+            raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
 
         runt.confirm(('view', 'read'), gateiden=view.iden)
 
@@ -4805,7 +4885,7 @@ class GraphCmd(Cmd):
             inet:fqdn | graph
                         --degrees 2
                         --filter { -#nope }
-                        --pivot { <- meta:seen <- meta:source }
+                        --pivot { -> meta:seen }
                         --form-pivot inet:fqdn {<- * | limit 20}
                         --form-pivot inet:fqdn {-> * | limit 20}
                         --form-filter inet:fqdn {-inet:fqdn:issuffix=1}

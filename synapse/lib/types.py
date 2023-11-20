@@ -239,7 +239,7 @@ class Type:
         return cmpr
 
     def _ctorCmprRe(self, text):
-        regx = regex.compile(text)
+        regx = regex.compile(text, flags=regex.I)
 
         def cmpr(valu):
             vtxt = self.repr(valu)
@@ -929,6 +929,7 @@ class Int(IntBase):
     _opt_defs = (
         ('size', 8),  # type: ignore # Set the storage size of the integer type in bytes.
         ('signed', True),
+        ('enums:strict', True),
 
         # Note: currently unused
         ('fmt', '%d'),  # Set to an integer compatible format string to control repr.
@@ -951,6 +952,8 @@ class Int(IntBase):
 
         self.enumnorm = {}
         self.enumrepr = {}
+
+        self.enumstrict = self.opts.get('enums:strict')
 
         enums = self.opts.get('enums')
         if enums is not None:
@@ -1031,7 +1034,7 @@ class Int(IntBase):
             mesg = f'value is above max={self.maxval}'
             raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
-        if self.enumrepr and valu not in self.enumrepr:
+        if self.enumrepr and self.enumstrict and valu not in self.enumrepr:
             mesg = 'Value is not a valid enum value.'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
 
@@ -1761,8 +1764,19 @@ class Taxonomy(Str):
         self.setNormFunc(tuple, self._normPyList)
         self.taxon = self.modl.type('taxon')
 
+    def _ctorCmprPref(self, valu):
+        norm = self._normForLift(valu)
+
+        def cmpr(valu):
+            return valu.startswith(norm)
+
+        return cmpr
+
     def _normForLift(self, valu):
-        return self.norm(valu)[0]
+        norm = self.norm(valu)[0]
+        if isinstance(valu, str) and not valu.strip().endswith('.'):
+            return norm.rstrip('.')
+        return norm
 
     def _normPyList(self, valu):
 

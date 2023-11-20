@@ -250,6 +250,10 @@ class LibHttp(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The reason phrase for the status code.', }}},
     )
     _storm_lib_path = ('inet', 'http')
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'inet', 'http', 'proxy'), 'gate': 'cortex',
+         'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
+    )
 
     def getObjLocals(self):
         return {
@@ -270,14 +274,17 @@ class LibHttp(s_stormtypes.Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def urlencode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.quote_plus(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def urldecode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.unquote_plus(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def codereason(self, code):
         code = await s_stormtypes.toint(code)
         return s_common.httpcodereason(code)
@@ -310,8 +317,8 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if proxy is None:
             proxy = await self.runt.snap.core.getConfOpt('http:proxy')
@@ -374,8 +381,8 @@ class LibHttp(s_stormtypes.Lib):
 
         headers = self.strify(headers)
 
-        if proxy is not None and not self.runt.isAdmin():
-            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+        if proxy is not None:
+            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
         if fields:
             if any(['sha256' in field for field in fields]):
@@ -410,7 +417,16 @@ class LibHttp(s_stormtypes.Lib):
                     data = self._buildFormData(fields)
                 else:
                     data = body
-                async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
+
+                # `data` and `json` are passed in kwargs only if they are not
+                # None because of a weird interaction with aiohttp and vcrpy.
+                if data is not None:
+                    kwargs['data'] = data
+
+                if json is not None:
+                    kwargs['json'] = json
+
+                async with sess.request(meth, url, headers=headers, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'reason': await self.codereason(resp.status),

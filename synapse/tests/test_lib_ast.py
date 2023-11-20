@@ -2057,6 +2057,13 @@ class AstTest(s_test.SynTest):
             else { $lib.print(no) }
             '''
             msgs = await core.stormlist(q)
+            self.stormIsInPrint('yes', msgs)
+
+            q = '''test:str $data=$node.value()
+            if ($data ~= "(?-i:brown)") { $lib.print(yes) }
+            else { $lib.print(no) }
+            '''
+            msgs = await core.stormlist(q)
             self.stormIsInPrint('no', msgs)
 
             q = '''test:str $data=$node.value()
@@ -2520,6 +2527,198 @@ class AstTest(s_test.SynTest):
             # one for the refs edge (via doedges) and one for the rule..
             self.len(2, nodes[1][1]['path']['edges'])
 
+    async def test_ast_subgraph_caching(self):
+        async with self.getTestCore() as core:
+            limits = (0, 1, 10, 255, 256, 10000)
+            ipv4s = await core.nodes('[inet:ipv4=1.2.3.0/24]')
+            neato = await core.nodes('''[
+                test:str=neato +(refs)> { inet:ipv4 }
+            ]''')
+            await core.nodes('[test:str=neato +(selfrefs)> { test:str=neato }]')
+            self.len(1, neato)
+
+            iden = neato[0].iden()
+            idens = [iden,]
+            opts = {
+                'graph': {
+                    'degrees': None,
+                    'edges': True,
+                    'refs': True,
+                    'existing': idens
+                },
+                'idens': idens
+            }
+
+            def testedges(msgs):
+                self.len(259, msgs)
+                for m in msgs[:-2]:
+                    if m[0] != 'node':
+                        continue
+                    node = m[1]
+                    edges = node[1]['path']['edges']
+                    self.len(1, edges)
+                    edgeiden, edgedata = edges[0]
+                    self.eq(edgeiden, iden)
+                    self.true(edgedata.get('reverse', False))
+                    self.eq(edgedata['verb'], 'refs')
+                    self.eq(edgedata['type'], 'edge')
+                selfref = msgs[-2]
+                node = selfref[1]
+                edges = node[1]['path']['edges']
+                self.len(258, edges)
+
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                testedges(msgs)
+
+            burrito = await core.nodes('[test:str=burrito <(awesome)+ { inet:ipv4 }]')
+            self.len(1, burrito)
+
+            iden = burrito[0].iden()
+            for m in msgs:
+                if m[0] != 'node':
+                    continue
+                node = m[1]
+                idens.append(node[1]['iden'])
+
+            opts['graph']['existing'] = idens
+            opts['idens'] = [ipv4s[0].iden(),]
+            ipidens = [n.iden() for n in ipv4s]
+            ipidens.append(neato[0].iden())
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                self.len(4, msgs)
+
+                node = msgs[1][1]
+                self.eq(node[0], ('test:str', 'burrito'))
+                edges = node[1]['path']['edges']
+                self.len(256, edges)
+
+                for edge in edges:
+                    edgeiden, edgedata = edge
+                    self.isin(edgeiden, ipidens)
+                    self.true(edgedata.get('reverse', False))
+                    self.eq(edgedata['verb'], 'awesome')
+                    self.eq(edgedata['type'], 'edge')
+
+                node = msgs[2][1]
+                self.eq(node[0], ('test:str', 'neato'))
+                self.len(256, edges)
+                edges = node[1]['path']['edges']
+                for edge in edges:
+                    edgeiden, edgedata = edge
+                    self.isin(edgeiden, ipidens)
+                    self.eq(edgedata['type'], 'edge')
+                    if edgedata['verb'] == 'selfrefs':
+                        self.eq(edgeiden, neato[0].iden())
+                    else:
+                        self.eq(edgedata['verb'], 'refs')
+                        self.false(edgedata.get('reverse', False))
+
+            opts['graph'].pop('existing', None)
+            opts['idens'] = [neato[0].iden(),]
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
+                selfrefs = 0
+                for m in msgs:
+                    if m[0] != 'node':
+                        continue
+
+                    node = m[1]
+                    form = node[0][0]
+                    edges = node[1]['path'].get('edges', ())
+                    if form == 'inet:ipv4':
+                        self.len(0, edges)
+                    elif form == 'test:str':
+                        self.len(258, edges)
+                        for e in edges:
+                            self.isin(e[0], ipidens)
+                            self.eq('edge', e[1]['type'])
+                            if e[0] == neato[0].iden():
+                                selfrefs += 1
+                                self.eq('selfrefs', e[1]['verb'])
+                            else:
+                                self.eq('refs', e[1]['verb'])
+                self.eq(selfrefs, 2)
+
+            boop = await core.nodes('[test:str=boop +(refs)> {[inet:ipv4=5.6.7.0/24]}]')
+            await core.nodes('[test:str=boop <(refs)+ {[inet:ipv4=4.5.6.0/24]}]')
+            self.len(1, boop)
+            boopiden = boop[0].iden()
+            opts['idens'] = [boopiden,]
+            for limit in limits:
+                opts['graph']['edgelimit'] = limit
+                msgs = await core.stormlist('tee --join { --> * } { <-- * }', opts=opts)
+                self.len(515, msgs)
+
+    async def test_ast_subgraph_existing_prop_edges(self):
+
+        async with self.getTestCore() as core:
+            (fn,) = await core.nodes('[ file:bytes=(woot,) :md5=e5a23e8a2c0f98850b1a43b595c08e63 ]')
+            fiden = fn.iden()
+
+            rules = {
+                'degrees': None,
+                'edges': True,
+                'refs': True,
+                'existing': [fiden]
+            }
+
+            nodes = []
+
+            async with await core.snap() as snap:
+                async for node, path in snap.storm(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
+                    nodes.append(node)
+
+                    edges = path.metadata.get('edges')
+                    self.len(1, edges)
+                    self.eq(edges, [
+                        [fn.iden(), {
+                            "type": "prop",
+                            "prop": "md5",
+                            "reverse": True
+                        }]
+                    ])
+
+                    self.true(path.metadata.get('graph:seed'))
+
+            self.len(1, nodes)
+
+    async def test_ast_double_init_fini(self):
+        async with self.getTestCore() as core:
+            q = '''
+            init {$foo = bar $lib.print(`{$foo} {$wow}`) }
+            init {$baz = hehe $lib.print('second init!') }
+            $lib.print($baz)
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe'}})
+            pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe'])
+
+            q = '''
+            init {$foo = bar $lib.print(`{$foo} {$wow}`) }
+            init {$baz = hehe $lib.print('second init!') }
+            $lib.print($baz)
+            [test:str=stuff]
+            $stuff = $node.value()
+            fini { $lib.print(fini1) }
+            fini { $lib.print(`fini {$stuff}`) }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'wow': 'hehe', 'stuff': None}})
+            pmesgs = [m[1].get('mesg') for m in msgs if m[0] == 'print']
+            self.eq(pmesgs, ['bar hehe', 'second init!', 'hehe', 'fini1', 'fini stuff'])
+
+            q = '''
+            init { $foo = bar }
+            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            $lib.print($baz)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('foo=bar', msgs)
+
     async def test_ast_tagfilters(self):
 
         async with self.getTestCore() as core:
@@ -2617,3 +2816,37 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
+
+    async def test_ast_righthand_relprop(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''[
+                (test:type10=one :intprop=21 :int2=21)
+                (test:type10=two :intprop=21 :int2=29)
+                (test:float=13.4 :closed=14.0 :open=14.0)
+                (test:float=14.5 :closed=12.0 :open=13.0)
+                (test:float=15.6 :closed=12.0)
+                (test:float=16.7)
+            ]''')
+
+            nodes = await core.nodes('test:type10 +(:intprop = :int2)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:type10', 'one'))
+
+            nodes = await core.nodes('test:float +(:closed = 12.0 and :open)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 14.5))
+
+            nodes = await core.nodes('test:float +(:open = $lib.null)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('test:float +(:closed = :open)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 13.4))
+
+            nodes = await core.nodes('test:float $foobar=:open +(:closed = $foobar)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 13.4))
+
+            nodes = await core.nodes('test:type10 $foobar=:int2 +(:intprop = $foobar)')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:type10', 'one'))

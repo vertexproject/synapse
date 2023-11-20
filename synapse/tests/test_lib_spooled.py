@@ -84,6 +84,10 @@ class SpooledTest(s_test.SynTest):
             self.eq(list(x.keys()), (10, 20, 30))
             self.true(x.has(20))
             self.false(x.has(99))
+            self.eq('haha', x.pop(20))
+            self.len(2, x)
+            self.eq(None, x.pop(20))
+            self.len(2, x)
 
         async with await s_spooled.Dict.anit(size=2) as sd0:
             await runtest(sd0)

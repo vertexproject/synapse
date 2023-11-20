@@ -7,6 +7,8 @@ Many components within the Synapse ecosystem provide HTTP/REST APIs to
 provide a portable interface.  Some of these APIs are RESTful, while other
 (streaming data) APIs are technically not.
 
+.. _http-api-conventions:
+
 HTTP/REST API Conventions
 -------------------------
 
@@ -34,6 +36,8 @@ The client example code in these docs is given with the Python "aiohttp" and "re
 modules. They should be enough to understand the basic operation of the APIs.
 
 For additional examples, see the code examples at `HTTPAPI Examples`_.
+
+.. _http-api-authentication:
 
 Authentication
 --------------
@@ -94,6 +98,43 @@ Both of the Python examples use session managers which manage the session cookie
             raise Exception(f'Login error ({code}): {mesg}')
 
         # we are now clear to make additional HTTP API calls using sess
+
+/api/v1/logout
+~~~~~~~~~~~~~~
+
+The logout API endpoint may be used to end an authenticated session. This invalidates
+the session, and any further requests to authenticated endpoints will fail on
+authentication failed errors.
+
+Both of the Python examples use session managers which manage the session cookie automatically.
+
+.. code:: python3
+    :name: aiohttp login example
+
+    import aiohttp
+
+    def logoutExample(sess, ssl):
+        url = 'https://localhost:4443/api/v1/logout'
+        resp = sess.get(url, ssl=ssl)
+        item = resp.json()
+        if item.get('status') != 'ok':
+            code = item.get('code')
+            mesg = item.get('mesg')
+            raise Exception(f'Logout error ({code}): {mesg}')
+
+.. code:: python3
+    :name: requests login example
+
+    import requests
+
+    def logoutExample(sess, ssl):
+        url = 'https://localhost:4443/api/v1/logout'
+        resp = sess.get(url, verify=ssl)
+        item = resp.json()
+        if item.get('status') != 'ok':
+            code = item.get('code')
+            mesg = item.get('mesg')
+            raise Exception(f'Logout error ({code}): {mesg}')
 
 /api/v1/active
 ~~~~~~~~~~~~~~
@@ -208,7 +249,7 @@ Both of the Python examples use session managers which manage the session cookie
     the user whose password is being changed.
 
     *Input*
-        This API expects a JSON dictionary containing the a key ``passwd`` with the new password string.
+        This API expects a JSON dictionary containing the key ``passwd`` with the new password string.
 
     *Returns*
         The updated user dictionary.
@@ -317,7 +358,7 @@ The Cortex feed API endpoint allows the caller to add nodes in bulk.
 
 The Storm API endpoint allows the caller to execute a Storm query on the Cortex and stream
 back the messages generated during the Storm runtime execution.  In addition to returning nodes,
-these messsages include events for node edits, tool console output, etc. This streaming API has back-pressure,
+these messages include events for node edits, tool console output, etc. This streaming API has back-pressure,
 and will handle streaming millions of results as the reader consumes them.
 For more information about Storm APIs, including opts behavior, see :ref:`dev_storm_api`.
 
@@ -358,7 +399,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
             import json
             import pprint
 
-            # Assumes sess is an aiotthp client session that has previously logged in
+            # Assumes sess is an aiohttp client session that has previously logged in
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
             data = {'query': query, 'opts': {'repr': True}}
@@ -461,7 +502,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             import pprint
 
-            # Assumes sess is an aiotthp client session that has previously logged in
+            # Assumes sess is an aiohttp client session that has previously logged in
 
             query = '$foo = $lib.str.format("hello {valu}", valu="world") return ($foo)'
             data = {'query': query}
@@ -659,7 +700,7 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
             }
             
     *Returns*
-        The API returns the the current value of the variable or default using the REST API convention described earlier.
+        The API returns the current value of the variable or default using the REST API convention described earlier.
 
 
 /api/v1/core/info
@@ -691,6 +732,13 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
                     ]
                 }
             }
+
+/api/ext/*
+~~~~~~~~~~
+
+This API endpoint is used as the Base URL for Extended HTTP API endpoints which are user defined. See
+:ref:`devops-svc-cortex-ext-http` for additional information about this endpoint.
+
 
 Aha
 ---

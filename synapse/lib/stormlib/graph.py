@@ -20,6 +20,7 @@ gdefSchema = {
         'updated': {'type': 'number'},
         'refs': {'type': 'boolean', 'default': False},
         'edges': {'type': 'boolean', 'default': True},
+        'edgelimit': {'type': 'number', 'default': 3000},
         'degrees': {'type': ['integer', 'null'], 'minimum': 0},
         'filterinput': {'type': 'boolean', 'default': True},
         'yieldfiltered': {'type': 'boolean', 'default': False},
@@ -96,7 +97,7 @@ class GraphLib(s_stormtypes.Lib):
                         "name": "Test Projection",
                         "desc": "My test projection",
                         "degrees": 2,
-                        "pivots": ["<- meta:seen <- meta:source"],
+                        "pivots": ["-> meta:seen"],
                         "filters": ["-#nope"],
                         "forms": {
                             "inet:fqdn": {
@@ -180,6 +181,7 @@ class GraphLib(s_stormtypes.Lib):
         gdef = await s_stormtypes.toprim(gdef)
         return await self.runt.snap.core.addStormGraph(gdef, user=self.runt.user)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphGet(self, iden=None):
         iden = await s_stormtypes.tostr(iden, noneok=True)
         if iden is None:
@@ -201,6 +203,7 @@ class GraphLib(s_stormtypes.Lib):
 
         await self.runt.snap.core.modStormGraph(iden, info, user=self.runt.user)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methGraphList(self):
         projs = []
         async for proj in self.runt.snap.core.getStormGraphs(user=self.runt.user):
