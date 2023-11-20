@@ -222,6 +222,7 @@ are nodes in the pipeline, the associated Storm will not be executed.
   empty { <storm> }
 
 **Example:**
+
 You have a function that conditionally creates a set of nodes and you wish to be warned if no nodes have been made.
 
 ::
