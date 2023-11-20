@@ -234,7 +234,7 @@ You have a function that conditionally creates a set of nodes and you wish to be
 
 .. NOTE::
 
-   Unlike ``init`` and ``fini`` blocks, which are run at the beginning and end of your query respectively, ``empy``
+   Unlike ``init`` and ``fini`` blocks, which are run at the beginning and end of your query respectively, ``empty``
    blocks are executed in line with the rest of your query.
 
 .. _flow-if-else:
