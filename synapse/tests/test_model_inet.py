@@ -2782,7 +2782,8 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_model_inet_onset_depth(self):
 
         async with self.getTestCore() as core:
-            q = '[ inet:fqdn="i__--_a.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.ll.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.l.foo.cfd"]'
+            fqdn = '.'.join(['x' for x in range(150)]) + '.foo.com'
+            q = f'[ inet:fqdn="{fqdn}"]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
-            self.eq(nodes[0].get('zone'), 'foo.cfd')
+            self.eq(nodes[0].get('zone'), 'foo.com')
