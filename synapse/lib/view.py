@@ -398,6 +398,29 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
+    async def getPropValuCount(self, propname, valu):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        norm, info = prop.type.norm(valu)
+
+        count = 0
+        for layr in self.layers:
+            await asyncio.sleep(0)
+
+            if prop.isform:
+                count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
+
+            elif prop.isuniv:
+                count += layr.getUnivPropValuCount(prop.name, prop.type.stortype, norm)
+
+            else:
+                count += layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+
+        return count
+
     async def getEdgeVerbs(self):
 
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:

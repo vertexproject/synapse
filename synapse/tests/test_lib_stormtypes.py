@@ -6798,4 +6798,54 @@ words\tword\twrd'''
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.layer.get().getPropValueCount(newp, 1))'
-                self.eq(1, await core.callStorm(q))
+                await core.callStorm(q)
+
+    async def test_storm_view_counts(self):
+
+        async with self.getTestCore() as core:
+
+            view2 = await core.view.fork()
+            forkopts = {'view': view2['iden']}
+
+            q = '''[
+                inet:ipv4=1
+                inet:ipv4=2
+                inet:ipv4=3
+                :asn=4
+
+                test:str=foo
+                test:str=bar
+                .seen=2020
+            ]'''
+            await core.nodes(q)
+
+            q = '''[
+                inet:ipv4=4
+                inet:ipv4=5
+                inet:ipv4=6
+                :asn=4
+
+                test:str=baz
+                test:str=faz
+                .seen=2020
+            ]'''
+            await core.nodes(q, opts=forkopts)
+
+            q = 'return($lib.view.get().getPropValueCount(inet:ipv4:asn, 1))'
+            self.eq(0, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(inet:ipv4:asn, 4))'
+            self.eq(6, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(inet:ipv4.seen, 2020))'
+            self.eq(6, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(".seen", 2020))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(inet:ipv4, 1))'
+            self.eq(1, await core.callStorm(q, opts=forkopts))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.view.get().getPropValueCount(newp, 1))'
+                await core.callStorm(q, opts=forkopts)

@@ -6324,7 +6324,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
-                      {'name': 'valu', 'desc': 'The value of the property to look up.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getFormCounts', 'desc': '''
@@ -6718,11 +6718,11 @@ class Layer(Prim):
             mesg = f'No property named {propname}'
             raise s_exc.NoSuchProp(mesg=mesg)
 
+        norm, info = prop.type.norm(valu)
+
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
-
-        norm, info = prop.type.norm(valu)
 
         if prop.isform:
             return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
@@ -7055,6 +7055,23 @@ class View(Prim):
                       {'type': 'dict',
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
 
+        {'name': 'getPropValueCount',
+         'desc': '''
+            Get the number of nodes in the View with a specific property value.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of
+               nodes with the property value in each layer of the view. Property values
+               which are overwritten by different values in higher layers will still
+               be included in the count.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value of the property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of nodes with that property value.', }}},
+
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
@@ -7092,6 +7109,7 @@ class View(Prim):
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
+            'getPropValueCount': self._methGetPropValueCount,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7144,6 +7162,17 @@ class View(Prim):
     async def _methGetFormcount(self):
         todo = s_common.todo('getFormCounts')
         return await self.viewDynCall(todo, ('view', 'read'))
+
+    @stormfunc(readonly=True)
+    async def _methGetPropValueCount(self, propname, valu):
+        propname = await tostr(propname)
+        valu = await toprim(valu)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getPropValuCount(propname, valu)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
