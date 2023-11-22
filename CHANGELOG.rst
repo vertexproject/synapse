@@ -8824,7 +8824,7 @@ v2.0.0 - 2020-06-08
 
 Initial 2.0.0 release.
 
-.. _changelog-depr-20231001
+.. _changelog-depr-20231001:
 
 API Deprecation Notice - 2023-10-01
 ===================================
