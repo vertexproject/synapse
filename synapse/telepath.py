@@ -22,11 +22,16 @@ import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 
 logger = logging.getLogger(__name__)
 
 televers = (3, 0)
+
+# the "protocol version" is used for feature detection
+# due to legacy version detection requiring equality
+protovers = (3, 1, 0)
 
 aha_clients = {}
 
@@ -173,14 +178,15 @@ async def _getAhaSvc(urlinfo, timeout=None):
 
             cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
 
-            if cellinfo['synapse']['version'] >= (2, 95, 0):
-                filters = {
-                    'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false')))
-                }
-                ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
-            else:  # pragma: no cover
-                ahasvc = await s_common.wait_for(proxy.getAhaSvc(host), timeout=5)
+            kwargs = {}
+            synvers = cellinfo['synapse']['version']
 
+            if synvers >= (2, 95, 0):
+                kwargs['filters'] = {
+                    'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
+                }
+
+            ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
             if ahasvc is None:
                 continue
 
@@ -1002,19 +1008,19 @@ class Pool(s_base.Base):
     async def _onPoolSvcAdd(self, mesg):
         svcname = mesg[1].get('name')
         svcinfo = mesg[1].get('svcinfo')
-        svcinfo['urlinfo'].setdefault('user', 'root')
         urlinfo = mergeAhaInfo(self.urlinfo, svcinfo.get('urlinfo', {}))
 
         # one-off default user to root
-        urlinfo.setdefault('user', 'root')
         self.clients[svcname] = await Client.anit(urlinfo, onlink=self._onPoolLink)
+        await self.fire('svc:add', **mesg[1])
 
     async def _onPoolSvcDel(self, mesg):
         svcname = mesg[1].get('name')
-        client = self.clients.pop(name, None)
+        client = self.clients.pop(svcname, None)
         if client is not None:
             await client.fini()
         self.deque.clear()
+        await self.fire('svc:del', **mesg[1])
 
     async def _onPoolLink(self, proxy):
 
@@ -1416,10 +1422,12 @@ async def openinfo(info):
 
     auth = None
 
-    user = info.get('user')
-    if user is not None:
-        passwd = info.get('passwd')
-        auth = (user, {'passwd': passwd})
+    user = info.get('user', 'root')
+    auth = (user, {})
+
+    passwd = info.get('passwd')
+    if passwd is not None:
+        auth[1]['passwd'] = passwd
 
     if scheme == 'cell':
         # cell:///path/to/celldir:share
@@ -1479,7 +1487,7 @@ async def openinfo(info):
             # if a TLS connection specifies a user with no password
             # attempt to auto-resolve a user certificate for the given
             # host/network.
-            if certname is None and user is not None and passwd is None:
+            if certname is None and passwd is None:
                 certname = f'{user}@{hostname}'
 
             if certhash is None:

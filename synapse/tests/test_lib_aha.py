@@ -1143,13 +1143,16 @@ class AhaTest(s_test.SynTest):
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
 
+                    with self.raises(s_exc.BadArg):
+                        await s_telepath.open('aha://pool00...')
+
+                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+
                     async with await s_telepath.open('aha://pool00...') as pool:
 
-                        waiter = pool.waiter('svc:add', 2)
-
-                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+                        waiter = pool.waiter('svc:add', 1)
 
                         msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
                         self.stormHasNoWarnErr(msgs)
@@ -1162,6 +1165,7 @@ class AhaTest(s_test.SynTest):
                         run01 = await (await pool.proxy(timeout=3)).getCellRunId()
                         self.ne(run00, run01)
 
+                        # wait for the pool to be notified of the topology change
                         waiter = pool.waiter('svc:del', 1)
 
                         msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')

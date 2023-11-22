@@ -143,7 +143,8 @@ class AhaApi(s_cell.CellApi):
         # suggest that the user of the remote service is the same
         username = self.user.name.split('@')[0]
 
-        svcinfo['svcinfo']['urlinfo']['user'] = username
+        if svcinfo.get('svcinfo'):
+            svcinfo['svcinfo']['urlinfo']['user'] = username
 
         return svcinfo
 
@@ -797,6 +798,12 @@ class AhaCell(s_cell.Cell):
 
             # in case the caller is not pool aware, merge a service entry and the pool def
             svcnames = list(pooldef.get('services').keys())
+
+            # if there are not services added to the pool it does not exist yet
+            if not svcnames:
+                mesg = f'No services configured for pool: {name}'
+                raise s_exc.BadArg(mesg=mesg)
+
             svcentry = await self.jsonstor.getPathObj(('aha', 'svcfull', random.choice(svcnames)))
             svcentry.update(pooldef)
 
