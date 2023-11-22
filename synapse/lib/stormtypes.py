@@ -7227,7 +7227,9 @@ class View(Prim):
         if name is not None:
             vdef['name'] = name
 
-        newv = await self.runt.snap.view.fork(ldef=ldef, vdef=vdef)
+        view = self.runt.snap.core.reqView(viewiden)
+
+        newv = await view.fork(ldef=ldef, vdef=vdef)
 
         return View(self.runt, newv, path=self.path)
 
