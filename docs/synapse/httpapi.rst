@@ -109,7 +109,7 @@ authentication failed errors.
 Both of the Python examples use session managers which manage the session cookie automatically.
 
 .. code:: python3
-    :name: aiohttp login example
+    :name: aiohttp logout example
 
     import aiohttp
 
@@ -123,7 +123,7 @@ Both of the Python examples use session managers which manage the session cookie
             raise Exception(f'Logout error ({code}): {mesg}')
 
 .. code:: python3
-    :name: requests login example
+    :name: requests logout example
 
     import requests
 
