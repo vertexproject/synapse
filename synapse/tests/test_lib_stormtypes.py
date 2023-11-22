@@ -6775,13 +6775,19 @@ words\tword\twrd'''
                 inet:ipv4=3
                 :asn=4
 
-                test:str=foo
-                test:str=bar
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
                 .seen=2020
+                .univarray=(1, 2)
             ]'''
             await core.nodes(q)
 
             q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:loc, 1))'
             self.eq(0, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 4))'
@@ -6795,6 +6801,12 @@ words\tword\twrd'''
 
             q = 'return($lib.layer.get().getPropValueCount(inet:ipv4, 1))'
             self.eq(1, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(ou:org:names, (foo, bar)))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(".univarray", (1, 2)))'
+            self.eq(5, await core.callStorm(q))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.layer.get().getPropValueCount(newp, 1))'
@@ -6813,9 +6825,12 @@ words\tword\twrd'''
                 inet:ipv4=3
                 :asn=4
 
-                test:str=foo
-                test:str=bar
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
                 .seen=2020
+                .univarray=(1, 2)
             ]'''
             await core.nodes(q)
 
@@ -6825,13 +6840,19 @@ words\tword\twrd'''
                 inet:ipv4=6
                 :asn=4
 
-                test:str=baz
-                test:str=faz
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
                 .seen=2020
+                .univarray=(1, 2)
             ]'''
             await core.nodes(q, opts=forkopts)
 
             q = 'return($lib.view.get().getPropValueCount(inet:ipv4:asn, 1))'
+            self.eq(0, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(inet:ipv4:loc, 1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropValueCount(inet:ipv4:asn, 4))'
@@ -6845,6 +6866,12 @@ words\tword\twrd'''
 
             q = 'return($lib.view.get().getPropValueCount(inet:ipv4, 1))'
             self.eq(1, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(ou:org:names, (foo, bar)))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropValueCount(".univarray", (1, 2)))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
 
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.view.get().getPropValueCount(newp, 1))'
