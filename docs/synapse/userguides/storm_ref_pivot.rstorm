@@ -820,7 +820,7 @@ The above example simply combines the previous two examples to illustrate the us
 
 In the example above, given the source and target forms, the logical pivot for implicit syntax is from the primary property of the inbound FQDN to the secondary properties of the DNS MX nodes. However, an ``inet:dns:mx`` form has **two** secondary properties of type ``inet:fqdn``: the mail exchange server (``inet:dns:mx:mx``) and the domain that uses the MX (``inet:dns:mx:fqdn``).
 
-Using implicit syntax, Storm wil pivot from the source FQDN(s) to any DNS MX records where the domain matches **either** of those secondary properties. For example, querying the FQDN ``google.com`` will return DNS MX records **for** Google (i.e., ``inet:dns:mx:fqdn=google.com``) as well as MX records that may **use** Google as their mail exchange (i.e., ``inet:dns:mx:mx=google.com``).
+Using implicit syntax, Storm will pivot from the source FQDN(s) to any DNS MX records where the domain matches **either** of those secondary properties. For example, querying the FQDN ``google.com`` will return DNS MX records **for** Google (i.e., ``inet:dns:mx:fqdn=google.com``) as well as MX records that may **use** Google as their mail exchange (i.e., ``inet:dns:mx:mx=google.com``).
 
 If you want only one or the other of those types of records, you need to use explicit syntax to specify the target property, i.e.:
 
