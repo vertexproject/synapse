@@ -296,6 +296,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :target:host={[ it:host=* :name=visihost ]}
                     :target:fqdn=vertex.link
                     :target:url=https://vertex.link
+                    :target:ipv4=1.2.3.4
+                    :target:ipv6='::1'
                     :multi:scan={[ it:av:scan:result=*
                         :scanner:name="visi total"
                         :multi:count=10
@@ -310,6 +312,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('visi scan', nodes[0].get('scanner:name'))
             self.eq('vertex.link', nodes[0].get('target:fqdn'))
             self.eq('https://vertex.link', nodes[0].get('target:url'))
+            self.eq(0x01020304, nodes[0].get('target:ipv4'))
+            self.eq('::1', nodes[0].get('target:ipv6'))
             self.eq('omgwtfbbq', nodes[0].get('signame'))
 
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
