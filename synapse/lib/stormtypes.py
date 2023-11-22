@@ -7217,10 +7217,9 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        gatekeys = (
-            (useriden, ('view', 'add'), None),
-            (useriden, ('view', 'read'), viewiden),
-        )
+        self.runt.confirm(('view', 'add'))
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
@@ -7228,9 +7227,7 @@ class View(Prim):
         if name is not None:
             vdef['name'] = name
 
-        todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
-
-        newv = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        newv = await self.runt.snap.view.fork(ldef=ldef, vdef=vdef)
 
         return View(self.runt, newv, path=self.path)
 
