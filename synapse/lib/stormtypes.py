@@ -6319,6 +6319,14 @@ class Layer(Prim):
                        'default': None, },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
+        {'name': 'getPropValueCount',
+         'desc': 'Get the number of rows in the layer for the given full property name and value.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'desc': 'The value of the property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getFormCounts', 'desc': '''
             Get the formcounts for the Layer.
 
@@ -6514,6 +6522,7 @@ class Layer(Prim):
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getPropValueCount': self._methGetPropValueCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
@@ -6698,6 +6707,30 @@ class Layer(Prim):
             return await layr.getUnivPropCount(prop.name, maxsize=maxsize)
 
         return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropValueCount(self, propname, valu):
+        propname = await tostr(propname)
+        valu = await toprim(valu)
+
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        norm, info = prop.type.norm(valu)
+
+        if prop.isform:
+            return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
+
+        if prop.isuniv:
+            return layr.getUnivPropValuCount(prop.name, prop.type.stortype, norm)
+
+        return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None):

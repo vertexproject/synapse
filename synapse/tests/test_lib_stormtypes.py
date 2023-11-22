@@ -6764,3 +6764,38 @@ words\tword\twrd'''
             '''
             msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
             self.stormIsInErr(mesg, msgs)
+
+    async def test_storm_layer_counts(self):
+
+        async with self.getTestCore() as core:
+
+            q = '''[
+                inet:ipv4=1
+                inet:ipv4=2
+                inet:ipv4=3
+                :asn=4
+
+                test:str=foo
+                test:str=bar
+                .seen=2020
+            ]'''
+            await core.nodes(q)
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 4))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4.seen, 2020))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(".seen", 2020))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4, 1))'
+            self.eq(1, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.layer.get().getPropValueCount(newp, 1))'
+                self.eq(1, await core.callStorm(q))

@@ -2931,6 +2931,22 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
 
+    def getPropValuCount(self, formname, propname, stortype, valu):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        count = 0
+        for indx in self.getStorIndx(stortype, valu):
+            count += self.layrslab.count(abrv + indx, db=self.byprop)
+
+        return count
+
     async def getUnivPropCount(self, propname, maxsize=None):
         '''
         Return the number of universal property rows in the layer for the given prop.
@@ -2941,6 +2957,22 @@ class Layer(s_nexus.Pusher):
             return 0
 
         return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
+
+    def getUnivPropValuCount(self, propname, stortype, valu):
+        try:
+            abrv = self.getPropAbrv(None, propname)
+
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        count = 0
+        for indx in self.getStorIndx(stortype, valu):
+            count += self.layrslab.count(abrv + indx, db=self.byprop)
+
+        return count
 
     async def liftByTag(self, tag, form=None, reverse=False):
 
