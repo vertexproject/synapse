@@ -115,6 +115,8 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
+                ('risk:technique:masquerade', ('guid', {}), {
+                    'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -941,6 +943,16 @@ class RiskModule(s_module.CoreModule):
                     ('demanded:payment:currency', ('econ:currency', {}), {
                         'doc': 'The currency in which payment was demanded.'}),
 
+                )),
+                ('risk:technique:masquerade', {}, (
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node masquerading as another.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period when the masquerading was active.'}),
+                    ('target', ('ndef', {}), {
+                        'doc': 'The being masqueraded as.'}),
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The specific technique which describes the type of masquerading.'}),
                 )),
             ),
         }
