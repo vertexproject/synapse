@@ -6001,11 +6001,29 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropArrayValueCount(test:arrayform, 2))'
             self.eq(2, await core.callStorm(q))
 
+            q = 'return($lib.layer.get().getPropArrayValueCount(ou:org:subs, *))'
+            self.eq(0, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.layer.get().getPropArrayValueCount(newp, 1))'
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadTypeValu):
+                q = 'return($lib.layer.get().getPropArrayValueCount(inet:ipv4, 1))'
+                await core.callStorm(q)
+
             q = 'return($lib.layer.get().getTagPropValueCount(foo, score, 2))'
             self.eq(5, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getTagPropValueCount(foo, score, 2, form=ou:org))'
             self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropValueCount(bar, score, 2))'
+            self.eq(0, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchTagProp):
+                q = 'return($lib.layer.get().getTagPropValueCount(foo, newp, 2))'
+                await core.callStorm(q)
 
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
@@ -6919,8 +6937,20 @@ words\tword\twrd'''
             q = 'return($lib.view.get().getPropArrayValueCount(test:arrayform, 3))'
             self.eq(3, await core.callStorm(q, opts=forkopts))
 
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.view.get().getPropArrayValueCount(newp, 1))'
+                await core.callStorm(q, opts=forkopts)
+
+            with self.raises(s_exc.BadTypeValu):
+                q = 'return($lib.view.get().getPropArrayValueCount(inet:ipv4, 1))'
+                await core.callStorm(q, opts=forkopts)
+
             q = 'return($lib.view.get().getTagPropValueCount(foo, score, 2))'
             self.eq(10, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getTagPropValueCount(foo, score, 2, form=ou:org))'
             self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            with self.raises(s_exc.NoSuchTagProp):
+                q = 'return($lib.view.get().getTagPropValueCount(foo, newp, 2))'
+                await core.callStorm(q, opts=forkopts)

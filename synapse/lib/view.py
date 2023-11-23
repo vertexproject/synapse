@@ -426,7 +426,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def getTagPropValuCount(self, form, tag, propname, valu):
         prop = self.core.model.getTagProp(propname)
         if prop is None:
-            mesg = f'No tag property named {name}'
+            mesg = f'No tag property named {propname}'
             raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
 
         norm, info = prop.type.norm(valu)

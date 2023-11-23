@@ -6791,7 +6791,7 @@ class Layer(Prim):
 
         prop = self.runt.snap.core.model.getTagProp(propname)
         if prop is None:
-            mesg = f'No tag property named {name}'
+            mesg = f'No tag property named {propname}'
             raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
 
         norm, info = prop.type.norm(valu)
