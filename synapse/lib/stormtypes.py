@@ -6327,6 +6327,25 @@ class Layer(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
+        {'name': 'getPropArrayValueCount',
+         'desc': 'Get the number of rows in the layer for the given array property name and single value.',
+         'type': {'type': 'function', '_funcname': '_methGetPropArrayValueCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value in the array property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
+        {'name': 'getTagPropValueCount',
+         'desc': 'Get the number of rows in the layer for the given tag property and value.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
+                  'args': (
+                      {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value of the property to look up.', },
+                      {'name': 'form', 'type': 'str', 'default': None,
+                       'desc': 'The optional form to look up.', }
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getFormCounts', 'desc': '''
             Get the formcounts for the Layer.
 
@@ -6523,6 +6542,8 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getPropValueCount': self._methGetPropValueCount,
+            'getTagPropValueCount': self._methGetTagPropValueCount,
+            'getPropArrayValueCount': self._methGetPropArrayValueCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
@@ -6728,9 +6749,58 @@ class Layer(Prim):
             return layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
 
         if prop.isuniv:
-            return layr.getUnivPropValuCount(prop.name, prop.type.stortype, norm)
+            return layr.getPropValuCount(None, prop.name, prop.type.stortype, norm)
 
         return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropArrayValueCount(self, propname, valu):
+        propname = await tostr(propname)
+        valu = await toprim(valu)
+
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not prop.type.isarray:
+            mesg = f'Property is not an array type: {prop.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        if prop.isform:
+            return layr.getPropArrayValuCount(prop.name, None, atyp.stortype, norm)
+
+        if prop.isuniv:
+            return layr.getPropArrayValuCount(None, prop.name, atyp.stortype, norm)
+
+        return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
+
+    @stormfunc(readonly=True)
+    async def _methGetTagPropValueCount(self, tag, propname, valu, form=None):
+        tag = await tostr(tag)
+        propname = await tostr(propname)
+        valu = await toprim(valu)
+        form = await tostr(form, noneok=True)
+
+        prop = self.runt.snap.core.model.getTagProp(propname)
+        if prop is None:
+            mesg = f'No tag property named {name}'
+            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
+
+        norm, info = prop.type.norm(valu)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None):
@@ -7070,7 +7140,44 @@ class View(Prim):
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
                       {'name': 'valu', 'type': 'any', 'desc': 'The value of the property to look up.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The count of nodes with that property value.', }}},
+                  'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
+
+        {'name': 'getPropArrayValueCount',
+         'desc': '''
+            Get the number of nodes in the View for the given array property name and single value.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of
+               nodes with the array property value in each layer of the view.
+               Property values which are overwritten by different values in
+               higher layers will still be included in the count.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methGetPropArrayValueCount',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value in the array property to look up.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
+
+        {'name': 'getTagPropValueCount',
+         'desc': '''
+            Get the number of nodes in the View for the given tag property and value.
+
+            Notes:
+               This is a fast approximate count calculated by summing the number of
+               nodes with the tag property value in each layer of the view.
+               Values which are overwritten by different values in higher layers
+                will still be included in the count.
+            ''',
+         'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
+                  'args': (
+                      {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value of the property to look up.', },
+                      {'name': 'form', 'type': 'str', 'default': None,
+                       'desc': 'The optional form to look up.', }
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
@@ -7110,6 +7217,8 @@ class View(Prim):
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
             'getPropValueCount': self._methGetPropValueCount,
+            'getTagPropValueCount': self._methGetTagPropValueCount,
+            'getPropArrayValueCount': self._methGetPropArrayValueCount,
         }
 
     async def addNode(self, form, valu, props=None):
@@ -7173,6 +7282,30 @@ class View(Prim):
         view = self.runt.snap.core.getView(viewiden)
 
         return await view.getPropValuCount(propname, valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetTagPropValueCount(self, tag, propname, valu, form=None):
+        tag = await tostr(tag)
+        propname = await tostr(propname)
+        valu = await toprim(valu)
+        form = await tostr(form, noneok=True)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getTagPropValuCount(form, tag, propname, valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropArrayValueCount(self, propname, valu):
+        propname = await tostr(propname)
+        valu = await toprim(valu)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        return await view.getPropArrayValuCount(propname, valu)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):

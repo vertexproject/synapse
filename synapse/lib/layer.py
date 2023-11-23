@@ -2914,6 +2914,7 @@ class Layer(s_nexus.Pusher):
             abrv = self.tagabrv.bytsToAbrv(tagname.encode())
             if formname is not None:
                 abrv += self.getPropAbrv(formname, None)
+                return self.layrslab.count(abrv, db=self.bytag)
 
         except s_exc.NoSuchAbrv:
             return 0
@@ -2947,6 +2948,19 @@ class Layer(s_nexus.Pusher):
 
         return count
 
+    def getPropArrayValuCount(self, formname, propname, stortype, valu):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        count = 0
+        for indx in self.getStorIndx(stortype, valu):
+            count += self.layrslab.count(abrv + indx, db=self.byarray)
+
+        return count
+
     async def getUnivPropCount(self, propname, maxsize=None):
         '''
         Return the number of universal property rows in the layer for the given prop.
@@ -2958,19 +2972,16 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
 
-    def getUnivPropValuCount(self, propname, stortype, valu):
+    def getTagPropValuCount(self, form, tag, prop, stortype, valu):
         try:
-            abrv = self.getPropAbrv(None, propname)
+            abrv = self.getTagPropAbrv(form, tag, prop)
 
         except s_exc.NoSuchAbrv:
             return 0
 
-        if stortype & 0x8000:
-            stortype = STOR_TYPE_MSGP
-
         count = 0
         for indx in self.getStorIndx(stortype, valu):
-            count += self.layrslab.count(abrv + indx, db=self.byprop)
+            count += self.layrslab.count(abrv + indx, db=self.bytagprop)
 
         return count
 

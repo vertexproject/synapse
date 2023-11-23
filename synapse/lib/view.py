@@ -406,18 +406,65 @@ class View(s_nexus.Pusher):  # type: ignore
 
         norm, info = prop.type.norm(valu)
 
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
         count = 0
         for layr in self.layers:
             await asyncio.sleep(0)
+            count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
 
-            if prop.isform:
-                count += layr.getPropValuCount(prop.name, None, prop.type.stortype, norm)
+        return count
 
-            elif prop.isuniv:
-                count += layr.getUnivPropValuCount(prop.name, prop.type.stortype, norm)
+    async def getTagPropValuCount(self, form, tag, propname, valu):
+        prop = self.core.model.getTagProp(propname)
+        if prop is None:
+            mesg = f'No tag property named {name}'
+            raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
 
-            else:
-                count += layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
+        norm, info = prop.type.norm(valu)
+
+        count = 0
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
+
+        return count
+
+    async def getPropArrayValuCount(self, propname, valu):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if not prop.type.isarray:
+            mesg = f'Property is not an array type: {prop.type.name}.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        count = 0
+        for layr in self.layers:
+            await asyncio.sleep(0)
+            count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
 
         return count
 

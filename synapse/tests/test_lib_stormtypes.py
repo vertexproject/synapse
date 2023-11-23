@@ -5919,6 +5919,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_layer_counts(self):
         async with self.getTestCore() as core:
+
             self.eq(0, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
             await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
             self.eq(0, await core.callStorm('return($lib.layer.get().getPropCount(ps:person))'))
@@ -5936,6 +5937,75 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm("return($lib.layer.get().getPropCount('.newp'))")
+
+            await core.nodes('.created | delnode --force')
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            q = '''[
+                inet:ipv4=1
+                inet:ipv4=2
+                inet:ipv4=3
+                :asn=4
+
+                (ou:org=*
+                 ou:org=*
+                 :names=(foo, bar))
+
+                .seen=2020
+                .univarray=(1, 2)
+                +#foo:score=2
+
+                test:arrayform=(1,2,3)
+                test:arrayform=(2,3,4)
+            ]'''
+            await core.nodes(q)
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:loc, 1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 4))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4.seen, 2020))'
+            self.eq(3, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(".seen", 2020))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(".test:univ", 1))'
+            self.eq(0, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4, 1))'
+            self.eq(1, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(ou:org:names, (foo, bar)))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropValueCount(".univarray", (1, 2)))'
+            self.eq(5, await core.callStorm(q))
+
+            with self.raises(s_exc.NoSuchProp):
+                q = 'return($lib.layer.get().getPropValueCount(newp, 1))'
+                await core.callStorm(q)
+
+            q = 'return($lib.layer.get().getPropArrayValueCount(ou:org:names, foo))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayValueCount(".univarray", 2))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getPropArrayValueCount(test:arrayform, 2))'
+            self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropValueCount(foo, score, 2))'
+            self.eq(5, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropValueCount(foo, score, 2, form=ou:org))'
+            self.eq(2, await core.callStorm(q))
 
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
@@ -6765,56 +6835,11 @@ words\tword\twrd'''
             msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
             self.stormIsInErr(mesg, msgs)
 
-    async def test_storm_layer_counts(self):
-
-        async with self.getTestCore() as core:
-
-            q = '''[
-                inet:ipv4=1
-                inet:ipv4=2
-                inet:ipv4=3
-                :asn=4
-
-                (ou:org=*
-                 ou:org=*
-                 :names=(foo, bar))
-
-                .seen=2020
-                .univarray=(1, 2)
-            ]'''
-            await core.nodes(q)
-
-            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 1))'
-            self.eq(0, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:loc, 1))'
-            self.eq(0, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4:asn, 4))'
-            self.eq(3, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4.seen, 2020))'
-            self.eq(3, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(".seen", 2020))'
-            self.eq(5, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(inet:ipv4, 1))'
-            self.eq(1, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(ou:org:names, (foo, bar)))'
-            self.eq(2, await core.callStorm(q))
-
-            q = 'return($lib.layer.get().getPropValueCount(".univarray", (1, 2)))'
-            self.eq(5, await core.callStorm(q))
-
-            with self.raises(s_exc.NoSuchProp):
-                q = 'return($lib.layer.get().getPropValueCount(newp, 1))'
-                await core.callStorm(q)
-
     async def test_storm_view_counts(self):
 
         async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
 
             view2 = await core.view.fork()
             forkopts = {'view': view2['iden']}
@@ -6831,6 +6856,10 @@ words\tword\twrd'''
 
                 .seen=2020
                 .univarray=(1, 2)
+                +#foo:score=2
+
+                test:arrayform=(1,2,3)
+                test:arrayform=(2,3,4)
             ]'''
             await core.nodes(q)
 
@@ -6846,6 +6875,10 @@ words\tword\twrd'''
 
                 .seen=2020
                 .univarray=(1, 2)
+                +#foo:score=2
+
+                test:arrayform=(3,4,5)
+                test:arrayform=(4,5,6)
             ]'''
             await core.nodes(q, opts=forkopts)
 
@@ -6876,3 +6909,18 @@ words\tword\twrd'''
             with self.raises(s_exc.NoSuchProp):
                 q = 'return($lib.view.get().getPropValueCount(newp, 1))'
                 await core.callStorm(q, opts=forkopts)
+
+            q = 'return($lib.view.get().getPropArrayValueCount(ou:org:names, foo))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayValueCount(".univarray", 2))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getPropArrayValueCount(test:arrayform, 3))'
+            self.eq(3, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getTagPropValueCount(foo, score, 2))'
+            self.eq(10, await core.callStorm(q, opts=forkopts))
+
+            q = 'return($lib.view.get().getTagPropValueCount(foo, score, 2, form=ou:org))'
+            self.eq(4, await core.callStorm(q, opts=forkopts))
