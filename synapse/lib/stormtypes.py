@@ -6337,7 +6337,7 @@ class Layer(Prim):
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getTagPropValueCount',
          'desc': 'Get the number of rows in the layer for the given tag property and value.',
-         'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
+         'type': {'type': 'function', '_funcname': '_methGetTagPropValueCount',
                   'args': (
                       {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
@@ -7169,7 +7169,7 @@ class View(Prim):
                Values which are overwritten by different values in higher layers
                 will still be included in the count.
             ''',
-         'type': {'type': 'function', '_funcname': '_methGetPropValueCount',
+         'type': {'type': 'function', '_funcname': '_methGetTagPropValueCount',
                   'args': (
                       {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
