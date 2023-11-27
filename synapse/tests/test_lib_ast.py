@@ -1622,6 +1622,12 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
 
+            q = '$foo = $lib.null $foo.bar = baz'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), '$lib.null does not support assignment.')
+
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:
@@ -3087,3 +3093,33 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:type10 $foobar=:int2 +(:intprop = $foobar)')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:type10', 'one'))
+
+    async def test_ast_propvalue(self):
+        async with self.getTestCore() as core:
+
+            # Create node with data prop, assign data prop to var, update var
+            q = '[ it:exec:query=(test,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz"'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+
+            # Lift node with data prop, assign data prop to var, update var
+            q = 'it:exec:query=(test,) $opts=:opts $opts.bar = "baz"'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+
+            # Create node for the lift below
+            q = '''
+            [ it:app:snort:hit=*
+                :flow={[ inet:flow=* :raw=({"foo": "bar"}) ]}
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift node, get prop via implicit pivot, assign data prop to var, update var
+            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('raw'), {'foo': 'bar'})

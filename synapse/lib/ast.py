@@ -1267,6 +1267,9 @@ class SetItemOper(Oper):
             count += 1
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
+            if item is None:
+                mesg = '$lib.null does not support assignment.'
+                raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
                 mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
@@ -1284,6 +1287,9 @@ class SetItemOper(Oper):
         if count == 0 and self.isRuntSafe(runt):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
+            if item is None:
+                mesg = '$lib.null does not support assignment.'
+                raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             name = await self.kids[1].compute(runt, None)
             valu = await self.kids[2].compute(runt, None)
@@ -3060,6 +3066,10 @@ class PropValue(Value):
                                                     name=name, form=path.node.form.name))
 
             valu = path.node.get(name)
+            if isinstance(valu, dict):
+                # dicts get special cased because changing the dict affects the node
+                # while it's in the pipeline but the modification doesn't get stored
+                valu = s_msgpack.deepcopy(valu, use_list=True)
             return prop, valu
 
         # handle implicit pivot properties
@@ -3081,6 +3091,10 @@ class PropValue(Value):
                                                 name=name, form=node.form.name))
 
             if i >= imax:
+                if isinstance(valu, dict):
+                    # dicts get special cased because changing the dict affects the node
+                    # while it's in the pipeline but the modification doesn't get stored
+                    valu = s_msgpack.deepcopy(valu, use_list=True)
                 return prop, valu
 
             form = runt.model.forms.get(prop.type.name)
