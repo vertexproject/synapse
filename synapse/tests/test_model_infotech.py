@@ -284,6 +284,58 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:app:yara:procmatch -> it:exec:proc'))
             self.len(1, await core.nodes('it:app:yara:procmatch -> it:app:yara:rule'))
 
+            nodes = await core.nodes('''[
+                it:av:scan:result=*
+                    :time=20231117
+                    :verdict=suspicious
+                    :scanner={[ it:prod:softver=* :name="visi scan" ]}
+                    :scanner:name="visi scan"
+                    :signame=omgwtfbbq
+                    :target:file=*
+                    :target:proc={[ it:exec:proc=* :cmd="foo.exe --bar" ]}
+                    :target:host={[ it:host=* :name=visihost ]}
+                    :target:fqdn=vertex.link
+                    :target:url=https://vertex.link
+                    :target:ipv4=1.2.3.4
+                    :target:ipv6='::1'
+                    :multi:scan={[ it:av:scan:result=*
+                        :scanner:name="visi total"
+                        :multi:count=10
+                        :multi:count:benign=3
+                        :multi:count:unknown=1
+                        :multi:count:suspicious=4
+                        :multi:count:malicious=2
+                    ]}
+            ]''')
+            self.eq(1700179200000, nodes[0].get('time'))
+            self.eq(30, nodes[0].get('verdict'))
+            self.eq('visi scan', nodes[0].get('scanner:name'))
+            self.eq('vertex.link', nodes[0].get('target:fqdn'))
+            self.eq('https://vertex.link', nodes[0].get('target:url'))
+            self.eq(0x01020304, nodes[0].get('target:ipv4'))
+            self.eq('::1', nodes[0].get('target:ipv6'))
+            self.eq('omgwtfbbq', nodes[0].get('signame'))
+
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:url'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:fqdn'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:exec:proc'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:av:signame'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:prod:softver'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:prod:softname'))
+
+            nodes = await core.nodes('it:av:scan:result:scanner:name="visi total"')
+            self.len(1, nodes)
+
+            self.eq(10, nodes[0].get('multi:count'))
+            self.eq(3, nodes[0].get('multi:count:benign'))
+            self.eq(1, nodes[0].get('multi:count:unknown'))
+            self.eq(4, nodes[0].get('multi:count:suspicious'))
+            self.eq(2, nodes[0].get('multi:count:malicious'))
+
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi total" -> it:av:scan:result +:scanner:name="visi scan"'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
@@ -1360,10 +1412,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :opts=({"foo": "bar"})
                     :api:url=https://vertex.link/api/v1.
                     :time=20220720
+                    :offset=99
                     // we can assume the rest of the interface props work
                 ]
             ''')
             self.eq(1658275200000, nodes[0].get('time'))
+            self.eq(99, nodes[0].get('offset'))
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
