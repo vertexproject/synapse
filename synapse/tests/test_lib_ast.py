@@ -1628,6 +1628,17 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), '$lib.null does not support assignment.')
 
+            q = '''
+            [inet:fqdn=foo]
+            $foo=$lib.null
+            inet:fqdn
+            $foo.bar = baz
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+            self.eq(erfo[1][1].get('mesg'), '$lib.null does not support assignment.')
+
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:
