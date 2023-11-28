@@ -66,7 +66,7 @@ SETTAGOPER: "?"
 _oper: stormfunc | initblock | emptyblock | finiblock | trycatch | subquery | _formpivot | formjoin
      | formpivotin | formjoinin | opervarlist | setitem | setvar | vareval | filtoper
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
-     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
+     | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1join | n2join | n1walknpivo | n2walknpivo | n1walknjoin | n2walknjoin | rawpivot
 
 BREAK.4: /break(?=[\s\}])/
 CONTINUE.4: /continue(?=[\s\}])/
@@ -166,7 +166,14 @@ n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu 
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
+n1join: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1JOINFINI _wildprops [ _cmpr _valu ]
+
+n2join: _EDGEN2JOININIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
+
 walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
+
+_WALKNJOINN1.4: "--+>"
+_WALKNJOINN2.4: "<+--"
 
 _WALKNPIVON1.4: "-->"
 _WALKNPIVON2.4: "<--"
@@ -174,11 +181,17 @@ _WALKNPIVON2.4: "<--"
 n1walknpivo: _WALKNPIVON1 "*"
 n2walknpivo: _WALKNPIVON2 "*"
 
+n1walknjoin: _WALKNJOINN1 "*"
+n2walknjoin: _WALKNJOINN2 "*"
+
 _EDGEADDN1INIT.2: "+("
 _EDGEN1INIT.2: "-("
 _EDGEN1FINI: ")>"
 _EDGEADDN2FINI: ")+"
 _EDGEN2FINI: ")-"
+
+_EDGEN1JOINFINI: ")+>"
+_EDGEN2JOININIT: "<+("
 
 // Regex to check for a matching ')-' or ')+' so we can avoid incorrectly matching
 // comparisons to an expression like '<(2)'

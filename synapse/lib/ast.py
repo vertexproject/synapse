@@ -1898,6 +1898,9 @@ class N1WalkNPivo(PivotOut):
 
         async for node, path in genr:
 
+            if self.isjoin:
+                yield node, path
+
             async for item in self.getPivsOut(runt, node, path):
                 yield item
 
@@ -2016,6 +2019,9 @@ class N2WalkNPivo(PivotIn):
     async def run(self, runt, genr):
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             async for item in self.getPivsIn(runt, node, path):
                 yield item
@@ -3932,6 +3938,13 @@ class EditUnivDel(Edit):
 
 class N1Walk(Oper):
 
+    def __init__(self, astinfo, kids=(), isjoin=False):
+        Oper.__init__(self, astinfo, kids=kids)
+        self.isjoin = isjoin
+
+    def repr(self):
+        return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
+
     async def walkNodeEdges(self, runt, node, verb=None):
         async for _, iden in node.iterEdgesN1(verb=verb):
             buid = s_common.uhex(iden)
@@ -3989,6 +4002,9 @@ class N1Walk(Oper):
             return False
 
         async for node, path in genr:
+
+            if self.isjoin:
+                yield node, path
 
             verbs = await self.kids[0].compute(runt, path)
             verbs = await s_stormtypes.toprim(verbs)
