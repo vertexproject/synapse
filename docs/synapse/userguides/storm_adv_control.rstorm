@@ -12,6 +12,7 @@ queries. These include:
 
 - `Init Block`_
 - `Fini Block`_
+- `Empty Block`_
 - `If-Else Statement`_
 - `Switch Statement`_
 - `For Loop`_
@@ -68,7 +69,7 @@ current working set is not what you think it is.
 **Be aware of your variables.** Storm supports both runtime-safe ("runtsafe") and non-runtime-safe
 ("non-runtsafe") variables. Non-runtsafe variables have values that may **change** based on the current node
 in the Storm pipeline. Another significant part of Storm troubleshooting involves understanding the values of
-any variables at any given point in your Storm code. (See :ref:`var-concepts` for addditional information.)
+any variables at any given point in your Storm code. (See :ref:`var-concepts` for additional information.)
 
 **Operations may execute multiple times.** Because each node passes through each operation in a Storm query
 individually, operations execute more than once (typically once for each node in the pipeline as it passes
@@ -205,6 +206,31 @@ set of nodes.
       return($fqdns)
   }
 
+
+.. _flow-empty:
+
+Empty Block
++++++++++++
+
+An **empty block** allows you to execute the specified Storm when there are no nodes in the pipeline. If there
+are nodes in the pipeline, the associated Storm will not be executed.
+
+**Syntax:**
+
+::
+
+  empty { <storm> }
+
+**Example:**
+
+You have a function that conditionally creates a set of nodes and you wish to be warned if no nodes have been made.
+
+::
+
+    yield $makeSomeNodes()
+    empty {
+        $lib.print("No nodes created")
+    }
 
 .. _flow-if-else:
 

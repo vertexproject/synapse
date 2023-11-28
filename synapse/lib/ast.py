@@ -330,6 +330,7 @@ class SubGraph:
                     'degrees': 1,
 
                     'edges': True,
+                    'edgelimit': 3000,
                     'filterinput': True,
                     'yieldfiltered': False,
 
@@ -380,6 +381,7 @@ class SubGraph:
         self.rules.setdefault('edges', True)
         self.rules.setdefault('degrees', 1)
         self.rules.setdefault('maxsize', 100000)
+        self.rules.setdefault('edgelimit', 3000)
 
         self.rules.setdefault('filterinput', True)
         self.rules.setdefault('yieldfiltered', False)
@@ -411,7 +413,7 @@ class SubGraph:
         self.omits[node.buid] = False
         return False
 
-    async def pivots(self, runt, node, path):
+    async def pivots(self, runt, node, path, existing):
 
         if self.rules.get('refs'):
 
@@ -422,6 +424,13 @@ class SubGraph:
                     continue
 
                 yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
+
+            for iden in existing:
+                buid = s_common.uhex(iden)
+                othr = await node.snap.getNodeByBuid(buid)
+                for propname, ndef in othr.getNodeRefs():
+                    if ndef == node.ndef:
+                        yield (othr, path, {'type': 'prop', 'prop': propname, 'reverse': True})
 
         for pivq in self.rules.get('pivots'):
             indx = 0
@@ -445,10 +454,25 @@ class SubGraph:
                 yield (node, path, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
+    async def _edgefallback(self, runt, results, resultidens, node):
+        async for nid01 in results:
+            await asyncio.sleep(0)
+            iden01 = resultidens.get(nid01)
+
+            async for verb in node.iterEdgeVerbs(nid01):
+                await asyncio.sleep(0)
+                yield (iden01, {'type': 'edge', 'verb': verb})
+
+            # for existing nodes, we need to add n2 -> n1 edges in reverse
+            async for verb in runt.snap.iterEdgeVerbs(nid01, node.nid):
+                await asyncio.sleep(0)
+                yield (iden01, {'type': 'edge', 'verb': verb, 'reverse': True})
+
     async def run(self, runt, genr):
 
         # NOTE: this function must agressively yield the ioloop
 
+        edgelimit = self.rules.get('edgelimit')
         doedges = self.rules.get('edges')
         degrees = self.rules.get('degrees')
         maxsize = self.rules.get('maxsize')
@@ -466,10 +490,74 @@ class SubGraph:
             done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            resultsidens = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
+            revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+            edgecounts = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
+            n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+            n2delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
+
             # load the existing graph as already done
-            [await results.add(s_common.uhex(b)) for b in existing]
+            for iden in existing:
+                nid = runt.snap.core.getNidByBuid(s_common.uhex(iden))
+                if nid is None:
+                    continue
+
+                await results.add(nid)
+                await resultsidens.set(nid, iden)
+
+            if doedges:
+                for iden in existing:
+                    nid = runt.snap.core.getNidByBuid(s_common.uhex(iden))
+                    if nid is None:
+                        continue
+
+                    ecnt = 0
+                    cache = collections.defaultdict(list)
+
+                    async for verb, n2nid in runt.snap.iterNodeEdgesN1(nid):
+                        await asyncio.sleep(0)
+
+                        if n2nid in results:
+                            continue
+
+                        ecnt += 1
+                        if ecnt > edgelimit:
+                            break
+
+                        cache[n2nid].append(verb)
+
+                    if ecnt > edgelimit:
+                        # don't let it into the cache.
+                        # We've hit a potential death star and need to deal with it specially
+                        await n1delayed.add(nid)
+                        continue
+
+                    for n2nid, verbs in cache.items():
+                        await asyncio.sleep(0)
+                        if n2delayed.has(n2nid):
+                            continue
+
+                        if not revedge.has(n2nid):
+                            await revedge.set(n2nid, {})
+
+                        re = revedge.get(n2nid)
+                        if nid not in re:
+                            re[nid] = []
+
+                        count = edgecounts.get(n2nid, defv=0) + len(verbs)
+                        if count > edgelimit:
+                            await n2delayed.add(n2nid)
+                            revedge.pop(n2nid)
+                        else:
+                            await edgecounts.set(n2nid, count)
+                            re[nid] += verbs
+                            await revedge.set(n2nid, re)
+
+                            if not resultsidens.get(n2nid):
+                                n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
+                                await resultsidens.set(n2nid, n2iden)
 
             async def todogenr():
 
@@ -485,7 +573,8 @@ class SubGraph:
 
                 await asyncio.sleep(0)
 
-                if node.buid in done:
+                nid = node.nid
+                if nid in done:
                     continue
 
                 count += 1
@@ -494,8 +583,8 @@ class SubGraph:
                     await runt.snap.warn(f'Graph projection hit max size {maxsize}. Truncating results.')
                     break
 
-                await done.add(node.buid)
-                intodo.discard(node.buid)
+                await done.add(nid)
+                intodo.discard(nid)
 
                 omitted = False
                 if dist > 0 or filterinput:
@@ -507,56 +596,119 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                edges = list(revpivs.get(node.buid, defv=()))
-                async for pivn, pivp, pinfo in self.pivots(runt, node, path):
+                nodeiden = node.iden()
+                edges = list(revpivs.get(nid, defv=()))
+                async for pivn, pivp, pinfo in self.pivots(runt, node, path, existing):
 
                     await asyncio.sleep(0)
 
-                    if results.has(pivn.buid):
+                    if results.has(pivn.nid):
                         edges.append((pivn.iden(), pinfo))
                     else:
                         pinfo['reverse'] = True
-                        pivedges = revpivs.get(pivn.buid, defv=())
-                        await revpivs.set(pivn.buid, pivedges + ((node.iden(), pinfo),))
+                        pivedges = revpivs.get(pivn.nid, defv=())
+                        await revpivs.set(pivn.nid, pivedges + ((nodeiden, pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:
                         continue
 
                     # no need to pivot to nodes we already did
-                    if pivn.buid in done:
+                    if pivn.nid in done:
                         continue
 
                     # no need to queue up todos that are already in todo
-                    if pivn.buid in intodo:
+                    if pivn.nid in intodo:
+                        continue
+
+                    # no need to pivot to existing nodes
+                    if pivn.iden() in existing:
                         continue
 
                     # do we have room to go another degree out?
                     if degrees is None or dist < degrees:
                         todo.append((pivn, pivp, dist + 1))
-                        await intodo.add(pivn.buid)
+                        await intodo.add(pivn.nid)
 
                 if doedges:
-
-                    async for buid01 in results:
-
+                    ecnt = 0
+                    cache = collections.defaultdict(list)
+                    await results.add(nid)
+                    await resultsidens.set(nid, nodeiden)
+                    # Try to lift and cache the potential edges for a node so that if we end up
+                    # seeing n2 later, we won't have to go back and check for it
+                    async for verb, n2nid in runt.snap.iterNodeEdgesN1(nid):
                         await asyncio.sleep(0)
 
-                        nid01 = runt.snap.core.getNidByBuid(buid01)
-                        if nid01 is None:
-                            continue
+                        if ecnt > edgelimit:
+                            break
 
-                        iden01 = s_common.ehex(buid01)
-                        async for verb in node.iterEdgeVerbs(nid01):
+                        ecnt += 1
+                        cache[n2nid].append(verb)
+
+                    if ecnt > edgelimit:
+                        # The current node in the pipeline has too many edges from it, so it's
+                        # less prohibitive to just check against the graph
+                        await n1delayed.add(nid)
+                        async for e in self._edgefallback(runt, results, resultsidens, node):
+                            edges.append(e)
+                    else:
+                        for n2nid, verbs in cache.items():
                             await asyncio.sleep(0)
-                            edges.append((iden01, {'type': 'edge', 'verb': verb}))
 
-                        # for existing nodes, we need to add n2 -> n1 edges in reverse
-                        async for verb in runt.snap.iterEdgeVerbs(nid01, node.nid):
-                            await asyncio.sleep(0)
-                            edges.append((iden01, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                            if n2delayed.has(n2nid):
+                                continue
 
-                    await results.add(node.buid)
+                            if not revedge.has(n2nid):
+                                await revedge.set(n2nid, {})
+
+                            re = revedge.get(n2nid)
+                            if nid not in re:
+                                re[nid] = []
+
+                            count = edgecounts.get(n2nid, defv=0) + len(verbs)
+                            if count > edgelimit:
+                                await n2delayed.add(n2nid)
+                                revedge.pop(n2nid)
+                            else:
+                                await edgecounts.set(n2nid, count)
+                                re[nid] += verbs
+                                await revedge.set(n2nid, re)
+
+                                if not resultsidens.get(n2nid):
+                                    n2iden = s_common.ehex(runt.snap.core.getBuidByNid(n2nid))
+                                    await resultsidens.set(n2nid, n2iden)
+
+                        if revedge.has(nid):
+                            for n2nid, verbs in revedge.get(nid).items():
+                                n2iden = resultsidens.get(n2nid)
+
+                                for verb in verbs:
+                                    await asyncio.sleep(0)
+                                    edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+
+                        if n2delayed.has(nid):
+                            async for n1nid in results:
+                                n1iden = resultsidens.get(n1nid)
+
+                                async for verb in runt.snap.iterEdgeVerbs(n1nid, nid):
+                                    await asyncio.sleep(0)
+                                    edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                        for n2nid, verbs in cache.items():
+                            if n2nid not in results:
+                                continue
+
+                            n2iden = resultsidens.get(n2nid)
+                            for v in verbs:
+                                await asyncio.sleep(0)
+                                edges.append((n2iden, {'type': 'edge', 'verb': v}))
+
+                        async for n1nid in n1delayed:
+                            n1iden = resultsidens.get(n1nid)
+
+                            async for verb in runt.snap.iterEdgeVerbs(n1nid, nid):
+                                await asyncio.sleep(0)
+                                edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                 path.metadata['edges'] = edges
                 yield node, path
@@ -682,6 +834,38 @@ class InitBlock(AstNode):
         if not once:
             async for innr in subq.run(runt, s_common.agen()):
                 yield innr
+
+class EmptyBlock(AstNode):
+    '''
+    An AST node that only runs if there are not inbound nodes in the pipeline. It is
+    capable of yielding nodes into the pipeline.
+
+    Example:
+
+        Using an empty block::
+
+            empty {
+                // the pipeline is empty so this block will execute
+            }
+
+            [foo:bar=*]
+            empty {
+                // there is a node in the pipeline so this block will not run
+            }
+    '''
+    async def run(self, runt, genr):
+
+        subq = self.kids[0]
+        self.reqRuntSafe(runt, 'Empty block query must be runtsafe')
+
+        empty = True
+        async for item in genr:
+            empty = False
+            yield item
+
+        if empty:
+            async for subn in subq.run(runt, s_common.agen()):
+                yield subn
 
 class FiniBlock(AstNode):
     '''
@@ -1907,7 +2091,8 @@ class PivotInFrom(PivotOper):
                 yield node, path
 
             if not isinstance(node.form.type, s_types.Edge):
-                continue
+                mesg = f'Pivot in from a specific form cannot be used with nodes of type {node.form.type.name}'
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, name=node.form.type.name))
 
             # dont bother traversing edges to the wrong form
             if node.get('n1:form') != form.name:
@@ -2771,6 +2956,9 @@ class RelPropCond(Cond):
             if not isinstance(xval, s_node.Node):
                 xval = await s_stormtypes.tostor(xval)
 
+            if xval is None:
+                return False
+
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name))
@@ -2890,6 +3078,8 @@ class PropValue(Value):
         return False
 
     async def getPropAndValu(self, runt, path):
+        if not path:
+            return None, None
 
         name = await self.kids[0].compute(runt, path)
 

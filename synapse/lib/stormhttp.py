@@ -274,14 +274,17 @@ class LibHttp(s_stormtypes.Lib):
             return {str(k): str(v) for k, v in item.items()}
         return item
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def urlencode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.quote_plus(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def urldecode(self, text):
         text = await s_stormtypes.tostr(text)
         return urllib.parse.unquote_plus(text)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def codereason(self, code):
         code = await s_stormtypes.toint(code)
         return s_common.httpcodereason(code)
@@ -414,7 +417,16 @@ class LibHttp(s_stormtypes.Lib):
                     data = self._buildFormData(fields)
                 else:
                     data = body
-                async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
+
+                # `data` and `json` are passed in kwargs only if they are not
+                # None because of a weird interaction with aiohttp and vcrpy.
+                if data is not None:
+                    kwargs['data'] = data
+
+                if json is not None:
+                    kwargs['json'] = json
+
+                async with sess.request(meth, url, headers=headers, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'reason': await self.codereason(resp.status),

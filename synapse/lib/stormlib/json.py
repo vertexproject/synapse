@@ -62,9 +62,11 @@ class JsonSchema(s_stormtypes.StormType):
             'validate': self._validate,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _schema(self):
         return copy.deepcopy(self.schema)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _validate(self, item):
         item = await s_stormtypes.toprim(item)
 
@@ -112,6 +114,7 @@ class JsonLib(s_stormtypes.Lib):
             'schema': self._jsonSchema,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSave(self, item):
         try:
             item = await s_stormtypes.toprim(item)
@@ -120,6 +123,7 @@ class JsonLib(s_stormtypes.Lib):
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _jsonLoad(self, text):
         text = await s_stormtypes.tostr(text)
         try:
@@ -128,6 +132,7 @@ class JsonLib(s_stormtypes.Lib):
             mesg = f'Text is not valid JSON: {text}'
             raise s_exc.BadJsonText(mesg=mesg)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSchema(self, schema, use_default=True):
         schema = await s_stormtypes.toprim(schema)
         use_default = await s_stormtypes.tobool(use_default)
