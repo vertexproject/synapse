@@ -7274,7 +7274,9 @@ class View(Prim):
     async def _methGetPropCount(self, propname, valu=undef):
         propname = await tostr(propname)
 
-        if valu is not undef:
+        if valu is undef:
+            valu = s_common.novalu
+        else:
             valu = await toprim(valu)
 
         viewiden = self.valu.get('iden')
@@ -7289,7 +7291,9 @@ class View(Prim):
         propname = await tostr(propname)
         form = await tostr(form, noneok=True)
 
-        if valu is not undef:
+        if valu is undef:
+            valu = s_common.novalu
+        else:
             valu = await toprim(valu)
 
         viewiden = self.valu.get('iden')
@@ -7302,7 +7306,9 @@ class View(Prim):
     async def _methGetPropArrayCount(self, propname, valu=undef):
         propname = await tostr(propname)
 
-        if valu is not undef:
+        if valu is undef:
+            valu = s_common.novalu
+        else:
             valu = await toprim(valu)
 
         viewiden = self.valu.get('iden')
