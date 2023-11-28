@@ -1244,6 +1244,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.permdefs = None
         self.permlook = None
 
+    def getDmonUser(self):
+        '''
+        Return the user IDEN of a telepath caller who invoked the current task.
+        ( defaults to returning current root user )
+        '''
+        sess = s_scope.get('sess', None)
+        if sess is None:
+            return self.auth.rootuser.iden
+
+        if sess.user is None:
+            return self.auth.rootuser.iden
+
+        return sess.user.iden
+
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''
         # we inherit from Pusher to make the Cell a Base subclass

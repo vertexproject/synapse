@@ -19,7 +19,8 @@ class AhaPoolLib(s_stormtypes.Lib):
     async def add(self, name):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
-        poolinfo = await proxy.addAhaPool(name)
+        poolinfo = {'creator': self.runt.user.iden}
+        poolinfo = await proxy.addAhaPool(name, poolinfo)
         return AhaPool(self.runt, poolinfo)
 
     async def _del(self, name):
@@ -45,27 +46,6 @@ class AhaPoolLib(s_stormtypes.Lib):
 @s_stormtypes.registry.registerType
 class AhaPool(s_stormtypes.StormType):
     _storm_typename = 'aha:pool'
-    '''
-    _storm_locals = (
-        {'name': 'name', 'type': 'str'},
-        #{'name': 'type', 'type': 'str'},
-        {'name': 'services', 'type': {'type': 'array', 'items': 'aha:service'}},
-
-        {'name': 'add', 'type': {'type': 'function', '_funcname': 'add',
-            'args': (
-                {'name': 'svcname', 'type': 'str', 'desc': 'The service to add to the pool.'},
-              ),
-              'returns': {'type': 'null'},
-        }},
-
-        {'name': 'del', 'type': {'type': 'function', '_funcname': '_del',
-            'args': (
-                {'name': 'svcname', 'type': 'str', 'desc': 'The service to add to the pool.'},
-              ),
-              'returns': {'type': 'null'},
-        }},
-    )
-    '''
 
     def __init__(self, runt, poolinfo):
         s_stormtypes.StormType.__init__(self)
@@ -94,7 +74,10 @@ class AhaPool(s_stormtypes.StormType):
         proxy = await self.runt.snap.core.reqAhaProxy()
 
         poolname = self.poolinfo.get('name')
-        poolinfo = await proxy.addAhaPoolSvc(poolname, svcname)
+
+        poolinfo = {'creator': self.runt.user.iden}
+        poolinfo = await proxy.addAhaPoolSvc(poolname, svcname, poolinfo)
+
         self.poolinfo.update(poolinfo)
 
     async def _del(self, svcname):

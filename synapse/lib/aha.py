@@ -57,6 +57,25 @@ _provSvcSchema = {
 }
 provSvcSchema = s_config.getJsValidator(_provSvcSchema)
 
+_svcPoolSchema = {
+    'type': 'object', 'properties': {
+        'name': {'type': 'string', 'minLength': 1},
+        'created': {'type': 'number'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'services': {'type': 'object', 'patternProperties': {
+            '.+': {'type': 'object', 'properties': {
+                'created': {'type': 'number'},
+                'creator': {'type': 'string', 'pattern': s_config.re_iden},
+            },
+            'required': ['creator', 'created'],
+            'additionalProperties': False,
+        }}},
+    },
+    'additionalProperties': False,
+    'required': ['name', 'creator', 'created', 'services'],
+}
+reqValidPoolInfo = s_config.getJsValidator(_svcPoolSchema)
+
 class AhaProvisionServiceV1(s_httpapi.Handler):
 
     async def post(self):
@@ -261,16 +280,16 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
     @s_cell.adminapi()
-    async def addAhaPool(self, name, info=None):
-        return await self.cell.addAhaPool(name, info=None)
+    async def addAhaPool(self, name, info):
+        return await self.cell.addAhaPool(name, info)
 
     @s_cell.adminapi()
     async def delAhaPool(self, name):
         return await self.cell.delAhaPool(name)
 
     @s_cell.adminapi()
-    async def addAhaPoolSvc(self, poolname, svcname):
-        return await self.cell.addAhaPoolSvc(poolname, svcname)
+    async def addAhaPoolSvc(self, poolname, svcname, info):
+        return await self.cell.addAhaPoolSvc(poolname, svcname, info)
 
     @s_cell.adminapi()
     async def delAhaPoolSvc(self, poolname, svcname):
@@ -634,7 +653,7 @@ class AhaCell(s_cell.Cell):
             return s_msgpack.un(byts)
 
     def _savePoolInfo(self, poolinfo):
-        # TODO validate schema...
+        reqValidPoolInfo(poolinfo)
         name = poolinfo.get('name')
         self.slab.put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
 
@@ -652,21 +671,19 @@ class AhaCell(s_cell.Cell):
         mesg = f'There is no AHA service pool named {name}.'
         raise s_exc.NoSuchName(mesg=mesg)
 
-    async def addAhaPool(self, name, info=None):
-
-        if info is None:
-            info = {}
+    async def addAhaPool(self, name, info):
 
         name = self._getAhaName(name)
-        if not isinstance(info, dict):
-            raise s_exc.BadArg(mesg='addAhaPool() "info" argument must be a dictionary.')
 
         if await self._getAhaSvc(name) is not None:
             mesg = f'An AHA service or pool is already using the name "{name}".'
             raise s_exc.DupName(mesg=mesg)
 
         info['name'] = name
-        info.setdefault('services', {})
+        info['created'] = s_common.now()
+        info['services'] = {}
+
+        info.setdefault('creator', self.getDmonUser())
 
         return await self._push('aha:pool:add', info)
 
@@ -679,15 +696,22 @@ class AhaCell(s_cell.Cell):
         self._savePoolInfo(info)
         return info
 
+    async def addAhaPoolSvc(self, poolname, svcname, info):
+        info['created'] = s_common.now()
+        info.setdefault('creator', self.getDmonUser())
+        return await self._addAhaPoolSvc(poolname, svcname, info)
+
     @s_nexus.Pusher.onPushAuto('aha:pool:svc:add')
-    async def addAhaPoolSvc(self, poolname, svcname):
+    async def _addAhaPoolSvc(self, poolname, svcname, info):
 
         svcname = self._getAhaName(svcname)
         poolname = self._getAhaName(poolname)
 
         svcitem = await self._reqAhaSvc(svcname)
+
         poolinfo = self._loadPoolInfo(poolname)
-        poolinfo['services'][svcname] = {}
+        poolinfo['services'][svcname] = info
+
         self._savePoolInfo(poolinfo)
 
         for wind in self.poolwindows.get(poolname, ()):
@@ -703,6 +727,7 @@ class AhaCell(s_cell.Cell):
 
         poolinfo = self._reqPoolInfo(poolname)
         poolinfo['services'].pop(svcname, None)
+
         self._savePoolInfo(poolinfo)
 
         for wind in self.poolwindows.get(poolname, ()):
@@ -721,9 +746,6 @@ class AhaCell(s_cell.Cell):
         if svcitem is None:
             raise s_exc.NoSuchName(mesg=f'No AHA service is currently named "{svcname}".')
         return svcitem
-
-    # async def delAhaPoolSvc(self, poolname, svcname, network=None):
-    # async def getAhaPool(self, name, network=None):
 
     @s_nexus.Pusher.onPushAuto('aha:svc:del')
     async def delAhaSvc(self, name, network=None):
