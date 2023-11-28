@@ -87,10 +87,10 @@ class BaseModule(s_module.CoreModule):
                 ('graph:timeedge', ('timeedge', {}), {
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
-                ('meta:priority', ('int', {'enums': prioenums}), {
+                ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic priority enumeration.'}),
 
-                ('meta:severity', ('int', {'enums': prioenums}), {
+                ('meta:severity', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic severity enumeration.'}),
 
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
