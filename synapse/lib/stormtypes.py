@@ -7155,8 +7155,14 @@ class View(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+            if name == 'parent' and valu is not None:
+                self.runt.snap.core.reqView(valu)
+                self.runt.confirm(('view', 'read'), gateiden=valu)
+                self.runt.confirm(('view', 'fork'), gateiden=valu)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
+
         elif name == 'layers':
 
             view = self._reqView()
@@ -7185,8 +7191,11 @@ class View(Prim):
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.viewDynCall(todo, ('view', 'set', name))
+        view = self.runt.snap.core.reqView(self.valu.get('iden'))
+
+        self.runt.confirm(('view', 'set', name), gateiden=view.iden)
+        await view.setViewInfo(name, valu)
+
         self.valu[name] = valu
 
     @stormfunc(readonly=True)
