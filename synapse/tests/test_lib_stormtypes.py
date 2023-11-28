@@ -6010,6 +6010,9 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
             self.eq(2, await core.callStorm(q))
 
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs))'
+            self.eq(0, await core.callStorm(q))
+
             q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs, valu=*))'
             self.eq(0, await core.callStorm(q))
 
@@ -6029,6 +6032,9 @@ class StormTypesTest(s_test.SynTest):
 
             q = 'return($lib.layer.get().getTagPropCount(foo, score, form=ou:org, valu=2))'
             self.eq(2, await core.callStorm(q))
+
+            q = 'return($lib.layer.get().getTagPropCount(bar, score))'
+            self.eq(0, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getTagPropCount(bar, score, valu=2))'
             self.eq(0, await core.callStorm(q))
