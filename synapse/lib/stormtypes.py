@@ -6317,7 +6317,7 @@ class Layer(Prim):
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
                       {'name': 'maxsize', 'type': 'int', 'desc': 'The maximum number of rows to look up.',
                        'default': None, },
-                      {'name': 'valu', 'type': 'any', 'default': s_common.novalu,
+                      {'name': 'valu', 'type': 'any', 'default': None,
                        'desc': 'A specific value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
@@ -6326,19 +6326,19 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropArrayCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
-                      {'name': 'valu', 'type': 'any', 'default': s_common.novalu,
+                      {'name': 'valu', 'type': 'any', 'default': None,
                        'desc': 'A specific value in the array property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
         {'name': 'getTagPropCount',
          'desc': 'Get the number of rows in the layer for the given tag property.',
-         'type': {'type': 'function', '_funcname': '_methGetTagPropValueCount',
+         'type': {'type': 'function', '_funcname': '_methGetTagPropCount',
                   'args': (
                       {'name': 'tag', 'type': 'str', 'desc': 'The tag to look up.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
                       {'name': 'form', 'type': 'str', 'default': None,
                        'desc': 'The optional form to look up.', },
-                      {'name': 'valu', 'type': 'any', 'default': s_common.novalu,
+                      {'name': 'valu', 'type': 'any', 'default': None,
                        'desc': 'A specific value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of rows.', }}},
@@ -6703,7 +6703,7 @@ class Layer(Prim):
         return await layr.getTagCount(tagname, formname=formname)
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, maxsize=None, valu=s_common.novalu):
+    async def _methGetPropCount(self, propname, maxsize=None, valu=None):
         propname = await tostr(propname)
         maxsize = await toint(maxsize, noneok=True)
 
@@ -6716,7 +6716,7 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
 
-        if valu is s_common.novalu:
+        if valu is None:
             if prop.isform:
                 return await layr.getPropCount(prop.name, None, maxsize=maxsize)
 
@@ -6737,7 +6737,7 @@ class Layer(Prim):
         return layr.getPropValuCount(prop.form.name, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
-    async def _methGetPropArrayCount(self, propname, valu=s_common.novalu):
+    async def _methGetPropArrayCount(self, propname, valu=None):
         propname = await tostr(propname)
 
         prop = self.runt.snap.core.model.prop(propname)
@@ -6753,7 +6753,7 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
 
-        if valu is s_common.novalu:
+        if valu is None:
             if prop.isform:
                 return await layr.getPropArrayCount(prop.name, None)
 
@@ -6775,7 +6775,7 @@ class Layer(Prim):
         return layr.getPropArrayValuCount(prop.form.name, prop.name, atyp.stortype, norm)
 
     @stormfunc(readonly=True)
-    async def _methGetTagPropCount(self, tag, propname, form=None, valu=s_common.novalu):
+    async def _methGetTagPropCount(self, tag, propname, form=None, valu=None):
         tag = await tostr(tag)
         propname = await tostr(propname)
         form = await tostr(form, noneok=True)
@@ -6789,7 +6789,7 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
 
-        if valu is s_common.novalu:
+        if valu is None:
             return await layr.getTagPropCount(form, tag, prop.name)
 
         valu = await toprim(valu)
@@ -7133,7 +7133,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
-                      {'name': 'valu', 'type': 'any', 'default': s_common.novalu,
+                      {'name': 'valu', 'type': 'any', 'default': None,
                        'desc': 'The value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
@@ -7151,7 +7151,7 @@ class View(Prim):
          'type': {'type': 'function', '_funcname': '_methGetPropArrayCount',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
-                      {'name': 'valu', 'type': 'any', 'default': s_common.novalu,
+                      {'name': 'valu', 'type': 'any', 'default': None,
                        'desc': 'The value in the array property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
@@ -7172,7 +7172,7 @@ class View(Prim):
                       {'name': 'propname', 'type': 'str', 'desc': 'The property name to look up.', },
                       {'name': 'form', 'type': 'str', 'default': None,
                        'desc': 'The optional form to look up.', },
-                      {'name': 'valu', 'type': 'any', 'default': s_common.novalu,
+                      {'name': 'valu', 'type': 'any', 'default': None,
                        'desc': 'The value of the property to look up.', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
@@ -7271,11 +7271,9 @@ class View(Prim):
         return await self.viewDynCall(todo, ('view', 'read'))
 
     @stormfunc(readonly=True)
-    async def _methGetPropCount(self, propname, valu=s_common.novalu):
+    async def _methGetPropCount(self, propname, valu=None):
         propname = await tostr(propname)
-
-        if valu is not s_common.novalu:
-            valu = await toprim(valu)
+        valu = await toprim(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -7284,13 +7282,11 @@ class View(Prim):
         return await view.getPropCount(propname, valu=valu)
 
     @stormfunc(readonly=True)
-    async def _methGetTagPropCount(self, tag, propname, form=None, valu=s_common.novalu):
+    async def _methGetTagPropCount(self, tag, propname, form=None, valu=None):
         tag = await tostr(tag)
         propname = await tostr(propname)
         form = await tostr(form, noneok=True)
-
-        if valu is not s_common.novalu:
-            valu = await toprim(valu)
+        valu = await toprim(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -7299,11 +7295,9 @@ class View(Prim):
         return await view.getTagPropCount(form, tag, propname, valu=valu)
 
     @stormfunc(readonly=True)
-    async def _methGetPropArrayCount(self, propname, valu=s_common.novalu):
+    async def _methGetPropArrayCount(self, propname, valu=None):
         propname = await tostr(propname)
-
-        if valu is not s_common.novalu:
-            valu = await toprim(valu)
+        valu = await toprim(valu)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
