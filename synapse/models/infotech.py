@@ -408,6 +408,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Mitre ATT&CK Software ID.',
                     'ex': 'S0154',
                 }),
+                ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
+                    'doc': 'A Mitre ATT&CK Campaign ID.',
+                    'ex': 'C0028',
+                }),
                 ('it:mitre:attack:flow', ('guid', {}), {
                     'doc': 'A Mitre ATT&CK Flow diagram.',
                 }),
@@ -1253,6 +1257,45 @@ class ItModule(s_module.CoreModule):
                     ('addresses', ('array', {'type': 'it:mitre:attack:technique',
                                              'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
+                    }),
+                )),
+                ('it:mitre:attack:campaign', {}, (
+                    ('name', ('ou:name', {}), {
+                        'doc': 'The primary name for the ATT&CK campaign.',
+                    }),
+                    ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternate names for the ATT&CK campaign.',
+                    }),
+                    ('desc', ('str', {'strip': True}), {
+                        'doc': 'A description of the ATT&CK campaign.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL that documents the ATT&CK campaign.',
+                    }),
+                    ('groups', ('array', {'type': 'it:mitre:attack:group',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK group IDs attributed to the campaign.',
+                    }),
+                    ('software', ('array', {'type': 'it:mitre:attack:software',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK software IDs used in the campaign.',
+                    }),
+                    ('techniques', ('array', {'type': 'it:mitre:attack:technique',
+                                             'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'An array of ATT&CK technique IDs used in the campaign.',
+                    }),
+                    ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
+                                            'uniq': True, 'sorted': True, 'split': ','}), {
+                        'doc': 'The ATT&CK matrices which define the campaign.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the campaign was created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the campaign was last updated.'}),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The synapse tag used to annotate nodes included in this ATT&CK campaign.',
+                        'ex': 'cno.mitre.c0028',
                     }),
                 )),
                 ('it:mitre:attack:flow', {}, (
