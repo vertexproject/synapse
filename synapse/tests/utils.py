@@ -275,6 +275,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
         ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
@@ -324,6 +325,7 @@ testmodel = {
         )),
         ('test:arrayform', {}, (
         )),
+        ('test:taxonomy', {}, ()),
         ('test:type10', {}, (
 
             ('intprop', ('int', {'min': 20, 'max': 30}), {}),
