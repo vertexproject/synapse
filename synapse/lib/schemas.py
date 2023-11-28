@@ -60,6 +60,7 @@ _LayerPushPullSchema = {
                        'exclusiveMinimum': 1},
         'chunk:size': {'type': 'integer', 'default': 1_000,
                          'exclusiveMinimum': 1}
+
     },
     'additionalProperties': True,
     'required': ['iden', 'url', 'user', 'time'],
