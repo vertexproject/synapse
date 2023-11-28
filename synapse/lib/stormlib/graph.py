@@ -20,6 +20,7 @@ gdefSchema = {
         'updated': {'type': 'number'},
         'refs': {'type': 'boolean', 'default': False},
         'edges': {'type': 'boolean', 'default': True},
+        'edgelimit': {'type': 'number', 'default': 3000},
         'degrees': {'type': ['integer', 'null'], 'minimum': 0},
         'filterinput': {'type': 'boolean', 'default': True},
         'yieldfiltered': {'type': 'boolean', 'default': False},
@@ -96,7 +97,7 @@ class GraphLib(s_stormtypes.Lib):
                         "name": "Test Projection",
                         "desc": "My test projection",
                         "degrees": 2,
-                        "pivots": ["<- meta:seen <- meta:source"],
+                        "pivots": ["-> meta:seen"],
                         "filters": ["-#nope"],
                         "forms": {
                             "inet:fqdn": {

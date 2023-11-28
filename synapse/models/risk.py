@@ -115,6 +115,8 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
+                ('risk:technique:masquerade', ('guid', {}), {
+                    'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
             ),
             'edges': (
                 # some explicit examples...
@@ -591,8 +593,11 @@ class RiskModule(s_module.CoreModule):
                     ('benign', ('bool', {}), {
                         'doc': 'Set to true if the alert has been confirmed benign. Set to false if malicious.'}),
 
-                    ('priority', ('int', {}), {
-                        'doc': 'A numeric value used to rank alerts by priority.'}),
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'A priority rank for the alert.'}),
+
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the alert.'}),
 
                     ('verdict', ('risk:alert:verdict:taxonomy', {}), {
                         'ex': 'benign.false_positive',
@@ -695,8 +700,8 @@ class RiskModule(s_module.CoreModule):
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'An integer based relative severity score for the compromise.'}),
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the compromise.'}),
 
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the attacker for the compromise.'}),
@@ -748,8 +753,8 @@ class RiskModule(s_module.CoreModule):
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'A compromise that this attack contributed to.'}),
 
-                    ('severity', ('int', {}), {
-                        'doc': 'An integer based relative severity score for the attack.'}),
+                    ('severity', ('meta:severity', {}), {
+                        'doc': 'A severity rank for the attack.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the attack.'}),
@@ -938,6 +943,16 @@ class RiskModule(s_module.CoreModule):
                     ('demanded:payment:currency', ('econ:currency', {}), {
                         'doc': 'The currency in which payment was demanded.'}),
 
+                )),
+                ('risk:technique:masquerade', {}, (
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node masquerading as another.'}),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period when the masquerading was active.'}),
+                    ('target', ('ndef', {}), {
+                        'doc': 'The being masqueraded as.'}),
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The specific technique which describes the type of masquerading.'}),
                 )),
             ),
         }

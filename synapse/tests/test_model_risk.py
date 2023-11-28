@@ -281,9 +281,13 @@ class RiskModelTest(s_t_utils.SynTest):
                     :ext:id=WOOT-20
                     :engine={[ it:prod:softver=* :name=visiware ]}
                     :host=*
+                    :priority=high
+                    :severity=highest
                 ]
             ''')
             self.len(1, nodes)
+            self.eq(40, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('severity'))
             self.eq('bazfaz.', nodes[0].get('type'))
             self.eq('FooBar', nodes[0].get('name'))
             self.eq('BlahBlah', nodes[0].get('desc'))
@@ -466,6 +470,22 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:extortion :attacker -> ps:contact +:name=agent99'))
             self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:extortion :reporter -> ou:org +:name=vertex'))
+
+            nodes = await core.nodes('''[
+                risk:technique:masquerade=*
+                    :node=(inet:fqdn, microsoft-verify.com)
+                    :target=(inet:fqdn, microsoft.com)
+                    :technique={[ ou:technique=* :name=masq ]}
+                    :period=(2021, 2022)
+            ]''')
+            self.len(1, nodes)
+            self.eq(('inet:fqdn', 'microsoft.com'), nodes[0].get('target'))
+            self.eq(('inet:fqdn', 'microsoft-verify.com'), nodes[0].get('node'))
+            self.eq((1609459200000, 1640995200000), nodes[0].get('period'))
+            self.nn(nodes[0].get('technique'))
+            self.len(1, await core.nodes('risk:technique:masquerade -> ou:technique'))
+            self.len(1, await core.nodes('risk:technique:masquerade :node -> * +inet:fqdn=microsoft-verify.com'))
+            self.len(1, await core.nodes('risk:technique:masquerade :target -> * +inet:fqdn=microsoft.com'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:

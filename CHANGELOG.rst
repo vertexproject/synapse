@@ -6,6 +6,116 @@
 Synapse Changelog
 *****************
 
+v2.155.0 - 2023-11-17
+=====================
+
+Model Changes
+-------------
+- Updates to the ``infotech``, ``proj``,  and ``risk`` models.
+  (`#3422 <https://github.com/vertexproject/synapse/pull/3422>`_)
+
+  **New Properties**
+
+  ``proj:ticket``
+    The form had the following property added to it:
+
+    ``ext:assignee``
+      Ticket assignee contact information from an external system.
+
+  ``risk:alert``
+    The form had the following property added to it:
+
+    ``severity``
+      A severity rank for the alert.
+
+  ``it:exec:query``
+    The form had the following property added to it:
+
+    ``offset``
+      The offset of the last record consumed from the query.
+
+  **New Forms**
+
+  ``it:av:scan:result``
+    The result of running an antivirus scanner.
+
+  **Updated Properties**
+
+  ``risk:alert``
+    The form had the following properties updated on it:
+
+    ``priority``
+      The type of this property has been changed from an ``int`` to
+      ``meta:priority``.
+
+  ``risk:attack``
+    The form had the following properties updated on it:
+
+    ``severity``
+      The type of this property has been changed from an ``int`` to
+      ``meta:severity``.
+
+  ``risk:compromise``
+    The form had the following properties updated on it:
+
+    ``severity``
+      The type of this property has been changed from an ``int`` to
+      ``meta:severity``.
+
+  **Deprecated Forms**
+
+  The following forms have been marked as deprecated:
+
+  ``it:av:sig``
+    Please use ``it:av:scan:result``.
+
+  ``it:av:filehit``
+    Please use ``it:av:scan:result``.
+
+  ``it:av:prochit``
+    Please use ``it:av:scan:result``.
+
+Features and Enhancements
+-------------------------
+- Add a ``detach()`` method to the Storm ``view`` object. This will detach a
+  forked View from its parent.
+  (`#3423 <https://github.com/vertexproject/synapse/pull/3423>`_)
+- Change the method used to generate the ``took`` value in the Storm ``fini``
+  message to use a monotonic clock.
+  (`#3425 <https://github.com/vertexproject/synapse/pull/3425>`_)
+- Performing an invalid "pivot in" operation with a form target
+  (``<- some:form``) now raises a ``StormRuntimeError`` instead of silently
+  doing nothing.
+  (`#3426 <https://github.com/vertexproject/synapse/pull/3426>`_)
+- Allow relative properties on the right hand side of a filter operation
+  when using Storm expression syntax.
+  (`#3424 <https://github.com/vertexproject/synapse/pull/3424>`_)
+- Add an ``/api/v1/logout`` method on the Cell to allow HTTPS users to logout
+  of their sessions.
+  (`#3430 <https://github.com/vertexproject/synapse/pull/3430>`_)
+- Allow taxonomy prefix lift and filter operations to work with taxon parts.
+  (`#3429 <https://github.com/vertexproject/synapse/pull/3429>`_)
+- Update the allowed versions of the ``cbor2``, ``pycryptodome``,
+  ``pygments``, ``vcrpy``, and ``xxhash`` libraries. Update the pinned version
+  of the ``lark`` library.
+  (`#3418 <https://github.com/vertexproject/synapse/pull/3418>`_)
+
+Bugfixes
+--------
+- Fix a performance regression in graph projection for computing large graphs
+  in Storm.
+  (`#3375 <https://github.com/vertexproject/synapse/pull/3375>`_)
+- Fix a conflict between Storm ``$lib.inet.http`` functions and ``vcrpy``
+  where ``json`` and ``data`` args shouldn't be passed together.
+  (`#3428 <https://github.com/vertexproject/synapse/pull/3428>`_)
+
+Improved Documentation
+----------------------
+- Fix an error in the Cortex mirror deployment guide. The example
+  ``docker-compose.yaml`` was missing the environment variables for
+  ``SYN_CORTEX_AXON`` and ``SYN_CORTEX_JSONSTOR``.
+  (`#3430 <https://github.com/vertexproject/synapse/pull/3430>`_)
+
 v2.154.1 - 2023-11-15
 =====================
 
@@ -8714,7 +8824,7 @@ v2.0.0 - 2020-06-08
 
 Initial 2.0.0 release.
 
-.. _changelog-depr-20231001
+.. _changelog-depr-20231001:
 
 API Deprecation Notice - 2023-10-01
 ===================================
