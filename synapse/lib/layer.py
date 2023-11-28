@@ -2935,7 +2935,6 @@ class Layer(s_nexus.Pusher):
     def getPropValuCount(self, formname, propname, stortype, valu):
         try:
             abrv = self.getPropAbrv(formname, propname)
-
         except s_exc.NoSuchAbrv:
             return 0
 
@@ -2948,10 +2947,20 @@ class Layer(s_nexus.Pusher):
 
         return count
 
+    async def getPropArrayCount(self, formname, propname=None):
+        '''
+        Return the number of invidiual value rows in the layer for the given array form/prop.
+        '''
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.byarray)
+
     def getPropArrayValuCount(self, formname, propname, stortype, valu):
         try:
             abrv = self.getPropAbrv(formname, propname)
-
         except s_exc.NoSuchAbrv:
             return 0
 
@@ -2972,10 +2981,20 @@ class Layer(s_nexus.Pusher):
 
         return await self.layrslab.countByPref(abrv, db=self.byprop, maxsize=maxsize)
 
+    async def getTagPropCount(self, form, tag, prop):
+        '''
+        Return the number of property rows in the layer for the given form/tag/prop.
+        '''
+        try:
+            abrv = self.getTagPropAbrv(form, tag, prop)
+        except s_exc.NoSuchAbrv:
+            return 0
+
+        return await self.layrslab.countByPref(abrv, db=self.bytagprop)
+
     def getTagPropValuCount(self, form, tag, prop, stortype, valu):
         try:
             abrv = self.getTagPropAbrv(form, tag, prop)
-
         except s_exc.NoSuchAbrv:
             return 0
 

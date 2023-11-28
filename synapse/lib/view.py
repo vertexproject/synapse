@@ -398,14 +398,13 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
-    async def getPropValuCount(self, propname, valu):
+    async def getPropCount(self, propname, valu=s_common.novalu):
         prop = self.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        norm, info = prop.type.norm(valu)
-
+        count = 0
         formname = None
         propname = None
 
@@ -416,29 +415,43 @@ class View(s_nexus.Pusher):  # type: ignore
             if not prop.isuniv:
                 formname = prop.form.name
 
-        count = 0
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getPropCount(formname, propname)
+            return count
+
+        norm, info = prop.type.norm(valu)
+
         for layr in self.layers:
             await asyncio.sleep(0)
             count += layr.getPropValuCount(formname, propname, prop.type.stortype, norm)
 
         return count
 
-    async def getTagPropValuCount(self, form, tag, propname, valu):
+    async def getTagPropCount(self, form, tag, propname, valu=s_common.novalu):
         prop = self.core.model.getTagProp(propname)
         if prop is None:
             mesg = f'No tag property named {propname}'
             raise s_exc.NoSuchTagProp(name=propname, mesg=mesg)
 
+        count = 0
+
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getTagPropCount(form, tag, prop.name)
+            return count
+
         norm, info = prop.type.norm(valu)
 
-        count = 0
         for layr in self.layers:
             await asyncio.sleep(0)
             count += layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
         return count
 
-    async def getPropArrayValuCount(self, propname, valu):
+    async def getPropArrayCount(self, propname, valu=s_common.novalu):
         prop = self.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
@@ -448,9 +461,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Property is not an array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        atyp = prop.type.arraytype
-        norm, info = atyp.norm(valu)
-
+        count = 0
         formname = None
         propname = None
 
@@ -461,7 +472,15 @@ class View(s_nexus.Pusher):  # type: ignore
             if not prop.isuniv:
                 formname = prop.form.name
 
-        count = 0
+        if valu is s_common.novalu:
+            for layr in self.layers:
+                await asyncio.sleep(0)
+                count += await layr.getPropArrayCount(formname, propname)
+            return count
+
+        atyp = prop.type.arraytype
+        norm, info = atyp.norm(valu)
+
         for layr in self.layers:
             await asyncio.sleep(0)
             count += layr.getPropArrayValuCount(formname, propname, atyp.stortype, norm)
