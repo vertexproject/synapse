@@ -398,7 +398,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 counts[name] += valu
         return counts
 
-    async def getPropCount(self, propname, valu=None):
+    async def getPropCount(self, propname, valu=s_stormtypes.undef):
         prop = self.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
@@ -415,7 +415,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if not prop.isuniv:
                 formname = prop.form.name
 
-        if valu is None:
+        if valu is s_stormtypes.undef:
             for layr in self.layers:
                 await asyncio.sleep(0)
                 count += await layr.getPropCount(formname, propname)
@@ -429,7 +429,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
-    async def getTagPropCount(self, form, tag, propname, valu=None):
+    async def getTagPropCount(self, form, tag, propname, valu=s_stormtypes.undef):
         prop = self.core.model.getTagProp(propname)
         if prop is None:
             mesg = f'No tag property named {propname}'
@@ -437,7 +437,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         count = 0
 
-        if valu is None:
+        if valu is s_stormtypes.undef:
             for layr in self.layers:
                 await asyncio.sleep(0)
                 count += await layr.getTagPropCount(form, tag, prop.name)
@@ -451,7 +451,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
-    async def getPropArrayCount(self, propname, valu=None):
+    async def getPropArrayCount(self, propname, valu=s_stormtypes.undef):
         prop = self.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
@@ -472,7 +472,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if not prop.isuniv:
                 formname = prop.form.name
 
-        if valu is None:
+        if valu is s_stormtypes.undef:
             for layr in self.layers:
                 await asyncio.sleep(0)
                 count += await layr.getPropArrayCount(formname, propname)
