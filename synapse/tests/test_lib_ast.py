@@ -1622,33 +1622,6 @@ class AstTest(s_test.SynTest):
             self.eq(erfo[1][0], 'StormRuntimeError')
             self.eq(erfo[1][1].get('mesg'), 'Set does not support assignment.')
 
-            q = '$foo = $lib.null $foo.bar = baz'
-            msgs = await core.stormlist(q)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('mesg'), 'null does not support assignment.')
-
-            q = '''
-            [inet:fqdn=foo]
-            $foo=$lib.null
-            inet:fqdn
-            $foo.bar = baz
-            '''
-            msgs = await core.stormlist(q)
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('mesg'), 'null does not support assignment.')
-
-            msgs = await core.stormlist('$foo=bar $foo.bar = baz')
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('mesg'), 'str does not support assignment.')
-
-            msgs = await core.stormlist('$foo=(1) $foo.bar = baz')
-            erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('mesg'), 'int does not support assignment.')
-
     async def test_ast_initfini(self):
 
         async with self.getTestCore() as core:

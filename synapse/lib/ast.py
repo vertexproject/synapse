@@ -1267,10 +1267,6 @@ class SetItemOper(Oper):
             count += 1
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
-            if not hasattr(item, 'setitem'):
-                ityp = await s_stormtypes.totype(item)
-                mesg = f'{ityp} does not support assignment.'
-                raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
                 mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
@@ -1288,10 +1284,6 @@ class SetItemOper(Oper):
         if count == 0 and self.isRuntSafe(runt):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
-            if not hasattr(item, 'setitem'):
-                ityp = await s_stormtypes.totype(item)
-                mesg = f'{ityp} does not support assignment.'
-                raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             name = await self.kids[1].compute(runt, None)
             valu = await self.kids[2].compute(runt, None)
