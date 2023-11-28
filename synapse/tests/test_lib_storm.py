@@ -4353,12 +4353,12 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('runas visi { [ inet:fqdn=bar.com ] }')
 
             items = await alist(core.syncLayersEvents({}, wait=False))
-            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
+            self.len(2, [item for item in items if item[-1]['user'] == visi.iden])
 
             await core.nodes(f'runas {visi.iden} {{ [ inet:fqdn=baz.com ] }}')
 
             items = await alist(core.syncLayersEvents({}, wait=False))
-            self.len(8, [item for item in items if item[-1]['user'] == visi.iden])
+            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
 
             q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
