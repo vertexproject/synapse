@@ -7156,7 +7156,7 @@ class View(Prim):
                 valu = await tostr(await toprim(valu), noneok=True)
 
             if name == 'parent' and valu is not None:
-                self.runt.snap.core.reqView(valu)
+                self.runt.snap.core.reqView(valu, mesg='The parent view must already exist.')
                 self.runt.confirm(('view', 'read'), gateiden=valu)
                 self.runt.confirm(('view', 'fork'), gateiden=valu)
 
