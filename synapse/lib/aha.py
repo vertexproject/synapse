@@ -261,11 +261,6 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
     @s_cell.adminapi()
-    async def iterPoolTopo(self, name):
-        async for item in self.cell.iterPoolTopo(name):
-            yield item
-
-    @s_cell.adminapi()
     async def addAhaPool(self, name, info=None):
         return await self.cell.addAhaPool(name, info=None)
 
@@ -274,21 +269,23 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.delAhaPool(name)
 
     @s_cell.adminapi()
-    async def getAhaPool(self, name):
-        return await self.cell.getAhaPool(name)
-
-    @s_cell.adminapi()
-    async def getAhaPools(self):
-        async for item in self.cell.getAhaPools():
-            yield item
-
-    @s_cell.adminapi()
     async def addAhaPoolSvc(self, poolname, svcname):
         return await self.cell.addAhaPoolSvc(poolname, svcname)
 
     @s_cell.adminapi()
     async def delAhaPoolSvc(self, poolname, svcname):
         return await self.cell.delAhaPoolSvc(poolname, svcname)
+
+    async def iterPoolTopo(self, name):
+        async for item in self.cell.iterPoolTopo(name):
+            yield item
+
+    async def getAhaPool(self, name):
+        return await self.cell.getAhaPool(name)
+
+    async def getAhaPools(self):
+        async for item in self.cell.getAhaPools():
+            yield item
 
     @s_cell.adminapi()
     async def addAhaSvcProv(self, name, provinfo=None):
