@@ -113,10 +113,8 @@ terminalEnglishMap = {
     '_EDGEN1INIT': '-(',
     '_EDGEN2INIT': '<(',
     '_EDGEN2FINI': ')-',
-
     '_EDGEN1JOINFINI': ')+>',
     '_EDGEN2JOININIT': '<+(',
-
     '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
     '_EXPRCOLONNOSPACE': ':',
