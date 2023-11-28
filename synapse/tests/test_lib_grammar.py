@@ -690,6 +690,11 @@ Queries = [
     'inet:asn <+("edge")- *',
     'inet:asn -("edge")+> *',
     'file:bytes -(($foobar, $bizbaz))+> ($biz, $boz)=lol',
+    'media:news <+((neato, burrito))- inet:fqdn',
+    'inet:ipv4 <+(*)- media:news',
+    'media:news -(*)+> inet:fqdn',
+    'inet:ipv4 <+(*)- *',
+    'media:news -(*)+> *'
 ]
 
 # Generated with print_parse_list below
@@ -1283,7 +1288,12 @@ _ParseResults = [
     'Query: [LiftProp: [Const: file:bytes], N2WalkNPivo: [], isjoin=True]',
     'Query: [LiftProp: [Const: inet:asn], N2Walk: [Const: edge, Const: *], isjoin=True]',
     'Query: [LiftProp: [Const: inet:asn], N1Walk: [Const: edge, Const: *], isjoin=True]',
-    "Query: [LiftProp: [Const: file:bytes], N1Walk: [VarList: ['foobar', 'bizbaz'], List: [VarValue: [Const: biz], VarValue: [Const: boz]], Const: =, Const: lol], isjoin=True]"
+    "Query: [LiftProp: [Const: file:bytes], N1Walk: [VarList: ['foobar', 'bizbaz'], List: [VarValue: [Const: biz], VarValue: [Const: boz]], Const: =, Const: lol], isjoin=True]",
+    'Query: [LiftProp: [Const: media:news], N2Walk: [List: [Const: neato, Const: burrito], Const: inet:fqdn], isjoin=True]',
+    'Query: [LiftProp: [Const: inet:ipv4], N2Walk: [Const: *, Const: media:news], isjoin=True]',
+    'Query: [LiftProp: [Const: media:news], N1Walk: [Const: *, Const: inet:fqdn], isjoin=True]',
+    'Query: [LiftProp: [Const: inet:ipv4], N2Walk: [Const: *, Const: *], isjoin=True]',
+    'Query: [LiftProp: [Const: media:news], N1Walk: [Const: *, Const: *], isjoin=True]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1318,11 +1328,7 @@ class GrammarTest(s_t_utils.SynTest):
         for i, query in enumerate(Queries):
             parser = s_parser.Parser(query)
             tree = parser.query()
-            try:
-                self.eq(str(tree), _ParseResults[i])
-            except Exception as e:
-                breakpoint()
-                print(str(tree))
+            self.eq(str(tree), _ParseResults[i])
 
     def test_cmdrargs(self):
         q = '''add {inet:fqdn | graph 2 --filter { -#nope } } inet:f-M +1 { [ graph:node='*' :type=m1]}'''
