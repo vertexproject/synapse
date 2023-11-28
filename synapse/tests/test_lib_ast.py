@@ -684,6 +684,7 @@ class AstTest(s_test.SynTest):
 
             await core.nodes('test:str=foo [ +(coffeeone)> { [ test:str=arabica ] } ]')
             await core.nodes('test:str=foo [ +(coffeetwo)> { [ test:str=robusta ] } ]')
+            await core.nodes('[ test:int=28 +(coffeethree)> { test:str=arabica } ]')
 
             nodes = await core.nodes('test:str=foo -((coffeeone, coffeetwo))+> *')
             self.len(3, nodes)
@@ -710,6 +711,8 @@ class AstTest(s_test.SynTest):
             for n in nodes[1:257]:
                 self.eq('inet:ipv4', n.ndef[0])
 
+            await core.nodes('test:str=foo [ +(wat)> {[test:int=12]}]')
+
             nodes = await core.nodes('test:str=foo -(other)+> test:str')
             self.len(2, nodes)
             self.eq(('test:str', 'foo'), nodes[0].ndef)
@@ -729,11 +732,25 @@ class AstTest(s_test.SynTest):
             self.isin(('test:str', 'robusta'), ndefs)
             self.isin(('test:str', 'baz'), ndefs)
             self.isin(('test:str', 'neato'), ndefs)
+            self.notin(('test:int', 12), ndefs)
+
+            nodes = await core.nodes('test:str=foo -(*)+> *')
+            self.len(6, nodes)
+            self.eq(('test:str', 'foo'), nodes[0].ndef)
+            ndefs = [n.ndef for n in nodes[1:]]
+            self.isin(('test:int', 12), ndefs)
 
             nodes = await core.nodes('test:str=arabica <+(*)- test:str')
             self.len(2, nodes)
             self.eq(('test:str', 'arabica'), nodes[0].ndef)
             self.eq(('test:str', 'foo'), nodes[1].ndef)
+
+            nodes = await core.nodes('test:str=arabica <+(*)- *')
+            self.len(3, nodes)
+            self.eq(('test:str', 'arabica'), nodes[0].ndef)
+            ndefs = [n.ndef for n in nodes[1:]]
+            self.isin(('test:str', 'foo'), ndefs)
+            self.isin(('test:int', 28), ndefs)
 
             await core.nodes('test:str=arabica [ <(place)+ { [ test:str=coffeebar] } ]')
             nodes = await core.nodes('test:str=arabica <+((place, coffeeone))- *')
