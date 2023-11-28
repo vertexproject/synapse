@@ -625,3 +625,12 @@ class SnapTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
             with self.raises(s_exc.ReadOnlyProp):
                 await core.nodes('test:ro=foo [ :readable=newp ]')
+
+    async def test_snap_subs_depth(self):
+
+        async with self.getTestCore() as core:
+            fqdn = '.'.join(['x' for x in range(300)]) + '.foo.com'
+            q = f'[ inet:fqdn="{fqdn}"]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('zone'), 'foo.com')

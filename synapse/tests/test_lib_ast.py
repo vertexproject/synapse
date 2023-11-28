@@ -3087,3 +3087,53 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:type10 $foobar=:int2 +(:intprop = $foobar)')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:type10', 'one'))
+
+    async def test_ast_propvalue(self):
+        async with self.getTestCore() as core:
+
+            # Create node with data prop, assign data prop to var, update var
+            q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz"'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+
+            q = '[ it:exec:query=(test1,) :opts=({"foo": "bar"}) ] $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('opts'), {'foo': 'bar', 'bar': 'baz'})
+
+            q = '''
+            '''
+            msgs = await core.stormlist('[ it:exec:query=(test2,) :opts=({"foo": "bar"}) ]')
+            self.stormHasNoWarnErr(msgs)
+
+            # Lift node with data prop, assign data prop to var, update var
+            q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz"'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('opts'), {'foo': 'bar'})
+
+            q = 'it:exec:query=(test2,) $opts=:opts $opts.bar = "baz" [ :opts=$opts ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('opts'), {'foo': 'bar', 'bar': 'baz'})
+
+            # Create node for the lift below
+            q = '''
+            [ it:app:snort:hit=*
+                :flow={[ inet:flow=* :raw=({"foo": "bar"}) ]}
+            ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift node, get prop via implicit pivot, assign data prop to var, update var
+            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('raw'), {'foo': 'bar'})
+
+            q = f'it:app:snort:hit $raw = :flow::raw $raw.baz="box" | spin | inet:flow [ :raw=$raw ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
