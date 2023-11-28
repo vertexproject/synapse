@@ -2144,11 +2144,11 @@ class Runtime(s_base.Base):
         Raise AuthDeny if the user doesn't have the permission.
 
         Notes:
-            A elevated runtime with asroot=True will always return True.
+            An elevated runtime with asroot=True will always return True.
 
         Args:
             perms (tuple): The permission tuple.
-            gateiden (str): The gateiden
+            gateiden (str): The gateiden.
             default (bool): The default value.
 
         Returns:
