@@ -1267,8 +1267,9 @@ class SetItemOper(Oper):
             count += 1
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
-            if item is None:
-                mesg = '$lib.null does not support assignment.'
+            if not hasattr(item, 'setitem'):
+                ityp = await s_stormtypes.totype(item)
+                mesg = f'{ityp} does not support assignment.'
                 raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
@@ -1287,8 +1288,9 @@ class SetItemOper(Oper):
         if count == 0 and self.isRuntSafe(runt):
 
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
-            if item is None:
-                mesg = '$lib.null does not support assignment.'
+            if not hasattr(item, 'setitem'):
+                ityp = await s_stormtypes.totype(item)
+                mesg = f'{ityp} does not support assignment.'
                 raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             name = await self.kids[1].compute(runt, None)
