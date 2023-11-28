@@ -2141,7 +2141,21 @@ class Runtime(s_base.Base):
 
     def confirm(self, perms, gateiden=None, default=None):
         '''
-        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+        Raise AuthDeny if the user doesn't have the permission.
+
+        Notes:
+            A elevated runtime with asroot=True will always return True.
+
+        Args:
+            perms (tuple): The permission tuple.
+            gateiden (str): The gateiden
+            default (bool): The default value.
+
+        Returns:
+            True: If the permission is allowed.
+
+        Raises:
+            AuthDeny: If the user does not have the permission.
         '''
         if self.asroot:
             return
