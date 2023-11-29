@@ -1260,10 +1260,10 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:mitre:attack:campaign', {}, (
-                    ('name', ('ou:name', {}), {
+                    ('name', ('ou:campname', {}), {
                         'doc': 'The primary name for the ATT&CK campaign.',
                     }),
-                    ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'ou:campname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the ATT&CK campaign.',
                     }),
                     ('desc', ('str', {'strip': True}), {
