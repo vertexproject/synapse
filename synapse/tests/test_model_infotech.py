@@ -176,7 +176,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :techniques = (T0200,T0100)
                     :updated = 20231102
                     :url = https://attack.mitre.org/campaigns/C0001
-                    .seen = (20151201, 20160101)
+                    :period = (20151201, 20160101)
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:campaign', 'C0001'))
@@ -190,7 +190,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].props.get('techniques'), ('T0100', 'T0200'))
             self.eq(nodes[0].props.get('created'), 1698796800000)
             self.eq(nodes[0].props.get('updated'), 1698883200000)
-            self.eq(nodes[0].props.get('.seen'), (1448928000000, 1451606400000))
+            self.eq(nodes[0].props.get('period'), (1448928000000, 1451606400000))
 
             nodes = await core.nodes('''[
                 it:exec:thread=*

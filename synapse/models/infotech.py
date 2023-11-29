@@ -1289,6 +1289,11 @@ class ItModule(s_module.CoreModule):
                                             'uniq': True, 'sorted': True, 'split': ','}), {
                         'doc': 'The ATT&CK matrices which define the campaign.',
                     }),
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                        'doc': 'An array of URLs that document the ATT&CK campaign.',
+                    }),
+                    ('period', ('ival', {}), {
+                        'doc': 'The time interval when the campaign was active.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time that the campaign was created.'}),
                     ('updated', ('time', {}), {
