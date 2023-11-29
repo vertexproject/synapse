@@ -6,6 +6,237 @@
 Synapse Changelog
 *****************
 
+v2.155.0 - 2023-11-17
+=====================
+
+Model Changes
+-------------
+- Updates to the ``infotech``, ``proj``,  and ``risk`` models.
+  (`#3422 <https://github.com/vertexproject/synapse/pull/3422>`_)
+
+  **New Properties**
+
+  ``proj:ticket``
+    The form had the following property added to it:
+
+    ``ext:assignee``
+      Ticket assignee contact information from an external system.
+
+  ``risk:alert``
+    The form had the following property added to it:
+
+    ``severity``
+      A severity rank for the alert.
+
+  ``it:exec:query``
+    The form had the following property added to it:
+
+    ``offset``
+      The offset of the last record consumed from the query.
+
+  **New Forms**
+
+  ``it:av:scan:result``
+    The result of running an antivirus scanner.
+
+  **Updated Properties**
+
+  ``risk:alert``
+    The form had the following properties updated on it:
+
+    ``priority``
+      The type of this property has been changed from an ``int`` to
+      ``meta:priority``.
+
+  ``risk:attack``
+    The form had the following properties updated on it:
+
+    ``severity``
+      The type of this property has been changed from an ``int`` to
+      ``meta:severity``.
+
+  ``risk:compromise``
+    The form had the following properties updated on it:
+
+    ``severity``
+      The type of this property has been changed from an ``int`` to
+      ``meta:severity``.
+
+  **Deprecated Forms**
+
+  The following forms have been marked as deprecated:
+
+  ``it:av:sig``
+    Please use ``it:av:scan:result``.
+
+  ``it:av:filehit``
+    Please use ``it:av:scan:result``.
+
+  ``it:av:prochit``
+    Please use ``it:av:scan:result``.
+
+Features and Enhancements
+-------------------------
+- Add a ``detach()`` method to the Storm ``view`` object. This will detach a
+  forked View from its parent.
+  (`#3423 <https://github.com/vertexproject/synapse/pull/3423>`_)
+- Change the method used to generate the ``took`` value in the Storm ``fini``
+  message to use a monotonic clock.
+  (`#3425 <https://github.com/vertexproject/synapse/pull/3425>`_)
+- Performing an invalid "pivot in" operation with a form target
+  (``<- some:form``) now raises a ``StormRuntimeError`` instead of silently
+  doing nothing.
+  (`#3426 <https://github.com/vertexproject/synapse/pull/3426>`_)
+- Allow relative properties on the right hand side of a filter operation
+  when using Storm expression syntax.
+  (`#3424 <https://github.com/vertexproject/synapse/pull/3424>`_)
+- Add an ``/api/v1/logout`` method on the Cell to allow HTTPS users to logout
+  of their sessions.
+  (`#3430 <https://github.com/vertexproject/synapse/pull/3430>`_)
+- Allow taxonomy prefix lift and filter operations to work with taxon parts.
+  (`#3429 <https://github.com/vertexproject/synapse/pull/3429>`_)
+- Update the allowed versions of the ``cbor2``, ``pycryptodome``,
+  ``pygments``, ``vcrpy``, and ``xxhash`` libraries. Update the pinned version
+  of the ``lark`` library.
+  (`#3418 <https://github.com/vertexproject/synapse/pull/3418>`_)
+
+Bugfixes
+--------
+- Fix a performance regression in graph projection for computing large graphs
+  in Storm.
+  (`#3375 <https://github.com/vertexproject/synapse/pull/3375>`_)
+- Fix a conflict between Storm ``$lib.inet.http`` functions and ``vcrpy``
+  where ``json`` and ``data`` args shouldn't be passed together.
+  (`#3428 <https://github.com/vertexproject/synapse/pull/3428>`_)
+
+Improved Documentation
+----------------------
+- Fix an error in the Cortex mirror deployment guide. The example
+  ``docker-compose.yaml`` was missing the environment variables for
+  ``SYN_CORTEX_AXON`` and ``SYN_CORTEX_JSONSTOR``.
+  (`#3430 <https://github.com/vertexproject/synapse/pull/3430>`_)
+
+v2.154.1 - 2023-11-15
+=====================
+
+This release is for updating the version of the ``cryptography`` package in
+Synapse containers to ``41.0.5``.
+
+v2.154.0 - 2023-11-15
+=====================
+
+Automatic Migrations
+--------------------
+- Update the ``inet:ipv4:type`` value for RFC6598 addresses to ``shared``.
+  (`#3410 <https://github.com/vertexproject/synapse/pull/3410>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update to the ``inet`` and ``ou`` models.
+
+  (`#3406 <https://github.com/vertexproject/synapse/pull/3406>`_)
+  (`#3407 <https://github.com/vertexproject/synapse/pull/3407>`_)
+  (`#3410 <https://github.com/vertexproject/synapse/pull/3410>`_)
+  (`#3416 <https://github.com/vertexproject/synapse/pull/3416>`_)
+
+  **Updated Types**
+
+  ``inet:ipv4``
+    RFC6598 addresses now have a ``:type`` property value of ``shared``.
+
+  ``inet:url``
+    Accept Microsoft URLPrefix strings with a strong wildcard host value.
+
+    Add a check to prevent creating ``inet:url`` nodes with an empty host
+    and path part, such as ``inet:url=file://''``.
+
+  **New Properties**
+
+  ``ou:org``
+    The form had the following property added to it:
+
+    ``tag``
+      A base tag used to encode assessments made by the organization.
+
+  ``risk:compromise``
+    The form had the following properties added to it:
+
+    ``ext:id``
+      An external unique ID for the compromise.
+
+    ``url``
+      A URL which documents the compromise.
+
+  ``risk:alert``
+    The form had the following property added to it:
+
+    ``host``
+      The host which generated the alert.
+
+  **New Forms**
+
+  ``ou:requirement``
+    A specific requirement.
+
+  ``risk:leak``
+    An event where information was disclosed without permission.
+
+  ``risk:leak:type:taxonomy``
+    A taxonomy of leak event types
+
+  ``risk:extortion``
+    An event where an attacker attempted to extort a victim.
+
+  ``risk:extortion:type:taxonomy``
+    A taxonomy of extortion event types.
+
+  **Light Edges**
+
+  ``leaked``
+    When used with a ``risk:leak`` node, the edge indicates the leak included
+    the disclosure of the target node.
+
+  ``leveraged``
+    When used with a ``risk:extortion`` node, the edge indicates the extortion
+    event was based on attacker access to the target node.
+
+  ``meets``
+    When used with a ``ou:requirement`` node, the edge indicates the
+    requirement was met by the source node.
+
+Features and Enhancements
+-------------------------
+- Add ``edge:add`` and ``edge:del`` as trigger conditions. These trigger when
+  light edges are added or removed from a node.
+  (`#3389 <https://github.com/vertexproject/synapse/pull/3389>`_)
+- Storm lift and filter operations using regular expressions (``~=``) are now
+  case insensitive by default.
+  (`#3403 <https://github.com/vertexproject/synapse/pull/3403>`_)
+- Add a ``unique()`` method to the Storm ``list`` object. This returns a new
+  list with only unique elements in it.
+  (`#3415 <https://github.com/vertexproject/synapse/pull/3415>`_)
+- Add support for ``synapse.tools.autodoc`` to generate documentation for
+  API definitions declared in Storm packages.
+  (`#3382 <https://github.com/vertexproject/synapse/pull/3382>`_)
+- A review of Storm library functions was performed and all ``readonly`` safe
+  functions have been marked for execution in a ``readonly`` Storm runtime.
+  (`#3402 <https://github.com/vertexproject/synapse/pull/3402>`_)
+- Allow setting the layers on a root View with forks.
+  (`#3413 <https://github.com/vertexproject/synapse/pull/3413>`_)
+
+Bugfixes
+--------
+- Per-node Storm variables are now passed into subquery assignment
+  expressions.
+  (`#3405 <https://github.com/vertexproject/synapse/pull/3405>`_)
+- Fix an issue with Storm Dmon hive storage being opened too late in the
+  Cortex startup sequence.
+  (`#3411 <https://github.com/vertexproject/synapse/pull/3411>`_)
+- Remove a check when deleting tags from a node which prevented tag deletion
+  from a node when the root tag was deleted in a parent view.
+  (`#3408 <https://github.com/vertexproject/synapse/pull/3408>`_)
+
 v2.153.0 - 2023-10-27
 =====================
 
@@ -305,7 +536,7 @@ Model Changes
     The interface had the following property added to it:
 
     ``description``
-      'A definition of the taxonomy entry.
+      A definition of the taxonomy entry.
 
   ``inet:email:message``
     The form had the following property added to it:
@@ -8593,7 +8824,7 @@ v2.0.0 - 2020-06-08
 
 Initial 2.0.0 release.
 
-.. _changelog-depr-20231001
+.. _changelog-depr-20231001:
 
 API Deprecation Notice - 2023-10-01
 ===================================

@@ -2019,6 +2019,35 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('', opts=opts)
 
+            # init / fini messages contain tick/tock/took/count information
+            msgs = await core.stormlist('{}')
+            self.len(2, msgs)
+
+            (ityp, info) = msgs[0]
+            self.eq('init', ityp)
+            self.gt(info.get('tick'), 0)
+            self.gt(info.get('abstick'), 0)
+            self.eq(info.get('text'), '{}')
+            self.eq(info.get('hash'), '99914b932bd37a50b983c5e7c90ae93b')
+
+            (ftyp, fnfo) = msgs[1]
+            self.eq('fini', ftyp)
+            self.eq(fnfo.get('count'), 0)
+            took = fnfo.get('took')
+            self.ge(took, 0)
+            self.ge(fnfo.get('tock'), info.get('tick'))
+            self.ge(fnfo.get('abstock'), info.get('abstick'))
+            self.eq(took, fnfo.get('tock') - info.get('tick'))
+            self.eq(took, fnfo.get('abstock') - info.get('abstick'))
+
+            # count = 2
+            msgs = await core.stormlist('test:comp=(10, haha) test:str="foo bar" ')
+            self.len(4, msgs)
+
+            (ftyp, fnfo) = msgs[-1]
+            self.eq('fini', ftyp)
+            self.eq(fnfo.get('count'), 2)
+
             # Test and/or/not
             await core.nodes('[test:comp=(1, test) +#meep.morp +#bleep.blorp +#cond]')
             await core.nodes('[test:comp=(2, test) +#meep.morp +#bleep.zlorp +#cond]')
@@ -2444,6 +2473,13 @@ class CortexTest(s_t_utils.SynTest):
             # Do a PivotInFrom with a bad form
             with self.raises(s_exc.NoSuchForm) as cm:
                 await core.nodes('.created <- test:newp')
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('test:str <- test:str')
+
+            mesg = 'Pivot in from a specific form cannot be used with nodes of type test:str'
+            self.eq(cm.exception.get('mesg'), mesg)
+            self.eq(cm.exception.get('name'), 'test:str')
 
             # Setup a propvalu pivot where the secondary prop may fail to norm
             # to the destination prop for some of the inbound nodes.
@@ -3736,7 +3772,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 'degrees': 2,
 
-                'pivots': ['<- meta:seen <- meta:source'],
+                'pivots': [],
 
                 'filters': ['-#nope'],
 
@@ -3856,7 +3892,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 inet:fqdn | graph
                                 --degrees 2
                                 --filter { -#nope }
-                                --pivot { <- meta:seen <- meta:source }
+                                --pivot {}
                                 --form-pivot inet:fqdn {<- * | limit 20}
                                 --form-pivot inet:fqdn {-> * | limit 20}
                                 --form-filter inet:fqdn {-inet:fqdn:issuffix=1}

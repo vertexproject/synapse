@@ -251,10 +251,12 @@ class LibModelTags(s_stormtypes.Lib):
         self.runt.confirm(('model', 'tag', 'set'))
         return await self.runt.snap.core.delTagModel(tagname)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
         return await self.runt.snap.core.getTagModel(tagname)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _listTagModel(self):
         return await self.runt.snap.core.listTagModel()
 
@@ -325,24 +327,28 @@ class LibModel(s_stormtypes.Lib):
         }
 
     @s_cache.memoizemethod(size=100)
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methType(self, name):
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
     @s_cache.memoizemethod(size=100)
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methProp(self, name):
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
     @s_cache.memoizemethod(size=100)
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methForm(self, name):
         form = self.model.form(name)
         if form is not None:
             return ModelForm(form)
 
     @s_cache.memoize(size=100)
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methTagProp(self, name):
         tagprop = self.model.getTagProp(name)
         if tagprop is not None:
@@ -387,6 +393,7 @@ class ModelForm(s_stormtypes.Prim):
     def _ctorFormType(self, path=None):
         return ModelType(self.valu.type, path=path)
 
+    @s_stormtypes.stormfunc(readonly=True)
     def _getFormProp(self, name):
         prop = self.valu.prop(name)
         if prop is not None:
@@ -490,15 +497,21 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls.update({'name': valu.name,
-                           'norm': self._methNorm,
-                           'repr': self._methRepr,
                            'stortype': valu.stortype,
                            })
 
+    def getObjLocals(self):
+        return {
+            'norm': self._methNorm,
+            'repr': self._methRepr,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methRepr(self, valu):
         nval = self.valu.norm(valu)
         return self.valu.repr(nval[0])
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methNorm(self, valu):
         return self.valu.norm(valu)
 
@@ -544,7 +557,7 @@ class LibModelEdge(s_stormtypes.Lib):
     # Note: The use of extprops in hive paths in this class is an artifact of the
     # original implementation which used extended property language which had a
     # very bad cognitive overload with the cortex extended properties, but we
-    # dont' want to change underlying data. epiphyte 20200703
+    # don't want to change underlying data. epiphyte 20200703
 
     # restrict list of keys which we allow to be set/del through this API.
     validedgekeys = (
@@ -578,9 +591,11 @@ class LibModelEdge(s_stormtypes.Lib):
             raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
                                    name=key)
 
+    @s_stormtypes.stormfunc(readonly=True)
     def _methValidKeys(self):
         return self.validedgekeys
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeGet(self, verb):
         verb = await s_stormtypes.tostr(verb)
         await self._chkEdgeVerbInView(verb)
@@ -620,6 +635,7 @@ class LibModelEdge(s_stormtypes.Lib):
 
         await self.runt.snap.core.setHiveKey(path, kvdict)
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methEdgeList(self):
         retn = []
         async for verb in self.runt.snap.view.getEdgeVerbs():

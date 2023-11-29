@@ -320,6 +320,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'apidefs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/apidef'},
+                },
                 'asroot': {'type': 'boolean'},
                 'asroot:perms': {'type': 'array',
                     'items': {'type': 'array',
@@ -328,6 +332,67 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
+        },
+        'apidef': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'type': 'object',
+                    'properties': {
+                        'type': {
+                            'type': 'string',
+                            'enum': ['function']
+                        },
+                        'args': {
+                            'type': 'array',
+                            'items': {'$ref': '#/definitions/apiarg'},
+                        },
+                        'returns': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                    'enum': ['yields'],
+                                },
+                                'desc': {'type': 'string'},
+                                'type': {
+                                    'oneOf': [
+                                        {'$ref': '#/definitions/apitype'},
+                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                                    ],
+                                },
+                            },
+                            'additionalProperties': False,
+                            'required': ['type', 'desc']
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'returns'],
+                },
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apiarg': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/apitype'},
+                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                    ],
+                },
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apitype': {
+            'type': 'string',
         },
         'command': {
             'type': 'object',
@@ -2076,7 +2141,21 @@ class Runtime(s_base.Base):
 
     def confirm(self, perms, gateiden=None, default=None):
         '''
-        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+        Raise AuthDeny if the user doesn't have the permission.
+
+        Notes:
+            An elevated runtime with asroot=True will always return True.
+
+        Args:
+            perms (tuple): The permission tuple.
+            gateiden (str): The gateiden.
+            default (bool): The default value.
+
+        Returns:
+            True: If the permission is allowed.
+
+        Raises:
+            AuthDeny: If the user does not have the permission.
         '''
         if self.asroot:
             return
@@ -4816,7 +4895,7 @@ class GraphCmd(Cmd):
             inet:fqdn | graph
                         --degrees 2
                         --filter { -#nope }
-                        --pivot { <- meta:seen <- meta:source }
+                        --pivot { -> meta:seen }
                         --form-pivot inet:fqdn {<- * | limit 20}
                         --form-pivot inet:fqdn {-> * | limit 20}
                         --form-filter inet:fqdn {-inet:fqdn:issuffix=1}

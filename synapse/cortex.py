@@ -1645,6 +1645,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to add a new view including forks.'},
             {'perm': ('view', 'del'), 'gate': 'view',
              'desc': 'Controls access to delete a view.'},
+            {'perm': ('view', 'fork'), 'gate': 'view', 'default': True,
+             'desc': 'Controls access to fork a view.'},
             {'perm': ('view', 'read'), 'gate': 'view',
              'desc': 'Controls read access to view.'},
             {'perm': ('view', 'set', '<setting>'), 'gate': 'view',
@@ -4698,6 +4700,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def addView(self, vdef, nexs=True):
 
         vdef['iden'] = s_common.guid()
+        vdef['created'] = s_common.now()
+
         vdef.setdefault('parent', None)
         vdef.setdefault('worldreadable', False)
         vdef.setdefault('creator', self.auth.rootuser.iden)
@@ -4919,11 +4923,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return view
 
-    def reqView(self, iden):
+    def reqView(self, iden, mesg=None):
         view = self.getView(iden)
-        if view is None:
-            raise s_exc.NoSuchView(mesg=f'No such view {iden=}', iden=iden)
-
+        if view is None: # pragma: no cover
+            if mesg is None:
+                mesg = f'No view with iden: {iden}'
+            raise s_exc.NoSuchView(mesg=mesg, iden=iden)
         return view
 
     def listViews(self):
@@ -4962,6 +4967,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ldef = ldef or {}
 
         ldef['iden'] = s_common.guid()
+        ldef['created'] = s_common.now()
+
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
         ldef.setdefault('logedits', self.conf.get('layers:logedits'))

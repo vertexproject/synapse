@@ -317,7 +317,30 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                     $lib.print('my foo var is {f}', f=$fooz)
                     ''',
                 },
-            )
+            ),
+            'modules': (
+                {
+                    'name': 'testmod',
+                    'storm': '',
+                },
+                {
+                    'name': 'apimod',
+                    'storm': 'function status() { return($lib.true) }',
+                    'apidefs': (
+                        {
+                            'name': 'status',
+                            'desc': 'Status of the foo.',
+                            'type': {
+                                'type': 'function',
+                                'returns': {
+                                    'type': 'boolean',
+                                    'desc': 'Where foo is ok',
+                                },
+                            },
+                        },
+                    ),
+                },
+            ),
         },
     )
 

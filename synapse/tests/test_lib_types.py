@@ -168,6 +168,46 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(node.get('depth'), 2)
             self.eq(node.get('parent'), 'foo.bar.')
 
+            self.sorteq(
+                ['foo.', 'foo.bar.', 'foo.bar.baz.'],
+                [n.ndef[1] for n in await core.nodes('test:taxonomy')]
+            )
+
+            self.len(0, await core.nodes('test:taxonomy=foo.bar.ba'))
+            self.len(1, await core.nodes('test:taxonomy=foo.bar.baz'))
+            self.len(1, await core.nodes('test:taxonomy=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy=(foo, bar, ba)'))
+            self.len(1, await core.nodes('test:taxonomy=(foo, bar, baz)'))
+
+            self.len(3, await core.nodes('test:taxonomy^=f'))
+            self.len(0, await core.nodes('test:taxonomy^=f.'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.b'))
+            self.len(0, await core.nodes('test:taxonomy^=foo.b.'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.bar'))
+            self.len(2, await core.nodes('test:taxonomy^=foo.bar.'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.b'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz'))
+            self.len(1, await core.nodes('test:taxonomy^=foo.bar.baz.'))
+
+            self.len(0, await core.nodes('test:taxonomy^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy^=(foo, b)'))
+            self.len(2, await core.nodes('test:taxonomy^=(foo, bar)'))
+            self.len(1, await core.nodes('test:taxonomy^=(foo, bar, baz)'))
+
+            # just test one conditional since RelPropCond and
+            # AbsPropCond (for form and prop) use the same logic
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=f'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=f.'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.b.'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=foo.bar.'))
+
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(f,)'))
+            self.len(0, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, b)'))
+            self.len(1, await core.nodes('test:taxonomy:sort=1 +:parent^=(foo, bar)'))
+
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')

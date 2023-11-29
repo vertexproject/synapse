@@ -724,6 +724,19 @@ class LoginV1(Handler):
 
         return self.sendRestRetn(await authcell.getUserDef(iden))
 
+class LogoutV1(Handler):
+
+    async def get(self):
+        sess = await self.sess(gen=False)
+        if sess is not None:
+            self.web_useriden = sess.info.get('user')
+            self.web_username = sess.info.get('username', '<no username>')
+            await self.getAuthCell().delHttpSess(sess.iden)
+
+        self.clear_cookie('sess')
+
+        self.sendRestRetn(True)
+
 class AuthUsersV1(Handler):
 
     async def get(self):

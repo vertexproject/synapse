@@ -1,4 +1,5 @@
 import socket
+import asyncio
 import hashlib
 import logging
 import ipaddress
@@ -7,6 +8,7 @@ import urllib.parse
 
 import idna
 import regex
+import collections
 import unicodedata
 
 import synapse.exc as s_exc
@@ -929,6 +931,11 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
+            # allow MSFT specific wild card syntax
+            # https://learn.microsoft.com/en-us/windows/win32/http/urlprefix-strings
+            if host is None and part == '+':
+                host = '+'
+
         if host and local:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Host specified on local-only file URI') from None
@@ -955,10 +962,12 @@ class Url(s_types.Str):
             if port is not None:
                 hostparts = f'{hostparts}:{port}'
 
-        if proto != 'file':
-            if (not subs.get('fqdn')) and (subs.get('ipv4') is None) and (subs.get('ipv6') is None):
-                raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                        mesg='Missing address/url') from None
+        if proto != 'file' and host is None:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='Missing address/url')
+
+        if not hostparts and not pathpart:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Missing address/url') from None
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
@@ -1001,39 +1010,50 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
-        if domain is None:
-            await node.set('iszone', False)
-            await node.set('issuffix', True)
-            return
+        async with node.snap.getEditor() as editor:
+            protonode = editor.loadNode(node)
+            if domain is None:
+                await protonode.set('iszone', False)
+                await protonode.set('issuffix', True)
+                return
 
-        if node.get('issuffix') is None:
-            await node.set('issuffix', False)
+            if protonode.get('issuffix') is None:
+                await protonode.set('issuffix', False)
 
-        # almost certainly in the cache anyway....
-        parent = await node.snap.addNode('inet:fqdn', domain)
+            parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            if parent is None:
+                parent = await editor.addNode('inet:fqdn', domain)
 
-        if parent.get('issuffix'):
-            await node.set('iszone', True)
-            await node.set('zone', fqdn)
-            return
+            if parent.get('issuffix'):
+                await protonode.set('iszone', True)
+                await protonode.set('zone', fqdn)
+                return
 
-        await node.set('iszone', False)
+            await protonode.set('iszone', False)
 
-        if parent.get('iszone'):
-            await node.set('zone', domain)
-            return
+            if parent.get('iszone'):
+                await protonode.set('zone', domain)
+                return
 
-        zone = parent.get('zone')
-        if zone is not None:
-            await node.set('zone', zone)
+            zone = parent.get('zone')
+            if zone is not None:
+                await protonode.set('zone', zone)
 
     async def _onSetFqdnIsSuffix(self, node, oldv):
 
         fqdn = node.ndef[1]
 
         issuffix = node.get('issuffix')
-        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
-            await child.set('iszone', issuffix)
+
+        async with node.snap.getEditor() as editor:
+            async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                await asyncio.sleep(0)
+
+                if child.get('iszone') == issuffix:
+                    continue
+
+                protonode = editor.loadNode(child)
+                await protonode.set('iszone', issuffix)
 
     async def _onSetFqdnIsZone(self, node, oldv):
 
@@ -1062,17 +1082,24 @@ class InetModule(s_module.CoreModule):
 
     async def _onSetFqdnZone(self, node, oldv):
 
-        fqdn = node.ndef[1]
+        todo = collections.deque([node.ndef[1]])
         zone = node.get('zone')
 
-        async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+        async with node.snap.getEditor() as editor:
+            while todo:
+                fqdn = todo.pop()
+                async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                    await asyncio.sleep(0)
 
-            # if they are their own zone level, skip
-            if child.get('iszone'):
-                continue
+                    # if they are their own zone level, skip
+                    if child.get('iszone') or child.get('zone') == zone:
+                        continue
 
-            # the have the same zone we do
-            await child.set('zone', zone)
+                    # the have the same zone we do
+                    protonode = editor.loadNode(child)
+                    await protonode.set('zone', zone)
+
+                    todo.append(child.ndef[1])
 
     def getModelDefs(self):
         return (
