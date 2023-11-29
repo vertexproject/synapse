@@ -106,9 +106,6 @@ stormcmds = (
     {
         'name': 'aha.pool.list',
         'descr': 'Display a list of AHA service pools and their services.',
-        # 'cmdargs': (
-            # ('name', {'help': 'The name of the organization.'}),
-        # ),
         'storm': '''
 
         $count = (0)
@@ -125,8 +122,6 @@ stormcmds = (
         'descr': 'Create an AHA service pool configuration.',
         'cmdargs': (
             ('name', {'help': 'The name of the new AHA service pool.'}),
-            # ('--type', {'help': '???'}),
-            # ('--allow-different-service-types?
         ),
         'storm': '''
             $pool = $lib.aha.pool.add($cmdopts.name)

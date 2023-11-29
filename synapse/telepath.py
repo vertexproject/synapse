@@ -152,14 +152,14 @@ async def open(url, timeout=None):
 
 async def _getAhaSvc(urlinfo, timeout=None):
 
+    host = urlinfo.get('host')
+    if host is None:
+        mesg = f'AHA urlinfo has no host: {urlinfo}'
+        raise s_exc.NoSuchName(mesg=mesg)
+
     if not aha_clients:
         mesg = f'No aha servers registered to lookup {host}'
         raise s_exc.NotReady(mesg=mesg)
-
-    host = urlinfo.get('host')
-    if host is None:
-        mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
-        raise s_exc.NoSuchName(mesg=mesg)
 
     errs = []
     for ahaurl, cnfo in list(aha_clients.items()):
@@ -184,6 +184,10 @@ async def _getAhaSvc(urlinfo, timeout=None):
 
             ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
             if ahasvc is None:
+                continue
+
+            svcinfo = ahasvc.get('svcinfo', {})
+            if not svcinfo.get('online'):
                 continue
 
             return client, ahasvc
