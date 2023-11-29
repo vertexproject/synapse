@@ -1155,6 +1155,11 @@ class AhaTest(s_test.SynTest):
                     poolinfo = await aha.getAhaPool('pool00...')
                     self.len(1, poolinfo['services'])
 
+                    msgs = await core00.stormlist('aha.pool.list')
+                    self.stormIsInPrint('Pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('    00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('1 pools', msgs)
+
                     async with await s_telepath.open('aha://pool00...') as pool:
 
                         waiter = pool.waiter('svc:add', 2)
@@ -1194,3 +1199,7 @@ class AhaTest(s_test.SynTest):
 
                         poolinfo = await aha.getAhaPool('pool00...')
                         self.len(1, poolinfo['services'])
+
+                    msgs = await core00.stormlist('aha.pool.del pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Removed AHA service pool: pool00.loop.vertex.link', msgs)

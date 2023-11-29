@@ -1226,6 +1226,12 @@ class StormTest(s_t_utils.SynTest):
             self.false(await core.callStorm('return(("Foo" ~= "(?-i:foo)"))'))
             self.true(await core.callStorm('return(("Foo" ~= "(?-i:Foo)"))'))
 
+            async with await core.view.snap(user=visi) as snap:
+                query = await core.getStormQuery('')
+                async with snap.getStormRuntime(query) as runt:
+                    with self.raises(s_exc.AuthDeny):
+                        runt.reqAdmin(gateiden='cortex')
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:

@@ -26,7 +26,7 @@ class AhaPoolLib(s_stormtypes.Lib):
     async def _del(self, name):
         self.runt.reqAdmin()
         proxy = await self.runt.snap.core.reqAhaProxy()
-        await proxy.delAhaPool(name)
+        return await proxy.delAhaPool(name)
 
     async def get(self, name):
         self.runt.reqAdmin()
@@ -111,8 +111,11 @@ stormcmds = (
         $count = (0)
         for $pool in $lib.aha.pool.list() {
             $count = ($count + 1)
+            $lib.print(`Pool: {$pool.name}`)
             $lib.print($pool)
-            $lib.print('')
+            for ($svcname, $svcinfo) in $pool.services {
+                $lib.print(`    {$svcname}`)
+            }
         }
         $lib.print(`{$count} pools.`)
         ''',
@@ -135,8 +138,8 @@ stormcmds = (
             ('name', {'help': 'The name of the AHA pool to delete.'}),
         ),
         'storm': '''
-            $lib.aha.pool.del($cmdopts.name)
-            $lib.print(`pool deleted: {$cmdopts.name}`)
+            $pool = $lib.aha.pool.del($cmdopts.name)
+            if $pool { $lib.print(`Removed AHA service pool: {$pool.name}`) }
         ''',
     },
     {

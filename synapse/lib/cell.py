@@ -1253,7 +1253,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is None:
             return self.auth.rootuser.iden
 
-        if sess.user is None:
+        if sess.user is None: # pragma: no cover
             return self.auth.rootuser.iden
 
         return sess.user.iden
@@ -1724,11 +1724,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 self.modCellConf({'mirror': turl})
                 await self.nexsroot.startup()
-
-    async def getAhaProxy(self, timeout=None):
-        if self.ahaclient is None:
-            return None
-        return await self.ahaclient.proxy(timeout=timeout)
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
