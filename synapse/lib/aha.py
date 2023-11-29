@@ -296,7 +296,15 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.delAhaPoolSvc(poolname, svcname)
 
     async def iterPoolTopo(self, name):
+
+        username = self.user.name.split('@')[0]
+
         async for item in self.cell.iterPoolTopo(name):
+
+            # default to using the same username as we do for aha
+            if item[0] == 'svc:add':
+                item[1]['svcinfo']['urlinfo']['user'] = username
+
             yield item
 
     async def getAhaPool(self, name):
