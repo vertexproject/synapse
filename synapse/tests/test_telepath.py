@@ -827,7 +827,7 @@ class TeleTest(s_t_utils.SynTest):
 
         urls = (url0, url1)
 
-        async with await s_telepath.Client.anit(urls) as targ:
+        async with await s_telepath.open(urls) as targ:
 
             await targ.waitready()
 
@@ -843,7 +843,7 @@ class TeleTest(s_t_utils.SynTest):
             self.eq(1, fail0.count)
             self.eq(1, fail1.count)
 
-        async with await s_telepath.Client.anit(urls) as targ:
+        async with await s_telepath.open(urls) as targ:
 
             with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
 
@@ -859,6 +859,10 @@ class TeleTest(s_t_utils.SynTest):
 
             self.eq(1, fail0.count)
             self.eq(2, fail1.count)
+
+        async with await s_telepath.open(url1) as targ:
+            await targ.waitready()
+            self.eq(110, await targ.dostuff(100))
 
         await dmon1.fini()
 

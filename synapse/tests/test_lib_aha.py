@@ -1186,6 +1186,13 @@ class AhaTest(s_test.SynTest):
                         run01 = await (await pool.proxy(timeout=3)).getCellRunId()
                         self.ne(run00, run01)
 
+                        waiter = pool.waiter('pool:reset', 1)
+
+                        ahaproxy = await pool.aha.proxy()
+                        await ahaproxy.fini()
+
+                        await waiter.wait(timeout=3)
+
                         # wait for the pool to be notified of the topology change
                         waiter = pool.waiter('svc:del', 1)
 

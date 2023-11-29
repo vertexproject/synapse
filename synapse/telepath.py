@@ -139,7 +139,12 @@ async def open(url, timeout=None):
     '''
     Open a new telepath Client (or AHA Service Pool) based on the given URL.
     '''
+    # backward compatible support for a list of URLs or urlinfo dicts...
+    if isinstance(url, (tuple, list)): # pragma: no cover
+        return await Client.anit(url)
+
     urlinfo = chopurl(url)
+
     if urlinfo.get('scheme') == 'aha':
 
         ahaclient, ahasvc = await _getAhaSvc(urlinfo, timeout=timeout)
@@ -1000,6 +1005,7 @@ class Pool(s_base.Base):
         self.schedCoro(self._toposync())
 
         async def fini():
+            await self._shutDownPool()
             # wake the sleepers
             self.ready.set()
 
@@ -1033,18 +1039,22 @@ class Pool(s_base.Base):
         self.proxies.add(proxy)
         self.ready.set()
 
+    async def _shutDownPool(self):
+        # when we reconnect to our AHA service, we need to dump the current
+        # topology state and gather it again.
+        for client in self.clients.values():
+            await client.fini()
+
+        self.deque.clear()
+        self.clients.clear()
+        self.proxies.clear()
+
     async def _toposync(self):
 
         async def reset():
-
-            # when we reconnect to our AHA service, we need to dump the current
-            # topology state and gather it again.
-            for client in self.clients.values():
-                await client.fini()
-
-            self.clients.clear()
-            self.proxies.clear()
-            # TODO let the deque run itself out?
+            self.ready.clear()
+            await self._shutDownPool()
+            await self.fire('pool:reset')
 
         while not self.isfini:
 
@@ -1058,8 +1068,9 @@ class Pool(s_base.Base):
                 async for mesg in ahaproxy.iterPoolTopo(poolname):
 
                     hand = self.mesghands.get(mesg[0])
-                    if hand is None:
+                    if hand is None: # pragma: no cover
                         logger.warning(f'Unknown AHA pool topography message: {mesg}')
+                        continue
 
                     await hand(mesg)
 
@@ -1075,7 +1086,7 @@ class Pool(s_base.Base):
 
                 await self.ready.wait()
 
-                if self.isfini:
+                if self.isfini: # pragma: no cover
                     raise s_exc.IsFini()
 
                 if not self.deque:
@@ -1188,7 +1199,7 @@ class Client(s_base.Base):
     async def proxy(self, timeout=10):
         await self.waitready(timeout=timeout)
         ret = self._t_proxy
-        if ret is None or ret.isfini is True:
+        if ret is None or ret.isfini is True: # pragma: no cover
             raise s_exc.IsFini(mesg='Telepath Client Proxy is not available.')
         return ret
 
@@ -1214,27 +1225,14 @@ class Client(s_base.Base):
                 # in case the callback fini()s the proxy
                 if self._t_proxy is None:
                     break
-            except asyncio.CancelledError:  # pragma: no cover
-                raise
             except Exception as e:
                 logger.exception(f'onlink: {onlink}')
 
     async def task(self, todo, name=None):
         # implement the main workhorse method for a proxy to allow Method
         # objects to use us as the proxy.
-        while not self.isfini:
-
-            await self.waitready()
-
-            # there is a small race where the daemon may fini the proxy
-            # account for that here...
-            if self._t_proxy is None or self._t_proxy.isfini:
-                self._t_ready.clear()
-                continue
-
-            return await self._t_proxy.task(todo, name=name)
-
-        raise s_exc.IsFini(mesg='Telepath Client isfini')
+        proxy = await self.proxy()
+        return await proxy.task(todo, name=name)
 
     async def waitready(self, timeout=10):
         await s_common.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))

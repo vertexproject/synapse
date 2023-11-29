@@ -52,17 +52,10 @@ class AhaPool(s_stormtypes.StormType):
         self.runt = runt
         self.poolinfo = poolinfo
 
-        #  FIXME why do we have to do both here?!?!
-        self.locls = {
+        self.locls.update({
             'add': self.add,
             'del': self._del,
-        }
-
-    def getObjLocals(self):
-        return {
-            'add': self.add,
-            'del': self._del,
-        }
+        })
 
     async def _derefGet(self, name):
         return self.poolinfo.get(name)
@@ -90,17 +83,6 @@ class AhaPool(s_stormtypes.StormType):
         await proxy.delAhaPoolSvc(poolname, svcname)
 
         self.poolinfo = await proxy.getAhaPool(poolname)
-
-@s_stormtypes.registry.registerType
-class AhaSvc(s_stormtypes.StormType):
-
-    _storm_typename = 'aha:service'
-
-    def __init__(self, runt, svcinfo):
-        s_stormtypes.StormType.__init__(self)
-
-    async def _derefGet(self, name):
-        return self.svcinfo.get(name)
 
 stormcmds = (
     {
