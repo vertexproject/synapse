@@ -29,10 +29,6 @@ logger = logging.getLogger(__name__)
 
 televers = (3, 0)
 
-# the "protocol version" is used for feature detection
-# due to legacy version detection requiring equality
-protovers = (3, 1, 0)
-
 aha_clients = {}
 
 async def addAhaUrl(url):
