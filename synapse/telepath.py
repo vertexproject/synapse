@@ -1422,12 +1422,10 @@ async def openinfo(info):
 
     auth = None
 
-    user = info.get('user', 'root')
-    auth = (user, {})
-
-    passwd = info.get('passwd')
-    if passwd is not None:
-        auth[1]['passwd'] = passwd
+    user = info.get('user')
+    if user is not None:
+        passwd = info.get('passwd')
+        auth = (user, {'passwd': passwd})
 
     if scheme == 'cell':
         # cell:///path/to/celldir:share
@@ -1487,7 +1485,7 @@ async def openinfo(info):
             # if a TLS connection specifies a user with no password
             # attempt to auto-resolve a user certificate for the given
             # host/network.
-            if certname is None and passwd is None:
+            if certname is None and user is not None and passwd is None:
                 certname = f'{user}@{hostname}'
 
             if certhash is None:

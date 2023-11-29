@@ -28,7 +28,6 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
-                    'label': 'org: {:name}',
                 }),
                 ('ou:team', ('guid', {}), {
                     'doc': 'A GUID for a team within an organization.',
