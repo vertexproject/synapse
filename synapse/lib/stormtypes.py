@@ -7360,8 +7360,14 @@ class View(Prim):
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
 
+            if name == 'parent' and valu is not None:
+                self.runt.snap.core.reqView(valu, mesg='The parent view must already exist.')
+                self.runt.confirm(('view', 'read'), gateiden=valu)
+                self.runt.confirm(('view', 'fork'), gateiden=valu)
+
         elif name == 'nomerge':
             valu = await tobool(valu)
+
         elif name == 'layers':
 
             view = self._reqView()
@@ -7390,8 +7396,11 @@ class View(Prim):
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
 
-        todo = s_common.todo('setViewInfo', name, valu)
-        valu = await self.viewDynCall(todo, ('view', 'set', name))
+        view = self.runt.snap.core.reqView(self.valu.get('iden'))
+
+        self.runt.confirm(('view', 'set', name), gateiden=view.iden)
+        await view.setViewInfo(name, valu)
+
         self.valu[name] = valu
 
     @stormfunc(readonly=True)
@@ -7422,10 +7431,9 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
 
-        gatekeys = (
-            (useriden, ('view', 'add'), None),
-            (useriden, ('view', 'read'), viewiden),
-        )
+        self.runt.confirm(('view', 'add'))
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        self.runt.confirm(('view', 'fork'), gateiden=viewiden)
 
         ldef = {'creator': self.runt.user.iden}
         vdef = {'creator': self.runt.user.iden}
@@ -7433,9 +7441,9 @@ class View(Prim):
         if name is not None:
             vdef['name'] = name
 
-        todo = s_common.todo('fork', ldef=ldef, vdef=vdef)
+        view = self.runt.snap.core.reqView(viewiden)
 
-        newv = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+        newv = await view.fork(ldef=ldef, vdef=vdef)
 
         return View(self.runt, newv, path=self.path)
 

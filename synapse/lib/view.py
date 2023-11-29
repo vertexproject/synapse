@@ -779,11 +779,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         if name == 'parent':
 
-            parent = self.core.getView(valu)
-            if parent is None:
-                mesg = 'The parent view must already exist.'
-                raise s_exc.NoSuchView(mesg=mesg)
-
+            parent = self.core.reqView(valu, mesg='The parent view must already exist.')
             if parent.iden == self.iden:
                 mesg = 'A view may not have parent set to itself.'
                 raise s_exc.BadArg(mesg=mesg)
