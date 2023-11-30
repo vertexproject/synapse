@@ -38,9 +38,54 @@ reqValidVdef = s_config.getJsValidator({
             'minItems': 1,
             'uniqueItems': True
         },
+        'quorum': {
+            'type': 'object',
+            'properties': {
+                'role': {'type': 'string', 'pattern': s_config.re_iden},
+                'count': {'type': 'number', 'minimum': 1},
+            },
+            'required': ['count', 'role'],
+            'additionalProperties': False,
+        },
     },
     'additionalProperties': True,
     'required': ['iden', 'parent', 'creator', 'layers'],
+})
+
+reqValidMerge = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['creator', 'created'],
+    'additionalProperties': False,
+})
+
+reqValidVote = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'offset': {'type': 'number'},
+        'created': {'type': 'number'},
+        'approved': {'type': 'boolean'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['user', 'created', 'approved'],
+    'additionalProperties': False,
+})
+
+reqValidComment = s_config.getJsValidator({
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'number'},
+        'comment': {'type': 'string'},
+    },
+    'required': ['user', 'created', 'comment'],
+    'additionalProperties': False,
 })
 
 class ViewApi(s_cell.CellApi):
@@ -154,6 +199,71 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return bool(userroles & aprvroles)
 
+    #async def addMergeHistory(self, mergeinfo):
+
+    async def setMergeRequest(self, mergeinfo):
+        mergeinfo['iden'] = s_common.guid()
+        mergeinfo['created'] = s_common.now()
+        return self._push('merge:set', mergeinfo)
+
+    @s_nexus.Pusher.onPush('merge:set')
+    async def _setMergeRequest(self, mergeinfo):
+        reqValidMerge(mergeinfo)
+        lkey = s_common.uhex(self.iden) + b'merge'
+        self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
+        return mergeinfo
+
+    @s_nexus.Pusher.onPushAuto('merge:set')
+    async def delMergeRequest(self):
+        bidn = s_common.uhex(self.iden)
+        byts = self.core.slab.pop(bidn + b'merge', db='view:meta')
+        if byts is not None:
+            return s_msgpack.un(byts)
+        for lkey in kkk
+        # TODO should we pop votes?
+
+    async def setMergeVote(self, voteinfo):
+        voteinfo['created'] = s_common.now()
+        return self._push('merge:vote:set', voteinfo)
+
+    @s_nexus.Pusher.onPush('merge:vote:set')
+    async def _addMergeVote(self, voteinfo):
+
+        voteinfo['offset'] = self.layers[0].getEditIndx()
+        reqValidVote(voteinfo)
+
+        bidn = s_common.uhex(self.iden)
+        uidn = s_common.uhex(voteinfo.get('user'))
+
+        self.core.slab.put(bidn + b'vote' + uidn, s_msgpack.en(voteinfo), db='view:meta')
+
+        await self._tallyMergeVotes()
+
+        return voteinfo
+
+    async def _tallyMergeVotes(self):
+
+        merge = self.info.get('merge')
+        if merge is None:
+            return
+
+        bidn = s_common.uhex(self.iden)
+        offset = self.layers[0].getEditIndx()
+
+        results = collections.defaultdict(int)
+
+        approvals = 0
+        for lkey, byts in self.core.slab.scanByPref(bidn + b'vote', db='view:meta'):
+            await asyncio.sleep(0)
+
+            voteinfo = s_msgpack.un(byts)
+            if voteinfo.get('offset') != offset:
+                continue
+
+            approvals += 1
+        
+    async def getMergeVotes(self):
+
     async def addApproval(self, user):
 
         if self.parent is None:
@@ -201,7 +311,7 @@ class View(s_nexus.Pusher):  # type: ignore
         }
         await self.core.setViewMeta(self.iden, 'merge:request', mreq)
 
-    async def delMergeRequest(self, iden):
+    #async def delMergeRequest(self, iden):
 
     async def getMergeRequest(self):
         return self.core.getViewMeta(self.iden, 'merge:request')

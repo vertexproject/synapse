@@ -4821,23 +4821,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         layr.deloffs = nexsitem[0]
 
-    @s_nexus.Pusher.onPushAuto('view:meta:set')
-    async def setViewMeta(self, iden, name, valu):
+    #@s_nexus.Pusher.onPushAuto('view:meta:set')
+    #async def setViewMeta(self, iden, name, valu):
 
-        if len(name) > 512:
-            mesg = 'View metadata names must be shorter than 512 characters.'
-            raise s_exc.BadArg(mesg=mesg)
+        #if len(name) > 512:
+            #mesg = 'View metadata names must be shorter than 512 characters.'
+            #raise s_exc.BadArg(mesg=mesg)
 
-        view = self.reqView(iden)
+        #view = self.reqView(iden)
 
-        lkey = s_common.uhex(iden) + name.encode()
-        self.slab.put(lkey, s_msgpack.en(valu)
+        #lkey = s_common.uhex(iden) + name.encode()
+        #self.slab.put(lkey, s_msgpack.en(valu)
 
     #async def addViewComment(
     #async def modViewComment(
     #async def getViewComments(self, )
-    async def addViewMergeApprove(self, iden, user, comment=''):
-        name = f'comment:{s_common.guid()}'
+    #async def addViewMergeApprove(self, iden, user, comment=''):
+        #name = f'comment:{s_common.guid()}'
 
     #async def addViewApprove(self, viewiden, useriden):
     #async def addViewApprover(self, viewiden, roleiden)
