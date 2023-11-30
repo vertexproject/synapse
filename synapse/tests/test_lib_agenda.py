@@ -808,6 +808,9 @@ class AgendaTest(s_t_utils.SynTest):
                         if len(mesgs) == 2:
                             break
 
+                    offs = await core00.getNexsIndx()
+                    await core01.waitNexsOffs(offs + 1, timeout=2)
+
                     cron00 = await core00.callStorm('return($lib.cron.list())')
                     cron01 = await core01.callStorm('return($lib.cron.list())')
 
