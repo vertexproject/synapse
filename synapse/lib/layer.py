@@ -170,19 +170,6 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
-    async def splices(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
-
-        Nodeedits will be flattened into splices before being yielded.
-        '''
-        s_common.deprdate('Layer.splices() telepath API', s_common._splicedepr)
-        await self._reqUserAllowed(self.liftperm)
-        async for item in self.layr.splices(offs=offs, size=size):
-            yield item
-
     async def getEditIndx(self):
         '''
         Returns what will be the *next* nodeedit log index.
@@ -4212,76 +4199,6 @@ class Layer(s_nexus.Pusher):
 
             yield buid, s_msgpack.un(byts)
             await asyncio.sleep(0)
-
-    async def splices(self, offs=None, size=None):
-        '''
-        This API is deprecated.
-
-        Yield (offs, splice) tuples from the nodeedit log starting from the given offset.
-
-        Nodeedits will be flattened into splices before being yielded.
-        '''
-        s_common.deprdate('Layer.splices() API', s_common._splicedepr)
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (0, 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
-
-                    if splice[0] < offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count = count + 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLog(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta):
-
-                    if splice[0] < offs:
-                        continue
-
-                    yield splice
-
-    async def splicesBack(self, offs=None, size=None):
-
-        s_common.deprdate('Layer.splicesBack() API', s_common._splicedepr)
-        if not self.logedits:
-            return
-
-        if offs is None:
-            offs = (await self.getEditIndx(), 0, 0)
-
-        if size is not None:
-
-            count = 0
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    if count >= size:
-                        return
-
-                    yield splice
-                    count += 1
-        else:
-            async for offset, nodeedits, meta in self.iterNodeEditLogBack(offs[0]):
-                async for splice in self.makeSplices(offset, nodeedits, meta, reverse=True):
-
-                    if splice[0] > offs:
-                        continue
-
-                    yield splice
 
     async def iterNodeEditLog(self, offs=0):
         '''

@@ -4612,22 +4612,6 @@ class ReIndexCmd(Cmd):
         if False:
             yield
 
-class SudoCmd(Cmd):
-    '''
-    Deprecated sudo command.
-
-    Left in for 2.x.x so that Storm command with it are still valid to execute.
-    '''
-    name = 'sudo'
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: sudo', s_common._splicedepr)
-
-        await runt.snap.warn(f'sudo command is deprecated and will be removed on {s_common._splicedepr}')
-        async for node, path in genr:
-            yield node, path
-
 class MoveTagCmd(Cmd):
     '''
     Rename an entire tag tree and preserve time intervals.
@@ -5718,85 +5702,6 @@ class SpliceUndoCmd(Cmd):
             tag = splice.props.get('tag')
             parts = tag.split('.')
             runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-            valu = splice.props.get('valu')
-            if valu is not None:
-                await node.addTag(tag, valu=valu)
-
-    async def undoTagPropSet(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-
-            prop = splice.props.get('prop')
-
-            oldv = splice.props.get('oldv')
-            if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
-                await node.setTagProp(tag, prop, oldv)
-            else:
-                runt.layerConfirm(('node', 'tag', 'del', *parts))
-                await node.delTagProp(tag, prop)
-
-    async def undoTagPropDel(self, runt, splice, node):
-
-        if node:
-            tag = splice.props.get('tag')
-            parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
-
-            prop = splice.props.get('prop')
-
-            valu = splice.props.get('valu')
-            if valu is not None:
-                await node.setTagProp(tag, prop, valu)
-
-    async def execStormCmd(self, runt, genr):
-
-        s_common.deprdate('storm command: splice.undo', s_common._splicedepr)
-
-        mesg = f'splice.undo is deprecated and will be removed on {s_common._splicedepr}'
-        await runt.snap.warn(mesg)
-
-        if self.opts.force:
-            if not runt.user.isAdmin():
-                mesg = '--force requires admin privs.'
-                raise s_exc.AuthDeny(mesg=mesg)
-
-        i = 0
-
-        async for node, path in genr:
-
-            if not node.form.name == 'syn:splice':
-                mesg = 'splice.undo only accepts syn:splice nodes'
-                raise s_exc.StormRuntimeError(mesg=mesg, form=node.form.name)
-
-            if False:  # make this method an async generator function
-                yield None
-
-            splicetype = node.props.get('type')
-
-            if splicetype in self.undo:
-
-                iden = node.props.get('iden')
-                if iden is None:
-                    continue
-
-                buid = s_common.uhex(iden)
-                if len(buid) != 32:
-                    raise s_exc.NoSuchIden(mesg='Iden must be 32 bytes', iden=iden)
-
-                splicednode = await runt.snap.getNodeByBuid(buid)
-
-                await self.undo[splicetype](runt, node, splicednode)
-            else:
-                raise s_exc.StormRuntimeError(mesg='Unknown splice type.', splicetype=splicetype)
-
-            i += 1
-            # Yield to other tasks occasionally
-            if not i % 1000:
-                await asyncio.sleep(0)
 
 class LiftByVerb(Cmd):
     '''
