@@ -1430,6 +1430,28 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.len(6, items)
                 self.eq(items, ['bot', 'timewarp', 'foo', 'bar', 'baz', 'eot'])
 
+    async def test_lmdbslab_count(self):
+
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                self.eq(0, slab.count(b'newp', db=testdb))
+                self.eq(0, slab.count(b'newp', db=dupsdb))
+
+                slab.put(b'foo', b'bar', db=testdb)
+
+                self.eq(1, slab.count(b'foo', db=testdb))
+
+                slab.put(b'foo', b'bar', db=dupsdb)
+                slab.put(b'foo', b'baz', db=dupsdb)
+                slab.put(b'foo', b'faz', db=dupsdb)
+
+                self.eq(3, slab.count(b'foo', db=dupsdb))
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
