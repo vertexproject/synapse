@@ -504,7 +504,7 @@ class AhaCell(s_cell.Cell):
 
                 svcitem = await self.jsonstor.getPathObj(('aha', 'svcfull', svcname))
                 if not svcitem:
-                    logger.warning('Pool ({name}) includes service ({svcname}) which does not exist.')
+                    logger.warning(f'Pool ({name}) includes service ({svcname}) which does not exist.')
                     continue
 
                 await wind.put(('svc:add', svcitem))
