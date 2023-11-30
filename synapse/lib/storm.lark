@@ -151,7 +151,7 @@ rawpivot: _RIGHTPIVOT "{" query "}"
 _RIGHTJOIN.4:  "-+>"
 _LEFTJOIN.4:   "<+-"
 _RIGHTPIVOT.4: "->"
-_LEFTPIVOT.4:  "<-"
+_LEFTPIVOT.4:  /<\-[^0-9]/
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop | liftbytag | lifttagtag
@@ -274,8 +274,9 @@ _MATCHHASHWILD.3: /\#
             <\(
             (?=(?>(?<N2MATCHRECUR>\(((?>[^()"'`]+|(?&N2MATCHRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)-
             )
+            | <(\+|-[^0-9])                          # avoid matching joins or pivots
         )
-        [@?!<>^~=]+                                # match any cmprs (regex fail)
+        [@?!<>^~=]+                                  # match any cmprs (regex fail)
     )
 )
 /x

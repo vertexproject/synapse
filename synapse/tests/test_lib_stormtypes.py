@@ -4064,6 +4064,15 @@ class StormTypesTest(s_test.SynTest):
             self.nn(iden)
             self.true(visi.allowed(('view', 'read'), gateiden=iden))
 
+            await visi.addRule((True, ('view', 'add')))
+
+            msgs = await core.stormlist('$lib.view.get().fork()', opts={'user': visi.iden})
+            self.stormHasNoWarnErr(msgs)
+
+            await visi.addRule((False, ('view', 'fork')), gateiden=core.view.iden)
+            msgs = await core.stormlist('$lib.view.get().fork()', opts={'user': visi.iden})
+            self.stormIsInErr('must have permission view.fork', msgs)
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
