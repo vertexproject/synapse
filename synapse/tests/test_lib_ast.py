@@ -3137,3 +3137,64 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].props.get('raw'), {'foo': 'bar', 'baz': 'box'})
+
+    async def test_ast_subrunt_safety(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:str=test1]')
+            self.len(1, nodes)
+
+            q = '''
+            test:str=test1
+            $test=$node.value()
+            [(test:str=test2 +(refs)> {test:str=$test})]
+            '''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('test:str=test1 <(refs)- test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+            q = '''
+            test:str=test2
+            $valu=$node.value()
+            | spin |
+            test:str=test1 -> { test:str=$valu }
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+        # Should produce the same results in a macro sub-runtime
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:str=test1]')
+            self.len(1, nodes)
+
+            q = '''
+            $q = ${
+                test:str=test1
+                $test=$node.value()
+                [(test:str=test2 +(refs)> {test:str=$test})]
+            }
+            $lib.macro.set(test.edge, $q)
+            return ($lib.true)
+            '''
+            self.true(await core.callStorm(q))
+
+            nodes = await core.nodes('macro.exec test.edge')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('test:str=test1 <(refs)- test:str')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
+
+            q = '''
+            test:str=test2
+            $valu=$node.value()
+            | spin |
+            test:str=test1 -> { test:str=$valu }
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'test2'))
