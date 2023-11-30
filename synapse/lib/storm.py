@@ -2277,7 +2277,9 @@ class Runtime(s_base.Base):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
-        async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+        snap = await self._snapFromOpts(opts)
+
+        async with await Runtime.anit(query, snap, user=self.user, opts=opts) as runt:
             if self.debug:
                 runt.debug = True
             runt.asroot = self.asroot
@@ -5016,6 +5018,13 @@ class ViewExecCmd(Cmd):
         async for node, path in genr:
 
             view = await s_stormtypes.tostr(self.opts.view)
+            if isinstance(self.opts.storm, s_stormtypes.Query):
+                async for item in self.opts.storm.nodes(view=view):
+                    await asyncio.sleep(0)
+
+                yield node, path
+                continue
+
             text = await s_stormtypes.tostr(self.opts.storm)
 
             opts = {
@@ -5032,6 +5041,11 @@ class ViewExecCmd(Cmd):
 
         if node is None and self.runtsafe:
             view = await s_stormtypes.tostr(self.opts.view)
+            if isinstance(self.opts.storm, s_stormtypes.Query):
+                async for item in self.opts.storm.nodes(view=view):
+                    await asyncio.sleep(0)
+                return
+
             text = await s_stormtypes.tostr(self.opts.storm)
             query = await runt.getStormQuery(text)
 
